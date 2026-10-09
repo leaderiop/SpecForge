@@ -4,6 +4,7 @@
 
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
+use specforge_common::shape::Shape;
 use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
@@ -14,7 +15,7 @@ use crate::OpError;
 use crate::plan::PlanGap;
 use crate::view::ProjectView;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Shape)]
 pub struct TraceChain {
     pub entity_id: String,
     pub entity_kind: String,
@@ -28,14 +29,14 @@ pub struct TraceChain {
 }
 
 /// Whether a link of a chain exists in the graph (`TraceLinkStatus`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
 #[serde(rename_all = "lowercase")]
 pub enum TraceLinkStatus {
     Resolved,
     Missing,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Shape)]
 pub struct TraceLink {
     pub entity_id: String,
     pub entity_kind: String,
@@ -46,7 +47,7 @@ pub struct TraceLink {
 
 /// An edge the registries lead an entity of the chain to have, which the
 /// graph does not instantiate. Always has status `missing`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct MissingLink {
     /// The entity that lacks the edge.
     pub from: String,
@@ -184,16 +185,11 @@ pub struct TraceOutcome {
 impl Serialize for TraceOutcome {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match (self.single, self.chains.first()) {
-            (true, Some(chain)) => {
-                let mut doc = serializer.serialize_struct("TraceChain", 6)?;
-                doc.serialize_field("schema_version", SCHEMA_VERSION)?;
-                doc.serialize_field("entity_id", &chain.entity_id)?;
-                doc.serialize_field("entity_kind", &chain.entity_kind)?;
-                doc.serialize_field("upstream", &chain.upstream)?;
-                doc.serialize_field("downstream", &chain.downstream)?;
-                doc.serialize_field("missing", &chain.missing)?;
-                doc.end()
+            (true, Some(chain)) => ChainDocument {
+                schema_version: SCHEMA_VERSION,
+                chain,
             }
+            .serialize(serializer),
             _ => {
                 let mut doc = serializer.serialize_struct("TraceAll", 2)?;
                 doc.serialize_field("schema_version", SCHEMA_VERSION)?;
@@ -204,7 +200,31 @@ impl Serialize for TraceOutcome {
     }
 }
 
+/// One entity's chain as the document `specforge trace <entity> --format
+/// json` writes: `{schema_version, entity_id, entity_kind, upstream,
+/// downstream, missing}`.
+#[derive(Debug, Serialize, Shape)]
+pub struct ChainDocument<C> {
+    pub schema_version: &'static str,
+    #[serde(flatten)]
+    pub chain: C,
+}
+
 impl TraceOutcome {
+    /// The traced entity's chain as its document, for a trace of one entity
+    /// (`None` for a trace of every entity).
+    pub fn into_chain(self) -> Option<ChainDocument<TraceChain>> {
+        let single = self.single;
+        self.chains
+            .into_iter()
+            .next()
+            .filter(|_| single)
+            .map(|chain| ChainDocument {
+                schema_version: SCHEMA_VERSION,
+                chain,
+            })
+    }
+
     /// The chains as terminal text, one block per chain ([`render_human`]),
     /// separated by a blank line.
     pub fn to_human(&self) -> String {

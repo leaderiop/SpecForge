@@ -217,14 +217,12 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.analyze",
         description: "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project",
-        output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "gate": { "type": "object" }, "stray_records": { "type": "array" } }, "required": ["ok", "passes"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
             handler: project!(
                 analyze::call,
-                analyze::Args,
+                analyze::Args => analyze::Reply,
                 ProjectTarget::ANY_UNLESS_CACHED
             ),
         },
@@ -241,50 +239,10 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.trace",
         description: "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)",
-        // An entity's chain is the document `specforge trace <entity>
-        // --format json` writes; a plan's check is an McpTracePlanResult.
-        output: Some(|| {
-            json!({
-                "type": "object",
-                "oneOf": [
-                    {
-                        "type": "object",
-                        "properties": {
-                            "schema_version": { "type": "string" },
-                            "entity_id": { "type": "string" },
-                            "entity_kind": { "type": "string" },
-                            "upstream": { "type": "array", "items": { "type": "object" } },
-                            "downstream": { "type": "array", "items": { "type": "object" } },
-                            "missing": { "type": "array", "items": { "type": "object" } }
-                        },
-                        "required": ["schema_version", "entity_id", "entity_kind", "upstream", "downstream", "missing"]
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "affected_entities": { "type": "array", "items": { "type": "string" } },
-                            "gaps": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "source_entity": { "type": "string" },
-                                        "target_entity": { "type": "string" },
-                                        "missing_link_type": { "type": "string" },
-                                        "gap_context": { "type": "string" }
-                                    },
-                                    "required": ["source_entity", "target_entity", "missing_link_type"]
-                                }
-                            }
-                        },
-                        "required": ["affected_entities", "gaps"]
-                    }
-                ]
-            })
-        }),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(trace::call, trace::Args, ProjectTarget::SERVED),
+            handler: view!(trace::call, trace::Args => trace::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -308,12 +266,10 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.schema",
         description: "Get the GraphProtocolSchema: entity kinds with their typed fields, edge types and the loaded extensions",
-        output: Some(
-            || json!({ "type": "object", "properties": { "schema_version": { "type": "object" }, "extensions": { "type": "array" }, "entity_kinds": { "type": "array" }, "edge_types": { "type": "array" }, "validation_rules": { "type": "array" } }, "required": ["schema_version", "extensions", "entity_kinds"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(schema::call, schema::Args, ProjectTarget::SERVED),
+            handler: view!(schema::call, schema::Args => schema::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -507,69 +463,34 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.extensions",
         description: "List installed extensions",
-        output: Some(
-            || json!({ "type": "object", "properties": { "extensions": { "type": "array" }, "lock_file_entries": { "type": "array" }, "entity_kinds_in_graph": { "type": "array" } }, "required": ["extensions", "lock_file_entries", "entity_kinds_in_graph"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(extensions::call, NoArgs, ProjectTarget::SERVED),
+            handler: project!(extensions::call, NoArgs => extensions::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
         name: "specforge.providers",
         description: "List configured providers",
-        output: Some(
-            || json!({ "type": "object", "properties": { "providers": { "type": "array" }, "count": { "type": "integer" }, "diagnostics": { "type": "array" } }, "required": ["providers", "count", "diagnostics"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(providers::call, NoArgs, ProjectTarget::SERVED),
+            handler: project!(providers::call, NoArgs => providers::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
         name: "specforge.doctor",
         description: "Run health checks",
-        output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "extensions_ok": { "type": "boolean" }, "conflicts": { "type": "array" }, "cache_status": { "type": "string" }, "findings": { "type": "array" }, "installed_count": { "type": "integer" }, "extensions": { "type": "array" }, "enhancements": { "type": "object" }, "z3_available": { "type": "boolean" } }, "required": ["ok", "extensions_ok", "conflicts", "cache_status", "findings"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Management,
-            handler: project!(doctor::call, NoArgs, ProjectTarget::SERVED_UNLESS_CACHED),
+            handler: project!(doctor::call, NoArgs => doctor::Reply, ProjectTarget::SERVED_UNLESS_CACHED),
         },
     },
     ToolSpec {
         name: "specforge.collect",
         description: "Record which entities the project's tests prove, from the test runner's report (runs the runner only with run: true and prior approval)",
-        output: Some(|| {
-            json!({
-                "type": "object",
-                "properties": {
-                    "status": { "type": "string", "enum": ["collected"] },
-                    "runners": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": { "type": "string" },
-                                "extension": { "type": "string" },
-                                "ran": { "type": "boolean" },
-                                "exit_code": { "type": "integer" },
-                                "files": { "type": "integer" },
-                                "entities": { "type": "integer" },
-                                "passed": { "type": "integer" },
-                                "failed": { "type": "integer" },
-                                "skipped": { "type": "integer" },
-                                "by_convention": { "type": "integer" }
-                            },
-                            "required": ["name", "extension", "ran", "files", "entities", "passed", "failed", "skipped", "by_convention"]
-                        }
-                    },
-                    "diagnostics": { "type": "array" },
-                    "report": { "type": "string" }
-                },
-                "required": ["status", "runners", "diagnostics", "report"]
-            })
-        }),
+        output: None,
         effect: Effect::WritesOutput {
             group: ToolGroup::Management,
             hints: WriteHints {
@@ -577,7 +498,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: false,
                 open_world: true,
             },
-            handler: project!(collect::call, collect::Args, ProjectTarget::ANY),
+            handler: project!(collect::call, collect::Args => collect::Reply, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -597,23 +518,19 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.infer_progress",
         description: "Check inference progress: summary of analyzed vs unanalyzed source files, stale entries, and entity counts",
-        output: Some(
-            || json!({ "type": "object", "properties": { "summary": { "type": "object" }, "unanalyzed": { "type": "array" }, "stale": { "type": "array" }, "deleted": { "type": "array" }, "sessions": { "type": "array" }, "message": { "type": "string" } }, "required": ["summary", "unanalyzed", "stale", "deleted"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: project!(infer_progress::call, NoArgs, ProjectTarget::SERVED),
+            handler: project!(infer_progress::call, NoArgs => infer_progress::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
         name: "specforge.infer_gaps",
         description: "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
-        output: Some(
-            || json!({ "type": "object", "properties": { "total_pub_items": { "type": "integer" }, "covered_items": { "type": "integer" }, "gap_count": { "type": "integer" }, "approximate": { "type": "boolean" }, "scanners_used": { "type": "array" }, "scan_failures": { "type": "array" }, "by_directory": { "type": "array" }, "gaps": { "type": "array" }, "message": { "type": "string" } }, "required": ["total_pub_items", "covered_items", "approximate"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: project!(infer_gaps::call, NoArgs, ProjectTarget::SERVED),
+            handler: project!(infer_gaps::call, NoArgs => infer_gaps::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {

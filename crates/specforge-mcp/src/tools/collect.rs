@@ -3,8 +3,13 @@
 use specforge_common::codes;
 
 use crate::args::Arguments;
+use crate::reply::Answered;
 use crate::target::ProjectRef;
-use crate::tool::{McpError, ToolOutcome};
+use crate::tool::McpError;
+
+/// `specforge.collect`'s reply: the document `specforge collect --format
+/// json` prints (`McpCollectResult`).
+pub use specforge_ops::collect::CollectDocument as Reply;
 
 /// `specforge.collect`'s arguments.
 #[derive(Debug, Arguments)]
@@ -15,7 +20,7 @@ pub struct Args {
     run: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Answered<Reply> {
     use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
@@ -38,7 +43,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
         announce: &mut |_, _| {},
     };
     match collect::collect(&project.view(), request) {
-        Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
+        Ok(outcome) => Ok(outcome.document().into()),
         Err(mut e) => {
             if e.is(codes::E059) {
                 e.message = format!(
@@ -47,7 +52,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> ToolOutcome {
                     e.message
                 );
             }
-            McpError::from(e).into()
+            Err(Box::new(McpError::from(e)))
         }
     }
 }

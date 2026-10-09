@@ -14,7 +14,7 @@ pub fn run(path: &Path, format: OutputFormat) -> Exit {
 
     match format {
         OutputFormat::Json => {
-            let items: Vec<serde_json::Value> = entries.iter().map(|e| e.to_json()).collect();
+            let items: Vec<_> = entries.iter().map(|e| e.info()).collect();
             let output = json!({
                 "extensions": items,
                 "count": items.len(),

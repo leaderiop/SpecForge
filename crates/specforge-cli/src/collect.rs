@@ -81,7 +81,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> Exit {
     if format == OutputFormat::Json {
         println!(
             "{}",
-            serde_json::to_string_pretty(&outcome.to_json()).expect("serialize JSON output")
+            serde_json::to_string_pretty(&outcome.document()).expect("serialize JSON output")
         );
     } else {
         for r in &outcome.runners {

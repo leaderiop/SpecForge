@@ -17,7 +17,8 @@ mod convention;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use serde::{Deserialize, Serialize};
-use specforge_common::{Code, Diagnostic, codes};
+use specforge_common::shape::Shape;
+use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile};
@@ -481,7 +482,7 @@ impl FromIterator<(String, Vec<String>)> for KnownEntities {
 }
 
 /// Counts from one merge.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Shape)]
 pub struct MergeStats {
     pub entities: usize,
     pub passed: usize,
@@ -644,7 +645,7 @@ fn fail(code: Code, message: impl Into<String>) -> OpError {
 }
 
 /// What happened for one collector.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct RunnerResult {
     pub name: String,
     pub extension: String,
@@ -672,14 +673,31 @@ pub struct Outcome {
 impl Outcome {
     /// The document both surfaces answer with:
     /// `{status, runners, diagnostics, report}`.
-    pub fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "status": "collected",
-            "runners": self.runners,
-            "diagnostics": specforge_common::diagnostics_json(&self.diagnostics),
-            "report": self.report.display().to_string(),
-        })
+    pub fn document(&self) -> CollectDocument {
+        CollectDocument {
+            status: CollectStatus::Collected,
+            runners: self.runners.clone(),
+            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            report: self.report.display().to_string(),
+        }
     }
+}
+
+/// What a collect answers with, on both surfaces.
+#[derive(Debug, Clone, Serialize, Shape)]
+pub struct CollectDocument {
+    pub status: CollectStatus,
+    pub runners: Vec<RunnerResult>,
+    pub diagnostics: DiagnosticList,
+    /// The merged test report the collect wrote.
+    pub report: String,
+}
+
+/// A collect that finished says so.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
+#[serde(rename_all = "lowercase")]
+pub enum CollectStatus {
+    Collected,
 }
 
 /// Collect test results for the project the view was compiled from:

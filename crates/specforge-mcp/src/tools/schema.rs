@@ -1,7 +1,11 @@
 use specforge_ops::schema::SchemaRequest;
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::Answered;
+use crate::tool::McpError;
+
+/// `specforge.schema`'s reply: the document `specforge schema` prints.
+pub use specforge_ops::schema::SchemaDocument as Reply;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.schema`'s arguments.
@@ -23,18 +27,14 @@ pub struct Args {
 /// start or end at it (a kind no extension declares is `invalid_input` on
 /// `kind`, naming the closest); `include_edges: false` drops `edge_types`;
 /// `include_validation_rules` adds the rules the loaded extensions declare.
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     let request = SchemaRequest {
         kind: args.kind.as_deref(),
         edges: args.include_edges,
         validation_rules: args.include_validation_rules,
     };
     match specforge_ops::schema::schema(&view, &request) {
-        Ok(outcome) => {
-            ToolOutcome::ok(serde_json::to_value(&outcome).expect("a schema serializes"))
-        }
-        Err(error) => crate::tool::McpError::from(error)
-            .with_argument("kind")
-            .into(),
+        Ok(outcome) => Ok(outcome.document().into()),
+        Err(error) => Err(Box::new(McpError::from(error).with_argument("kind"))),
     }
 }

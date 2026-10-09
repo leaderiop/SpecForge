@@ -41,7 +41,7 @@ impl Severity {
 /// };
 /// ```
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, crate::shape::Shape)]
 pub struct Diagnostic {
     pub code: String,
     /// The code's catalogued level when built; a diagnostic policy may

@@ -16,7 +16,7 @@ pub fn run(path: &Path, format: OutputFormat) -> Exit {
         OutputFormat::Json => {
             println!(
                 "{}",
-                serde_json::to_string_pretty(&listing.to_json()).expect("serialize JSON output")
+                serde_json::to_string_pretty(&listing.document()).expect("serialize JSON output")
             );
         }
         OutputFormat::Human => {

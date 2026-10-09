@@ -26,7 +26,9 @@ mod progress;
 mod session;
 
 pub use crate::scan::ScanFailure;
-pub use gaps::{Gaps, SourceItem, directory_of, gaps};
+pub use gaps::{
+    DirectoryGaps, GapItem, Gaps, GapsDocument, ScanFailureRow, SourceItem, directory_of, gaps,
+};
 pub use guide::{InferenceGuide, KindGuide, guide, kind_guide};
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;
@@ -37,7 +39,7 @@ pub use manifest::{
 pub use plan::{
     FilePage, InferencePlan, InferencePlanRequest, KindPriority, MAX_LISTED_FILES, inference_plan,
 };
-pub use progress::{Progress, progress};
+pub use progress::{Progress, ProgressDocument, ProgressSummary, SessionRow, progress};
 pub use session::{
     END_STATUS, EndStatus, Recorded, SESSION_ACTION, SESSION_ACTIVE, SESSION_NOT_ACTIVE,
     SOURCE_OUTSIDE_ROOT, SOURCE_UNREADABLE, SessionAction, SessionOutcome, SessionStep,
