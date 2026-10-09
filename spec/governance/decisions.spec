@@ -931,8 +931,13 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     The builtin blobs are vendored under extensions/<name>/wasm/ and
     embedded at compile time, each with an inputs.json fingerprint of the
     sources it was built from; `cargo run -p xtask --bin build-builtins
-    -- --install` rebuilds and re-vendors them (wasm32-wasip2 target), and
-    CI's `--check` fails when a vendored blob drifts from its sources.
+    -- --install` rebuilds and re-vendors them (wasm32-wasip2 target) in a
+    staged workspace that holds each extension and its path crates at
+    their repo-relative paths, with the cargo home remapped, so a blob's
+    bytes depend only on its sources and the toolchain, never on the
+    checkout path. CI's `--check` fails when a vendored blob drifts from
+    its sources, and `--verify` rebuilds every blob and fails when one
+    differs.
   """
   consequences """
     Positive: one execution path, typed entry point, warm single engine

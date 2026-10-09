@@ -317,6 +317,7 @@ dependencies = [
  "serde_json",
  "specforge-diagnostics",
  "specforge-protocol-types",
+ "specforge-shape-macros",
  "strsim",
  "walkdir",
 ]
@@ -374,6 +375,15 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "specforge-shape-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
