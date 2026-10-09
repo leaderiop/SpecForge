@@ -254,6 +254,12 @@ impl<T: Shape + ?Sized> Shape for Arc<T> {
     }
 }
 
+impl<T: Object + ?Sized> Object for &T {}
+
+impl<T: Object + ?Sized> Object for Box<T> {}
+
+impl<T: Object + ?Sized> Object for Arc<T> {}
+
 /// An interned symbol serializes as its string.
 impl Shape for crate::Sym {
     fn schema() -> Value {

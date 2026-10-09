@@ -142,36 +142,17 @@ macro_rules! project {
 
 /// A mutation handler given the project it writes and its typed arguments:
 /// a failed mutation when they don't parse (arguments that do not parse
-/// cannot say they asked for a preview). `Args => Reply` answers a typed
-/// `Mutation<Reply>`; without it the handler returns `Replied`, or
-/// `MutationHandled` to use `?` (a tool not yet typed).
+/// cannot say they asked for a preview). The handler answers a typed
+/// `Mutation<Reply>`.
 macro_rules! mutation {
     ($handler:path, $args:ty => $reply:ty, $target:expr) => {
         MutationHandler::Project {
             target: $target,
             arguments: <$args as crate::args::Arguments>::declared,
-            reply: Some(crate::mutation::output_schema::<$reply>),
+            reply: crate::mutation::output_schema::<$reply>,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => match call.project() {
                     Ok(project) => crate::mutation::replied::<$reply>($handler(&project, args)),
-                    Err(refused) => crate::mutation::Replied::refused(refused),
-                },
-                Err(refused) => {
-                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
-                }
-            },
-        }
-    };
-    ($handler:path, $args:ty, $target:expr) => {
-        MutationHandler::Project {
-            target: $target,
-            arguments: <$args as crate::args::Arguments>::declared,
-            reply: None,
-            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
-                Ok(args) => match call.project() {
-                    Ok(project) => {
-                        crate::mutation::IntoMutated::into_mutated($handler(&project, args))
-                    }
                     Err(refused) => crate::mutation::Replied::refused(refused),
                 },
                 Err(refused) => {
@@ -184,39 +165,17 @@ macro_rules! mutation {
 
 /// A mutation handler given the directory it creates a project in, the
 /// runtime its extensions' declarations are read in, and its typed
-/// arguments. `Args => Reply` is as for `mutation!`.
+/// arguments. It answers a typed `Mutation<Reply>`, like `mutation!`.
 macro_rules! create {
     ($handler:path, $args:ty => $reply:ty) => {
         MutationHandler::New {
             arguments: <$args as crate::args::Arguments>::declared,
-            reply: Some(crate::mutation::output_schema::<$reply>),
+            reply: crate::mutation::output_schema::<$reply>,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => match call.new_project_dir() {
                     Some(dir) => {
                         crate::mutation::replied::<$reply>($handler(dir, &call.runtime(), args))
                     }
-                    // The call target refused a call without a path.
-                    None => crate::mutation::Replied::refused(crate::tool::McpError::from(
-                        crate::target::TargetError::PathRequired,
-                    )),
-                },
-                Err(refused) => {
-                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
-                }
-            },
-        }
-    };
-    ($handler:path, $args:ty) => {
-        MutationHandler::New {
-            arguments: <$args as crate::args::Arguments>::declared,
-            reply: None,
-            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
-                Ok(args) => match call.new_project_dir() {
-                    Some(dir) => crate::mutation::IntoMutated::into_mutated($handler(
-                        dir,
-                        &call.runtime(),
-                        args,
-                    )),
                     // The call target refused a call without a path.
                     None => crate::mutation::Replied::refused(crate::tool::McpError::from(
                         crate::target::TargetError::PathRequired,
@@ -466,69 +425,59 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.format",
         description: "Format spec files",
-        output: Some(
-            || json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "ok": { "type": "boolean" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "ok", "all_clean", "check_only", "diagnostics"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(format::call, format::Args, ProjectTarget::ANY),
+            handler: mutation!(format::call, format::Args => format::Reply, ProjectTarget::ANY),
         },
     },
     ToolSpec {
         name: "specforge.rename",
         description: "Rename an entity across all files",
-        output: Some(
-            || json!({ "type": "object", "properties": { "old_name": { "type": "string" }, "new_name": { "type": "string" }, "affected_files": { "type": "array" }, "edits": { "type": "array" }, "dry_run": { "type": "boolean" }, "diagnostics": { "type": "array" } }, "required": ["old_name", "new_name", "affected_files", "edits"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(rename::call, rename::Args, ProjectTarget::ANY),
+            handler: mutation!(rename::call, rename::Args => rename::Reply, ProjectTarget::ANY),
         },
     },
     ToolSpec {
         name: "specforge.init",
         description: "Initialize a new SpecForge project",
-        output: Some(
-            || json!({ "type": "object", "properties": { "project_path": { "type": "string" }, "config_file": { "type": "string" }, "starter_file": { "type": "string" }, "extensions_installed": { "type": "array" }, "name": { "type": "string" }, "version": { "type": "string" } }, "required": ["project_path", "config_file", "starter_file", "extensions_installed", "name", "version"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: false,
                 idempotent: true,
                 open_world: false,
             },
-            handler: create!(init::call, init::Args),
+            handler: create!(init::call, init::Args => init::Reply),
         },
     },
     ToolSpec {
         name: "specforge.add_extension",
         description: "Install an extension",
-        output: Some(
-            || json!({ "type": "object", "properties": { "extension": { "type": "string" }, "installed": { "type": "boolean" }, "source": { "type": "string" }, "version": { "type": ["string", "null"] }, "changed": { "type": "boolean" }, "peers_enabled": { "type": "array" }, "note": { "type": "string" }, "sha256": { "type": "string" }, "key_id": { "type": ["string", "null"] }, "dry_run": { "type": "boolean" }, "already_present": { "type": "boolean" }, "message": { "type": "string" } }, "required": ["extension", "installed"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
                 idempotent: true,
                 open_world: true,
             },
-            handler: mutation!(add_extension::call, add_extension::Args, ProjectTarget::ANY),
+            handler: mutation!(add_extension::call, add_extension::Args => add_extension::Reply, ProjectTarget::ANY),
         },
     },
     ToolSpec {
         name: "specforge.remove_extension",
         description: "Remove an installed extension",
-        output: Some(
-            || json!({ "type": "object", "properties": { "removed_extension": { "type": "string" }, "success": { "type": "boolean" }, "version": { "type": ["string", "null"] }, "stranded": { "type": "array", "items": { "type": "object" } }, "dry_run": { "type": "boolean" } }, "required": ["removed_extension", "success", "stranded"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
@@ -537,7 +486,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             },
             handler: mutation!(
                 remove_extension::call,
-                remove_extension::Args,
+                remove_extension::Args => remove_extension::Reply,
                 ProjectTarget::ANY
             ),
         },
@@ -545,16 +494,14 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.migrate",
         description: "Run migration pipeline",
-        output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "from_version": { "type": "string" }, "to_version": { "type": "string" }, "migrated": { "type": "boolean" }, "dry_run": { "type": "boolean" }, "message": { "type": "string" }, "changes": { "type": "array" }, "files_migrated": { "type": "integer" }, "files_skipped": { "type": "integer" }, "files_failed": { "type": "integer" }, "results": { "type": "array" }, "diffs": { "type": "array" }, "rolled_back": { "type": "boolean" }, "post_migration_validated": { "type": "boolean" }, "post_migration_errors": { "type": "array" } }, "required": ["ok", "from_version", "to_version", "migrated", "dry_run"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
                 idempotent: true,
                 open_world: false,
             },
-            handler: mutation!(migrate::call, migrate::Args, ProjectTarget::ANY),
+            handler: mutation!(migrate::call, migrate::Args => migrate::Reply, ProjectTarget::ANY),
         },
     },
     ToolSpec {
@@ -672,9 +619,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.infer_session",
         description: "Manage inference sessions: start a new session, mark files as analyzed, or end a session",
-        output: Some(
-            || json!({ "type": "object", "properties": { "session_id": { "type": "string" }, "status": { "type": "string" }, "source_file": { "type": "string" }, "entities_produced": { "type": "array" } }, "required": ["status"] }),
-        ),
+        output: None,
         effect: Effect::Mutates {
             hints: WriteHints {
                 destructive: true,
@@ -683,7 +628,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             },
             handler: mutation!(
                 infer_session::call,
-                infer_session::Args,
+                infer_session::Args => infer_session::Reply,
                 ProjectTarget::SERVED
             ),
         },

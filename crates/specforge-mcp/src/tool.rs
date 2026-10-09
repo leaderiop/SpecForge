@@ -227,21 +227,21 @@ impl Handler {
 pub enum MutationHandler {
     /// Writes `target`'s project, refused as no project before it runs when
     /// nothing is served and the call names none. Its handler is
-    /// `fn(&ProjectRef<'_>, Args) -> impl IntoMutated`.
+    /// `fn(&ProjectRef<'_>, Args) -> Mutation<Reply>`.
     Project {
         target: ProjectTarget,
         arguments: fn() -> Vec<Argument>,
-        reply: Option<fn() -> Value>,
+        reply: fn() -> Value,
         run: fn(&Call<'_>, Value) -> Replied,
     },
     /// Creates the project its required `path` names (init); the target
     /// refuses a missing path and one inside the served project. Its handler
-    /// is `fn(&Path, &SharedRuntime, Args) -> impl IntoMutated`: the
+    /// is `fn(&Path, &SharedRuntime, Args) -> Mutation<Reply>`: the
     /// directory, and the runtime its extensions' declarations are read in
     /// (the host's, ADR 0028 D7).
     New {
         arguments: fn() -> Vec<Argument>,
-        reply: Option<fn() -> Value>,
+        reply: fn() -> Value,
         run: fn(&Call<'_>, Value) -> Replied,
     },
 }
@@ -268,9 +268,8 @@ impl MutationHandler {
     }
 
     /// The outputSchema its reply type derives, `files_written` included
-    /// ([`crate::mutation::output_schema`]); `None` while the tool is
-    /// untyped.
-    pub fn reply(&self) -> Option<fn() -> Value> {
+    /// ([`crate::mutation::output_schema`]).
+    pub fn reply(&self) -> fn() -> Value {
         match *self {
             MutationHandler::Project { reply, .. } | MutationHandler::New { reply, .. } => reply,
         }
@@ -334,22 +333,16 @@ impl ToolSpec {
     }
 
     /// The outputSchema `tools/list` lists: its handler's reply's, else,
-    /// for a tool not yet typed, `output` (with the `files_written`
-    /// property for a mutation, [`crate::mutation::files_written_schema`]).
+    /// for a tool not yet typed, `output`.
     pub fn output_schema(&self) -> Option<Value> {
         let typed = match &self.effect {
             Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => handler.reply(),
-            Effect::Mutates { handler, .. } => handler.reply(),
+            Effect::Mutates { handler, .. } => Some(handler.reply()),
         };
-        if let Some(reply) = typed {
-            return Some(reply());
+        match typed {
+            Some(reply) => Some(reply()),
+            None => self.output.map(|output| output()),
         }
-        let mut schema = (self.output?)();
-        if self.is_mutation() {
-            schema["properties"][crate::mutation::FILES_WRITTEN] =
-                crate::mutation::files_written_schema();
-        }
-        Some(schema)
     }
 
     /// The input schema `tools/list` lists: the handler's arguments, then

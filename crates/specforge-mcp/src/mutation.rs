@@ -28,17 +28,11 @@ use specforge_ops::{OpError, Writes};
 use crate::reply::{Answer, Answered};
 use crate::surface_call::Event;
 use crate::target::Call;
-use crate::tool::{IntoOutcome, McpError, ToolOutcome};
+use crate::tool::{McpError, ToolOutcome};
 
 /// The reply key naming the files a mutation wrote, relative to the call
 /// target's root (absolute outside it), sorted.
 pub const FILES_WRITTEN: &str = "files_written";
-
-/// The output-schema property every mutation reply that wrote carries: the
-/// files it wrote, relative to the project root.
-pub(crate) fn files_written_schema() -> Value {
-    json!({ "type": "array", "items": { "type": "string" }, "description": "The files the call created, rewrote or removed, relative to the project root (absolute outside it); absent from a preview" })
-}
 
 /// What one mutation call wrote.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -155,7 +149,8 @@ impl MutationEvent {
     }
 }
 
-/// A mutation handler's result: its reply, and what it wrote.
+/// The untyped mutation result the pipeline refreshes and reports: the
+/// outcome of a handler's typed [`Mutated`] ([`replied`]) and what it wrote.
 #[derive(Debug)]
 pub struct Replied {
     pub outcome: ToolOutcome,
@@ -166,60 +161,12 @@ pub struct Replied {
 }
 
 impl Replied {
-    /// A run that meant to write, and what it wrote (succeeded or not).
-    pub fn wrote(outcome: impl IntoOutcome, written: Written) -> Self {
-        Replied {
-            outcome: outcome.into_outcome(),
-            written: Some(written),
-        }
-    }
-
-    /// A preview.
-    pub fn preview(outcome: impl IntoOutcome) -> Self {
-        Replied {
-            outcome: outcome.into_outcome(),
-            written: None,
-        }
-    }
-
     /// Refused before it wrote anything: a failed mutation.
-    pub fn refused(outcome: impl IntoOutcome) -> Self {
-        Self::wrote(outcome, Written::nothing())
-    }
-
-    /// Refused before it wrote anything, or, for a preview, a failed
-    /// preview.
-    pub fn refused_unless_preview(preview: bool, outcome: impl IntoOutcome) -> Self {
-        if preview {
-            Self::preview(outcome)
-        } else {
-            Self::refused(outcome)
+    pub fn refused(error: impl Into<ToolOutcome>) -> Self {
+        Replied {
+            outcome: error.into(),
+            written: Some(Written::nothing()),
         }
-    }
-
-    /// An operation's refusal: a failed mutation carrying what the
-    /// operation left written before it failed ([`OpError::writes`]), or,
-    /// for a preview, a failed preview.
-    pub fn refused_after(preview: bool, mut error: OpError) -> Self {
-        let files = std::mem::take(&mut error.writes);
-        let outcome = ToolOutcome::from(McpError::from(error));
-        if preview {
-            Self::preview(outcome)
-        } else {
-            Self::wrote(outcome, Written::files(files))
-        }
-    }
-
-    /// The same, `extra` added to its reply's diagnostics.
-    pub fn with_diagnostics(mut self, extra: Vec<Diagnostic>) -> Self {
-        self.outcome = self.outcome.with_diagnostics(extra);
-        self
-    }
-
-    /// The same, its failure naming `tool` ([`ToolOutcome::from_tool`]).
-    pub fn from_tool(mut self, tool: &str) -> Self {
-        self.outcome = self.outcome.from_tool(tool);
-        self
     }
 }
 
@@ -334,28 +281,6 @@ pub fn output_schema<R: Object>() -> Value {
     WrittenReply::<R>::schema()
 }
 
-/// What a mutation handler returns when it refuses with `?` (only before it
-/// writes: `?` on an `McpError`). A refusal after a write must carry its
-/// [`Written`] and is returned as `Ok(Replied::wrote(error, written))`.
-pub type MutationHandled = Result<Replied, Box<McpError>>;
-
-/// A mutation handler's return: [`Replied`] or [`MutationHandled`].
-pub trait IntoMutated {
-    fn into_mutated(self) -> Replied;
-}
-
-impl IntoMutated for Replied {
-    fn into_mutated(self) -> Replied {
-        self
-    }
-}
-
-impl IntoMutated for MutationHandled {
-    fn into_mutated(self) -> Replied {
-        self.unwrap_or_else(|refused| Replied::refused(ToolOutcome::Refused(refused)))
-    }
-}
-
 /// Bring the call's target up to date with what the mutation wrote, when
 /// it wrote anything, succeeded or not; then, when asked, put the target's
 /// diagnostics in the reply. The served project is brought up to date
@@ -453,7 +378,10 @@ mod tests {
         let (outcome, events) = report(
             "specforge.rename",
             Some(Path::new("/p")),
-            Replied::preview(ToolOutcome::ok(json!({"dry_run": true}))),
+            Replied {
+                outcome: ToolOutcome::ok(json!({"dry_run": true})),
+                written: None,
+            },
         );
         assert!(events.is_empty());
         assert_eq!(payload(&outcome), json!({"dry_run": true}));
@@ -473,7 +401,10 @@ mod tests {
         let (outcome, events) = report(
             "specforge.format",
             Some(Path::new("/p")),
-            Replied::wrote(failure, written),
+            Replied {
+                outcome: failure.into(),
+                written: Some(written),
+            },
         );
 
         assert!(!events.iter().any(|(name, _)| name == "extension_added"));
@@ -502,7 +433,10 @@ mod tests {
         let (outcome, events) = report(
             "specforge.add_extension",
             Some(Path::new("/p")),
-            Replied::wrote(ToolOutcome::ok(json!({"installed": true})), written),
+            Replied {
+                outcome: ToolOutcome::ok(json!({"installed": true})),
+                written: Some(written),
+            },
         );
 
         let names: Vec<&str> = events.iter().map(|(name, _)| name.as_str()).collect();
@@ -542,7 +476,10 @@ mod tests {
         let (outcome, events) = report(
             "specforge.migrate",
             Some(Path::new("/p")),
-            Replied::wrote(ToolOutcome::ok(json!({})), Written::nothing()),
+            Replied {
+                outcome: ToolOutcome::ok(json!({})),
+                written: Some(Written::nothing()),
+            },
         );
         assert_eq!(payload(&outcome), json!({"files_written": []}));
         assert_eq!(

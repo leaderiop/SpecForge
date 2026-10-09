@@ -2,11 +2,11 @@
 
 use std::path::Path;
 
-use serde_json::json;
+use serde::Serialize;
+use specforge_common::shape::Shape;
 
 use crate::args::Arguments;
-use crate::mutation::{MutationEvent, Replied, Written};
-use crate::tool::ToolOutcome;
+use crate::mutation::{Mutated, Mutation, MutationEvent, Written};
 
 /// `specforge.init`'s arguments.
 #[derive(Debug, Arguments)]
@@ -20,7 +20,22 @@ pub struct Args {
     extensions: Vec<String>,
 }
 
-pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args: Args) -> Replied {
+/// `specforge.init`'s reply (`McpInitResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    project_path: String,
+    config_file: String,
+    starter_file: String,
+    extensions_installed: Vec<String>,
+    name: String,
+    version: String,
+}
+
+pub(crate) fn call(
+    path: &Path,
+    runtime: &specforge_project::SharedRuntime,
+    args: Args,
+) -> Mutation<Reply> {
     use specforge_ops::init;
 
     // The directory the target names (as given: init creates it).
@@ -37,16 +52,16 @@ pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args
     let outcome =
         match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(path, plan)) {
             Ok(outcome) => outcome,
-            Err(error) => return Replied::refused_after(false, error),
+            Err(error) => return Ok(Mutated::refused_after(false, error)),
         };
-    let result = ToolOutcome::ok(json!({
-        "project_path": path.display().to_string(),
-        "config_file": "specforge.json",
-        "starter_file": init::STARTER_FILE,
-        "extensions_installed": outcome.extensions,
-        "name": outcome.name,
-        "version": outcome.version,
-    }));
+    let reply = Reply {
+        project_path: path.display().to_string(),
+        config_file: "specforge.json".to_string(),
+        starter_file: init::STARTER_FILE.to_string(),
+        extensions_installed: outcome.extensions.clone(),
+        name: outcome.name.clone(),
+        version: outcome.version.clone(),
+    };
     // With no project served, the server serves the one it created (ADR
     // 0014 D5): `mutation::refresh` does, once it wrote.
     let event = MutationEvent::ProjectInitialized {
@@ -54,5 +69,8 @@ pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args
         extension_count: outcome.extensions.len(),
         spec_file_path: init::STARTER_FILE.to_string(),
     };
-    Replied::wrote(result, Written::files(outcome.writes).with_event(event))
+    Ok(Mutated::wrote(
+        reply,
+        Written::files(outcome.writes).with_event(event),
+    ))
 }

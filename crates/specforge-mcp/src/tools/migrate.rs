@@ -1,11 +1,14 @@
 //! `specforge.migrate`: run the migration pipeline (`specforge_ops::migrate`).
 
-use serde_json::{Value, json};
+use serde::Serialize;
+use specforge_common::DiagnosticList;
+use specforge_common::shape::Shape;
+use specforge_ops::migrate::{MigrationDiff, MigrationResult, RollbackSummary};
 
 use crate::args::Arguments;
-use crate::mutation::{Replied, Written};
+use crate::mutation::{Mutated, Mutation, Written};
 use crate::target::ProjectRef;
-use crate::tool::{McpError, ToolOutcome};
+use crate::tool::McpError;
 
 /// `specforge.migrate`'s arguments.
 #[derive(Debug, Arguments)]
@@ -18,7 +21,64 @@ pub struct Args {
     no_backup: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
+/// `specforge.migrate`'s reply (`McpMigrateResult`): a project already at
+/// the latest format version, or the run's report (a failed run carries it
+/// in its error's `data`).
+#[derive(Debug, Serialize, Shape)]
+#[serde(untagged)]
+pub enum Reply {
+    Current(Current),
+    Ran(Box<Ran>),
+}
+
+/// Nothing to migrate: no file is behind the target version.
+#[derive(Debug, Serialize, Shape)]
+pub struct Current {
+    ok: bool,
+    from_version: String,
+    to_version: String,
+    migrated: bool,
+    dry_run: bool,
+    /// Always empty.
+    changes: Vec<String>,
+    message: String,
+}
+
+/// A migration that ran (or, with `dry_run`, was previewed).
+#[derive(Debug, Serialize, Shape)]
+pub struct Ran {
+    ok: bool,
+    from_version: String,
+    to_version: String,
+    migrated: bool,
+    dry_run: bool,
+    files_migrated: usize,
+    files_skipped: usize,
+    files_failed: usize,
+    results: Vec<MigrationResult>,
+    diffs: Vec<MigrationDiff>,
+    /// `extension:hook` for each migration hook that ran.
+    hooks_invoked: Vec<String>,
+    /// Why each failing hook failed.
+    hook_failures: Vec<String>,
+    /// Breaking Graph Protocol schema changes (W053).
+    schema_warnings: DiagnosticList,
+    /// How the migrated graph differs from the one before (W054).
+    structural_differences: DiagnosticList,
+    rolled_back: bool,
+    rollback: Option<RollbackSummary>,
+    post_migration_validated: bool,
+    post_migration_errors: Vec<PostMigrationError>,
+}
+
+/// An error compiling the migrated project reported.
+#[derive(Debug, Serialize, Shape)]
+pub struct PostMigrationError {
+    code: String,
+    message: String,
+}
+
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     // The project the call migrates, and the runtime its hooks run in.
     let path = project.root;
     let dry_run = args.dry_run;
@@ -27,7 +87,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     // --target-version` checks it.
     let target = match specforge_ops::migrate::parse_target(args.target_version.as_deref()) {
         Ok(target) => target,
-        Err(error) => return Replied::refused_after(dry_run, error),
+        Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
     let runtime = project.runtime;
@@ -43,54 +103,59 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     // The format version lives in each spec file's header: with no file
     // behind the target, the project is current and nothing ran: a
     // migration that wrote nothing (a dry run is a preview).
-    let migration = |reply: ToolOutcome, writes: specforge_ops::Writes| match dry_run {
-        true => Replied::preview(reply),
-        false => Replied::wrote(reply, Written::files(writes)),
+    let migration = |reply: Reply, failure: Option<McpError>, writes: specforge_ops::Writes| match (
+        failure, dry_run,
+    ) {
+        (None, true) => Mutated::preview(reply),
+        (None, false) => Mutated::wrote(reply, Written::files(writes)),
+        (Some(error), true) => Mutated::failed_preview(error),
+        (Some(error), false) => Mutated::failed(error, Written::files(writes)),
     };
     if !outcome.pending {
-        let current = json!({
-            "from_version": from,
-            "to_version": to,
-            "migrated": false,
-            "dry_run": dry_run,
-            "changes": [],
-            "message": "project is already at the latest format version",
-            "ok": outcome.ok(),
+        let current = Reply::Current(Current {
+            ok: outcome.ok(),
+            from_version: from,
+            to_version: to,
+            migrated: false,
+            dry_run,
+            changes: Vec::new(),
+            message: "project is already at the latest format version".to_string(),
         });
-        return migration(ToolOutcome::ok(current), outcome.writes);
+        return Ok(migration(current, None, outcome.writes));
     }
 
     let summary = &outcome.summary;
-    let post_migration_errors: Vec<Value> = outcome
-        .post_errors()
-        .map(|d| json!({"code": d.code, "message": d.message}))
-        .collect();
-    let result = json!({
-        "ok": outcome.ok(),
-        "from_version": from,
-        "to_version": to,
-        "migrated": outcome.migrated(),
-        "dry_run": dry_run,
-        "files_migrated": summary.migrated_count,
-        "files_skipped": summary.skipped_count,
-        "files_failed": summary.failed_count,
-        "results": summary.results,
-        "diffs": summary.diffs,
-        "hooks_invoked": outcome.hooks_invoked,
-        "hook_failures": outcome.hook_failures,
-        "schema_warnings": specforge_common::diagnostics_json(&outcome.schema_warnings),
-        "structural_differences": specforge_common::diagnostics_json(&outcome.structural_differences),
-        "rolled_back": outcome.rollback.is_some(),
-        "rollback": outcome.rollback,
-        "post_migration_validated": outcome.validated,
-        "post_migration_errors": post_migration_errors,
-    });
+    let reply = Reply::Ran(Box::new(Ran {
+        ok: outcome.ok(),
+        from_version: from,
+        to_version: to,
+        migrated: outcome.migrated(),
+        dry_run,
+        files_migrated: summary.migrated_count,
+        files_skipped: summary.skipped_count,
+        files_failed: summary.failed_count,
+        results: summary.results.clone(),
+        diffs: summary.diffs.clone(),
+        hooks_invoked: outcome.hooks_invoked.clone(),
+        hook_failures: outcome.hook_failures.clone(),
+        schema_warnings: DiagnosticList(outcome.schema_warnings.clone()),
+        structural_differences: DiagnosticList(outcome.structural_differences.clone()),
+        rolled_back: outcome.rollback.is_some(),
+        rollback: outcome.rollback.clone(),
+        post_migration_validated: outcome.validated,
+        post_migration_errors: outcome
+            .post_errors()
+            .map(|d| PostMigrationError {
+                code: d.code.clone(),
+                message: d.message.clone(),
+            })
+            .collect(),
+    }));
     // A failed run's report rides in `data`, and what it left written (its
     // backups after a rollback, the files migrated before a failure) is
     // reported.
-    let reply = match outcome.failure() {
-        Some(failure) => McpError::from(failure).with_data(result).into(),
-        None => ToolOutcome::ok(result),
-    };
-    migration(reply, outcome.writes)
+    let failure = outcome.failure().map(|failure| {
+        McpError::from(failure).with_data(serde_json::to_value(&reply).expect("a reply serializes"))
+    });
+    Ok(migration(reply, failure, outcome.writes))
 }

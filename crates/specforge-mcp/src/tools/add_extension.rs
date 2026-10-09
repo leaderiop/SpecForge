@@ -1,11 +1,12 @@
 //! `specforge.add_extension`: install an extension (`specforge_ops::extension::add`).
 
-use serde_json::json;
+use serde::Serialize;
+use specforge_common::shape::Shape;
 
 use crate::args::Arguments;
-use crate::mutation::{MutationEvent, Replied, Written};
+use crate::mutation::{Mutated, Mutation, MutationEvent, Written};
+use crate::reply::Answer;
 use crate::target::ProjectRef;
-use crate::tool::ToolOutcome;
 
 /// `specforge.add_extension`'s arguments.
 #[derive(Debug, Arguments)]
@@ -18,10 +19,72 @@ pub struct Args {
     allow_unsigned: bool,
 }
 
+/// `specforge.add_extension`'s reply (`McpAddExtensionResult`): a builtin
+/// enabled, a package installed, an extension already there, or a preview.
+#[derive(Debug, Serialize, Shape)]
+#[serde(untagged)]
+pub enum Reply {
+    Builtin(Builtin),
+    Package(Package),
+    AlreadyPresent(AlreadyPresent),
+    Planned(Planned),
+}
+
+/// The one spelling of a builtin's `source`.
+#[derive(Debug, Serialize, Shape)]
+pub enum BuiltinSource {
+    #[serde(rename = "builtin")]
+    Builtin,
+}
+
+/// A builtin enabled.
+#[derive(Debug, Serialize, Shape)]
+pub struct Builtin {
+    extension: String,
+    installed: bool,
+    source: BuiltinSource,
+    changed: bool,
+    /// The required builtin peers enabled first.
+    peers_enabled: Vec<String>,
+    note: String,
+}
+
+/// A package installed and locked.
+#[derive(Debug, Serialize, Shape)]
+pub struct Package {
+    extension: String,
+    installed: bool,
+    version: String,
+    sha256: String,
+    key_id: Option<String>,
+    source: String,
+    note: String,
+}
+
+/// Already installed and enabled: nothing changed.
+#[derive(Debug, Serialize, Shape)]
+pub struct AlreadyPresent {
+    extension: String,
+    installed: bool,
+    already_present: bool,
+    version: String,
+    message: String,
+}
+
+/// A preview: what would be installed or enabled.
+#[derive(Debug, Serialize, Shape)]
+pub struct Planned {
+    extension: String,
+    installed: bool,
+    dry_run: bool,
+    version: Option<String>,
+    source: String,
+}
+
 /// `specforge.add_extension`: the shared add, its reply, the files it
 /// wrote and `extension_added` (for an extension already there too,
 /// `wasDuplicate`).
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let allow_unsigned = args.allow_unsigned;
@@ -40,7 +103,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     };
     let source = match extension::parse(&args.specifier) {
         Ok(source) => source,
-        Err(error) => return Replied::refused_after(dry_run, error),
+        Err(error) => return Ok(Mutated::refused_after(dry_run, error)),
     };
 
     let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
@@ -61,7 +124,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {
-            return Replied::refused_after(dry_run, error).with_diagnostics(reported);
+            return Ok(Mutated::refused_after(dry_run, error).with_diagnostics(reported));
         }
     };
     let source_of = Origin::source;
@@ -71,13 +134,13 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
             changed,
             peers_enabled,
         } => (
-            json!({
-                "extension": name,
-                "installed": changed,
-                "source": "builtin",
-                "changed": changed,
-                "peers_enabled": peers_enabled,
-                "note": note,
+            Reply::Builtin(Builtin {
+                extension: name.to_string(),
+                installed: changed,
+                source: BuiltinSource::Builtin,
+                changed,
+                peers_enabled: peers_enabled.into_iter().map(String::from).collect(),
+                note: note.to_string(),
             }),
             !changed,
         ),
@@ -88,25 +151,27 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
             key_id,
             origin,
         } => (
-            json!({
-                "extension": name,
-                "installed": true,
-                "version": version,
-                "sha256": sha256,
-                "key_id": key_id,
-                "source": source_of(&origin),
-                "note": note,
+            Reply::Package(Package {
+                extension: name,
+                installed: true,
+                version,
+                sha256,
+                key_id,
+                source: source_of(&origin),
+                note: note.to_string(),
             }),
             false,
         ),
         // Already installed and enabled: an info response, nothing changed.
         AddOutcome::AlreadyPresent { name, version } => (
-            json!({
-                "extension": name,
-                "installed": false,
-                "already_present": true,
-                "version": version,
-                "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
+            Reply::AlreadyPresent(AlreadyPresent {
+                message: format!(
+                    "{name} {version} is already installed; specforge.json is unchanged"
+                ),
+                extension: name,
+                installed: false,
+                already_present: true,
+                version,
             }),
             true,
         ),
@@ -115,14 +180,16 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
             version,
             origin,
         } => {
-            let plan = json!({
-                "extension": name,
-                "installed": false,
-                "dry_run": true,
-                "version": version,
-                "source": source_of(&origin),
+            let plan = Reply::Planned(Planned {
+                extension: name,
+                installed: false,
+                dry_run: true,
+                version,
+                source: source_of(&origin),
             });
-            return Replied::preview(ToolOutcome::ok(plan).with_diagnostics(reported));
+            return Ok(Mutated::preview(
+                Answer::new(plan).with_diagnostics(reported),
+            ));
         }
     };
     let event = MutationEvent::ExtensionAdded {
@@ -130,8 +197,8 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
         total_extensions: added.extensions_enabled,
         was_duplicate,
     };
-    Replied::wrote(
-        ToolOutcome::ok(reply).with_diagnostics(reported),
+    Ok(Mutated::wrote(
+        Answer::new(reply).with_diagnostics(reported),
         Written::files(added.writes).with_event(event),
-    )
+    ))
 }

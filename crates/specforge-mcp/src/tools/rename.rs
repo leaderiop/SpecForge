@@ -1,11 +1,13 @@
 //! `specforge.rename`: rename an entity across the project (`specforge_ops::rename`).
 
-use serde_json::{Value, json};
+use serde::Serialize;
+use specforge_common::DiagnosticList;
+use specforge_common::shape::Shape;
 
 use crate::args::Arguments;
-use crate::mutation::{Replied, Written};
+use crate::mutation::{Mutated, Mutation, Written};
 use crate::target::ProjectRef;
-use crate::tool::{McpError, ToolOutcome};
+use crate::tool::McpError;
 use specforge_ops::OpErrorKind;
 
 /// `specforge.rename`'s arguments.
@@ -19,10 +21,34 @@ pub struct Args {
     dry_run: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
+/// `specforge.rename`'s reply (`McpRenameResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    old_name: String,
+    new_name: String,
+    affected_files: Vec<String>,
+    edits: Vec<Edit>,
+    /// Present (true) for a preview.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dry_run: Option<bool>,
+    /// What `specforge check` reports for the project once the edits are
+    /// made; filled in when the target is brought up to date.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostics: Option<DiagnosticList>,
+}
+
+/// One text edit (`McpRenameEdit`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Edit {
+    file: String,
+    line: usize,
+    start_col: usize,
+    end_col: usize,
+    new_text: String,
+}
+
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     use specforge_ops::rename;
-    let entity_id = args.entity_id.as_str();
-    let new_name = args.new_name.as_str();
     let dry_run = args.dry_run;
 
     // Planned on the call's project as it is on disk (the target brought
@@ -31,10 +57,9 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     let spec_root = project.spec_root().to_path_buf();
     let planned = rename::plan(
         &crate::tools::navigator(project.view()),
-        entity_id,
-        new_name,
+        &args.entity_id,
+        &args.new_name,
     );
-    let refused = |outcome: ToolOutcome| Replied::refused_unless_preview(dry_run, outcome);
     let plan = match planned {
         Ok(plan) => plan,
         // The operation decided what kind of failure it is, and which
@@ -42,51 +67,54 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
         Err(e) => {
             let argument = (e.kind == OpErrorKind::InvalidInput).then_some("new_name");
             let error = McpError::from(e);
-            return refused(
+            return Ok(Mutated::refused_unless_preview(
+                dry_run,
                 match argument {
                     Some(argument) => error.with_argument(argument),
                     None => error,
-                }
-                .into(),
-            );
+                },
+            ));
         }
     };
 
-    let edit_json: Vec<serde_json::Value> = plan
-        .edits
-        .iter()
-        .map(|e| {
-            json!({
-                "file": e.file,
-                "line": e.line,
-                "start_col": e.start_col,
-                "end_col": e.end_col,
-                "new_text": e.new_text,
+    let mut reply = Reply {
+        old_name: args.entity_id,
+        new_name: args.new_name.clone(),
+        affected_files: plan
+            .affected_files()
+            .into_iter()
+            .map(String::from)
+            .collect(),
+        edits: plan
+            .edits
+            .iter()
+            .map(|e| Edit {
+                file: e.file.to_string(),
+                line: e.line,
+                start_col: e.start_col,
+                end_col: e.end_col,
+                new_text: e.new_text.clone(),
             })
-        })
-        .collect();
-    let mut result = json!({
-        "old_name": entity_id,
-        "new_name": new_name,
-        "affected_files": plan.affected_files(),
-        "edits": edit_json,
-    });
+            .collect(),
+        dry_run: None,
+        diagnostics: None,
+    };
     if dry_run {
-        result["dry_run"] = Value::from(true);
-        return Replied::preview(ToolOutcome::ok(result));
+        reply.dry_run = Some(true);
+        return Ok(Mutated::preview(reply));
     }
     // A failed write restores what it wrote: nothing is left written.
     let writes = match rename::apply(&plan, &spec_root) {
         Ok(writes) => writes,
-        Err(e) => return refused(McpError::from(e).into()),
+        Err(e) => return Ok(Mutated::refused_unless_preview(false, McpError::from(e))),
     };
     // The reply's `diagnostics` are what `specforge check` reports for the
     // project as it is on disk now, edits made since the last call
     // included (filled in once the target is brought up to date).
-    Replied::wrote(
-        ToolOutcome::ok(result),
+    Ok(Mutated::wrote(
+        reply,
         Written::files(writes)
-            .with_entities([new_name])
+            .with_entities([args.new_name])
             .with_fresh_diagnostics(),
-    )
+    ))
 }

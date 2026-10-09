@@ -1,11 +1,11 @@
 //! `specforge.remove_extension`: remove an extension (`specforge_ops::extension::remove`).
 
-use serde_json::{Value, json};
+use serde::Serialize;
+use specforge_common::shape::Shape;
 
 use crate::args::Arguments;
-use crate::mutation::{Replied, Written};
+use crate::mutation::{Mutated, Mutation, Written};
 use crate::target::ProjectRef;
-use crate::tool::ToolOutcome;
 
 /// `specforge.remove_extension`'s arguments.
 #[derive(Debug, Arguments)]
@@ -18,7 +18,28 @@ pub struct Args {
     dry_run: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
+/// `specforge.remove_extension`'s reply (`McpRemoveExtensionResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    removed_extension: String,
+    /// Always true: a failed removal is an `isError` result.
+    success: bool,
+    version: Option<String>,
+    /// The entities of the removed extension's kinds, which the project
+    /// still holds.
+    stranded: Vec<Stranded>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dry_run: Option<bool>,
+}
+
+/// One entity the removal strands.
+#[derive(Debug, Serialize, Shape)]
+pub struct Stranded {
+    entity_id: String,
+    kind: String,
+}
+
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     let name = args.name.clone();
     let force = args.force;
     let dry_run = args.dry_run;
@@ -33,27 +54,30 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     };
     match specforge_ops::extension::remove(&project.view(), &request) {
         Ok(outcome) => {
-            let mut result = json!({
-                "removed_extension": outcome.name,
-                "success": true,
-                "version": outcome.version,
-                "stranded": outcome
+            let reply = Reply {
+                removed_extension: outcome.name.to_string(),
+                success: true,
+                version: outcome.version.as_ref().map(ToString::to_string),
+                stranded: outcome
                     .stranded
                     .iter()
-                    .map(|entity| json!({"entity_id": entity.entity_id, "kind": entity.kind}))
-                    .collect::<Vec<_>>(),
-            });
+                    .map(|entity| Stranded {
+                        entity_id: entity.entity_id.to_string(),
+                        kind: entity.kind.to_string(),
+                    })
+                    .collect(),
+                dry_run: outcome.dry_run.then_some(true),
+            };
             if outcome.dry_run {
-                result["dry_run"] = Value::from(true);
-                return Replied::preview(ToolOutcome::ok(result));
+                return Ok(Mutated::preview(reply));
             }
-            Replied::wrote(
-                ToolOutcome::ok(result),
+            Ok(Mutated::wrote(
+                reply,
                 Written::files(outcome.writes)
                     .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
-            )
+            ))
         }
         // A removal that failed after editing specforge.json reports it.
-        Err(error) => Replied::refused_after(dry_run, error),
+        Err(error) => Ok(Mutated::refused_after(dry_run, error)),
     }
 }
