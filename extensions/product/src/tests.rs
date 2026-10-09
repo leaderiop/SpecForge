@@ -1998,6 +1998,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// - 40920 bytes, `0x3f81_5be7_3dbf_98bc`: `milestone_completion`'s description says it
 ///   also reports what the recorded tests prove (ADR 0039); nothing else
 ///   changed.
+/// - 40926 bytes, `0xaf70_6cd8_0efd_2f6a`: `health`'s description says "unreferenced
+///   counts" where it said "orphan counts"; nothing else changed.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = crate::specforge_extension_build()
@@ -2005,7 +2007,7 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (40920, 0x3f81_5be7_3dbf_98bc),
+        (40926, 0xaf70_6cd8_0efd_2f6a),
         "the surfaces payload changed"
     );
 }
