@@ -32,6 +32,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   I007 (older) and E019 (newer, or a header that is not `MAJOR.MINOR`) on the header line, like any
   parser diagnostic; `specforge migrate` reads the version through the same function. It is
   distinct from the Graph Protocol's schema version.
+- **Migration record**: `<root>/.specforge/migration.json`, what `specforge migrate --rollback` undoes: the
+  last kept migration made with backups, each file with its backup and the SHA-256 of the file as the migration
+  left it (`specforge_migrate::MigrationRecord`). A rollback restores only a recorded file that still holds that
+  text; an automatic rollback restores the texts its own run read. Backups are never removed.
 - **Project session**: a compiled project kept current, plus what it is built from: its **session
   inputs**, the stamps of what it last read, and where each environment load gets its extension runtime
   (ADR 0047). It classifies any changed path through them, applies changes as an
@@ -187,12 +191,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   credential, the signing key, the known keys. Publish derives the stored declaration from the
   binary; `add` checks the binary declares what was published (ADR 0012). Each seam has a second
   adapter for tests, held with the first to one contract: `MemoryRegistry` beside the port, `MemoryClient`
-  beside the client (`assert_registry_contract`, `assert_client_contract`).
+  beside the client (`assert_registry_contract`, `assert_client_contract`). A rate-limited call is sent again
+  by the spec's backoff (`Retrying`), and every request carries the credential the user keeps for that
+  registry (ADR 0044 as amended).
+- **Registry credential**: the token a request to one registry carries, kept per registry alias in
+  `~/.specforge/credentials.json`, never in `specforge.json`: a secret `specforge login --token` stored in the OS
+  keyring (a 0600 file without one), or a reference to an environment variable (`--token-env`) or a file
+  (`--token-file`), resolved before any request (`CredentialStore::credential`; R010, R011). Every read carries
+  it; a publish takes `SPECFORGE_REGISTRY_TOKEN` first (ADR 0045 as amended).
 - **Fetch policy**: what a package passes before an operation sees it: the registry's reply names the
   package and version asked for, the binary hashes to the served SHA-256, the served manifest reads as that
   package's declaration (one from before ADR 0012 is refused), and the publisher signature verifies with a
   key that matches its pin or is pinned now (`ConfiguredRegistry::fetch`; ADR 0010, 0012, 0044). A refused
-  package pins no key.
+  package pins no key. Accepting an unsigned package (`--allow-unsigned`) is reported as W155 and a re-pinned
+  key as W156; a first-use pin is part of the outcome (`Publisher`). The check writes nothing to the terminal:
+  a key change is asked of the surface that can ask.
 - **Package registry contract**: what a package registry and its client exchange over HTTP: the paths, the
   JSON bodies, the publish form and the error codes, each defined once in `specforge-registry-wire`, which
   `specforge-registry-server` and `specforge-registry-client` both compile against (ADR 0044). A test
@@ -262,9 +275,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   them, the exploration lists them and the review flags those that count toward coverage. Not the same as
   unreferenced.
 - **Unreferenced entity**: an entity no edge points at: W012 for a `ref`, an extension's
-  `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_orphans`. The extensions call one
-  an *orphan* (W041 "Orphan feature", `@specforge/product`'s `orphan_entity` term); the host's code and
-  outputs do not use that word.
+  `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_unreferenced`. No output calls one
+  an orphan: the catalog titles, product `health`'s `unreferenced_counts` and the coverage summary's
+  `invariant_unreferenced` all say unreferenced.
 - **Exploration**: where to start reading a project's graph (`specforge_ops::explore`): a selection (the
   entities one entity reaches within a depth, or every entity; of one kind when given), the paths from that
   entity, the starting points (the selected connected entities that reference more than they are referenced),
