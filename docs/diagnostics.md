@@ -3177,6 +3177,36 @@ Owner: @specforge/product
 Level: warning
 ```
 
+## W155
+
+```
+W155: Unsigned package installed
+
+`specforge add` or `specforge update` installed a registry package that carries
+no publisher signature, because `--allow-unsigned` was given. Where it came from
+can't be verified, and no publisher key is pinned for it, so a later signed
+version is pinned on first use. Install signed packages where you can; ask the
+publisher to sign with `specforge publish`.
+
+Owner: core
+Level: warning
+```
+
+## W156
+
+```
+W156: Publisher key re-pinned
+
+A registry package is signed with a different key than the one pinned for it,
+and the change was accepted (`--yes`, a yes at the prompt, or the new key on
+`trusted_keys`), so the new key is now pinned. That is what a key rotation looks
+like, and also what a compromised publisher looks like: confirm the change with
+the publisher if you did not expect it. The message names both key ids.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

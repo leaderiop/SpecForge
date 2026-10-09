@@ -31,6 +31,7 @@ mod review;
 mod search;
 mod stats;
 mod trace;
+mod trust;
 mod update;
 mod watch;
 

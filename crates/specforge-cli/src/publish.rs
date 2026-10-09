@@ -20,7 +20,7 @@ pub(crate) fn run(extension: &Path, project: &Path, format: OutputFormat) -> Exi
     let runtime = ComponentRuntime::with_user_cache();
     let report = publish::publish(extension, &registry, &runtime);
     format.eprint_diagnostics(&report.warnings);
-    format.eprint_diagnostics(registry.reported());
+    format.eprint_diagnostics(&registry.reported());
     match &report.result {
         Ok(outcome) => {
             present(outcome, format);

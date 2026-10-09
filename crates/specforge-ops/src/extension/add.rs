@@ -3,7 +3,7 @@
 use super::candidate::{Installable, LocalFile};
 use super::diamond::{Published, broken_requirers};
 use super::{Origin, builtin_name, check_diamonds};
-use crate::registry::Registry;
+use crate::registry::{Publisher, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
 use specforge_installed::{Change, Installed, LockSource, Module, Pin};
@@ -116,7 +116,8 @@ pub enum AddOutcome {
         name: String,
         version: String,
         sha256: String,
-        key_id: Option<String>,
+        /// How the registry's publisher was accepted; `None` for a local file.
+        publisher: Option<Publisher>,
         origin: Origin,
     },
     /// Already installed at this version (or, from a local file, with
@@ -339,7 +340,7 @@ fn add_from_registry(
         req.root,
         change,
         checked.binary,
-        checked.package.key_id,
+        Some(checked.package.publisher),
         LockSource::Registry,
         Some(&super::published_versions(registry)),
     )
@@ -453,7 +454,7 @@ fn install(
     root: &Path,
     mut change: Change<'_>,
     binary: Installable,
-    key_id: Option<String>,
+    publisher: Option<Publisher>,
     source: LockSource,
     published: Published<'_>,
 ) -> Result<Added, OpError> {
@@ -467,7 +468,10 @@ fn install(
             name: package,
             version: declared.version().to_string(),
             source: source.clone(),
-            key_id: key_id.clone(),
+            key_id: publisher
+                .as_ref()
+                .and_then(|p| p.key_id())
+                .map(str::to_string),
             peers: declared.peers().to_vec(),
         },
     );
@@ -494,7 +498,7 @@ fn install(
             name: declared.name().to_string(),
             version: declared.version().to_string(),
             sha256,
-            key_id,
+            publisher,
             origin: Origin::Installed { source },
         },
         writes: Writes::of(committed.changed),

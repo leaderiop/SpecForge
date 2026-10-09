@@ -11,22 +11,25 @@ use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
     Found, METADATA_MISMATCH, NO_REGISTRY, NO_REGISTRY_FOR_NAME, NOT_AUTHENTICATED, Package,
-    Published, Registry, Searched, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload, no_registry,
+    Published, Publisher, Registry, Searched, UNREADABLE_MANIFEST, UNUSABLE_SIGNING_KEY, Upload,
+    no_registry,
 };
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::package::Version;
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PackageName};
 use specforge_registry_client::credentials::{read_credentials, user_dir};
 use specforge_registry_client::signing::load_or_create_signing_key_at;
-use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
-    HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
-    Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
+    Accepted, HttpRegistryClient, KeyChange, RegistryClient, RegistryConfig, RegistryCredential,
+    RegistryError, Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
     verify_registry_integrity,
 };
 use specforge_registry_wire::{PackageMetadata, SearchQuery};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
+
+/// Whom a key change is asked of.
+type Asker = Box<dyn Fn(&KeyChange) -> bool + Send + Sync>;
 
 /// The environment variable whose token `publish` authenticates with, ahead
 /// of a stored credential.
@@ -231,6 +234,10 @@ pub struct ConfiguredRegistry {
     client: Box<dyn RegistryClient>,
     /// Whose registry files are read (pins, credentials, signing key).
     user: User,
+    /// Whom a key change is asked of when a fetch is `Trust::Prompt`ed; nobody by default.
+    asker: Option<Asker>,
+    /// What the fetch policy reported (W155, W156), in fetch order.
+    fetched: Mutex<Vec<Diagnostic>>,
 }
 
 impl ConfiguredRegistry {
@@ -243,6 +250,8 @@ impl ConfiguredRegistry {
             registries: OnceLock::new(),
             client: Box::new(Retrying::new(HttpRegistryClient::new())),
             user: User::current(),
+            asker: None,
+            fetched: Mutex::new(Vec::new()),
         }
     }
 
@@ -259,14 +268,34 @@ impl ConfiguredRegistry {
         self
     }
 
-    /// What reading the registry configuration reported (E067 for an entry it skipped, W140 for a
-    /// duplicate alias, I003 when none is the default), once an operation has asked this registry
-    /// anything; nothing before, and nothing when reading failed outright (each call then fails with
-    /// that error). A surface shows these after the operation, whatever its result.
-    pub fn reported(&self) -> &[Diagnostic] {
-        match self.registries.get() {
-            Some(Ok(configured)) => &configured.diagnostics,
-            _ => &[],
+    /// Ask `ask` about a key change when a fetch is `Trust::Prompt`ed (the CLI's terminal). Without
+    /// one, such a key change is refused.
+    pub fn asking(mut self, ask: impl Fn(&KeyChange) -> bool + Send + Sync + 'static) -> Self {
+        self.asker = Some(Box::new(ask));
+        self
+    }
+
+    /// What this registry reported, once an operation has asked it anything: the registry
+    /// configuration's diagnostics (E067 for an entry it skipped, W140 for a duplicate alias, I003
+    /// when none is the default; nothing when reading failed outright, each call then failing with
+    /// that error), then the fetch policy's (W155 for an unsigned package accepted, W156 for a key
+    /// change accepted) in fetch order. A surface shows these after the operation, whatever its
+    /// result.
+    pub fn reported(&self) -> Vec<Diagnostic> {
+        let mut reported = match self.registries.get() {
+            Some(Ok(configured)) => configured.diagnostics.clone(),
+            _ => Vec::new(),
+        };
+        reported.extend(self.fetched.lock().unwrap().iter().cloned());
+        reported
+    }
+
+    /// How a key change is decided for the way `add` was asked to.
+    fn decider(&self, trust: Trust) -> impl Fn(&KeyChange) -> bool + '_ {
+        move |change| match trust {
+            Trust::Refuse => false,
+            Trust::AssumeYes => true,
+            Trust::Prompt => self.asker.as_ref().is_some_and(|ask| ask(change)),
         }
     }
 
@@ -321,10 +350,11 @@ impl Registry for ConfiguredRegistry {
             &metadata,
             &wasm,
             allow_unsigned,
-            policy(trust),
+            &self.decider(trust),
             &self.user.known_keys(),
         )
         .map_err(OpError::from)?; // 4
+        self.fetched.lock().unwrap().extend(trusted.diagnostics);
 
         Ok(Package {
             name: name.clone(),
@@ -332,7 +362,14 @@ impl Registry for ConfiguredRegistry {
             sha256: metadata.sha256,
             wasm,
             declaration,
-            key_id: trusted.key_id,
+            publisher: match trusted.accepted {
+                Accepted::Unsigned => Publisher::Unsigned,
+                Accepted::Signed { key_id, pinned_now } => Publisher::Signed {
+                    key_id,
+                    first_use: pinned_now,
+                },
+                Accepted::Repinned { key_id, previous } => Publisher::Repinned { key_id, previous },
+            },
         })
     }
 
@@ -542,15 +579,6 @@ fn declaration_names(
         .with_suggestion("don't install the package, and check the registry"));
     }
     Ok(())
-}
-
-/// How the client decides a key change for the way `add` was asked to.
-fn policy(trust: Trust) -> TrustPolicy {
-    match trust {
-        Trust::Refuse => TrustPolicy::Refuse,
-        Trust::AssumeYes => TrustPolicy::AssumeYes,
-        Trust::Prompt => TrustPolicy::Prompt,
-    }
 }
 
 /// The declaration a registry stores as `name@version`'s manifest. A

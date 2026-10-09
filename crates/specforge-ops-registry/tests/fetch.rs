@@ -7,7 +7,7 @@
 
 use sha2::{Digest, Sha256};
 use specforge_ops::extension::Trust;
-use specforge_ops::registry::Registry;
+use specforge_ops::registry::{Publisher, Registry};
 use specforge_ops_registry::{ConfiguredRegistry, User};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
@@ -308,7 +308,7 @@ fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
 
     let package = project.fetch(true, Trust::Refuse).unwrap();
     assert_eq!(package.wasm, WASM);
-    assert_eq!(package.key_id, None);
+    assert_eq!(package.publisher, Publisher::Unsigned);
     assert_eq!(project.pinned(), None);
 }
 
@@ -325,12 +325,24 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(package.version.to_string(), VERSION);
     assert_eq!(package.wasm, WASM);
     assert_eq!(package.sha256, sha256(WASM));
-    assert_eq!(package.key_id, Some(key.key_id()));
+    assert_eq!(
+        package.publisher,
+        Publisher::Signed {
+            key_id: key.key_id(),
+            first_use: true
+        }
+    );
     assert_eq!(project.pinned(), Some(key.key_id()));
 
     // A second install under the same pin is accepted as is.
     let again = project.fetch(false, Trust::Refuse).unwrap();
-    assert_eq!(again.key_id, Some(key.key_id()));
+    assert_eq!(
+        again.publisher,
+        Publisher::Signed {
+            key_id: key.key_id(),
+            first_use: false
+        }
+    );
     assert_eq!(project.pinned(), Some(key.key_id()));
 }
 
@@ -365,7 +377,13 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
     project.pin(&pinned);
 
     let package = project.fetch(false, Trust::AssumeYes).unwrap();
-    assert_eq!(package.key_id, Some(other.key_id()));
+    assert_eq!(
+        package.publisher,
+        Publisher::Repinned {
+            key_id: other.key_id(),
+            previous: pinned.key_id()
+        }
+    );
     assert_eq!(project.pinned(), Some(other.key_id()));
 }
 
@@ -602,9 +620,11 @@ fn the_environment_token_is_not_sent_on_a_read() {
     assert!(reads[0].credential.is_none());
 }
 
-// pin (16-T0): flipped by T7.
-#[test]
-fn an_unsigned_fetch_reports_nothing() {
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
+)]
+fn an_unsigned_fetch_is_reported_as_w155() {
     let project = Project::on(Reply::unsigned());
     let registry = project.registry();
 
@@ -617,13 +637,70 @@ fn an_unsigned_fetch_reports_nothing() {
         )
         .unwrap();
 
-    assert_eq!(package.key_id, None);
-    assert!(
-        registry
-            .reported()
-            .iter()
-            .all(|d| d.severity != specforge_common::Severity::Warning),
-        "{:?}",
-        registry.reported()
-    );
+    assert_eq!(package.publisher, Publisher::Unsigned);
+    let reported = registry.reported();
+    let w155: Vec<_> = reported.iter().filter(|d| d.code == "W155").collect();
+    assert_eq!(w155.len(), 1, "{reported:?}");
+    assert!(w155[0].message.contains("@acme/tool 1.0.0"), "{w155:?}");
+}
+
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "consent to a key change is reported as W156"
+)]
+fn a_consented_key_change_is_reported_as_w156() {
+    let pinned = SigningKey::generate();
+    let other = SigningKey::generate();
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let registry = project.registry();
+
+    registry
+        .fetch(
+            &PackageName::parse(NAME).unwrap(),
+            &Version::parse(VERSION).unwrap(),
+            false,
+            Trust::AssumeYes,
+        )
+        .unwrap();
+
+    let reported = registry.reported();
+    let w156: Vec<_> = reported.iter().filter(|d| d.code == "W156").collect();
+    assert_eq!(w156.len(), 1, "{reported:?}");
+    assert!(w156[0].message.contains(&pinned.key_id()), "{w156:?}");
+    assert!(w156[0].message.contains(&other.key_id()), "{w156:?}");
+}
+
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "a key change is decided by the surface that can ask"
+)]
+fn a_key_change_is_decided_by_the_asker() {
+    let pinned = SigningKey::generate();
+    let other = SigningKey::generate();
+    let (a, b) = (pinned.key_id(), other.key_id());
+    let name = PackageName::parse(NAME).unwrap();
+    let version = Version::parse(VERSION).unwrap();
+
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let asked = project.registry().asking(move |change| {
+        assert_eq!(
+            (change.pinned.as_str(), change.offered.as_str()),
+            (a.as_str(), b.as_str())
+        );
+        true
+    });
+    asked
+        .fetch(&name, &version, false, Trust::Prompt)
+        .expect("the asker said yes");
+
+    // Without an asker, a Prompt is a refusal.
+    let project = Project::on(Reply::signed(&other));
+    project.pin(&pinned);
+    let error = project
+        .registry()
+        .fetch(&name, &version, false, Trust::Prompt)
+        .unwrap_err();
+    assert_eq!(error.code, "R-TRUST-003", "{error:?}");
 }

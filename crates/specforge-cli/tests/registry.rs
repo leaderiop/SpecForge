@@ -1179,9 +1179,11 @@ fn an_unknown_category_is_refused_before_any_request() {
     assert!(registry.requests().is_empty());
 }
 
-// pin (16-T0): flipped by T7.
-#[test]
-fn an_unsigned_add_warns_on_stderr_without_a_code() {
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
+)]
+fn an_unsigned_add_reports_w155_in_both_formats() {
     use crate::published::{Package, serve};
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
 
@@ -1206,14 +1208,23 @@ fn an_unsigned_add_warns_on_stderr_without_a_code() {
             "{}",
             String::from_utf8_lossy(&output.stdout)
         );
-        stderr_of(&output)
+        output
     };
 
     let human = add("human");
-    assert!(human.contains("installing UNSIGNED package"), "{human}");
-    assert!(!human.contains("W155"), "{human}");
+    assert!(
+        stderr_of(&human).contains("warning[W155]"),
+        "{}",
+        stderr_of(&human)
+    );
     let json = add("json");
-    assert!(!json.contains("UNSIGNED"), "{json}");
+    assert!(
+        stderr_of(&json).contains("warning[W155]"),
+        "{}",
+        stderr_of(&json)
+    );
+    let doc: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(doc["publisher"], "unsigned", "{doc}");
 }
 
 // ---------------------------------------------------------------

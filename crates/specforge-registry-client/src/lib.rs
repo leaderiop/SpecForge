@@ -33,3 +33,4 @@ pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key_at, signing_key_path, verify_signature,
 };
 pub use trust::{KnownKeys, known_keys_path, load_known_keys_at, save_known_keys_at};
+pub use trust_flow::{Accepted, KeyChange, Trusted};

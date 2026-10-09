@@ -207,10 +207,7 @@ fn the_configuration_is_reported_once_the_registry_is_asked() {
     let error = registry.versions(&tool).unwrap_err();
 
     assert!(error.is(codes::R_RES_001), "{error:?}");
-    let reported: Vec<&str> = registry
-        .reported()
-        .iter()
-        .map(|d| d.code.as_str())
-        .collect();
+    let reported = registry.reported();
+    let reported: Vec<&str> = reported.iter().map(|d| d.code.as_str()).collect();
     assert!(reported.contains(&"W140"), "{reported:?}");
 }

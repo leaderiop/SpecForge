@@ -704,6 +704,8 @@ type McpAddExtensionPackage "A package installed and locked" {
   sha256    string
   /// The publisher key id; absent for an unsigned package.
   key_id    string @optional
+  /// How the publisher was accepted: unsigned, pinned, pinned_now or repinned; absent for a local file.
+  publisher string @optional
   source    string
   note      string
   verify unit "McpAddExtensionPackage schema is valid"

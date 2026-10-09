@@ -4443,6 +4443,9 @@ expression: listing
             "note": {
               "type": "string"
             },
+            "publisher": {
+              "type": "string"
+            },
             "sha256": {
               "type": "string"
             },

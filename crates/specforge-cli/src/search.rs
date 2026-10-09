@@ -15,7 +15,7 @@ pub fn run(
     // No registry configured: fail before any network call (ADR 0004 N1).
     let registry = ConfiguredRegistry::for_project(path, "search");
     let searched = registry.search(query, contributes);
-    format.eprint_diagnostics(registry.reported());
+    format.eprint_diagnostics(&registry.reported());
     let searched = match searched {
         Ok(searched) => searched,
         Err(error) => return Refusal::of(format).report(&error),

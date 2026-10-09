@@ -840,6 +840,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
     broken_signature_refused "A signature that is malformed or doesn't verify is refused with R-TRUST-002, even with --allow-unsigned"
     unsigned_refused         "An unsigned package is refused with R-TRUST-001 unless --allow-unsigned is given"
     unsigned_pins_nothing    "An unsigned package accepted with --allow-unsigned pins no key"
+    unsigned_reported        "An unsigned package accepted with --allow-unsigned is reported as W155"
   }
   contract   """
     A registry package's Ed25519 publisher signature MUST be verified
@@ -850,13 +851,15 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
     binary or swapped manifest), MUST be refused with R-TRUST-002, and
     --allow-unsigned MUST NOT bypass it. A package with no signature MUST
     be refused with R-TRUST-001 unless the user passes --allow-unsigned;
-    one accepted that way pins no key.
+    one accepted that way pins no key. Accepting it is reported as W155 on
+    every surface; the check itself writes nothing to the terminal.
   """
   verify integration "a signature over other bytes is refused even with --allow-unsigned"
   verify integration "a swapped manifest breaks the signature"
   verify integration "a malformed signature object is refused"
   verify integration "an unsigned package is refused without --allow-unsigned"
   verify integration "an unsigned package is accepted with --allow-unsigned and pins no key"
+  verify integration "an unsigned package accepted with --allow-unsigned is reported as W155"
 }
 
 behavior pin_publisher_key "Pin Publisher Key" {
@@ -874,6 +877,9 @@ behavior pin_publisher_key "Pin Publisher Key" {
     changed_key_refused "A key other than the pinned one is refused with R-TRUST-003 and both key ids, unless the user consents"
     consent_repins      "Consent to a key change (--yes, or yes at the prompt) re-pins the new key"
     denied_key_refused  "A key on denied_keys is refused with R-TRUST-005, even with consent"
+    repin_reported      "A re-pinned key is reported as W156 naming both key ids"
+    first_use_named     "A first-use pin is named in the operation's outcome (the publisher is pinned now)"
+    surface_decides     "Whether to accept a key change is asked of the surface that can ask (the CLI's terminal); MCP and --format json refuse it"
   }
   contract   """
     Trust on first use: the first time a signed package verifies, its
@@ -884,12 +890,17 @@ behavior pin_publisher_key "Pin Publisher Key" {
     interactive yes, or the key on trusted_keys); --allow-unsigned is not
     consent. Consent MUST re-pin the new key. A key on denied_keys MUST be
     refused with R-TRUST-005 whatever the consent. A refused package
-    leaves the pin as it was.
+    leaves the pin as it was. A re-pin is reported as W156; a first-use
+    pin is part of the outcome. The decision on a key change belongs to
+    the surface: the CLI asks on its terminal, and a surface nobody can be
+    asked on refuses.
   """
   verify integration "the key of the first verified install is pinned and accepted again"
   verify integration "a package signed by another key than the pinned one is refused"
   verify integration "consent to a key change re-pins the new key"
   verify integration "a denied key is refused even with consent"
+  verify integration "consent to a key change is reported as W156"
+  verify integration "a key change is decided by the surface that can ask"
 }
 
 behavior configure_registries "Configure Registries" {

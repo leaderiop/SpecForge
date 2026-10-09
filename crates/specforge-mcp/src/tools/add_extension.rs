@@ -58,6 +58,10 @@ pub struct Package {
     sha256: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     key_id: Option<String>,
+    /// How the publisher was accepted: `unsigned`, `pinned`, `pinned_now` or `repinned`; absent for
+    /// a local file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publisher: Option<String>,
     source: String,
     note: String,
 }
@@ -121,7 +125,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
     let added = extension::add(&request, &registry, project.runtime.as_ref());
     // What reading the registry configuration reported (E067, W140, I003), once the add asked a
     // registry, as `specforge add` shows it.
-    let reported = registry.reported().to_vec();
+    let reported = registry.reported();
     let added = match added {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
@@ -150,7 +154,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
             name,
             version,
             sha256,
-            key_id,
+            publisher,
             origin,
         } => (
             Reply::Package(Package {
@@ -158,7 +162,11 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
                 installed: true,
                 version,
                 sha256,
-                key_id,
+                key_id: publisher
+                    .as_ref()
+                    .and_then(|p| p.key_id())
+                    .map(str::to_string),
+                publisher: publisher.as_ref().map(|p| p.as_str().to_string()),
                 source: source_of(&origin),
                 note: note.to_string(),
             }),
