@@ -752,7 +752,7 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   features   [extension_registry]
   invariants [registry_integrity, wasm_compile_cache_integrity, offline_first_extension_resolution]
   category   validation
-  types      [PackageMetadata, LockFileEntry, TrustLevel, ExtensionError]
+  types      [PackageMetadata, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   produces   [registry_integrity_verified]
   requires {
@@ -762,8 +762,7 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   ensures {
     hash_verified              "SHA256 hash of downloaded binary matches the declared hash"
     mismatch_aborts            "Hash mismatch produces hard error and aborts installation"
-    trust_level_assigned       "Trust level is deterministically assigned based on source type"
-    lock_file_updated          "SHA256 hash and trust level are recorded in specforge.lock"
+    lock_file_updated          "The SHA256 hash and the publisher key id are recorded in specforge.lock"
     integrity_verified_emitted "registry_integrity_verified event fires on successful verification"
   }
   contract   """
@@ -771,21 +770,13 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
     verify its SHA256 hash against the hash declared in the package's
     PackageMetadata.
     Mismatches MUST produce a hard error and abort installation. The
-    trust level MUST be assigned deterministically from the source:
-    local filesystem paths MUST receive "local", git URLs MUST receive
-    "git", community registries without publisher verification MUST
-    receive "community", and registries with publisher signature
-    verification MUST receive "verified". The assigned trust level
-    MUST be recorded in specforge.lock alongside the SHA256 hash.
+    SHA256 hash and, for a signed package, its publisher key id MUST be
+    recorded in specforge.lock.
   """
   verify unit "matching SHA256 passes verification"
   verify unit "mismatched SHA256 produces hard error"
-  verify unit "trust level recorded in specforge.lock"
-  verify unit "local source assigned local trust level"
-  verify unit "git source assigned git trust level"
-  verify unit "community registry source assigned community trust level"
-  verify unit "verified registry source assigned verified trust level"
-  verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, trust_level_assigned, lock_file_updated, integrity_verified_emitted, receive"
+  verify unit "the sha256 and the publisher key id are recorded in specforge.lock"
+  verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, lock_file_updated, integrity_verified_emitted"
 }
 
 // Package trust after the SHA256 check (docs/registry-trust.md). The

@@ -135,13 +135,14 @@ invariant registry_integrity "Registry Integrity" {
   guarantee """
     Downloaded extension binaries from a registry MUST be verified against
     their declared SHA256 hash before installation. Hash mismatches MUST
-    produce a hard error diagnostic and abort installation. The trust level
-    of the source MUST be recorded in specforge.lock.
+    produce a hard error diagnostic and abort installation. The hash and,
+    for a signed package, its publisher key id MUST be recorded in
+    specforge.lock.
   """
   risk      high
   verify unit "SHA256 match passes verification"
   verify unit "SHA256 mismatch produces hard error and aborts"
-  verify unit "trust level recorded in lock file"
+  verify unit "the hash and the key id are recorded in the lock file"
 }
 
 invariant publisher_trust "Publisher Trust" {

@@ -173,8 +173,6 @@ type RegistryPublished "Registry Published" {
   verify unit "RegistryPublished is what the registry that took a publish answers with"
 }
 
-type TrustLevel = verified | community | local | git
-
 // ── Registry Authentication ───────────────────────────────
 
 // One entry of ~/.specforge/credentials.json, keyed by registry alias:

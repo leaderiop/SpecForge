@@ -75,7 +75,7 @@ feature extension_registry "Extension Registry" {
     routing. specforge search queries every
     configured registry, filtered by declared category. specforge extension publish uploads validated .wasm binaries
     with SHA256 integrity. Downloaded binaries are verified against declared
-    hashes and assigned trust levels (verified, community, local, git)
+    hashes and their publisher signatures, and the hash and key id are
     recorded in specforge.lock. First-use MUST NOT require network access —
     local path and git sources work offline; network registries are opt-in
     configuration. At build/release time, a keyword-to-extension index is generated from the registry catalog and bundled as a data file. This index powers the suggest-missing-extensions diagnostic (E024 help text) for offline use.
@@ -90,7 +90,7 @@ feature registry_authentication "Registry Authentication" {
   problem  """
     Extension registries may require authentication for private or enterprise
     extensions. There is no mechanism to configure credentials, authenticate
-    requests, or manage trust levels for private registries. Without
+    requests, or read a registry that requires a token. Without
     authentication, organizations cannot use private extension repositories.
   """
   solution """
