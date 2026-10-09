@@ -17,11 +17,11 @@ use crate::{PackageSignature, SigningKey, TrustCheck};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
     pub kind: CallKind,
-    /// The alias of the registry asked; `None` for a download.
+    /// The alias of the registry asked.
     pub registry: Option<String>,
     /// `name`, `name@version`, the query, or the download URL.
     pub subject: String,
-    /// What a publish or an authenticate sent.
+    /// What the call sent: a read's credential, a publish's or an authenticate's.
     pub credential: Option<RegistryCredential>,
     /// A publish's signature object.
     pub signature: Option<String>,
@@ -60,6 +60,8 @@ struct State {
     /// The binary of each stored version, by the URL it downloads from.
     binaries: HashMap<String, Vec<u8>>,
     tokens: HashSet<String>,
+    /// The registries (by URL) whose reads require an accepted token.
+    private: HashSet<String>,
     failures: Vec<Failure>,
     calls: Vec<Call>,
 }
@@ -92,6 +94,14 @@ impl MemoryClient {
     /// tokens it issued.
     pub fn accepting(self, token: &str) -> Self {
         self.state.lock().unwrap().tokens.insert(token.to_string());
+        self
+    }
+
+    /// Make the reads of `registry` (versions, metadata, download, search) answer `Unauthorized` unless the
+    /// credential's token is one the client accepts ([`MemoryClient::accepting`]), as a registry
+    /// served with `--private` does.
+    pub fn private(self, registry: &RegistryConfig) -> Self {
+        self.state.lock().unwrap().private.insert(key_of(registry));
         self
     }
 
@@ -166,6 +176,34 @@ impl MemoryClient {
         }
     }
 
+    /// A read of `registry`: recorded with its credential, refused when the registry is private and
+    /// the credential is not accepted.
+    fn read(
+        &self,
+        kind: CallKind,
+        registry: &RegistryConfig,
+        subject: String,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<(), RegistryError> {
+        self.begin(
+            Call {
+                credential: credential.cloned(),
+                ..Self::call(kind, Some(registry), subject)
+            },
+            Some(registry),
+        )?;
+        let private = self
+            .state
+            .lock()
+            .unwrap()
+            .private
+            .contains(&key_of(registry));
+        if private {
+            self.accepts(credential)?;
+        }
+        Ok(())
+    }
+
     fn call(kind: CallKind, registry: Option<&RegistryConfig>, subject: String) -> Call {
         Call {
             kind,
@@ -204,11 +242,9 @@ impl RegistryClient for MemoryClient {
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError> {
-        self.begin(
-            Self::call(CallKind::Versions, Some(registry), name.to_string()),
-            Some(registry),
-        )?;
+        self.read(CallKind::Versions, registry, name.to_string(), credential)?;
         let state = self.state.lock().unwrap();
         let versions: Vec<String> = state
             .registries
@@ -231,12 +267,10 @@ impl RegistryClient for MemoryClient {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError> {
         let subject = format!("{name}@{version}");
-        self.begin(
-            Self::call(CallKind::Metadata, Some(registry), subject.clone()),
-            Some(registry),
-        )?;
+        self.read(CallKind::Metadata, registry, subject.clone(), credential)?;
         let state = self.state.lock().unwrap();
         state
             .registries
@@ -248,10 +282,17 @@ impl RegistryClient for MemoryClient {
             .ok_or(RegistryError::NotFound { specifier: subject })
     }
 
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
-        self.begin(
-            Self::call(CallKind::Download, None, wasm_url.to_string()),
-            None,
+    fn download(
+        &self,
+        wasm_url: &str,
+        registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<Vec<u8>, RegistryError> {
+        self.read(
+            CallKind::Download,
+            registry,
+            wasm_url.to_string(),
+            credential,
         )?;
         let state = self.state.lock().unwrap();
         state
@@ -267,11 +308,9 @@ impl RegistryClient for MemoryClient {
         &self,
         query: &str,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {
-        self.begin(
-            Self::call(CallKind::Search, Some(registry), query.to_string()),
-            Some(registry),
-        )?;
+        self.read(CallKind::Search, registry, query.to_string(), credential)?;
         let needle = query.to_ascii_lowercase();
         let matches = |m: &Stored| {
             m.name.to_ascii_lowercase().contains(&needle)
@@ -498,7 +537,7 @@ pub fn assert_client_contract(
     let base = registry.url.trim_end_matches('/');
 
     // K1
-    let error = client.versions(&tool, registry).unwrap_err();
+    let error = client.versions(&tool, registry, None).unwrap_err();
     assert!(
         matches!(error, RegistryError::NotFound { .. }),
         "K1: versions before any publish is NotFound, not {error:?}"
@@ -527,14 +566,16 @@ pub fn assert_client_contract(
     }
 
     // K3
-    let mut versions = client.versions(&tool, registry).expect("K3: versions");
+    let mut versions = client
+        .versions(&tool, registry, None)
+        .expect("K3: versions");
     versions.sort();
     assert_eq!(versions, ["1.0.0", "1.1.0"], "K3: the published versions");
 
     // K4
     let (declaration, wasm) = &declarations[1];
     let metadata = client
-        .metadata(&tool, &Version::new(1, 1, 0), registry)
+        .metadata(&tool, &Version::new(1, 1, 0), registry, None)
         .expect("K4: metadata of 1.1.0");
     assert_eq!(metadata.name, "@contract/tool", "K4: name");
     assert_eq!(metadata.version, "1.1.0", "K4: version");
@@ -556,7 +597,7 @@ pub fn assert_client_contract(
 
     // K5
     let bytes = client
-        .download(&metadata.wasm_url)
+        .download(&metadata.wasm_url, registry, None)
         .expect("K5: download of the metadata's wasm_url");
     assert_eq!(&bytes, wasm, "K5: the published bytes");
     assert_eq!(
@@ -569,7 +610,7 @@ pub fn assert_client_contract(
 
     // K6
     let error = client
-        .metadata(&tool, &Version::new(9, 9, 9), registry)
+        .metadata(&tool, &Version::new(9, 9, 9), registry, None)
         .unwrap_err();
     assert!(
         matches!(error, RegistryError::NotFound { .. }),
@@ -594,13 +635,17 @@ pub fn assert_client_contract(
     );
 
     // K8
-    let hits = client.search("contract", registry).expect("K8: search");
+    let hits = client
+        .search("contract", registry, None)
+        .expect("K8: search");
     assert_eq!(hits.len(), 1, "K8: one hit for \"contract\": {hits:?}");
     assert_eq!(hits[0].name, "@contract/tool", "K8: the hit's name");
     assert_eq!(hits[0].version, "1.1.0", "K8: the latest version");
     assert_eq!(hits[0].description, "Contract tool", "K8: the description");
     assert_eq!(
-        client.search("a&b=c#d", registry).expect("K8: odd query"),
+        client
+            .search("a&b=c#d", registry, None)
+            .expect("K8: odd query"),
         vec![],
         "K8: a query cannot change the parameters"
     );
@@ -625,5 +670,110 @@ pub fn assert_client_contract(
     assert!(
         matches!(error, RegistryError::Unauthorized { .. }),
         "K10: publishing with no credential is Unauthorized, not {error:?}"
+    );
+}
+
+/// The private client contract (plan 16): what every `RegistryClient` adapter does against a registry that
+/// requires a token to read and holds nothing yet. `credential` must be one `registry` accepts.
+pub fn assert_private_client_contract(
+    client: &dyn RegistryClient,
+    registry: &RegistryConfig,
+    credential: &RegistryCredential,
+) {
+    let tool = PackageName::parse("@contract/tool").unwrap();
+    let unauthorized = |what: &str, result: Result<(), RegistryError>| {
+        assert!(
+            matches!(result, Err(RegistryError::Unauthorized { .. })),
+            "K-P1: {what} without a credential is Unauthorized, not {result:?}"
+        );
+    };
+
+    // K-P1
+    unauthorized(
+        "versions",
+        client.versions(&tool, registry, None).map(|_| ()),
+    );
+    unauthorized(
+        "metadata",
+        client
+            .metadata(&tool, &Version::new(1, 0, 0), registry, None)
+            .map(|_| ()),
+    );
+    unauthorized(
+        "download",
+        client
+            .download(
+                &format!(
+                    "{}{}",
+                    registry.url.trim_end_matches('/'),
+                    path::download(&tool, &Version::new(1, 0, 0))
+                ),
+                registry,
+                None,
+            )
+            .map(|_| ()),
+    );
+    unauthorized("search", client.search("x", registry, None).map(|_| ()));
+
+    // K-P2
+    let error = client
+        .versions(&tool, registry, Some(credential))
+        .unwrap_err();
+    assert!(
+        matches!(error, RegistryError::NotFound { .. }),
+        "K-P2: versions with the credential is NotFound, not {error:?}"
+    );
+    assert_eq!(
+        client
+            .search("x", registry, Some(credential))
+            .expect("K-P2: search with the credential"),
+        vec![],
+        "K-P2: nothing is published yet"
+    );
+
+    // K-P3
+    let declaration = contract_declaration("1.0.0");
+    let wasm = b"\0asm contract tool private".to_vec();
+    let key = SigningKey::generate();
+    crate::publish_to_registry(
+        &wasm,
+        &declaration,
+        registry,
+        Some(credential),
+        client,
+        Some(&key),
+    )
+    .expect("K-P3: publishing with the credential");
+    let metadata = client
+        .metadata(&tool, &Version::new(1, 0, 0), registry, Some(credential))
+        .expect("K-P3: metadata with the credential");
+    let bytes = client
+        .download(&metadata.wasm_url, registry, Some(credential))
+        .expect("K-P3: download with the credential");
+    assert_eq!(bytes, wasm, "K-P3: the published bytes");
+    unauthorized(
+        "a published version's metadata",
+        client
+            .metadata(&tool, &Version::new(1, 0, 0), registry, None)
+            .map(|_| ()),
+    );
+    unauthorized(
+        "a published version's download",
+        client
+            .download(&metadata.wasm_url, registry, None)
+            .map(|_| ()),
+    );
+
+    // K-P4
+    client
+        .authenticate(registry, credential)
+        .expect("K-P4: the credential authenticates");
+    let wrong = RegistryCredential::new(credential.alias.clone(), "not-a-token");
+    assert!(
+        matches!(
+            client.authenticate(registry, &wrong),
+            Err(RegistryError::Unauthorized { .. })
+        ),
+        "K-P4: a token the registry does not know is Unauthorized"
     );
 }

@@ -4,7 +4,20 @@ use crate::db::Database;
 use crate::rate::RateLimiter;
 use crate::storage::LocalStorage;
 
+/// Who may read a registry: list versions, read metadata, download, search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReadAccess {
+    /// Anyone (the default; `specforge-registry serve`).
+    #[default]
+    Public,
+    /// A request with a valid token only (`specforge-registry serve --private`); any unrevoked,
+    /// unexpired token reads every package, whatever its scope.
+    Token,
+}
+
 pub struct AppState {
+    /// Who may read.
+    pub read_access: ReadAccess,
     pub database: Database,
     pub storage: LocalStorage,
     /// Fixed-window rate limiter shared by all keyed checks.
@@ -36,11 +49,16 @@ impl PublishLimits {
 impl AppState {
     /// A registry whose database (`registry.db`) and binaries (`packages/`) live under `data_dir`, created
     /// when missing.
-    pub fn open(data_dir: &Path, limits: PublishLimits) -> Result<AppState, String> {
+    pub fn open(
+        data_dir: &Path,
+        limits: PublishLimits,
+        read_access: ReadAccess,
+    ) -> Result<AppState, String> {
         std::fs::create_dir_all(data_dir)
             .map_err(|e| format!("failed to create data directory: {e}"))?;
         let database = Database::open(&data_dir.join("registry.db"))?;
         Ok(AppState {
+            read_access,
             database,
             storage: LocalStorage::new(data_dir.join("packages")),
             rate_limiter: RateLimiter::new(limits.window.as_secs().max(1)),

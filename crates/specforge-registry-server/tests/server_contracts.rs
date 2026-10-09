@@ -25,6 +25,7 @@ fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppStat
                 per_ip: 10_000,
                 window: std::time::Duration::from_secs(60),
             },
+            specforge_registry_server::state::ReadAccess::Public,
         )
         .expect("open registry"),
     )
@@ -770,4 +771,54 @@ async fn the_server_answers_in_these_json_shapes() {
     let yanked = json_of(response).await;
     assert_eq!(yanked, serde_json::json!({"yanked": true}));
     round_trips::<Yanked>(&yanked);
+}
+
+#[tokio::test]
+async fn a_private_registry_refuses_anonymous_reads() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = Arc::new(
+        AppState::open(
+            dir.path(),
+            PublishLimits {
+                per_token: 100,
+                per_ip: 100,
+                window: std::time::Duration::from_secs(60),
+            },
+            specforge_registry_server::state::ReadAccess::Token,
+        )
+        .unwrap(),
+    );
+    let raw = auth::create_token(&state.database, None, "reader", Some(90), false);
+    let reads = [
+        "/v1/packages/%40acme%2Fx",
+        "/v1/packages/%40acme%2Fx/1.0.0",
+        "/v1/packages/%40acme%2Fx/1.0.0/download",
+        "/v1/search?q=x",
+    ];
+    for uri in reads {
+        let anonymous = app(Arc::clone(&state))
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED, "{uri}");
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(anonymous.into_body(), 1_000_000)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["error"]["code"], "UNAUTHORIZED", "{uri}");
+
+        let authorized = app(Arc::clone(&state))
+            .oneshot(
+                Request::builder()
+                    .uri(uri)
+                    .header("authorization", format!("Bearer {raw}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(authorized.status(), StatusCode::UNAUTHORIZED, "{uri}");
+    }
 }

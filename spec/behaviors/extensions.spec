@@ -1135,33 +1135,44 @@ behavior support_private_registries "Support Private Registries" {
   features   [registry_authentication]
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
   category   command
-  types      [RegistryConfig, RegistryCredential, TrustLevel, PackageMetadata]
+  types      [RegistryConfig, RegistryCredential, PackageMetadata]
   ports      [RegistryClient]
   requires {
-    credentials_configured    "Registry has configured credentials for authentication"
+    credentials_configured    "A credential is kept for the registry's alias (credentials.json)"
     registry_client_available "RegistryClient port is available for authenticated fetching"
   }
   ensures {
-    authenticated_before_fetch "Authentication occurs before fetching from private registry"
-    scope_filter_respected     "Only extensions matching the scope_filter are fetched from authenticated registries"
-    trust_level_assigned       "Extensions receive appropriate trust level based on registry trust configuration"
-    no_auth_leaks              "Error messages do not leak authentication details"
+    authenticated_before_fetch  "Every read (versions, metadata, download, search) carries the credential kept for that registry"
+    scope_filter_respected      "Only extensions matching the scope_filter are fetched from authenticated registries"
+    same_origin_downloads       "A download from another origin than the registry's carries no credential"
+    unusable_credential_refused "A kept credential that can't be used refuses the read before any request"
+    no_auth_leaks               "Error messages do not leak authentication details"
   }
   contract   """
-    When fetching extensions from a registry with configured credentials,
-    the system MUST authenticate before fetching. The scope_filter on the
-    RegistryConfig MUST be respected — only extensions matching the scope
-    filter SHOULD be fetched from authenticated registries. Extensions from
-    private registries MUST be assigned the appropriate trust level based on
-    the registry's trust configuration. Private registry errors MUST NOT
-    leak authentication details in diagnostic messages.
+    A registry may require a token to read (specforge-registry serve
+    --private, or any registry behind authentication). Every read the
+    system makes of a registry (its versions, a version's metadata, the
+    download, a search) MUST carry the credential the user keeps for that
+    registry's alias, when one is kept; with none the read is anonymous.
+    SPECFORGE_REGISTRY_TOKEN authenticates a publish only: it names no
+    registry, and a search asks every registry. A download MUST carry
+    the credential only when its URL has the registry's origin (scheme,
+    host and port). A kept credential that can't be used (expired,
+    unreadable, an unset variable or an unreadable file) MUST refuse the
+    read with its code before any request. The scope_filter on the
+    RegistryConfig MUST be respected (resolve_registry_source). A package
+    from a private registry passes the same fetch policy as any other:
+    integrity, declaration, publisher signature and pin. Private registry
+    errors MUST NOT leak authentication details in diagnostic messages.
   """
   verify unit "authentication occurs before fetch from private registry"
   verify unit "scope_filter restricts which extensions are fetched"
-  verify unit "trust level assigned based on registry configuration"
   verify unit "error messages do not leak authentication details"
-  verify contract "Support Private Registries: private registry support holds — credentials_configured, registry_client_available, authenticated_before_fetch, scope_filter_respected, trust_level_assigned, no_auth_leaks"
+  verify unit "a download from another origin carries no credential"
+  verify unit "an unusable stored credential refuses the read before any request"
+  verify integration "a private registry refuses an anonymous read and answers an authenticated one"
+  verify integration "a registry that requires a token to read is read with the stored credential"
+  verify contract "Support Private Registries: private registry support holds — credentials_configured, registry_client_available, authenticated_before_fetch, scope_filter_respected, same_origin_downloads, unusable_credential_refused, no_auth_leaks"
   // Observability: error diagnostics for private registry operations delegate
-  // to authenticate_registry_request and retry_registry_request for auth and
-  // retry details. This behavior owns the scope_filter and trust_level logic.
+  // to authenticate_registry_request and retry_registry_request.
 }

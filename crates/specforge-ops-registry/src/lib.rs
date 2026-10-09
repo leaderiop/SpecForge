@@ -294,12 +294,16 @@ impl Registry for ConfiguredRegistry {
         trust: Trust,
     ) -> Result<Package, OpError> {
         let registry = self.registry_for(name)?;
+        let credential = self.read_credential(registry)?; // R-AUTH-020/021, R010, R011, R012
         let metadata = self
             .client
-            .metadata(name, version, registry)
+            .metadata(name, version, registry, credential.as_ref())
             .map_err(failure)?;
         reply_names(name, version, &metadata)?; // 1
-        let wasm = self.client.download(&metadata.wasm_url).map_err(failure)?;
+        let wasm = self
+            .client
+            .download(&metadata.wasm_url, registry, credential.as_ref())
+            .map_err(failure)?;
         verify_registry_integrity(&wasm, &metadata.sha256).map_err(OpError::from)?; // 2
 
         // The served manifest is the package's declaration (ADR 0012): the
@@ -334,9 +338,10 @@ impl Registry for ConfiguredRegistry {
 
     fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
         let registry = self.registry_for(name)?;
+        let credential = self.read_credential(registry)?;
         let published = self
             .client
-            .versions(name, registry)
+            .versions(name, registry, credential.as_ref())
             .map_err(|error| match error {
                 RegistryError::NotFound { .. } => OpError::from(
                     Diagnostic::new(
@@ -381,6 +386,19 @@ impl Registry for ConfiguredRegistry {
 }
 
 impl ConfiguredRegistry {
+    /// The credential the user keeps for `registry`, for a read: the stored one
+    /// ([`specforge_registry_client::CredentialStore::credential`]), `None` when there is none. The
+    /// environment's `SPECFORGE_REGISTRY_TOKEN` is not used: it is the token of the registry a publish
+    /// goes to, and a read may ask every registry (search). A stored credential that can't be used
+    /// refuses the read before any request.
+    fn read_credential(
+        &self,
+        registry: &RegistryConfig,
+    ) -> Result<Option<RegistryCredential>, OpError> {
+        let store = read_credentials(&self.user.credentials()).map_err(OpError::from)?;
+        store.credential(&registry.alias).map_err(OpError::from)
+    }
+
     /// The credential a publish to `registry` authenticates with: the
     /// environment's token when set and not blank (the store is not read),
     /// else the one stored for the registry's alias.

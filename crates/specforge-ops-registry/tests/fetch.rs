@@ -517,10 +517,27 @@ fn store_credentials(project: &Project, json: &str) {
     std::fs::write(home.join("credentials.json"), json).unwrap();
 }
 
-// pin (16-T0): flipped by T4.
-#[test]
-fn a_read_sends_no_credential() {
+/// Every read the client answered: versions, metadata and download calls.
+fn reads(project: &Project) -> Vec<specforge_registry_client::testing::Call> {
     use specforge_registry_client::testing::CallKind;
+    project
+        .client
+        .calls()
+        .into_iter()
+        .filter(|call| {
+            matches!(
+                call.kind,
+                CallKind::Versions | CallKind::Metadata | CallKind::Download
+            )
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "authentication occurs before fetch from private registry"
+)]
+fn a_read_carries_the_stored_credential() {
     let project = Project::on(Reply::unsigned());
     store_credentials(&project, r#"{"registries":{"local":{"token":"t"}}}"#);
     let registry = project.registry();
@@ -536,19 +553,53 @@ fn a_read_sends_no_credential() {
         )
         .unwrap();
 
-    let reads: Vec<_> = project
-        .client
-        .calls()
-        .into_iter()
-        .filter(|call| {
-            matches!(
-                call.kind,
-                CallKind::Versions | CallKind::Metadata | CallKind::Download
-            )
-        })
-        .collect();
+    let reads = reads(&project);
     assert_eq!(reads.len(), 3, "{reads:?}");
-    assert!(reads.iter().all(|call| call.credential.is_none()));
+    assert!(
+        reads
+            .iter()
+            .all(|call| call.credential.as_ref().map(|c| c.token()) == Some("t")),
+        "{reads:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "an unusable stored credential refuses the read before any request"
+)]
+fn an_expired_stored_credential_refuses_a_read() {
+    let project = Project::on(Reply::unsigned());
+    store_credentials(
+        &project,
+        r#"{"registries":{"local":{"token":"t","expires_at":"2000-01-01T00:00:00Z"}}}"#,
+    );
+
+    let error = project
+        .registry()
+        .versions(&PackageName::parse(NAME).unwrap())
+        .unwrap_err();
+
+    assert_eq!(error.code, "R-AUTH-020", "{error:?}");
+    assert!(project.client.calls().is_empty());
+}
+
+#[test]
+fn the_environment_token_is_not_sent_on_a_read() {
+    let project = Project::on(Reply::unsigned());
+    let registry = ConfiguredRegistry::for_project(project.dir.path(), "add")
+        .with_client(project.client.clone())
+        .as_user(User::at(
+            project.dir.path().join("home"),
+            Some("env".to_string()),
+        ));
+
+    registry
+        .versions(&PackageName::parse(NAME).unwrap())
+        .unwrap();
+
+    let reads = reads(&project);
+    assert_eq!(reads.len(), 1);
+    assert!(reads[0].credential.is_none());
 }
 
 // pin (16-T0): flipped by T7.

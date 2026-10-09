@@ -64,6 +64,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
             &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_protocol_types::package::Version::new(0, 1, 0),
             &config(&registry),
+            None,
         )
         .unwrap();
     let stored: specforge_protocol_types::ExtensionDeclaration =
@@ -167,6 +168,7 @@ fn greet_is_published(registry: &LocalRegistry) -> bool {
             &specforge_protocol_types::PackageName::parse("@sdk/greet").unwrap(),
             &specforge_protocol_types::package::Version::new(0, 1, 0),
             &config(registry),
+            None,
         )
         .is_ok()
 }

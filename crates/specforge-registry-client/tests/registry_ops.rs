@@ -189,6 +189,7 @@ fn publish_computes_sha256() {
             &PackageName::parse("@test/ext").unwrap(),
             &Version::new(1, 0, 0),
             &registry,
+            None,
         )
         .unwrap();
     assert_eq!(

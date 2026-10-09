@@ -31,7 +31,7 @@ pub fn search_registries(
     let mut seen = HashSet::new();
 
     for registry in registries {
-        match client.search(query, registry) {
+        match client.search(query, registry, None) {
             Ok(results) => {
                 for result in results {
                     let key = (result.name.clone(), result.version.clone());

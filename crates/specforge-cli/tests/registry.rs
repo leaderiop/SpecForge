@@ -1285,3 +1285,45 @@ fn login_with_two_token_sources_is_refused() {
     assert_eq!(json["code"], "R-LOGIN-001", "{json}");
     assert!(registry.requests().is_empty(), "{:?}", registry.requests());
 }
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "a registry that requires a token to read is read with the stored credential"
+)]
+fn add_from_a_private_registry_with_a_stored_credential() {
+    use crate::published::Package;
+    let registry = specforge_registry_server::testing::LocalRegistry::start_private();
+    let package = Package::new("@sdk/greet", "0.1.0", greet_wasm());
+    registry.store(
+        &specforge_registry_client::testing::package(
+            &package.name,
+            &package.version,
+            &package.wasm,
+            &package.manifest(),
+            None,
+        ),
+        &package.wasm,
+    );
+    let dir = project_on(&registry);
+
+    // With the credential the user keeps for the registry: installed.
+    let home = TempDir::new().unwrap();
+    std::fs::create_dir_all(home.path().join(".specforge")).unwrap();
+    std::fs::write(
+        home.path().join(".specforge/credentials.json"),
+        serde_json::json!({"registries": {"local": {"token": registry.token()}}}).to_string(),
+    )
+    .unwrap();
+    let output = add_greet(&dir, &home, &["--allow-unsigned"]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    // Without it: refused as unauthenticated, nothing installed.
+    let dir = project_on(&registry);
+    let bare = TempDir::new().unwrap();
+    let output = add_greet(&dir, &bare, &["--allow-unsigned"]);
+    assert_refused(&output, &dir, "R001");
+}

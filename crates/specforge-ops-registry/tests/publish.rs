@@ -318,7 +318,7 @@ fn publish_asks_the_registry_fetch_asks() {
         [
             (CallKind::Publish, "acme".to_string()),
             (CallKind::Metadata, "acme".to_string()),
-            (CallKind::Download, String::new()),
+            (CallKind::Download, "acme".to_string()),
             (CallKind::Publish, "main".to_string()),
             (CallKind::Versions, "main".to_string()),
         ]

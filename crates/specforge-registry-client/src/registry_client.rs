@@ -97,11 +97,13 @@ impl From<RegistryError> for Diagnostic {
 /// `crate::testing::assert_client_contract`.
 pub trait RegistryClient: Send + Sync {
     /// Every version `registry` publishes of `name`, as served (not parsed). `NotFound` when it has no
-    /// such package.
+    /// such package. A read carries `credential` as `Authorization: Bearer` when given; a registry that
+    /// requires one answers `Unauthorized` without it.
     fn versions(
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError>;
 
     /// What `registry` stores for `name@version`, its `wasm_url` absolute. `NotFound` when it has none.
@@ -110,16 +112,25 @@ pub trait RegistryClient: Send + Sync {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError>;
 
-    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's).
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError>;
+    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's). `credential` is sent only when
+    /// `wasm_url` has `registry.url`'s origin (scheme, host and port): a download served elsewhere (a CDN)
+    /// never sees the registry's token.
+    fn download(
+        &self,
+        wasm_url: &str,
+        registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<Vec<u8>, RegistryError>;
 
     /// The latest version of each package matching `query`.
     fn search(
         &self,
         query: &str,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError>;
 
     /// Publish an extension package (Wasm binary + manifest) to the registry.

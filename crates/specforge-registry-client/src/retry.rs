@@ -108,8 +108,9 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError> {
-        self.sent(|| self.inner.versions(name, registry))
+        self.sent(|| self.inner.versions(name, registry, credential))
     }
 
     fn metadata(
@@ -117,20 +118,27 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
         name: &PackageName,
         version: &Version,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError> {
-        self.sent(|| self.inner.metadata(name, version, registry))
+        self.sent(|| self.inner.metadata(name, version, registry, credential))
     }
 
-    fn download(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
-        self.sent(|| self.inner.download(wasm_url))
+    fn download(
+        &self,
+        wasm_url: &str,
+        registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
+    ) -> Result<Vec<u8>, RegistryError> {
+        self.sent(|| self.inner.download(wasm_url, registry, credential))
     }
 
     fn search(
         &self,
         query: &str,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<Vec<SearchHit>, RegistryError> {
-        self.sent(|| self.inner.search(query, registry))
+        self.sent(|| self.inner.search(query, registry, credential))
     }
 
     fn publish(
