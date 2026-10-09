@@ -230,3 +230,31 @@ fn an_untitled_entity_has_no_title() {
         assert_ne!(structured.get(key), Some(&Value::Null), "{key}");
     }
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "the entity's diagnostics are in the shape validate reports them"
+)]
+fn inspect_diagnostics_are_validates() {
+    let mut served = crate::support::replies::reading();
+    let inspected = crate::support::tool(
+        &mut served,
+        "specforge.inspect",
+        json!({"entity_id": "untitled_one"}),
+    );
+    let validated = crate::support::tool(&mut served, "specforge.validate", json!({}));
+    let validated = validated.as_array().expect("validate answers an array");
+    let diagnostics = inspected["diagnostics"].as_array().expect("an array");
+    assert!(!diagnostics.is_empty(), "{inspected}");
+    for diagnostic in diagnostics {
+        let same = validated
+            .iter()
+            .find(|v| v["code"] == diagnostic["code"] && v["span"] == diagnostic["span"])
+            .unwrap_or_else(|| panic!("validate reports no {diagnostic}"));
+        assert_eq!(same, diagnostic);
+        // The full keys: the catalogue's title, the span, the flat position.
+        for key in ["title", "span", "file", "line", "column"] {
+            assert!(diagnostic.get(key).is_some(), "{key}: {diagnostic}");
+        }
+    }
+}

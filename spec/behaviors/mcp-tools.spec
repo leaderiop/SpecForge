@@ -497,8 +497,8 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     MUST count the recorded test results in specforge-report.json exactly as
     specforge.coverage does. References are split by direction:
     referenced_by (incoming) and refers_to (outgoing); references and
-    reference_count remain as deprecated aliases. The related diagnostics
-    are those about the entity: the entities a diagnostic's data names, or,
+    reference_count remain as deprecated aliases. The related diagnostics,
+    in the shape specforge.validate reports them, are those about the entity: the entities a diagnostic's data names, or,
     when its data names none, the innermost entity whose source span holds
     the diagnostic's span. A diagnostic's message is never read; an entity
     whose ID is a prefix of another's never collects the other's
@@ -510,6 +510,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
   verify unit "an untitled entity's reply has no title"
+  verify unit "the entity's diagnostics are in the shape validate reports them"
   verify unit "non-existent entity returns error response"
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"

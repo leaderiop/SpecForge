@@ -5,7 +5,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::shape::Shape;
-use specforge_common::{Severity, SourceSpan};
+use specforge_common::{DiagnosticList, SourceSpan};
 use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
 use crate::args::Arguments;
@@ -58,16 +58,9 @@ pub struct Reply {
     references: Vec<String>,
     #[shape(names = specforge_ops::coverage::STATUS)]
     coverage_status: String,
-    diagnostics: Vec<Diagnostic>,
-}
-
-/// One diagnostic about the entity.
-#[derive(Debug, Serialize, Shape)]
-pub struct Diagnostic {
-    code: String,
-    severity: Severity,
-    message: String,
-    suggestion: Option<String>,
+    /// The diagnostics about the entity, in the shape `specforge.validate`
+    /// reports them.
+    diagnostics: DiagnosticList,
 }
 
 pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
@@ -118,16 +111,7 @@ impl Reply {
                 .to_string(),
             // The diagnostics about the entity: those its data names it in,
             // else those inside its block (ADR 0016); never by its message.
-            diagnostics: facts
-                .diagnostics
-                .iter()
-                .map(|d| Diagnostic {
-                    code: d.code.clone(),
-                    severity: d.severity,
-                    message: d.message.clone(),
-                    suggestion: d.suggestion.clone(),
-                })
-                .collect(),
+            diagnostics: DiagnosticList(facts.diagnostics.iter().map(|d| (*d).clone()).collect()),
         }
     }
 }

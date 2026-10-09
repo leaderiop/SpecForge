@@ -9,9 +9,21 @@ expression: "normalized(result, root)"
   "diagnostics": [
     {
       "code": "W006",
+      "column": 1,
+      "file": "main.spec",
+      "line": 1,
       "message": "behavior 'login' has no category — agents use category for task routing",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 5,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "suggestion": null,
+      "title": "Behavior missing category"
     }
   ],
   "entity_id": "login",

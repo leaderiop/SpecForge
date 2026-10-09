@@ -38,6 +38,9 @@ expression: cli_snap
         "findings": [
           {
             "code": "A001",
+            "column": 1,
+            "file": "a.spec",
+            "line": 5,
             "message": "invariant 'soft' declares no verify obligations",
             "origin": "@specforge/testing",
             "severity": "Warning",
@@ -48,10 +51,14 @@ expression: cli_snap
               "start_col": 1,
               "start_line": 5
             },
-            "suggestion": "add a `verify unit` or `verify property` statement"
+            "suggestion": "add a `verify unit` or `verify property` statement",
+            "title": "Testable entity without obligations"
           },
           {
             "code": "A002",
+            "column": 1,
+            "file": "a.spec",
+            "line": 5,
             "message": "invariant 'soft' declares no verify obligations",
             "origin": "@specforge/testing",
             "severity": "Warning",
@@ -62,10 +69,14 @@ expression: cli_snap
               "start_col": 1,
               "start_line": 5
             },
-            "suggestion": "add a `verify property` or `verify unit` obligation"
+            "suggestion": "add a `verify property` or `verify unit` obligation",
+            "title": "Invariant without obligations"
           },
           {
             "code": "A015",
+            "column": 1,
+            "file": "a.spec",
+            "line": 1,
             "message": "type 'widget' has 1 obligation(s) no passing test proves: \"widget valid\"",
             "origin": "@specforge/testing",
             "severity": "Warning",
@@ -76,7 +87,8 @@ expression: cli_snap
               "start_col": 1,
               "start_line": 1
             },
-            "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"
+            "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)",
+            "title": "Unproven obligations"
           }
         ],
         "pass": "@specforge/testing:coverage",

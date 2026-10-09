@@ -8,9 +8,21 @@ expression: "normalized(result, root)"
   "diagnostics": [
     {
       "code": "W002",
+      "column": 1,
+      "file": "main.spec",
+      "line": 18,
       "message": "type 'Payload' is not referenced by any behavior, port, or type",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 21,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 18
+      },
+      "suggestion": null,
+      "title": "Unreferenced type"
     }
   ],
   "entity_id": "Payload",

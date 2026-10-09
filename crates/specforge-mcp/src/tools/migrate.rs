@@ -69,14 +69,8 @@ pub struct Ran {
     #[serde(skip_serializing_if = "Option::is_none")]
     rollback: Option<RollbackSummary>,
     post_migration_validated: bool,
-    post_migration_errors: Vec<PostMigrationError>,
-}
-
-/// An error compiling the migrated project reported.
-#[derive(Debug, Serialize, Shape)]
-pub struct PostMigrationError {
-    code: String,
-    message: String,
+    /// What compiling the migrated project reported as errors.
+    post_migration_errors: DiagnosticList,
 }
 
 pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
@@ -144,13 +138,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutation<Reply> {
         rolled_back: outcome.rollback.is_some(),
         rollback: outcome.rollback.clone(),
         post_migration_validated: outcome.validated,
-        post_migration_errors: outcome
-            .post_errors()
-            .map(|d| PostMigrationError {
-                code: d.code.clone(),
-                message: d.message.clone(),
-            })
-            .collect(),
+        post_migration_errors: DiagnosticList(outcome.post_errors().cloned().collect()),
     }));
     // A failed run's report rides in `data`, and what it left written (its
     // backups after a rollback, the files migrated before a failure) is

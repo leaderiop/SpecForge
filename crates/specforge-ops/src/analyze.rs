@@ -17,7 +17,7 @@ use serde_json::Value;
 use specforge_common::shape::Shape;
 
 use crate::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
-use specforge_common::{Diagnostic, Severity, codes};
+use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::Graph;
 use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
@@ -269,7 +269,7 @@ impl AnalyzeOutcome {
                 .iter()
                 .map(|r| PassDocument {
                     pass: r.name.clone(),
-                    findings: r.findings.clone(),
+                    findings: DiagnosticList(r.findings.clone()),
                     summary: r.summary.clone(),
                 })
                 .collect(),
@@ -298,7 +298,7 @@ pub struct AnalyzeDocument {
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct PassDocument {
     pub pass: String,
-    pub findings: Vec<Diagnostic>,
+    pub findings: DiagnosticList,
     /// What the pass summarizes: an open value, the pass's own.
     pub summary: Value,
 }
