@@ -31,7 +31,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
     all_kinds_mapped            "Every entity kind in the schema produces exactly one ModelEntity in the IR"
     synthetic_id_added          "Every ModelEntity has an id field with is_primary_key=true as its first field"
     cardinality_inferred        "Every ModelRelationship has a non-null cardinality derived from the source field type"
-    extension_metadata_computed "Every ModelExtension has accurate entity_count and edge_count"
+    extension_metadata_computed "Every ModelExtension's entity_count is the kinds it declares that the model keeps, and its edge_count the edge types it declares that name a drawn relationship"
   }
   contract   """
     When the model command is invoked, the system MUST build a
@@ -41,8 +41,11 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
     Every SchemaEdgeType MUST produce one ModelRelationship with cardinality
     inferred from the source entity's field type: reference -> ManyToOne,
     reference_list -> ManyToMany, unknown -> ManyToMany (safe default).
-    The IR MUST carry extension metadata (name, version, entity count,
-    edge count) for grouping renderers.
+    The IR MUST carry extension metadata for grouping renderers: name,
+    version, the entity kinds it declares that the model keeps, and the
+    edge types it declares that name at least one relationship the model
+    draws. A standalone edge type (no source or target kinds) draws
+    nothing and is not counted.
   """
   verify unit "every schema entity kind maps to a ModelEntity"
   verify unit "a field's type is named as its extension declares it; DBML writes its own column type"
@@ -51,6 +54,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
   verify unit "reference_list field produces ManyToMany cardinality"
   verify unit "unknown field type defaults to ManyToMany cardinality"
   verify unit "extension metadata has correct entity and edge counts"
+  verify unit "an extension's edge count is the edge types the model draws"
   verify unit "empty schema produces empty ModelIntermediate"
   verify contract "Build Model Intermediate Representation: model IR construction holds — schema_available, all_kinds_mapped, synthetic_id_added, cardinality_inferred, extension_metadata_computed"
 }
@@ -285,8 +289,11 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
     the loaded extension it most likely means. A kind of --kinds the
     project does not know MUST be reported as I020, naming the closest
     kind, and selects nothing. The model export itself is total: a name
-    its schema does not have selects nothing.
+    its schema does not have selects nothing. After a selection, each
+    extension's entity and edge counts are recomputed by
+    build_model_intermediate's rule over what is kept.
   """
+  verify unit "a selection recounts each extension's entities and drawn edge types"
   verify unit "extension filter includes only matching entities"
   verify unit "extension filter excludes cross-extension edges when both endpoints not included"
   verify unit "kind filter includes only listed kinds"

@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use super::{
-    FieldLevel, ModelEntity, ModelExtension, ModelIntermediate, ModelOptions, ModelRelationship,
-};
+use super::{FieldLevel, ModelIntermediate, ModelOptions, ModelRelationship};
 
 impl ModelIntermediate {
     /// The entities `options` selects: those of `options.extension`, among
     /// `options.kinds`, within `options.root`'s reach. Relationships between
-    /// two kept entities stay, and the extensions are recounted.
+    /// two kept entities stay, and the extensions are recounted
+    /// ([`ModelIntermediate::recount`]).
     pub(super) fn selected(self, options: &ModelOptions) -> Self {
         let has_filter =
             options.extension.is_some() || !options.kinds.is_empty() || options.root.is_some();
@@ -47,7 +46,7 @@ impl ModelIntermediate {
             extensions,
             mut entities,
             mut relationships,
-            mut edge_type_owners,
+            edge_type_owners,
         } = self;
 
         // Filter entities
@@ -56,15 +55,6 @@ impl ModelIntermediate {
         // Prune relationships where either endpoint is filtered out
         relationships.retain(|r| keep.contains(&r.source) && keep.contains(&r.target));
 
-        // Filter edge_type_owners to only edges whose declaring extension
-        // still has surviving entities
-        let surviving_extensions: HashSet<&str> =
-            entities.iter().map(|e| e.extension.as_str()).collect();
-        edge_type_owners.retain(|(_, ext)| surviving_extensions.contains(ext.as_str()));
-
-        // Recompute extension metadata using edge_type_owners for accurate attribution
-        let extensions = recompute_extensions(&extensions, &entities, &edge_type_owners);
-
         ModelIntermediate {
             model_version,
             extensions,
@@ -72,6 +62,7 @@ impl ModelIntermediate {
             relationships,
             edge_type_owners,
         }
+        .recount()
     }
 
     /// Each entity listing the fields `level` names.
@@ -126,32 +117,4 @@ fn bfs_reachable(
     }
 
     visited
-}
-
-fn recompute_extensions(
-    original: &[ModelExtension],
-    entities: &[ModelEntity],
-    edge_type_owners: &[(String, String)],
-) -> Vec<ModelExtension> {
-    let mut entity_counts: HashMap<&str, usize> = HashMap::new();
-    for e in entities {
-        *entity_counts.entry(e.extension.as_str()).or_insert(0) += 1;
-    }
-
-    // Count unique edge types per declaring extension
-    let mut edge_counts: HashMap<&str, usize> = HashMap::new();
-    for (_, ext) in edge_type_owners {
-        *edge_counts.entry(ext.as_str()).or_insert(0) += 1;
-    }
-
-    original
-        .iter()
-        .map(|ext| ModelExtension {
-            name: ext.name.clone(),
-            version: ext.version.clone(),
-            entity_count: entity_counts.get(ext.name.as_str()).copied().unwrap_or(0),
-            edge_count: edge_counts.get(ext.name.as_str()).copied().unwrap_or(0),
-            color: ext.color.clone(),
-        })
-        .collect()
 }

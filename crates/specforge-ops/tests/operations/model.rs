@@ -363,10 +363,13 @@ fn the_model_filters_compose_as_an_intersection() {
     );
 }
 
-// P3 - kept.
-#[test]
-fn an_extensions_counts_after_a_filter() {
+#[specforge_test(
+    behavior = "filter_model",
+    verify = "a selection recounts each extension's entities and drawn edge types"
+)]
+fn an_extensions_counts_after_a_filter_are_what_the_selection_draws() {
     let project = two_extensions();
+    // `Triggers` joins behavior to event, which this selection drops: nothing is drawn.
     assert_eq!(
         counts_of(
             &project,
@@ -375,7 +378,17 @@ fn an_extensions_counts_after_a_filter() {
                 ..ModelOptions::default()
             }
         ),
-        [("@t/soft".into(), 1, 1), ("@t/test".into(), 0, 0)]
+        [("@t/soft".into(), 1, 0), ("@t/test".into(), 0, 0)]
+    );
+    assert_eq!(
+        counts_of(
+            &project,
+            ModelOptions {
+                kinds: vec!["behavior".into(), "event".into()],
+                ..ModelOptions::default()
+            }
+        ),
+        [("@t/soft".into(), 2, 1), ("@t/test".into(), 0, 0)]
     );
     assert_eq!(
         counts_of(

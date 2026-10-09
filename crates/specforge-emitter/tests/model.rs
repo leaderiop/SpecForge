@@ -1418,9 +1418,11 @@ fn an_empty_kind_list_selects_every_kind() {
     assert!(!names(&all["entities"]).is_empty());
 }
 
-// pin (16-T0): flipped by T12.
-#[test]
-fn an_unfiltered_model_counts_an_edge_type_it_draws_nothing_for() {
+#[specforge_test_macros::test(
+    behavior = "build_model_intermediate",
+    verify = "an extension's edge count is the edge types the model draws"
+)]
+fn an_extension_counts_the_edge_types_the_model_draws() {
     let kind = |name: &str| SchemaEntityKind {
         name: name.to_string(),
         source_extension: "@specforge/software".to_string(),
@@ -1454,5 +1456,60 @@ fn an_unfiltered_model_counts_an_edge_type_it_draws_nothing_for() {
     let model = built(&schema);
 
     assert_eq!(model["relationships"].as_array().unwrap().len(), 1);
-    assert_eq!(model["extensions"][0]["edge_count"], 2);
+    // `References` is a standalone edge type: it draws nothing, so it is not counted.
+    assert_eq!(model["extensions"][0]["edge_count"], 1);
+}
+
+#[test]
+fn an_enhancements_edge_types_count_for_their_owner() {
+    let kind = |name: &str, extension: &str| SchemaEntityKind {
+        name: name.to_string(),
+        source_extension: extension.to_string(),
+        testable: false,
+        dot_color: None,
+        fields: vec![],
+    };
+    let extension = |name: &str| SchemaExtensionInfo {
+        name: name.to_string(),
+        version: "1.0.0".to_string(),
+    };
+    let schema = GraphProtocolSchema {
+        schema_version: SchemaVersion::new(1, 0, 0),
+        extensions: vec![extension("@x/soft"), extension("@x/formal")],
+        entity_kinds: vec![kind("behavior", "@x/soft"), kind("invariant", "@x/soft")],
+        edge_types: vec![SchemaEdgeType {
+            label: "Proves".to_string(),
+            source_extension: "@x/formal".to_string(),
+            source_kinds: Some(vec!["behavior".to_string()]),
+            target_kinds: Some(vec!["invariant".to_string()]),
+        }],
+    };
+
+    let model = json_of(
+        &schema,
+        ModelOptions {
+            kinds: vec!["behavior".to_string(), "invariant".to_string()],
+            ..ModelOptions::default()
+        },
+    );
+
+    let counts: Vec<(String, u64, u64)> = model["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["name"].as_str().unwrap().to_string(),
+                e["entity_count"].as_u64().unwrap(),
+                e["edge_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        counts,
+        [
+            ("@x/soft".to_string(), 2, 0),
+            ("@x/formal".to_string(), 0, 1)
+        ]
+    );
 }
