@@ -304,7 +304,7 @@ pub fn rollback(root: &Path) -> RollbackOutcome {
     let summary = run_rollback(root);
     let mut writes = restored_writes(&summary);
     if summary.record != RecordChange::Unchanged {
-        writes.record(&specforge_common::project_root_of(root).join(MigrationRecord::PATH));
+        writes.record(specforge_common::project_root_of(root).join(MigrationRecord::PATH));
     }
     RollbackOutcome { summary, writes }
 }
