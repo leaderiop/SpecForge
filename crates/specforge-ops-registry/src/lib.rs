@@ -21,7 +21,7 @@ use specforge_registry_client::signing::load_or_create_signing_key_at;
 use specforge_registry_client::trust_flow::TrustPolicy;
 use specforge_registry_client::{
     AuthMethod, HttpRegistryClient, RegistryClient, RegistryConfig, RegistryCredential,
-    RegistryError, SigningKey, parse_registries_from_config, publish_to_registry,
+    RegistryError, Retrying, SigningKey, parse_registries_from_config, publish_to_registry,
     verify_registry_integrity,
 };
 use specforge_registry_wire::PackageMetadata;
@@ -241,7 +241,7 @@ impl ConfiguredRegistry {
             root: root.to_path_buf(),
             operation: operation.to_string(),
             registries: OnceLock::new(),
-            client: Box::new(HttpRegistryClient::new()),
+            client: Box::new(Retrying::new(HttpRegistryClient::new())),
             user: User::current(),
         }
     }

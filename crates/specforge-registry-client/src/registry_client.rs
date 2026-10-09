@@ -147,33 +147,3 @@ pub trait RegistryClient: Send + Sync {
         credential: &RegistryCredential,
     ) -> Result<Option<String>, RegistryError>;
 }
-
-/// Retry policy for registry operations using exponential backoff.
-#[derive(Debug, Clone)]
-pub struct RetryPolicy {
-    pub base_delay_ms: u64,
-    pub max_delay_ms: u64,
-    pub max_retries: u32,
-}
-
-impl Default for RetryPolicy {
-    fn default() -> Self {
-        Self {
-            base_delay_ms: 1000,
-            max_delay_ms: 30_000,
-            max_retries: 3,
-        }
-    }
-}
-
-impl RetryPolicy {
-    /// Calculate the delay in milliseconds for a given attempt (0-indexed).
-    ///
-    /// Uses exponential backoff: `base_delay_ms * 2^attempt`, capped at `max_delay_ms`.
-    pub fn delay_for_attempt(&self, attempt: u32) -> u64 {
-        let delay = self
-            .base_delay_ms
-            .saturating_mul(2u64.saturating_pow(attempt));
-        delay.min(self.max_delay_ms)
-    }
-}

@@ -23,6 +23,7 @@ fn app_state(dir: &std::path::Path, publish_limit_per_token: u32) -> Arc<AppStat
             PublishLimits {
                 per_token: publish_limit_per_token,
                 per_ip: 10_000,
+                window: std::time::Duration::from_secs(60),
             },
         )
         .expect("open registry"),

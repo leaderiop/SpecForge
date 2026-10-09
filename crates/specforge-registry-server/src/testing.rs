@@ -2,6 +2,7 @@
 //! client's contract run, the configured registry's (ADR 0044).
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use axum::extract::{Request, State};
 use axum::middleware::Next;
@@ -33,6 +34,7 @@ impl LocalRegistry {
         Self::start_with(PublishLimits {
             per_token: 100,
             per_ip: 100,
+            window: Duration::from_secs(60),
         })
     }
 

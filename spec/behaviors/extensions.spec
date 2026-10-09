@@ -1034,22 +1034,28 @@ behavior retry_registry_request "Retry Registry Request" {
     registry_client_available "RegistryClient port is available for retry requests"
   }
   ensures {
-    exponential_backoff_applied "429 responses trigger retry with exponential backoff (base 1s, max 30s, max 3 retries)"
-    timeout_diagnosed           "Network timeouts produce ExtensionError diagnostic with retry guidance"
+    exponential_backoff_applied "A 429 answer is sent again after the longer of the backoff (1 s, doubling, at most 30 s) and Retry-After, at most 3 times"
+    timeout_diagnosed           "A network timeout is not retried: it is R004, whose suggestion says to retry"
     retries_exhausted_emitted   "registry_request_retry_exhausted event fires when max retries exceeded"
   }
   contract   """
-    When a registry request receives a 429 (rate limited) response, the
-    system MUST retry with exponential backoff (base 1s, max 30s, max
-    retries 3). When a request times out (network timeout), the system
-    MUST produce an ExtensionError diagnostic with retry guidance. Retry
-    logic applies to all registry operations (authentication, download,
-    search, publish) uniformly.
+    When a registry answers a request with 429 (rate limited), the system
+    MUST send the request again after a wait: the longer of the backoff
+    (1 s, then 2 s, then 4 s) and the registry's Retry-After, at most 3
+    times. A Retry-After longer than 30 s is not waited for: the request
+    fails at once with R003, naming when to retry. When the retries are
+    exhausted the request fails with R003. Every registry call is retried
+    alike (versions, metadata, download, search, publish, authenticate):
+    a publish is safe to send again, since a registry refuses a
+    rate-limited publish before it reads the upload. A network timeout is
+    not retried: it fails with R004, whose suggestion says to retry.
   """
   produces   [registry_request_retry_exhausted]
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
   verify unit "max retries exceeded produces final error"
+  verify unit "a Retry-After longer than the longest backoff is not waited for"
+  verify integration "a rate-limited publish is sent again once the registry's wait has passed"
   verify integration "a rate-limited answer is R003 on every registry call"
   verify contract "Retry Registry Request: registry request retry holds — registry_request_failed, registry_client_available, exponential_backoff_applied, timeout_diagnosed, retries_exhausted_emitted"
 }

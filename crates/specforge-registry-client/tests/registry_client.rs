@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use specforge_common::Severity;
 use specforge_registry_client::auth;
-use specforge_registry_client::registry_client::{RegistryError, RetryPolicy};
+use specforge_registry_client::registry_client::RegistryError;
 use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 use specforge_registry_client::testing::{CallKind, MemoryClient};
 
@@ -181,26 +181,6 @@ fn diagnostics_never_contain_raw_token() {
             .as_ref()
             .is_some_and(|s| s.contains(raw_token))
     );
-}
-
-// B:retry-policy — verify unit "exponential backoff with base 1s, max 30s, max 3 retries"
-#[test]
-fn retry_policy_exponential_backoff() {
-    let policy = RetryPolicy::default();
-    assert_eq!(policy.base_delay_ms, 1000);
-    assert_eq!(policy.max_delay_ms, 30_000);
-    assert_eq!(policy.max_retries, 3);
-
-    // 1000 * 2^0 = 1000
-    assert_eq!(policy.delay_for_attempt(0), 1000);
-    // 1000 * 2^1 = 2000
-    assert_eq!(policy.delay_for_attempt(1), 2000);
-    // 1000 * 2^2 = 4000
-    assert_eq!(policy.delay_for_attempt(2), 4000);
-    // 1000 * 2^3 = 8000
-    assert_eq!(policy.delay_for_attempt(3), 8000);
-    // 1000 * 2^5 = 32000 -> capped at 30000
-    assert_eq!(policy.delay_for_attempt(5), 30_000);
 }
 
 // B:registry-timeout — verify unit "timeout error produces diagnostic"

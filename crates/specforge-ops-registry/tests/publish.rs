@@ -389,13 +389,16 @@ fn on_server(server: &specforge_registry_server::testing::LocalRegistry) -> (Tem
     (project, TempDir::new().unwrap())
 }
 
-// pin (16-T0): flipped by T2 (it keeps the bug-free half: a wait past the longest backoff is not taken).
-#[test]
-fn a_rate_limited_publish_is_sent_once() {
+#[specforge_test(
+    behavior = "retry_registry_request",
+    verify = "a Retry-After longer than the longest backoff is not waited for"
+)]
+fn a_retry_after_beyond_the_longest_backoff_is_not_waited_for() {
     use specforge_registry_server::state::PublishLimits;
     let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
         per_token: 1,
         per_ip: 100,
+        window: std::time::Duration::from_secs(60),
     });
     let (project, home) = on_server(&server);
     let registry = ConfiguredRegistry::for_project(project.path(), "publish")
@@ -404,17 +407,50 @@ fn a_rate_limited_publish_is_sent_once() {
     registry
         .publish(&pkg("@acme/x", "1.0.0").upload())
         .expect("the first publish is within the limit");
+    let started = std::time::Instant::now();
     let error = registry
         .publish(&pkg("@acme/x", "1.0.1").upload())
         .unwrap_err();
 
     assert_eq!(error.code, "R003", "{error:?}");
+    // The 60 s window's Retry-After exceeds the longest backoff: no wait, no second request.
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
     let puts = server
         .requests()
         .iter()
         .filter(|request| request.starts_with("PUT"))
         .count();
     assert_eq!(puts, 2, "{:?}", server.requests());
+}
+
+#[specforge_test(
+    behavior = "retry_registry_request",
+    verify = "a rate-limited publish is sent again once the registry's wait has passed"
+)]
+fn a_rate_limited_publish_is_sent_again_after_its_wait() {
+    use specforge_registry_server::state::PublishLimits;
+    let server = specforge_registry_server::testing::LocalRegistry::start_with(PublishLimits {
+        per_token: 1,
+        per_ip: 100,
+        window: std::time::Duration::from_secs(1),
+    });
+    let (project, home) = on_server(&server);
+    let registry = ConfiguredRegistry::for_project(project.path(), "publish")
+        .as_user(User::at(home.path(), Some(server.token().to_string())));
+
+    registry
+        .publish(&pkg("@acme/x", "1.0.0").upload())
+        .expect("the first publish is within the limit");
+    registry
+        .publish(&pkg("@acme/x", "1.0.1").upload())
+        .expect("the second is sent again after the window");
+
+    let puts = server
+        .requests()
+        .iter()
+        .filter(|request| request.starts_with("PUT"))
+        .count();
+    assert_eq!(puts, 3, "{:?}", server.requests());
 }
 
 /// `home` with `credentials.json` holding `json`.

@@ -7,7 +7,7 @@ use serde_json::json;
 use specforge_common::codes;
 use specforge_ops::OpError;
 use specforge_registry_client::{
-    AuthMethod, HttpRegistryClient, RegistryCredential,
+    AuthMethod, HttpRegistryClient, RegistryCredential, Retrying,
     credentials::{credentials_path, read_credentials, write_credentials},
     validate_credentials,
 };
@@ -52,7 +52,7 @@ pub(crate) fn run(
         auth_method: AuthMethod::Bearer(token_value.clone()),
     };
 
-    let client = HttpRegistryClient::new();
+    let client = Retrying::new(HttpRegistryClient::new());
     let expires_at = match validate_credentials(&client, &registry, &credential) {
         Ok(expires_at) => expires_at,
         Err(diag) => return refuse(&OpError::from(diag)),

@@ -116,6 +116,7 @@ fn a_rate_limited_publish_is_r003() {
     let server = LocalRegistry::start_with(PublishLimits {
         per_token: 1,
         per_ip: 100,
+        window: std::time::Duration::from_secs(60),
     });
     let (registry, credential) = client_of(&server);
     let key = SigningKey::generate();
