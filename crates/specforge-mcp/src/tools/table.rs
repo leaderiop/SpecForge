@@ -12,11 +12,35 @@ use crate::target::ProjectTarget;
 use crate::tool::{Effect, Handler, MutationHandler, ToolGroup, ToolSpec, WriteHints};
 
 /// A handler that reads no project, given its typed arguments only: refused
-/// when they don't parse. It returns an outcome, or `Handled` to use `?`.
+/// when they don't parse. `Args => Reply` answers a typed `Answered<Reply>`
+/// (its outputSchema is the reply's); `text` answers `Answered<Text>`;
+/// without either the handler returns an outcome, or `Handled` to use `?`
+/// (a tool not yet typed).
 macro_rules! unscoped {
+    (text $handler:path, $args:ty) => {
+        Handler::Unscoped {
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
+            run: |_, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => crate::reply::text($handler(args)),
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
+    ($handler:path, $args:ty => $reply:ty) => {
+        Handler::Unscoped {
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: Some(crate::reply::output_schema::<$reply>),
+            run: |_, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => crate::reply::structured::<$reply>($handler(args)),
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
     ($handler:path, $args:ty) => {
         Handler::Unscoped {
             arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
             run: |_, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => crate::tool::IntoOutcome::into_outcome($handler(args)),
                 Err(refused) => crate::tool::ToolOutcome::Refused(refused),
@@ -27,12 +51,35 @@ macro_rules! unscoped {
 
 /// A handler given the project view of its target (the empty session's with
 /// nothing served) and its typed arguments: refused when they don't parse.
-/// It returns an outcome, or `Handled` to use `?`.
+/// `Args => Reply`, `text` and the untyped form are as for `unscoped!`.
 macro_rules! view {
+    (text $handler:path, $args:ty, $target:expr) => {
+        Handler::View {
+            target: $target,
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => crate::reply::text($handler(call.view(), args)),
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
+    ($handler:path, $args:ty => $reply:ty, $target:expr) => {
+        Handler::View {
+            target: $target,
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: Some(crate::reply::output_schema::<$reply>),
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => crate::reply::structured::<$reply>($handler(call.view(), args)),
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
     ($handler:path, $args:ty, $target:expr) => {
         Handler::View {
             target: $target,
             arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => crate::tool::IntoOutcome::into_outcome($handler(call.view(), args)),
                 Err(refused) => crate::tool::ToolOutcome::Refused(refused),
@@ -42,12 +89,44 @@ macro_rules! view {
 }
 
 /// A handler given the project it acts on and its typed arguments: refused
-/// when they don't parse. It returns an outcome, or `Handled` to use `?`.
+/// when they don't parse. `Args => Reply`, `text` and the untyped form are
+/// as for `unscoped!`.
 macro_rules! project {
+    (text $handler:path, $args:ty, $target:expr) => {
+        Handler::Project {
+            target: $target,
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                // The call target refused a call with no project before
+                // this runs.
+                Ok(args) => match call.project() {
+                    Ok(project) => crate::reply::text($handler(&project, args)),
+                    Err(refused) => refused.into(),
+                },
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
+    ($handler:path, $args:ty => $reply:ty, $target:expr) => {
+        Handler::Project {
+            target: $target,
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: Some(crate::reply::output_schema::<$reply>),
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => match call.project() {
+                    Ok(project) => crate::reply::structured::<$reply>($handler(&project, args)),
+                    Err(refused) => refused.into(),
+                },
+                Err(refused) => crate::tool::ToolOutcome::Refused(refused),
+            },
+        }
+    };
     ($handler:path, $args:ty, $target:expr) => {
         Handler::Project {
             target: $target,
             arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 // The call target refused a call with no project before
                 // this runs.
@@ -63,22 +142,40 @@ macro_rules! project {
 
 /// A mutation handler given the project it writes and its typed arguments:
 /// a failed mutation when they don't parse (arguments that do not parse
-/// cannot say they asked for a preview). It returns `Mutated`, or
-/// `MutationHandled` to use `?`.
+/// cannot say they asked for a preview). `Args => Reply` answers a typed
+/// `Mutation<Reply>`; without it the handler returns `Replied`, or
+/// `MutationHandled` to use `?` (a tool not yet typed).
 macro_rules! mutation {
+    ($handler:path, $args:ty => $reply:ty, $target:expr) => {
+        MutationHandler::Project {
+            target: $target,
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: Some(crate::mutation::output_schema::<$reply>),
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => match call.project() {
+                    Ok(project) => crate::mutation::replied::<$reply>($handler(&project, args)),
+                    Err(refused) => crate::mutation::Replied::refused(refused),
+                },
+                Err(refused) => {
+                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
+                }
+            },
+        }
+    };
     ($handler:path, $args:ty, $target:expr) => {
         MutationHandler::Project {
             target: $target,
             arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => match call.project() {
                     Ok(project) => {
                         crate::mutation::IntoMutated::into_mutated($handler(&project, args))
                     }
-                    Err(refused) => crate::mutation::Mutated::refused(refused),
+                    Err(refused) => crate::mutation::Replied::refused(refused),
                 },
                 Err(refused) => {
-                    crate::mutation::Mutated::refused(crate::tool::ToolOutcome::Refused(refused))
+                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
                 }
             },
         }
@@ -87,11 +184,32 @@ macro_rules! mutation {
 
 /// A mutation handler given the directory it creates a project in, the
 /// runtime its extensions' declarations are read in, and its typed
-/// arguments.
+/// arguments. `Args => Reply` is as for `mutation!`.
 macro_rules! create {
+    ($handler:path, $args:ty => $reply:ty) => {
+        MutationHandler::New {
+            arguments: <$args as crate::args::Arguments>::declared,
+            reply: Some(crate::mutation::output_schema::<$reply>),
+            run: |call, arguments| match crate::args::read::<$args>(&arguments) {
+                Ok(args) => match call.new_project_dir() {
+                    Some(dir) => {
+                        crate::mutation::replied::<$reply>($handler(dir, &call.runtime(), args))
+                    }
+                    // The call target refused a call without a path.
+                    None => crate::mutation::Replied::refused(crate::tool::McpError::from(
+                        crate::target::TargetError::PathRequired,
+                    )),
+                },
+                Err(refused) => {
+                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
+                }
+            },
+        }
+    };
     ($handler:path, $args:ty) => {
         MutationHandler::New {
             arguments: <$args as crate::args::Arguments>::declared,
+            reply: None,
             run: |call, arguments| match crate::args::read::<$args>(&arguments) {
                 Ok(args) => match call.new_project_dir() {
                     Some(dir) => crate::mutation::IntoMutated::into_mutated($handler(
@@ -100,12 +218,12 @@ macro_rules! create {
                         args,
                     )),
                     // The call target refused a call without a path.
-                    None => crate::mutation::Mutated::refused(crate::tool::McpError::from(
+                    None => crate::mutation::Replied::refused(crate::tool::McpError::from(
                         crate::target::TargetError::PathRequired,
                     )),
                 },
                 Err(refused) => {
-                    crate::mutation::Mutated::refused(crate::tool::ToolOutcome::Refused(refused))
+                    crate::mutation::Replied::refused(crate::tool::ToolOutcome::Refused(refused))
                 }
             },
         }
@@ -130,7 +248,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: project!(
+            handler: project!(text
                 validate::call,
                 validate::Args,
                 ProjectTarget::ANY_UNLESS_CACHED
@@ -158,7 +276,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(export::call, export::Args, ProjectTarget::SERVED),
+            handler: view!(text export::call, export::Args, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -222,37 +340,10 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.explain",
         description: "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link",
-        output: Some(|| {
-            let entry = json!({
-                "type": "object",
-                "properties": {
-                    "code": { "type": "string" },
-                    "title": { "type": "string" },
-                    "owner": { "type": "string" },
-                    "level": { "type": "string" },
-                    "explanation": { "type": "string" },
-                    "docs": { "type": ["string", "null"] }
-                },
-                "required": ["code", "title", "owner", "level", "explanation", "docs"]
-            });
-            json!({
-                "type": "object",
-                "properties": {
-                    "code": { "type": "string" },
-                    "retired": { "type": "boolean" },
-                    "title": { "type": "string" },
-                    "owner": { "type": "string" },
-                    "level": { "type": "string" },
-                    "explanation": { "type": "string" },
-                    "docs": { "type": ["string", "null"] },
-                    "replaced_by": { "type": ["object", "null"], "properties": entry["properties"].clone() }
-                },
-                "required": ["code", "retired"]
-            })
-        }),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: unscoped!(explain::call, explain::Args),
+            handler: unscoped!(explain::call, explain::Args => explain::Reply),
         },
     },
     ToolSpec {
@@ -272,7 +363,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(model::call, model::Args, ProjectTarget::SERVED),
+            handler: view!(text model::call, model::Args, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -282,7 +373,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         effect: Effect::Reads {
             group: ToolGroup::Core,
             handler: view!(
-                outline_extensions::call,
+                text outline_extensions::call,
                 outline_extensions::Args,
                 ProjectTarget::SERVED
             ),
@@ -300,12 +391,10 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.stats",
         description: "Get project statistics",
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "unconnected_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "unconnected_count", "diagnostic_summary"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Core,
-            handler: view!(stats::call, NoArgs, ProjectTarget::SERVED),
+            handler: view!(stats::call, NoArgs => stats::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -320,25 +409,21 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.inspect",
         description: "Get full detail for a specific entity",
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "kind": { "type": "string" }, "title": { "type": ["string", "null"] }, "testable": { "type": "boolean" }, "declared": { "type": "boolean" }, "exempt": { "type": "boolean" }, "obligated": { "type": "boolean" }, "source_extension": { "type": ["string", "null"] }, "reference_count": { "type": "integer" }, "source_span": { "type": "object" }, "contract": { "type": ["string", "null"] }, "fields": { "type": "object" }, "verify_declarations": { "type": ["array", "null"] }, "referenced_by": { "type": "array", "items": { "type": "string" } }, "refers_to": { "type": "array", "items": { "type": "string" } }, "references": { "type": "array" }, "coverage_status": { "type": "string" }, "diagnostics": { "type": "array" } }, "required": ["entity_id", "kind", "testable", "declared", "exempt", "obligated", "source_span", "fields", "referenced_by", "refers_to", "references", "coverage_status", "diagnostics"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
-            handler: view!(inspect::call, inspect::Args, ProjectTarget::SERVED),
+            handler: view!(inspect::call, inspect::Args => inspect::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
         name: "specforge.find_definition",
         description: "Find the source location of an entity definition",
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "file_path": { "type": "string" }, "line": { "type": "integer" }, "column": { "type": "integer" }, "source_span": { "type": "object" }, "name_span": { "type": "object" }, "precision": { "type": "string", "enum": ["token", "entity"] } }, "required": ["entity_id", "file_path", "line", "column", "source_span", "name_span", "precision"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
             handler: view!(
                 find_definition::call,
-                find_definition::Args,
+                find_definition::Args => find_definition::Reply,
                 ProjectTarget::SERVED
             ),
         },
@@ -346,36 +431,12 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.find_references",
         description: "Find the references to an entity: each place another entity's field names it, as the identifier token (what an IDE's find-references shows)",
-        output: Some(|| {
-            json!({
-                "type": "object",
-                "properties": {
-                    "entity_id": { "type": "string" },
-                    "direction": { "type": "string" },
-                    "locations": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "referencing_entity_id": { "type": "string" },
-                                "referenced_entity_id": { "type": "string" },
-                                "field": { "type": ["string", "null"] },
-                                "role": { "type": "string", "enum": ["declaration", "reference"] },
-                                "precision": { "type": "string", "enum": ["token", "entity"] },
-                                "source_span": { "type": "object" }
-                            },
-                            "required": ["referencing_entity_id", "referenced_entity_id", "field", "role", "precision", "source_span"]
-                        }
-                    }
-                },
-                "required": ["entity_id", "direction", "locations"]
-            })
-        }),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
             handler: view!(
                 find_references::call,
-                find_references::Args,
+                find_references::Args => find_references::Reply,
                 ProjectTarget::SERVED
             ),
         },
@@ -575,9 +636,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.render",
         description: "Render output in a specified format",
-        output: Some(
-            || json!({ "type": "object", "properties": { "format": { "type": "string" }, "output": { "type": "string" }, "output_files": { "type": "array" } }, "required": ["format", "output_files"] }),
-        ),
+        output: None,
         effect: Effect::WritesOutput {
             group: ToolGroup::Management,
             hints: WriteHints {
@@ -585,7 +644,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 idempotent: true,
                 open_world: false,
             },
-            handler: view!(render::call, render::Args, ProjectTarget::SERVED),
+            handler: view!(render::call, render::Args => render::Reply, ProjectTarget::SERVED),
         },
     },
     ToolSpec {
@@ -632,14 +691,12 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.find_implementation",
         description: "Find source code locations that implement a specforge entity",
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "implementations": { "type": "array" }, "count": { "type": "integer" } }, "required": ["entity_id", "implementations", "count"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
             handler: project!(
                 find_implementation::call,
-                find_implementation::Args,
+                find_implementation::Args => find_implementation::Reply,
                 ProjectTarget::SERVED
             ),
         },
@@ -647,14 +704,12 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.find_spec_for_source",
         description: "Find specforge entities anchored to a source file",
-        output: Some(
-            || json!({ "type": "object", "properties": { "file_path": { "type": "string" }, "match_mode": { "type": "string", "enum": ["exact", "directory", "suffix_path", "none"] }, "entities": { "type": "array" }, "count": { "type": "integer" } }, "required": ["file_path", "match_mode", "entities", "count"] }),
-        ),
+        output: None,
         effect: Effect::Reads {
             group: ToolGroup::Navigation,
             handler: project!(
                 find_spec_for_source::call,
-                find_spec_for_source::Args,
+                find_spec_for_source::Args => find_spec_for_source::Reply,
                 ProjectTarget::SERVED
             ),
         },

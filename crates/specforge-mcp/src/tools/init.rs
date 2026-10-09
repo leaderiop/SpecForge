@@ -5,7 +5,7 @@ use std::path::Path;
 use serde_json::json;
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, MutationEvent, Written};
+use crate::mutation::{MutationEvent, Replied, Written};
 use crate::tool::ToolOutcome;
 
 /// `specforge.init`'s arguments.
@@ -20,7 +20,7 @@ pub struct Args {
     extensions: Vec<String>,
 }
 
-pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args: Args) -> Mutated {
+pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args: Args) -> Replied {
     use specforge_ops::init;
 
     // The directory the target names (as given: init creates it).
@@ -37,7 +37,7 @@ pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args
     let outcome =
         match init::plan(&request, runtime.as_ref()).and_then(|plan| init::apply(path, plan)) {
             Ok(outcome) => outcome,
-            Err(error) => return Mutated::refused_after(false, error),
+            Err(error) => return Replied::refused_after(false, error),
         };
     let result = ToolOutcome::ok(json!({
         "project_path": path.display().to_string(),
@@ -54,5 +54,5 @@ pub(crate) fn call(path: &Path, runtime: &specforge_project::SharedRuntime, args
         extension_count: outcome.extensions.len(),
         spec_file_path: init::STARTER_FILE.to_string(),
     };
-    Mutated::wrote(result, Written::files(outcome.writes).with_event(event))
+    Replied::wrote(result, Written::files(outcome.writes).with_event(event))
 }

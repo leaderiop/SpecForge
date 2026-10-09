@@ -1046,7 +1046,7 @@ fn the_verify_stub_is_a_quick_fix() {
         .find(|f| f.source == FixSource::AddVerifyStub)
         .unwrap();
     assert_eq!(stub.kind, FixKind::QuickFix);
-    assert_eq!(stub.kind.as_str(), "quickfix");
+    assert_eq!(serde_json::to_value(stub.kind).unwrap(), "quickfix");
     // Its code is the rule that reports an entity without verify
     // statements, so a code filter finds it.
     let code = stub

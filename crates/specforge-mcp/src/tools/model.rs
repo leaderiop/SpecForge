@@ -2,7 +2,8 @@ use specforge_ops::OpError;
 use specforge_ops::model::{self, FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot};
 
 use crate::args::Arguments;
-use crate::tool::{McpError, ToolOutcome};
+use crate::reply::{Answer, Answered, Text};
+use crate::tool::McpError;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.model`'s arguments.
@@ -31,21 +32,17 @@ pub struct Args {
 /// of `kinds` the project does not know rides in `_meta.diagnostics`
 /// (I020). An unknown `root` or `extension` is refused on that argument,
 /// and so is a `depth` without a `root`.
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
-    let options = match options(args) {
-        Ok(options) => options,
-        Err(refused) => return refused,
-    };
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Text> {
+    let options = options(args)?;
     match model::model(&view, &options) {
-        Ok(outcome) => ToolOutcome::text(outcome.document).with_diagnostics(outcome.notices),
+        Ok(outcome) => Ok(Answer::new(Text(outcome.document)).with_diagnostics(outcome.notices)),
         Err(error) => {
             let argument = argument_of(&error);
             let error = McpError::from(error);
-            match argument {
+            Err(Box::new(match argument {
                 Some(argument) => error.with_argument(argument),
                 None => error,
-            }
-            .into()
+            }))
         }
     }
 }
@@ -53,15 +50,15 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
 /// The model options the arguments name; an absent enumerated one is its
 /// table's default, as `specforge model` reads it (ADR 0027). A `depth`
 /// needs a `root`.
-fn options(args: Args) -> Result<ModelOptions, ToolOutcome> {
+fn options(args: Args) -> Result<ModelOptions, Box<McpError>> {
     let root = match (args.root, args.depth) {
         (Some(kind), depth) => Some(ModelRoot { kind, depth }),
         (None, None) => None,
         (None, Some(_)) => {
-            return Err(ToolOutcome::invalid_input(
+            return Err(Box::new(McpError::invalid_input(
                 "root",
                 "'depth' needs 'root': the kind the depth counts from",
-            ));
+            )));
         }
     };
     Ok(ModelOptions {

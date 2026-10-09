@@ -2,10 +2,13 @@
 
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use serde_json::json;
+use specforge_common::shape::Shape;
 
 use crate::args::Arguments;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::reply::Answered;
+use crate::tool::{ErrorCode, McpError};
 use specforge_ops::view::ProjectView;
 
 /// `specforge.render`'s arguments.
@@ -23,7 +26,19 @@ pub struct Args {
     scope: Option<String>,
 }
 
-pub(crate) fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+/// `specforge.render`'s reply (`McpRenderResult`): the rendering inline, or
+/// the files it was written to.
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    #[shape(names = specforge_ops::export::FORMAT)]
+    format: String,
+    /// The rendering itself, when no `out_dir` was given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output: Option<String>,
+    output_files: Vec<String>,
+}
+
+pub(crate) fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     use specforge_ops::export::{FORMAT, Format};
 
     // The renderers are the export formats, named as `specforge export
@@ -36,7 +51,7 @@ pub(crate) fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
             let mut refusal = McpError::from(error).with_argument("format");
             let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
             data["available_renderers"] = json!(FORMAT.names().collect::<Vec<_>>());
-            return refusal.with_data(data).into();
+            return Err(Box::new(refusal.with_data(data)));
         }
     };
     // The file each renderer writes into out_dir.
@@ -55,33 +70,41 @@ pub(crate) fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
-    let output = match specforge_ops::export::export(&view, &request) {
-        Ok(text) => text,
-        Err(e) => return McpError::from(e).into(),
-    };
+    let output = specforge_ops::export::export(&view, &request).map_err(McpError::from)?;
 
     // With out_dir the rendering lands on disk; without it, inline.
     let Some(out_dir) = args.out_dir.as_deref() else {
-        return ToolOutcome::ok(json!({ "format": name, "output": output, "output_files": [] }));
+        return Ok(Reply {
+            format: name.to_string(),
+            output: Some(output),
+            output_files: Vec::new(),
+        }
+        .into());
     };
     let Some(out_dir) = under_root(view.root(), out_dir) else {
-        return McpError::new(
-            ErrorCode::InvalidInput,
-            format!(
-                "out_dir '{out_dir}' is relative and no project is served to resolve it against; give an absolute directory"
-            ),
-        )
-        .with_argument("out_dir")
-        .into();
+        return Err(Box::new(
+            McpError::new(
+                ErrorCode::InvalidInput,
+                format!(
+                    "out_dir '{out_dir}' is relative and no project is served to resolve it against; give an absolute directory"
+                ),
+            )
+            .with_argument("out_dir"),
+        ));
     };
     let path = out_dir.join(file_name);
     if let Err(e) = std::fs::create_dir_all(&out_dir).and_then(|()| std::fs::write(&path, output)) {
-        return ToolOutcome::error(
+        return Err(Box::new(McpError::new(
             ErrorCode::InternalError,
             format!("failed to write {}: {e}", path.display()),
-        );
+        )));
     }
-    ToolOutcome::ok(json!({ "format": name, "output_files": [path.display().to_string()] }))
+    Ok(Reply {
+        format: name.to_string(),
+        output: None,
+        output_files: vec![path.display().to_string()],
+    }
+    .into())
 }
 
 /// `given` as a directory the call writes into: absolute as given, else

@@ -1,7 +1,8 @@
 use specforge_ops::export::{self, Format, Schema};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::{Answered, Text};
+use crate::tool::McpError;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.export`'s arguments.
@@ -29,7 +30,7 @@ pub struct Args {
 /// `specforge.export`: the export `specforge export` writes, through the
 /// same function and schema policy (ADR 0004 D3-a). `with_schema` and
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Text> {
     // The tool serves the agent formats; dot is `specforge.render`'s.
     let schema = match (args.no_schema, args.with_schema) {
         (true, _) => Schema::Without,
@@ -46,8 +47,6 @@ pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
         schema_version: args.schema_version.as_deref(),
     };
 
-    match export::export(&view, &request) {
-        Ok(json_str) => ToolOutcome::text(json_str),
-        Err(err) => crate::tool::McpError::from(err).into(),
-    }
+    let document = export::export(&view, &request).map_err(McpError::from)?;
+    Ok(Text(document).into())
 }

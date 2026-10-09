@@ -647,10 +647,16 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     MUST also carry that object as structuredContent, alongside the text
     block holding its JSON, and tools/list MUST give each tool whose result
     is an object an outputSchema that every structured result conforms to.
+    Each core tool's outputSchema is derived from its typed reply: every
+    object it closes lists its keys and states additionalProperties false,
+    every array states its items. A core tool's reply that its outputSchema
+    refuses MUST be a schema_mismatch error naming each violation, never
+    structured content.
     A failed call of a tool with an outputSchema carries no
     structuredContent: its McpError is in the text block. A 2025-03-26
     session is listed no outputSchema.
   """
+  verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
   verify unit "a 2025-03-26 session answers a batch with the response to each request"
   verify unit "a batch of notifications gets no response"
   verify unit "an empty batch is an invalid request"

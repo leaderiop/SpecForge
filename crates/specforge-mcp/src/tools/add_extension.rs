@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, MutationEvent, Written};
+use crate::mutation::{MutationEvent, Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::ToolOutcome;
 
@@ -21,7 +21,7 @@ pub struct Args {
 /// `specforge.add_extension`: the shared add, its reply, the files it
 /// wrote and `extension_added` (for an extension already there too,
 /// `wasDuplicate`).
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let allow_unsigned = args.allow_unsigned;
@@ -40,7 +40,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
     };
     let source = match extension::parse(&args.specifier) {
         Ok(source) => source,
-        Err(error) => return Mutated::refused_after(dry_run, error),
+        Err(error) => return Replied::refused_after(dry_run, error),
     };
 
     let registry = specforge_ops_registry::ConfiguredRegistry::for_project(&root, "add_extension");
@@ -61,7 +61,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
         Ok(added) => added,
         // An install that failed after placing its module reports it.
         Err(error) => {
-            return Mutated::refused_after(dry_run, error).with_diagnostics(reported);
+            return Replied::refused_after(dry_run, error).with_diagnostics(reported);
         }
     };
     let source_of = Origin::source;
@@ -122,7 +122,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
                 "version": version,
                 "source": source_of(&origin),
             });
-            return Mutated::preview(ToolOutcome::ok(plan).with_diagnostics(reported));
+            return Replied::preview(ToolOutcome::ok(plan).with_diagnostics(reported));
         }
     };
     let event = MutationEvent::ExtensionAdded {
@@ -130,7 +130,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
         total_extensions: added.extensions_enabled,
         was_duplicate,
     };
-    Mutated::wrote(
+    Replied::wrote(
         ToolOutcome::ok(reply).with_diagnostics(reported),
         Written::files(added.writes).with_event(event),
     )

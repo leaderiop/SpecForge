@@ -44,7 +44,7 @@ pub fn call(view: ProjectView<'_>, args: Args) -> Handled {
 fn suggestion(fix: &Fix) -> Value {
     json!({
         "title": fix.title,
-        "kind": fix.kind.as_str(),
+        "kind": fix.kind,
         "diagnostic_code": fix.diagnostic_code,
         "entity_id": fix.subject,
         "edits": fix.edits.iter().map(|edit| json!({

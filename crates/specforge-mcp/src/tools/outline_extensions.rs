@@ -1,7 +1,7 @@
 use specforge_ops::model::{self, DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::{Answered, Text};
 use specforge_ops::view::ProjectView;
 
 /// `specforge.outline_extensions`'s arguments.
@@ -20,8 +20,8 @@ pub struct Args {
 
 /// `specforge.outline_extensions`: the outline operation over the served
 /// project.
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
-    ToolOutcome::text(model::outline(&view, &options(&args)))
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Text> {
+    Ok(Text(model::outline(&view, &options(&args))).into())
 }
 
 /// The outline options the arguments name; an absent one is its table's

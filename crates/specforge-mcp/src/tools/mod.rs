@@ -37,7 +37,7 @@ mod validate;
 use serde_json::{Value, json};
 
 use crate::lifecycle::Revision;
-use crate::mutation::{self, Mutated};
+use crate::mutation::{self, Replied};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
@@ -203,20 +203,28 @@ impl Surface for Tools {
             // A mutation says what it wrote; `mutation::refresh` brings the
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
-            Found::Core(ToolSpec {
-                effect: Effect::Mutates { handler, .. },
-                ..
-            }) => {
-                let mut mutated = handler.run(call, arguments);
-                let root = mutation::refresh(call, &mut mutated);
+            // The reply is checked against its outputSchema after the refresh
+            // (which may add `diagnostics`) and before the report (so
+            // `mcp_mutation_completed.success` says what the client gets).
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Mutates { handler, .. },
+                    ..
+                },
+            ) => {
+                let mut replied = handler.run(call, arguments);
+                let root = mutation::refresh(call, &mut replied);
+                replied.outcome = conforming(spec, replied.outcome);
                 let (outcome, events) =
-                    mutation::report(&invocation.name, root.as_deref(), mutated);
+                    mutation::report(&invocation.name, root.as_deref(), replied);
                 Ran { outcome, events }
             }
-            Found::Core(ToolSpec {
-                effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
-                ..
-            }) => Ran::of(handler.run(call, arguments)),
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
+                    ..
+                },
+            ) => Ran::of(conforming(spec, handler.run(call, arguments))),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -234,7 +242,7 @@ impl Surface for Tools {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
             Found::Core(spec) if spec.is_mutation() => {
-                let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
+                let (outcome, events) = mutation::report(spec.name, None, Replied::refused(error));
                 Ran { outcome, events }
             }
             _ => Ran::of(error.into()),
@@ -275,6 +283,15 @@ impl Surface for Tools {
             revision.sends_structured_content(),
             typed,
         )
+    }
+}
+
+/// `outcome` when it conforms to `spec`'s outputSchema (a tool with none is
+/// not checked), else the `schema_mismatch` failure ([`crate::reply::conforming`]).
+fn conforming(spec: &ToolSpec, outcome: ToolOutcome) -> ToolOutcome {
+    match spec.output_schema() {
+        Some(schema) => crate::reply::conforming(spec.name, &schema, outcome),
+        None => outcome,
     }
 }
 

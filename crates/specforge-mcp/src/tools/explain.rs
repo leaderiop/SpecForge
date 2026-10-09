@@ -1,8 +1,10 @@
-use serde_json::{Value, json};
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_diagnostics::{CodeEntry, docs_href, lookup, retired};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::Answered;
+use crate::tool::McpError;
 
 /// `specforge.explain`'s arguments.
 #[derive(Debug, Arguments)]
@@ -11,42 +13,81 @@ pub struct Args {
     code: String,
 }
 
+/// `specforge.explain`'s reply (`McpExplainResult`): a catalogued code's
+/// entry, or a retired code and the entry that replaced it.
+#[derive(Debug, Serialize, Shape)]
+#[serde(untagged)]
+pub enum Reply {
+    Entry(Explained),
+    Retired(Retired),
+}
+
+/// A code the catalogue has.
+#[derive(Debug, Serialize, Shape)]
+pub struct Explained {
+    #[serde(flatten)]
+    entry: Entry,
+    retired: bool,
+}
+
+/// A code the catalogue retired.
+#[derive(Debug, Serialize, Shape)]
+pub struct Retired {
+    code: String,
+    retired: bool,
+    replaced_by: Option<Entry>,
+}
+
+/// One catalogue entry.
+#[derive(Debug, Serialize, Shape)]
+pub struct Entry {
+    code: String,
+    title: String,
+    owner: String,
+    level: String,
+    explanation: String,
+    docs: Option<String>,
+}
+
+impl Entry {
+    fn of(entry: &CodeEntry) -> Self {
+        Entry {
+            code: entry.code.to_string(),
+            title: entry.title.to_string(),
+            owner: entry.owner.to_string(),
+            level: entry.level.describe().to_string(),
+            explanation: entry.explanation.to_string(),
+            docs: docs_href(entry.code),
+        }
+    }
+}
+
 /// `specforge.explain`: what `specforge explain <code>` prints, as data.
 /// A retired code names the entry that replaced it, if any; a code the
 /// catalogue doesn't have is invalid input.
-pub fn call(args: Args) -> ToolOutcome {
+pub fn call(args: Args) -> Answered<Reply> {
     let code = args.code.trim();
     if let Some(replacement) = retired(code) {
-        return ToolOutcome::ok(json!({
-            "code": code.to_uppercase(),
-            "retired": true,
-            "replaced_by": replacement.and_then(lookup).map(entry_json),
-        }));
+        return Ok(Reply::Retired(Retired {
+            code: code.to_uppercase(),
+            retired: true,
+            replaced_by: replacement.and_then(lookup).map(Entry::of),
+        })
+        .into());
     }
     match lookup(code) {
-        Some(entry) => {
-            let mut payload = entry_json(entry);
-            payload["retired"] = Value::Bool(false);
-            ToolOutcome::ok(payload)
-        }
-        None => ToolOutcome::invalid_input(
+        Some(entry) => Ok(Reply::Entry(Explained {
+            entry: Entry::of(entry),
+            retired: false,
+        })
+        .into()),
+        None => Err(Box::new(McpError::invalid_input(
             "code",
             format!(
                 "Unknown diagnostic code: {code}. Catalogued codes are E###, W###, I###, A###, \
                  R### and R-<AREA>-###; E900-E998, W900-W998 and I900-I998 belong to \
                  third-party extensions"
             ),
-        ),
+        ))),
     }
-}
-
-fn entry_json(entry: &CodeEntry) -> Value {
-    json!({
-        "code": entry.code,
-        "title": entry.title,
-        "owner": entry.owner,
-        "level": entry.level.describe(),
-        "explanation": entry.explanation,
-        "docs": docs_href(entry.code),
-    })
 }

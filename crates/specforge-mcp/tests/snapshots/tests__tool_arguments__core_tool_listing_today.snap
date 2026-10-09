@@ -426,26 +426,9 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "docs": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "explanation": {
-          "type": "string"
-        },
-        "level": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        },
-        "replaced_by": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
           "properties": {
             "code": {
               "type": "string"
@@ -465,27 +448,84 @@ expression: listing
             "owner": {
               "type": "string"
             },
+            "retired": {
+              "type": "boolean"
+            },
             "title": {
               "type": "string"
             }
           },
-          "type": [
-            "object",
-            "null"
-          ]
+          "required": [
+            "retired",
+            "code",
+            "title",
+            "owner",
+            "level",
+            "explanation",
+            "docs"
+          ],
+          "type": "object"
         },
-        "retired": {
-          "type": "boolean"
-        },
-        "title": {
-          "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "replaced_by": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "docs": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "title",
+                    "owner",
+                    "level",
+                    "explanation",
+                    "docs"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "retired": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "retired",
+            "replaced_by"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "code",
-        "retired"
-      ],
-      "type": "object"
+      ]
     },
     "category": "core",
     "source": "core",
@@ -705,6 +745,7 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "coverage_pct": {
           "type": "number"
@@ -713,12 +754,50 @@ expression: listing
           "type": "number"
         },
         "diagnostic_summary": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "infos": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "warnings": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "errors",
+            "warnings",
+            "infos"
+          ],
           "type": "object"
         },
         "edge_count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_counts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "count"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "proof_pct": {
@@ -728,6 +807,7 @@ expression: listing
           ]
         },
         "unconnected_count": {
+          "minimum": 0,
           "type": "integer"
         }
       },
@@ -735,6 +815,7 @@ expression: listing
         "entity_counts",
         "declared_pct",
         "proof_pct",
+        "coverage_pct",
         "edge_count",
         "unconnected_count",
         "diagnostic_summary"
@@ -800,6 +881,7 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "contract": {
           "type": [
@@ -808,12 +890,49 @@ expression: listing
           ]
         },
         "coverage_status": {
+          "enum": [
+            "covered",
+            "partial",
+            "uncovered"
+          ],
           "type": "string"
         },
         "declared": {
           "type": "boolean"
         },
         "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "Error",
+                  "Warning",
+                  "Info"
+                ],
+                "type": "string"
+              },
+              "suggestion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "severity",
+              "message",
+              "suggestion"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "entity_id": {
@@ -822,9 +941,7 @@ expression: listing
         "exempt": {
           "type": "boolean"
         },
-        "fields": {
-          "type": "object"
-        },
+        "fields": {},
         "kind": {
           "type": "string"
         },
@@ -832,6 +949,7 @@ expression: listing
           "type": "boolean"
         },
         "reference_count": {
+          "minimum": 0,
           "type": "integer"
         },
         "referenced_by": {
@@ -841,6 +959,9 @@ expression: listing
           "type": "array"
         },
         "references": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         },
         "refers_to": {
@@ -856,6 +977,35 @@ expression: listing
           ]
         },
         "source_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         },
         "testable": {
@@ -868,21 +1018,33 @@ expression: listing
           ]
         },
         "verify_declarations": {
-          "type": [
-            "array",
-            "null"
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },
       "required": [
         "entity_id",
         "kind",
+        "title",
         "testable",
         "declared",
         "exempt",
         "obligated",
+        "source_extension",
+        "reference_count",
         "source_span",
+        "contract",
         "fields",
+        "verify_declarations",
         "referenced_by",
         "refers_to",
         "references",
@@ -915,8 +1077,10 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "column": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_id": {
@@ -926,9 +1090,39 @@ expression: listing
           "type": "string"
         },
         "line": {
+          "minimum": 0,
           "type": "integer"
         },
         "name_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         },
         "precision": {
@@ -939,6 +1133,35 @@ expression: listing
           "type": "string"
         },
         "source_span": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
           "type": "object"
         }
       },
@@ -992,8 +1215,14 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "direction": {
+          "enum": [
+            "incoming",
+            "outgoing",
+            "both"
+          ],
           "type": "string"
         },
         "entity_id": {
@@ -1001,6 +1230,7 @@ expression: listing
         },
         "locations": {
           "items": {
+            "additionalProperties": false,
             "properties": {
               "field": {
                 "type": [
@@ -1029,6 +1259,35 @@ expression: listing
                 "type": "string"
               },
               "source_span": {
+                "additionalProperties": false,
+                "properties": {
+                  "end_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "end_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "start_col": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "start_line",
+                  "start_col",
+                  "end_line",
+                  "end_col"
+                ],
                 "type": "object"
               }
             },
@@ -1885,14 +2144,24 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "format": {
+          "enum": [
+            "graph",
+            "context",
+            "brief",
+            "dot"
+          ],
           "type": "string"
         },
         "output": {
           "type": "string"
         },
         "output_files": {
+          "items": {
+            "type": "string"
+          },
           "type": "array"
         }
       },
@@ -2116,14 +2385,45 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entity_id": {
           "type": "string"
         },
         "implementations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "item_kind": {
+                "type": "string"
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "scanner": {
+                "type": "string"
+              },
+              "symbol_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "line",
+              "symbol_name",
+              "item_kind",
+              "scanner"
+            ],
+            "type": "object"
+          },
           "type": "array"
         }
       },
@@ -2158,11 +2458,56 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "additionalProperties": false,
       "properties": {
         "count": {
+          "minimum": 0,
           "type": "integer"
         },
         "entities": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "item_kind": {
+                "type": "string"
+              },
+              "kind": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "symbol_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "entity_id",
+              "kind",
+              "file",
+              "line",
+              "symbol_name",
+              "item_kind",
+              "confidence"
+            ],
+            "type": "object"
+          },
           "type": "array"
         },
         "file_path": {

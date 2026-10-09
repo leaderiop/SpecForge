@@ -2,11 +2,15 @@
 //! JSON. The tool renders the read view; it reads no edge, coverage row or
 //! attribution itself (ADR 0015, section "Inspect").
 
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
+use specforge_common::shape::Shape;
+use specforge_common::{Severity, SourceSpan};
 use specforge_ops::inspect::{EntityCoverage, EntityFacts, obligation_text};
 
 use crate::args::Arguments;
-use crate::tool::ToolOutcome;
+use crate::reply::Answered;
+use crate::tool::McpError;
 use specforge_ops::view::ProjectView;
 
 /// `specforge.inspect`'s arguments.
@@ -16,67 +20,110 @@ pub struct Args {
     entity_id: String,
 }
 
-pub fn call(view: ProjectView<'_>, args: Args) -> ToolOutcome {
-    let facts = match specforge_ops::inspect::inspect(&view, &args.entity_id) {
-        Ok(facts) => facts,
-        Err(error) => return crate::tool::McpError::from(error).into(),
-    };
-    // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
-    let coverage = match &facts.coverage {
-        Ok(coverage) => coverage,
-        Err(error) => return crate::tool::McpError::from(error.clone()).into(),
-    };
-    ToolOutcome::ok(result_json(&facts, coverage))
+/// `specforge.inspect`'s reply (`McpInspectResult`): the one presenter of
+/// an entity's facts as JSON.
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    entity_id: String,
+    kind: String,
+    title: Option<String>,
+    /// Its kind's testability, the standing the hover shows (ADR 0004
+    /// D2-d).
+    testable: bool,
+    /// Whether it declares obligations.
+    declared: bool,
+    /// It does not count toward coverage (the coverage row's `exempt`).
+    exempt: bool,
+    /// Whether its kind must declare obligations: why it is exempt.
+    obligated: bool,
+    /// The extension that declares its kind.
+    source_extension: Option<String>,
+    /// Deprecated alias of the references (ADR 0016).
+    reference_count: usize,
+    source_span: SourceSpan,
+    /// The statement the extension declares (headline and normative): a
+    /// behavior's `contract`.
+    contract: Option<String>,
+    /// Every field, whatever the kind names its text: an open value.
+    fields: Value,
+    verify_declarations: Option<Vec<String>>,
+    referenced_by: Vec<String>,
+    refers_to: Vec<String>,
+    /// Deprecated alias (ADR 0016): both directions, unlabeled, in edge
+    /// order, one per reference.
+    references: Vec<String>,
+    #[shape(names = specforge_ops::coverage::STATUS)]
+    coverage_status: String,
+    diagnostics: Vec<Diagnostic>,
 }
 
-/// `McpInspectResult`: the one presenter of an entity's facts as JSON.
-fn result_json(facts: &EntityFacts, coverage: &EntityCoverage) -> Value {
-    let node = facts.node;
-    let refs = &facts.references;
-    // Deprecated aliases (ADR 0016): both directions, unlabeled, in edge
-    // order, one per reference.
-    let references: Vec<&str> = refs
-        .incoming
-        .iter()
-        .chain(&refs.outgoing)
-        .map(|r| r.peer.as_str())
-        .collect();
-    let declared = coverage.declared();
-    json!({
-        "entity_id": node.id.raw,
-        "kind": node.kind.raw,
-        "title": node.title,
-        // Its kind's testability, the standing the hover shows (ADR 0004
-        // D2-d); whether it declares obligations; its coverage status.
-        "testable": facts.standing.testable,
-        "declared": declared,
-        // It does not count toward coverage (the coverage row's `exempt`),
-        // and whether its kind must declare obligations: why it is exempt.
-        "exempt": facts.standing.exempt(),
-        "obligated": facts.standing.obligated(),
-        // The extension that declares its kind; `null` when none does.
-        "source_extension": facts.kind.map(|kind| kind.source_extension.as_str()),
-        "reference_count": references.len(),
-        "source_span": super::span_json(&node.source_span),
-        // The statement the extension declares (headline and normative):
-        // a behavior's `contract`; `null` for a kind that declares none.
-        "contract": facts.headline,
-        // Every field, whatever the kind names its text: an invariant's
-        // `guarantee`, a decision's `rationale`, a feature's `description`.
-        "fields": specforge_emitter::field_map_to_json(&node.fields),
-        "verify_declarations": declared
-            .then(|| facts.obligations.iter().map(obligation_text).collect::<Vec<_>>()),
-        "referenced_by": refs.referenced_by(),
-        "refers_to": refs.refers_to(),
-        "references": references,
-        "coverage_status": specforge_ops::coverage::STATUS.name_of(coverage.status()),
-        // The diagnostics about the entity: those its data names it in,
-        // else those inside its block (ADR 0016); never by its message.
-        "diagnostics": facts.diagnostics.iter().map(|d| json!({
-            "code": d.code,
-            "severity": format!("{:?}", d.severity),
-            "message": d.message,
-            "suggestion": d.suggestion
-        })).collect::<Vec<_>>(),
-    })
+/// One diagnostic about the entity.
+#[derive(Debug, Serialize, Shape)]
+pub struct Diagnostic {
+    code: String,
+    severity: Severity,
+    message: String,
+    suggestion: Option<String>,
+}
+
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
+    let facts = specforge_ops::inspect::inspect(&view, &args.entity_id).map_err(McpError::from)?;
+    // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
+    let coverage = facts
+        .coverage
+        .as_ref()
+        .map_err(|e| McpError::from(e.clone()))?;
+    Ok(Reply::of(&facts, coverage).into())
+}
+
+impl Reply {
+    fn of(facts: &EntityFacts, coverage: &EntityCoverage) -> Self {
+        let node = facts.node;
+        let refs = &facts.references;
+        let references: Vec<String> = refs
+            .incoming
+            .iter()
+            .chain(&refs.outgoing)
+            .map(|r| r.peer.to_string())
+            .collect();
+        let declared = coverage.declared();
+        Reply {
+            entity_id: node.id.raw.to_string(),
+            kind: node.kind.raw.to_string(),
+            title: node.title.as_ref().map(ToString::to_string),
+            testable: facts.standing.testable,
+            declared,
+            exempt: facts.standing.exempt(),
+            obligated: facts.standing.obligated(),
+            source_extension: facts.kind.map(|kind| kind.source_extension.to_string()),
+            reference_count: references.len(),
+            source_span: node.source_span.clone(),
+            contract: facts.headline.as_ref().map(ToString::to_string),
+            fields: Value::Object(
+                specforge_emitter::field_map_to_json(&node.fields)
+                    .into_iter()
+                    .collect(),
+            ),
+            verify_declarations: declared
+                .then(|| facts.obligations.iter().map(obligation_text).collect()),
+            referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
+            refers_to: refs.refers_to().into_iter().map(String::from).collect(),
+            references,
+            coverage_status: specforge_ops::coverage::STATUS
+                .name_of(coverage.status())
+                .to_string(),
+            // The diagnostics about the entity: those its data names it in,
+            // else those inside its block (ADR 0016); never by its message.
+            diagnostics: facts
+                .diagnostics
+                .iter()
+                .map(|d| Diagnostic {
+                    code: d.code.clone(),
+                    severity: d.severity,
+                    message: d.message.clone(),
+                    suggestion: d.suggestion.clone(),
+                })
+                .collect(),
+        }
+    }
 }

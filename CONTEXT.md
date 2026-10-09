@@ -442,14 +442,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
-- **Tool spec**: the single definition of an MCP tool: its name, description, output schema and
-  effect. The effect says what the tool does to its environment: it reads (listed in its group: core,
-  navigation or management), writes output artifacts (listed in its group, with how it writes), or
-  mutates its target's project (category mutation, with how it writes, its reply listing
-  `files_written`); and it holds the handler, whose variant is what the handler is given (nothing, the
-  project view, the project, or the directory init creates), with the tool arguments it reads. Its
-  category, annotations, call target and descriptor derive from it (`specforge_mcp`'s `ToolSpec`
-  table, ADR 0024).
+- **Tool spec**: the single definition of an MCP tool: its name, description and effect. The effect
+  says what the tool does to its environment: it reads (listed in its group: core, navigation or
+  management), writes output artifacts (listed in its group, with how it writes), or mutates its
+  target's project (category mutation, with how it writes, its reply listing `files_written`); and it
+  holds the handler, whose variant is what the handler is given (nothing, the project view, the
+  project, or the directory init creates), with the tool arguments it reads and the tool reply it
+  answers. Its category, annotations, call target and descriptor (input and output schemas included)
+  derive from it (`specforge_mcp`'s `ToolSpec` table, ADR 0024).
 - **Tool effect**: what a tool does to its environment, declared once on its tool spec
   (`specforge_mcp::tool::Effect`): reads, writes output artifacts (collect, render), or mutates the
   target's project files (a mutation, ADR 0022), with how a writing tool writes (destructive,
@@ -467,6 +467,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reading both derive from it: absent is the default, a value is read by its type under the arg rule
   extension commands follow (a boolean or a count may come as a string), and an argument neither it
   nor the call target declares is refused.
+- **Tool reply**: the one typed definition of what a core tool answers (`Reply` beside its handler,
+  or the ops document both surfaces print), deriving `Serialize` and `Shape`
+  (`specforge_common::shape`, ADR 0048). Its outputSchema is derived from it (every object closed,
+  every array typed; content an extension defines is an open value), its structured result is it
+  serialized, and a result its schema refuses is never sent as one (`schema_mismatch`). An optional
+  value is absent, never `null`. `spec/types/mcp.spec`'s `Mcp*` types state the same shapes, and a
+  test holds them to the derived schemas. A tool answering a document in text (validate, export,
+  model, outline_extensions) has no outputSchema.
 - **Surface call**: one MCP request that invokes a named tool, resource or prompt (`tools/call`,
   `resources/read`, `prompts/get`), run through one pipeline: read the request, find the entry (the
   core table, then, with the served project brought up to date, the extension surface table), record

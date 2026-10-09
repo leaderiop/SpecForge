@@ -20,20 +20,8 @@ specforge.schema {"include_validation_rules":true} $.entity_kinds: array without
 specforge.schema {"include_validation_rules":true} $.extensions: array without items
 specforge.schema {"include_validation_rules":true} $.schema_version: object without properties
 specforge.schema {"include_validation_rules":true} $.validation_rules: array without items
-specforge.stats {} $.diagnostic_summary: object without properties
-specforge.stats {} $.entity_counts: array without items
-specforge.inspect {"entity_id":"alpha"} $.diagnostics: array without items
 specforge.inspect {"entity_id":"alpha"} $.fields: object without properties
-specforge.inspect {"entity_id":"alpha"} $.references: array without items
-specforge.inspect {"entity_id":"alpha"} $.source_span: object without properties
-specforge.inspect {"entity_id":"alpha"} $.verify_declarations: array without items
-specforge.inspect {"entity_id":"untitled_one"} $.diagnostics: array without items
 specforge.inspect {"entity_id":"untitled_one"} $.fields: object without properties
-specforge.inspect {"entity_id":"untitled_one"} $.references: array without items
-specforge.inspect {"entity_id":"untitled_one"} $.source_span: object without properties
-specforge.find_definition {"entity_id":"alpha"} $.name_span: object without properties
-specforge.find_definition {"entity_id":"alpha"} $.source_span: object without properties
-specforge.find_references {"entity_id":"alpha","direction":"both","include_declaration":true} $.locations[].source_span: object without properties
 specforge.extensions {} $.entity_kinds_in_graph: array without items
 specforge.extensions {} $.extensions: array without items
 specforge.extensions {} $.lock_file_entries: array without items
@@ -43,7 +31,6 @@ specforge.doctor {} $.conflicts: array without items
 specforge.doctor {} $.enhancements: object without properties
 specforge.doctor {} $.extensions: array without items
 specforge.doctor {} $.findings: array without items
-specforge.render {"format":"brief"} $.output_files: array without items
 specforge.infer_progress {} $.deleted: array without items
 specforge.infer_progress {} $.sessions: array without items
 specforge.infer_progress {} $.stale: array without items
@@ -52,8 +39,6 @@ specforge.infer_progress {} $.unanalyzed: array without items
 specforge.infer_gaps {} $.by_directory: array without items
 specforge.infer_gaps {} $.scan_failures: array without items
 specforge.infer_gaps {} $.scanners_used: array without items
-specforge.find_implementation {"entity_id":"alpha"} $.implementations: array without items
-specforge.find_spec_for_source {"file_path":"src/lib.rs"} $.entities: array without items
 specforge.format {"check":true,"diff":true} $.changed_files: array without items
 specforge.format {"check":true,"diff":true} $.diagnostics: array without items
 specforge.format {"check":true,"diff":true} $.diffs: array without items

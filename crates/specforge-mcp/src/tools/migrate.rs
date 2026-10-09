@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, Written};
+use crate::mutation::{Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::{McpError, ToolOutcome};
 
@@ -18,7 +18,7 @@ pub struct Args {
     no_backup: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     // The project the call migrates, and the runtime its hooks run in.
     let path = project.root;
     let dry_run = args.dry_run;
@@ -27,7 +27,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
     // --target-version` checks it.
     let target = match specforge_ops::migrate::parse_target(args.target_version.as_deref()) {
         Ok(target) => target,
-        Err(error) => return Mutated::refused_after(dry_run, error),
+        Err(error) => return Replied::refused_after(dry_run, error),
     };
 
     let runtime = project.runtime;
@@ -44,8 +44,8 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
     // behind the target, the project is current and nothing ran: a
     // migration that wrote nothing (a dry run is a preview).
     let migration = |reply: ToolOutcome, writes: specforge_ops::Writes| match dry_run {
-        true => Mutated::preview(reply),
-        false => Mutated::wrote(reply, Written::files(writes)),
+        true => Replied::preview(reply),
+        false => Replied::wrote(reply, Written::files(writes)),
     };
     if !outcome.pending {
         let current = json!({

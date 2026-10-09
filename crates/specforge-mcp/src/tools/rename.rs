@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, Written};
+use crate::mutation::{Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::{McpError, ToolOutcome};
 use specforge_ops::OpErrorKind;
@@ -19,7 +19,7 @@ pub struct Args {
     dry_run: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
@@ -34,7 +34,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
         entity_id,
         new_name,
     );
-    let refused = |outcome: ToolOutcome| Mutated::refused_unless_preview(dry_run, outcome);
+    let refused = |outcome: ToolOutcome| Replied::refused_unless_preview(dry_run, outcome);
     let plan = match planned {
         Ok(plan) => plan,
         // The operation decided what kind of failure it is, and which
@@ -73,7 +73,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
     });
     if dry_run {
         result["dry_run"] = Value::from(true);
-        return Mutated::preview(ToolOutcome::ok(result));
+        return Replied::preview(ToolOutcome::ok(result));
     }
     // A failed write restores what it wrote: nothing is left written.
     let writes = match rename::apply(&plan, &spec_root) {
@@ -83,7 +83,7 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
     // The reply's `diagnostics` are what `specforge check` reports for the
     // project as it is on disk now, edits made since the last call
     // included (filled in once the target is brought up to date).
-    Mutated::wrote(
+    Replied::wrote(
         ToolOutcome::ok(result),
         Written::files(writes)
             .with_entities([new_name])

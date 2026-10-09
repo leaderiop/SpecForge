@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use specforge_common::project_root_of;
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, Written};
+use crate::mutation::{Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 use specforge_ops::OpErrorKind;
@@ -33,7 +33,7 @@ impl Args {
     }
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     use specforge_ops::format::{self, Request};
 
     let diff = args.diff;
@@ -86,8 +86,8 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
         result["diffs"] = Value::from(diffs);
     }
     let written = |reply: ToolOutcome| match preview {
-        true => Mutated::preview(reply),
-        false => Mutated::wrote(reply, Written::files(outcome.writes())),
+        true => Replied::preview(reply),
+        false => Replied::wrote(reply, Written::files(outcome.writes())),
     };
     if outcome.succeeded() {
         return written(ToolOutcome::ok(result));

@@ -6,7 +6,7 @@ use specforge_ops::infer::{
 };
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, MutationHandled, Written};
+use crate::mutation::{MutationHandled, Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
@@ -43,12 +43,12 @@ pub fn call(project: &ProjectRef<'_>, args: Args) -> MutationHandled {
                 }
                 _ => Written::files(writes),
             };
-            Mutated::wrote(ToolOutcome::ok(reply(&recorded)), written)
+            Replied::wrote(ToolOutcome::ok(reply(&recorded)), written)
         }
         Err(error) => {
             let argument = argument_of(&error);
             let refused = McpError::from(error);
-            Mutated::refused(match argument {
+            Replied::refused(match argument {
                 Some(argument) => refused.with_argument(argument),
                 None => refused,
             })

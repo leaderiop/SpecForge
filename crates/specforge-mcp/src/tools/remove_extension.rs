@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 
 use crate::args::Arguments;
-use crate::mutation::{Mutated, Written};
+use crate::mutation::{Replied, Written};
 use crate::target::ProjectRef;
 use crate::tool::ToolOutcome;
 
@@ -18,7 +18,7 @@ pub struct Args {
     dry_run: bool,
 }
 
-pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
+pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Replied {
     let name = args.name.clone();
     let force = args.force;
     let dry_run = args.dry_run;
@@ -45,15 +45,15 @@ pub(crate) fn call(project: &ProjectRef<'_>, args: Args) -> Mutated {
             });
             if outcome.dry_run {
                 result["dry_run"] = Value::from(true);
-                return Mutated::preview(ToolOutcome::ok(result));
+                return Replied::preview(ToolOutcome::ok(result));
             }
-            Mutated::wrote(
+            Replied::wrote(
                 ToolOutcome::ok(result),
                 Written::files(outcome.writes)
                     .with_entities(outcome.stranded.into_iter().map(|entity| entity.entity_id)),
             )
         }
         // A removal that failed after editing specforge.json reports it.
-        Err(error) => Mutated::refused_after(dry_run, error),
+        Err(error) => Replied::refused_after(dry_run, error),
     }
 }
