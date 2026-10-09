@@ -978,7 +978,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError]
+  types      [RegistryConfig, RegistryCredential, TokenVerified, ExtensionError, RegistryError]
   ports      [RegistryClient]
   produces   [registry_authenticated]
   requires {

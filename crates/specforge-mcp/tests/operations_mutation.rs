@@ -1909,7 +1909,7 @@ fn migrate_contract() {
     };
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [migration(2), migration(0)]
+        [migration(3), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }

@@ -619,10 +619,17 @@ fn rollback_missing_bak_skips() {
     write_spec(
         root,
         "test.spec",
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
     );
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .assert()
+        .success();
+    let migrated = fs::read_to_string(root.join("spec/test.spec")).unwrap();
+    // The backup the record names is gone.
+    fs::remove_file(root.join("spec/test.spec.bak")).unwrap();
 
-    // Rollback without any .bak files
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args([
@@ -658,7 +665,7 @@ fn rollback_missing_bak_skips() {
         .stderr(predicate::str::contains("0 restored, 1 skipped, 0 failed"));
     assert_eq!(
         fs::read_to_string(root.join("spec/test.spec")).unwrap(),
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        migrated,
         "a skipped file is left alone"
     );
 }
@@ -1417,18 +1424,20 @@ fn rollback_summary_counts() {
     );
     write_spec(
         root,
-        "b.spec",
-        "// specforge-format: 1.0\nbehavior b \"B\" {\n  contract \"b\"\n}\n",
+        "c.spec",
+        "// specforge-format: 0.1\nbehavior c \"C\" {\n  contract \"c\"\n}\n",
     );
 
-    // Migrate — only a.spec should be migrated (b is already at target)
     Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--path", root.to_str().unwrap()])
         .assert()
         .success();
+    // c.spec is edited after the migration: a rollback leaves it as it is.
+    let c = root.join("spec/c.spec");
+    let edited = format!("{}// edited\n", fs::read_to_string(&c).unwrap());
+    fs::write(&c, &edited).unwrap();
 
-    // Rollback — a has .bak, b doesn't
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args([
@@ -1454,12 +1463,13 @@ fn rollback_summary_counts() {
     let restored = json["restored_count"].as_u64().unwrap_or(0);
     let skipped = json["skipped_count"].as_u64().unwrap_or(0);
     assert_eq!(restored, 1, "a.spec should be restored");
-    assert_eq!(skipped, 1, "b.spec should be skipped (no .bak)");
+    assert_eq!(skipped, 1, "c.spec was edited since: skipped");
+    assert_eq!(fs::read_to_string(&c).unwrap(), edited);
 }
 
 #[specforge_test(
     behavior = "rollback_failed_migration",
-    verify = "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
+    verify = "Rollback Failed Migration: migration rollback holds — migration_recorded, files_restored, edited_files_kept, rollback_event_emitted, backup_file_preservation"
 )]
 fn rollback_contract() {
     let tmp = TempDir::new().unwrap();
@@ -1554,6 +1564,7 @@ fn migrate_json_lists_each_file_and_its_backup() {
 
     let migrated = migrate(&[]);
     let written = [
+        ".specforge/migration.json",
         "spec/a.spec",
         "spec/a.spec.bak",
         "spec/b.spec",
@@ -1565,7 +1576,10 @@ fn migrate_json_lists_each_file_and_its_backup() {
     // --rollback restores each file from its backup: those are listed.
     let before = files_under(root);
     let restored = migrate(&["--rollback"]);
-    assert_eq!(files_written(&restored), ["spec/a.spec", "spec/b.spec"]);
+    assert_eq!(
+        files_written(&restored),
+        [".specforge/migration.json", "spec/a.spec", "spec/b.spec"]
+    );
     assert_eq!(changed_since(root, &before), files_written(&restored));
 }
 

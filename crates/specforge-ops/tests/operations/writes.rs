@@ -687,7 +687,13 @@ fn a_migration_writes_each_file_and_its_backup() {
 
     let outcome = specforge_ops::migrate::run(&migration(root, false), None);
 
-    let written = ["old.spec", "old.spec.bak", "older.spec", "older.spec.bak"];
+    let written = [
+        ".specforge/migration.json",
+        "old.spec",
+        "old.spec.bak",
+        "older.spec",
+        "older.spec.bak",
+    ];
     assert_eq!(listed(&outcome.writes, root), written);
     assert_eq!(changed_since(root, &before), written);
 }

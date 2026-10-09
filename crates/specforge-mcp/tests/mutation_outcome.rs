@@ -370,10 +370,13 @@ fn a_migration_writes_the_file_and_its_backup() {
     let (reply, changed) = wrote(&mut server, &root, "specforge.migrate", json!({}));
 
     assert_ok(&reply);
-    assert_eq!(changed, names(&["old.spec", "old.spec.bak"]));
+    assert_eq!(
+        changed,
+        names(&[".specforge/migration.json", "old.spec", "old.spec.bak"])
+    );
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.migrate", 2, 0, true))
+        Some(completed("specforge.migrate", 3, 0, true))
     );
 }
 
@@ -805,7 +808,10 @@ fn every_mutation_reply_lists_what_it_wrote() {
         .serve(&[TestExtension::software()]);
     let root = migrating.root().to_path_buf();
     let migrated = lists_what_it_wrote(&mut migrating, &root, "specforge.migrate", json!({}));
-    assert_eq!(files_written(&migrated), ["old.spec", "old.spec.bak"]);
+    assert_eq!(
+        files_written(&migrated),
+        [".specforge/migration.json", "old.spec", "old.spec.bak"]
+    );
 
     // A rename.
     let mut renaming = rename_server();
