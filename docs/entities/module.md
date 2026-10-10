@@ -72,7 +72,7 @@ All fields are optional at the type level.
 | Code | Level | Rule |
 |------|-------|------|
 | E007 | error | Circular module dependency — `depends_on` edges between modules form a cycle. |
-| W044 | warning | Module not referenced by any deliverable or milestone (orphan module). |
+| W044 | warning | Module not referenced by any deliverable or milestone (unreferenced module). |
 | I062 | info | `family` present but not one of core, platform, extension, integration, advisory. |
 | I067 | info | Module with no features (no `features`, or an empty list). |
 

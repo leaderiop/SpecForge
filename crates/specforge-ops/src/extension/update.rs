@@ -11,13 +11,15 @@
 //! a change to the project.)
 
 use super::add::{Checked, fetch_checked};
-use super::{Trust, check_diamonds, published_versions};
-use crate::registry::{NO_REGISTRY, Registry};
+use super::diamond::broken_requirers;
+use super::{Trust, published_versions};
+use crate::registry::{NO_REGISTRY, Publisher, Registry};
 use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::{Code, codes};
-use specforge_installed::{Installed, LockFile, LockSource, LockState, Module, Pin};
+use specforge_installed::{Installed, LockFile, LockSource, LockState, Pin};
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::VersionRequirement;
+use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -46,14 +48,14 @@ pub enum UpdateStatus {
         from: String,
         to: String,
         sha256: String,
-        key_id: Option<String>,
+        publisher: Publisher,
     },
     /// Already at the newest version the request allows.
     UpToDate { version: String },
     /// Not a registry install (`source` is the lock's, e.g.
     /// `local:<path>`): a registry never replaces it (ADR 0004 D3-b).
     NotFromRegistry { source: String },
-    /// Its newer version could not be fetched, checked or installed.
+    /// Its newer version could not be fetched or checked.
     Failed(OpError),
 }
 
@@ -68,9 +70,6 @@ pub struct ExtensionUpdate {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateOutcome {
     pub extensions: Vec<ExtensionUpdate>,
-    /// Whether a registry was asked about anything (its configuration's
-    /// diagnostics are then worth showing).
-    pub registry_used: bool,
 }
 
 impl UpdateOutcome {
@@ -138,8 +137,15 @@ pub struct BatchUpdateCompleted {
 /// Fails outright (nothing asked, nothing written) with `config_invalid`
 /// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
-/// registry and none is configured.
-pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
+/// registry and none is configured. Fails with the change's error (E032
+/// naming the package whose binary could not be placed, E033 for the lock)
+/// when applying it fails; everything is put back, and what could not be is
+/// the error's writes.
+pub fn update(
+    req: &UpdateRequest,
+    registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
+) -> Result<UpdateOutcome, OpError> {
     // A project whose specforge.json cannot be used is refused before
     // anything is read or written, as `add` and `remove` refuse it.
     crate::config::usable(req.root)?;
@@ -167,7 +173,6 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut staged = lock.clone();
     let mut planned: Vec<(String, Checked)> = Vec::new();
     let mut extensions = Vec::new();
-    let mut registry_used = false;
     for entry in lock
         .entries
         .iter()
@@ -178,23 +183,23 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                 source: entry.source.to_string(),
             }
         } else {
-            registry_used = true;
-            match plan_one(req, registry, &staged, &entry.name, &entry.version) {
+            match plan_one(req, registry, runtime, &staged, &entry.name, &entry.version) {
                 Ok(None) => UpdateStatus::UpToDate {
                     version: entry.version.clone(),
                 },
                 Ok(Some(checked)) => {
                     let status = UpdateStatus::Updated {
                         from: entry.version.clone(),
-                        to: checked.declared.version().to_string(),
+                        to: checked.binary.candidate().version().to_string(),
                         sha256: checked.package.sha256.clone(),
-                        key_id: checked.package.key_id.clone(),
+                        publisher: checked.package.publisher.clone(),
                     };
                     if let Some(staged_entry) =
                         staged.entries.iter_mut().find(|e| e.name == entry.name)
                     {
-                        staged_entry.version = checked.declared.version().to_string();
-                        staged_entry.peer_dependencies = checked.declared.peers().to_vec();
+                        staged_entry.version = checked.binary.candidate().version().to_string();
+                        staged_entry.peer_dependencies =
+                            checked.binary.candidate().peers().to_vec();
                     }
                     planned.push((entry.name.to_string(), checked));
                     status
@@ -221,10 +226,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
         }
     }
 
-    let mut outcome = UpdateOutcome {
-        extensions,
-        registry_used,
-    };
+    let outcome = UpdateOutcome { extensions };
     if !outcome.applied() || planned.is_empty() {
         return Ok(outcome);
     }
@@ -234,26 +236,19 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut change = installed.change().map_err(OpError::from)?;
     for (_, checked) in &planned {
         change.install(
-            Module::new(checked.package.wasm.clone()),
+            checked.binary.module().clone(),
             Pin {
                 name: checked.package.name.clone(),
-                version: checked.declared.version().to_string(),
+                version: checked.binary.candidate().version().to_string(),
                 source: LockSource::Registry,
-                key_id: checked.package.key_id.clone(),
-                peers: checked.declared.peers().to_vec(),
+                key_id: checked.package.publisher.key_id().map(str::to_string),
+                peers: checked.binary.candidate().peers().to_vec(),
             },
         );
     }
-    if let Err(failed) = change.commit() {
-        let error = OpError::from(failed.error).with_writes(Writes::of(failed.left));
-        if let Some(e) = outcome
-            .extensions
-            .iter_mut()
-            .find(|e| e.name == planned[0].0)
-        {
-            e.status = UpdateStatus::Failed(error);
-        }
-    }
+    change
+        .commit()
+        .map_err(|failed| OpError::from(failed.error).with_writes(Writes::of(failed.left)))?;
     Ok(outcome)
 }
 
@@ -262,6 +257,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
 fn plan_one(
     req: &UpdateRequest,
     registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
     staged: &LockFile,
     package: &PackageName,
     current: &str,
@@ -281,6 +277,7 @@ fn plan_one(
     others.entries.retain(|e| e.name != *package);
     fetch_checked(
         registry,
+        runtime,
         &others,
         package,
         &latest,
@@ -297,177 +294,51 @@ fn broken_dependents(
     planned: &[(String, Checked)],
     registry: &dyn Registry,
 ) -> Vec<(String, (String, OpError))> {
-    let mut broken = Vec::new();
-    for entry in &staged.entries {
-        if planned.iter().any(|(name, _)| *name == entry.name.as_str()) {
-            continue;
-        }
-        for peer in &entry.peer_dependencies {
-            if !planned.iter().any(|(name, _)| *name == peer.name) {
-                continue;
-            }
-            if let Err(error) = check_diamonds(
-                staged,
-                entry.name.as_str(),
-                std::slice::from_ref(peer),
-                &published_versions(registry),
-            ) {
-                broken.push((entry.name.to_string(), (peer.name.clone(), error)));
-            }
-        }
-    }
+    let names: Vec<&str> = planned.iter().map(|(name, _)| name.as_str()).collect();
+    let published = published_versions(registry);
+    let mut broken: Vec<(String, (String, OpError))> = names
+        .iter()
+        .flat_map(|name| {
+            broken_requirers(staged, name, &names, Some(&published))
+                .into_iter()
+                .map(move |(dependent, error)| (dependent, (name.to_string(), error)))
+        })
+        .collect();
+    // In lock order, as the dependents are reported.
+    broken.sort_by_key(|(dependent, _)| {
+        staged
+            .entries
+            .iter()
+            .position(|e| e.name.as_str() == dependent)
+    });
     broken
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::fixtures::{declaration_of, entry, greet, installed, project};
     use super::*;
-    use crate::registry::Package;
-    use specforge_installed::{LockFileEntry, hex_sha256, lock_path, write_lock_file};
-    use specforge_protocol_types::package::Version;
-    use specforge_protocol_types::{ExtensionDeclaration, PackageName};
-    use specforge_registry::PeerDependency;
+    use crate::registry::testing::{MemoryRegistry, Published, declaration};
+    use specforge_installed::{hex_sha256, lock_path};
     use specforge_test_macros::test as specforge_test;
-    use std::cell::RefCell;
 
-    /// Where the module of extension `name` is installed under `root`.
-    fn installed(root: &Path, name: &str) -> std::path::PathBuf {
-        Installed::unread(root).module_path(&PackageName::parse(name).unwrap())
+    /// What the tests serve in process: `@sdk/greet` and `@test/probe`.
+    fn runtime() -> specforge_wasm::testing::InProcessRuntime {
+        crate::testing::candidates()
     }
 
-    /// `@sdk/greet` 0.1.0, a real extension binary.
-    fn greet() -> Vec<u8> {
-        std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
-        )
-        .expect("the greet fixture is vendored")
+    fn name(text: &str) -> PackageName {
+        PackageName::parse(text).unwrap()
     }
 
-    /// An in-memory registry: each package's versions, and the bytes it
-    /// serves for one of them (unsigned).
-    struct FakeRegistry {
-        published: Vec<(&'static str, Vec<&'static str>)>,
-        served: Vec<(&'static str, &'static str, Vec<u8>)>,
-        /// The declaration published with a package, when it isn't the one
-        /// its binary declares.
-        declared: Vec<(&'static str, &'static str, ExtensionDeclaration)>,
-        /// The packages whose versions were listed, in order.
-        listed: RefCell<Vec<String>>,
+    /// `@sdk/greet` 0.1.0, a real extension binary, published with the declaration it declares.
+    fn greet_published() -> Published {
+        Published::new(greet(), declaration_of(&greet()))
     }
 
-    /// What `wasm` declares, as `publish` would upload it.
-    fn declaration_of(wasm: &[u8]) -> ExtensionDeclaration {
-        crate::publish::prepare(wasm.to_vec())
-            .expect("a publishable binary")
-            .declaration
-    }
-
-    impl FakeRegistry {
-        fn new() -> Self {
-            Self {
-                published: Vec::new(),
-                served: Vec::new(),
-                declared: Vec::new(),
-                listed: RefCell::new(Vec::new()),
-            }
-        }
-        fn publish(mut self, name: &'static str, versions: &[&'static str]) -> Self {
-            self.published.push((name, versions.to_vec()));
-            self
-        }
-        fn serve(mut self, name: &'static str, version: &'static str, wasm: Vec<u8>) -> Self {
-            self.served.push((name, version, wasm));
-            self
-        }
-        /// Publish `name@version` with `declaration` as its manifest
-        /// instead of what its binary declares.
-        fn declare(
-            mut self,
-            name: &'static str,
-            version: &'static str,
-            declaration: ExtensionDeclaration,
-        ) -> Self {
-            self.declared.push((name, version, declaration));
-            self
-        }
-    }
-
-    impl Registry for FakeRegistry {
-        /// Serves unsigned packages; the tests allow them.
-        fn fetch(
-            &self,
-            name: &PackageName,
-            version: &Version,
-            _allow_unsigned: bool,
-            _trust: Trust,
-        ) -> Result<Package, OpError> {
-            let (name, version) = (name.as_str(), version.to_string());
-            let (_, _, wasm) = self
-                .served
-                .iter()
-                .find(|(n, v, _)| *n == name && *v == version)
-                .ok_or_else(|| {
-                    OpError::diagnostic(codes::R_RES_001, format!("{name}@{version} not served"))
-                })?;
-            let declaration = self
-                .declared
-                .iter()
-                .find(|(n, v, _)| *n == name && *v == version)
-                .map(|(_, _, d)| d.clone())
-                .unwrap_or_else(|| declaration_of(wasm));
-            Ok(Package {
-                name: PackageName::parse(name).unwrap(),
-                version: Version::parse(&version).unwrap(),
-                wasm: wasm.clone(),
-                sha256: hex_sha256(wasm),
-                declaration,
-                key_id: None,
-            })
-        }
-
-        fn versions(&self, name: &PackageName) -> Result<Vec<Version>, OpError> {
-            self.listed.borrow_mut().push(name.to_string());
-            Ok(self
-                .published
-                .iter()
-                .find(|(n, _)| *n == name.as_str())
-                .map(|(_, v)| v.iter().map(|v| Version::parse(v).unwrap()).collect())
-                .unwrap_or_default())
-        }
-    }
-
-    fn entry(name: &str, version: &str, source: &str, peers: &[(&str, &str)]) -> LockFileEntry {
-        LockFileEntry {
-            name: specforge_protocol_types::PackageName::parse(name).unwrap(),
-            version: version.to_string(),
-            source: LockSource::parse(source),
-            wasm_hash: hex_sha256(b"old"),
-            key_id: None,
-            peer_dependencies: peers
-                .iter()
-                .map(|(name, range)| PeerDependency {
-                    name: name.to_string(),
-                    version: range.to_string(),
-                    optional: false,
-                })
-                .collect(),
-        }
-    }
-
-    /// A project locking `entries`, each installed with the bytes `old`.
-    fn project(entries: Vec<LockFileEntry>) -> tempfile::TempDir {
-        let dir = tempfile::tempdir().unwrap();
-        for e in &entries {
-            let path = installed(dir.path(), e.name.as_str());
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(path, b"old").unwrap();
-        }
-        let lock = LockFile {
-            lockfile_version: 1,
-            entries,
-        };
-        write_lock_file(&lock, &lock_path(dir.path())).unwrap();
-        dir
+    /// `name@version` published with bytes that are no extension.
+    fn old(name: &str, version: &str) -> Published {
+        Published::new(b"\0asm old".to_vec(), declaration(name, version, &[]))
     }
 
     fn request(root: &Path, major: bool) -> UpdateRequest<'_> {
@@ -495,11 +366,11 @@ mod tests {
     )]
     fn an_update_installs_the_newer_binary_and_locks_its_hash() {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
-        let registry = FakeRegistry::new()
-            .publish("@sdk/greet", &["0.0.9", "0.1.0"])
-            .serve("@sdk/greet", "0.1.0", greet());
+        let registry = MemoryRegistry::new()
+            .serving(old("@sdk/greet", "0.0.9"))
+            .serving(greet_published());
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(outcome.applied(), "{outcome:?}");
         assert_eq!(
@@ -529,14 +400,14 @@ mod tests {
     fn a_new_major_version_needs_major() {
         // ^0.0.9 admits only 0.0.9: 0.1.0 is a breaking change.
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
-        let registry = FakeRegistry::new()
-            .publish("@sdk/greet", &["0.0.9", "0.1.0"])
-            .serve("@sdk/greet", "0.1.0", greet());
+        let registry = MemoryRegistry::new()
+            .serving(old("@sdk/greet", "0.0.9"))
+            .serving(greet_published());
 
-        let outcome = update(&request(dir.path(), false), &registry).unwrap();
+        let outcome = update(&request(dir.path(), false), &registry, &runtime()).unwrap();
 
         // Asked for what ^0.0.9 admits: 0.1.0 is not it.
-        assert_eq!(registry.listed.borrow().as_slice(), ["@sdk/greet"]);
+        assert_eq!(registry.listed(), [name("@sdk/greet")]);
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
             &UpdateStatus::UpToDate {
@@ -562,14 +433,16 @@ mod tests {
             entry("@acme/liar", "1.0.0", "registry", &[]),
         ]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        // @acme/liar 1.1.0 serves greet's binary: E028, as add refuses it.
-        let registry = FakeRegistry::new()
-            .publish("@sdk/greet", &["0.1.0"])
-            .serve("@sdk/greet", "0.1.0", greet())
-            .publish("@acme/liar", &["1.1.0"])
-            .serve("@acme/liar", "1.1.0", greet());
+        // @acme/liar 1.1.0 is published as @acme/liar but its binary is greet's: it
+        // declares other than was published, E028, as add refuses it.
+        let registry = MemoryRegistry::new()
+            .serving(greet_published())
+            .serving(Published::new(
+                greet(),
+                declaration("@acme/liar", "1.1.0", &[]),
+            ));
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(!outcome.applied());
         let failures: Vec<(&str, &str)> = outcome
@@ -606,13 +479,9 @@ mod tests {
             ),
         ]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        let registry = FakeRegistry::new().publish("@sdk/greet", &["0.1.0"]).serve(
-            "@sdk/greet",
-            "0.1.0",
-            greet(),
-        );
+        let registry = MemoryRegistry::new().serving(greet_published());
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
         assert!(!outcome.applied());
         let (name, error) = outcome.failures().next().unwrap();
@@ -630,11 +499,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
-        let registry = FakeRegistry::new().publish("@sdk/greet", &["0.1.0"]).serve(
-            "@sdk/greet",
-            "0.1.0",
-            greet(),
-        );
+        let registry = MemoryRegistry::new().serving(greet_published());
         // The binaries can be placed, the lock beside them cannot be written.
         let mode = |m| std::fs::Permissions::from_mode(m);
         std::fs::set_permissions(dir.path(), mode(0o555)).unwrap();
@@ -644,26 +509,67 @@ mod tests {
             return;
         }
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let result = update(&request(dir.path(), true), &registry, &runtime());
         std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
 
-        assert!(!outcome.applied(), "{outcome:?}");
-        let (_, error) = outcome.failures().next().unwrap();
+        let error = result.unwrap_err();
         assert_eq!(error.code, "E033", "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
         let installed = installed(dir.path(), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
+    #[cfg(unix)]
+    #[specforge_test(
+        behavior = "update_all_extensions",
+        verify = "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
+    )]
+    fn a_write_that_fails_while_applying_fails_the_update() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project(vec![
+            entry("@sdk/greet", "0.0.9", "registry", &[]),
+            entry("@test/probe", "0.0.9", "registry", &[]),
+        ]);
+        let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
+        let probe = crate::testing::PROBE.to_vec();
+        let registry = MemoryRegistry::new()
+            .serving(greet_published())
+            .serving(Published::new(probe.clone(), declaration_of(&probe)));
+        // The second package's directory cannot take a new file.
+        let probe_dir = dir.path().join(".specforge/extensions/@test");
+        let mode = |m| std::fs::Permissions::from_mode(m);
+        std::fs::set_permissions(&probe_dir, mode(0o555)).unwrap();
+        if std::fs::write(probe_dir.join("probe-check"), b"").is_ok() {
+            // Running as a user permissions don't bind (root): nothing to test.
+            std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+            return;
+        }
+
+        let result = update(&request(dir.path(), true), &registry, &runtime());
+        std::fs::set_permissions(&probe_dir, mode(0o755)).unwrap();
+
+        let error = result.unwrap_err();
+        assert_eq!(error.code, "E032", "{error:?}");
+        assert!(error.message.contains("'@test/probe'"), "{error:?}");
+        assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@sdk/greet")).unwrap(),
+            b"old"
+        );
+        assert_eq!(
+            std::fs::read(installed(dir.path(), "@test/probe")).unwrap(),
+            b"old"
+        );
+    }
+
     #[test]
     fn a_local_install_is_never_asked_about() {
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "local:greet.wasm", &[])]);
-        let registry = FakeRegistry::new().publish("@sdk/greet", &["9.9.9"]);
+        let registry = MemoryRegistry::new().serving(old("@sdk/greet", "9.9.9"));
 
-        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        let outcome = update(&request(dir.path(), true), &registry, &runtime()).unwrap();
 
-        assert!(registry.listed.borrow().is_empty());
-        assert!(!outcome.registry_used);
+        assert!(registry.asked().is_empty());
         assert_eq!(
             status_of(&outcome, "@sdk/greet"),
             &UpdateStatus::NotFromRegistry {
@@ -675,132 +581,18 @@ mod tests {
     #[test]
     fn no_lock_and_no_registry_fail_outright() {
         let empty = tempfile::tempdir().unwrap();
-        let error = update(&request(empty.path(), false), &FakeRegistry::new()).unwrap_err();
+        let error = update(
+            &request(empty.path(), false),
+            &MemoryRegistry::new(),
+            &runtime(),
+        )
+        .unwrap_err();
         assert!(error.is(NO_LOCK), "{error:?}");
 
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let unconfigured = crate::registry::Unconfigured("update");
-        let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+        let error = update(&request(dir.path(), false), &unconfigured, &runtime()).unwrap_err();
         assert!(error.is(NO_REGISTRY), "{error:?}");
-    }
-
-    /// A project enabling nothing yet, with `lock` locked.
-    fn add_project(lock: Vec<LockFileEntry>) -> tempfile::TempDir {
-        let dir = project(lock);
-        std::fs::write(
-            dir.path().join("specforge.json"),
-            r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
-        )
-        .unwrap();
-        dir
-    }
-
-    fn add_greet(
-        root: &Path,
-        registry: &FakeRegistry,
-    ) -> Result<super::super::AddOutcome, OpError> {
-        super::super::add(
-            &super::super::AddRequest {
-                root,
-                source: super::super::Source::Registry(
-                    specforge_protocol_types::PackageRef::parse("@sdk/greet@0.1.0").unwrap(),
-                ),
-                allow_unsigned: true,
-                trust: Trust::Refuse,
-                dry_run: false,
-            },
-            registry,
-        )
-        .map(|added| added.outcome)
-    }
-
-    fn with_peer(
-        mut declaration: ExtensionDeclaration,
-        name: &str,
-        range: &str,
-    ) -> ExtensionDeclaration {
-        declaration
-            .handshake
-            .peer_dependencies
-            .push(PeerDependency {
-                name: name.to_string(),
-                version: range.to_string(),
-                optional: false,
-            });
-        declaration
-    }
-
-    #[specforge_test(
-        behavior = "check_registry_reply",
-        verify = "add refuses a package whose binary declares other than its published declaration"
-    )]
-    fn a_binary_that_declares_other_than_its_published_declaration_is_refused() {
-        // R4/R5: the published declaration differs from the binary's, in
-        // its handshake (another description) or in a category (no kinds).
-        // A served declaration is trusted for nothing the binary doesn't
-        // declare: the package is refused before anything is installed.
-        let mut description = declaration_of(&greet());
-        description.handshake.description = Some("Something else".to_string());
-        for published in [description, {
-            let mut kinds = declaration_of(&greet());
-            kinds.entities.clear();
-            kinds
-        }] {
-            let dir = add_project(Vec::new());
-            let registry = FakeRegistry::new()
-                .publish("@sdk/greet", &["0.1.0"])
-                .serve("@sdk/greet", "0.1.0", greet())
-                .declare("@sdk/greet", "0.1.0", published);
-            let err = add_greet(dir.path(), &registry).unwrap_err();
-            assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
-            assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
-            assert!(
-                !installed(dir.path(), "@sdk/greet").exists(),
-                "nothing is installed"
-            );
-        }
-        // The message names the first part that differs.
-        let mut kinds = declaration_of(&greet());
-        kinds.entities.clear();
-        let dir = add_project(Vec::new());
-        let registry = FakeRegistry::new()
-            .publish("@sdk/greet", &["0.1.0"])
-            .serve("@sdk/greet", "0.1.0", greet())
-            .declare("@sdk/greet", "0.1.0", kinds);
-        let err = add_greet(dir.path(), &registry).unwrap_err();
-        assert!(err.message.contains("another entities"), "{err:?}");
-        // The published declaration equal to the binary's installs.
-        let dir = add_project(Vec::new());
-        let registry = FakeRegistry::new().publish("@sdk/greet", &["0.1.0"]).serve(
-            "@sdk/greet",
-            "0.1.0",
-            greet(),
-        );
-        add_greet(dir.path(), &registry).unwrap();
-    }
-
-    #[specforge_test(
-        behavior = "check_registry_reply",
-        verify = "the diamond gate decides on the published declaration's peers"
-    )]
-    fn the_diamond_gate_reads_the_published_declarations_peers() {
-        // R4: the published declaration names a peer @acme/x ^2 that the
-        // lock holds at 1.0.0. The gate refuses before the binary (which
-        // declares no peer) is loaded.
-        let dir = add_project(vec![entry("@acme/x", "1.0.0", "registry", &[])]);
-        let registry = FakeRegistry::new()
-            .publish("@sdk/greet", &["0.1.0"])
-            .publish("@acme/x", &["1.0.0"])
-            .serve("@sdk/greet", "0.1.0", greet())
-            .declare(
-                "@sdk/greet",
-                "0.1.0",
-                with_peer(declaration_of(&greet()), "@acme/x", "^2"),
-            );
-        let err = add_greet(dir.path(), &registry).unwrap_err();
-        assert!(!err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
-        assert!(err.code.starts_with("R-RES"), "{err:?}");
-        assert!(err.message.contains("@acme/x"), "{err:?}");
     }
 
     #[specforge_test(
@@ -824,7 +616,8 @@ mod tests {
                 let refused = crate::config::refusal(&read.problems[0]);
 
                 let unconfigured = crate::registry::Unconfigured("update");
-                let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+                let error =
+                    update(&request(dir.path(), false), &unconfigured, &runtime()).unwrap_err();
 
                 assert_eq!(error, refused, "{config}, locked: {locked}");
                 assert_eq!(files_under(dir.path()), before, "{config}");

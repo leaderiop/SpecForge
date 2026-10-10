@@ -367,7 +367,7 @@ fn without_grading_no_kind_is_risk_tallied_and_nothing_is_a002() {
     assert!(ungraded.findings.is_empty(), "{:?}", ungraded.findings);
     assert!(ungraded.summary.invariants.is_empty());
     assert_eq!(ungraded.summary.invariant_enforced, 0);
-    assert_eq!(ungraded.summary.invariant_orphans, 0);
+    assert_eq!(ungraded.summary.invariant_unreferenced, 0);
 
     // A grading names any kind; the messages name it.
     let grading = RiskGrading {

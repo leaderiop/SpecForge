@@ -113,7 +113,7 @@ pub fn truncate_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
 }
 
 /// One diagnostic as JSON: see [`diagnostics_json`].
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, crate::shape::Shape)]
 pub struct DiagnosticJson<'a> {
     pub code: &'a str,
     /// The catalogue's title for the code, when the catalogue describes this
@@ -138,6 +138,29 @@ pub struct DiagnosticJson<'a> {
     /// the key is absent for the host's own.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<&'a str>,
+}
+
+/// Diagnostics as every surface prints them ([`diagnostics_json`]), owned so
+/// a reply can hold them: serializes as the [`DiagnosticJson`] array.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DiagnosticList(pub Vec<Diagnostic>);
+
+impl Serialize for DiagnosticList {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        diagnostics_json(&self.0).serialize(serializer)
+    }
+}
+
+impl crate::shape::Shape for DiagnosticList {
+    fn schema() -> serde_json::Value {
+        <Vec<DiagnosticJson<'static>> as crate::shape::Shape>::schema()
+    }
+}
+
+impl From<Vec<Diagnostic>> for DiagnosticList {
+    fn from(diagnostics: Vec<Diagnostic>) -> Self {
+        DiagnosticList(diagnostics)
+    }
 }
 
 /// Compute the process exit code from collected diagnostics.

@@ -23,7 +23,9 @@ CORE_DIRS=(
   crates/specforge-coverage/src
   crates/specforge-ops/src
   crates/specforge-ops-registry/src
+  crates/specforge-registry-wire/src
   crates/specforge-installed/src
+  crates/specforge-shape-macros/src
 )
 
 # Files that `#[cfg(test)] mod name;` declares, relative to the declaring file:

@@ -4,6 +4,8 @@
 
 use std::collections::BTreeSet;
 
+use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
 
@@ -19,20 +21,13 @@ pub struct TextEdit {
 
 /// What a fix is to an editor: a quick fix of the diagnostic, or a
 /// refactoring that adds to the project.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
+#[serde(rename_all = "lowercase")]
 pub enum FixKind {
+    /// `quickfix`, the LSP `CodeActionKind`.
     QuickFix,
+    /// `refactor`.
     Refactor,
-}
-
-impl FixKind {
-    /// The LSP `CodeActionKind` and MCP `kind`: `quickfix`, `refactor`.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            FixKind::QuickFix => "quickfix",
-            FixKind::Refactor => "refactor",
-        }
-    }
 }
 
 /// Where a fix comes from.

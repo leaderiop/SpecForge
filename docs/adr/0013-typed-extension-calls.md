@@ -102,7 +102,7 @@ The host's encoders skip unset optional fields: `stdout` of a collect input, `te
 
 `WasmRuntime` has two implementations: `ComponentRuntime` (wasmtime, production) and
 `specforge_wasm::testing::InProcessRuntime` (feature `testing`), which serves an SDK-declared
-extension in the host process through the guest's own routing (`guest_call`, the body of
+extension in the host process through the guest's own routing (`Served::call`, the body of
 `component_guest!`), unsandboxed. Host tests declare their extensions with the SDK and give the
 answers no SDK guest gives (another protocol version, a trap, bytes that do not parse) through
 `answer_raw`; the nineteen hand-written doubles are gone. One contract suite
@@ -112,6 +112,19 @@ contract over the component runtime found that an instance that trapped could no
 again, so one panicking call took the extension down for the rest of an MCP session: the
 component runtime now gives the extension a fresh instance after a trap. Sandbox and deadline
 obligations stay proven on the component runtime only.
+
+*Amended (2026-10-08): a builtin's command behaviour is tested from source.* An extension's command
+tests run through the in-process runtime, called as the host calls them
+(`ExtensionCalls::run_command`), in the extension's own crate: `@specforge/product`'s 283 live in
+`extensions/product/src/tests/` and link their obligations there (ADR 0002). Over the vendored blob
+they cost a re-vendor before any feedback and about ten seconds of CPU each. The blob is its sources
+at every green commit (`build-builtins --check`), so `specforge-component` tests a builtin only for
+what its bytes prove: its declaration snapshots (`tests/declarations.rs`), that every declared
+command answers through it as the host calls it (`tests/builtins.rs`, `tests/product_blob.rs`), and
+what the in-process runtime cannot hold it to (the component's stack, as `product_blob.rs`'s long
+chain; the sandbox and the deadline, above). In this repository the extension crates are outside the
+workspace, so their linked tests are recorded by the gate (`scripts/gate.sh full` runs them into
+`target/specforge` before `collect --no-run`), not by a bare `specforge collect`.
 
 ## D9. One `PassDiagnostic`, without the host's diagnostic data
 
@@ -131,7 +144,8 @@ declaration without its handler panics when the extension is built. The `handler
 written with the builders; `answer_export` decodes and encodes for such a handler with the
 declared handlers' code. `#[compiler_pass]` was removed with `HostApi` and the free
 `describe_dispatch` (plan 16, 2026-10): the function it wrapped is the handler `PassBuilder::run`
-takes.
+takes. A guest builds its declaration once per instance (`Served`, plan 15, 2026-10); `guest_call` and
+the builder's `describe_dispatch` are gone.
 One SDK source change: `PassOutput::summary` is a JSON object, the keys the host merges into the
 pass's report.
 
@@ -145,7 +159,10 @@ nobody calls would be speculative.
 
 `specforge_ops::analyze::analyze(view, Option<&dyn WasmRuntime>, options)`: a rootless MCP
 analysis has no runtime and runs no extension pass, which the type now says instead of a
-production `NoRuntime` double.
+production `NoRuntime` double. *(Amended by ADR 0015, "The runtime travels with the
+environment": `analyze(view, options)` runs the extension passes in the view's runtime, and none
+when its environment was loaded without one. MCP's analysis always has a project: it refuses
+`no_project` first.)*
 
 ## D13. `WasmValidationRuntime` keeps one method
 

@@ -87,7 +87,7 @@ event mcp_mutation_completed "MCP Mutation Completed" {
   // named on its own. The reply names the same files in files_written
   // (relative to the project root), so a client sees what the event
   // counts. entities_affected: the entities the call changed (the renamed
-  // one, the ones a removal orphans, the ones an inference step produced).
+  // one, the ones a removal strands, the ones an inference step produced).
   // A preview (dry_run, check, diff) is no mutation and emits nothing.
   channel "mcp.mutation_completed"
   payload {
@@ -108,21 +108,21 @@ event mcp_mutation_completed "MCP Mutation Completed" {
 event mcp_subscription_created "MCP Subscription Created" {
   channel "mcp.subscription_created"
   payload {
-    subscriptionType string
-    clientId         string
-    timestamp        timestamp
+    resourceUri    string
+    subscriptionId string @optional
+    timestamp      timestamp
   }
-  verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"
+  verify integration "emits mcp_subscription_created for each resource a client subscribes to or a listen stream names"
 }
 
 event mcp_subscription_removed "MCP Subscription Removed" {
   channel "mcp.subscription_removed"
   payload {
-    subscriptionType string
-    clientId         string
-    timestamp        timestamp
+    resourceUri    string
+    subscriptionId string @optional
+    timestamp      timestamp
   }
-  verify integration "emits mcp_subscription_removed when a client unsubscribes or server shuts down"
+  verify integration "emits mcp_subscription_removed for each resource whose subscription ends: unsubscribe, cancel, disconnect or shutdown"
 }
 
 event mcp_initialization_failed "MCP Initialization Failed" {

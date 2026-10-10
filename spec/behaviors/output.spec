@@ -110,11 +110,15 @@ behavior render_extension_outline "Render the Extension Outline" {
   ensures {
     one_card_per_extension  "each loaded extension is one card naming its version and what it contributes"
     declared_text_contained "text an extension declares stays inside the label, string or table cell it is written in, in every format"
+    deps_selected           "the dependencies every format shows, json included, are the ones --deps selects"
   }
   contract   """
     When specforge outline (or MCP specforge.outline_extensions) is
     invoked, the system MUST render one card per loaded extension, with
     its dependencies and enhancements, as markdown, mermaid, dot or json.
+    The --deps level (direct, effective: direct and used transitive,
+    full: every transitive) selects the dependencies every format shows,
+    json included.
     Text an extension declares (its name, version, kind keywords, field
     names) MUST be written through the escaping of the syntax it sits in:
     Mermaid's entity codes in a label, the record escapes in a DOT record
@@ -124,7 +128,8 @@ behavior render_extension_outline "Render the Extension Outline" {
   verify unit "declared text with a quote, markup or a line break stays inside its Mermaid label"
   verify unit "declared text with a pipe or a line break stays in its Markdown table cell"
   verify unit "the builtins' outline is unchanged in every format"
-  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained"
+  verify unit "the dependencies every format shows, json included, are the ones --deps selects"
+  verify contract "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained, deps_selected"
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
@@ -184,7 +189,9 @@ behavior compute_project_statistics "Compute Project Statistics" {
   contract   """
     When specforge stats is invoked, the system MUST compute and display:
     entity counts by kind, the declared percentage, the proof percentage
-    when tests are recorded, orphan count, and diagnostic summary. Statistics MUST be derived from the current
+    when tests are recorded, the unconnected entity count (the entities no edge
+    links to another entity, read_views_over_the_project_view), and diagnostic
+    summary. Statistics MUST be derived from the current
     graph state. Coverage percentage MUST be computed only over entity
     kinds with testable=true in the KindRegistry, not over all entities,
     and without the entities W004 exempts that declare no obligations
@@ -192,8 +199,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
     pass's testable count.
     An entity is "declared" when it has at least one verify statement.
     The declared percentage is declared testable entities /
-    testable_entity_count; coverage percentage is its deprecated alias,
-    kept for readers of the old name. When testable_entity_count is zero,
+    testable_entity_count. When testable_entity_count is zero,
     it MUST be reported as 0%, not as a division error. When the project
     has recorded test results (specforge-report.json), stats also reports
     the proof percentage: the share of testable entities the coverage
@@ -203,7 +209,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   """
   verify unit "stats reports correct entity counts"
   verify unit "stats reports coverage percentage"
-  verify unit "stats reports orphan count"
+  verify unit "stats reports the unconnected entity count"
   verify unit "stats reports diagnostic summary"
   verify unit "coverage is 0% when testable_entity_count is zero"
   verify unit "stats leaves the entities W004 exempts out of the testable count"
@@ -220,7 +226,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   types      [Graph, KindRegistryEntry, GraphProtocolSchema, TraceChain]
   ports      [CompilerApi, McpProtocol]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
@@ -231,10 +237,13 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     Stats, trace (one entity or every entity), the coverage view, the
     model and outline diagrams, the versioned Graph Protocol schema,
     inspect (one entity's facts: its kind, standing, headline, references,
-    coverage and the diagnostics about it), and query, list and search
-    (the entities a selection over the view returns) MUST each be one
-    operation over the project view, shared by the surfaces that show them
-    (the CLI, MCP, and for inspect the LSP hover); a surface maps its
+    coverage and the diagnostics about it), query, list and search
+    (the entities a selection over the view returns), the exploration
+    (explore_the_graph), the review (review_coverage_gaps) and the
+    inference guide and plan (compute_inference_guide,
+    provide_infer_plan_scope) MUST each be one operation over the project
+    view, shared by the surfaces that show them (the CLI, MCP's tools and
+    prompts, and the LSP hover and keyword completion); a surface maps its
     arguments and renders the outcome. A kind the project knows is one a
     loaded extension declares or an entity is written with; names are
     exact. A kind filter that names another kind matches nothing and is
@@ -251,8 +260,17 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     project: what specforge check reports for the compile behind it, then
     what the surface adds (MCP: I017). Coverage is computed once per
     compiled project or session state and per content of the recorded
-    report; a rewritten report is read again. An entity is unverified when
-    it counts toward coverage and is not proven.
+    report; a rewritten report is read again.
+    An entity is unconnected when no edge links it to another entity, in
+    either direction: a reference that does not resolve is no edge (E003
+    or I004 reports it), and an edge from an entity to itself links it to
+    nothing else. Stats counts the unconnected entities, the exploration
+    lists them and the review flags those that count toward coverage, by
+    this one rule. The entities of each kind are counted once, for every
+    kind an entity is written with. A coverage row is one JSON document
+    on every surface that lists rows.
+    An entity is unverified when it counts toward coverage and is not
+    proven.
   """
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
   verify unit "a view reports what its compile reported, then what its surface adds"
@@ -269,9 +287,120 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
   verify integration "specforge query and specforge.query return the same document for an entity"
+  verify unit "an entity is unconnected when no edge links it to another entity: a reference that does not resolve or names the entity itself links nothing"
+  verify unit "the entities of each kind are counted once, for every kind an entity is written with"
+  verify unit "a coverage row is one JSON document on every surface"
   verify unit "a kind filter reports each kind the project does not know with I020, naming the closest"
   verify unit "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
+}
+
+// The exploration and the review: the explore and review prompts'
+// payloads, and specforge explore / specforge review, read one view each.
+behavior explore_the_graph "Explore the Graph" {
+  features   [agent_export, mcp_prompts]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, Diagnostic]
+  requires {
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
+  }
+  ensures {
+    one_selection    "entity_id, depth and kind select the entities every list is about"
+    connected_ranked "starting points and the most connected entities are connected entities, ranked by their edges to other entities"
+    unconnected_kept "the selected unconnected entities are listed"
+  }
+  contract   """
+    The exploration (specforge_ops::explore) MUST select the entities
+    entity_id reaches within depth hops over edges both ways (every entity
+    without entity_id; unbounded without depth), of kind when given, and
+    answer about that selection only: the selected entities in id order;
+    the path from entity_id to each selected entity it reaches, nearest
+    first, with the labels of its edges; the starting points, the
+    selected connected entities with the highest lead (edges to other
+    entities minus edges from them), ties by id, at most five; the most
+    connected, the selected connected entities with the most edges to and
+    from other entities, ties by id, at most ten; and the selected
+    unconnected entities (read_views_over_the_project_view). Degrees count
+    every edge of the project. A kind the project does not know selects
+    nothing and is an I020 notice naming the closest kind; an entity_id
+    the graph lacks is E003 naming the closest entity. The exploration
+    reaches exactly the entities the review reaches at the same depth.
+  """
+  verify unit "the exploration selects the entities entity_id reaches within depth, of kind when given, and every list is about that selection"
+  verify unit "starting points are the selected connected entities that lead most, ties by id, at most five"
+  verify unit "the most connected are the selected connected entities with the most edges to other entities, ties by id, at most ten"
+  verify unit "unconnected lists the selected entities no edge links to another entity"
+  verify unit "relationship paths run from entity_id to each selected entity it reaches, nearest first, with their edge labels"
+  verify unit "an unknown kind selects nothing and is an I020 notice naming the closest kind"
+  verify unit "the exploration and the review reach the same entities at the same depth"
+}
+
+behavior review_coverage_gaps "Review Coverage Gaps" {
+  features   [agent_export, mcp_prompts, extension_driven_coverage]
+  invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, Diagnostic]
+  requires {
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
+  }
+  ensures {
+    neighbourhood_rows "the coverage view's rows of the entities that count toward coverage within depth hops of entity_id"
+    gaps_found         "each row's missing obligations and unconnectedness are findings"
+  }
+  contract   """
+    The review (specforge_ops::review) MUST list the coverage view's rows
+    of the entities that count toward coverage within depth hops of
+    entity_id (default one hop), or of the whole project without
+    entity_id, in id order, and for each row a warning finding when it
+    declares no obligation and an info finding when it is unconnected
+    (read_views_over_the_project_view). An entity_id the graph lacks is
+    E003 naming the closest entity; a recorded report that cannot be read
+    is its E045 failure.
+  """
+  verify unit "the review lists the coverage view's rows of the entities within depth hops of entity_id, or of every entity that counts toward coverage"
+  verify unit "an entity that declares no obligation is a warning finding"
+  verify unit "an unconnected entity is an info finding"
+  verify unit "the review's depth defaults to one hop"
+  verify unit "a project with nothing that counts toward coverage has no rows and no findings"
+  verify unit "a recorded report that cannot be read is the review's E045 failure"
+}
+
+behavior provide_explore_cli "Provide CLI Explore Command" {
+  features   [agent_export]
+  invariants [diagnostic_determinism]
+  category   cli
+  types      [Graph, Diagnostic]
+  contract   """
+    specforge explore [ENTITY] [--kind KIND] [--depth N] [--path PATH]
+    [--format human|json] MUST render the exploration (explore_the_graph)
+    of the project compiled at PATH: --format json prints the document the
+    explore prompt's payload is for the same arguments; human output lists
+    the selection's size, the starting points, the most connected entities
+    with their edge counts, the unconnected entities and, with ENTITY, the
+    paths from it. Notices go to stderr. An unknown ENTITY is E003 naming
+    the closest entity, exit 1.
+  """
+  verify integration "specforge explore --format json is the explore prompt's payload for the same arguments"
+  verify integration "an unknown entity is E003 naming the closest entity, exit 1"
+}
+
+behavior provide_review_cli "Provide CLI Review Command" {
+  features   [agent_export, extension_driven_coverage]
+  invariants [diagnostic_determinism]
+  category   cli
+  types      [Graph, Diagnostic]
+  contract   """
+    specforge review [ENTITY] [--depth N] [--path PATH] [--format
+    human|json] MUST render the review (review_coverage_gaps) of the
+    project compiled at PATH: --format json prints the document the review
+    prompt's payload is for the same arguments; human output lists each
+    row (entity, kind, status, proven obligations) and each finding. An
+    unknown ENTITY is E003, exit 1; a recorded report that cannot be read
+    is E045, exit 2.
+  """
+  verify integration "specforge review --format json is the review prompt's payload for the same arguments"
+  verify integration "a recorded report that cannot be read exits 2 with E045"
 }
 
 // An enumerated argument is one option table (ADR 0027): the CLI's possible
@@ -397,10 +526,12 @@ behavior report_command_outcome "Report a Command's Outcome" {
     Every core command MUST end in one of three ways. Its run passed:
     exit 0. Its run's verdict failed (check found an error, format --check
     a file that would change, migrate failed or rolled back, analyze an
-    error finding or a gate below its minimum) or its operation refused:
+    error finding or a gate below its minimum, doctor an error-level
+    finding or an unusable credential) or its operation refused:
     exit 1. The command could not judge the project, because the command
     line was refused or a measuring command (stats, analyze) cannot read
-    what it measures against: exit 2. A refusal MUST be printed on stderr
+    what it measures against, or analyze's coverage gate has no figure:
+    exit 2. A refusal MUST be printed on stderr
     as error[CODE]: message, then "  hint: " and the suggestion when there
     is one, then "  wrote: " and each file the failed operation left
     written; under --format json (analyze: --json) it MUST instead be the
@@ -408,7 +539,8 @@ behavior report_command_outcome "Report a Command's Outcome" {
     were left written) on stdout, with nothing on stderr. A command run
     outside any project where it needs one MUST refuse with no_project.
     The verdict is the operation's: the CLI's exit code and the ok MCP
-    returns for check, analyze, format and migrate MUST agree.
+    returns for check, analyze, format, migrate and doctor MUST agree
+    (doctor's credentials are the CLI's alone).
   """
   verify unit "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
   verify unit "under --format json a refusal is the error document on stdout and nothing on stderr"
@@ -825,13 +957,19 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     command writes to stdout for agent consumption. An optional --scope parameter
     MUST allow scoping to a subgraph rooted at a specific entity. If --scope
     references a non-existent entity ID, the system MUST emit an E003
-    diagnostic and exit with code 1. The output MUST include a schema_version
-    field identifying the Graph Protocol version.
+    diagnostic and exit with code 1. --depth (with --scope) limits the hops
+    from it, and --kinds keeps only entities of those kinds, the scoped
+    entity always kept; depth without a scope is invalid input.
+    specforge.export and the graph resources take the same options. The
+    output MUST include a schema_version field identifying the Graph
+    Protocol version.
   """
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
+  verify unit "depth without a scope is invalid input on every surface"
+  verify integration "depth and kinds narrow the export the same way on every surface"
   verify unit "an export failure carries its code as a constant, never in its message"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"

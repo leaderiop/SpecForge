@@ -181,7 +181,7 @@ pub(crate) fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
 
 /// `specforge.coverage` rows as `id -> (status, obligations, proven)`.
 pub(crate) fn coverage_rows(content: &Value) -> BTreeMap<String, (String, u64, u64)> {
-    content
+    content["entities"]
         .as_array()
         .unwrap_or_else(|| panic!("coverage is not an array: {content}"))
         .iter()
@@ -255,7 +255,7 @@ fn fx1_stats_today() {
     // field named `verify`, S2) and the property, which counts toward
     // "verified" though its kind is not testable.
     assert_eq!(stats["verified_count"], 4, "{stats}");
-    assert_eq!(stats["coverage_pct"], 75.0, "{stats}");
+    assert_eq!(stats["declared_pct"], 75.0, "{stats}");
 }
 
 #[test]
@@ -298,7 +298,7 @@ fn fx1_mcp_coverage_today() {
     );
     assert_eq!(inspect["coverage_status"], "covered", "{inspect}");
 
-    assert_eq!(results[2]["coverage_pct"], 75.0, "{}", results[2]);
+    assert_eq!(results[2]["declared_pct"], 75.0, "{}", results[2]);
 }
 
 #[test]
@@ -399,13 +399,13 @@ fn assert_mcp_coverage_rows_are_what_stats_counts(root: &Path) {
     );
     let stats = stats(root);
     assert_eq!(
-        results[0].as_array().unwrap().len() as u64,
+        results[0]["entities"].as_array().unwrap().len() as u64,
         stats["testable_count"].as_u64().unwrap(),
         "{}",
         results[0]
     );
     assert!(
-        results[0]
+        results[0]["entities"]
             .as_array()
             .unwrap()
             .iter()
@@ -413,7 +413,7 @@ fn assert_mcp_coverage_rows_are_what_stats_counts(root: &Path) {
     );
     let proven = analyze_coverage(root)["summary"]["testable_proven"].clone();
     assert_eq!(
-        json!(results[1].as_array().unwrap().len()),
+        json!(results[1]["entities"].as_array().unwrap().len()),
         proven,
         "{}",
         results[1]
@@ -446,7 +446,7 @@ fn stats_reports_declared_and_proof_percentages() {
     // are proven.
     assert_eq!(stats["declared_count"], 3, "{stats}");
     assert_eq!(stats["declared_pct"], 75.0, "{stats}");
-    assert_eq!(stats["coverage_pct"], stats["declared_pct"], "{stats}");
+    assert!(stats.get("coverage_pct").is_none(), "{stats}");
     assert_eq!(stats["proof_pct"], 50.0, "{stats}");
 
     let out = specforge()
@@ -473,7 +473,7 @@ fn mcp_stats_reports_declared_and_proof_percentages() {
         &[json!({"name": "specforge.stats", "arguments": {}})],
     )[0];
     assert_eq!(stats["declared_pct"], 75.0, "{stats}");
-    assert_eq!(stats["coverage_pct"], 75.0, "{stats}");
+    assert_eq!(stats["declared_pct"], 75.0, "{stats}");
     assert_eq!(stats["proof_pct"], 50.0, "{stats}");
 
     // A report that can't be read is an error result, not "no proof".

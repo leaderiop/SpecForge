@@ -2,7 +2,7 @@
 source: crates/specforge-cli/tests/inspect_views.rs
 expression: markdown
 ---
-**W123** · Orphan property
+**W123** · Unreferenced property
 
 property 'no_lost_login' is not referenced by any behavior — it may be unused
 

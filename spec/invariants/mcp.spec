@@ -36,9 +36,11 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
   guarantee """
-    When an MCP client disconnects, all its subscriptions MUST be removed. No
-    orphan subscriptions may remain after client disconnect. This prevents
-    resource leaks and ensures notification delivery targets only active clients.
+    When an MCP client disconnects, all its subscriptions and listen streams
+    MUST be removed, each removal recorded. Subscriptions belong to the
+    connection: no request parameter names another client. No orphan
+    subscriptions may remain after client disconnect. This prevents resource
+    leaks and ensures notification delivery targets only active clients.
   """
   risk      high
   verify unit "client disconnect removes all subscriptions for that client"
@@ -68,16 +70,23 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     an update for changed sources, an environment reload with its extension
     tools and resources for a changed specforge.json, specforge.lock or
     extension module. Subscribed clients learn what changed. A call whose
-    path names another project acts on that project only, compiled for the
-    call, and the server keeps serving its own without reloading it. A call
+    path names another project acts on that project only, opened for the
+    call and brought up to date after it writes as the served project is,
+    and the server keeps serving its own without reloading it. A call
     that names a tool, a resource or a prompt looks it up in the project as
     it is on disk: an extension enabled since the last request is found by
     the next one, whether the request is a call, a read, a listing or a
     subscription (one freshness decision, owned by the request pipeline). A call
     whose path names a project while none is served serves that project.
-    With no project served, a read that names a file or an entity is the
-    no-project refusal (precondition_failed), never not-found; a read of the
-    whole project answers over the empty session.
+    With no project served and none named, what a call gets is declared by
+    the entry's target: an entry that reads only the project view (the read
+    views, export and render, the navigation reads of the graph, every core
+    prompt and resource) answers over the empty session, and one of its
+    reads that names a file or an entity is the no-project refusal
+    (precondition_failed), never not-found; an entry that acts on the
+    project on disk (a tool that takes a path, a management tool, a read of
+    the inference or anchors manifest, every extension tool and resource)
+    is refused as no project before its arguments are read.
   """
   risk      high
   verify unit "an environment change on disk updates the extension tools listed"
@@ -88,6 +97,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "an extension enabled on disk since the last request is listed by the next listing of every kind"
   verify unit "a subscription to an extension resource enabled on disk since the last request is accepted"
   verify unit "a mutation on another project does not reload the served one"
+  verify unit "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "a path inside the served project names the served project"
   verify unit "rename with a path to another project edits that project only and keeps serving this one"
@@ -96,14 +106,6 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"
   verify unit "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
-}
-
-invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {
-  guarantee """
-    Breaking changes to types consumed by MCP tools (McpToolDescriptor,
-    McpCoverageResult, McpInspectResult, McpTracePlanResult) MUST trigger
-    a major version increment in the Graph Protocol schema version.
-  """
-  risk      high
-  verify unit "adding required field to MCP type triggers major version bump"
+  verify unit "with no project served, every core tool, prompt and resource answers or refuses as its target declares"
+  verify unit "with no project served, an entry that acts on the project is refused before its arguments are read"
 }

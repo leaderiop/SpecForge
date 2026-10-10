@@ -1,7 +1,6 @@
 use crate::OutputFormat;
 use crate::outcome::{Exit, Refusal};
-use specforge_migrate::{MigrationStatus, MigrationSummary, RollbackSummary};
-use specforge_ops::migrate::{self, Request};
+use specforge_ops::migrate::{self, MigrationStatus, MigrationSummary, Request, RollbackSummary};
 use std::path::Path;
 
 pub fn run(
@@ -11,16 +10,12 @@ pub fn run(
     rollback: bool,
     target_version: Option<&str>,
     format: OutputFormat,
-) -> i32 {
+) -> Exit {
     // Handle rollback mode
     if rollback {
-        let summary = migrate::rollback(path);
-        print_rollback(
-            &summary,
-            &migrate::restored(&summary).names_under(path),
-            format,
-        );
-        return Exit::of_verdict(summary.failed_count == 0).code();
+        let outcome = migrate::rollback(path);
+        print_rollback(&outcome.summary, &outcome.writes.names_under(path), format);
+        return Exit::of_verdict(outcome.ok());
     }
 
     let target = match migrate::parse_target(target_version) {
@@ -30,20 +25,21 @@ pub fn run(
 
     // The shared migration: migrate, run the extensions' hooks, then check
     // the graph kept its structure, rolling back when it didn't.
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let runtime: specforge_project::SharedRuntime =
+        std::sync::Arc::new(specforge_component::ComponentRuntime::with_user_cache());
     let request = Request {
         root: path,
         target,
         dry_run,
         no_backup,
     };
-    let outcome = migrate::run(&request, Some(&runtime));
+    let outcome = migrate::run(&request, Some(runtime));
     // Each migrated file and each backup (none for a dry run).
     let written = (!dry_run).then(|| outcome.writes.names_under(path));
     print_migration(&outcome.summary, written.as_deref(), format, dry_run);
 
     if outcome.summary.failed_count != 0 {
-        return Exit::of_verdict(outcome.ok()).code();
+        return Exit::of_verdict(outcome.ok());
     }
     for failure in &outcome.hook_failures {
         eprintln!("migration hook failure: {failure}");
@@ -63,7 +59,7 @@ pub fn run(
         }
     }
 
-    Exit::of_verdict(outcome.ok()).code()
+    Exit::of_verdict(outcome.ok())
 }
 
 /// The JSON of `document` with `files_written`, when given.

@@ -191,3 +191,35 @@ fn the_view_scores_against_the_report_as_it_is_now() {
     assert!(!after.is_unverified("logout"));
     assert!(before.is_unverified("logout"));
 }
+
+#[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "a coverage row is one JSON document on every surface"
+)]
+fn a_coverage_row_is_one_document() {
+    let project = project();
+    let view = project.view();
+
+    let login = row(&view, "login").unwrap().unwrap().to_json();
+    assert_eq!(
+        login,
+        serde_json::json!({
+            "entity_id": "login",
+            "kind": "behavior",
+            "status": "covered",
+            "declared": true,
+            "linked": true,
+            "evidence_collected": true,
+            "obligations": 1,
+            "proven": 1,
+            "unproven": [],
+            "exempt": false,
+        })
+    );
+
+    let base = row(&view, "base").unwrap().unwrap().to_json();
+    assert_eq!(base["exempt"], true);
+    assert_eq!(base["declared"], false);
+    assert_eq!(base["obligations"], 0);
+    assert_eq!(base.as_object().unwrap().len(), 10);
+}

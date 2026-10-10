@@ -38,6 +38,10 @@ OPTIONS:
   --depth <N>              Max depth from root kind (requires --root)
 ```
 
+An `--extension` the project does not load, and a `--root` no loaded extension declares, are refused,
+naming the closest. A kind of `--kinds` the project does not know is reported (I020) and selects nothing.
+`--depth` needs `--root`.
+
 ### MCP Tool
 
 Exposed as `specforge.model` with identical parameters. The Markdown format is specifically designed for LLM consumption via MCP.

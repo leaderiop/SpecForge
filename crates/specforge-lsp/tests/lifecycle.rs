@@ -1,27 +1,38 @@
 use crate::served::{edit_buffer, hover_text, uri_of_path};
-use specforge_lsp::{ClientSupport, answers};
+use specforge_lsp::{ClientSupport, answers, initialize_result};
 use specforge_test_macros::test as spec;
-use tower_lsp::lsp_types::{GotoDefinitionResponse, Position};
+use tower_lsp::lsp_types::{
+    CompletionOptions, GotoDefinitionResponse, Position, SemanticTokensServerCapabilities,
+    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
+};
 
 // -- lsp_initialize -----------------------------------------------------------
+
+fn capabilities() -> ServerCapabilities {
+    initialize_result().capabilities
+}
+
+/// The semantic token types `initialize` lists.
+fn legend() -> Vec<String> {
+    match capabilities().semantic_tokens_provider {
+        Some(SemanticTokensServerCapabilities::SemanticTokensOptions(options)) => options
+            .legend
+            .token_types
+            .iter()
+            .map(|t| t.as_str().to_string())
+            .collect(),
+        other => panic!("semantic tokens are served with a legend, not {other:?}"),
+    }
+}
 
 #[spec(
     behavior = "lsp_initialize",
     verify = "initialize response includes semantic token legend"
 )]
 fn init_includes_semantic_legend() {
-    let caps = specforge_lsp::server_capabilities(&["behavior", "type", "event"]);
-    assert!(!caps.semantic_token_types.is_empty());
-    assert!(caps.semantic_token_types.contains(&"keyword".to_string()));
-}
-
-#[test]
-fn init_legend_includes_extension_types() {
-    let caps = specforge_lsp::server_capabilities(&["behavior", "type"]);
-    // Extension kinds should appear in the legend as "keyword" type
-    assert!(caps.semantic_token_types.contains(&"keyword".to_string()));
-    assert!(caps.semantic_token_types.contains(&"string".to_string()));
-    assert!(caps.semantic_token_types.contains(&"property".to_string()));
+    let legend = legend();
+    assert_eq!(legend, specforge_lsp::TOKEN_TYPES);
+    assert!(legend.contains(&"keyword".to_string()));
 }
 
 #[spec(
@@ -29,8 +40,12 @@ fn init_legend_includes_extension_types() {
     verify = "initialize response advertises incremental sync"
 )]
 fn init_advertises_incremental_sync() {
-    let caps = specforge_lsp::server_capabilities(&[]);
-    assert!(caps.incremental_sync);
+    assert_eq!(
+        capabilities().text_document_sync,
+        Some(TextDocumentSyncCapability::Kind(
+            TextDocumentSyncKind::INCREMENTAL
+        ))
+    );
 }
 
 #[spec(
@@ -38,8 +53,13 @@ fn init_advertises_incremental_sync() {
     verify = "initialize response includes completion trigger characters"
 )]
 fn init_includes_completion_triggers() {
-    let caps = specforge_lsp::server_capabilities(&[]);
-    assert!(!caps.completion_trigger_characters.is_empty());
+    let Some(CompletionOptions {
+        trigger_characters, ..
+    }) = capabilities().completion_provider
+    else {
+        panic!("completion is served");
+    };
+    assert_eq!(trigger_characters, Some(vec![" ".into(), "[".into()]));
 }
 
 #[spec(
@@ -47,61 +67,47 @@ fn init_includes_completion_triggers() {
     verify = "initialize response includes server_info with name and version"
 )]
 fn init_includes_server_info() {
-    let info = specforge_lsp::server_info();
+    let info = initialize_result().server_info.expect("server_info");
     assert_eq!(info.name, "specforge-lsp");
-    assert!(!info.version.is_empty(), "version must be non-empty");
+    assert_eq!(info.version.as_deref(), Some(env!("CARGO_PKG_VERSION")));
 }
 
 #[spec(
     behavior = "lsp_initialize",
     verify = "zero extensions produces structural-only capabilities"
 )]
-#[tokio::test]
-async fn init_zero_extensions() {
-    use crate::contracts::{STANDARD_TOKEN_TYPES, legend_of, project_with};
-    use crate::session::Session;
-    use std::time::Duration;
-
-    let bare = project_with(&[]);
-    let (mut session, init) = Session::start(Some(bare.path())).await;
-    let caps = &init["capabilities"];
-
-    // The structural capabilities are all there...
-    assert_eq!(caps["textDocumentSync"], 2);
-    for provider in [
-        "hoverProvider",
-        "definitionProvider",
-        "referencesProvider",
-        "codeActionProvider",
-        "documentSymbolProvider",
-        "workspaceSymbolProvider",
-        "documentFormattingProvider",
-        "documentRangeFormattingProvider",
-    ] {
-        assert_eq!(caps[provider], true, "{provider}");
-    }
-    assert_eq!(caps["renameProvider"]["prepareProvider"], true);
+fn initialize_answers_a_static_result() {
+    // The answer is one static value: nothing in it depends on a project, so a project with
+    // no extension and one with extensions are offered the same (checked over the protocol
+    // by `e2e_initialize_returns_all_capabilities`).
     assert_eq!(
-        caps["completionProvider"]["triggerCharacters"],
-        serde_json::json!([" ", "["])
+        serde_json::to_value(initialize_result()).unwrap(),
+        serde_json::json!({
+            "capabilities": {
+                "codeActionProvider": true,
+                "completionProvider": {"triggerCharacters": [" ", "["]},
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentRangeFormattingProvider": true,
+                "documentSymbolProvider": true,
+                "hoverProvider": true,
+                "referencesProvider": true,
+                "renameProvider": {"prepareProvider": true},
+                "semanticTokensProvider": {
+                    "full": true,
+                    "legend": {
+                        "tokenModifiers": ["declaration", "reference"],
+                        "tokenTypes": specforge_lsp::TOKEN_TYPES,
+                    },
+                },
+                "textDocumentSync": 2,
+                "workspaceSymbolProvider": true,
+            },
+            "serverInfo": {"name": "specforge-lsp", "version": env!("CARGO_PKG_VERSION")},
+        })
     );
-    // ...and nothing else: the legend is the standard LSP list, no entity
-    // kind of any extension among it.
-    assert_eq!(legend_of(&init), STANDARD_TOKEN_TYPES);
-    assert!(
-        session
-            .notification_within("window/logMessage", Duration::ZERO, |p| {
-                p["message"].as_str().is_some_and(|m| m.contains("loaded"))
-            })
-            .await
-            .is_none(),
-        "no extension was loaded"
-    );
-
-    // A project with extensions is offered the same capabilities.
-    let extended = project_with(&["@specforge/software", "@specforge/testing"]);
-    let (_session, with_extensions) = Session::start(Some(extended.path())).await;
-    assert_eq!(with_extensions["capabilities"], *caps);
+    // No entity kind of any extension is among the legend: it is the standard LSP list.
+    assert_eq!(legend(), crate::contracts::STANDARD_TOKEN_TYPES);
 }
 
 // -- lsp_shutdown -------------------------------------------------------------
@@ -116,15 +122,23 @@ fn shutdown_clears_state() {
     edit_buffer(&mut state, "/p/login.spec", LOGIN);
     assert!(state.graph().node("login").is_some());
     let session = state.session().unwrap();
-    assert_eq!(session.graph_diagnostics().len(), 1, "the E003");
+    assert_eq!(
+        session
+            .project()
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E003")
+            .count(),
+        1,
+        "the E003"
+    );
 
     state.shutdown();
 
     assert_eq!(state.graph().node_count(), 0);
     assert_eq!(state.graph().edges().len(), 0);
     let session = state.session().unwrap();
-    assert!(session.diagnostics().is_empty());
-    assert!(session.diagnostic_files().is_empty());
+    assert!(session.project().diagnostics().is_empty());
     assert!(!state.is_open("file:///p/login.spec"));
     assert!(state.is_shutdown());
 }
@@ -161,7 +175,7 @@ fn lsp_state_holds_graph() {
     // The graph the LSP serves is the one owned by its project session,
     // the type `specforge watch` holds.
     let session: &specforge_project::ProjectSession = state.session().unwrap();
-    assert!(std::ptr::eq(state.graph(), session.graph()));
+    assert!(std::ptr::eq(state.graph(), session.project().graph()));
 
     // A change driven through the session is what the LSP's features see.
     let limit = "invariant session_limit \"Limit\" {\n}\n";
@@ -186,10 +200,9 @@ fn lsp_state_holds_graph() {
     // builds the same graph and reports the same diagnostics.
     let mut watch = specforge_project::ProjectSession::detached();
     for (path, text) in [("/p/login.spec", LOGIN), ("/p/limit.spec", limit)] {
-        watch.update(specforge_project::SourceChange::Buffer {
-            path,
-            text: Some(text),
-        });
+        watch.update(specforge_project::SourceChange::Hold(&[
+            specforge_project::Buffer::new(path, text),
+        ]));
     }
     let ids = |g: &specforge_graph::Graph| {
         let mut ids: Vec<String> = g.nodes().iter().map(|n| n.id.raw.to_string()).collect();
@@ -197,9 +210,15 @@ fn lsp_state_holds_graph() {
         ids
     };
     assert_eq!(ids(state.graph()), ["login", "session_limit"]);
-    assert_eq!(ids(state.graph()), ids(watch.graph()));
-    assert_eq!(state.graph().edges().len(), watch.graph().edges().len());
-    assert_eq!(state.session().unwrap().diagnostics(), watch.diagnostics());
+    assert_eq!(ids(state.graph()), ids(watch.project().graph()));
+    assert_eq!(
+        state.graph().edges().len(),
+        watch.project().graph().edges().len()
+    );
+    assert_eq!(
+        state.session().unwrap().project().diagnostics(),
+        watch.project().diagnostics()
+    );
 }
 
 #[spec(
@@ -309,7 +328,8 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
         None,
     ));
 
-    let first_snapshot = std::sync::Arc::clone(state.session().unwrap().recorded().entities());
+    let first_snapshot =
+        std::sync::Arc::clone(state.session().unwrap().project().recorded().entities());
     let session = state.take_session().expect("the session is held");
     let first = state.view().entities().kind_of("a").map(str::to_string);
     assert_eq!(first.as_deref(), Some("behavior"));
@@ -330,7 +350,7 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
     assert_eq!(view.entities().kind_of("b"), Some("behavior"));
     assert!(!std::ptr::eq(view.entities(), &*first_snapshot));
     // It is the snapshot the session holds for that graph.
-    assert!(std::ptr::eq(view.entities(), session.entities()));
+    assert!(std::ptr::eq(view.entities(), session.project().entities()));
 }
 
 /// The watchers derive from the session: relative to each input's
@@ -519,10 +539,7 @@ fn a_debug_build_of_the_lsp_verifies_each_rebuild() {
         ("/p/limit.spec", "invariant session_cap \"Cap\" {\n}\n"),
     ] {
         let update = state.session_mut().expect("no update is running").update(
-            specforge_project::SourceChange::Buffer {
-                path,
-                text: Some(text),
-            },
+            specforge_project::SourceChange::Hold(&[specforge_project::Buffer::new(path, text)]),
         );
         assert_eq!(update.verification, Some(Ok(())), "after {path}");
     }

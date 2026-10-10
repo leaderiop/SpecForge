@@ -1,9 +1,11 @@
-use serde_json::{Value, json};
-use specforge_ops::navigate::{Fix, FixQuery};
+use serde::Serialize;
+use specforge_common::SourceSpan;
+use specforge_common::shape::Shape;
+use specforge_ops::navigate::{Fix, FixKind, FixQuery};
 
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::reply::Answered;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.suggest_fixes`'s arguments.
 #[derive(Debug, Arguments)]
@@ -16,41 +18,75 @@ pub struct Args {
     diagnostic_code: Option<String>,
 }
 
+/// `specforge.suggest_fixes`'s reply (`McpFixSuggestions`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    fixes: Vec<Suggestion>,
+}
+
+/// A fix (`McpFixSuggestion`): its edits are the spec's `TextEdit`.
+#[derive(Debug, Serialize, Shape)]
+pub struct Suggestion {
+    /// The LSP code action's title.
+    title: String,
+    kind: FixKind,
+    /// The code of the diagnostic the fix resolves.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostic_code: Option<String>,
+    /// The entity the fix is about.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entity_id: Option<String>,
+    edits: Vec<Edit>,
+}
+
+/// What applying a fix changes.
+#[derive(Debug, Serialize, Shape)]
+pub struct Edit {
+    file_path: String,
+    range: SourceSpan,
+    new_text: String,
+}
+
+impl Suggestion {
+    fn of(fix: &Fix) -> Self {
+        Suggestion {
+            title: fix.title.clone(),
+            kind: fix.kind,
+            diagnostic_code: fix.diagnostic_code.clone(),
+            entity_id: fix.subject.as_ref().map(ToString::to_string),
+            edits: fix
+                .edits
+                .iter()
+                .map(|edit| Edit {
+                    file_path: edit.span.file.to_string(),
+                    range: edit.span.clone(),
+                    new_text: edit.new_text.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
 /// `specforge.suggest_fixes`: the fixes the LSP offers as code actions for
 /// the same diagnostics and entities, each with its edits (ADR 0016). A
 /// diagnostic whose data names no fix contributes none: its suggestion
 /// text stays on the diagnostic (validate, inspect).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     if let Some(entity_id) = args.entity_id.as_deref()
-        && call.view().graph().node(entity_id).is_none()
+        && view.graph().node(entity_id).is_none()
     {
-        return Err(crate::tool::entity_not_found(call.view().graph(), entity_id).into());
+        return Err(crate::tool::entity_not_found(view.graph(), entity_id).into());
     }
-    let diagnostics = call.view().reported();
+    let diagnostics = view.reported();
     let query = FixQuery {
         entity: args.entity_id.as_deref(),
         file: args.file_path.as_deref(),
         code: args.diagnostic_code.as_deref(),
         within: None,
     };
-    let fixes = super::navigator(call).fixes(&diagnostics, &query);
-    Ok(ToolOutcome::ok(Value::Array(
-        fixes.iter().map(suggestion).collect(),
-    )))
-}
-
-/// A fix as an `McpFixSuggestion`: its edits are the spec's `TextEdit`
-/// (`file_path`, `range` a `SourceSpan`, `new_text`).
-fn suggestion(fix: &Fix) -> Value {
-    json!({
-        "title": fix.title,
-        "kind": fix.kind.as_str(),
-        "diagnostic_code": fix.diagnostic_code,
-        "entity_id": fix.subject,
-        "edits": fix.edits.iter().map(|edit| json!({
-            "file_path": edit.span.file,
-            "range": super::span_json(&edit.span),
-            "new_text": edit.new_text,
-        })).collect::<Vec<Value>>(),
-    })
+    let fixes = super::navigator(view).fixes(&diagnostics, &query);
+    Ok(Reply {
+        fixes: fixes.iter().map(Suggestion::of).collect(),
+    }
+    .into())
 }

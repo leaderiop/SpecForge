@@ -1,5 +1,5 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::find_project_root;
 use specforge_ops::init;
@@ -13,17 +13,17 @@ pub fn run(
     version: &str,
     extensions: &[String],
     format: OutputFormat,
-) -> i32 {
+) -> Exit {
+    // A project further up doesn't block init: the new one is separate, and
+    // commands run inside it resolve to it (the nearest wins).
     let request = init::Request {
         dir: path,
         name,
         version,
         extensions,
-        // A project further up doesn't block init: the new one is separate,
-        // and commands run inside it resolve to it (the nearest wins).
-        forbid_inside: None,
     };
-    let plan = match init::plan(&request) {
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+    let plan = match init::plan(&request, &runtime) {
         Ok(plan) => plan,
         Err(error) => return Refusal::of(format).report(&error),
     };
@@ -36,7 +36,7 @@ pub fn run(
             enclosing.display()
         );
     }
-    let outcome = match init::apply(path, &plan) {
+    let outcome = match init::apply(path, plan) {
         Ok(outcome) => outcome,
         Err(error) => return Refusal::of(format).report(&error),
     };
@@ -82,5 +82,5 @@ pub fn run(
             }
         }
     }
-    0
+    Exit::Passed
 }

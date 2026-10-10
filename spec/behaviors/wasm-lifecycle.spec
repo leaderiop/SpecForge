@@ -93,67 +93,6 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   verify contract "Initialize Wasm Extension: Wasm extension initialization holds — extension_loaded_fired, registries_populated, extension_initialized_emitted, lifecycle_state_updated, no_manifest_override"
 }
 
-// -- Dependencies -----
-
-behavior validate_extension_peer_dependencies "Validate Extension Peer Dependencies" {
-  features   [wasm_extension_runtime]
-  invariants [peer_dependency_satisfaction]
-  category   validation
-  types      [PeerDependency, ExtensionDeclaration, ExtensionError]
-  requires {
-    manifests_loaded "all extension manifests have been loaded and parsed"
-  }
-  ensures {
-    peer_dependencies_validated_emitted "peer_dependencies_validated event is emitted when all peers are satisfied"
-    unsatisfied_peers_diagnosed         "unsatisfied peer dependencies produce hard error diagnostics"
-  }
-  contract   """
-    Before initializing extensions, the compiler MUST check that all
-    declared peer dependencies are satisfied. For each peer dependency,
-    the referenced extension MUST be installed and its version MUST match
-    the declared semver range. Unsatisfied peers MUST produce a hard
-    error diagnostic.
-  """
-  produces   [peer_dependencies_validated]
-  verify unit "satisfied peer dependency passes"
-  verify unit "missing peer produces hard error"
-  verify unit "version mismatch produces hard error"
-  verify contract "Validate Extension Peer Dependencies: peer dependency validation holds — manifests_loaded, peer_dependencies_validated_emitted, unsatisfied_peers_diagnosed"
-}
-
-behavior topological_sort_extensions "Topological Sort Extensions" {
-  features   [wasm_extension_runtime]
-  invariants [extension_load_order_determinism]
-  category   command
-  types      [PeerDependency, ExtensionDeclaration]
-  consumes   [peer_dependencies_validated]
-  requires {
-    peer_dependencies_validated_fired "peer_dependencies_validated event has fired, confirming all peer dependencies are satisfied"
-  }
-  ensures {
-    extensions_sorted_emitted "extensions_sorted event is emitted with the computed topological order"
-    sort_deterministic        "sort is deterministic with ties broken by extension name"
-    cycles_diagnosed          "cycles in peer dependencies produce an error diagnostic"
-  }
-  contract   """
-    The compiler MUST compute a topological order over installed extensions
-    based on their peer dependencies. Extensions with no dependencies MUST
-    be loaded first. A cycle among required peer dependencies MUST produce
-    an error diagnostic (E027). An optional peer only prefers a load order:
-    extensions MAY name each other as optional peers, so the required
-    edges are sorted first and the optional ones are added in name order,
-    each skipped when it would close a cycle. The sort MUST be
-    deterministic — ties broken by extension name.
-  """
-  produces   [extensions_sorted]
-  verify unit "extensions sorted in dependency order"
-  verify unit "cycle in peer dependencies produces error"
-  verify unit "extensions naming each other as optional peers sort without a cycle"
-  verify unit "a cycle among required peers is E027, an optional edge closing a cycle is dropped"
-  verify unit "deterministic ordering on ties"
-  verify contract "Topological Sort Extensions: topological extension sorting holds — peer_dependencies_validated_fired, extensions_sorted_emitted, sort_deterministic, cycles_diagnosed"
-}
-
 // -- Extension Lifecycle -----
 
 behavior install_wasm_extension "Install Wasm Extension" {
@@ -191,7 +130,11 @@ behavior install_wasm_extension "Install Wasm Extension" {
     the one its lock entry pins. Component compilation
     is NOT an install step: the engine compiles on first load and
     caches the artifact (see compile_wasm_component_with_cache), so a
-    slow network or large binary never blocks install.
+    slow network or large binary never blocks install. What a candidate
+    binary declares is read in the runtime the surface passes (the CLI's
+    component runtime with the per-user compile cache, the MCP call's
+    runtime), never in one the operation builds, so the environment load
+    that follows reuses its compile.
   """
   produces   [extension_install_completed]
   verify unit "resolves extension from registry"
@@ -204,6 +147,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "an install over an unreadable specforge.lock is refused before anything is written"
   verify unit "an install of an extension whose binary changed after install replaces it"
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
+  verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

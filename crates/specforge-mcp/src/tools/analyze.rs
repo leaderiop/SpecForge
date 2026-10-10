@@ -1,9 +1,13 @@
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, McpError, ToolOutcome};
+use crate::reply::Answered;
+use crate::target::ProjectRef;
+use crate::tool::McpError;
 use specforge_ops::OpError;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ReportSource, analyze};
-use specforge_wasm::runtime::WasmRuntime;
+
+/// `specforge.analyze`'s reply: the document `specforge analyze --json`
+/// prints (`McpAnalyzeResult`).
+pub use specforge_ops::analyze::AnalyzeDocument as Reply;
 
 /// `specforge.analyze`'s arguments.
 #[derive(Debug, Arguments)]
@@ -15,17 +19,18 @@ pub struct Args {
     strict: bool,
     /// Path to a specforge-report.json for proof-level verdicts
     test_results: Option<String>,
+    /// Proof-coverage minimum, in percent (0 to 100): below it the run fails (E048); it needs test results and the coverage pass
+    min: Option<f64>,
 }
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the call's project and return
 /// structured findings. Extension passes execute in the runtime the
-/// project was compiled in (WASM-only migration, Phase 4): the served
-/// session's, or the one runtime another project was compiled in for this
-/// call. With no project served and no `path`, there is nothing to
+/// project's environment was loaded in (ADR 0015, "The runtime travels with
+/// the environment"): the served session's, or the session another project
+/// was opened as for this call. With no project served and no `path`, there is nothing to
 /// analyze: a no-project refusal (plan 01 D7).
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
-    let project = call.project()?;
+pub fn call(project: &ProjectRef<'_>, args: Args) -> Answered<Reply> {
     let view = project.view();
     // Without `test_results`, use what `specforge collect` last recorded at
     // the project root, as the CLI does.
@@ -38,23 +43,19 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
             Some(named) => ReportSource::File(project.root.join(named)),
             None => ReportSource::Recorded,
         },
-        min: None,
+        min: args.min,
         prove: None,
     };
-    // The project's runtime: every project a call reaches has one, so its
-    // extensions' passes run (ADR 0017).
-    let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
-    Ok(match analyze(&view, runtime, &options) {
-        Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
+    match analyze(&view, &options) {
+        Ok(outcome) => Ok(outcome.document().into()),
         Err(e) => {
             // The argument an unknown pass names is this surface's spelling.
             let unknown_pass = matches!(e, AnalyzeError::UnknownPass { .. });
             let error = McpError::from(OpError::from(e));
-            match unknown_pass {
+            Err(Box::new(match unknown_pass {
                 true => error.with_argument("pass"),
                 false => error,
-            }
-            .into()
+            }))
         }
-    })
+    }
 }

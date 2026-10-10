@@ -9,8 +9,11 @@
 #
 # Full gate: nextest (not `cargo test`) for the workspace, doctests only for
 # crates that have one, `specforge collect --no-run` + `analyze` on the
-# reports the tests just wrote, the extensions' native tests and wasm clippy
-# in one shared target dir, workspace clippy, fmt, blob freshness, and
+# reports the tests just wrote, the extensions' native tests (their linked
+# tests report into target/specforge beside the workspace's, so the dogfood
+# records them: a bare `specforge collect` runs only `cargo test
+# --workspace`), their wasm and native clippy in one shared target dir,
+# workspace clippy, fmt, blob freshness, and
 # `specforge check` on every spec corpus. It uses target/debug/specforge (no
 # release build). Light steps run alongside the heavy ones; the two heavy
 # compiles (nextest build, clippy) never overlap.
@@ -66,9 +69,14 @@ extensions_check() {
     local ext status=0
     for ext in "$@"; do
         echo "== $ext"
-        CARGO_TARGET_DIR="$EXT_TARGET" cargo test -q --manifest-path "extensions/$ext/Cargo.toml" || status=1
+        # Linked extension tests report beside the workspace's, where the
+        # dogfood `collect --no-run` reads them.
+        CARGO_TARGET_DIR="$EXT_TARGET" SPECFORGE_REPORT="$ROOT/target/specforge" \
+            cargo test -q --manifest-path "extensions/$ext/Cargo.toml" || status=1
         CARGO_TARGET_DIR="$EXT_TARGET" cargo clippy -q --manifest-path "extensions/$ext/Cargo.toml" \
             --target wasm32-wasip2 -- -D warnings || status=1
+        CARGO_TARGET_DIR="$EXT_TARGET" cargo clippy -q --manifest-path "extensions/$ext/Cargo.toml" \
+            --all-targets -- -D warnings || status=1
     done
     return $status
 }

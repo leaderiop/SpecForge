@@ -31,7 +31,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
     all_kinds_mapped            "Every entity kind in the schema produces exactly one ModelEntity in the IR"
     synthetic_id_added          "Every ModelEntity has an id field with is_primary_key=true as its first field"
     cardinality_inferred        "Every ModelRelationship has a non-null cardinality derived from the source field type"
-    extension_metadata_computed "Every ModelExtension has accurate entity_count and edge_count"
+    extension_metadata_computed "Every ModelExtension's entity_count is the kinds it declares that the model keeps, and its edge_count the edge types it declares that name a drawn relationship"
   }
   contract   """
     When the model command is invoked, the system MUST build a
@@ -41,8 +41,11 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
     Every SchemaEdgeType MUST produce one ModelRelationship with cardinality
     inferred from the source entity's field type: reference -> ManyToOne,
     reference_list -> ManyToMany, unknown -> ManyToMany (safe default).
-    The IR MUST carry extension metadata (name, version, entity count,
-    edge count) for grouping renderers.
+    The IR MUST carry extension metadata for grouping renderers: name,
+    version, the entity kinds it declares that the model keeps, and the
+    edge types it declares that name at least one relationship the model
+    draws. A standalone edge type (no source or target kinds) draws
+    nothing and is not counted.
   """
   verify unit "every schema entity kind maps to a ModelEntity"
   verify unit "a field's type is named as its extension declares it; DBML writes its own column type"
@@ -51,6 +54,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
   verify unit "reference_list field produces ManyToMany cardinality"
   verify unit "unknown field type defaults to ManyToMany cardinality"
   verify unit "extension metadata has correct entity and edge counts"
+  verify unit "an extension's edge count is the edge types the model draws"
   verify unit "empty schema produces empty ModelIntermediate"
   verify contract "Build Model Intermediate Representation: model IR construction holds — schema_available, all_kinds_mapped, synthetic_id_added, cardinality_inferred, extension_metadata_computed"
 }
@@ -256,38 +260,54 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   features   [model_filtering]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [ModelIntermediate, ModelOptions]
+  types      [ModelIntermediate, ModelOptions, ModelRoot]
   ports      [CompilerApi]
   requires {
     model_ir_built "ModelIntermediate has been constructed from the schema"
   }
   ensures {
     extension_filter_applied "When --extension is set, only entities from that extension are included"
-    kind_filter_applied      "When --kinds is set, only the listed entity kinds are included"
-    depth_filter_applied     "When --root and --depth are set, only kinds within N hops of root in kind adjacency graph are included"
+    kind_filter_applied      "When --kinds is set, only the listed entity kinds are included; an empty list includes every kind"
+    depth_filter_applied     "When --root is set, only kinds within --depth hops of root in the kind adjacency graph are included"
     edges_pruned             "Relationships where source or target is filtered out are excluded"
     filters_compose          "Multiple filters are applied as intersection"
+    unknown_names_answered   "A root or an extension the project does not have is refused; a listed kind it does not know is reported as I020 and selects nothing"
   }
   contract   """
     After building the ModelIntermediate, the system MUST apply any
     requested filters before rendering. --extension filters to entities
-    from a single extension. --kinds filters to a comma-separated list
-    of entity kind names. --root with --depth builds a kind-level
-    adjacency graph (where kinds are connected if an edge type exists
-    between them) and includes only kinds within --depth hops of --root.
-    Relationships where either source or target has been filtered out
-    MUST be excluded. All filters compose as intersection.
+    from a single loaded extension. --kinds filters to a comma-separated
+    list of entity kind names; an empty list filters nothing. --root
+    builds a kind-level adjacency graph (where kinds are connected if an
+    edge type exists between them) and includes only kinds within --depth
+    hops of --root, every connected kind when --depth is absent; --depth
+    without --root MUST be refused. Relationships where either source or
+    target has been filtered out MUST be excluded. All filters compose as
+    intersection. A --root no loaded extension declares MUST be refused
+    as unknown_kind, naming the closest declared kind. An --extension the
+    project does not load MUST be refused as extension_not_found, naming
+    the loaded extension it most likely means. A kind of --kinds the
+    project does not know MUST be reported as I020, naming the closest
+    kind, and selects nothing. The model export itself is total: a name
+    its schema does not have selects nothing. After a selection, each
+    extension's entity and edge counts are recomputed by
+    build_model_intermediate's rule over what is kept.
   """
+  verify unit "a selection recounts each extension's entities and drawn edge types"
   verify unit "extension filter includes only matching entities"
   verify unit "extension filter excludes cross-extension edges when both endpoints not included"
   verify unit "kind filter includes only listed kinds"
+  verify unit "an empty kind list selects every kind"
   verify unit "root+depth=0 includes only the root kind"
   verify unit "root+depth=1 includes root and directly connected kinds"
+  verify unit "a depth without a root is refused"
   verify unit "filtered relationships exclude edges with missing endpoints"
   verify unit "multiple filters compose as intersection"
-  verify unit "unknown extension name produces empty model"
-  verify unit "unknown kind name is silently ignored"
-  verify contract "Filter Model by Extension, Kind, or Depth: model filtering holds — model_ir_built, extension_filter_applied, kind_filter_applied, depth_filter_applied, edges_pruned, filters_compose"
+  verify unit "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
+  verify unit "an extension the project does not load is refused, naming the loaded one meant"
+  verify unit "a listed kind the project does not know is reported as I020 and selects nothing"
+  verify unit "a listed kind the project does not know selects nothing in the export"
+  verify contract "Filter Model by Extension, Kind, or Depth: model filtering holds — model_ir_built, extension_filter_applied, kind_filter_applied, depth_filter_applied, edges_pruned, filters_compose, unknown_names_answered"
 }
 
 behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
@@ -312,6 +332,10 @@ behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
     kinds, root, depth. The tool MUST compile the project, build the
     ModelIntermediate from the schema, apply filters, and render in the
     requested format. The result MUST be the rendered string.
+    A kind of kinds the project does not know rides in the result's
+    diagnostics (I020); an unknown root or extension, or a depth
+    without a root, is refused as invalid input on that argument
+    (extension_not_found for the extension).
   """
   verify unit "specforge.model appears in MCP tool list"
   verify unit "default format is markdown"

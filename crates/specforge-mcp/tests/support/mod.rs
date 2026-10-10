@@ -10,6 +10,7 @@
 pub mod disk;
 pub mod extension;
 pub mod project;
+pub mod replies;
 pub mod rpc;
 
 pub use disk::{changed_files, files_under};

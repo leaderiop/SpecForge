@@ -28,7 +28,9 @@ ignored, though extension command tools (ADR 0017 D4) and resources (ADR 0024 D4
   (`args::read`) are all derived from it. The tool table holds no input schema.
 - **D2. One argument rule.** Absent or `null` is the default; a missing required argument is
   `Missing required parameter: <name>`. A boolean is read from `true`/`false` or `"true"`/`"false"`,
-  a count from a non-negative integer or a string holding one, a string from a string: through the
+  a count from a non-negative integer or a string holding one, a number (`f64`, e.g.
+  `specforge.analyze`'s `min`) from a JSON number or a string holding a finite one, a string from a
+  string: through the
   extension commands' `command_args::normalize_arg`, with its wording, naming the argument. A list is
   a list of strings; a prompt's entity ids may also be one comma-separated string. Anything else is
   `invalid_input` on the argument.
@@ -59,7 +61,10 @@ ignored, though extension command tools (ADR 0017 D4) and resources (ADR 0024 D4
   and `init --version X` writes `version "X"` in the starter spec too.
 - The serde tracer and probe, `lenient`, `PromptArgs` and its description tables, and every
   `unwrap_or` of an argument default in a handler are gone.
-- Output schemas stay hand-written: results are built with `json!`, not from a typed result.
+- Output schemas stay hand-written: results are built with `json!`, not from a typed result
+  (superseded by [ADR 0048](0048-a-core-tools-reply-is-one-typed-definition.md): a core tool's reply
+  is one typed definition and its output schema is derived).
+- Amended by plan 15 (round 5): a graph resource reads a count in its query by the same rule and wording.
 
 ## Rejected
 
@@ -72,6 +77,10 @@ ignored, though extension command tools (ADR 0017 D4) and resources (ADR 0024 D4
   `CommandArgType` cannot express lists, objects or tables.
 - **Keeping the lenient read**: a preview flag sent as a string wrote files, a P0 under
   `dry_run_side_effect_freedom`.
+
+Amended by plan 15 (round 5): a number argument reads as above (its wording is
+`<name> must be a number, got <value>`, not `normalize_arg`'s, which has no number type), and a graph
+resource reads a count in its query by the same rule and wording.
 
 ## What would reopen it
 

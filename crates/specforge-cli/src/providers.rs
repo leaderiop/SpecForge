@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Exit;
 use specforge_ops::extension;
 use specforge_ops::view::ProjectView;
 use std::path::Path;
@@ -6,8 +7,8 @@ use std::path::Path;
 /// `specforge providers`: the providers `specforge.json` configures, in
 /// declaration order, each with the status the scheme registry built from
 /// the loaded extensions gives it.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
+    let project = crate::pipeline::compile_project(path);
     let listing = extension::providers(&ProjectView::of(&project));
     let (providers, diagnostics) = (&listing.providers, &listing.diagnostics);
 
@@ -15,7 +16,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         OutputFormat::Json => {
             println!(
                 "{}",
-                serde_json::to_string_pretty(&listing.to_json()).expect("serialize JSON output")
+                serde_json::to_string_pretty(&listing.document()).expect("serialize JSON output")
             );
         }
         OutputFormat::Human => {
@@ -29,7 +30,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             }
             if providers.is_empty() {
                 println!("No providers configured.");
-                return 0;
+                return Exit::Passed;
             }
             println!("Configured providers:");
             println!();
@@ -46,5 +47,5 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         }
     }
 
-    0
+    Exit::Passed
 }

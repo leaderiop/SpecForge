@@ -28,6 +28,8 @@ surface held it (ADR 0032), but each surface reported a divergence its own way, 
   document whose file exists, because its buffer is the truth), and repeats while the catch-up moves
   the inputs again, at most eight times. MCP watches nothing and ignores it. This amends ADR 0014 D9:
   the catch-up is part of following.
+  *(ADR 0046: the session leaves out every file an editor buffer holds, whether or not it exists; the LSP's
+  catch-up is `ProjectSession::stale` as it is.)*
 - **D3. Each surface reports a divergence where it reports.** Watch prints it in its event, the LSP
   logs it at ERROR, MCP debug-asserts in `McpState::applied`, the one place every update of the served
   project passes. A session-level assertion was rejected: it would crash watch before its event says
@@ -40,7 +42,8 @@ surface held it (ADR 0032), but each surface reported a divergence its own way, 
 - **D5. `specforge-watch` keeps a session current.** This amends ADR 0006 ("`specforge-watch` is the
   file watcher and its debounce"). It is the file watcher, the debounce rule, and `SessionWatch`, the
   loop `specforge watch` runs: apply a batch, follow, catch up, name the changed paths. Its seam to the
-  file system is `Watchers`, with `Notify` (one `SpecWatcher` per root) in production and a recorder in
+  file system is `Watchers`, with `Notify` (one `SpecWatcher` per root, every path they report debounced as one
+  stream, so one burst across roots is one batch) in production and a recorder in
   its tests. The CLI renders `SessionWatch`'s events. The crate now depends on `specforge-project`.
   Deleting it would put the loop back in a binary and leave the LSP's debounce rule without a home, so
   it stays.

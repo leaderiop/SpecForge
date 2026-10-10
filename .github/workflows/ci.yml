@@ -66,9 +66,11 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
           # Extension crates live outside the workspace; their code compiles
           # to wasip2 components and needs its own clippy pass to be gated.
-          # (kept outside the main clippy run; see the loop below)
+          # (kept outside the main clippy run: a wasm pass for the component, a native one for the tests)
           for ext in extensions/*/Cargo.toml; do
             cargo clippy --manifest-path "$ext" --target wasm32-wasip2 -- -D warnings
+            # Their tests compile only natively (`#[cfg(test)]`): lint them there too.
+            cargo clippy --manifest-path "$ext" --all-targets -- -D warnings
           done
 
       - name: Install nextest
@@ -113,20 +115,11 @@ jobs:
       # No rust-cache here on purpose: this job must prove that a cold clone
       # can rebuild every builtin component blob from source via the xtask
       # escape hatch (wayfinder map #1, ticket #4).
-      - name: Build all builtin component blobs from source
-        run: cargo run -p xtask --bin build-builtins -- --force
-
-      - name: Assert all nine builtin blobs exist
-        run: |
-          test -f extensions/product/target/wasm32-wasip2/release/specforge_ext_product.wasm
-          test -f extensions/software/target/wasm32-wasip2/release/specforge_ext_software.wasm
-          test -f extensions/governance/target/wasm32-wasip2/release/specforge_ext_governance.wasm
-          test -f extensions/formal/target/wasm32-wasip2/release/specforge_ext_formal.wasm
-          test -f extensions/testing/target/wasm32-wasip2/release/specforge_ext_testing.wasm
-          test -f extensions/cargo-test/target/wasm32-wasip2/release/specforge_ext_cargo_test.wasm
-          test -f extensions/vitest/target/wasm32-wasip2/release/specforge_ext_vitest.wasm
-          test -f extensions/rust/target/wasm32-wasip2/release/specforge_ext_rust.wasm
-          test -f extensions/typescript/target/wasm32-wasip2/release/specforge_ext_typescript.wasm
+      # Each blob is built in a staged workspace, so its bytes do not depend on the
+      # checkout path: --verify rebuilds all nine and fails if one differs from the
+      # vendored bytes (a blob vendored by another rustc is built, not compared).
+      - name: Build all builtin component blobs from source and compare them with the vendored ones
+        run: cargo run -p xtask --bin build-builtins -- --verify
 
       - name: Build SDK greet fixture
         run: cargo build --manifest-path fixtures/greet-extension/Cargo.toml --target wasm32-wasip2 --release

@@ -213,7 +213,7 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
     detect_dangling_references,
     detect_duplicate_entity_ids,
     detect_import_cycles,
-    detect_orphan_refs,
+    detect_unreferenced_refs,
     validate_file_reference_paths,
   ]
   protects    [reference_resolution_completeness]
@@ -331,13 +331,13 @@ constraint extension_system_integrity "Extension System Integrity" {
     call_extension_exports,
     initialize_wasm_extension,
     enforce_wasm_sandbox,
-    validate_extension_peer_dependencies,
+    registry_build_peer_dependencies,
     provide_host_function_query_graph,
     provide_host_function_emit_diagnostic,
     provide_host_function_add_graph_node,
     provide_host_function_add_graph_edge,
     reuse_session_runtime,
-    topological_sort_extensions,
+    registry_build_load_order,
     load_extension_manifest,
     register_entity_enhancements,
     run_doctor_check,
@@ -439,7 +439,7 @@ constraint extension_count_limit "Extension Count Limit" {
     degradation. 21-50 extensions MUST produce a warning diagnostic.
     More than 50 extensions MUST be refused with a hard error.
   """
-  constrains  [load_wasm_module, initialize_wasm_extension, topological_sort_extensions]
+  constrains  [load_wasm_module, initialize_wasm_extension, registry_build_load_order]
   protects    [wasm_sandbox_integrity]
   verify unit "20 extensions load without warning"
   verify unit "21+ extensions produce warning"

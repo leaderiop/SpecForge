@@ -7,33 +7,72 @@ use super::{
 use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
 use specforge_registry::FieldType;
 
-#[allow(non_snake_case)]
-pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelIntermediate {
-    let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
+impl ModelIntermediate {
+    pub(super) fn of(schema: &GraphProtocolSchema) -> Self {
+        let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
 
-    let entity_map: HashMap<&str, &ModelEntity> =
-        entities.iter().map(|e| (e.name.as_str(), e)).collect();
+        let entity_map: HashMap<&str, &ModelEntity> =
+            entities.iter().map(|e| (e.name.as_str(), e)).collect();
 
-    let relationships: Vec<ModelRelationship> = schema
-        .edge_types
-        .iter()
-        .flat_map(|edge| build_relationships(edge, &entity_map))
-        .collect();
+        let relationships: Vec<ModelRelationship> = schema
+            .edge_types
+            .iter()
+            .flat_map(|edge| build_relationships(edge, &entity_map))
+            .collect();
 
-    let extensions = build_extensions(schema, &entities);
+        let extensions = schema
+            .extensions
+            .iter()
+            .map(|ext| ModelExtension {
+                name: ext.name.clone(),
+                version: ext.version.clone(),
+                entity_count: 0,
+                edge_count: 0,
+                color: None,
+            })
+            .collect();
 
-    let edge_type_owners: Vec<(String, String)> = schema
-        .edge_types
-        .iter()
-        .map(|e| (e.label.clone(), e.source_extension.clone()))
-        .collect();
+        let edge_type_owners: Vec<(String, String)> = schema
+            .edge_types
+            .iter()
+            .map(|e| (e.label.clone(), e.source_extension.clone()))
+            .collect();
 
-    ModelIntermediate {
-        model_version: "1.0.0".to_string(),
-        extensions,
-        entities,
-        relationships,
-        edge_type_owners,
+        ModelIntermediate {
+            model_version: "1.0.0".to_string(),
+            extensions,
+            entities,
+            relationships,
+            edge_type_owners,
+        }
+        .recount()
+    }
+
+    /// Each extension's counts, recomputed from what the model holds: `entity_count`, the kinds it
+    /// declares that the model keeps; `edge_count`, the edge types it declares (`edge_type_owners`)
+    /// that name at least one kept relationship. The same rule before and after a selection.
+    pub(super) fn recount(mut self) -> Self {
+        let mut entity_counts: HashMap<&str, usize> = HashMap::new();
+        for entity in &self.entities {
+            *entity_counts.entry(entity.extension.as_str()).or_insert(0) += 1;
+        }
+        let mut edge_counts: HashMap<&str, usize> = HashMap::new();
+        for (label, owner) in &self.edge_type_owners {
+            if self.relationships.iter().any(|r| r.name == *label) {
+                *edge_counts.entry(owner.as_str()).or_insert(0) += 1;
+            }
+        }
+        for extension in &mut self.extensions {
+            extension.entity_count = entity_counts
+                .get(extension.name.as_str())
+                .copied()
+                .unwrap_or(0);
+            extension.edge_count = edge_counts
+                .get(extension.name.as_str())
+                .copied()
+                .unwrap_or(0);
+        }
+        self
     }
 }
 
@@ -145,32 +184,4 @@ fn build_relationships(
     }
 
     relationships
-}
-
-fn build_extensions(schema: &GraphProtocolSchema, entities: &[ModelEntity]) -> Vec<ModelExtension> {
-    // Count entities per extension
-    let mut entity_counts: HashMap<&str, usize> = HashMap::new();
-    for entity in entities {
-        *entity_counts.entry(entity.extension.as_str()).or_insert(0) += 1;
-    }
-
-    // Count edges per extension (from schema edge_types)
-    let mut edge_counts: HashMap<&str, usize> = HashMap::new();
-    for edge in &schema.edge_types {
-        *edge_counts
-            .entry(edge.source_extension.as_str())
-            .or_insert(0) += 1;
-    }
-
-    schema
-        .extensions
-        .iter()
-        .map(|ext| ModelExtension {
-            name: ext.name.clone(),
-            version: ext.version.clone(),
-            entity_count: entity_counts.get(ext.name.as_str()).copied().unwrap_or(0),
-            edge_count: edge_counts.get(ext.name.as_str()).copied().unwrap_or(0),
-            color: None,
-        })
-        .collect()
 }

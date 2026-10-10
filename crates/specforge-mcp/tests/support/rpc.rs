@@ -152,3 +152,23 @@ pub fn core_tools() -> Vec<specforge_mcp::types::McpToolDescriptor> {
         .map(specforge_mcp::tool::ToolSpec::descriptor)
         .collect()
 }
+
+/// Open a `subscriptions/listen` stream (MCP 2026-07-28) with request id
+/// `id` on `uris`; the notifications it queued (its acknowledgement).
+pub fn listen(server: &mut McpServer, id: Value, uris: &[&str]) -> Vec<Value> {
+    let request = json!({
+        "jsonrpc": "2.0", "id": id, "method": "subscriptions/listen",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+            "notifications": {"resourceSubscriptions": uris},
+        },
+    });
+    assert!(
+        server.handle_message(&request.to_string()).is_none(),
+        "a listen stream has no reply"
+    );
+    server.take_notifications()
+}

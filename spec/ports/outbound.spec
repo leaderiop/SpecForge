@@ -5,6 +5,7 @@ use "types/core"
 use "types/diagnostics"
 use "types/errors"
 use "types/wasm"
+use "types/zero-entity-core"
 
 port FileSystem {
   direction outbound
@@ -62,12 +63,47 @@ port WasmRuntime {
 port RegistryClient {
   direction outbound
   category  "io/registry"
-  method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, RegistryError>
-  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, RegistryError>
-  method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, RegistryError>
-  method search(registryUrl: string, query: string) -> Result<RegistrySearchResult, RegistryError>
-  method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, RegistryError>
-  method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
-  method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
+  // The transport to a package registry (ADR 0044): it chooses no registry
+  // and checks no reply. Its adapters are the HTTP client (production) and
+  // the in-memory client (tests); both keep one contract suite.
+  // A read carries the credential the user keeps for the registry, when
+  // there is one; a download carries it only to the registry's own origin.
+  method versions(name: PackageName, registry: RegistryConfig, credential: RegistryCredential) -> Result<string[], RegistryError>
+  method metadata(name: PackageName, version: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<PackageMetadata, RegistryError>
+  method download(wasmUrl: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
+  method search(query: SearchQuery, registry: RegistryConfig, credential: RegistryCredential) -> Result<SearchHit[], RegistryError>
+  method publish(wasm: u8[], declaration: ExtensionDeclaration, manifest: string, signature: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
+  method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
+}
+
+port Registry {
+  direction outbound
+  category  "io/registry"
+  // What operations reach a package registry through (ADR 0010, 0036,
+  // 0044, 0045): it lists a package's versions, fetches one that passed the
+  // fetch policy and publishes one, each to the one registry that serves
+  // the name. Its adapters are the configured registry (production) and
+  // the in-memory registry (tests); both keep one contract suite.
+  method versions(name: PackageName) -> Result<string[], ExtensionError>
+  method fetch(name: PackageName, version: string, allowUnsigned: boolean, trust: string) -> Result<RegistryPackage, ExtensionError>
+  method publish(name: PackageName, version: string, wasm: u8[], declaration: ExtensionDeclaration) -> Result<RegistryPublished, ExtensionError>
+  method search(query: string, contributes: string) -> Result<RegistrySearched, ExtensionError>
+  verify integration "Registry contract is satisfied"
+}
+
+port Editor {
+  direction outbound
+  category  "api/lsp"
+  // What the LSP's reaction to a change tells the editor (ADR 0043): its
+  // two adapters are the tower-lsp client (production) and a recorder
+  // (the LSP's tests). Each call returns once the editor has the message;
+  // watch returns once the editor answered, and a refusal falls back to
+  // the static watchers.
+  method publish(path: string, diagnostics: Diagnostic[], version: integer @optional) -> Result<void, never>
+  method watch(globs: string[]) -> Result<void, string>
+  method log(level: string, message: string) -> Result<void, never>
+  method progress(done: boolean, title: string @optional) -> Result<void, never>
+  method refreshTokens() -> Result<void, never>
+  verify integration "Editor contract is satisfied"
 }

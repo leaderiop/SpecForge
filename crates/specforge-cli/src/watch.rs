@@ -10,11 +10,14 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::OutputFormat;
+use crate::outcome::{Exit, Refusal};
 use specforge_ops::check::Counts;
+use specforge_ops::{OpError, OpErrorKind};
 use specforge_project::{ProjectSession, UpdateKind};
 use specforge_watch::{Applied, DEFAULT_DEBOUNCE_WINDOW, Notify, SessionWatch, WatchEvent};
 
-pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
+pub fn run(path: &Path, json: bool, verify_incremental: bool) -> Exit {
     // A debug build checks every rebuild (ProjectSession); a release build
     // only when asked (the check costs a cold rebuild per change).
     let mut session = ProjectSession::open(path);
@@ -28,8 +31,16 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     let mut watch = match SessionWatch::start(session, watchers) {
         Ok(watch) => watch,
         Err(e) => {
-            eprintln!("error: {e}");
-            return 1;
+            let format = if json {
+                OutputFormat::Json
+            } else {
+                OutputFormat::Human
+            };
+            return Refusal::of(format).report(&OpError::new(
+                OpErrorKind::Internal,
+                "watch_failed",
+                e,
+            ));
         }
     };
 
@@ -67,7 +78,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             }
         }
     }
-    0
+    Exit::Passed
 }
 
 /// Seconds since the epoch, for a text event's stamp.
@@ -80,9 +91,9 @@ fn unix_seconds() -> u64 {
 
 /// The `ready` event: the session as opened, and caught up with disk.
 fn print_ready(session: &ProjectSession, json: bool) {
-    let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
-        .unwrap_or_else(|_| session.environment().spec_root.clone());
-    let diagnostics = session.diagnostics();
+    let spec_root: PathBuf = std::fs::canonicalize(&session.project().environment().spec_root)
+        .unwrap_or_else(|_| session.project().environment().spec_root.clone());
+    let diagnostics = session.project().diagnostics();
     let Counts {
         errors, warnings, ..
     } = Counts::of(&diagnostics);
@@ -92,9 +103,9 @@ fn print_ready(session: &ProjectSession, json: bool) {
             serde_json::json!({
                 "event": "ready",
                 "spec_root": spec_root.to_string_lossy(),
-                "files": session.file_count(),
-                "nodes": session.graph().node_count(),
-                "edges": session.graph().edge_count(),
+                "files": session.project().file_count(),
+                "nodes": session.project().graph().node_count(),
+                "edges": session.project().graph().edge_count(),
                 "errors": errors,
                 "warnings": warnings,
                 "diagnostics": specforge_common::diagnostics_json(&diagnostics),
@@ -104,9 +115,9 @@ fn print_ready(session: &ProjectSession, json: bool) {
         println!(
             "specforge watch: {} ({} files, {} nodes, {} edges, {} errors, {} warnings)",
             spec_root.display(),
-            session.file_count(),
-            session.graph().node_count(),
-            session.graph().edge_count(),
+            session.project().file_count(),
+            session.project().graph().node_count(),
+            session.project().graph().edge_count(),
             errors,
             warnings
         );

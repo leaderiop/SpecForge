@@ -15,13 +15,15 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
 
 invariant extension_load_order_determinism "Extension Load Order Determinism" {
   guarantee """
-    Given the same set of installed extensions, the compiler MUST produce
-    the same topological load order on every invocation. The ordering
-    MUST be deterministic and reproducible across platforms.
+    Given the same specforge.json extensions, the compiler MUST produce
+    the same load order on every invocation and platform: the entries'
+    order, except that an extension comes after the peers it declares
+    (ADR 0041). The registry build MUST produce it, so every surface
+    reads the same order.
   """
   risk      medium
-  verify property "same extension set produces identical load order across 100 runs"
-  verify unit "load order is deterministic across different platforms"
+  verify unit "the same extensions give the same load order on every build, dependencies first"
+  verify unit "a load order given again comes back unchanged"
 }
 
 invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
@@ -30,12 +32,15 @@ invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
     all declared required peers are installed, and that every installed peer
     satisfies its declared semver range. An optional peer may be absent.
     Unsatisfied peer dependencies MUST produce an error diagnostic (E-level), not
-    a silent degradation.
+    a silent degradation. A range that is not a SemVer requirement satisfies
+    no version (E073). `check`, `doctor`, `add` and `update` judge a peer by
+    one rule (ADR 0041).
   """
   risk      high
   verify unit "satisfied peer dependencies pass validation"
   verify unit "unsatisfied peer dependency produces an error diagnostic"
   verify unit "peer with wrong version range produces an error diagnostic"
+  verify unit "one rule judges a peer: its range read as SemVer, then the version its peer is installed at"
 }
 
 // -- Cache & Isolation Invariants ---------------------------------------------
@@ -130,13 +135,14 @@ invariant registry_integrity "Registry Integrity" {
   guarantee """
     Downloaded extension binaries from a registry MUST be verified against
     their declared SHA256 hash before installation. Hash mismatches MUST
-    produce a hard error diagnostic and abort installation. The trust level
-    of the source MUST be recorded in specforge.lock.
+    produce a hard error diagnostic and abort installation. The hash and,
+    for a signed package, its publisher key id MUST be recorded in
+    specforge.lock.
   """
   risk      high
   verify unit "SHA256 match passes verification"
   verify unit "SHA256 mismatch produces hard error and aborts"
-  verify unit "trust level recorded in lock file"
+  verify unit "the hash and the key id are recorded in the lock file"
 }
 
 invariant publisher_trust "Publisher Trust" {
@@ -169,7 +175,7 @@ invariant extension_operation_atomicity "Extension Operation Atomicity" {
   guarantee """
     Extension install, uninstall, and update operations MUST be atomic.
     On failure, all changes MUST be rolled back — no partial installs,
-    no orphaned files, no inconsistent lock state.
+    no stray files, no inconsistent lock state.
   """
   risk      high
   verify unit "failed install rolls back to previous state"
@@ -202,4 +208,23 @@ invariant surface_schema_validity "Surface Schema Validity" {
   verify unit "a tool whose schemas are JSON objects is registered"
   verify unit "a tool whose input_schema is not a JSON object is E055 and not registered"
   verify unit "a surfaces description with an unknown arg type fails the extension's load"
+}
+
+invariant extensions_run_in_their_loading_runtime "Extensions Run in Their Loading Runtime" {
+  guarantee """
+    Every extension call the host makes over a project MUST run in the
+    runtime that loaded the project's extensions: the environment holds
+    that runtime from the moment it loads them, a compiled project, a
+    project session and every project view read it there, and no
+    operation over a project view takes a runtime of its own (analyze's
+    passes, collect's collectors, inference gaps' scanners, an extension
+    command, a check's custom verdicts and passes). An environment loaded
+    without a runtime loads no extension, and an extension call over it
+    is E028, not loaded. Migrate, which compiles the project itself, and
+    reading a candidate's declaration, which is in no environment, are
+    handed a runtime.
+  """
+  risk      medium
+  verify unit "an environment holds the runtime it loaded its extensions in, and its session and compiled project read it there"
+  verify unit "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
 }

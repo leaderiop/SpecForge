@@ -194,10 +194,11 @@ fn a_pass_cycle_is_w145_in_declaration_order() {
 }
 
 /// The declarations' own diagnostics come in one fixed order: E030, then
-/// W021, then E027, then W145, each extension by extension.
+/// W021, then the peers' E073 and E027, then the cycles' E027, then W145,
+/// each extension by extension.
 #[specforge_test_macros::test(
     behavior = "build_registries_from_declarations",
-    verify = "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+    verify = "the declarations' own diagnostics come in a fixed order: E030, W021, the peers' E073 and E027, the cycles' E027, W145"
 )]
 fn declaration_diagnostics_come_in_a_fixed_order() {
     let mut cyclic = passes("@acme/z", |c| {
@@ -219,11 +220,32 @@ fn declaration_diagnostics_come_in_a_fixed_order() {
             f.field_type(FieldType::Reference).target_kind("nowhere");
         });
     });
+    cyclic.handshake.peer_dependencies.push(PeerDependency {
+        name: "@acme/x".to_string(),
+        version: "nope".to_string(),
+        optional: false,
+    });
     let unnamed = declaration("", "1.0.0").declaration();
-    let build = build_registries(vec![cyclic, inconsistent.declaration(), unnamed]);
+    // `@acme/p` and `@acme/q` require each other.
+    let mutual = |name: &str, peer: &str| {
+        let mut c = declaration(name, "1.0.0");
+        c.meta.peer_dependencies = vec![PeerDependency {
+            name: peer.to_string(),
+            version: "^1".to_string(),
+            optional: false,
+        }];
+        c.declaration()
+    };
+    let build = build_registries(vec![
+        cyclic,
+        inconsistent.declaration(),
+        unnamed,
+        mutual("@acme/p", "@acme/q"),
+        mutual("@acme/q", "@acme/p"),
+    ]);
     assert_eq!(
         codes(&build.declaration_diagnostics),
-        ["E030", "W021", "E027", "W145"]
+        ["E030", "W021", "E027", "E073", "E027", "W145"]
     );
 }
 

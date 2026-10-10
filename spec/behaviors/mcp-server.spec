@@ -77,7 +77,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   }
   ensures {
     notifications_flushed "All pending notifications flushed before exit"
-    subscriptions_removed "All active subscriptions unsubscribed and mcp_subscription_removed emitted"
+    subscriptions_removed "Every subscription and listen stream ends, an mcp_subscription_removed emitted for each resource"
     wasm_engines_released "No Wasm engine instance outlives shutdown (the served project's runtime is released with its session)"
     shutdown_emitted      "mcp_server_shutdown event emitted"
   }
@@ -88,6 +88,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   """
   verify unit "shutdown flushes pending notifications"
   verify unit "shutdown unsubscribes all active subscriptions"
+  verify unit "shutdown ends every listen stream and records its removal"
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
   verify contract "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
@@ -130,7 +131,7 @@ behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types      [McpToolDescriptor, McpToolCategory, McpToolAnnotations]
+  types      [McpToolDescriptor, McpToolCategory, McpToolGroup, McpToolAnnotations]
   produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
@@ -153,12 +154,19 @@ behavior list_mcp_tools "List MCP Tools" {
     property allowed. Each listed tool's category is its role,
     one of McpToolCategory, and its source says where it comes from: core,
     or the contributing extension's name. An extension tool is listed once,
-    whatever category it declares, however often the project recompiles,
-    with the output_schema it declares as its outputSchema.
-    Each core tool carries MCP annotations derived from the definition its
-    mutation events come from: a tool that only reads is readOnlyHint; a
-    tool that writes says whether it is destructive, idempotent and open
-    world.
+    however often the project recompiles, with the output_schema it
+    declares as its outputSchema.
+    Each core tool's category and MCP annotations derive from the one
+    declaration of what it does: a tool that only reads is readOnlyHint and
+    is listed in its group (core, navigation or management); a tool that
+    writes output artifacts is listed in its group, and a tool that writes
+    its target's project files is a mutation whose outputSchema declares
+    files_written; both say whether they are destructive (they may
+    overwrite or remove), idempotent (a repeat changes nothing) and open
+    world. An extension tool is annotated readOnlyHint and not
+    openWorldHint, since the host grants an extension no capability, and is
+    listed in the group it declares, core when it declares none or another
+    name: never as a mutation.
   """
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
@@ -169,6 +177,9 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
   verify unit "every listed tool has a spec category and a source"
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
+  verify unit "a mutation's outputSchema declares files_written, derived from its effect"
+  verify unit "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+  verify unit "an extension tool is annotated read-only and is never listed as a mutation"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
   verify unit "a tool's path and use_cached are declared once, by its target"
@@ -287,12 +298,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   features   [mcp_resource_exposure]
-  invariants [
-    graph_schema_completeness,
-    diagnostic_determinism,
-    mcp_structured_error_responses,
-    mcp_type_schema_versioning,
-  ]
+  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
   category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
@@ -478,20 +484,24 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     graph_delta_computed_fired "graph_delta_computed event has fired after incremental rebuild"
   }
   ensures {
-    subscribers_notified       "All subscribed MCP clients receive specforge/graphChanged with GraphDelta payload"
+    subscribers_notified       "A client subscribed to a resource the rebuild changed receives notifications/resources/updated for it, then specforge/graphChanged with the GraphDelta payload"
     no_notification_when_empty "Notification suppressed when no clients are subscribed"
     delta_notified_emitted     "mcp_delta_notified event emitted after notification delivery"
   }
   contract   """
-    When an incremental rebuild completes in MCP server mode, the system MUST
-    send a specforge/graphChanged notification to all subscribed MCP
-    clients. The notification payload MUST include the GraphDelta describing
-    added, removed, and modified nodes and edges. Clients MUST be able to
-    subscribe and unsubscribe from delta notifications. resources/subscribe to
-    a URI the server does not serve is refused as resources/read refuses it
-    (not found: -32002, Unknown resource URI); resources/unsubscribe never
-    fails. If no clients are subscribed, the notification MUST be
-    suppressed.
+    When an incremental rebuild completes in MCP server mode, a client that
+    subscribed (resources/subscribe) to a resource the rebuild changed MUST
+    receive notifications/resources/updated naming it, for each such
+    resource, by the rule subscriptions/listen follows. When the graph
+    changed and the client subscribed to a resource that changes with it,
+    the system MUST then send specforge/graphChanged, whose payload MUST
+    include the GraphDelta describing added, removed, and modified nodes and
+    edges. A subscription is to one resource: unsubscribing one keeps the
+    others, and the client's subscriptions end with its connection.
+    resources/subscribe to a URI the server does not serve is refused as
+    resources/read refuses it (not found: -32002, Unknown resource URI);
+    resources/unsubscribe never fails. If no clients are subscribed, the
+    notification MUST be suppressed.
   """
   verify unit "graph_changed notification sent after incremental rebuild"
   verify unit "notification includes GraphDelta payload"
@@ -500,6 +510,8 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
   verify unit "clients can subscribe and unsubscribe from delta notifications"
+  verify unit "a subscribed resource hears notifications/resources/updated when a rebuild changes it"
+  verify unit "unsubscribing one resource keeps the client's other subscriptions"
   verify unit "resources/subscribe to a URI the server does not serve is refused as not found, as resources/read refuses it"
   verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 }
@@ -521,13 +533,15 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
     validation_complete_fired "validation_complete event has fired after compilation"
   }
   ensures {
-    subscribers_notified   "All subscribed MCP clients receive specforge/diagnosticsChanged"
+    subscribers_notified   "A client subscribed to specforge://diagnostics receives notifications/resources/updated for it, then specforge/diagnosticsChanged"
     unchanged_suppressed   "Notification suppressed when diagnostics are unchanged or no clients subscribed"
     delta_notified_emitted "mcp_delta_notified event emitted after notification delivery"
   }
   contract   """
-    When validation completes in MCP server mode, the system MUST send a
-    specforge/diagnosticsChanged notification to all subscribed MCP clients.
+    When validation completes in MCP server mode and the diagnostics changed,
+    a client subscribed to specforge://diagnostics MUST receive
+    notifications/resources/updated for it and then a
+    specforge/diagnosticsChanged notification.
     The notification payload MUST include added and removed diagnostics since the
     previous compilation. Clients MUST be able to subscribe and unsubscribe. If
     no clients are subscribed or the diagnostics are unchanged, the notification
@@ -628,10 +642,17 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     MUST also carry that object as structuredContent, alongside the text
     block holding its JSON, and tools/list MUST give each tool whose result
     is an object an outputSchema that every structured result conforms to.
+    Each core tool's outputSchema is derived from its typed reply: every
+    object it closes lists its keys and states additionalProperties false,
+    every array states its items. A core tool's reply that its outputSchema
+    refuses MUST be a schema_mismatch error naming each violation, never
+    structured content.
     A failed call of a tool with an outputSchema carries no
     structuredContent: its McpError is in the text block. A 2025-03-26
     session is listed no outputSchema.
   """
+  verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
+  verify unit "a core tool's output schema is derived from its typed reply: every object it closes lists its keys, every array its items"
   verify unit "a 2025-03-26 session answers a batch with the response to each request"
   verify unit "a batch of notifications gets no response"
   verify unit "an empty batch is an invalid request"
@@ -681,6 +702,7 @@ behavior serve_stateless_mcp_requests "Serve Stateless MCP Requests" {
   verify unit "an unsupported protocol version is -32022 naming the supported versions"
   verify unit "ping and resources/subscribe are not stateless methods"
   verify unit "a stateless request after initialize is served under its own revision"
+  verify unit "a stateless request's revision ends with the request"
 }
 
 behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
@@ -700,12 +722,14 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   contract   """
     subscriptions/listen (MCP 2026-07-28) MUST open a stream on which the
     server tells the client when the resources it names change. The server
-    honours resource subscriptions to resources it serves and no
+    honours resource subscriptions to resources it serves, each once, and no
     list-changed types; it MUST first send
     notifications/subscriptions/acknowledged naming the honoured subset,
     with the listen request's id as _meta
     io.modelcontextprotocol/subscriptionId. After a recompile that changes
-    a listened resource (the graph's views when the graph changed,
+    a listened resource (the graph's views and every extension resource
+    when the graph changed or the environment loaded again,
+    specforge://schema when the environment loaded again,
     specforge://diagnostics when the diagnostics did), it sends
     notifications/resources/updated for it with the same id. It MUST NOT
     send on the stream any notification type the client did not ask for.
@@ -717,6 +741,10 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   verify unit "a listen stream receives no notification type it did not ask for"
   verify unit "both eras decide what a change touches by one rule"
   verify unit "cancelling the listen request ends the stream"
+  verify unit "the end of the connection ends the stream"
+  verify unit "a resource a listen names twice is honoured once"
+  verify unit "a listen stream's subscription events name its request id"
+  verify unit "an environment reload is heard by the schema, the graph views and the extension resources"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {

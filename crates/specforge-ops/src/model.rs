@@ -4,32 +4,88 @@
 //! 0015). Each enumerated argument is an option table here (ADR 0027), so
 //! both surfaces list, accept, default and refuse the same names.
 
-use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
-use specforge_emitter::outline::OutlineIntermediate_from_declarations;
-
 // The value types, so surfaces name ops rather than the emitter.
-pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
+pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions, ModelRoot};
 pub use specforge_emitter::outline::{
     DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions,
 };
 
+use specforge_common::{Diagnostic, find_close_match};
+use specforge_protocol_types::ExtensionDeclaration;
+
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
+
+/// What `specforge model` and `specforge.model` show.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelOutcome {
+    /// The model, drawn in the requested format.
+    pub document: String,
+    /// I020 for each kind of `ModelOptions::kinds` the project does not
+    /// know (ADR 0015 Q3); the filter still drops it.
+    pub notices: Vec<Diagnostic>,
+}
 
 /// The logical data model of the view's extensions, as `options` asks.
-pub fn model(view: &ProjectView, options: &ModelOptions) -> String {
-    let model = ModelIntermediate_from_schema(&view.schema())
-        .with_theme_colors(view.registries().declarations());
-    let model = filter_entities(&model, options);
-    let model = filter_fields(&model, options.fields);
-    specforge_emitter::model::render(&model, options)
+///
+/// Err:
+/// - `extension_not_found` (`ExtensionNotFound`) when `options.extension`
+///   names no extension the project loads. It names the loaded one meant
+///   (the one whose short name it is, else the closest), else lists the
+///   loaded ones.
+/// - `unknown_kind` (`InvalidInput`) when `options.root` names a kind no
+///   loaded extension declares, naming the closest declared kind.
+pub fn model(view: &ProjectView, options: &ModelOptions) -> Result<ModelOutcome, OpError> {
+    let declarations = view.registries().declarations();
+    if let Some(extension) = &options.extension {
+        loaded(declarations, extension)?;
+    }
+    let kinds = view.kinds();
+    if let Some(root) = &options.root {
+        kinds.declared(&root.kind)?;
+    }
+    let filter: Vec<&str> = options.kinds.iter().map(String::as_str).collect();
+    Ok(ModelOutcome {
+        notices: kinds.unknown_in(&filter),
+        document: specforge_emitter::model::export(&view.schema(), declarations, options),
+    })
+}
+
+/// `Ok` when an extension the project loads is named `name`; else
+/// `extension_not_found`, with the loaded extension `name` most likely
+/// means as its suggestion.
+fn loaded(declarations: &[ExtensionDeclaration], name: &str) -> Result<(), OpError> {
+    if declarations.iter().any(|d| d.name() == name) {
+        return Ok(());
+    }
+    let names: Vec<&str> = declarations
+        .iter()
+        .map(ExtensionDeclaration::name)
+        .collect();
+    let meant = declarations
+        .iter()
+        .find(|d| d.short() == name)
+        .map(ExtensionDeclaration::name)
+        .or_else(|| find_close_match(name, names.iter().copied()));
+    let suggestion = match meant {
+        Some(meant) => format!("did you mean '{meant}'?"),
+        None if names.is_empty() => "the project loads no extension".to_string(),
+        None => format!("the project loads {}", names.join(", ")),
+    };
+    Err(OpError::new(
+        OpErrorKind::ExtensionNotFound,
+        crate::extension::NOT_FOUND,
+        format!("extension '{name}' is not loaded by this project"),
+    )
+    .with_suggestion(suggestion)
+    .with_data(serde_json::json!({ "extension": name })))
 }
 
 /// The architecture of the view's extensions (dependencies, enhancements,
 /// contributions), as `options` asks.
 pub fn outline(view: &ProjectView, options: &OutlineOptions) -> String {
-    let outline = OutlineIntermediate_from_declarations(view.registries().declarations());
-    specforge_emitter::outline::render(&outline, options)
+    specforge_emitter::outline::export(view.registries().declarations(), options)
 }
 
 /// A choice whose name says what it selects.

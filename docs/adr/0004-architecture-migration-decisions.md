@@ -35,7 +35,7 @@ Changed answers are marked *(amended)*.
   is decided from the registry, not from field names. `--min 100` becomes reachable.
 - **D2-c** *(amended)* An entity is "declared" when it has at least one `verify` statement; the spec's
   file-reference clause is dropped (no extension declares such a field). Stats gains `declared_pct` and
-  `proof_pct`; `coverage_pct` stays as a deprecated alias of `declared_pct`.
+  `proof_pct`; `coverage_pct` stayed as a deprecated alias of `declared_pct` until ADR 0048 D7 removed it.
 - **D2-d** `inspect.testable` means the kind's testability; a separate `declared` field says whether
   the entity declares obligations.
 - **D2-e** A malformed `specforge-report.json` is an **error** in MCP, as in the CLI, reported as an

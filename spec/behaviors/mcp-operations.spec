@@ -119,8 +119,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     In MCP server mode, the system MUST register a specforge.rename tool that
     accepts entity_id (required), new_name (required), dry_run? (optional
     boolean, default false) and path? (the project root; the served project
-    when omitted; another project is planned, edited and recompiled on its
-    own, the served one untouched). The rename is planned on the project as
+    when omitted; another project is planned, edited and brought up to date
+    on its own, the served one untouched). The rename is planned on the project as
     it is on disk. The tool MUST rename the entity and update all
     references across all spec files. The edits are exactly the entity's
     declaration name and its references, as find-references returns them;
@@ -165,7 +165,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   }
   ensures {
     project_created             "specforge.json and spec directory scaffolded at specified path"
-    path_outside_current        "Target path verified to be outside current project's spec_root"
+    path_outside_current        "Target path verified to be outside the project the server serves (its root), by the call target before the operation runs"
     extensions_validated        "When extensions specified, manifests validated and added to config"
     project_initialized_emitted "project_initialized event emitted on success, with the project name, its extension count and the starter file"
     tool_invoked_emitted        "mcp_tool_invoked event emitted"
@@ -176,8 +176,10 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     (required), extensions?[] (optional list of extension names to install),
     and version? (optional, defaults to 0.1.0). The tool MUST accept a path
     parameter specifying the target directory for the new project. The path
-    MUST be outside the current project's spec_root. If the path is inside
-    the current project, the tool MUST return an error. The tool MUST create
+    MUST be outside the project the server serves: a path inside its root
+    is refused by the call target (conflict, naming path) before anything
+    is written. A directory whose starter file already exists is refused
+    (conflict), as specforge init refuses it. The tool MUST create
     a new specforge.json project configuration file and scaffold the spec
     directory at the specified path. If extensions are specified, they MUST
     be added to the config and their manifests validated. MCP init is always
@@ -193,6 +195,8 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "extensions installed when specified"
   verify unit "default version is 0.1.0"
   verify unit "path inside current project returns error"
+  verify unit "init inside the served project is refused by the call target as a conflict on path, before anything is written"
+  verify unit "init refuses a directory whose starter file exists, writing nothing"
   verify unit "invalid project name returns error"
   verify unit "unknown extension returns error with diagnostic"
   verify unit "version parameter overrides default 0.1.0"
@@ -212,7 +216,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     dry_run_side_effect_freedom,
   ]
   category   query
-  types      [McpExtensionInfo, McpToolDescriptor]
+  types      [McpAddExtensionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, extension_added]
   requires {
@@ -254,6 +258,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "wasm module downloaded for remote extensions"
   verify unit "invalid manifest returns error"
   verify unit "dry_run returns preview without modifying files"
+  verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify contract "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
   verify unit "invalid specifier format returns error"
   verify integration "a builtin is enabled with no registry and no network"
@@ -278,7 +283,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   }
   ensures {
     extension_removed          "Extension removed from specforge.json"
-    orphan_warning_produced    "Warning included when removal leaves orphan entities"
+    stranded_entities_listed   "The entities the removal strands are listed"
     dry_run_safe               "When dry_run is true, no files modified and preview returned"
     mutation_completed_emitted "mcp_mutation_completed event emitted after removal"
     tool_invoked_emitted       "mcp_tool_invoked event emitted"
@@ -286,13 +291,14 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.remove_extension
     tool that accepts name (required), force? and dry_run? (optional
-    booleans, default false) and path? (as rename); dependents and orphan
+    booleans, default false) and path? (as rename); dependents and stranded
     entities are those of the project the path names. When dry_run is true, the tool MUST return a
-    preview of the removal (including orphan warnings) without modifying
+    preview of the removal (including the stranded entities) without modifying
     specforge.json. The tool MUST remove the
-    extension from specforge.json. If removing the extension would leave
-    orphan entities (entities of kinds only defined by that extension), the
-    tool MUST include a warning in the response but still proceed.
+    extension from specforge.json. If removing the extension strands
+    entities (entities of kinds only that extension defines, E024 on the
+    next compile), the tool MUST list them in the response (stranded:
+    entity_id, kind, in id order) but still proceed.
     If the specified extension is not installed (not listed in specforge.json),
     the tool MUST return an isError result whose McpError code is
     "extension_not_found" and whose message names the unknown extension.
@@ -301,17 +307,17 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   """
   verify unit "specforge.remove_extension removes extension from config"
   verify integration "specforge.remove_extension removes a .wasm file entry by the name it declares, leaving its file in place"
-  verify unit "orphan entities produce a warning"
+  verify unit "the entities whose kind only that extension declares are listed as stranded"
   verify unit "non-installed extension returns extension_not_found error"
   verify unit "dry_run returns preview without modifying files"
-  verify contract "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+  verify contract "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, stranded_entities_listed, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   features   [mcp_mutation_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
   category   mutation
-  types      [MigrationResult, MigrationSummary, McpToolDescriptor]
+  types      [McpMigrateResult, MigrationResult, MigrationSummary, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
   requires {
@@ -368,7 +374,7 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
   features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpExtensionInfo, McpToolDescriptor]
+  types      [McpExtensionsResult, McpExtensionInfo, McpLockEntry, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -394,7 +400,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
   features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpProviderInfo, McpToolDescriptor]
+  types      [McpProvidersResult, McpProviderInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
   requires {
@@ -426,7 +432,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     compiler_api_available "CompilerApi port is available for project health inspection"
   }
   ensures {
-    health_checked            "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, orphans"
+    health_checked            "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, unreferenced entities"
     resolution_steps_provided "Deterministic resolution steps included for each detected issue"
     tool_invoked_emitted      "mcp_tool_invoked event emitted"
   }
@@ -434,10 +440,11 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     In MCP server mode, the system MUST register a specforge.doctor tool with
     no required parameters. The tool MUST check project health: extension
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
-    E070), missing specforge.json fields, version mismatches, and orphan
+    E070), missing specforge.json fields, version mismatches, and unreferenced
     entities. A specforge.json the server could not use (E069) MUST be a
-    finding. The response MUST include detected issues and deterministic
-    resolution steps. Like specforge.validate, the tool MUST bring the
+    finding. The response MUST be the report specforge doctor computes: its
+    verdict ok and each detected issue once, with what it is about and a
+    deterministic resolution step. Like specforge.validate, the tool MUST bring the
     project up to date with disk before checking it, so it sees edits made
     outside the server; with use_cached (optional boolean, default false) it
     MUST report on the project as last brought up to date instead.
@@ -477,13 +484,16 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
     reports; with run=true it first runs each runner's declared command,
     but only a command the user already approved for the project with
     `specforge collect` in a terminal, and with its output discarded
-    because the server owns stdio. An unapproved command is an E059 error,
+    because the server owns stdio. A path that holds no project is a
+    no_project refusal, as `specforge collect` refuses it. An unapproved
+    command is an E059 error,
     and a missing collector or report is an error naming its code. The
     result lists each runner's counts, the W115 diagnostics and the path of
     the written specforge-report.json.
   """
   verify unit "specforge.collect parses test results and maps to entities"
   verify unit "specforge.collect refuses to run an unapproved command"
+  verify unit "specforge.collect of a directory that holds no project refuses with no_project"
   verify unit "a project without a collector returns an E058 error"
   verify contract "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
 }
@@ -509,7 +519,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     accepts format (required, a format string matching a registered renderer),
     out_dir? (output directory path) and scope? (an entity id). The tool MUST
     invoke the matching registered renderer and write output files to out_dir;
-    without out_dir it MUST return the rendering inline instead.
+    without out_dir it MUST return the rendering inline instead. A relative
+    out_dir names a directory under the call's project root, wherever the
+    server runs; with no project served a relative out_dir MUST be refused as
+    invalid input on out_dir. output_files lists the absolute paths written.
     The renderers are the core graph engine's export formats (see P7
     justification in features/output.spec), named as `specforge export
     --format` names them: graph (also accepted as json; the full graph, as
@@ -526,6 +539,8 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     The response MUST list all files written.
   """
   verify unit "specforge.render writes output files to out_dir"
+  verify unit "a relative out_dir is written under the call's project root, wherever the server runs"
+  verify unit "a relative out_dir with no project served is invalid input on out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
   verify unit "graph and its alias json select the full graph renderer"

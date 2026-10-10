@@ -23,6 +23,7 @@ expression: mcp_snap
     "version": "0.1.0"
   },
   "files": {
+    ".specforge/migration.json": "{\n  \"target\": \"1.0\",\n  \"files\": [\n    {\n      \"path\": \"spec/old.spec\",\n      \"backup\": \"spec/old.spec.bak\",\n      \"sha256\": \"[SHA256]\"\n    }\n  ]\n}\n",
     "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
     "spec/old.spec": "// specforge-format: 1.0\nbehavior old_one \"Old\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
     "spec/old.spec.bak": "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n"
@@ -42,6 +43,7 @@ expression: mcp_snap
     "files_migrated": 1,
     "files_skipped": 1,
     "files_written": [
+      ".specforge/migration.json",
       "spec/old.spec",
       "spec/old.spec.bak"
     ],
@@ -78,7 +80,6 @@ expression: mcp_snap
         }
       }
     ],
-    "rollback": null,
     "rolled_back": false,
     "schema_warnings": [],
     "structural_differences": [],

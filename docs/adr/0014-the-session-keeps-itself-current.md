@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-05)
 
+Amended by ADR 0024 (round-5 amendment): the reaches are Served and AnyProject; Unscoped and NewProject are targets of their own, and WritesAnyProject is gone.
+
 Which project an MCP call served, and whether that project was current with disk, was decided in a
 dozen places. Each handler resolved its `path` against a public `McpState::project_root`, picked one
 of three staleness predicates (`use_cached || diagnostics.is_empty()`, `node_count() == 0`,
@@ -48,7 +50,8 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
   graph. Watch no longer creates it; a stale one is ignored. This supersedes C9-07 (`cacded2f`).
 - **D4. A mutation with another project's `path` acts entirely on that project.** It is planned,
   checked, written and reported against a project compiled for the call (`OtherProject`), recompiled
-  for the returned diagnostics; the served session is never touched or reloaded.
+  for the returned diagnostics; *(ADR 0047: the other project is a session opened for the call and brought up
+  to date after the write, not compiled again.)* the served session is never touched or reloaded.
 - **D5. A `path` while nothing is served is adopted** by every tool that takes one (and `init`
   serves the project it created), so "a project is served" never depends on which tool came first.
 - **D6. Path normalization.** Canonical, then the nearest enclosing project (`specforge.json` or
@@ -89,7 +92,7 @@ entry declares a `TargetSpec`: its reach (`Unscoped`, `Served`, `AnyProject`, `W
 `resolve` turns the call's `path` and that spec into one `CallTarget` (`Served`, `Other`, `New`,
 `Unscoped`, `NoProject`), and handlers read their project through `Call::project()` as a
 `ProjectRef` (root, spec root, environment, graph, runtime, `view()`, `diagnostics()`), unable to
-tell the served session from a project compiled for the call. A mutation's handler returns what it
+tell the served session from a project compiled for the call *(ADR 0047: from another project's session)*. A mutation's handler returns what it
 wrote (ADR 0022); `mutation::refresh`, called by the dispatcher alone, brings the target up to date
 after any call that wrote files, succeeded or not, with exactly what changed.
 

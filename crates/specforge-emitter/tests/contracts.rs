@@ -221,8 +221,9 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
     let mut graph = build_graph();
     graph.add_node(described_node("d")); // disconnected from a -> b -> c
-    let json = specforge_emitter::context::emit_context_with_fields(
+    let json = crate::export(
         &graph,
+        specforge_emitter::EmitFormat::Context,
         Some(&crate::support::headline_registry(&["behavior", "feature"])),
     );
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -407,12 +408,12 @@ fn deterministic_contract_same_input_identical_output() {
     let dot2 = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert_eq!(dot1, dot2, "DOT must be deterministic");
 
-    let brief1 = specforge_emitter::brief::emit_brief(&graph);
-    let brief2 = specforge_emitter::brief::emit_brief(&graph);
+    let brief1 = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
+    let brief2 = crate::export(&graph, specforge_emitter::EmitFormat::Brief, None);
     assert_eq!(brief1, brief2, "brief must be deterministic");
 
-    let ctx1 = specforge_emitter::context::emit_context(&graph);
-    let ctx2 = specforge_emitter::context::emit_context(&graph);
+    let ctx1 = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
+    let ctx2 = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
     assert_eq!(ctx1, ctx2, "context must be deterministic");
 }
 

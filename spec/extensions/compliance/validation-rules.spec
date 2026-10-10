@@ -7,7 +7,7 @@
 use "extensions/compliance/manifest"
 
 // W101: A control entity with no incoming Governs edge from any regulation.
-// Indicates an orphan control not governed by any regulation.
+// Indicates an unreferenced control not governed by any regulation.
 //
 // Pattern: no_incoming_edges
 //   kind: control

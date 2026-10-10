@@ -16,7 +16,7 @@
       },
       "summary": {
         "testable_total": 1, "testable_verified": 1, "testable_proven": 1, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 2},
         "invariants": []
@@ -47,7 +47,7 @@
       },
       "summary": {
         "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 0},
         "invariants": []
@@ -78,7 +78,7 @@
       },
       "summary": {
         "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
         "invariants": []
@@ -105,7 +105,7 @@
       },
       "summary": {
         "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"property": 1, "unit": 1},
-        "invariant_enforced": 1, "invariant_orphans": 0,
+        "invariant_enforced": 1, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 1},
         "test_results": {"runner": null, "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
         "invariants": [{"risk": "unspecified", "total": 1, "unverified": 0}]
@@ -127,7 +127,7 @@
       },
       "summary": {
         "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": null,
         "invariants": []
@@ -149,7 +149,7 @@
       },
       "summary": {
         "testable_total": 0, "testable_verified": 0, "testable_proven": 0, "testable_exempt": 0, "obligations": 1, "obligation_kinds": {"property": 1},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 1},
         "test_results": {"runner": "cargo-test", "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 1},
         "invariants": []
@@ -190,7 +190,7 @@
       },
       "summary": {
         "testable_total": 2, "testable_verified": 2, "testable_proven": 2, "testable_exempt": 1, "obligations": 3, "obligation_kinds": {"unit": 3},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 3, "entities_proven": 2, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 3, "tests_recorded": 3, "tests_failed": 0, "entities_proven": 2, "obligations_proven": 2},
         "invariants": []
@@ -232,7 +232,7 @@
       },
       "summary": {
         "testable_total": 4, "testable_verified": 2, "testable_proven": 0, "testable_exempt": 0, "obligations": 4, "obligation_kinds": {"property": 2, "unit": 1, "untyped": 1},
-        "invariant_enforced": 3, "invariant_orphans": 1,
+        "invariant_enforced": 3, "invariant_unreferenced": 1,
         "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": null,
         "invariants": [
@@ -274,7 +274,7 @@
       },
       "summary": {
         "testable_total": 2, "testable_verified": 2, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
-        "invariant_enforced": 0, "invariant_orphans": 0,
+        "invariant_enforced": 0, "invariant_unreferenced": 0,
         "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
         "test_results": {"runner": "vitest", "entities_recorded": 2, "tests_recorded": 3, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 1},
         "invariants": []

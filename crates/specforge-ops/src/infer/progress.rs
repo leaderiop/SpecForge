@@ -4,7 +4,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde_json::{Value, json};
+use serde::Serialize;
+
+use specforge_common::shape::Shape;
 use specforge_protocol_types::ExtensionDeclaration;
 
 use super::discovery::source_files;
@@ -95,30 +97,59 @@ impl Progress {
 
     /// The document both surfaces answer with:
     /// `{summary, unanalyzed, stale, deleted, sessions}`.
-    pub fn to_json(&self) -> Value {
-        json!({
-            "summary": {
-                "files_total": self.summary.files_total,
-                "files_analyzed": self.summary.files_analyzed,
-                "entities_produced": self.summary.entities_produced,
+    pub fn document(&self) -> ProgressDocument {
+        ProgressDocument {
+            summary: ProgressSummary {
+                files_total: self.summary.files_total,
+                files_analyzed: self.summary.files_analyzed,
+                entities_produced: self.summary.entities_produced,
             },
-            "unanalyzed": self.unanalyzed,
-            "stale": self.stale,
-            "deleted": self.deleted,
-            "sessions": self.sessions.iter().map(|session| {
-                let mut entry = json!({
-                    "session_id": session.session_id,
-                    "agent": session.agent,
-                    "status": session.status.name(),
-                    "started_at": session.started_at,
-                });
-                if let Some(ended_at) = &session.ended_at {
-                    entry["ended_at"] = json!(ended_at);
-                }
-                entry
-            }).collect::<Vec<_>>(),
-        })
+            unanalyzed: self.unanalyzed.clone(),
+            stale: self.stale.clone(),
+            deleted: self.deleted.clone(),
+            sessions: self
+                .sessions
+                .iter()
+                .map(|session| SessionRow {
+                    session_id: session.session_id.clone(),
+                    agent: session.agent.clone(),
+                    status: session.status.name().to_string(),
+                    started_at: session.started_at.clone(),
+                    ended_at: session.ended_at.clone(),
+                })
+                .collect(),
+        }
     }
+}
+
+/// What inference progress answers with, on both surfaces
+/// (`McpInferProgressResult`, without its `message`).
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ProgressDocument {
+    pub summary: ProgressSummary,
+    pub unanalyzed: Vec<String>,
+    pub stale: Vec<String>,
+    pub deleted: Vec<String>,
+    pub sessions: Vec<SessionRow>,
+}
+
+/// File and entity totals.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ProgressSummary {
+    pub files_total: usize,
+    pub files_analyzed: usize,
+    pub entities_produced: usize,
+}
+
+/// One inference session.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct SessionRow {
+    pub session_id: String,
+    pub agent: String,
+    pub status: String,
+    pub started_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<String>,
 }
 
 #[cfg(test)]
@@ -127,6 +158,7 @@ mod tests {
     use super::super::manifest::compute_content_hash;
     use super::*;
     use crate::view::testing::Fixture;
+    use serde_json::json;
     use specforge_test_macros::test as specforge_test;
 
     /// A project with Rust sources under `src/`, one of them indexed,
@@ -243,7 +275,7 @@ mod tests {
             .map(|s| s.session_id.as_str())
             .collect();
         assert_eq!(ids, ["s-1", "s-2"]);
-        let doc = progress.to_json();
+        let doc = serde_json::to_value(progress.document()).unwrap();
         assert_eq!(doc["sessions"][0]["ended_at"], "t2");
         assert!(doc["sessions"][1].get("ended_at").is_none(), "{doc}");
 
@@ -322,8 +354,7 @@ mod tests {
         let rootless = dir.rootless_view();
 
         assert_eq!(progress(&rootless).unwrap_err().code, "no_project");
-        let runtime = specforge_wasm::testing::InProcessRuntime::new();
-        assert_eq!(gaps(&rootless, &runtime).unwrap_err().code, "no_project");
+        assert_eq!(gaps(&rootless).unwrap_err().code, "no_project");
         let none = Progress::none();
         assert_eq!(none.summary.files_total, 0);
         assert_eq!(none.summary.files_analyzed, 0);

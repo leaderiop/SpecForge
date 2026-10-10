@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::path::Path;
+use std::sync::Arc;
 
 /// test.spec: the behavior `alpha` on lines 1–2, the feature `beta` that
 /// has it on lines 10–12.
@@ -510,11 +511,12 @@ fn rename_recompiles_files_it_did_not_edit() {
         codes
     };
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let fresh: Vec<Value> = specforge_project::CompiledProject::compile(&root, Some(&runtime))
-        .diagnostics()
-        .iter()
-        .map(|d| serde_json::to_value(d).unwrap())
-        .collect();
+    let fresh: Vec<Value> =
+        specforge_project::CompiledProject::compile(&root, Some(Arc::new(runtime)))
+            .diagnostics()
+            .iter()
+            .map(|d| serde_json::to_value(d).unwrap())
+            .collect();
     let returned = parsed["diagnostics"].as_array().unwrap();
     assert_eq!(codes(returned), codes(&fresh), "{parsed}");
     let e003 = returned
@@ -535,38 +537,13 @@ fn rename_recompiles_files_it_did_not_edit() {
     assert!(e003["line"].is_u64() && e003["column"].is_u64(), "{e003}");
 }
 
-/// Each `(field, type)` of a spec type holds in `value`: `string`,
-/// `integer`, `boolean`, or `string[]`.
-fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
-    for (field, kind) in fields {
-        let v = &value[*field];
-        let holds = match *kind {
-            "string" => v.is_string(),
-            "integer" => v.is_u64() || v.is_i64(),
-            "boolean" => v.is_boolean(),
-            "string[]" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
-            other => panic!("no check for {other}"),
-        };
-        assert!(holds, "{field} is not {kind}: {value}");
-    }
-}
-
-#[specforge_test(type = "McpRenameResult", verify = "McpRenameResult schema is valid")]
+#[test]
 fn rename_result_is_an_mcp_rename_result() {
     let (mut server, _root) = server_with_token_project();
 
     let parsed = rename(
         &mut server,
         json!({"entity_id": "token_unique", "new_name": "token_distinct", "dry_run": true}),
-    );
-
-    assert_fields(
-        &parsed,
-        &[
-            ("old_name", "string"),
-            ("new_name", "string"),
-            ("affected_files", "string[]"),
-        ],
     );
     assert_eq!(
         parsed["affected_files"],
@@ -575,18 +552,6 @@ fn rename_result_is_an_mcp_rename_result() {
     );
     let edits = parsed["edits"].as_array().unwrap();
     assert_eq!(edits.len(), 2, "{parsed}");
-    for edit in edits {
-        assert_fields(
-            edit,
-            &[
-                ("file", "string"),
-                ("line", "integer"),
-                ("start_col", "integer"),
-                ("end_col", "integer"),
-                ("new_text", "string"),
-            ],
-        );
-    }
 }
 
 /// With `spec_root` set, spans are relative to the spec root, not the
@@ -795,7 +760,7 @@ fn init_without_a_path_is_invalid_input_on_path() {
 )]
 fn init_adds_the_requested_extensions_to_the_config() {
     let dir = fresh_project_dir();
-    let mut server = test_server();
+    let mut server = components_server();
 
     init(
         &mut server,
@@ -816,7 +781,7 @@ fn init_adds_the_requested_extensions_to_the_config() {
 )]
 fn init_extensions_in_result() {
     let dir = fresh_project_dir();
-    let mut server = test_server();
+    let mut server = components_server();
 
     let parsed = init(
         &mut server,
@@ -861,6 +826,67 @@ fn init_refuses_a_path_inside_the_current_project() {
         "{error}"
     );
     assert!(!nested.exists(), "nothing is written");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "init inside the served project is refused by the call target as a conflict on path, before anything is written"
+)]
+fn init_inside_the_served_project_is_a_conflict_on_path() {
+    let mut server = test_server();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
+    let nested = root.join("nested");
+
+    let error = init_error(
+        &mut server,
+        json!({"path": nested.to_str().unwrap(), "name": "nested"}),
+    );
+
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("is inside the current project at"),
+        "{error}"
+    );
+    assert!(!nested.exists(), "nothing is written");
+    let completed = events(&server, "mcp_mutation_completed");
+    assert_eq!(
+        completed.last().unwrap(),
+        &json!({"toolName": "specforge.init", "files_changed": 0, "entities_affected": 0, "success": false})
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "init refuses a directory whose starter file exists, writing nothing"
+)]
+fn init_refuses_to_overwrite_a_starter_file() {
+    let dir = fresh_project_dir();
+    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
+    let starter = dir.path().join("spec/hello.spec");
+    std::fs::write(&starter, "term mine \"Mine\" {\n}\n").unwrap();
+    let mut server = test_server();
+
+    let error = init_error(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "victim"}),
+    );
+
+    assert_eq!(error["code"], "conflict", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert_eq!(
+        std::fs::read_to_string(&starter).unwrap(),
+        "term mine \"Mine\" {\n}\n"
+    );
+    assert!(!dir.path().join("specforge.json").exists());
 }
 
 #[specforge_test(
@@ -1039,6 +1065,163 @@ fn add_extension_returns_result() {
     assert!(lock.contains("@sdk/greet"));
 }
 
+/// The annotation `key` of `tool` as `tools/list` lists it.
+fn listed_hint(server: &mut McpServer, tool: &str, key: &str) -> Value {
+    let listed = call(server, "tools/list", json!({}));
+    listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == tool)
+        .unwrap_or_else(|| panic!("{tool} listed"))["annotations"][key]
+        .clone()
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn add_extension_overwrites_a_changed_module() {
+    let mut server = components_server();
+    let root = server.root().to_path_buf();
+    let blob =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm");
+    let add = |server: &mut McpServer| {
+        let resp = call_tool(
+            server,
+            "specforge.add_extension",
+            json!({"specifier": blob.to_str().unwrap()}),
+        );
+        assert_eq!(resp["result"]["isError"], false, "{resp}");
+        tool_json(&resp)
+    };
+    add(&mut server);
+    let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
+    let installed = std::fs::read(&module).unwrap();
+    let mut changed = installed.clone();
+    changed.extend_from_slice(b"changed after install");
+    std::fs::write(&module, &changed).unwrap();
+
+    let second = add(&mut server);
+
+    // The existing file was overwritten, which the listing now says.
+    assert_eq!(
+        second["files_written"],
+        json!([".specforge/extensions/@sdk/greet/extension.wasm"]),
+        "{second}"
+    );
+    assert_eq!(std::fs::read(&module).unwrap(), installed);
+    assert_eq!(
+        listed_hint(&mut server, "specforge.add_extension", "destructiveHint"),
+        true
+    );
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn infer_session_mark_replaces_a_record() {
+    let mut server = TestProject::new()
+        .file("src/lib.rs", "pub fn a() {}\n")
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
+    let mark = |server: &mut McpServer, entity: &str| {
+        let resp = call_tool(
+            server,
+            "specforge.infer_session",
+            json!({"action": "mark_analyzed", "source_file": "src/lib.rs", "entities_produced": [entity]}),
+        );
+        assert_eq!(resp["result"]["isError"], false, "{resp}");
+    };
+    mark(&mut server, "gamma");
+    mark(&mut server, "delta");
+
+    // The second mark replaced the first record of the file.
+    let manifest = std::fs::read_to_string(root.join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&manifest).unwrap();
+    let record = manifest["source_index"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["path"] == "src/lib.rs")
+        .unwrap_or_else(|| panic!("{manifest}"))
+        .to_string();
+    assert!(record.contains("delta"), "{record}");
+    assert!(!record.contains("gamma"), "{record}");
+    assert_eq!(
+        listed_hint(&mut server, "specforge.infer_session", "destructiveHint"),
+        true
+    );
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "a writing tool's hints say what it does: one that overwrites is destructive, one whose repeat changes nothing is idempotent"
+)]
+fn a_repeated_rename_changes_nothing() {
+    let (mut server, root) = server_with_token_project();
+    let args = json!({"entity_id": "token_unique", "new_name": "token_distinct"});
+    let first = call_tool(&mut server, "specforge.rename", args.clone());
+    assert_eq!(first["result"]["isError"], false, "{first}");
+    let before = files_under(&root);
+
+    let second = call_tool(&mut server, "specforge.rename", args);
+
+    let error = crate::tool_errors::mcp_error(&second);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(error["data"]["files_written"], json!([]), "{error}");
+    assert_eq!(files_under(&root), before, "the repeat wrote nothing");
+    assert_eq!(
+        listed_hint(&mut server, "specforge.rename", "idempotentHint"),
+        true
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
+)]
+fn add_extension_reads_the_candidate_in_the_host_runtime() {
+    // The host serves `@sdk/greet` in process: the tool reads the candidate
+    // in it, and the served session then loads the install through it too.
+    let runtime = std::sync::Arc::new(specforge_ops::testing::candidates());
+    let mut server = TestProject::new()
+        .enabling(&[])
+        .serve_in(runtime.clone() as specforge_project::SharedRuntime);
+    let root = server.root().to_path_buf();
+    let files = tempfile::tempdir().unwrap();
+    let greet = files.path().join("greet.wasm");
+    std::fs::write(&greet, specforge_ops::testing::GREET).unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": greet.to_str().unwrap()}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["installed"], true, "{parsed}");
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert!(lock.contains("@sdk/greet"), "{lock}");
+    let handshakes = runtime
+        .calls()
+        .into_iter()
+        .filter(|call| call.extension == "__candidate" && call.export == "__handshake")
+        .count();
+    assert_eq!(handshakes, 1);
+
+    let listed = call_tool(&mut server, "specforge.extensions", json!({}));
+    let listed: Value = serde_json::from_str(&tool_text(&listed)).unwrap();
+    let greet = listed["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@sdk/greet")
+        .unwrap_or_else(|| panic!("{listed}"));
+    assert_eq!(greet["status"], "loaded", "{listed}");
+}
+
 #[test]
 fn add_extension_missing_specifier() {
     let mut server = test_server();
@@ -1122,7 +1305,7 @@ fn remove_extension_removes_it_from_config_lock_and_disk() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed.get("success").is_none(), "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET);
     assert!(
         !config_extensions(&root)
@@ -1167,11 +1350,12 @@ fn remove_extension_removes_a_wasm_file_entry_by_its_declared_name() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed["removed_extension"].is_string(), "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
     assert_eq!(parsed["version"], "0.1.0", "{parsed}");
-    assert!(
-        parsed["orphan_warnings"].to_string().contains("'hello'"),
+    assert_eq!(
+        parsed["stranded"],
+        json!([{"entity_id": "hello", "kind": "greeting"}]),
         "{parsed}"
     );
     assert_eq!(config_extensions(root), ["@specforge/software"]);
@@ -1196,15 +1380,15 @@ fn remove_extension_dry_run_writes_nothing() {
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["dry_run"], true, "{parsed}");
     assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
-    assert!(parsed["orphan_warnings"].is_array(), "{parsed}");
+    assert!(parsed["stranded"].is_array(), "{parsed}");
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
 
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
-    verify = "orphan entities produce a warning"
+    verify = "the entities whose kind only that extension declares are listed as stranded"
 )]
-fn remove_extension_warns_about_orphaned_entities() {
+fn remove_extension_lists_stranded_entities() {
     let (mut server, root) = server_with_product();
     // `hello` is a greeting, a kind only the product extension declares;
     // test.spec's `alpha` and `beta` are of kinds it does not.
@@ -1220,14 +1404,15 @@ fn remove_extension_warns_about_orphaned_entities() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    let warnings = parsed["orphan_warnings"].as_array().unwrap();
-    assert_eq!(warnings.len(), 1, "{parsed}");
-    let warning = warnings[0].as_str().unwrap();
-    assert!(
-        warning.contains("'hello'") && warning.contains("greeting"),
-        "{warning}"
+    assert_eq!(
+        parsed["stranded"],
+        json!([{"entity_id": "hello", "kind": "greeting"}]),
+        "{parsed}"
     );
-    assert_eq!(parsed["success"], true, "removal still proceeds");
+    assert!(
+        parsed["removed_extension"].is_string(),
+        "removal still proceeds"
+    );
     assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
@@ -1272,7 +1457,7 @@ fn remove_extension_disables_an_enabled_builtin() {
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(parsed["success"], true, "{parsed}");
+    assert!(parsed["removed_extension"].is_string(), "{parsed}");
     assert_eq!(parsed["removed_extension"], "@specforge/product");
     assert_eq!(config_extensions(dir.path()), ["@specforge/software"]);
 }
@@ -1724,7 +1909,7 @@ fn migrate_contract() {
     };
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [migration(2), migration(0)]
+        [migration(3), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }
@@ -1861,6 +2046,28 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
     assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
 }
 
+// §3 R4 (plan 05): a dry run of an exact version asks no registry, so its configuration is not shown.
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
+)]
+fn add_extension_dry_run_of_an_exact_version_reports_no_registry_configuration() {
+    let dir = project_with_duplicate_registry_alias();
+    let mut server = test_server();
+    let path = dir.path().to_str().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@acme/widget@1.0.0", "path": path, "dry_run": true}),
+    );
+    let codes: Vec<&str> = resp["result"]["_meta"]["diagnostics"]
+        .as_array()
+        .map(|all| all.iter().filter_map(|d| d["code"].as_str()).collect())
+        .unwrap_or_default();
+    assert!(!codes.contains(&"W140"), "{resp}");
+}
+
 /// The new name follows the entity-ID rule (the grammar's identifier,
 /// 2-60 characters): an illegal one is refused and nothing is written.
 #[test]
@@ -1929,7 +2136,7 @@ fn remove_on_another_project_checks_that_projects_dependents() {
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    assert_eq!(payload["success"], true, "{payload}");
+    assert!(payload["removed_extension"].is_string(), "{payload}");
 
     // In the served project formal still requires it.
     let resp = call_tool(

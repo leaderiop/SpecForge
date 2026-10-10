@@ -120,16 +120,32 @@ pub fn has_extension(extensions: &[Value], name: &str) -> bool {
         .any(|e| e.as_str().is_some_and(|s| entry_name(s) == name))
 }
 
-/// Append `entry` (`name` or `name@version`) to the project's extensions
-/// unless an entry already names `name`. `Ok(false)` when one did.
-pub fn add_extension(root: &Path, name: &str, entry: &str) -> Result<bool, OpError> {
+/// What enabling extensions changed in `specforge.json`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Enabled {
+    /// The names appended, in order: none an entry already named.
+    pub appended: Vec<String>,
+    /// How many extensions the file enables after the edit: its string
+    /// entries, as `read_project_config` counts them.
+    pub total: usize,
+}
+
+/// Append each of `names` that no entry names yet, in order, as one edit:
+/// the file is written once, or not at all when every one is enabled.
+pub fn enable(root: &Path, names: &[&str]) -> Result<Enabled, OpError> {
+    let mut appended = Vec::new();
+    let mut total = 0;
     edit_extensions(root, |extensions| {
-        if has_extension(extensions, name) {
-            return false;
+        for name in names {
+            if !has_extension(extensions, name) {
+                extensions.push(Value::from(*name));
+                appended.push((*name).to_string());
+            }
         }
-        extensions.push(Value::from(entry));
-        true
-    })
+        total = extensions.iter().filter(|e| e.is_string()).count();
+        !appended.is_empty()
+    })?;
+    Ok(Enabled { appended, total })
 }
 
 /// Drop every entry naming `name` from the project's extensions.
@@ -183,12 +199,28 @@ mod tests {
         let dir = project(r#"{"name":"p","extensions":["@acme/foobar@1.0.0"]}"#);
 
         assert_eq!(
-            add_extension(dir.path(), "@acme/foo", "@acme/foo@2.0.0"),
-            Ok(true)
+            enable(dir.path(), &["@acme/foo"]),
+            Ok(Enabled {
+                appended: vec!["@acme/foo".into()],
+                total: 2
+            })
         );
+        assert_eq!(extensions(dir.path()), ["@acme/foobar@1.0.0", "@acme/foo"]);
+    }
+
+    #[test]
+    fn enable_appends_what_is_missing_in_one_write() {
+        let dir = project(r#"{"name":"p","extensions":["@acme/foo@1.0.0", 7]}"#);
+
+        let enabled = enable(dir.path(), &["@acme/foo", "@acme/bar", "@acme/baz"]).unwrap();
+
+        assert_eq!(enabled.appended, ["@acme/bar", "@acme/baz"]);
+        assert_eq!(enabled.total, 3, "string entries only");
+        let text = std::fs::read_to_string(dir.path().join(CONFIG_FILE)).unwrap();
+        let config: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(
-            extensions(dir.path()),
-            ["@acme/foobar@1.0.0", "@acme/foo@2.0.0"]
+            config["extensions"],
+            serde_json::json!(["@acme/foo@1.0.0", 7, "@acme/bar", "@acme/baz"])
         );
     }
 
@@ -198,8 +230,11 @@ mod tests {
         let before = std::fs::read(dir.path().join(CONFIG_FILE)).unwrap();
 
         assert_eq!(
-            add_extension(dir.path(), "@acme/foo", "@acme/foo@2.0.0"),
-            Ok(false)
+            enable(dir.path(), &["@acme/foo"]),
+            Ok(Enabled {
+                appended: Vec::new(),
+                total: 1
+            })
         );
         assert_eq!(std::fs::read(dir.path().join(CONFIG_FILE)).unwrap(), before);
     }
@@ -231,10 +266,7 @@ mod tests {
     fn edits_write_pretty_json_with_a_trailing_newline_and_keep_other_fields() {
         let dir = project(r#"{"name":"p","version":"0.1.0","spec_root":"spec"}"#);
 
-        assert_eq!(
-            add_extension(dir.path(), "@acme/foo", "@acme/foo"),
-            Ok(true)
-        );
+        assert!(enable(dir.path(), &["@acme/foo"]).is_ok());
         let text = std::fs::read_to_string(dir.path().join(CONFIG_FILE)).unwrap();
         assert_eq!(
             text,
@@ -245,7 +277,7 @@ mod tests {
     #[test]
     fn an_edit_without_a_project_says_to_init() {
         let dir = tempfile::tempdir().unwrap();
-        let err = add_extension(dir.path(), "@acme/foo", "@acme/foo").unwrap_err();
+        let err = enable(dir.path(), &["@acme/foo"]).unwrap_err();
         assert_eq!(err.code, "config_not_found");
         assert!(
             err.suggestion
@@ -259,7 +291,7 @@ mod tests {
     #[test]
     fn an_edit_refuses_a_config_whose_extensions_are_not_an_array() {
         let dir = project(r#"{"name":"p","extensions":"@acme/foo"}"#);
-        let err = add_extension(dir.path(), "@acme/bar", "@acme/bar").unwrap_err();
+        let err = enable(dir.path(), &["@acme/bar"]).unwrap_err();
         assert_eq!(err.code, "config_invalid");
     }
 
@@ -314,7 +346,7 @@ mod tests {
             assert_eq!(usable(dir.path()).unwrap_err(), refused, "{config}");
             assert_eq!(required(dir.path()).unwrap_err(), refused, "{config}");
             assert_eq!(
-                add_extension(dir.path(), "@acme/foo", "@acme/foo").unwrap_err(),
+                enable(dir.path(), &["@acme/foo"]).unwrap_err(),
                 refused,
                 "{config}"
             );

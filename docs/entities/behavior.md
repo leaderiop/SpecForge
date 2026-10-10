@@ -102,7 +102,7 @@ behavior create_user "Create User" {
 | E001 | Every ID in `types` must resolve to an existing `type`. |
 | E001 | Every ID in `ports` must resolve to an existing `port`. |
 | E002 | No two behaviors may share the same ID. |
-| W001 | If no `feature` references this behavior, emit "orphan behavior" warning. |
+| W001 | If no `feature` references this behavior, emit "unreferenced behavior" warning. |
 | W004 | If no `verify` statement is present, emit "unverified behavior" warning. |
 
 ## Design Guidance

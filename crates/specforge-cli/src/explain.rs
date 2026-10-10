@@ -1,10 +1,13 @@
 //! `specforge explain <CODE>`: print a catalogued diagnostic code
 //! ([`specforge_diagnostics`]).
 
+use crate::OutputFormat;
+use crate::outcome::{Exit, Refusal};
 use specforge_diagnostics::{CodeEntry, WRAP_WIDTH, lookup, retired, wrap};
+use specforge_ops::{OpError, OpErrorKind};
 
 /// Print the explanation of a diagnostic code.
-pub fn run(code: &str) -> i32 {
+pub fn run(code: &str) -> Exit {
     if let Some(replacement) = retired(code) {
         let old = code.to_uppercase();
         match replacement.and_then(lookup) {
@@ -14,25 +17,25 @@ pub fn run(code: &str) -> i32 {
             }
             None => println!("{old} is retired and no longer emitted."),
         }
-        return 0;
+        return Exit::Passed;
     }
     match lookup(code) {
         Some(entry) => {
             print_entry(entry);
-            0
+            Exit::Passed
         }
-        None => {
-            eprintln!("unknown diagnostic code: {code}");
-            eprintln!(
-                "hint: codes follow the pattern E### (error), W### (warning), I### (info), A### (analyze finding); \
-                 registry client codes are R### and R-<AREA>-###"
-            );
-            eprintln!(
-                "hint: E900-E998, W900-W998 and I900-I998 are reserved for third-party extensions; \
-                 see the extension's own documentation"
-            );
-            1
-        }
+        None => Refusal::of(OutputFormat::Human).report(
+            &OpError::new(
+                OpErrorKind::InvalidInput,
+                "unknown_code",
+                format!("unknown diagnostic code: {code}"),
+            )
+            .with_suggestion(
+                "codes are E### (error), W### (warning), I### (info), A### (analyze finding), \
+                 R### and R-<AREA>-### (registry client); E900-E998, W900-W998 and I900-I998 are \
+                 third-party extensions' (see the extension's documentation)",
+            ),
+        ),
     }
 }
 

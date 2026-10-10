@@ -28,7 +28,7 @@ pub fn compile(extensions: &[&str], files: &[(&str, &str)]) -> Compiled {
         std::fs::write(path, text).unwrap();
     }
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let project = CompiledProject::compile(dir.path(), Some(&runtime));
+    let project = CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
     let unloaded: Vec<_> = project
         .diagnostics()
         .into_iter()
@@ -44,7 +44,7 @@ pub fn compile(extensions: &[&str], files: &[(&str, &str)]) -> Compiled {
 impl Compiled {
     /// A navigator reading the project's files from disk.
     pub fn navigator(&self) -> Navigator<'_, impl Fn(&str) -> Option<String> + '_> {
-        let spec_root = &self.project.env.spec_root;
+        let spec_root = &self.project.environment().spec_root;
         Navigator::new(ProjectView::of(&self.project), move |file| {
             std::fs::read_to_string(spec_root.join(file)).ok()
         })
@@ -436,7 +436,7 @@ const USERS: &str = "behavior user_login \"User Login\" {\n  contract \"x\"\n}\n
 
 /// The ids `query` finds, best first.
 fn found(p: &Compiled, query: &EntityQuery) -> Vec<String> {
-    find_entities(&p.project.graph, query)
+    find_entities(p.project.graph(), query)
         .iter()
         .map(|m| m.node.id.raw.to_string())
         .collect()
@@ -461,7 +461,7 @@ fn a_title_fragment_finds_its_entity() {
     let p = compile(SOFTWARE, &[("users.spec", USERS)]);
     // "user log" is in the titles ("User Login", "User Logout"), not the ids.
     let matches = find_entities(
-        &p.project.graph,
+        p.project.graph(),
         &EntityQuery::new("ser Log", MatchScope::Names),
     );
     let ids: Vec<&str> = matches.iter().map(|m| m.node.id.raw.as_str()).collect();
@@ -480,7 +480,7 @@ fn a_title_fragment_finds_its_entity() {
 fn a_misspelled_id_is_found_within_the_threshold() {
     let p = nav();
     let matches = find_entities(
-        &p.project.graph,
+        p.project.graph(),
         &EntityQuery::new("sesion", MatchScope::Names),
     );
     let ids: Vec<&str> = matches.iter().map(|m| m.node.id.raw.as_str()).collect();
@@ -520,7 +520,7 @@ fn completion_keeps_the_fields_target_kind() {
     // What the LSP reads for a cursor inside `invariants [`.
     let target = p
         .project
-        .env
+        .environment()
         .registries
         .fields
         .get("behavior", "invariants")
@@ -560,7 +560,7 @@ fn tiers_rank_exact_prefix_substring_field_text_then_fuzzy() {
         )],
     );
     let all = find_entities(
-        &p.project.graph,
+        p.project.graph(),
         &EntityQuery::new("LOGIN", MatchScope::NamesAndText),
     );
     let ranked: Vec<(&str, Tier, f64)> = all
@@ -636,7 +636,7 @@ fn a_diagnostic_is_about_what_its_data_names() {
             "behavior alpha \"A\" {\n  contract \"x\"\n}\nbehavior beta \"B\" {\n  contract \"x\"\n}\n",
         )],
     );
-    let graph = &p.project.graph;
+    let graph = p.project.graph();
     let cycle = Diagnostic::new(specforge_common::codes::W061, "reference cycle detected")
         .with_data(DiagnosticData::ReferenceCycle {
             path: vec!["beta".into(), "alpha".into(), "beta".into()],
@@ -668,7 +668,7 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
             "behavior alpha \"A\" { contract \"x\" } behavior beta \"B\" { contract \"y\" }\n",
         )],
     );
-    let graph = &p.project.graph;
+    let graph = p.project.graph();
     let alpha = &graph.node("alpha").unwrap().source_span;
     let beta = &graph.node("beta").unwrap().source_span;
     assert_eq!(alpha.start_line, beta.start_line, "one line, two blocks");
@@ -694,7 +694,7 @@ fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
 #[test]
 fn the_message_is_never_read() {
     let p = nav();
-    let graph = &p.project.graph;
+    let graph = p.project.graph();
     let quoting = Diagnostic::untyped(
         "W900",
         Severity::Warning,
@@ -897,7 +897,7 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
     .unwrap();
     specforge_installed::testing::install(dir.path(), &["@pin/untargeted"]);
     let runtime = specforge_wasm::testing::InProcessRuntime::new().with(untargeted_rule);
-    let project = CompiledProject::compile(dir.path(), Some(&runtime));
+    let project = CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
     let reported: Vec<String> = project
         .diagnostics()
         .into_iter()
@@ -967,9 +967,9 @@ fn with_registries<'a>(
     env: &'a Environment,
     recorded: &'a RecordedCoverage,
 ) -> Navigator<'a, impl Fn(&str) -> Option<String> + 'a> {
-    let spec_root = &p.project.env.spec_root;
+    let spec_root = &p.project.environment().spec_root;
     Navigator::new(
-        ProjectView::new(&p.project.graph, env, None, recorded),
+        ProjectView::new(p.project.graph(), env, None, recorded),
         move |file| std::fs::read_to_string(spec_root.join(file)).ok(),
     )
 }
@@ -1009,7 +1009,7 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
         build
     };
     let env = Environment::with_registries(registries);
-    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let recorded = RecordedCoverage::over(p.project.graph(), &env);
     let fixes = with_registries(&p, &env, &recorded).fixes(&[], &FixQuery::default());
     assert_eq!(
         titles(&fixes),
@@ -1046,7 +1046,7 @@ fn the_verify_stub_is_a_quick_fix() {
         .find(|f| f.source == FixSource::AddVerifyStub)
         .unwrap();
     assert_eq!(stub.kind, FixKind::QuickFix);
-    assert_eq!(stub.kind.as_str(), "quickfix");
+    assert_eq!(serde_json::to_value(stub.kind).unwrap(), "quickfix");
     // Its code is the rule that reports an entity without verify
     // statements, so a code filter finds it.
     let code = stub
@@ -1174,7 +1174,7 @@ fn no_stub_without_a_target_kind() {
         build
     };
     let env = Environment::with_registries(untargeted);
-    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let recorded = RecordedCoverage::over(p.project.graph(), &env);
     let fixes = with_registries(&p, &env, &recorded).fixes(&diagnostics, &FixQuery::default());
     assert!(
         fixes.iter().all(|f| f.source != FixSource::CreateStub),
@@ -1551,6 +1551,7 @@ fn the_outline_shows_kind_id_title_and_name() {
 // ── The reference list without tokens ───────────────────────────────────
 
 use specforge_ops::navigate::{Reference, References};
+use std::sync::Arc;
 
 const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\n\
                      behavior beta \"B\" {\n  depends_on [alpha]\n}\n";
@@ -1581,7 +1582,7 @@ fn references_list_the_same_entities_the_navigator_finds() {
         let navigator = p.navigator();
         let view = ProjectView::of(&p.project);
         let mut checked = 0;
-        for node in p.project.graph.nodes() {
+        for node in p.project.graph().nodes() {
             let id = node.id.raw.as_str();
             let references = References::of(&view, id);
             for direction in [Direction::Incoming, Direction::Outgoing] {
@@ -1606,7 +1607,7 @@ fn references_list_the_same_entities_the_navigator_finds() {
 fn references_keep_edge_order_peer_kind_and_field() {
     for p in [nav(), cyc()] {
         let view = ProjectView::of(&p.project);
-        let graph = &p.project.graph;
+        let graph = p.project.graph();
         let kind_of = |id: &str| graph.node(id).map(|n| n.kind.raw);
         for node in graph.nodes() {
             let id = node.id.raw.as_str();

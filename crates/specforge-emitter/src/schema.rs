@@ -8,6 +8,7 @@ use crate::error::EmitterError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use specforge_common::shape::Shape;
 use specforge_diagnostics::{Code, codes};
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, FieldType, KindRegistry,
@@ -17,7 +18,7 @@ use specforge_registry::{
 // Slice 1: Schema Types
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaVersion {
     pub major: u32,
     pub minor: u32,
@@ -106,7 +107,7 @@ impl PartialOrd for SchemaVersion {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaField {
     pub name: String,
     /// The field's type, named as its extension declares it (ADR 0034). A
@@ -150,7 +151,7 @@ impl SchemaField {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaEntityKind {
     pub name: String,
     pub source_extension: String,
@@ -162,7 +163,7 @@ pub struct SchemaEntityKind {
     pub fields: Vec<SchemaField>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaEdgeType {
     pub label: String,
     pub source_extension: String,
@@ -172,13 +173,13 @@ pub struct SchemaEdgeType {
     pub target_kinds: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaExtensionInfo {
     pub name: String,
     pub version: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct GraphProtocolSchema {
     pub schema_version: SchemaVersion,
     pub extensions: Vec<SchemaExtensionInfo>,
@@ -347,7 +348,7 @@ pub struct SchemaCacheEntry {
 /// Pointer to a published Graph Protocol schema (C6-07): the same `$id` URL
 /// the publisher emits plus the content hash from the schema cache, letting
 /// scoped exports name their schema without embedding the whole document.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
 pub struct SchemaRefBlock {
     pub url: String,
     pub content_hash: String,

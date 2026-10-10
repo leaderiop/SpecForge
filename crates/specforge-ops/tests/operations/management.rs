@@ -95,15 +95,14 @@ fn management_operations_read_the_project_from_their_view() {
 
     let report = specforge_ops::doctor::diagnose_with(&view, true);
     let failures: Vec<&str> = report
-        .load_failures
-        .iter()
+        .about(specforge_ops::doctor::Part::Load)
         .map(|f| f.code.as_str())
         .collect();
     assert_eq!(failures, ["E028"]);
 
     // root_for_disk: the lock is read at the view's root ...
     assert_eq!(listing.locked.len(), 1);
-    assert_eq!(report.extensions_checked, 1);
+    assert_eq!(report.installed_count, 1);
 
     // ... and a view without one: the listings and doctor answer from what
     // the view enabled and loaded; the others refuse with no_project.
@@ -113,7 +112,7 @@ fn management_operations_read_the_project_from_their_view() {
     assert!(listing.locked.is_empty());
     assert_eq!(listing.extensions.len(), 1);
     assert_eq!(
-        specforge_ops::doctor::diagnose_with(&rootless, true).extensions_checked,
+        specforge_ops::doctor::diagnose_with(&rootless, true).installed_count,
         0
     );
     let refused = |result: Result<(), specforge_ops::OpError>| {
@@ -131,12 +130,10 @@ fn management_operations_read_the_project_from_their_view() {
         .map(drop),
     );
     refused(specforge_ops::infer::progress(&rootless).map(drop));
-    let runtime = specforge_wasm::testing::InProcessRuntime::new();
-    refused(specforge_ops::infer::gaps(&rootless, &runtime).map(drop));
+    refused(specforge_ops::infer::gaps(&rootless).map(drop));
     refused(
         specforge_ops::collect::collect(
             &rootless,
-            &runtime,
             Request {
                 runner: None,
                 mode: Mode::NoRun,
@@ -195,7 +192,7 @@ fn the_providers_listing_reports_what_the_environment_registered() {
     assert_eq!(w118(&listing.diagnostics).len(), 2, "{listing:?}");
     assert_eq!(
         w118(&listing.diagnostics),
-        w118(compiled.env.providers.diagnostics())
+        w118(compiled.environment().providers.diagnostics())
     );
 }
 
@@ -223,4 +220,38 @@ fn the_providers_listing_reads_the_registration() {
     let aliases: Vec<&str> = listing.providers.iter().map(|p| p.alias.as_str()).collect();
     assert_eq!(aliases, ["work"], "{listing:?}");
     assert_eq!(listing.diagnostics.len(), 1, "{listing:?}");
+}
+
+#[specforge_test(
+    behavior = "report_command_outcome",
+    verify = "a command run outside any project refuses with no_project"
+)]
+fn collect_at_a_root_that_is_no_project_is_no_project() {
+    let project = project();
+    let recorded = RecordedCoverage::over(&project.graph, &project.env);
+    let bare = tempfile::TempDir::new().unwrap();
+    let view = ProjectView::new(&project.graph, &project.env, Some(bare.path()), &recorded);
+
+    let error = specforge_ops::collect::collect(
+        &view,
+        Request {
+            runner: None,
+            mode: Mode::NoRun,
+            consent: Consent::Approved,
+            announce: &mut |_, _| {},
+        },
+    )
+    .map(drop)
+    .unwrap_err();
+
+    assert_eq!(error.code, "no_project", "{error:?}");
+    assert!(
+        error.message.contains("no specforge project at"),
+        "{error:?}"
+    );
+    assert_eq!(
+        std::fs::read_dir(bare.path()).unwrap().count(),
+        0,
+        "nothing was written"
+    );
 }

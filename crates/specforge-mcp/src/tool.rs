@@ -2,7 +2,7 @@
 //! `tools/call` reply.
 //!
 //! Handlers return a [`ToolOutcome`] (a mutation's handler, a
-//! [`Mutated`](crate::mutation::Mutated) holding one); [`envelope`] alone
+//! [`Replied`](crate::mutation::Replied) holding one); [`envelope`] alone
 //! builds `content`, `isError` and `_meta`. What a mutation wrote crosses
 //! to the dispatcher typed (ADR 0022), never read back from the reply.
 
@@ -11,14 +11,41 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_graph::Graph;
 
 use crate::args::Argument;
-use crate::mutation::Mutated;
+use crate::mutation::Replied;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
-use crate::target::{Call, TargetSpec};
+use crate::target::{Call, ProjectTarget, TargetSpec, WithoutProject};
 use crate::types::McpToolDescriptor;
 use specforge_ops::{OpError, OpErrorKind};
 
-/// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
-/// its `source`, a separate field (ADR 0004 D4-b).
+/// The group a tool that is no mutation is listed in: the spec's
+/// `McpToolGroup`, every `McpToolCategory` but `mutation`. A core tool
+/// declares it on its effect; an extension tool's is the category it
+/// declares when that names a group, else `Core`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolGroup {
+    Core,
+    Navigation,
+    Management,
+}
+
+impl ToolGroup {
+    /// The group `name` names (`core`, `navigation`, `management`); `None`
+    /// for any other name, `mutation` included: only a core tool that writes
+    /// its target's project files is a mutation.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "core" => Some(ToolGroup::Core),
+            "navigation" => Some(ToolGroup::Navigation),
+            "management" => Some(ToolGroup::Management),
+            _ => None,
+        }
+    }
+}
+
+/// A tool's role as `tools/list` and `mcp_tool_invoked` name it: the spec's
+/// `McpToolCategory`. Never declared: a mutation's is `Mutation`, any other
+/// tool's its group ([`ToolSpec::category`]). Where a tool comes from is its
+/// `source`, a separate field (ADR 0004 D4-b).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
     Core,
@@ -37,15 +64,14 @@ impl Category {
             Category::Management => "management",
         }
     }
+}
 
-    /// The category named `name`, if it is one of the four.
-    pub fn parse(name: &str) -> Option<Self> {
-        match name {
-            "core" => Some(Category::Core),
-            "navigation" => Some(Category::Navigation),
-            "mutation" => Some(Category::Mutation),
-            "management" => Some(Category::Management),
-            _ => None,
+impl From<ToolGroup> for Category {
+    fn from(group: ToolGroup) -> Self {
+        match group {
+            ToolGroup::Core => Category::Core,
+            ToolGroup::Navigation => Category::Navigation,
+            ToolGroup::Management => Category::Management,
         }
     }
 }
@@ -54,91 +80,280 @@ impl Category {
 /// extension's name.
 pub const CORE_SOURCE: &str = "core";
 
-/// What a tool does to its environment, as MCP's tool annotations say it.
+/// How a tool that writes writes, as MCP's tool annotations say it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Access {
-    /// It only reads: `readOnlyHint`.
-    ReadOnly,
-    /// It writes files.
-    Writes {
-        /// It may overwrite or remove what is there (`destructiveHint`).
-        destructive: bool,
-        /// Calling it again with the same arguments changes nothing more
-        /// (`idempotentHint`).
-        idempotent: bool,
-        /// It reaches beyond the project: a registry, a test runner
-        /// (`openWorldHint`).
-        open_world: bool,
+pub struct WriteHints {
+    /// It may overwrite or remove what is there (`destructiveHint`); false:
+    /// it only adds.
+    pub destructive: bool,
+    /// Calling it again with the same arguments changes nothing more
+    /// (`idempotentHint`); a repeat it refuses, writing nothing, counts.
+    pub idempotent: bool,
+    /// It reaches beyond the project: a registry, a test runner
+    /// (`openWorldHint`).
+    pub open_world: bool,
+}
+
+impl WriteHints {
+    /// `{readOnlyHint: false, destructiveHint, idempotentHint, openWorldHint}`.
+    pub fn annotations(self) -> Value {
+        json!({
+            "readOnlyHint": false,
+            "destructiveHint": self.destructive,
+            "idempotentHint": self.idempotent,
+            "openWorldHint": self.open_world,
+        })
+    }
+}
+
+/// The annotations of a tool that only reads and reaches nothing beyond the
+/// project, `{readOnlyHint: true, openWorldHint: false}`: every core read,
+/// and every extension tool (the host grants an extension no capability,
+/// ADR 0037 D1).
+pub fn read_only_annotations() -> Value {
+    json!({ "readOnlyHint": true, "openWorldHint": false })
+}
+
+/// What a tool does to its environment, with the handler that does it: the
+/// one declaration its category, annotations, call target and reply's
+/// `files_written` derive from (ADR 0024, round-5 amendment).
+#[derive(Clone, Copy)]
+pub enum Effect {
+    /// It only reads: `readOnlyHint`, listed in `group`.
+    Reads { group: ToolGroup, handler: Handler },
+    /// It writes output artifacts, not its target's project files (collect
+    /// writes the recorded test report, render an export): listed in
+    /// `group`, annotated with `hints`; its reply is all there is (ADR 0022).
+    WritesOutput {
+        group: ToolGroup,
+        hints: WriteHints,
+        handler: Handler,
+    },
+    /// It writes its target's project files: category `mutation`, annotated
+    /// with `hints`; its handler says what it wrote, which the reply lists
+    /// as `files_written` (ADR 0022).
+    Mutates {
+        hints: WriteHints,
+        handler: MutationHandler,
     },
 }
 
-impl Access {
-    /// The MCP `ToolAnnotations` for this access.
-    pub fn annotations(self) -> Value {
-        match self {
-            Access::ReadOnly => json!({ "readOnlyHint": true, "openWorldHint": false }),
-            Access::Writes {
-                destructive,
-                idempotent,
-                open_world,
-            } => json!({
-                "readOnlyHint": false,
-                "destructiveHint": destructive,
-                "idempotentHint": idempotent,
-                "openWorldHint": open_world,
-            }),
+/// How a tool that is no mutation runs. The variant is what its handler is
+/// given, and so its call target: whether it reads a project, and what a
+/// call with nothing served gets. Built only by the table's `unscoped!`,
+/// `view!` and `project!`, whose `run` reads the typed arguments and hands
+/// the handler exactly its variant's input; no handler is given the call.
+#[derive(Clone, Copy)]
+pub enum Handler {
+    /// Reads no project (explain). Its handler is
+    /// `fn(Args) -> Answered<Reply>` (or `Answered<Text>`).
+    Unscoped {
+        arguments: fn() -> Vec<Argument>,
+        reply: Option<fn() -> Value>,
+        run: fn(&Call<'_>, Value) -> ToolOutcome,
+    },
+    /// Reads the project view of `target`'s project; with nothing served,
+    /// the empty session's (a read that then names a file or an entity is
+    /// refused as no project, ADR 0025). Its handler is
+    /// `fn(ProjectView<'_>, Args) -> Answered<Reply>` (or `Answered<Text>`).
+    View {
+        target: ProjectTarget,
+        arguments: fn() -> Vec<Argument>,
+        reply: Option<fn() -> Value>,
+        run: fn(&Call<'_>, Value) -> ToolOutcome,
+    },
+    /// Acts on `target`'s project on disk (its root, its runtime, its view):
+    /// with nothing served and no project named, the call target refuses it
+    /// as no project before it runs. Its handler is
+    /// `fn(&ProjectRef<'_>, Args) -> Answered<Reply>` (or `Answered<Text>`).
+    Project {
+        target: ProjectTarget,
+        arguments: fn() -> Vec<Argument>,
+        reply: Option<fn() -> Value>,
+        run: fn(&Call<'_>, Value) -> ToolOutcome,
+    },
+}
+
+impl Handler {
+    /// The call target this handler's input makes: `Unscoped`, a project
+    /// read over the empty session when nothing is served (`View`), or one
+    /// refused then (`Project`).
+    pub fn target(&self) -> TargetSpec {
+        match *self {
+            Handler::Unscoped { .. } => TargetSpec::Unscoped,
+            Handler::View { target, .. } => TargetSpec::Project {
+                target,
+                without: WithoutProject::EmptySession,
+            },
+            Handler::Project { target, .. } => TargetSpec::Project {
+                target,
+                without: WithoutProject::Refused,
+            },
+        }
+    }
+
+    /// The arguments it reads, in field order.
+    pub fn arguments(&self) -> Vec<Argument> {
+        match *self {
+            Handler::Unscoped { arguments, .. }
+            | Handler::View { arguments, .. }
+            | Handler::Project { arguments, .. } => arguments(),
+        }
+    }
+
+    /// The outputSchema its reply type derives: `None` for a handler
+    /// answering text.
+    pub fn reply(&self) -> Option<fn() -> Value> {
+        match *self {
+            Handler::Unscoped { reply, .. }
+            | Handler::View { reply, .. }
+            | Handler::Project { reply, .. } => reply,
+        }
+    }
+
+    /// Run it on the resolved call.
+    pub(crate) fn run(&self, call: &Call<'_>, arguments: Value) -> ToolOutcome {
+        match *self {
+            Handler::Unscoped { run, .. }
+            | Handler::View { run, .. }
+            | Handler::Project { run, .. } => run(call, arguments),
         }
     }
 }
 
-/// How a tool is run: its handler, by role, and the arguments it reads
-/// ([`crate::args::Arguments::declared`] of its `Args` struct).
+/// How a mutation runs: what its handler is given, and so its target. Built
+/// only by the table's `mutation!` and `create!`.
 #[derive(Clone, Copy)]
-pub enum Handler {
-    /// Any tool but a mutation: its reply is all there is (collect and
-    /// render write output artifacts, not project sources; spec feature
-    /// `mcp_project_management_tools`).
-    Tool {
+pub enum MutationHandler {
+    /// Writes `target`'s project, refused as no project before it runs when
+    /// nothing is served and the call names none. Its handler is
+    /// `fn(&ProjectRef<'_>, Args) -> Mutation<Reply>`.
+    Project {
+        target: ProjectTarget,
         arguments: fn() -> Vec<Argument>,
-        run: fn(&mut Call<'_>, Value) -> ToolOutcome,
+        reply: fn() -> Value,
+        run: fn(&Call<'_>, Value) -> Replied,
     },
-    /// A mutation (category `mutation`): its reply and what it wrote.
-    Mutation {
+    /// Creates the project its required `path` names (init); the target
+    /// refuses a missing path and one inside the served project. Its handler
+    /// is `fn(&Path, &SharedRuntime, Args) -> Mutation<Reply>`: the
+    /// directory, and the runtime its extensions' declarations are read in
+    /// (the host's, ADR 0028 D7).
+    New {
         arguments: fn() -> Vec<Argument>,
-        run: fn(&mut Call<'_>, Value) -> Mutated,
+        reply: fn() -> Value,
+        run: fn(&Call<'_>, Value) -> Replied,
     },
 }
 
-/// One core tool: everything the server lists, dispatches and reports
-/// about it.
+impl MutationHandler {
+    /// The call target this handler's input makes.
+    pub fn target(&self) -> TargetSpec {
+        match *self {
+            MutationHandler::Project { target, .. } => TargetSpec::Project {
+                target,
+                without: WithoutProject::Refused,
+            },
+            MutationHandler::New { .. } => TargetSpec::NewProject,
+        }
+    }
+
+    /// The arguments it reads, in field order.
+    pub fn arguments(&self) -> Vec<Argument> {
+        match *self {
+            MutationHandler::Project { arguments, .. } | MutationHandler::New { arguments, .. } => {
+                arguments()
+            }
+        }
+    }
+
+    /// The outputSchema its reply type derives, `files_written` included
+    /// ([`crate::mutation::output_schema`]).
+    pub fn reply(&self) -> fn() -> Value {
+        match *self {
+            MutationHandler::Project { reply, .. } | MutationHandler::New { reply, .. } => reply,
+        }
+    }
+
+    /// Run it on the resolved call.
+    pub(crate) fn run(&self, call: &Call<'_>, arguments: Value) -> Replied {
+        match *self {
+            MutationHandler::Project { run, .. } | MutationHandler::New { run, .. } => {
+                run(call, arguments)
+            }
+        }
+    }
+}
+
+/// One core tool: everything the server lists, dispatches and reports about
+/// it, from three fields.
 pub struct ToolSpec {
     pub name: &'static str,
     pub description: &'static str,
-    pub category: Category,
-    /// What it does to its environment: the listing's annotations.
-    pub access: Access,
-    /// The schema its `structuredContent` conforms to: for a tool whose
-    /// result is a JSON object.
-    pub output: Option<fn() -> Value>,
-    /// Which project it acts on, and whether that project is brought up
-    /// to date first: resolved into the call's target before the handler.
-    pub target: TargetSpec,
-    /// The handler and its arguments, read from the call's `arguments`: a
-    /// [`Handler::Mutation`] exactly for the `mutation` category.
-    pub handler: Handler,
+    /// What it does, and the handler that does it.
+    pub effect: Effect,
 }
 
 impl ToolSpec {
+    /// `Mutation` for a mutation, else its effect's group.
+    pub fn category(&self) -> Category {
+        match self.effect {
+            Effect::Reads { group, .. } | Effect::WritesOutput { group, .. } => group.into(),
+            Effect::Mutates { .. } => Category::Mutation,
+        }
+    }
+
+    /// `read_only_annotations()` for `Reads`, else its hints' annotations.
+    pub fn annotations(&self) -> Value {
+        match self.effect {
+            Effect::Reads { .. } => read_only_annotations(),
+            Effect::WritesOutput { hints, .. } | Effect::Mutates { hints, .. } => {
+                hints.annotations()
+            }
+        }
+    }
+
+    /// Whether it writes its target's project files (`Effect::Mutates`).
+    pub fn is_mutation(&self) -> bool {
+        matches!(self.effect, Effect::Mutates { .. })
+    }
+
+    /// Its call target: its handler's ([`Handler::target`],
+    /// [`MutationHandler::target`]).
+    pub fn target(&self) -> TargetSpec {
+        match &self.effect {
+            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => {
+                handler.target()
+            }
+            Effect::Mutates { handler, .. } => handler.target(),
+        }
+    }
+
+    /// The outputSchema `tools/list` lists: the one its handler's reply type
+    /// derives (a mutation's with `files_written`); none for a tool whose
+    /// reply is text.
+    pub fn output_schema(&self) -> Option<Value> {
+        match &self.effect {
+            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => {
+                handler.reply().map(|reply| reply())
+            }
+            Effect::Mutates { handler, .. } => Some(handler.reply()()),
+        }
+    }
+
     /// The input schema `tools/list` lists: the handler's arguments, then
     /// the target's, and no other property ([`crate::args::input_schema`]).
     pub fn input_schema(&self) -> Value {
-        crate::args::input_schema(&self.arguments(), self.target)
+        crate::args::input_schema(&self.arguments(), self.target())
     }
 
     /// The handler's declared arguments, in field order.
     pub fn arguments(&self) -> Vec<Argument> {
-        match self.handler {
-            Handler::Tool { arguments, .. } | Handler::Mutation { arguments, .. } => arguments(),
+        match &self.effect {
+            Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. } => {
+                handler.arguments()
+            }
+            Effect::Mutates { handler, .. } => handler.arguments(),
         }
     }
 
@@ -148,14 +363,14 @@ impl ToolSpec {
         self.arguments()
             .iter()
             .map(|argument| argument.name)
-            .chain(self.target.fields().iter().copied())
+            .chain(self.target().fields().iter().copied())
             .collect()
     }
 
     /// The refusal of a call that sends a name neither the tool nor its
     /// target declares ([`crate::args::undeclared`]).
     pub fn undeclared(&self, arguments: &Value) -> Option<McpError> {
-        crate::args::undeclared(arguments, &self.arguments(), self.target)
+        crate::args::undeclared(arguments, &self.arguments(), self.target())
     }
 
     /// The tool as `tools/list` describes it.
@@ -164,10 +379,10 @@ impl ToolSpec {
             name: self.name.into(),
             description: self.description.into(),
             input_schema: self.input_schema(),
-            output_schema: self.output.map(|schema| schema()),
-            category: Some(self.category.as_str().into()),
+            output_schema: self.output_schema(),
+            category: Some(self.category().as_str().into()),
             source: Some(CORE_SOURCE.into()),
-            annotations: Some(self.access.annotations()),
+            annotations: self.annotations(),
         }
     }
 }
@@ -306,6 +521,11 @@ impl McpError {
             diagnostic.message.clone(),
         )
         .with_diagnostic(diagnostic)
+    }
+
+    /// Invalid input: an argument the tool cannot use.
+    pub fn invalid_input(argument: &str, message: impl Into<String>) -> Self {
+        McpError::new(ErrorCode::InvalidInput, message).with_argument(argument)
     }
 
     pub fn with_entity(mut self, entity_id: impl Into<String>) -> Self {
@@ -509,9 +729,7 @@ impl ToolOutcome {
 
     /// Invalid input: an argument the tool cannot use.
     pub fn invalid_input(argument: &str, message: impl Into<String>) -> Self {
-        McpError::new(ErrorCode::InvalidInput, message)
-            .with_argument(argument)
-            .into()
+        McpError::invalid_input(argument, message).into()
     }
 
     /// A tool that needs a project and has none to work on.
@@ -588,34 +806,6 @@ impl From<McpError> for ToolOutcome {
         ToolOutcome::Refused(Box::new(error))
     }
 }
-
-/// What a handler returns: an outcome, or a refusal it raised with `?`
-/// (`call.project()?`): a [`Handled`].
-pub trait IntoOutcome {
-    fn into_outcome(self) -> ToolOutcome;
-}
-
-impl IntoOutcome for ToolOutcome {
-    fn into_outcome(self) -> ToolOutcome {
-        self
-    }
-}
-
-impl IntoOutcome for McpError {
-    fn into_outcome(self) -> ToolOutcome {
-        self.into()
-    }
-}
-
-impl IntoOutcome for Handled {
-    fn into_outcome(self) -> ToolOutcome {
-        self.unwrap_or_else(ToolOutcome::Refused)
-    }
-}
-
-/// A handler's result when it refuses with `?`: the `McpError` boxed, as
-/// [`ToolOutcome::Refused`] holds it (`call.project()?` converts).
-pub type Handled = Result<ToolOutcome, Box<McpError>>;
 
 /// The `tools/call` reply for `outcome`: the only place that builds
 /// `content`, `structuredContent`, `isError` and `_meta`. A failure is an

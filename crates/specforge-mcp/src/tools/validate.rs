@@ -1,6 +1,7 @@
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::reply::{Answer, Answered, Text};
+use crate::target::ProjectRef;
+use crate::tool::McpError;
 use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles, parse_severity};
 
 /// `specforge.validate`'s arguments.
@@ -26,17 +27,16 @@ pub const VERDICT_META: &str = "specforge/check";
 /// `path` names for this call). Finding errors is a successful call (ADR
 /// 0004 D4-a); whether the check passed is the `_meta` verdict. The tool
 /// never records the build cache.
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+pub fn call(project: &ProjectRef<'_>, args: Args) -> Answered<Text> {
     let severity = match args.severity_filter.as_deref().map(parse_severity) {
         None => None,
         Some(Ok(severity)) => Some(severity),
-        Some(Err(error)) => return Ok(refused(error, "severity_filter")),
+        Some(Err(error)) => return Err(refused(error, "severity_filter")),
     };
     let lint_profiles = match parse_lint_profiles(&args.lint) {
         Ok(profiles) => profiles,
-        Err(error) => return Ok(refused(error, "lint")),
+        Err(error) => return Err(refused(error, "lint")),
     };
-    let project = call.project()?;
     let options = CheckOptions {
         strict: args.strict,
         lint_profiles,
@@ -45,24 +45,23 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     };
     let outcome = match check(&project.view(), project.diagnostics(), &options) {
         Ok(outcome) => outcome,
-        Err(error) => return Ok(refused(error, "path")),
+        Err(error) => return Err(refused(error, "path")),
     };
     let shown: Vec<specforge_common::Diagnostic> = outcome.shown().into_iter().cloned().collect();
     Ok(
-        ToolOutcome::text(specforge_common::serialize_diagnostics(&shown))
+        Answer::new(Text(specforge_common::serialize_diagnostics(&shown)))
             .with_meta(VERDICT_META, outcome.verdict_json()),
     )
 }
 
 /// Why validate could not run: an argument it cannot use (`invalid_input`
 /// naming it, with the closest valid name), or no project root.
-fn refused(error: CheckError, argument: &str) -> ToolOutcome {
+fn refused(error: CheckError, argument: &str) -> Box<McpError> {
     let error = specforge_ops::OpError::from(error);
     let argument = (error.kind == specforge_ops::OpErrorKind::InvalidInput).then_some(argument);
-    let refused = crate::tool::McpError::from(error);
-    match argument {
+    let refused = McpError::from(error);
+    Box::new(match argument {
         Some(argument) => refused.with_argument(argument),
         None => refused,
-    }
-    .into()
+    })
 }

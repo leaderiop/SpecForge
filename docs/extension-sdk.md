@@ -1,30 +1,29 @@
 # Extension SDK
 
-> **Status: component model (v2).** The SDK lives in `crates/specforge-extension-sdk`
-> (+ the `specforge_extension_sdk::extension` attribute macro and the
-> `component_guest!` macro), with a working example at `fixtures/greet-extension/`.
-> Guests are **wasip2 components** (target `wasm32-wasip2`, wit-bindgen 0.30) and
-> export the `specforge:bridge` world: `call(name, export-name, input) ->
-> result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
-> `ContributionsBuilder`, every declared surface and operation to the handler
-> declared with it, and any other export name to the guest's `handler`. Host functions (the old `HostApi`) were removed with the extism
-> runtime; a typed component host-import surface is future work. The design
-> reference below predates the cutover; where it mentions `wasm32-unknown-unknown`,
-> extism, or `plugin_fn`, read `wasm32-wasip2`, the component engine, and
-> `component_guest!`.
-
-The `specforge-extension-sdk` crate provides the wire types and attribute macros that extension authors use to build SpecForge extensions as Wasm modules.
+> The SDK is `crates/specforge-extension-sdk`: a `ContributionsBuilder` you fill in a `Contributions` impl, the
+> `#[extension]` attribute that names the extension, and `component_guest!`, which serves it as a `wasm32-wasip2`
+> component exporting the `specforge:bridge` world. The working example is `fixtures/greet-extension/`, built in
+> CI and pinned by `crates/specforge-component/tests/greet_sdk.rs`.
+>
+> `call(name, export-name, input) -> result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
+> builder, every declared surface and operation to the handler declared with it, and any other export name to the
+> guest's `handler`. Host functions (the old `HostApi`) were removed with the extism runtime; a typed component
+> host-import surface is future work.
 
 ## Overview
 
-An extension is a standalone Rust crate that compiles to `wasm32-wasip2`. The SDK is the only dependency it needs. The SDK provides:
+An extension is a Rust crate compiled to `wasm32-wasip2`, depending on `specforge-extension-sdk` and `wit-bindgen`.
+The SDK provides:
 
-- **Protocol types** -- entity kind descriptors, edge type descriptors, field descriptors, and all other metadata structures the host expects
+- **Protocol types** -- re-exported from `specforge-protocol-types`, shared with the host
+- **One attribute**, `#[extension]`, which names the extension
+- **Builders** that declare every contribution with the handler that answers it
+- **`component_guest!`**, which serves the declaration as a wasip2 component
+- **`testing`** -- a runtime-free mock host
 - **Host functions (planned)** -- the typed import surface is future work; guests today are pure-compute and receive all context as call input (see [Host Functions](#host-functions))
-- **Attribute macros** -- declarative macros that generate Wasm exports conforming to the Extension Protocol
-- **Shared types** -- `Entity`, `EntityRef`, `Diagnostic`, `Graph`, and other types used in both host and extension code
 
-One crate, one compile target, one import. No hand-written JSON manifests. No manual Wasm export registration.
+There are no hand-written JSON manifests and no export registration: the declaration the builder builds is what the
+host loads and what `specforge publish` uploads (ADR 0012).
 
 ## Extension Structure
 
@@ -35,7 +34,7 @@ extensions/
   software/
     Cargo.toml
     src/
-      lib.rs          -- #[extension] module with all contributions
+      lib.rs          -- the Contributions impl and component_guest!
     templates/
       behavior.spec   -- starter template
   product/
@@ -69,11 +68,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 specforge-extension-sdk = "1.0.0"
+wit-bindgen = "0.30"
 ```
 
 ### Compile Target
 
-Extensions compile to `wasm32-unknown-unknown`:
+Extensions compile to `wasm32-wasip2`:
 
 ```bash
 cargo build --target wasm32-wasip2 --release
@@ -83,217 +83,131 @@ The output `.wasm` file is what the host loads at runtime.
 
 ## Authoring Experience
 
-The SDK uses attribute macros to generate all protocol exports from declarative Rust code. You describe what your extension contributes; the SDK generates the `__handshake`, `__describe`, and all `cmd__*` / `mcp__*` / `__pass_*` / `collect__*` / `validate__*` / `scan__*` exports, each routed to the handler declared with it.
+You describe what the extension contributes with the builder, each contribution with the function that answers it. The SDK serves `__handshake` and `__describe` from the declaration and routes every declared export (`cmd__*`, `mcp__*`, `__pass_*`, `collect__*`, `validate__*`, `scan__*`, the migration hook) to its handler.
 
 ### Complete Example
 
-This is the canonical reference for the macro API. It shows every macro the SDK provides, applied to a realistic extension:
+This is the `greet` fixture (`fixtures/greet-extension/src/`), built in CI:
 
 ```rust
+//! What the greet extension declares, authored entirely with the SpecForge
+//! extension SDK. Kept apart from the component glue (`lib.rs`) so the
+//! host's tests can serve the same declarations in process
+//! (`crates/specforge-component/tests/greet_sdk.rs` includes this file) and
+//! check both runtimes answer alike.
+
 use specforge_extension_sdk::prelude::*;
 
-#[extension(
-    name = "@specforge/software",
-    version = "1.0.0",
-    short = "software",
-    description = "Software design: behaviors, invariants, events, types and ports",
+#[specforge_extension_sdk::extension(
+    name = "@sdk/greet",
+    version = "0.1.0",
+    short = "greet",
+    description = "Friendly greetings"
 )]
-#[peer_dependency("@specforge/product", version = "^1.0")]
-mod software {
+pub struct Greet;
 
-    // ── Shared Fields ─────────────────────────────────────────────
-
-    // Shared fields are applied to ALL entity kinds declared by this
-    // extension. Individual entity kinds can override a shared field
-    // by declaring a field with the same name.
-
-    #[shared_field(field_type = "string_list", description = "Freeform labels")]
-    struct tags;
-
-    // ── Entity Kinds ──────────────────────────────────────────────
-
-    // Each entity kind becomes a DSL keyword. The struct name is the
-    // display name; the keyword attribute is the DSL keyword.
-    // Fields on the struct become entity fields with type, edge,
-    // and target_kind metadata.
-
-    #[entity_kind(keyword = "behavior", singleton = false, open_fields = false, has_body_parser = false)]
-    #[lsp(semantic_token = "function", icon = "Method")]
-    #[dot(shape = "box", color = "#1565C0", fillcolor = "#E3F2FD")]
-    struct Behavior {
-        #[field(required, description = "The behavioral contract")]
-        contract: String,
-
-        #[field(description = "Invariants this behavior enforces")]
-        #[edge("BehaviorEnforcesInvariant", target = "invariant", style = "dashed", color = "#C62828")]
-        invariants: Vec<EntityRef>,
-
-        #[field(description = "Product features this behavior implements")]
-        #[edge("BehaviorImplementsFeature", target = "feature", style = "solid")]
-        features: Vec<EntityRef>,
+impl Contributions for Greet {
+    fn contribute(c: &mut ContributionsBuilder) {
+        c.kind("greeting", |k| {
+            k.description("A friendly greeting").testable(false);
+            k.field("style", |f| {
+                f.field_type(FieldType::Enum);
+                f.enum_values(&["warm", "formal"]);
+                f.required();
+            });
+        });
+        c.rule("E901", |r| {
+            r.check(CheckKind::FieldValueConstraint);
+            r.target_kind("greeting");
+            r.field("style");
+            r.constraint(|fc| {
+                fc.kind(ConstraintKind::Matches);
+                fc.pattern("^(warm|formal)$");
+            });
+            r.severity(ValidationSeverity::Error);
+            r.message_template("greeting '{id}' has unknown style");
+        });
+        c.command("hello", |cmd| {
+            cmd.title("Say hello")
+                .description("Greet someone, warmly")
+                .arg("name", |a| {
+                    a.string().required().description("Who to greet");
+                })
+                .handler(|call| {
+                    let name = call.str("name").unwrap_or_default();
+                    let greeting = format!("Hello, {name}!");
+                    call.render(&serde_json::json!({ "greeting": greeting }), |out| {
+                        out.push_str(&greeting);
+                        out.push('\n');
+                    })
+                });
+        });
+        c.pass("styles", |p| {
+            p.run(|input: &PassInput| {
+                input
+                    .entities
+                    .iter()
+                    .filter(|e| e.kind == "greeting")
+                    .map(|e| {
+                        let style = e.fields.get("style").map_or("none", String::as_str);
+                        PassDiagnostic::new(
+                            "G900",
+                            PassSeverity::Info,
+                            format!("greeting '{}' is {style}", e.id),
+                        )
+                        .with_entity(&e.id)
+                    })
+                    .collect::<Vec<_>>()
+            });
+        });
+        c.collector("greet-test", |k| {
+            k.input_format("greet-lines")
+                .report("greet-report.txt")
+                .collect(|input: &CollectInput| {
+                    // One line per test: `<greeting id> <passed|failed>`.
+                    let entity_results = input
+                        .reports
+                        .iter()
+                        .flat_map(|report| report.content.lines())
+                        .filter_map(|line| line.split_once(' '))
+                        .map(|(id, status)| CollectEntityResult {
+                            entity_id: id.to_string(),
+                            test_results: vec![CollectTestResult {
+                                name: format!("greets_{id}"),
+                                status: status.trim().to_string(),
+                                verify: None,
+                                duration_ms: None,
+                            }],
+                        })
+                        .collect();
+                    Ok(CollectOutput {
+                        entity_results,
+                        unlinked: Vec::new(),
+                    })
+                });
+        });
     }
+}
 
-    // ── Entity Enhancements ───────────────────────────────────────
-
-    // Enhancements add fields to entity kinds owned by other extensions.
-    // The target_kind and owner identify the foreign entity kind.
-    // Edges declared in enhancement fields are registered as cross-
-    // extension edge types.
-
-    #[enhance(target_kind = "module", owner = "@specforge/product")]
-    struct ModuleEnhancement {
-        #[field(description = "Port interfaces this module consumes")]
-        #[edge("ModuleConsumesPort", target = "port", style = "dashed")]
-        ports: Vec<EntityRef>,
-    }
-
-    // ── Standalone Edge Types ─────────────────────────────────────
-
-    // Edge types that exist independently of any field declaration.
-    // Use these for edges that are computed by validation rules or
-    // compiler passes rather than declared in entity fields.
-
-    #[edge_type(label = "References", description = "General cross-reference")]
-    const REFERENCES: EdgeType;
-
-    // ── Declarative Validation Rules ──────────────────────────────
-
-    // Declarative rules are evaluated by the host using pattern matching.
-    // No Wasm call is needed -- the host matches the check pattern against
-    // the graph and emits the diagnostic if the pattern matches.
-
-    #[validation_rule(
-        code = "W001", severity = "warning",
-        check = "no_outgoing_edges",
-        target_kind = "behavior",
-        edge_type = "BehaviorImplementsFeature",
-        message = "behavior '{id}' does not implement any feature",
-    )]
-    const ORPHAN_BEHAVIOR: ValidationRule;
-
-    // ── Custom Validators ─────────────────────────────────────────
-
-    // Custom validators are Wasm-backed. The SDK generates a
-    // validate__* export that the host calls during validation.
-    // The host precomputes everything the validator needs — the entity,
-    // its resolved reference targets, declared type ids, and the known
-    // primitive set — into a ValidatorContext snapshot. Guests are
-    // pure functions of that snapshot: no host calls are needed (or
-    // possible) today.
-
-    #[validator(code = "W009", severity = "warning",
-        message = "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}")]
-    fn validate_verify_kind_allowlist(context: ValidatorContext) -> ValidatorVerdict {
-        // Custom logic: work from the precomputed snapshot — resolved
-        // reference targets live in `context.referenced` (`kind: null`
-        // marks a dangling reference), declared types in
-        // `context.declared_types` — instead of graph lookups.
-        let dangling = context.referenced.iter().any(|r| r.kind.is_none());
-        if dangling {
-            ValidatorVerdict::Fail {
-                field: Some("verify_kinds".to_string()),
-                value: Some(context.entity.id.clone()),
-            }
-        } else {
-            ValidatorVerdict::Pass
-        }
-    }
-
-    // ── CLI Commands ──────────────────────────────────────────────
-
-    // CLI commands are exposed as `specforge <ext-short> <command-id>`.
-    // They auto-promote to MCP tools. The SDK generates a cmd__*
-    // export and a surface descriptor.
-
-    #[cli_command(id = "validate", title = "Run validation",
-        description = "Run product validation rules", category = "analysis")]
-    fn cmd_validate(
-        #[arg(required, description = "Path to spec root")] path: PathArg,
-        #[arg(default = "default", description = "Lint profile")] lint: EnumArg,
-    ) -> Result<()> {
-        // Guests are pure functions of their input today: the host passes
-        // the parsed spec path and arguments; returned output is the
-        // command's result. Graph queries and diagnostics go through the
-        // planned host-function surface (see "Host Functions" below).
-        let report = validate_behaviors(&path, &lint)?;
-        println!("{report}");
-        Ok(())
-    }
-
-    // ── MCP Tools ─────────────────────────────────────────────────
-
-    // MCP tools are exposed via the MCP server. The SDK generates
-    // an mcp__* export and a surface descriptor with JSON Schema
-    // input validation.
-
-    #[mcp_tool(name = "model", description = "Generate entity model", category = "visualization")]
-    fn mcp_model(#[arg(description = "Output format")] format: Option<String>) -> Result<String> {
-        let fmt = format.unwrap_or_else(|| "markdown".to_string());
-        // Render the model from the snapshot the host passed in...
-        Ok(render_model(&model_snapshot(), &fmt))
-    }
-
-    // ── MCP Resources ─────────────────────────────────────────────
-
-    // MCP resources are read-only endpoints exposed via the MCP server.
-    // The URI template uses `{param}` placeholders that the MCP server
-    // resolves from the resource request.
-
-    #[mcp_resource(uri = "specforge://entities/{kind}", name = "entity_list",
-        description = "List entities by kind", mime_type = "application/json")]
-    fn resource_entity_list(kind: &str) -> Result<String> {
-        // The host resolves the URI template and passes the extracted
-        // parameters; the export returns the resource payload.
-        Ok(serde_json::to_string(&entities_of_kind(kind))?)
-    }
-
-    // ── Grammars and body parsers ─────────────────────────────────
-
-    // Not supported. The `grammars` and `body_parsers` contribution
-    // flags are reserved: the host ignores them. A kind whose body
-    // syntax the core grammar doesn't parse sets `has_body_parser` on
-    // its entity descriptor, and the compiler then leaves parse errors
-    // inside those entities unreported.
-
-    // ── Collectors ────────────────────────────────────────────────
-
-    // Test collection belongs to runner extensions (@specforge/cargo-test,
-    // @specforge/vitest), which declare a collector with the
-    // `c.collector(...)` builder; see [Collectors](#collectors).
-
-    // ── Compiler Passes ───────────────────────────────────────────
-
-    // Compiler passes run after the built-in resolve phase, in the order
-    // their after/before constraints give. A pass is declared with its
-    // handler, `c.pass("condition_check", |p| { p.after("resolve")
-    // .run(pass_condition_check); })`: the SDK routes `__pass_<name>` to
-    // it, decoding the PassInput snapshot and encoding the diagnostics
-    // (see [Compiler passes](#compiler-passes)).
-
-    fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
-        PassDiagnostic::warning(
-            "W096",
-            "behavior 'x' declares requires but no ensures",
-        )
-        .with_suggestion("add an ensures clause")
-        .into_iter()
-        .collect()
-    }
-
-    // ── Feature Flags ─────────────────────────────────────────────
-
-    // Feature flags let users configure extension behavior via
-    // specforge.json. The host reads the flag value and passes it
-    // to the extension when needed.
-
-    #[feature_flag(name = "warning_level", values = ["default", "strict"], default = "default")]
-    const WARNING_LEVEL: FeatureFlag;
+/// The extension's contributions, as its guest builds them per call.
+pub fn build() -> ContributionsBuilder {
+    specforge_extension_build()
 }
 ```
 
+`lib.rs` serves it:
+
+```rust
+mod contributions;
+
+specforge_extension_sdk::component_guest!(build = contributions::build);
+```
+
+`#[extension]` generates `specforge_extension_build()`; `build` hands it to `component_guest!`. An extension that also serves exports with no builder (its own scanners' helpers, say) passes `handler = <fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>>`.
+
 ### Extension-Level Attributes
 
-The `#[extension]` macro is the root declaration. It generates the `__handshake` export and wires all nested contributions into `__describe` responses.
+`#[extension]` is the one attribute the SDK has. It names the extension; the contributions are declared on the builder in `Contributions::contribute`.
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
@@ -302,115 +216,87 @@ The `#[extension]` macro is the root declaration. It generates the `__handshake`
 | `short` | no | The name the extension's commands are routed by: `specforge <short> <command>` on the CLI, `specforge.<short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`), checked at compile time; absent, the name's last segment (`@specforge/software` is `software`). On the wire, the handshake's `ext_short`. |
 | `description` | no | One line a package registry shows for the extension (the handshake's `description`) |
 
-Everything else the handshake carries is set on the builder: `ContributionsBuilder::starter_template`, `migration_hook` and `theme_color`, and `ExtensionMeta`'s `peer_dependencies`, `sandbox_policy` and `keywords`. The declaration the builder builds (`ContributionsBuilder::declaration`) is exactly what the host loads and what `specforge publish` uploads (ADR 0012).
+Everything else the handshake carries is set on the builder: `c.starter_template(..)`, `c.theme_color(..)`, `c.migration_hook_handler(export, |input| ..)` and `c.command_prefix(..)`, and `ExtensionMeta`'s `c.meta.keywords`, `c.meta.peer_dependencies` and `c.meta.sandbox_policy`. The declaration the builder builds (`ContributionsBuilder::declaration`) is exactly what the host loads and what `specforge publish` uploads (ADR 0012).
 
 `ExtensionMeta::sandbox_policy` declares the extension's limits, `SandboxPolicy { max_execution_ms, max_memory_mb }`: at most 30000 ms and 512 MB, the ceiling when unset. A component is granted no capability whatever it declares (see Sandbox in the [protocol doc](extension-protocol.md)).
 
-The `#[peer_dependency]` macro declares dependencies on other extensions:
+Peer dependencies go on the extension's meta:
 
 ```rust
-#[peer_dependency("@specforge/product", version = "^1.0")]
-#[peer_dependency("@specforge/governance", version = "^1.0", optional = true)]
+c.meta.peer_dependencies.push(PeerDependency {
+    name: "@specforge/product".to_string(),
+    version: "^1.0".to_string(), // a SemVer requirement; anything else is E073
+    optional: false,
+});
 ```
 
 ## Contribution Surface Reference
 
-Every macro maps to a protocol category. The SDK generates the appropriate Wasm exports and metadata descriptors.
+Every contribution is a builder call. The SDK adds the matching Wasm exports and metadata descriptors.
 
-| Macro | Generates | Protocol Category |
-|-------|-----------|-------------------|
-| `#[extension]` | `__handshake()` export | handshake |
-| `#[entity_kind]` | Entity kind descriptor | `entities` |
-| `#[field]` | Field descriptor on entity kind | `entities` |
-| `#[edge]` | Edge type from reference field | `edges` |
-| `#[edge_type]` | Standalone edge type | `edges` |
-| `#[shared_field]` | Extension-wide field | `fields` |
-| `#[enhance]` | Entity enhancement | `enhancements` |
-| `#[validation_rule]` | Declarative validation rule | `validation_rules` |
-| `c.rule(...)` with `r.validate(...)` (builder) | Custom rule + `validate__*` export | `validation_rules` |
-| `c.command(...)` with `cmd.arg(...)` and `cmd.handler(...)` (builder) | `cmd__*` export | `surfaces` |
-| `c.mcp_tool(...)` with `t.handler(...)` (builder) | `mcp__*` export | `surfaces` |
-| `c.mcp_resource(...)` with `r.handler(...)` (builder) | `mcp__*` export | `surfaces` |
-| `c.collector(...)` with `k.collect(...)` (builder) | declared command + `collect__*` export | `collectors` |
-| `c.pass(...)` with `p.run(...)` (builder) | Pass descriptor + `__pass_*` export | `passes` |
-| `c.analyzer(...)` with `a.scan(...)` (builder) | Analyzer descriptor + `scan__*` export | `analyzers` |
-| `#[feature_flag]` | Flag descriptor | `feature_flags` |
-| `#[peer_dependency]` | Dependency declaration | handshake |
-| `#[lsp]` | LSP metadata on entity kind | `entities` |
-| `#[dot]` | DOT visualization metadata | `entities` |
-| `cmd.arg(...)` (builder) | Command argument descriptor | `surfaces` |
-| `#[auto_detect]` | Collector auto-detection config | `collectors` |
+| Builder call | Declares | Category |
+|---|---|---|
+| `c.kind(name, \|k\| ..)` | an entity kind; `k.field(..)` its fields | `entities` |
+| `c.edge(label, \|e\| ..)` | an edge type (`source_kind`, `target_kind`, DOT style) | `edges` |
+| `c.shared_field(name, \|f\| ..)` | a field every kind of the extension has | `shared_fields` |
+| `c.enhance(kind, owner, \|e\| ..)` | fields and edge types on another extension's kind | `enhancements` |
+| `c.rule(code, \|r\| ..)` | a declarative rule, or a custom one with `r.validate(..)` | `validation_rules` |
+| `c.command(id, \|cmd\| ..)` | a CLI command (also an MCP tool) and its handler | `surfaces` |
+| `c.mcp_tool(..)`, `c.mcp_resource(..)` | an MCP tool or resource and its handler | `surfaces` |
+| `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
+| `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
+| `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
+| `c.feature_flag(name, default, description)` | a flag users set in `specforge.json` | `feature_flags` |
+| `c.meta.peer_dependencies` | a peer requirement | handshake |
 
-## Macro Details
+## Builder reference
 
-### #[entity_kind]
+### Kinds
 
-Declares a DSL keyword that the core grammar will parse. The struct name is the display name; the `keyword` attribute is the DSL keyword.
+`c.kind(name, |k| ..)` declares a DSL keyword the core grammar parses. `KindBuilder` methods:
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `keyword` | yes | DSL keyword (lowercase, used in `.spec` files) |
-| `singleton` | no | Whether only one instance is allowed (default: `false`) |
-| `open_fields` | no | Whether unknown fields are accepted (default: `false`) |
-| `has_body_parser` | no | Whether this kind's body syntax is its own: parse errors inside its entities are not reported (default: `false`) |
+- `description(..)`, `keyword(..)` (the DSL keyword, default the name)
+- `testable(bool)`, `singleton(bool)`, `supports_verify(bool)`, `incremental(bool)`
+- `open_fields(bool)` -- unknown fields are accepted
+- `has_body_parser()` -- the kind's body syntax is its own: parse errors inside its entities are not reported
+- `contract_target()`, `declares_types()`, `lifecycle_field(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
+- LSP and DOT metadata, requested by the host only where it needs them: `semantic_token(..)`, `lsp_icon(..)`, `dot_shape(..)`, `dot_color(..)`, `dot_fillcolor(..)`
+- `field(name, |f| ..)` -- a field of the kind
 
-### #[field]
+### Fields
 
-Declares a field on an entity kind. Place it on a struct field inside an `#[entity_kind]` struct.
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)`, `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `default_value(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `enum_values(&[..])`. A field's type is declared, not inferred:
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `required` | no | Whether the field must be present (default: `false`) |
-| `description` | no | Human-readable description |
-| `file_reference` | no | Whether string values are file paths (default: `false`) |
+| `FieldType` | Holds |
+|---|---|
+| `String` | a quoted string |
+| `Integer` | a whole number |
+| `Bool` | `true` or `false` |
+| `Enum` | one of the field's `enum_values` |
+| `StringList` | a list of quoted strings |
+| `Reference` | one entity id; creates an edge |
+| `ReferenceList` | a list of entity ids; creates one edge per id |
+| `Block` | a triple-quoted text block |
 
-The field's Rust type determines the `field_type`:
+### Edges
 
-| Rust Type | Protocol Field Type |
-|-----------|-------------------|
-| `String` | `string` |
-| `bool` | `bool` |
-| `i64` | `integer` |
-| `Vec<String>` | `string_list` |
-| `EntityRef` | `reference` |
-| `Vec<EntityRef>` | `reference_list` |
-| `Block` | `block` |
-| `Enum` | `enum` |
+`c.edge(label, |e| ..)` with `EdgeBuilder`: `description(..)`, `source_kind(..)`, `target_kind(..)`, `edge_style(..)` (`solid`, `dashed`, `dotted`), `edge_color(..)` (hex), `edge_arrowhead(..)`. A field with `edge(label)` and `target_kind` creates the edge; `c.edge` declares one with no field, which the model draws only when both kinds are given.
 
-### #[edge]
+### Declarative rules
 
-Declares an edge type derived from a reference field. Place it on a struct field that has type `EntityRef` or `Vec<EntityRef>`.
+`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| (positional) | yes | Edge type label |
-| `target` | yes | Target entity kind keyword |
-| `style` | no | DOT edge style (`solid`, `dashed`, `dotted`) |
-| `color` | no | DOT edge color (hex) |
-
-### #[lsp] and #[dot]
-
-Attach LSP and DOT visualization metadata to an entity kind.
-
-```rust
-#[lsp(semantic_token = "function", icon = "Method")]
-#[dot(shape = "box", color = "#1565C0", fillcolor = "#E3F2FD")]
-```
-
-The host requests this metadata only in contexts that need it (LSP server, DOT renderer).
-
-### #[validation_rule]
-
-Declares a rule the host evaluates without calling the extension.
-
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `code` | yes | Diagnostic code (e.g., `W001`) |
-| `severity` | yes | `error`, `warning`, or `info` |
-| `check` | yes | Check pattern (see Extension Protocol) |
-| `target_kind` | depends | Entity kind to check (required for most checks) |
-| `edge_type` | depends | Edge type to check (for edge-based checks) |
-| `message` | yes | Message template with `{id}`, `{kind}`, `{value}`, `{allowed}` placeholders |
+| `CheckKind` | Reads |
+|---|---|
+| `NoIncomingEdges`, `NoOutgoingEdges`, `NoEdges` | the entity's edges (optionally only `edge_type` edges) |
+| `MissingFieldWhenFlagSet`, `MissingRequiredField` | `field` (required) |
+| `FieldValueConstraint` | `field` and a `constraint`: `NonEmpty`, `OneOf` with `values`, or `Matches` with a `pattern` |
+| `CycleDetection` | `edge_type` (required) |
+| `FileExists` | the path in `field` (required) |
+| `Custom` | the rule's own function (below) |
+| `ConditionalFieldRequired` | `field`, and a `WhenFieldEquals` constraint |
+| `VerifyKindAllowlist` | the `constraint` values |
+| `NoVerifyStatements` | the entity's `verify` statements |
 
 ### Custom rules
 
@@ -590,15 +476,9 @@ declared with its handler, `c.migration_hook_handler(export, |input:
 &MigrationInput| ...)`: it receives the format versions and the migrated
 files; its `Err` fails the migration, which is rolled back.
 
-### #[feature_flag]
+### Feature flags
 
-Declares a feature flag configurable via `specforge.json`.
-
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `name` | yes | Flag name (used as key in `specforge.json`) |
-| `values` | yes | Allowed values |
-| `default` | yes | Default value (must be in `values`) |
+`c.feature_flag("warning_level", false, "Promote warnings")` declares a flag users set in `specforge.json`: a name, its default (on or off) and a description.
 
 ## Host Functions
 
@@ -623,31 +503,6 @@ will import the functions below, each allowed only from the call sites listed
 | `host_add_graph_node` | Add a graph node | Parser |
 | `host_add_graph_edge` | Add a graph edge | Parser |
 
-### Entity Type
-
-The `Entity` type represents an entity in the graph as seen by extension code:
-
-```rust
-pub struct Entity {
-    pub id: String,
-    pub kind: String,
-    pub title: Option<String>,
-    pub fields: HashMap<String, FieldValue>,
-    pub verify_kinds: Vec<String>,
-}
-
-impl Entity {
-    /// Get outgoing edges of a specific type.
-    fn edges_out(&self, edge_type: &str) -> Vec<&EntityRef>;
-
-    /// Get incoming edges of a specific type.
-    fn edges_in(&self, edge_type: &str) -> Vec<&EntityRef>;
-
-    /// Get a field value by name.
-    fn field(&self, name: &str) -> Option<&FieldValue>;
-}
-```
-
 ## Building and Testing
 
 ### Build
@@ -661,47 +516,55 @@ The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_softwa
 
 ### Test
 
-Extensions can be tested with standard `cargo test` (native target) for logic, and with the SDK's test harness for protocol conformance:
+An extension is tested natively (`cargo test`, no wasm build) at three depths:
+
+- **Its logic**: plain unit tests of the functions its handlers call.
+- **Its declaration**: `specforge_extension_sdk::testing::MockHost` pins the handshake and describe
+  wire JSON (`assert_handshake`, `assert_describe`), and `testing::call_every_command` runs every
+  declared command with every arg set, which catches a handler reading an arg its command does not
+  declare (a panic here, E028 in the host).
+- **Its commands, as the host calls them**: `specforge_wasm::testing::InProcessRuntime` (feature
+  `testing`) serves the extension's `ContributionsBuilder` through the guest's own routing
+  (`Served`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
+  exactly as the CLI and MCP do: the typed `CommandInput` (the graph as the host renders it), the
+  strictly decoded `CommandOutput`, a failure as E028.
+
+```toml
+[dev-dependencies]
+specforge-wasm = { version = "0.1", features = ["testing"] }
+specforge-protocol-types = "0.1"
+specforge-test = "0.1"   # to link a test to the obligation it proves
+```
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use specforge_extension_sdk::test::*;
+use specforge_protocol_types::{CommandEvidence, CommandFormat, CommandInput, RawGraph};
+use specforge_test::prelude::*;
+use specforge_wasm::{ExtensionCalls, testing::InProcessRuntime};
 
-    #[test]
-    fn handshake_returns_valid_metadata() {
-        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
-        let metadata = ext.handshake("1.0.0");
-        assert_eq!(metadata.name, "@specforge/software");
-        assert!(metadata.contribution_flags.entities);
-    }
-
-    #[test]
-    fn describe_entities_returns_behavior() {
-        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
-        let entities = ext.describe("entities");
-        assert!(entities.iter().any(|e| e.keyword == "behavior"));
-    }
+#[specforge_test(behavior = "count_widgets", verify = "an empty graph has no widgets")]
+fn an_empty_graph_has_no_widgets() {
+    let runtime = InProcessRuntime::new().with(crate::specforge_extension_build);
+    let input = CommandInput {
+        args: serde_json::Map::new(),
+        cwd: "/p".into(),
+        format: CommandFormat::Json,
+        today: "2026-10-08".into(),
+        graph: RawGraph::new(r#"{"nodes":[],"edges":[]}"#.into()).unwrap(),
+        evidence: CommandEvidence::None,
+    };
+    let out = ExtensionCalls::new(&runtime)
+        .run_command("@acme/widgets", "cmd__widgets_count", &input)
+        .unwrap();
+    assert_eq!((out.exit_code, out.stdout.as_str()), (0, "{\"count\":0}"));
 }
 ```
 
-A host-side test (a test of the host, or of how a host reads an extension)
-serves the extension in process: `specforge_wasm::testing::InProcessRuntime`
-(feature `testing`) runs an SDK `ContributionsBuilder` through the guest's
-own routing (`guest_call`, what `component_guest!` calls), so a test declares
-the extension with the same builders, loads it with `load_declaration` and
-calls it with `ExtensionCalls` exactly as the host calls a component.
-Answers no SDK guest gives (a trap, bytes that do not parse) are given with
-`answer_raw`. It runs the guest unsandboxed, in the host process; sandbox
-and deadline behaviour is only proven through the component runtime.
-
-```rust
-use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::protocol::load_declaration;
-
-let runtime = InProcessRuntime::new().with(my_extension_build);
-let declaration = load_declaration(&runtime, "@acme/widgets").unwrap().declaration;
-```
+`@specforge/product`'s `extensions/product/src/tests/host.rs` is a complete harness of this kind.
+The in-process runtime runs the guest unsandboxed, in the test's process: the sandbox, the deadline
+and the component's stack are proven only through the component runtime (`specforge-component`'s
+tests of the vendored blob). A host-side test (of the host, or of how it reads an extension) uses
+the same runtime and loads the declaration with `specforge_wasm::protocol::load_declaration`;
+answers no SDK guest gives (a trap, bytes that do not parse) are given with `answer_raw`.
 
 ### Install
 
@@ -719,49 +582,40 @@ specforge add @specforge/software
 
 ## Enhancement-Only Extensions
 
-Extensions that contribute no entity kinds of their own -- only enhancements to other extensions' entity kinds -- follow the same structure but declare zero entity kinds:
+Extensions that contribute no entity kinds of their own -- only enhancements to other extensions' entity kinds -- follow the same structure and declare zero kinds:
 
 ```rust
-#[extension(
-    name = "@specforge/software-testing",
-    version = "1.0.0",
-    short = "testing",
-    host_api = "1.0.0",
-)]
-#[peer_dependency("@specforge/software", version = "^1.0")]
-#[peer_dependency("@specforge/product", version = "^1.0")]
-mod software_testing {
+use specforge_extension_sdk::prelude::*;
 
-    // No #[entity_kind] declarations -- enhancement-only extension
+#[specforge_extension_sdk::extension(name = "@acme/gherkin", short = "gherkin")]
+struct Gherkin;
 
-    #[enhance(target_kind = "behavior", owner = "@specforge/software")]
-    struct BehaviorTestEnhancement {
-        #[field(description = "BDD scenario files", file_reference = true)]
-        gherkin: Vec<String>,
+impl Contributions for Gherkin {
+    fn contribute(c: &mut ContributionsBuilder) {
+        c.meta.peer_dependencies.push(PeerDependency {
+            name: "@specforge/software".to_string(),
+            version: "^1.0".to_string(),
+            optional: false,
+        });
+        c.enhance("behavior", "@specforge/software", |e| {
+            e.field("gherkin", |f| {
+                f.field_type(FieldType::StringList)
+                    .description("BDD scenario files")
+                    .file_reference();
+            });
+        });
+        c.rule("W904", |r| {
+            r.check(CheckKind::FileExists)
+                .target_kind("behavior")
+                .field("gherkin")
+                .severity(ValidationSeverity::Warning)
+                .message_template("behavior '{id}' names a gherkin file that does not exist");
+        });
     }
-
-    #[enhance(target_kind = "feature", owner = "@specforge/product")]
-    struct FeatureTestEnhancement {
-        #[field(description = "BDD scenario files", file_reference = true)]
-        gherkin: Vec<String>,
-    }
-
-    #[edge_type(label = "TestedBy", description = "Entity is tested by these files")]
-    const TESTED_BY: EdgeType;
-
-    #[validation_rule(
-        code = "W004", severity = "warning",
-        check = "missing_field_when_flag_set",
-        target_kind = "behavior",
-        field = "gherkin",
-        message = "behavior '{id}' has gherkin field but no files referenced",
-    )]
-    const EMPTY_GHERKIN: ValidationRule;
-
-    // Running Cucumber and mapping its results would be a separate runner
-    // extension with a collector; see [Collectors](#collectors).
 }
 ```
+
+Running Cucumber and mapping its results would be a separate runner extension with a collector; see [Collectors](#collectors).
 
 ## Related Documentation
 

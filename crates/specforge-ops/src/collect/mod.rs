@@ -17,11 +17,12 @@ mod convention;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use serde::{Deserialize, Serialize};
-use specforge_common::{Code, Diagnostic, codes};
+use specforge_common::shape::Shape;
+use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile};
-use specforge_wasm::{CallError, ExtensionCalls};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -424,7 +425,7 @@ pub fn read_report(
 /// `CollectOutput` out. Err: the export trapped, or answered something
 /// that is not a `CollectOutput` (E028 naming the collector).
 pub fn dispatch(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    runtime: Option<&dyn specforge_wasm::runtime::WasmRuntime>,
     collector: &Collector,
     reports: &[CollectReportFile],
     stdout: Option<&str>,
@@ -432,6 +433,14 @@ pub fn dispatch(
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
+    };
+    let Some(runtime) = runtime else {
+        return Err(CallError::new(
+            Operation::Collect,
+            &collector.extension,
+            &collector.export,
+            CallFailure::NotLoaded,
+        ));
     };
     ExtensionCalls::new(runtime).collect(&collector.extension, &collector.export, &input)
 }
@@ -444,17 +453,14 @@ pub fn dispatch(
 pub struct KnownEntities(BTreeMap<String, Vec<String>>);
 
 impl KnownEntities {
-    /// Every entity of the compiled graph.
-    pub(crate) fn from_graph(graph: &specforge_graph::Graph) -> Self {
-        graph
-            .nodes()
+    /// Every entity of the view's entity snapshot, with its obligation texts.
+    pub(crate) fn of(entities: &specforge_project::snapshot::EntitySnapshot) -> Self {
+        entities
+            .records()
             .iter()
-            .map(|node| {
-                let texts = specforge_graph::obligations(node)
-                    .iter()
-                    .map(|s| s.description.clone())
-                    .collect();
-                (node.id.raw.to_string(), texts)
+            .map(|record| {
+                let texts = record.obligations.iter().map(|o| o.text.clone()).collect();
+                (record.id.clone(), texts)
             })
             .collect()
     }
@@ -476,7 +482,7 @@ impl FromIterator<(String, Vec<String>)> for KnownEntities {
 }
 
 /// Counts from one merge.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Shape)]
 pub struct MergeStats {
     pub entities: usize,
     pub passed: usize,
@@ -639,7 +645,7 @@ fn fail(code: Code, message: impl Into<String>) -> OpError {
 }
 
 /// What happened for one collector.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Shape)]
 pub struct RunnerResult {
     pub name: String,
     pub extension: String,
@@ -667,14 +673,31 @@ pub struct Outcome {
 impl Outcome {
     /// The document both surfaces answer with:
     /// `{status, runners, diagnostics, report}`.
-    pub fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "status": "collected",
-            "runners": self.runners,
-            "diagnostics": specforge_common::diagnostics_json(&self.diagnostics),
-            "report": self.report.display().to_string(),
-        })
+    pub fn document(&self) -> CollectDocument {
+        CollectDocument {
+            status: CollectStatus::Collected,
+            runners: self.runners.clone(),
+            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            report: self.report.display().to_string(),
+        }
     }
+}
+
+/// What a collect answers with, on both surfaces.
+#[derive(Debug, Clone, Serialize, Shape)]
+pub struct CollectDocument {
+    pub status: CollectStatus,
+    pub runners: Vec<RunnerResult>,
+    pub diagnostics: DiagnosticList,
+    /// The merged test report the collect wrote.
+    pub report: String,
+}
+
+/// A collect that finished says so.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
+#[serde(rename_all = "lowercase")]
+pub enum CollectStatus {
+    Collected,
 }
 
 /// Collect test results for the project the view was compiled from:
@@ -682,20 +705,23 @@ impl Outcome {
 /// each one's report, map it through the extension to the view's entities
 /// and merge the answer into `<root>/specforge-report.json`. The request's
 /// `consent` decides whether a collector's command may run; its `announce`
-/// is told just before it runs. Without a root: `no_project`.
-pub fn collect(
-    view: &ProjectView,
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    request: Request,
-) -> Result<Outcome, OpError> {
+/// is told just before it runs. Without a root, or at a root that holds no
+/// project: `no_project`.
+pub fn collect(view: &ProjectView, request: Request) -> Result<Outcome, OpError> {
     let root = view.project_root()?;
+    if !specforge_common::is_project_root(root) {
+        return Err(OpError::no_project(format!(
+            "no specforge project at {} (no specforge.json or specforge.spec)",
+            root.display()
+        )));
+    }
     let Request {
         runner,
         mode,
         mut consent,
         announce,
     } = request;
-    let known = &KnownEntities::from_graph(view.graph());
+    let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
     let parse_only = !matches!(mode, Mode::Run(_));
     let selected = select(&available, runner, root)?;
@@ -772,8 +798,13 @@ pub fn collect(
             return Err(fail(codes::E045, message));
         }
 
-        let mut collected = dispatch(runtime, collector, &files, stdout.as_deref())
-            .map_err(|error| OpError::from(error.diagnostic()))?;
+        let mut collected = dispatch(
+            view.runtime().map(|r| r.as_ref()),
+            collector,
+            &files,
+            stdout.as_deref(),
+        )
+        .map_err(|error| OpError::from(error.diagnostic()))?;
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
@@ -1129,6 +1160,56 @@ mod tests {
 
     #[specforge_test(
         behavior = "ingest_collector_report",
+        verify = "the entities results may name are the entity snapshot's, with their obligation texts"
+    )]
+    fn known_entities_are_the_snapshots_records() {
+        use specforge_common::{SourceSpan, Sym};
+        use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+
+        let mut fixture = crate::view::testing::Fixture::new();
+        let mut fields = FieldMap::new();
+        fields.push(
+            Sym::new("verify"),
+            FieldValue::VerifyList(vec![
+                VerifyStatement {
+                    kind: "unit".into(),
+                    description: "first".into(),
+                },
+                VerifyStatement {
+                    kind: "integration".into(),
+                    description: "second".into(),
+                },
+            ]),
+        );
+        fixture.graph.add_node(specforge_graph::Node {
+            id: EntityId {
+                raw: Sym::new("widget"),
+            },
+            kind: EntityKind {
+                raw: Sym::new("behavior"),
+            },
+            title: None,
+            fields,
+            source_span: SourceSpan {
+                file: Sym::new("t.spec"),
+                start_line: 1,
+                start_col: 1,
+                end_line: 1,
+                end_col: 1,
+            },
+            methods: Vec::new(),
+        });
+        let view = fixture.view();
+
+        let known = KnownEntities::of(view.entities());
+
+        assert!(known.contains("widget"));
+        assert!(!known.contains("gadget"));
+        assert_eq!(known.obligations("widget"), ["first", "second"]);
+    }
+
+    #[specforge_test(
+        behavior = "ingest_collector_report",
         verify = "merge replaces only the same runner"
     )]
     fn merge_replaces_only_the_same_runner() {
@@ -1221,11 +1302,9 @@ mod tests {
     #[test]
     fn collect_without_a_root_is_no_project() {
         let fixture = crate::view::testing::Fixture::new();
-        let runtime = specforge_wasm::testing::InProcessRuntime::new();
 
         let error = collect(
             &fixture.rootless_view(),
-            &runtime,
             Request {
                 runner: None,
                 mode: Mode::NoRun,

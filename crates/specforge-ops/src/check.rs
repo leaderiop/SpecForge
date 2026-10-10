@@ -142,11 +142,14 @@ impl std::error::Error for CheckError {}
 /// closest valid name as its suggestion; a missing root is `no_project`.
 impl From<CheckError> for OpError {
     fn from(error: CheckError) -> Self {
-        let (kind, code) = match error {
-            CheckError::NoProjectRoot => (OpErrorKind::PreconditionFailed, "no_project"),
-            _ => (OpErrorKind::InvalidInput, "invalid_input"),
+        let op_error = match error {
+            CheckError::NoProjectRoot => OpError::no_project(error.to_string()),
+            _ => OpError::new(
+                OpErrorKind::InvalidInput,
+                "invalid_input",
+                error.to_string(),
+            ),
         };
-        let op_error = OpError::new(kind, code, error.to_string());
         match error.suggestion() {
             Some(suggestion) => op_error.with_suggestion(suggestion),
             None => op_error,
@@ -262,7 +265,7 @@ mod tests {
 
     fn compile(dir: &TempDir) -> CompiledProject {
         let runtime = specforge_component::ComponentRuntime::with_user_cache();
-        CompiledProject::compile(dir.path(), Some(&runtime))
+        CompiledProject::compile(dir.path(), Some(std::sync::Arc::new(runtime)))
     }
 
     fn run(compiled: &CompiledProject, options: &CheckOptions) -> CheckOutcome {
@@ -396,7 +399,7 @@ mod tests {
         );
         assert!(outcome.ok(), "{:?}", outcome.reported);
         assert_eq!(outcome.cache, CacheRecord::Written);
-        let expected = BuildCache::of(&compiled.graph, &compiled.env.registries.kinds);
+        let expected = BuildCache::of(compiled.graph(), &compiled.environment().registries.kinds);
         assert!(expected.statuses.contains_key("alpha"), "{expected:?}");
         assert_eq!(
             std::fs::read_to_string(dir.path().join(CACHE)).unwrap(),

@@ -115,8 +115,8 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     anything reads it, the extension runtime included, so a file written
     while the session loads is seen next time. A surface that watches files
     MUST do so each time its watchers move, for what was written while they
-    did not watch; the LSP's catch-up MUST NOT replace an open document's
-    buffer with its file.
+    did not watch; a file an editor buffer holds is not stale, whatever
+    happened to it on disk (hold_editor_buffers).
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
@@ -126,6 +126,40 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify unit "a specforge.json or module written while the extension runtime loads is seen next time"
   verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
   verify integration "the LSP's catch-up keeps an open buffer"
+}
+
+behavior hold_editor_buffers "Hold Editor Buffers" {
+  features   [incremental_compilation]
+  invariants [incremental_correctness]
+  category   command
+  ports      [FileSystem]
+  contract   """
+    A project session MUST hold the editor buffers it is given: while it
+    holds a buffer, the buffer's text is the truth for its file, whatever
+    happens to the file on disk, its deletion included. A changed path and
+    bringing the session up to date (bring_session_up_to_date) leave every
+    held file out. A buffer whose text is the text the session built its
+    file from changes nothing, and an update that changes no file runs no
+    check. A buffer of a file that is not a project source is held and
+    builds nothing. When the editor releases a buffer, a project source is
+    stamped and read from disk through the session's one read, and any
+    other file leaves the project; a release that changes nothing runs no
+    check, unless the checks were skipped while the buffer did not parse.
+    Opening a project in the place of a session and loading the environment
+    again keep every held buffer, read in place of its file by their one
+    cold build, so the checks run once. The session keeps each held
+    buffer's version, so what is reported from it is labelled with the
+    version it was computed from. Watch and MCP hold no buffer.
+  """
+  verify unit "a held buffer is the truth for its file until it is released"
+  verify unit "a held buffer's file changed or deleted on disk is not stale"
+  verify unit "holding a buffer whose text is its file's runs no check"
+  verify unit "releasing a buffer reads its file through the one read and leaves nothing stale"
+  verify unit "releasing a buffer outside the project drops its file"
+  verify unit "releasing a buffer that did not parse runs the skipped checks"
+  verify unit "opening a project in place of a session keeps its buffers and runs the checks once"
+  verify unit "an environment reload keeps the held buffers and runs the checks once"
+  verify unit "a held buffer that a reload brings into the project is built from its text"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -297,11 +331,14 @@ behavior debounce_file_changes "Debounce File Changes" {
     by one rule watch and the LSP share: the system MUST wait until no new
     changes arrive within the window before emitting a
     file_changes_coalesced event. The coalesced batch MUST include the
-    union of all changed files within the debounce window.
+    union of all changed files within the debounce window, under every
+    directory watch watches: one burst is one batch however many watched
+    directories it touches.
   """
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
+  verify unit "changes under different watched directories within the window join one batch"
   verify unit "single isolated change triggers after debounce window"
   verify unit "each change restarts the quiet window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
@@ -384,6 +421,7 @@ behavior compute_graph_delta "Compute Graph Delta" {
   verify unit "modified nodes list changed fields"
   verify unit "added and removed edges appear in delta"
   verify unit "affected files listed in delta"
+  verify unit "shifted expression positions are not a modification"
   verify contract "Compute Graph Delta: graph delta computation holds — previous_graph_available"
 }
 

@@ -10,7 +10,8 @@ use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// Why a configured provider's scheme is registered or not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, specforge_common::shape::Shape)]
+#[serde(rename_all = "snake_case")]
 pub enum ProviderStatus {
     Registered,
     /// Its extension is not loaded (not enabled, or failed to load).

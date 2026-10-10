@@ -193,24 +193,7 @@ fn collect_returns_result() {
     assert_eq!(report["results"]["alpha"]["tests"][0]["status"], "pass");
 }
 
-/// Each `(field, type)` of a spec type holds in `value`: `string`,
-/// `integer`, `boolean`, `array` or `string[]`.
-fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
-    for (field, kind) in fields {
-        let v = &value[*field];
-        let holds = match *kind {
-            "string" => v.is_string(),
-            "integer" => v.is_u64() || v.is_i64(),
-            "boolean" => v.is_boolean(),
-            "array" => v.is_array(),
-            "string[]" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
-            other => panic!("no check for {other}"),
-        };
-        assert!(holds, "{field} is not {kind}: {value}");
-    }
-}
-
-#[specforge_test(type = "McpExtensionInfo", verify = "McpExtensionInfo schema is valid")]
+#[test]
 fn each_listed_extension_is_an_mcp_extension_info() {
     let (mut server, _root) = server_with_product();
 
@@ -220,18 +203,6 @@ fn each_listed_extension_is_an_mcp_extension_info() {
     let entries = listing["extensions"].as_array().unwrap();
     assert!(!entries.is_empty(), "{listing}");
     for entry in entries {
-        assert_fields(
-            entry,
-            &[
-                ("name", "string"),
-                ("version", "string"),
-                ("source", "string"),
-                ("entity_kinds", "string[]"),
-                ("entity_count", "integer"),
-                ("validation_rules", "integer"),
-                ("status", "string"),
-            ],
-        );
         let status = entry["status"].as_str().unwrap();
         assert!(
             ["loaded", "not_loaded", "not_configured"].contains(&status),
@@ -256,22 +227,12 @@ fn collected(root: &std::path::Path) -> Value {
     serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
-#[specforge_test(type = "McpCollectResult", verify = "McpCollectResult schema is valid")]
+#[test]
 fn collect_result_is_an_mcp_collect_result() {
     let project = collect_project();
     let root = project.path();
 
     let result = collected(root);
-
-    assert_fields(
-        &result,
-        &[
-            ("status", "string"),
-            ("runners", "array"),
-            ("diagnostics", "array"),
-            ("report", "string"),
-        ],
-    );
     assert_eq!(
         result["report"],
         std::fs::canonicalize(root)
@@ -283,7 +244,7 @@ fn collect_result_is_an_mcp_collect_result() {
     assert_eq!(result["diagnostics"][0]["code"], "W115", "{result}");
 }
 
-#[specforge_test(type = "McpCollectRunner", verify = "McpCollectRunner schema is valid")]
+#[test]
 fn each_collect_runner_is_an_mcp_collect_runner() {
     let project = collect_project();
     let root = project.path();
@@ -291,20 +252,6 @@ fn each_collect_runner_is_an_mcp_collect_runner() {
     let result = collected(root);
 
     let runner = &result["runners"][0];
-    assert_fields(
-        runner,
-        &[
-            ("name", "string"),
-            ("extension", "string"),
-            ("ran", "boolean"),
-            ("files", "integer"),
-            ("entities", "integer"),
-            ("passed", "integer"),
-            ("failed", "integer"),
-            ("skipped", "integer"),
-            ("by_convention", "integer"),
-        ],
-    );
     // Read, not run: no exit code.
     assert!(runner.get("exit_code").is_none(), "{runner}");
 }
@@ -622,10 +569,17 @@ fn doctor_reports_an_extension_that_fails_to_load() {
         finding(&tampered, "E070").is_none(),
         "listed once: {tampered}"
     );
-    let failures = tampered["load_failures"].as_array().unwrap();
-    assert_eq!(failures.len(), 1, "{tampered}");
-    assert_eq!(failures[0]["code"], "E070", "{tampered}");
-    assert_eq!(failures[0]["binary_issue"], true, "{tampered}");
+    assert_eq!(stale["about"], "binary", "{tampered}");
+    assert_eq!(stale["issue"]["status"], "stale_hash", "{tampered}");
+    assert!(
+        tampered["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["about"] != "load"),
+        "{tampered}"
+    );
+    assert_eq!(tampered["ok"], false, "{tampered}");
     assert_eq!(tampered["extensions_ok"], false, "{tampered}");
 
     // Enabled but not installed at all: no lock entry, nothing for the
@@ -832,5 +786,72 @@ fn render_contract() {
             .any(|e| e.name == "mcp_tool_invoked"
                 && e.params["toolName"] == "specforge.render"
                 && e.params["category"] == "management")
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir is written under the call's project root, wherever the server runs"
+)]
+fn a_relative_out_dir_is_written_under_the_project_root() {
+    let mut server = test_server();
+    let root = server.root().to_path_buf();
+    let in_cwd = std::env::current_dir().unwrap().join("rendered");
+    assert!(!in_cwd.exists(), "a stale directory under the cwd");
+
+    let parsed = render(&mut server, json!({"format": "dot", "out_dir": "rendered"}));
+
+    let written = root.join("rendered/graph.dot");
+    assert!(written.exists(), "{parsed}");
+    assert_eq!(
+        parsed["output_files"],
+        json!([written.display().to_string()]),
+        "{parsed}"
+    );
+    assert!(!in_cwd.exists(), "nothing is written under the cwd");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "a relative out_dir with no project served is invalid input on out_dir"
+)]
+fn a_relative_out_dir_with_nothing_served_is_refused() {
+    let mut server = McpServer::new();
+    let init = call(&mut server, "initialize", json!({}));
+    assert!(init["error"].is_null(), "{init}");
+    let cwd = std::env::current_dir().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.render",
+        json!({"format": "dot", "out_dir": "p15-refused"}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "out_dir", "{error}");
+    assert!(!cwd.join("p15-refused").exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "specforge.collect of a directory that holds no project refuses with no_project"
+)]
+fn collect_of_a_directory_that_is_no_project_is_no_project() {
+    let mut server = test_server();
+    let bare = tempfile::TempDir::new().unwrap();
+    let resp = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"path": bare.path().to_str().unwrap()}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert!(error["diagnostic"].is_null(), "no E058: {error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("no specforge project at")),
+        "{error}"
     );
 }

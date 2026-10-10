@@ -76,7 +76,7 @@ fn fact(tool: &str, result: &Value, response: &Value) -> String {
         "specforge.rename" => format!("dry_run={}", result["dry_run"]),
         "specforge.migrate" => format!("dry_run={}", result["dry_run"]),
         "specforge.query" | "specforge.export" => format!("nodes={}", count(&result["nodes"])),
-        "specforge.search" => format!("results={}", count(result)),
+        "specforge.search" => format!("results={}", count(&result["results"])),
         "specforge.validate" => {
             let verdict = &response["result"]["_meta"]["specforge/check"];
             format!(
@@ -357,9 +357,17 @@ fn a_core_tool_reads_a_value_by_its_type() {
 
     // search and list read a limit the same way.
     let found = answer("specforge.search", json!({"query": "a", "limit": "1"}));
-    assert_eq!(found.as_array().map(Vec::len), Some(1), "{found}");
+    assert_eq!(
+        found["results"].as_array().map(Vec::len),
+        Some(1),
+        "{found}"
+    );
     let listed = answer("specforge.list", json!({"limit": "1"}));
-    assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
+    assert_eq!(
+        listed["entities"].as_array().map(Vec::len),
+        Some(1),
+        "{listed}"
+    );
 
     // Anything else of the wrong type is refused naming the argument.
     let error = refused("specforge.validate", json!({"strict": "yes"}));
@@ -493,9 +501,15 @@ fn a_target_argument_is_read_by_its_type() {
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@acme/missing"]}"#,
     );
     let load_failures = |served: &mut Served, arguments: Value| -> Vec<Value> {
-        tool("specforge.doctor", served, arguments)["load_failures"]
+        tool("specforge.doctor", served, arguments)["findings"]
             .as_array()
-            .cloned()
+            .map(|findings| {
+                findings
+                    .iter()
+                    .filter(|f| f["about"] == "load")
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
     };
     let cached = load_failures(&mut served, json!({"use_cached": "true"}));
@@ -546,6 +560,7 @@ fn every_core_tool_lists_its_typed_arguments() {
                 }
                 Some("boolean") => assert!(property["default"].is_boolean(), "{name}"),
                 Some("integer") => assert_eq!(property["minimum"], 0, "{name}"),
+                Some("number") => assert!(property.get("default").is_none(), "{name}"),
                 Some("string" | "array" | "object") => {}
                 other => panic!("{name}: type {other:?}"),
             }
@@ -558,7 +573,7 @@ fn every_core_tool_lists_its_typed_arguments() {
         for listed in properties.keys() {
             assert!(
                 declared.contains(&listed.as_str())
-                    || tool.target.fields().contains(&listed.as_str()),
+                    || tool.target().fields().contains(&listed.as_str()),
                 "{}: lists {listed}",
                 tool.name
             );
@@ -658,7 +673,7 @@ mod derived {
             .collect();
         assert_eq!(required, ["name"]);
 
-        let schema = input_schema(&declared, TargetSpec::SERVED);
+        let schema = input_schema(&declared, TargetSpec::SERVED_VIEW);
         assert_eq!(schema["required"], json!(["name"]));
         assert_eq!(schema["additionalProperties"], false);
         assert_eq!(

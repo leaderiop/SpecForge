@@ -2786,13 +2786,11 @@ dependencies = [
  "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
- "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
  "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",
- "specforge-registry",
  "specforge-registry-client",
  "specforge-registry-server",
  "specforge-test",
@@ -2814,6 +2812,7 @@ dependencies = [
  "serde_json",
  "specforge-diagnostics",
  "specforge-protocol-types",
+ "specforge-shape-macros",
  "specforge-test",
  "specforge-test-macros",
  "strsim",
@@ -2827,6 +2826,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "specforge-common",
+ "specforge-component",
  "specforge-diagnostics",
  "specforge-extension-sdk",
  "specforge-protocol-types",
@@ -2837,7 +2837,6 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wat",
- "wit-bindgen 0.30.0",
 ]
 
 [[package]]
@@ -2964,7 +2963,6 @@ dependencies = [
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
- "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
@@ -3002,7 +3000,6 @@ dependencies = [
  "specforge-graph",
  "specforge-installed",
  "specforge-mcp-macros",
- "specforge-migrate",
  "specforge-ops",
  "specforge-ops-registry",
  "specforge-parser",
@@ -3036,6 +3033,10 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-parser",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
+ "tempfile",
 ]
 
 [[package]]
@@ -3057,6 +3058,7 @@ dependencies = [
  "specforge-graph",
  "specforge-installed",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-project",
  "specforge-protocol-types",
@@ -3074,12 +3076,15 @@ dependencies = [
 name = "specforge-ops-registry"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "serde_json",
  "sha2",
  "specforge-common",
  "specforge-ops",
  "specforge-protocol-types",
  "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
@@ -3144,8 +3149,6 @@ version = "0.1.0"
 dependencies = [
  "insta",
  "regex",
- "semver",
- "serde",
  "serde_json",
  "specforge-common",
  "specforge-diagnostics",
@@ -3165,19 +3168,22 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
- "form_urlencoded",
  "getrandom 0.3.4",
  "hex",
  "httpdate",
  "keyring",
  "parking_lot",
  "reqwest",
- "semver",
  "serde",
  "serde_json",
  "sha2",
  "specforge-common",
  "specforge-protocol-types",
+ "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 
@@ -3199,6 +3205,8 @@ dependencies = [
  "sha2",
  "specforge-protocol-types",
  "specforge-registry-client",
+ "specforge-registry-server",
+ "specforge-registry-wire",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
@@ -3210,6 +3218,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-registry-wire"
+version = "0.1.0"
+dependencies = [
+ "form_urlencoded",
+ "serde",
+ "serde_json",
+ "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
+]
+
+[[package]]
 name = "specforge-resolver"
 version = "0.1.0"
 dependencies = [
@@ -3218,6 +3238,15 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
+]
+
+[[package]]
+name = "specforge-shape-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

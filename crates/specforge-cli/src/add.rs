@@ -1,8 +1,8 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
-use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// `specforge add`: the shared add operation, presented.
@@ -11,34 +11,31 @@ pub fn run(
     path: &Path,
     format: OutputFormat,
     allow_unsigned: bool,
-    assume_yes: bool,
-) -> i32 {
+    trust: Trust,
+) -> Exit {
     let source = match extension::parse(specifier) {
         Ok(source) => source,
         Err(error) => {
             return Refusal::of(format).report(&error);
         }
     };
-    let registry = HttpRegistry::for_project(path, "add");
-    // Only a registry package reads the registry configuration.
-    if matches!(source, Source::Registry(_)) {
-        format.eprint_diagnostics(registry.diagnostics());
-    }
+    let registry =
+        ConfiguredRegistry::for_project(path, "add").asking(crate::trust::ask_key_change);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = AddRequest {
         root: path,
         source,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
         dry_run: false,
     };
-    match extension::add(&request, &registry) {
+    let added = extension::add(&request, &registry, &runtime);
+    // What reading the registry configuration reported, once the add asked a registry.
+    format.eprint_diagnostics(&registry.reported());
+    match added {
         Ok(added) => {
             present(&added.outcome, &added.writes.names_under(path), format);
-            0
+            Exit::Passed
         }
         // An install that failed after placing its module names it.
         Err(error) => Refusal::of(format).at(path).report(&error),
@@ -86,7 +83,7 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 name,
                 version,
                 sha256,
-                key_id,
+                publisher,
                 origin,
             },
             OutputFormat::Json,
@@ -99,10 +96,15 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
                 "files_written": files_written,
             });
             match origin {
-                Origin::Installed { source } if source != "registry" => {
-                    output["source"] = json!(source);
+                Origin::Installed { source } if !source.is_registry() => {
+                    output["source"] = json!(source.to_string());
                 }
-                _ => output["key_id"] = json!(key_id),
+                _ => {
+                    output["key_id"] = json!(publisher.as_ref().and_then(|p| p.key_id()));
+                    if let Some(publisher) = publisher {
+                        output["publisher"] = json!(publisher.as_str());
+                    }
+                }
             }
             print_json(output);
         }
@@ -110,20 +112,19 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
             AddOutcome::Installed {
                 name,
                 version,
-                key_id,
+                publisher,
                 origin,
                 ..
             },
             OutputFormat::Human,
         ) => match origin {
-            Origin::Installed { source } if source != "registry" => {
+            Origin::Installed { source } if !source.is_registry() => {
                 println!("installed {} from local path", name);
             }
             _ => {
                 println!("installed {} v{}", name, version);
-                match key_id {
-                    Some(key_id) => println!("  signed by key: {}", key_id),
-                    None => println!("  unsigned"),
+                if let Some(publisher) = publisher {
+                    println!("  {}", publisher_line(publisher));
                 }
             }
         },
@@ -144,4 +145,20 @@ fn present(outcome: &AddOutcome, files_written: &[String], format: OutputFormat)
 
 fn print_json(value: serde_json::Value) {
     println!("{}", serde_json::to_string_pretty(&value).unwrap());
+}
+
+/// How the install's publisher is told on the human surface.
+pub(crate) fn publisher_line(publisher: &specforge_ops::registry::Publisher) -> String {
+    use specforge_ops::registry::Publisher;
+    match publisher {
+        Publisher::Unsigned => "unsigned".to_string(),
+        Publisher::Signed {
+            key_id,
+            first_use: true,
+        } => format!("signed by key: {key_id} (pinned on first use)"),
+        Publisher::Signed { key_id, .. } => format!("signed by key: {key_id}"),
+        Publisher::Repinned { key_id, previous } => {
+            format!("signed by key: {key_id} (re-pinned; was {previous})")
+        }
+    }
 }

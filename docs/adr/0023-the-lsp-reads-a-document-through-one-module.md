@@ -132,6 +132,8 @@ opened from a temporary directory with its extensions served in process (ADR 002
 (`SourceChange::Buffers`; the typing fast path skips the checks while any edited buffer does not parse).
 A closed project source is read from disk again; any other closed file leaves the project. A reload
 applies every open buffer once.
+*(ADR 0046: the session holds the buffers; a closed document's buffer is released through the session's one
+read, and a reload keeps the held buffers in its one cold build instead of applying them after it.)*
 
 ### Consequences
 
@@ -160,3 +162,11 @@ A second reader of a session during its update (MCP answering concurrent request
 queries): the read snapshot then belongs in `ProjectSession`. A client that sends `didChange` for many
 files over more than one debounce window as one edit: the batch then needs the client's grouping
 (workspace edits applied as one).
+
+## Amendment: reactions are synchronous too (ADR 0043)
+
+D8 ("answers are synchronous") extends to what the LSP does after a change: `Reaction<E: Editor>`
+applies the change, publishes and follows in blocking code, and tells the editor everything through
+the `Editor` port (`specforge_lsp::editor`). The consequence "`backend.rs` holds transport, locks and
+the reactions after an update" now reads: `backend.rs` holds transport, the document store, the
+debounce worker and the queue of reactions; the reactions are `specforge_lsp::reaction`'s.

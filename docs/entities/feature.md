@@ -79,7 +79,7 @@ All fields are optional at the type level. Features are intentionally lightweigh
 
 | Code | Level | Rule |
 |------|-------|------|
-| W041 | warning | Feature not referenced by any journey, module, or milestone (orphan feature). |
+| W041 | warning | Feature not referenced by any journey, module, or milestone (unreferenced feature). |
 | W045 | warning | Circular feature dependency — `depends_on` edges form a cycle. |
 | W077 | warning | Invalid `status` value (not in FeatureStatus enum). |
 | W078 | warning | Invalid `priority` value (not in Priority enum). |

@@ -153,7 +153,7 @@ catalog! {
         "Two extensions register the same entity kind keyword; the first registration wins and the later one is rejected. Rename the conflicting kind keyword.";
     E027: Error core,
         "Unsatisfiable peer dependency",
-        "An extension's required peer dependency can't be satisfied: it isn't installed, the installed version doesn't match the required range, peer dependencies form a cycle, an uninstall would remove an extension others still require, or an upgrade would break a peer's requirement. Install or upgrade the named peer, or use `--force` where the command supports it.";
+        "An extension's peer dependency isn't satisfied: a required peer isn't installed, or an installed peer (optional or not) is at a version the range doesn't accept, a version that isn't SemVer included; or required peers form a cycle, reported once naming its extensions by every compile. `specforge add` and `update` refuse an install that would leave a locked peer unsatisfied (from a registry, a version diamond is R-RES-005/R-RES-006 instead), and `specforge remove` refuses to uninstall an extension others still require. Install or upgrade the named peer, make one peer of a cycle optional, or use `--force` where the command supports it.";
     E028: Error core,
         "Extension load or execution failure",
         "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component, or `specforge.lock` can't be read so nothing is known to be installed (a `.wasm` file entry of `specforge.json` also when the file declares another name than the entry writes, or an extension another entry already loads); its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (a limit of its sandbox included: its time, its fuel or its memory, the trap naming which), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.";
@@ -239,8 +239,8 @@ catalog! {
         "Invalid registry configuration",
         "The registry configuration in `specforge.json` can't be read: the file isn't valid JSON, `registries` isn't an array, or an entry at the reported index is missing a required field or has the wrong type. That part of the configuration is ignored. Fix the reported entry.";
     E068: Error core,
-        "Coverage gate without the coverage pass",
-        "`specforge analyze --min N` gates on proof coverage, which the `coverage` pass of `@specforge/testing` computes, but that pass didn't run: the extension isn't enabled, or `--pass` selected a different pass. Enable it with `specforge add @specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.";
+        "Coverage gate without a coverage figure",
+        "`specforge analyze --min N` (and `specforge.analyze`'s `min`) gates on proof coverage, which the `coverage` pass of `@specforge/testing` computes. Either that pass will not run (the extension isn't enabled, or the run selects a different pass), and the analysis is refused before any pass runs; or it ran and gave no figure this specforge reads (it failed, or `@specforge/testing` is a different version), and the run is unjudged. Enable it with `specforge add @specforge/testing`, run the `coverage` (or `all`) pass, and keep the extension at the version this specforge ships. The run exits 2.";
     E069: Error core,
         "Unusable specforge.json",
         "The project root has a `specforge.json` that isn't used as written. When it can't be read, isn't valid JSON, isn't a JSON object, or its `extensions` value isn't an array, the compile uses the default config: no extension loads and only structure is checked (I002 says so), and `specforge add`, `specforge update` and `specforge remove` refuse (config_invalid) without changing anything. When a key has the wrong type (`name`, `version` or `spec_root` not a string, `exclude` not an array), that key's default is used; when an item of `extensions` or `exclude` isn't a string, that item is ignored; the rest of the file is used. Each problem is one E069, and `check` fails on it, so a broken config can't pass a CI that checks nothing. Fix the file: the message names the JSON error's line and column, or the key and the item. A missing `specforge.json` is not this: it is a project with the default config (`specforge doctor` says so).";
@@ -253,12 +253,18 @@ catalog! {
     E072: Error core,
         "Invalid package name or version",
         "A name that must be a package name is not one, or a version that must be a SemVer version is not one. A package name is `@scope/name` (what a registry holds) or `name` alone (a local module); each part is lowercase letters, digits, `.`, `_` or `-`, and starts with a letter or digit, so it is always a directory inside `.specforge/extensions`. It is checked where a name does not come from the `add` argument (that is E054): the name a local module declares when `specforge add` installs it, a peer a declaration names, a `specforge.json` `extensions` entry (the entry is not loaded), the name `specforge remove` is given, and the name and version of the declaration `specforge publish` uploads (which must also be scoped and a full version). Nothing is written or deleted. Fix the extension's declared name or version (its SDK `name`/`version`) and rebuild, or fix the `specforge.json` entry.";
+    E073: Error core,
+        "Unreadable peer requirement",
+        "An extension declares a peer dependency whose range is not a SemVer requirement as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it, whether the peer is installed or not. `specforge check` (and the LSP and MCP) and `doctor` report it, `specforge add` and `update` refuse to install or update around it, and `specforge publish` refuses to upload it. Fix the range in the extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a version of the extension that declares one.";
+    E074: Error core,
+        "Publisher signing key unusable",
+        "`specforge publish` signs every package with your publisher key, kept in `~/.specforge/signing-key.json` and created on your first publish. That file is there and can't be read as a key (it is not JSON, or its `secretKey` is not 32 hex-encoded bytes), or the key could not be created there (the directory or the file can't be written). Nothing was sent. Fix the file's permissions, or move it aside: the next publish creates a new key, and whoever pinned the old one then sees a changed publisher key (R-TRUST-003) for your packages.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
     I003: Info core,
         "No registry configured",
-        "The registry configuration has no `registries` array, or none of the configured registries is marked as the default. Add a `registries` entry and set `\"default_registry\": true` on one of them.";
+        "The registry configuration has no `registries` array, or none of the configured registries is marked as the default. Add a `registries` entry and set `\"default_registry\": true` on one of them. Without a default, a package no `scope_filter` matches has no registry (R-OPS-001).";
     I004: Info core,
         "Extension not installed",
         "A reference field targets a kind no enabled extension declares, an extension enhances a kind no enabled extension declares, or a `.spec` file has an `@scope/name` extension import for a known but not-installed extension. Install the missing extension with `specforge add <name>` to resolve the reference. An entity whose keyword no enabled extension declares is an error instead (E024), whose suggestion names the extension to install. An extension's enhancement of a kind owned by an extension the project doesn't use is skipped silently, not reported.";
@@ -398,14 +404,14 @@ catalog! {
         "Stored registry token unreadable",
         "The OS keyring entry that holds this registry's token is missing or can't be read, although the credentials file refers to it. Log in again: `specforge login --registry <alias> --token <NEW_TOKEN>`.";
     R_LOGIN_001 = "R-LOGIN-001": Error core,
-        "No login token given",
-        "`specforge login` was run without a token. Pass one with `--token <TOKEN>`.";
+        "No single login token source",
+        "`specforge login` needs exactly one of `--token <TOKEN>`, `--token-env <VAR>` or `--token-file <PATH>`; none or several were given.";
     R_LOGIN_002 = "R-LOGIN-002": Error core,
         "Login token not stored",
         "`specforge login` couldn't store the token in the OS keyring or in the fallback file `~/.specforge/credentials.json`. Check that the keyring service is available and that `~/.specforge` is writable.";
     R_OPS_001 = "R-OPS-001": Error core,
         "No registry for the package",
-        "No configured registry serves this package: none has a scope that matches it, and none is marked as the default (or no registries are configured at all). Add a `registries` entry to `specforge.json` with a matching scope, or mark one `\"default_registry\": true`.";
+        "No configured registry serves this package: none has a scope that matches it, and none is marked as the default (or no registries are configured at all). Add a `registries` entry to `specforge.json` with a matching scope, or mark one `\"default_registry\": true`. `specforge add`, `update` and `publish` (and MCP `add_extension`) choose the registry by this one rule and ask no other registry; a refused name sends no request.";
     R_OPS_002 = "R-OPS-002": Error core,
         "Package integrity check failed",
         "The SHA-256 hash of the downloaded package doesn't match the hash the registry published for it, so the download is corrupt or was tampered with. Retry the download; if it keeps failing, don't install the package.";
@@ -453,7 +459,7 @@ catalog! {
         "The publisher key pinned for the package couldn't be saved to `~/.specforge/known-keys.json`. Check the permissions on that file and its directory.";
     R001: Error core,
         "Registry authentication failed",
-        "The registry rejected the request as unauthenticated (HTTP 401), or the credentials its `auth` configuration names couldn't be read; a request is retried once with re-read credentials first. Log in again with `specforge login --registry <alias> --token <TOKEN>`.";
+        "The registry rejected the request as unauthenticated (HTTP 401). Log in again with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish` refuses before any request when there is no credential for the registry that serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN` unset or blank.";
     R002: Error core,
         "Registry access forbidden",
         "The registry accepted the credentials but refused the request (HTTP 403). Check your permissions for the registry or the package scope.";
@@ -474,10 +480,10 @@ catalog! {
         "`specforge publish` tried to publish a version that already exists for the package, and published versions are immutable. Bump the version in the manifest and publish again.";
     R010: Error core,
         "Registry token variable not set",
-        "The registry's `auth` configuration reads the token from an environment variable that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth` configuration.";
+        "The registry's credential is a reference to an environment variable (`specforge login --token-env`, or a `token_env` entry in `~/.specforge/credentials.json`) that isn't set, or is blank, where the command runs. Set it, or log in again with another source.";
     R011: Error core,
         "Registry token file unreadable",
-        "The registry's `auth` configuration reads the token from a file that can't be read. Check that the file exists and is readable, or change the registry's `auth` configuration.";
+        "The registry's credential is a reference to a token file (`specforge login --token-file`, or a `token_file` entry) that can't be read, or is empty. Check the path and its permissions, or log in again with another source.";
     R012: Error core,
         "Credentials file unreadable",
         "`~/.specforge/credentials.json` can't be read, or isn't in the expected format. Check its permissions, or delete it and log in again.";
@@ -566,16 +572,16 @@ catalog! {
         "Invariant without expression",
         "`specforge analyze`'s `condition_check` pass found an `invariant` whose `guarantee` has no `expression`: the guarantee is prose only, so `specforge analyze --prove` has no claim to check. Add an `expression` stating the guarantee as a machine-checkable claim, or keep it prose and prove it with tests.";
     W041: Warning product,
-        "Orphan feature",
+        "Unreferenced feature",
         "A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or `module` references it. Link it from at least one referencing entity, or remove it if it is no longer needed.";
     W042: Warning product,
-        "Orphan journey",
+        "Unreferenced journey",
         "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.";
     W043: Warning product,
         "Deliverable without journeys",
         "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
     W044: Warning product,
-        "Orphan module",
+        "Unreferenced module",
         "A `module` entity has no incoming edges, meaning no `deliverable` or `milestone` references it. Reference the module from a deliverable or milestone, or remove it if it is unused.";
     W045: Warning product,
         "Feature dependency cycle",
@@ -610,9 +616,6 @@ catalog! {
     W061: Warning core,
         "Reference cycle detected",
         "The resolved reference graph contains a cycle among entity references. Break the cycle by removing or inverting one of the references in the reported path.";
-    W062: Warning core,
-        "Malformed semver version",
-        "An extension manifest declares a peer dependency range or a version that is not valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).";
     W077: Warning product,
         "Invalid feature status",
         "A `feature` entity's `status` field is not one of the recognized values (`proposed`, `accepted`, `in_progress`, `done`, `deferred`, `deprecated`). Set `status` to one of these values.";
@@ -671,7 +674,7 @@ catalog! {
         "Invalid failure mode detection",
         "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.";
     W123: Warning formal,
-        "Orphan property",
+        "Unreferenced property",
         "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
     W124: Warning formal,
         "Empty property description",
@@ -680,20 +683,20 @@ catalog! {
         "Invalid property type",
         "A `property` entity's `property_type` field is not one of the recognized values (`safety`, `liveness`, `fairness`). Set `property_type` to one of these values.";
     W126: Warning formal,
-        "Orphan axiom",
+        "Unreferenced axiom",
         "An `axiom` entity is not referenced by any other entity, so it may be unused. Reference the axiom from a relevant entity, or remove it if it is no longer needed.";
     W127: Warning formal,
         "Empty axiom description",
         "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
-        "Orphan protocol",
+        "Unreferenced protocol",
         "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
     W129: Warning formal,
         "Empty protocol description",
         "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";
     W131: Warning formal,
-        "Orphan refinement",
-        "A `refinement` entity is not referenced by anything, so it may be orphaned. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
+        "Unreferenced refinement",
+        "A `refinement` entity is not referenced by any other entity, so it may be unused. Reference the refinement from the entity it refines, or remove it if it is no longer needed.";
     W132: Warning formal,
         "Empty refinement description",
         "A `refinement` entity writes a `description` that is empty or only whitespace, which makes the abstract-to-concrete mapping opaque. Write the description, or remove the field. A refinement that writes no description is not reported.";
@@ -701,7 +704,7 @@ catalog! {
         "Refinement without invariant deltas",
         "A `refinement` entity declares no `invariant_deltas` (the field is absent or an empty list), so it records no change between its abstract and concrete behaviors. List the invariants the refinement adds or relaxes in `invariant_deltas`.";
     W134: Warning formal,
-        "Orphan process",
+        "Unreferenced process",
         "A `process` entity is not referenced by any other entity, so it may be unused. Reference the process from a relevant entity, or remove it if it is no longer needed.";
     W135: Warning formal,
         "Empty process description",
@@ -757,4 +760,10 @@ catalog! {
     W154: Warning product,
         "Completed milestone delivers an unfinished feature",
         "A `milestone` has `status: completed` but a feature its `features` names is neither `done` nor `deprecated`, so the milestone's completion claims what its features do not. Reported once per such feature, by the `lifecycle` pass of @specforge/product. Mark the feature done if it was delivered; otherwise move it out of the milestone or set the milestone back to `in_progress`.";
+    W155: Warning core,
+        "Unsigned package installed",
+        "`specforge add` or `specforge update` installed a registry package that carries no publisher signature, because `--allow-unsigned` was given. Where it came from can't be verified, and no publisher key is pinned for it, so a later signed version is pinned on first use. Install signed packages where you can; ask the publisher to sign with `specforge publish`.";
+    W156: Warning core,
+        "Publisher key re-pinned",
+        "A registry package is signed with a different key than the one pinned for it, and the change was accepted (`--yes`, a yes at the prompt, or the new key on `trusted_keys`), so the new key is now pinned. That is what a key rotation looks like, and also what a compromised publisher looks like: confirm the change with the publisher if you did not expect it. The message names both key ids.";
 }

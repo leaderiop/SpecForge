@@ -1,4 +1,7 @@
-use specforge_emitter::outline::*;
+use serde_json::Value;
+use specforge_emitter::outline::{
+    DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions, export,
+};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::protocol::load_declaration;
 
@@ -22,6 +25,49 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
     runtime
 }
 
+/// The outline of `declarations` as `options` asks.
+fn drawn(declarations: &[ExtensionDeclaration], options: OutlineOptions) -> String {
+    export(declarations, &options)
+}
+
+/// The outline as JSON with every detail and every dependency: its whole
+/// intermediate representation, as the JSON format serializes it.
+fn outline_json(declarations: &[ExtensionDeclaration]) -> Value {
+    json_with(declarations, DependencyDepth::Full)
+}
+
+/// The JSON outline at full detail with the dependencies `deps` selects.
+fn json_with(declarations: &[ExtensionDeclaration], deps: DependencyDepth) -> Value {
+    serde_json::from_str(&drawn(
+        declarations,
+        OutlineOptions {
+            format: OutlineFormat::Json,
+            detail: OutlineDetail::All,
+            deps,
+        },
+    ))
+    .expect("the json outline parses")
+}
+
+/// The card of `name` in a JSON outline.
+fn card<'a>(outline: &'a Value, name: &str) -> &'a Value {
+    outline["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == name)
+        .unwrap_or_else(|| panic!("no card for {name}"))
+}
+
+/// The dependency `from -> to` of a JSON outline, if it lists one.
+fn dependency<'a>(outline: &'a Value, from: &str, to: &str) -> Option<&'a Value> {
+    outline["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["from"] == from && d["to"] == to)
+}
+
 fn load_all_manifests() -> Vec<ExtensionDeclaration> {
     vec![
         load_manifest("product"),
@@ -35,11 +81,10 @@ fn load_all_manifests() -> Vec<ExtensionDeclaration> {
 
 #[test]
 fn empty_manifests_produce_empty_outline() {
-    let outline = OutlineIntermediate_from_declarations(&[]);
-    assert!(outline.extensions.is_empty());
-    assert!(outline.dependencies.is_empty());
-    assert!(outline.enhancements.is_empty());
-    assert!(outline.cross_edges.is_empty());
+    let outline = outline_json(&[]);
+    for list in ["extensions", "dependencies", "enhancements", "cross_edges"] {
+        assert!(outline[list].as_array().unwrap().is_empty(), "{list}");
+    }
 }
 
 // --- Single extension ---
@@ -47,16 +92,16 @@ fn empty_manifests_produce_empty_outline() {
 #[test]
 fn single_extension_maps_basic_metadata() {
     let product = load_manifest("product");
-    let outline = OutlineIntermediate_from_declarations(&[product]);
+    let outline = outline_json(&[product]);
 
-    assert_eq!(outline.extensions.len(), 1);
-    let ext = &outline.extensions[0];
-    assert_eq!(ext.name, "@specforge/product");
-    assert_eq!(ext.version, "1.0.0");
-    assert_eq!(ext.entity_kinds.len(), 9);
-    assert_eq!(ext.edge_types.len(), 20);
-    assert!(ext.contributes.entities);
-    assert!(ext.contributes.validators);
+    assert_eq!(outline["extensions"].as_array().unwrap().len(), 1);
+    let ext = &outline["extensions"][0];
+    assert_eq!(ext["name"], "@specforge/product");
+    assert_eq!(ext["version"], "1.0.0");
+    assert_eq!(ext["entity_kinds"].as_array().unwrap().len(), 9);
+    assert_eq!(ext["edge_types"].as_array().unwrap().len(), 20);
+    assert_eq!(ext["contributes"]["entities"], true);
+    assert_eq!(ext["contributes"]["validators"], true);
 }
 
 // --- Peer dependencies ---
@@ -64,17 +109,14 @@ fn single_extension_maps_basic_metadata() {
 #[test]
 fn peer_dependencies_mapped_to_outline_dependencies() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // software→product, governance→software, formal→software (3 direct deps, no reverse)
-    assert!(outline.dependencies.len() >= 3);
+    assert!(outline["dependencies"].as_array().unwrap().len() >= 3);
 
-    let sw_to_prod = outline
-        .dependencies
-        .iter()
-        .find(|d| d.from == "@specforge/software" && d.to == "@specforge/product");
+    let sw_to_prod = dependency(&outline, "@specforge/software", "@specforge/product");
     assert!(sw_to_prod.is_some(), "software→product dependency expected");
-    assert_eq!(sw_to_prod.unwrap().version, "^1.0");
+    assert_eq!(sw_to_prod.unwrap()["version"], "^1.0");
 }
 
 // --- Entity enhancements ---
@@ -82,13 +124,14 @@ fn peer_dependencies_mapped_to_outline_dependencies() {
 #[test]
 fn entity_enhancements_detected() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // software enhances product's module and milestone
-    let sw_enhances: Vec<_> = outline
-        .enhancements
+    let sw_enhances: Vec<_> = outline["enhancements"]
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|e| e.enhancer == "@specforge/software")
+        .filter(|e| e["enhancer"] == "@specforge/software")
         .collect();
     assert!(
         sw_enhances.len() >= 2,
@@ -96,10 +139,10 @@ fn entity_enhancements_detected() {
         sw_enhances
     );
 
-    let module_enh = sw_enhances.iter().find(|e| e.target_kind == "module");
+    let module_enh = sw_enhances.iter().find(|e| e["target_kind"] == "module");
     assert!(module_enh.is_some(), "software should enhance module");
-    assert_eq!(module_enh.unwrap().owner, "@specforge/product");
-    assert!(module_enh.unwrap().field_count > 0);
+    assert_eq!(module_enh.unwrap()["owner"], "@specforge/product");
+    assert!(module_enh.unwrap()["field_count"].as_u64().unwrap() > 0);
 }
 
 // --- Cross-extension edges ---
@@ -107,13 +150,14 @@ fn entity_enhancements_detected() {
 #[test]
 fn cross_extension_edges_detected() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // governance has edges targeting product kinds (e.g., DecisionAffectsFeature)
-    let gov_cross: Vec<_> = outline
-        .cross_edges
+    let gov_cross: Vec<_> = outline["cross_edges"]
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|e| e.owner_extension == "@specforge/governance")
+        .filter(|e| e["owner_extension"] == "@specforge/governance")
         .collect();
     assert!(
         !gov_cross.is_empty(),
@@ -126,13 +170,15 @@ fn cross_extension_edges_detected() {
 #[test]
 fn validation_rules_mapped() {
     let product = load_manifest("product");
-    let outline = OutlineIntermediate_from_declarations(&[product]);
+    let outline = outline_json(&[product]);
 
-    let ext = &outline.extensions[0];
+    let rules = outline["extensions"][0]["validation_rules"]
+        .as_array()
+        .unwrap();
     assert!(
-        ext.validation_rules.len() >= 17,
+        rules.len() >= 17,
         "product should have at least 17 validation rules, got {}",
-        ext.validation_rules.len()
+        rules.len()
     );
 }
 
@@ -141,14 +187,13 @@ fn validation_rules_mapped() {
 #[test]
 fn surface_counts_mapped() {
     let product = load_manifest("product");
-    let outline = OutlineIntermediate_from_declarations(&[product]);
+    let outline = outline_json(&[product]);
 
-    let ext = &outline.extensions[0];
-    // Surface counts should be populated from manifest (product has surfaces)
-    // The builder should at minimum not panic on surface mapping
-    let _cli = ext.surface_counts.cli_commands;
-    let _mcp = ext.surface_counts.mcp_tools;
-    let _res = ext.surface_counts.mcp_resources;
+    // Surface counts are populated from the manifest and serialized.
+    let counts = &outline["extensions"][0]["surface_counts"];
+    for count in ["cli_commands", "mcp_tools", "mcp_resources"] {
+        assert!(counts[count].is_u64(), "{count}: {counts}");
+    }
 }
 
 // --- Enhanced_by attribution on entity kinds ---
@@ -156,27 +201,22 @@ fn surface_counts_mapped() {
 #[test]
 fn entity_kind_enhanced_by_populated() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // product's module entity should show enhanced_by software
-    let product_ext = outline
-        .extensions
+    let product_ext = card(&outline, "@specforge/product");
+    let module_kind = product_ext["entity_kinds"]
+        .as_array()
+        .unwrap()
         .iter()
-        .find(|e| e.name == "@specforge/product")
+        .find(|k| k["keyword"] == "module")
         .unwrap();
-    let module_kind = product_ext
-        .entity_kinds
-        .iter()
-        .find(|k| k.keyword == "module")
-        .unwrap();
+    let enhanced_by = module_kind["enhanced_by"].as_array().unwrap();
     assert!(
-        !module_kind.enhanced_by.is_empty(),
+        !enhanced_by.is_empty(),
         "module should be enhanced by software"
     );
-    assert_eq!(
-        module_kind.enhanced_by[0].source_extension,
-        "@specforge/software"
-    );
+    assert_eq!(enhanced_by[0]["source_extension"], "@specforge/software");
 }
 
 // ==========================================================================
@@ -188,13 +228,12 @@ fn entity_kind_enhanced_by_populated() {
 #[test]
 fn markdown_keys_contains_overview_and_extensions() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(output.contains("# Extension Architecture"));
     assert!(output.contains("## Overview"));
     assert!(output.contains("## Dependencies"));
@@ -208,13 +247,12 @@ fn markdown_keys_contains_overview_and_extensions() {
 #[test]
 fn markdown_none_omits_extension_detail() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::None,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(output.contains("## Overview"));
     assert!(
         !output.contains("## Extensions"),
@@ -225,26 +263,24 @@ fn markdown_none_omits_extension_detail() {
 #[test]
 fn markdown_all_contains_field_tables() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::All,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(output.contains("| Field | Type | Required | Source | Edge | Target |"));
 }
 
 #[test]
 fn markdown_shows_enhancements() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(output.contains("## Enhancements"));
     assert!(output.contains("enhances"));
 }
@@ -254,13 +290,12 @@ fn markdown_shows_enhancements() {
 #[test]
 fn mermaid_produces_flowchart_tb_with_subgraphs() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(
         output.starts_with("flowchart TB"),
         "should use top-to-bottom flowchart, got: {}",
@@ -282,13 +317,12 @@ fn mermaid_produces_flowchart_tb_with_subgraphs() {
 #[test]
 fn mermaid_all_includes_entity_names() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::All,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     // detail=all should include entity keyword names in labels
     assert!(output.contains("feature"));
     assert!(output.contains("behavior"));
@@ -299,13 +333,12 @@ fn mermaid_all_includes_entity_names() {
 #[test]
 fn dot_produces_digraph() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Dot,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(output.contains("digraph extensions"));
     assert!(output.contains("rankdir=TB"));
     assert!(output.contains("specforge_product"));
@@ -319,13 +352,12 @@ fn dot_produces_digraph() {
 #[test]
 fn dot_renders_cross_extension_edges() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Dot,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     // DOT should render cross-extension edges as dotted red lines
     assert!(
         output.contains("style=dotted") && output.contains("#e74c3c"),
@@ -338,13 +370,12 @@ fn dot_renders_cross_extension_edges() {
 #[test]
 fn json_keys_valid_and_contains_extensions() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let extensions = parsed["extensions"].as_array().unwrap();
     assert_eq!(extensions.len(), 4);
@@ -355,13 +386,12 @@ fn json_keys_valid_and_contains_extensions() {
 #[test]
 fn json_none_contains_only_counts() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::None,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let ext = &parsed["extensions"][0];
     assert!(ext["entity_count"].is_number());
@@ -372,13 +402,12 @@ fn json_none_contains_only_counts() {
 #[test]
 fn json_all_contains_full_field_detail() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::All,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let extensions = parsed["extensions"].as_array().unwrap();
     // All level should have full entity_kinds with fields
@@ -392,13 +421,12 @@ fn json_all_contains_full_field_detail() {
 #[test]
 fn json_keys_includes_validation_rule_codes() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
 
     let ext = &parsed["extensions"][0];
@@ -425,13 +453,12 @@ fn json_keys_includes_validation_rule_codes() {
 #[test]
 fn json_keys_has_metadata_envelope() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
 
     let metadata = &parsed["metadata"];
@@ -453,14 +480,18 @@ fn json_keys_has_metadata_envelope() {
 #[test]
 fn field_required_flag_populated_from_manifest() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // Find an extension with entity kinds that have fields with required=true
     // (product's feature entity has "name" which is required in the manifest)
-    let has_required_field = outline.extensions.iter().any(|ext| {
-        ext.entity_kinds
-            .iter()
-            .any(|kind| kind.fields.iter().any(|f| f.required))
+    let has_required_field = outline["extensions"].as_array().unwrap().iter().any(|ext| {
+        ext["entity_kinds"].as_array().unwrap().iter().any(|kind| {
+            kind["fields"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|f| f["required"] == true)
+        })
     });
     assert!(
         has_required_field,
@@ -473,24 +504,23 @@ fn field_required_flag_populated_from_manifest() {
 #[test]
 fn validation_rule_check_category_populated() {
     let product = load_manifest("product");
-    let outline = OutlineIntermediate_from_declarations(&[product]);
+    let outline = outline_json(&[product]);
 
-    let ext = &outline.extensions[0];
+    let rules = outline["extensions"][0]["validation_rules"]
+        .as_array()
+        .unwrap();
     // Every rule should have a non-empty check category
     assert!(
-        ext.validation_rules.iter().all(|r| !r.check.is_empty()),
+        rules
+            .iter()
+            .all(|r| !r["check"].as_str().unwrap().is_empty()),
         "all validation rules should have a check category"
     );
     // Product manifest has rules with different check types
-    let checks: Vec<&str> = ext
-        .validation_rules
-        .iter()
-        .map(|r| r.check.as_str())
-        .collect();
     assert!(
-        checks.len() >= 2,
+        rules.len() >= 2,
         "should have multiple check categories, got: {:?}",
-        checks
+        rules
     );
 }
 
@@ -499,22 +529,14 @@ fn validation_rule_check_category_populated() {
 #[test]
 fn shared_fields_mapped_from_manifest() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    // Extensions that declare top-level `fields` in manifest should have shared_fields populated
-    let has_shared = outline
-        .extensions
-        .iter()
-        .any(|ext| !ext.shared_fields.is_empty());
-    // Even if no extension currently has shared fields, the field should exist and be empty
-    // The builder should at minimum not panic
-    let _ = has_shared;
-
-    // Verify the struct is accessible and has correct shape
-    for ext in &outline.extensions {
-        for sf in &ext.shared_fields {
-            assert!(!sf.name.is_empty());
-            assert!(!sf.field_type.is_empty());
+    // Each extension serializes its shared fields (possibly none), each
+    // with a name and a type.
+    for ext in outline["extensions"].as_array().unwrap() {
+        for sf in ext["shared_fields"].as_array().unwrap() {
+            assert!(!sf["name"].as_str().unwrap().is_empty());
+            assert!(!sf["field_type"].as_str().unwrap().is_empty());
         }
     }
 }
@@ -524,11 +546,11 @@ fn shared_fields_mapped_from_manifest() {
 #[test]
 fn collector_counts_populated() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    // Counts should be accessible (even if zero for most extensions)
-    for ext in &outline.extensions {
-        let _c = ext.collector_count;
+    // Counts are serialized (even if zero for most extensions)
+    for ext in outline["extensions"].as_array().unwrap() {
+        assert!(ext["collector_count"].is_u64(), "{ext}");
     }
 }
 
@@ -537,13 +559,16 @@ fn collector_counts_populated() {
 #[test]
 fn edge_type_description_populated() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
     // At least some edge types should have descriptions from the manifest
-    let has_desc = outline
-        .extensions
-        .iter()
-        .any(|ext| ext.edge_types.iter().any(|e| e.description.is_some()));
+    let has_desc = outline["extensions"].as_array().unwrap().iter().any(|ext| {
+        ext["edge_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e.get("description").is_some())
+    });
     assert!(
         has_desc,
         "at least some edge types should have descriptions from manifests"
@@ -555,13 +580,12 @@ fn edge_type_description_populated() {
 #[test]
 fn markdown_keys_shows_validation_rule_codes() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     // Should show rule codes at keys level, e.g., "E007" or "W041"
     assert!(
         output.contains("**Validation rules**:"),
@@ -574,13 +598,12 @@ fn markdown_keys_shows_validation_rule_codes() {
 #[test]
 fn markdown_all_shows_required_indicators() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::All,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(
         output.contains("| Required |") || output.contains("Required"),
         "all detail should show required column in field tables"
@@ -592,13 +615,12 @@ fn markdown_all_shows_required_indicators() {
 #[test]
 fn markdown_keys_has_summary_footer() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(
         output.contains("## Summary"),
         "should have summary footer with totals"
@@ -614,13 +636,12 @@ fn markdown_keys_has_summary_footer() {
 #[test]
 fn mermaid_differentiates_required_and_enhancement_edges() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     // Two distinct edge types rendered (all current deps are required, no optional)
     assert!(
         output.contains("-->|"),
@@ -644,29 +665,31 @@ fn mermaid_differentiates_required_and_enhancement_edges() {
 #[test]
 fn product_is_standalone_root_with_zero_deps() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let product_deps: Vec<_> = outline
-        .dependencies
+    let product_deps: Vec<_> = outline["dependencies"]
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|d| d.from == "@specforge/product")
+        .filter(|d| d["from"] == "@specforge/product")
         .collect();
     assert!(
         product_deps.is_empty(),
         "product is the root — zero deps, got: {:?}",
-        product_deps.iter().map(|d| &d.to).collect::<Vec<_>>()
+        product_deps.iter().map(|d| &d["to"]).collect::<Vec<_>>()
     );
 }
 
 #[test]
 fn governance_has_two_direct_deps() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let gov_direct: Vec<_> = outline
-        .dependencies
+    let gov_direct: Vec<_> = outline["dependencies"]
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|d| d.from == "@specforge/governance" && d.kind == DependencyKind::Direct)
+        .filter(|d| d["from"] == "@specforge/governance" && d["kind"] == "direct")
         .collect();
     assert_eq!(
         gov_direct.len(),
@@ -675,33 +698,36 @@ fn governance_has_two_direct_deps() {
     );
     let sw = gov_direct
         .iter()
-        .find(|d| d.to == "@specforge/software")
+        .find(|d| d["to"] == "@specforge/software")
         .unwrap();
     // Governance works without software; its behavior links are optional.
-    assert!(sw.optional, "governance→software should be optional");
+    assert_eq!(
+        sw["optional"], true,
+        "governance→software should be optional"
+    );
     let prod = gov_direct
         .iter()
-        .find(|d| d.to == "@specforge/product")
+        .find(|d| d["to"] == "@specforge/product")
         .unwrap();
-    assert!(prod.optional, "governance→product should be optional");
+    assert_eq!(
+        prod["optional"], true,
+        "governance→product should be optional"
+    );
 }
 
 #[test]
 fn governance_to_product_is_direct_optional() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let gov_to_prod = outline
-        .dependencies
-        .iter()
-        .find(|d| d.from == "@specforge/governance" && d.to == "@specforge/product");
+    let gov_to_prod = dependency(&outline, "@specforge/governance", "@specforge/product");
     assert!(
         gov_to_prod.is_some(),
         "governance → product should exist as direct dep"
     );
     assert_eq!(
-        gov_to_prod.unwrap().kind,
-        DependencyKind::Direct,
+        gov_to_prod.unwrap()["kind"],
+        "direct",
         "governance → product should be direct (optional peer dep)"
     );
 }
@@ -709,20 +735,16 @@ fn governance_to_product_is_direct_optional() {
 #[test]
 fn governance_product_direct_is_optional() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let gov_to_prod = outline
-        .dependencies
-        .iter()
-        .find(|d| d.from == "@specforge/governance" && d.to == "@specforge/product")
+    let gov_to_prod = dependency(&outline, "@specforge/governance", "@specforge/product")
         .expect("governance → product dep should exist");
     assert_eq!(
-        gov_to_prod.kind,
-        DependencyKind::Direct,
+        gov_to_prod["kind"], "direct",
         "governance → product is a direct optional peer dependency"
     );
-    assert!(
-        gov_to_prod.optional,
+    assert_eq!(
+        gov_to_prod["optional"], true,
         "governance → product should be optional"
     );
 }
@@ -730,19 +752,16 @@ fn governance_product_direct_is_optional() {
 #[test]
 fn formal_to_product_transitive_computed() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let formal_to_prod = outline
-        .dependencies
-        .iter()
-        .find(|d| d.from == "@specforge/formal" && d.to == "@specforge/product");
+    let formal_to_prod = dependency(&outline, "@specforge/formal", "@specforge/product");
     assert!(
         formal_to_prod.is_some(),
         "formal → product should exist as transitive dep (via formal → software → product)"
     );
     assert_ne!(
-        formal_to_prod.unwrap().kind,
-        DependencyKind::Direct,
+        formal_to_prod.unwrap()["kind"],
+        "direct",
         "formal → product should be transitive"
     );
 }
@@ -750,17 +769,13 @@ fn formal_to_product_transitive_computed() {
 #[test]
 fn no_reverse_dependencies_in_dag() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    for dep in &outline.dependencies {
-        let has_reverse = outline
-            .dependencies
-            .iter()
-            .any(|d| d.from == dep.to && d.to == dep.from);
+    for dep in outline["dependencies"].as_array().unwrap() {
+        let (from, to) = (dep["from"].as_str().unwrap(), dep["to"].as_str().unwrap());
         assert!(
-            !has_reverse,
-            "reverse dependency: {} <-> {}",
-            dep.from, dep.to
+            dependency(&outline, to, from).is_none(),
+            "reverse dependency: {from} <-> {to}"
         );
     }
 }
@@ -768,18 +783,18 @@ fn no_reverse_dependencies_in_dag() {
 #[test]
 fn deps_direct_filters_out_transitive() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
 
-    let filtered = filter_dependencies(&outline.dependencies, DependencyDepth::Direct);
+    let filtered = json_with(&manifests, DependencyDepth::Direct);
+    let filtered = filtered["dependencies"].as_array().unwrap();
     assert!(
-        filtered.iter().all(|d| d.kind == DependencyKind::Direct),
+        filtered.iter().all(|d| d["kind"] == "direct"),
         "direct mode should only contain direct deps"
     );
     // governance → product SHOULD appear in direct mode (it's an optional direct dep now)
     assert!(
         filtered
             .iter()
-            .any(|d| d.from == "@specforge/governance" && d.to == "@specforge/product"),
+            .any(|d| d["from"] == "@specforge/governance" && d["to"] == "@specforge/product"),
         "direct governance→product should appear in direct mode"
     );
 }
@@ -787,21 +802,19 @@ fn deps_direct_filters_out_transitive() {
 #[test]
 fn deps_effective_shows_used_transitive() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
 
-    let filtered = filter_dependencies(&outline.dependencies, DependencyDepth::Effective);
+    let filtered = json_with(&manifests, DependencyDepth::Effective);
+    let filtered = filtered["dependencies"].as_array().unwrap();
     // governance → product SHOULD appear (effective)
     assert!(
         filtered
             .iter()
-            .any(|d| d.from == "@specforge/governance" && d.to == "@specforge/product"),
+            .any(|d| d["from"] == "@specforge/governance" && d["to"] == "@specforge/product"),
         "effective governance→product should appear in effective mode"
     );
     // No pure transitive deps should appear
     assert!(
-        !filtered
-            .iter()
-            .any(|d| d.kind == DependencyKind::Transitive),
+        !filtered.iter().any(|d| d["kind"] == "transitive"),
         "effective mode should not include pure transitive deps"
     );
 }
@@ -809,26 +822,48 @@ fn deps_effective_shows_used_transitive() {
 #[test]
 fn deps_full_shows_everything() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
 
-    let filtered = filter_dependencies(&outline.dependencies, DependencyDepth::Full);
+    let filtered = json_with(&manifests, DependencyDepth::Full);
+    let filtered = filtered["dependencies"].as_array().unwrap();
+    assert!(!filtered.is_empty());
     assert_eq!(
-        filtered.len(),
-        outline.dependencies.len(),
+        filtered,
+        outline_json(&manifests)["dependencies"].as_array().unwrap(),
         "full mode should include all deps"
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "the dependencies every format shows, json included, are the ones --deps selects"
+)]
+fn the_json_outline_lists_the_dependencies_deps_selects() {
+    let manifests = load_all_manifests();
+    let kinds = |deps| -> Vec<String> {
+        json_with(&manifests, deps)["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["kind"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let all = kinds(DependencyDepth::Full);
+    let direct = kinds(DependencyDepth::Direct);
+    assert!(direct.iter().all(|k| k == "direct"), "{direct:?}");
+    assert_eq!(direct.len(), all.iter().filter(|k| *k == "direct").count());
+    assert!(!kinds(DependencyDepth::Effective).contains(&"transitive".to_string()));
+    assert!(all.contains(&"transitive".to_string()), "{all:?}");
 }
 
 #[test]
 fn mermaid_card_has_stats_divider_keywords() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     // Stats line (bold)
     assert!(output.contains("<b>"), "card should have bold stats line");
     assert!(output.contains("entities"), "card should show entity count");
@@ -852,13 +887,12 @@ fn mermaid_card_has_stats_divider_keywords() {
 #[test]
 fn mermaid_renders_required_dep_as_solid_arrow() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(
         output.contains("-->|\"depends on\"|"),
         "required deps should render as solid arrows with label"
@@ -868,13 +902,14 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
 #[test]
 fn only_the_product_links_and_governance_software_are_optional() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
+    let outline = outline_json(&manifests);
 
-    let mut optional_deps: Vec<(&str, &str)> = outline
-        .dependencies
+    let mut optional_deps: Vec<(&str, &str)> = outline["dependencies"]
+        .as_array()
+        .unwrap()
         .iter()
-        .filter(|d| d.optional)
-        .map(|d| (d.from.as_str(), d.to.as_str()))
+        .filter(|d| d["optional"] == true)
+        .map(|d| (d["from"].as_str().unwrap(), d["to"].as_str().unwrap()))
         .collect();
     optional_deps.sort();
     assert_eq!(
@@ -891,13 +926,12 @@ fn only_the_product_links_and_governance_software_are_optional() {
 #[test]
 fn json_dependencies_include_optional_field() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Json,
         detail: OutlineDetail::Keys,
-        ..Default::default()
+        deps: DependencyDepth::Full,
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let deps = parsed["dependencies"].as_array().unwrap();
     let mut optional_deps: Vec<String> = deps
@@ -926,22 +960,18 @@ fn json_dependencies_include_optional_field() {
 #[test]
 fn mermaid_renders_enhancement_edges() {
     let manifests = load_all_manifests();
-    let outline = OutlineIntermediate_from_declarations(&manifests);
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&outline, &opts);
+    let output = drawn(&manifests, opts);
     assert!(
         output.contains("enhances"),
         "mermaid should render enhancement edges"
     );
 }
 
-// The transitive closure is computed over maps: it must not depend on
-// their iteration order (which chain decides optionality and version, and
-// the order dependencies come out in).
 #[specforge_test_macros::test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"
@@ -953,12 +983,9 @@ fn transitive_dependencies_are_the_same_on_every_run() {
         detail: OutlineDetail::Keys,
         deps: DependencyDepth::Full,
     };
-    let first = render(&OutlineIntermediate_from_declarations(&manifests), &options);
+    let first = drawn(&manifests, options.clone());
     for _ in 0..20 {
-        assert_eq!(
-            render(&OutlineIntermediate_from_declarations(&manifests), &options),
-            first
-        );
+        assert_eq!(drawn(&manifests, options.clone()), first);
     }
 }
 
@@ -966,11 +993,9 @@ fn transitive_dependencies_are_the_same_on_every_run() {
 // Declared text in the text diagrams (plan 16)
 // ==========================================================================
 
-/// One extension, `@t/q` at `version`, declaring a `note` kind whose keyword
-/// is `no"te`.
-fn quoted(version: &str) -> OutlineIntermediate {
+fn quoted(version: &str) -> Vec<ExtensionDeclaration> {
     use specforge_protocol_types::{EntityKindDescriptor, FieldDescriptor, HandshakeResponse};
-    let declaration = ExtensionDeclaration {
+    vec![ExtensionDeclaration {
         handshake: HandshakeResponse {
             name: "@t/q".to_string(),
             version: version.to_string(),
@@ -987,8 +1012,7 @@ fn quoted(version: &str) -> OutlineIntermediate {
             ..Default::default()
         }],
         ..Default::default()
-    };
-    OutlineIntermediate_from_declarations(&[declaration])
+    }]
 }
 
 #[specforge_test_macros::test(
@@ -1001,7 +1025,7 @@ fn a_quote_in_a_version_or_keyword_stays_inside_the_mermaid_label() {
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&quoted("1.0.0-\"rc\""), &opts);
+    let output = drawn(&quoted("1.0.0-\"rc\""), opts);
     assert!(
         output.contains("subgraph t_q[\"  @t/q v1.0.0-#quot;rc#quot;  \"]"),
         "{output}"
@@ -1019,7 +1043,7 @@ fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
-    let output = render(&quoted("1.0|rc"), &opts);
+    let output = drawn(&quoted("1.0|rc"), opts);
     assert!(output.contains("| @t/q | 1.0\\|rc |"), "{output}");
 }
 
@@ -1028,7 +1052,7 @@ fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
     verify = "the builtins' outline is unchanged in every format"
 )]
 fn outline_of_the_builtins_in_every_format() {
-    let outline = OutlineIntermediate_from_declarations(&load_all_manifests());
+    let manifests = load_all_manifests();
     for (format, name) in [
         (OutlineFormat::Markdown, "markdown"),
         (OutlineFormat::Mermaid, "mermaid"),
@@ -1039,6 +1063,56 @@ fn outline_of_the_builtins_in_every_format() {
             detail: OutlineDetail::All,
             deps: DependencyDepth::Full,
         };
-        insta::assert_snapshot!(format!("outline_builtins_{name}"), render(&outline, &opts));
+        insta::assert_snapshot!(format!("outline_builtins_{name}"), drawn(&manifests, opts));
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "render_extension_outline",
+    verify = "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained, deps_selected"
+)]
+fn outline_rendering_contract() {
+    // declarations_loaded: the four builtins load.
+    let manifests = load_all_manifests();
+    assert_eq!(manifests.len(), 4);
+    let render_as = |declarations: &[ExtensionDeclaration], format, deps| {
+        drawn(
+            declarations,
+            OutlineOptions {
+                format,
+                detail: OutlineDetail::Keys,
+                deps,
+            },
+        )
+    };
+
+    // one_card_per_extension: the overview has one row per extension.
+    let markdown = render_as(&manifests, OutlineFormat::Markdown, DependencyDepth::Direct);
+    for ext in &manifests {
+        let row = format!("| {} | {} |", ext.handshake.name, ext.handshake.version);
+        assert!(markdown.contains(&row), "{row}: {markdown}");
+    }
+
+    // declared_text_contained: a pipe stays in its cell.
+    let quoted = render_as(
+        &quoted("1.0|rc"),
+        OutlineFormat::Markdown,
+        DependencyDepth::Direct,
+    );
+    assert!(quoted.contains("1.0\\|rc"), "{quoted}");
+
+    // deps_selected: Mermaid and JSON under Direct show the same pairs.
+    let mermaid = render_as(&manifests, OutlineFormat::Mermaid, DependencyDepth::Direct);
+    let json: serde_json::Value = serde_json::from_str(&render_as(
+        &manifests,
+        OutlineFormat::Json,
+        DependencyDepth::Direct,
+    ))
+    .unwrap();
+    let listed = json["dependencies"].as_array().unwrap();
+    let arrows = mermaid
+        .lines()
+        .filter(|l| l.contains("depends on") || l.contains("optional dep"))
+        .count();
+    assert_eq!(listed.len(), arrows, "{mermaid}");
 }

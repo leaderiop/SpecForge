@@ -325,11 +325,15 @@ Level: error
 ```
 E027: Unsatisfiable peer dependency
 
-An extension's required peer dependency can't be satisfied: it isn't installed,
-the installed version doesn't match the required range, peer dependencies form a
-cycle, an uninstall would remove an extension others still require, or an
-upgrade would break a peer's requirement. Install or upgrade the named peer, or
-use `--force` where the command supports it.
+An extension's peer dependency isn't satisfied: a required peer isn't installed,
+or an installed peer (optional or not) is at a version the range doesn't accept,
+a version that isn't SemVer included; or required peers form a cycle, reported
+once naming its extensions by every compile. `specforge add` and `update` refuse
+an install that would leave a locked peer unsatisfied (from a registry, a
+version diamond is R-RES-005/R-RES-006 instead), and `specforge remove` refuses
+to uninstall an extension others still require. Install or upgrade the named
+peer, make one peer of a cycle optional, or use `--force` where the command
+supports it.
 
 Owner: core
 Level: error
@@ -770,12 +774,16 @@ Level: error
 ## E068
 
 ```
-E068: Coverage gate without the coverage pass
+E068: Coverage gate without a coverage figure
 
-`specforge analyze --min N` gates on proof coverage, which the `coverage` pass
-of `@specforge/testing` computes, but that pass didn't run: the extension isn't
-enabled, or `--pass` selected a different pass. Enable it with `specforge add
-@specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.
+`specforge analyze --min N` (and `specforge.analyze`'s `min`) gates on proof
+coverage, which the `coverage` pass of `@specforge/testing` computes. Either
+that pass will not run (the extension isn't enabled, or the run selects a
+different pass), and the analysis is refused before any pass runs; or it ran and
+gave no figure this specforge reads (it failed, or `@specforge/testing` is a
+different version), and the run is unjudged. Enable it with `specforge add
+@specforge/testing`, run the `coverage` (or `all`) pass, and keep the extension
+at the version this specforge ships. The run exits 2.
 
 Owner: core
 Level: error
@@ -867,6 +875,41 @@ Owner: core
 Level: error
 ```
 
+## E073
+
+```
+E073: Unreadable peer requirement
+
+An extension declares a peer dependency whose range is not a SemVer requirement
+as Cargo reads one (`^1.2`, `~1`, `>=1, <2`, `1.x`, `*`, or a bare version such
+as `1.2.0`, which means `^1.2.0`), so no version of the peer can satisfy it,
+whether the peer is installed or not. `specforge check` (and the LSP and MCP)
+and `doctor` report it, `specforge add` and `update` refuse to install or update
+around it, and `specforge publish` refuses to upload it. Fix the range in the
+extension's declaration (its SDK `peer_dependencies`) and rebuild, or install a
+version of the extension that declares one.
+
+Owner: core
+Level: error
+```
+
+## E074
+
+```
+E074: Publisher signing key unusable
+
+`specforge publish` signs every package with your publisher key, kept in
+`~/.specforge/signing-key.json` and created on your first publish. That file is
+there and can't be read as a key (it is not JSON, or its `secretKey` is not 32
+hex-encoded bytes), or the key could not be created there (the directory or the
+file can't be written). Nothing was sent. Fix the file's permissions, or move it
+aside: the next publish creates a new key, and whoever pinned the old one then
+sees a changed publisher key (R-TRUST-003) for your packages.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -888,7 +931,8 @@ I003: No registry configured
 
 The registry configuration has no `registries` array, or none of the configured
 registries is marked as the default. Add a `registries` entry and set
-`"default_registry": true` on one of them.
+`"default_registry": true` on one of them. Without a default, a package no
+`scope_filter` matches has no registry (R-OPS-001).
 
 Owner: core
 Level: info
@@ -1521,9 +1565,10 @@ Level: error
 ## R-LOGIN-001
 
 ```
-R-LOGIN-001: No login token given
+R-LOGIN-001: No single login token source
 
-`specforge login` was run without a token. Pass one with `--token <TOKEN>`.
+`specforge login` needs exactly one of `--token <TOKEN>`, `--token-env <VAR>` or
+`--token-file <PATH>`; none or several were given.
 
 Owner: core
 Level: error
@@ -1550,7 +1595,9 @@ R-OPS-001: No registry for the package
 No configured registry serves this package: none has a scope that matches it,
 and none is marked as the default (or no registries are configured at all). Add
 a `registries` entry to `specforge.json` with a matching scope, or mark one
-`"default_registry": true`.
+`"default_registry": true`. `specforge add`, `update` and `publish` (and MCP
+`add_extension`) choose the registry by this one rule and ask no other registry;
+a refused name sends no request.
 
 Owner: core
 Level: error
@@ -1760,10 +1807,11 @@ Level: error
 ```
 R001: Registry authentication failed
 
-The registry rejected the request as unauthenticated (HTTP 401), or the
-credentials its `auth` configuration names couldn't be read; a request is
-retried once with re-read credentials first. Log in again with `specforge login
---registry <alias> --token <TOKEN>`.
+The registry rejected the request as unauthenticated (HTTP 401). Log in again
+with `specforge login --registry <alias> --token <TOKEN>`. `specforge publish`
+refuses before any request when there is no credential for the registry that
+serves the package: none stored for its alias and `SPECFORGE_REGISTRY_TOKEN`
+unset or blank.
 
 Owner: core
 Level: error
@@ -1847,9 +1895,10 @@ Level: error
 ```
 R010: Registry token variable not set
 
-The registry's `auth` configuration reads the token from an environment variable
-that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth`
-configuration.
+The registry's credential is a reference to an environment variable (`specforge
+login --token-env`, or a `token_env` entry in `~/.specforge/credentials.json`)
+that isn't set, or is blank, where the command runs. Set it, or log in again
+with another source.
 
 Owner: core
 Level: error
@@ -1860,9 +1909,9 @@ Level: error
 ```
 R011: Registry token file unreadable
 
-The registry's `auth` configuration reads the token from a file that can't be
-read. Check that the file exists and is readable, or change the registry's
-`auth` configuration.
+The registry's credential is a reference to a token file (`specforge login
+--token-file`, or a `token_file` entry) that can't be read, or is empty. Check
+the path and its permissions, or log in again with another source.
 
 Owner: core
 Level: error
@@ -2260,7 +2309,7 @@ Level: warning
 ## W041
 
 ```
-W041: Orphan feature
+W041: Unreferenced feature
 
 A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or
 `module` references it. Link it from at least one referencing entity, or remove
@@ -2273,7 +2322,7 @@ Level: warning
 ## W042
 
 ```
-W042: Orphan journey
+W042: Unreferenced journey
 
 A `journey` entity has no incoming edges, meaning no `deliverable` references
 it. Reference the journey from a deliverable's `journeys` field, or remove it if
@@ -2299,7 +2348,7 @@ Level: warning
 ## W044
 
 ```
-W044: Orphan module
+W044: Unreferenced module
 
 A `module` entity has no incoming edges, meaning no `deliverable` or `milestone`
 references it. Reference the module from a deliverable or milestone, or remove
@@ -2451,19 +2500,6 @@ W061: Reference cycle detected
 
 The resolved reference graph contains a cycle among entity references. Break the
 cycle by removing or inverting one of the references in the reported path.
-
-Owner: core
-Level: warning
-```
-
-## W062
-
-```
-W062: Malformed semver version
-
-An extension manifest declares a peer dependency range or a version that is not
-valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`,
-`~1.2.0`, `>=1.0.0`).
 
 Owner: core
 Level: warning
@@ -2723,7 +2759,7 @@ Level: warning
 ## W123
 
 ```
-W123: Orphan property
+W123: Unreferenced property
 
 A `property` entity is not referenced by any `behavior`, so it may be unused.
 Reference the property from a behavior's `verify` block, or remove it if it is
@@ -2762,7 +2798,7 @@ Level: warning
 ## W126
 
 ```
-W126: Orphan axiom
+W126: Unreferenced axiom
 
 An `axiom` entity is not referenced by any other entity, so it may be unused.
 Reference the axiom from a relevant entity, or remove it if it is no longer
@@ -2788,7 +2824,7 @@ Level: warning
 ## W128
 
 ```
-W128: Orphan protocol
+W128: Unreferenced protocol
 
 A `protocol` entity is not referenced by any `event`, so it may be unused.
 Reference the protocol from an event, or remove it if it is no longer needed.
@@ -2813,11 +2849,11 @@ Level: warning
 ## W131
 
 ```
-W131: Orphan refinement
+W131: Unreferenced refinement
 
-A `refinement` entity is not referenced by anything, so it may be orphaned.
-Reference the refinement from the entity it refines, or remove it if it is no
-longer needed.
+A `refinement` entity is not referenced by any other entity, so it may be
+unused. Reference the refinement from the entity it refines, or remove it if it
+is no longer needed.
 
 Owner: @specforge/formal
 Level: warning
@@ -2853,7 +2889,7 @@ Level: warning
 ## W134
 
 ```
-W134: Orphan process
+W134: Unreferenced process
 
 A `process` entity is not referenced by any other entity, so it may be unused.
 Reference the process from a relevant entity, or remove it if it is no longer
@@ -3141,6 +3177,36 @@ Owner: @specforge/product
 Level: warning
 ```
 
+## W155
+
+```
+W155: Unsigned package installed
+
+`specforge add` or `specforge update` installed a registry package that carries
+no publisher signature, because `--allow-unsigned` was given. Where it came from
+can't be verified, and no publisher key is pinned for it, so a later signed
+version is pinned on first use. Install signed packages where you can; ask the
+publisher to sign with `specforge publish`.
+
+Owner: core
+Level: warning
+```
+
+## W156
+
+```
+W156: Publisher key re-pinned
+
+A registry package is signed with a different key than the one pinned for it,
+and the change was accepted (`--yes`, a yes at the prompt, or the new key on
+`trusted_keys`), so the new key is now pinned. That is what a key rotation looks
+like, and also what a compromised publisher looks like: confirm the change with
+the publisher if you did not expect it. The message names both key ids.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.
@@ -3164,6 +3230,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W025 | (nothing) |
 | W026 | (nothing) |
 | W028 | (nothing) |
+| W062 | [E073](#e073) |
 | W063 | (nothing) |
 | W099 | (nothing) |
 | W111 | (nothing) |

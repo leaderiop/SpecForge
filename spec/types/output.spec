@@ -67,7 +67,8 @@ type ProjectStatistics "Project-Level Statistics" {
   declared_percentage   float
   /// Testable entities proven, in percent: the --min gate's figure. Absent without recorded test results.
   proof_percentage      float @optional
-  orphan_count          integer
+  /// Entities no edge links to another entity.
+  unconnected_count     integer
   diagnostic_summary    DiagnosticSummary
   testable_entity_count integer
   verified_entity_count integer

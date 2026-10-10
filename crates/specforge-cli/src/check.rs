@@ -1,12 +1,13 @@
 use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
 use specforge_ops::check::{CacheRecord, CheckOptions, check};
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, LintProfile};
-use specforge_wasm::WasmRuntime;
+use specforge_ops::{OpError, OpErrorKind};
+use specforge_project::{CompiledProject, LintProfile, SharedRuntime};
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 
 pub fn run(
     path: &Path,
@@ -15,15 +16,15 @@ pub fn run(
     lint_profiles: &[LintProfile],
     severity: Option<Severity>,
     cache: bool,
-) -> i32 {
-    let runtime = specforge_component::ComponentRuntime::with_user_cache();
+) -> Exit {
+    let runtime: SharedRuntime = Arc::new(specforge_component::ComponentRuntime::with_user_cache());
     let options = CheckOptions {
         strict,
         lint_profiles: lint_profiles.to_vec(),
         severity,
         record_cache: cache,
     };
-    run_in(path, &runtime, format, &options)
+    run_in(path, runtime, format, &options)
 }
 
 /// `specforge check` with the project's extensions running in `runtime`:
@@ -34,10 +35,10 @@ pub fn run(
 /// `specforge-cache.json`.
 fn run_in(
     path: &Path,
-    runtime: &dyn WasmRuntime,
+    runtime: SharedRuntime,
     format: OutputFormat,
     options: &CheckOptions,
-) -> i32 {
+) -> Exit {
     if options.lint_profiles.contains(&LintProfile::Pedantic) {
         eprintln!("note: --lint pedantic is the default: info diagnostics are always reported");
     }
@@ -74,16 +75,16 @@ fn run_in(
             specforge_project::BUILD_CACHE_FILE
         ),
         CacheRecord::WriteFailed(e) => {
-            eprintln!(
-                "error: cannot write {}: {e}",
-                specforge_project::BUILD_CACHE_FILE
-            );
-            return 1;
+            return Refusal::of(format).report(&OpError::new(
+                OpErrorKind::Internal,
+                "cache_write_failed",
+                format!("cannot write {}: {e}", specforge_project::BUILD_CACHE_FILE),
+            ));
         }
     }
 
     // Strict already promoted warnings: errors alone decide.
-    if outcome.ok() { 0 } else { 1 }
+    Exit::of_verdict(outcome.ok())
 }
 
 /// `summary` with `(showing <severity> only)` after its first line when a
@@ -164,18 +165,22 @@ mod tests {
         let human = |dir: &tempfile::TempDir| {
             run_in(
                 dir.path(),
-                &audit_extension(),
+                std::sync::Arc::new(audit_extension()),
                 OutputFormat::Human,
                 &CheckOptions::default(),
             )
         };
-        assert_eq!(human(&clean), 0);
-        assert_eq!(human(&failing), 1, "the pass's error fails the check");
+        assert_eq!(human(&clean), Exit::Passed);
+        assert_eq!(
+            human(&failing),
+            Exit::Failed,
+            "the pass's error fails the check"
+        );
 
         // What check reports is the compile's diagnostics, the pass's
         // among them with its code and severity.
-        let reported =
-            CompiledProject::compile(failing.path(), Some(&audit_extension())).diagnostics();
+        let reported = CompiledProject::compile(failing.path(), Some(Arc::new(audit_extension())))
+            .diagnostics();
         let audit: Vec<_> = reported.iter().filter(|d| d.code == "E951").collect();
         assert_eq!(audit.len(), 1, "{reported:?}");
         assert_eq!(audit[0].severity, specforge_common::Severity::Error);

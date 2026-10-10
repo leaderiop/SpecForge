@@ -1,5 +1,7 @@
-use crate::ComponentRuntime;
+#[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
+#[cfg(feature = "testing")]
+use specforge_wasm::WasmRuntime;
 
 static PRODUCT_WASM: &[u8] =
     include_bytes!("../../../extensions/product/wasm/specforge_ext_product.wasm");
@@ -31,34 +33,31 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/typescript", TYPESCRIPT_WASM),
 ];
 
-/// Whether `name` is a builtin extension.
-pub fn is_builtin(name: &str) -> bool {
-    BUILTIN_EXTENSIONS
-        .iter()
-        .any(|(builtin, _)| *builtin == name)
-}
-
-/// Load only the builtin Wasm extensions `requested` (`specforge.json`
-/// entries, read by [`ExtensionEntry`]: a legacy `name@version` names the
-/// builtin too) names.
+/// Test support: puts the builtin Wasm extensions `requested`
+/// (`specforge.json` entries, read by [`ExtensionEntry`]: a legacy
+/// `name@version` names the builtin too) names into a runtime outside the
+/// extension load (`Installed::load`).
 ///
 /// Other entries (installed extensions, `.wasm` files) are skipped.
-pub fn load_builtins_for(runtime: &ComponentRuntime, requested: &[String]) -> Result<(), String> {
+#[cfg(feature = "testing")]
+pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested
             .iter()
             .any(|entry| ExtensionEntry::parse(entry) == ExtensionEntry::Named(name))
         {
-            runtime.load_module_bytes(name, wasm_bytes)?;
+            runtime.load(name, wasm_bytes)?;
         }
     }
     Ok(())
 }
 
-/// Load all builtin Wasm extensions. Used by tests only.
-pub fn load_builtins(runtime: &ComponentRuntime) -> Result<(), String> {
+/// Test support: puts all builtin Wasm extensions into a runtime outside the
+/// extension load (`Installed::load`).
+#[cfg(feature = "testing")]
+pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
-        runtime.load_module_bytes(name, wasm_bytes)?;
+        runtime.load(name, wasm_bytes)?;
     }
     Ok(())
 }

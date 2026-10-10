@@ -81,7 +81,7 @@ All fields are optional at the type level.
 | Code | Level | Rule |
 |------|-------|------|
 | E003 | error | `persona` and every `channels` entry must resolve to a declared entity. |
-| W042 | warning | Journey not referenced by any deliverable (orphan journey). |
+| W042 | warning | Journey not referenced by any deliverable (unreferenced journey). |
 | I050 | info | `flow []`: a flow with no steps (a missing `flow` is E006). |
 | I054 | info | No `persona`. |
 | I055 | info | No channels (no `channels`, or an empty list). |
@@ -105,7 +105,7 @@ Flows should:
 
 ### Persona and Channel References
 
-Personas and channels are **first-class entities** declared with `persona` and `channel` blocks. Journeys reference them by entity ID, and the compiler validates these references (E003) and detects orphans (I046, I047).
+Personas and channels are **first-class entities** declared with `persona` and `channel` blocks. Journeys reference them by entity ID, and the compiler validates these references (E003) and detects unreferenced entities (I046, I047).
 
 | Persona | Typical Meaning |
 |---------|----------------|

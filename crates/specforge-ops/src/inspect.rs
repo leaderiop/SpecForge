@@ -5,9 +5,8 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Node;
-use specforge_parser::VerifyStatement;
 use specforge_project::coverage::{Status, Verdict};
-use specforge_project::snapshot::Standing;
+use specforge_project::snapshot::{ObligationRecord, Standing};
 use specforge_registry::KindRegistryEntry;
 
 use crate::OpError;
@@ -33,8 +32,9 @@ pub struct EntityFacts<'v> {
     /// snapshot (ADR 0019), `testable`, `obligated()`, `exempt()`.
     /// Independent of the recorded report.
     pub standing: &'v Standing,
-    /// Its `verify` statements, in declaration order.
-    pub obligations: &'v [VerifyStatement],
+    /// Its `verify` statements, in declaration order: its record's in the
+    /// view's entity snapshot (ADR 0019).
+    pub obligations: &'v [ObligationRecord],
     /// The references to it and the ones it makes (ADR 0016 D2), in graph
     /// edge order.
     pub references: References,
@@ -77,9 +77,9 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
         .ok_or_else(|| not_found(graph, entity_id))?;
     // The snapshot is built over the same graph: a node it lacks is not one
     // this view can state facts about.
-    let standing = view
+    let (record, standing) = view
         .entities()
-        .standing(entity_id)
+        .get(entity_id)
         .ok_or_else(|| not_found(graph, entity_id))?;
     let coverage = view.recorded().map(|recorded| EntityCoverage {
         verdict: recorded
@@ -94,7 +94,7 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
         kind: view.registries().kinds.get(node.kind.raw.as_str()),
         headline: specforge_emitter::context::headline_statement(node, &view.registries().fields),
         standing,
-        obligations: specforge_graph::obligations(node),
+        obligations: &record.obligations,
         references: References::of(view, entity_id),
         coverage,
         diagnostics: view
@@ -107,6 +107,6 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
 
 /// An obligation as MCP inspect and the context prompt list it:
 /// `"<kind> <text>"`.
-pub fn obligation_text(statement: &VerifyStatement) -> String {
-    format!("{} {}", statement.kind, statement.description)
+pub fn obligation_text(obligation: &ObligationRecord) -> String {
+    format!("{} {}", obligation.kind, obligation.text)
 }

@@ -240,8 +240,9 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
     specforge://context?scope=auth_login), with depth, kinds and max_tokens as
     specforge export takes them. Query keys and values are percent-decoded; an
     unknown key, a repeated key, scope with root, a scope on a templated URI,
-    or a value that does not parse is refused as invalid input naming the key,
-    never ignored.
+    a value that does not parse, or depth without a scope is refused as
+    invalid input naming the key, never ignored; a count is read as a tool's
+    count argument is (a non-negative integer, with its wording).
     Resources MUST follow the export schema policy through the function
     specforge export uses: specforge://graph embeds the GraphProtocolSchema
     for the full graph, carries a schema_ref when scoped, and leaves the
@@ -260,6 +261,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   verify unit "scope query parameter restricts to subgraph"
   verify unit "root is accepted as an alias of the scope query parameter"
   verify unit "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
+  verify unit "a count in a resource query is read as a tool's count argument is"
   verify integration "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
   verify unit "resources reflect current compilation state"
   verify unit "compilation failure returns error resource with diagnostic summary"

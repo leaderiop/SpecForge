@@ -27,8 +27,8 @@ use crate::navigation::{
 use crate::publish::diagnostic_to_lsp;
 use crate::{LspState, goto_import_definition, hover};
 
-/// What the client declared at initialize that changes the shape of an
-/// answer.
+/// What the client declared at initialize that shapes an answer or a
+/// reaction.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ClientSupport {
     /// `textDocument.definition.linkSupport`: a definition is a
@@ -42,12 +42,20 @@ pub struct ClientSupport {
     /// completion item's edit inserts over the word's start to the cursor
     /// and replaces the whole word, else it is a plain edit.
     pub insert_replace: bool,
+    /// `workspace.semanticTokens.refreshSupport`: only then is the editor
+    /// asked to refresh its semantic tokens.
+    pub tokens_refresh: bool,
+    /// `workspace.didChangeWatchedFiles.relativePatternSupport`: the
+    /// watchers are patterns relative to each input's directory, else
+    /// absolute globs.
+    pub relative_patterns: bool,
 }
 
 impl ClientSupport {
-    /// What `capabilities` declare of the three.
+    /// What `capabilities` declare of these.
     pub fn of(capabilities: &ClientCapabilities) -> ClientSupport {
         let text_document = capabilities.text_document.as_ref();
+        let workspace = capabilities.workspace.as_ref();
         ClientSupport {
             definition_links: text_document
                 .and_then(|t| t.definition.as_ref())
@@ -61,6 +69,14 @@ impl ClientSupport {
                 .and_then(|t| t.completion.as_ref())
                 .and_then(|c| c.completion_item.as_ref())
                 .and_then(|i| i.insert_replace_support)
+                .unwrap_or(false),
+            tokens_refresh: workspace
+                .and_then(|w| w.semantic_tokens.as_ref())
+                .and_then(|t| t.refresh_support)
+                .unwrap_or(false),
+            relative_patterns: workspace
+                .and_then(|w| w.did_change_watched_files.as_ref())
+                .and_then(|w| w.relative_pattern_support)
                 .unwrap_or(false),
         }
     }

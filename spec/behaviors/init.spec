@@ -42,7 +42,11 @@ behavior scaffold_new_project "Scaffold New Project" {
     IDE autocomplete. The generated config MUST be syntactically valid
     and parseable by the compiler. If a specforge.json or specforge.spec
     already exists in the directory being initialized, the system MUST
-    reject the operation with an error message and exit code 1. A project
+    reject the operation with an error message and exit code 1. Init only
+    adds: a directory whose starter file (spec/hello.spec) already exists
+    is rejected the same way, and an init that fails after writing leaves
+    the directory as it was, files that were already there (specforge.lock,
+    .specforge/) included. A project
     in an ancestor directory MUST NOT block init: the new project is
     separate, and commands run inside it resolve to it because the
     nearest project wins. Init notes the enclosing project on stderr. The
@@ -56,6 +60,8 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify unit "scaffold creates valid specforge.json"
   verify unit "scaffold includes $schema field in generated config"
   verify unit "scaffold rejects when specforge.json already exists"
+  verify unit "init refuses a directory whose starter file exists, writing nothing"
+  verify unit "a failed init leaves the directory as it was, files that were there included"
   verify unit "scaffold inside another project creates a separate project"
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
@@ -195,9 +201,12 @@ behavior non_interactive_init "Non-Interactive Init" {
     When --version is specified, it MUST override the default version
     (0.1.0) in the generated specforge.json.
     --extensions takes builtins and local .wasm files, several to a flag
-    separated by commas: init enables a builtin and installs a local file
-    through the add operation (ADR 0004 D3-e), so it never writes an entry
-    specforge check cannot load. Any other extension (a registry package,
+    separated by commas: init enables a builtin after the builtins it
+    requires (its non-optional peers that are builtins, and theirs), as
+    add does, and installs a local file through the add operation (ADR
+    0004 D3-e) without reading it again, so it never writes an entry
+    specforge check cannot load or whose required builtin peer is
+    missing. Any other extension (a registry package,
     which needs a registry a new project has not configured yet) MUST be
     rejected with a diagnostic naming it and exit code 1. A project name
     whose starter spec ID would break the identifier contract (2-60
@@ -207,6 +216,8 @@ behavior non_interactive_init "Non-Interactive Init" {
   verify unit "non-interactive init creates valid specforge.json"
   verify unit "non-interactive init skips all prompts"
   verify unit "non-interactive init with --extensions populates extensions list"
+  verify unit "init enables a builtin after the builtins it requires, as add does"
+  verify integration "init with a builtin that requires another passes check"
   verify unit "non-interactive init with unknown extension rejects with diagnostic and exit code 1"
   verify unit "invalid project name is rejected with InitError::invalid_name"
   verify integration "--extensions splits a comma-separated list into its extensions"
@@ -241,7 +252,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     extension_appended      "Extension is added to the extensions list in specforge.json"
     no_duplicate_added      "Already-installed extensions are not duplicated"
     other_fields_preserved  "No other fields in specforge.json are modified"
-    peer_deps_satisfied     "Unsatisfied peer dependencies produce E-level diagnostics and reject the operation"
+    peer_deps_satisfied     "An install that leaves a locked peer requirement unsatisfied, or whose own peer range can't be read, is refused before anything is written"
     extension_added_emitted "extension_added event is emitted after successful addition"
   }
   contract   """
@@ -259,14 +270,22 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     local build from a registry.
     The system MUST NOT duplicate an already-installed extension.
     The system MUST NOT modify any other field in specforge.json.
-    When adding an extension, the compiler MUST check peer dependencies
-    of the new extension. Unsatisfied peer dependencies MUST be reported
-    as E-level diagnostics naming each missing peer and the operation
-    MUST be rejected with exit code 1. A peer the lock file already pins at
+    When adding an extension, the system MUST judge its peers by the one
+    peer rule (ADR 0041) before anything is installed: a peer range that is
+    not a SemVer requirement is refused with E073. A peer the lock pins at
     a version outside the new extension's range is a version diamond (ADR
-    0001): the operation MUST be rejected before anything is installed,
-    with R-RES-006 naming the version that would satisfy every requirer, or
-    R-RES-005 when no published version does.
+    0001): from a registry the operation MUST be rejected with R-RES-006
+    naming the version that would satisfy every requirer, or R-RES-005 when
+    no published version does; a local install, with no registry to
+    consult, MUST be rejected with E027. Installing a package at a version
+    a locked extension's peer range does not accept MUST be rejected the
+    same way, its message naming the extension it would break. A peer that
+    is not installed is not refused: specforge check reports it (E027).
+    A builtin is enabled after the builtins it requires (its non-optional
+    peers that are builtins, and theirs), dependencies first; a builtin
+    whose declaration cannot be read refuses the operation (E028) before
+    anything is written, and a required builtin peer the builtin this
+    specforge embeds does not satisfy refuses it (E027).
     If no specforge.json exists in the current directory or any ancestor
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
@@ -281,12 +300,17 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add extension appends to extensions list"
   verify integration "add --format json lists the files it wrote in files_written"
   verify unit "add enables a builtin's required peers but not its optional ones"
+  verify unit "add enables the builtins a required builtin peer requires, dependencies first"
+  verify unit "a builtin whose declaration cannot be read is refused before anything is written"
+  verify unit "a required builtin peer the embedded builtin does not satisfy is refused before anything is written"
   verify unit "add duplicate extension is a no-op with info message"
   verify unit "add extension with no specforge.json rejects with error and exit code 1"
   verify unit "add unresolvable extension rejects with diagnostic"
   verify unit "add extension with @scope/name@version resolves version via parse_extension_specifier"
   verify unit "add extension without version resolves to latest compatible version"
-  verify unit "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
+  verify unit "an extension whose peer range is not SemVer is refused with E073 before anything is installed"
+  verify unit "a local install whose peer is installed outside its range is refused with E027"
+  verify integration "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
   verify unit "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
   verify unit "a peer no single version satisfies for every requirer fails R-RES-005"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"

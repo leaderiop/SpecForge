@@ -150,17 +150,19 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   types      [ExtensionDeclaration, RegistryBuild]
   produces   [registries_populated]
   contract   """
-    The registry build MUST take the loaded declarations, in load order,
-    and own everything derived from them: identity and shape (E030: an empty
-    name or version, a malformed ext_short), self-consistency (W021), peer
-    dependencies (E027), the order of declared passes (W145 when their
-    constraints form a cycle, declaration order kept), the kind, field and
-    edge registries, the rules and the surfaces. It MUST be pure.
+    The registry build MUST take the loaded declarations in entry order, put
+    them in load order (registry_build_load_order) and own everything derived
+    from them: identity and shape (E030: an empty name or version, a
+    malformed ext_short), self-consistency (W021), peer requirements (E073,
+    E027, and E027 for a cycle among required peers), the order of declared
+    passes (W145 when their constraints form a cycle, declaration order
+    kept), the kind, field and edge registries, the rules and the surfaces.
+    It MUST be pure.
 
     Its outcomes are stated by registry_build_kinds, registry_build_fields,
     registry_build_edges, registry_build_rules,
-    registry_build_declaration_consistency and
-    registry_build_peer_dependencies. The build produces
+    registry_build_declaration_consistency,
+    registry_build_peer_dependencies and registry_build_load_order. The build produces
     registries_populated: nothing reads a registry before every loaded
     declaration is in it.
   """
@@ -172,7 +174,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
   verify integration "a passes description that does not parse fails the extension's load"
   verify unit "a build of no declarations has empty registries, no rules and no diagnostics"
-  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, the peers' E073 and E027, the cycles' E027, W145"
   verify integration "every loaded declaration is registered before a compile checks anything"
 }
 
@@ -366,7 +368,7 @@ behavior remove_extension "Remove Extension" {
     extensions listing names it, or by the entry as specforge.json writes
     it (or its path); removing it MUST only drop that entry from
     specforge.json, never delete the file nor touch specforge.lock, with
-    the same dependents (E027) and orphan checks as any extension. A name
+    the same dependents (E027) and stranded-entity checks as any extension. A name
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is
@@ -480,7 +482,7 @@ behavior management_operations_over_the_project_view "Management Operations over
   types      [ExtensionDeclaration, Diagnostic]
   ports      [CompilerApi, McpProtocol, FileSystem]
   requires {
-    project_compiled "A compiled project or a project session supplies the project view"
+    project_compiled "A compiled project, one-shot or a project session's, supplies the project view"
   }
   ensures {
     one_project_read "Each operation reads the config, the enabled entries, the lock, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json or specforge.lock again"
@@ -583,7 +585,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
     offline_first_extension_resolution,
   ]
   category   query
-  types      [RegistryConfig, RegistryResponse, CompilerConfig, ExtensionError]
+  types      [RegistryConfig, PackageMetadata, VersionList, CompilerConfig, ExtensionError]
   ports      [RegistryClient]
   consumes   [registries_configured]
   produces   [registry_resolved]
@@ -594,6 +596,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   ensures {
     scope_routed              "Scope-prefixed specifiers are routed to the matching scope-specific registry"
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
+    no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
   }
@@ -605,22 +608,27 @@ behavior resolve_registry_source "Resolve Registry Source" {
     fall back to the default registry. "The default registry" means the
     registries entry marked `default_registry: true` in specforge.json:
     SpecForge ships no registry, so no registry URL is a constant in source.
+    With no scope match and no default registry, no registry serves the
+    name: the system MUST refuse with R-OPS-001, naming the scope, before
+    any network call, and MUST NOT ask another registry. add, update and
+    publish choose the registry for a name by this one rule (ADR 0045).
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
   verify unit "default registry used when no scope filter matches"
   verify unit "network error produces ExtensionError with retry guidance"
-  verify unit "successful query returns RegistryResponse"
-  verify integration "unreachable scope-specific registry falls back to next scope"
+  verify unit "successful query returns PackageMetadata"
   verify unit "a fetch requests the name and version it was given, from the registry it was given"
-  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
+  verify unit "a name no registry serves is refused with R-OPS-001 before any request"
+  verify integration "the registry server answers every call in the JSON its client reads"
+  verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted"
 }
 
 behavior search_registry "Search Registry" {
   features   [extension_registry]
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
-  types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig, ContributesSummary]
+  types      [RegistryConfig, SearchQuery, SearchResults, SearchHit, CompilerConfig]
   ports      [RegistryClient]
   produces   [registry_search_completed]
   requires {
@@ -630,7 +638,9 @@ behavior search_registry "Search Registry" {
   ensures {
     all_registries_queried   "All configured registries are queried with the search term"
     results_deduplicated     "Results from multiple registries are deduplicated by name + version"
-    output_deterministic     "Output is sorted by relevance score then extension name"
+    output_deterministic     "Output is sorted by name, then version"
+    category_filtered        "With --contributes, only packages whose declaration declares that category are listed"
+    failures_reported_once   "Each registry that fails is reported once, with its code; search fails when every registry failed"
     search_completed_emitted "registry_search_completed event fires after results are collected"
   }
   maintains {
@@ -638,13 +648,21 @@ behavior search_registry "Search Registry" {
   }
   contract   """
     When specforge search is invoked, the system MUST query all configured
-    registries with the search term. Results MUST be filterable by
-    contribution type (entities, validators, renderers, providers,
-    collectors, prompts, parsers). Results from multiple registries MUST be merged and
-    deduplicated using a composite key of name + version — when the
-    same name + version appears from multiple registries, the first
-    registry in specforge.json declaration order wins. Output MUST be
-    deterministic — sorted by relevance score then extension name.
+    registries with the search term. Results MUST be filterable by declared
+    category (--contributes, one of entities, edges, shared_fields,
+    enhancements, validation_rules, surfaces, collectors, analyzers, passes,
+    feature_flags): a registry lists only the packages whose stored
+    declaration declares something in that category, and an unknown
+    category is refused before any request. Results from multiple
+    registries MUST be merged and deduplicated using a composite key of
+    name + version — when the same name + version appears from multiple
+    registries, the first registry in specforge.json declaration order
+    wins, and each result names that registry. Output MUST be
+    deterministic — sorted by name, then version. Each registry that
+    fails MUST be reported once, with its code; the others are still
+    asked, and the search fails only when every registry failed. Each
+    registry is asked with the credential kept for it
+    (support_private_registries).
     With no registry configured, search MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
     A specforge.json that is there and can't be used MUST be refused as add
@@ -654,11 +672,12 @@ behavior search_registry "Search Registry" {
   verify unit "with no registry configured, search makes no network call and reports how to configure one"
   verify unit "an unusable specforge.json is refused with the refusal add gives, before any network call"
   verify unit "queries all configured registries"
-  verify unit "filters by contribution type"
+  verify unit "filters by declared category"
+  verify unit "each failed registry is reported once, and search fails when every registry failed"
   verify unit "deduplicates results across registries"
   verify unit "output is deterministic"
   verify unit "error from one registry does not abort search of others"
-  verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, search_completed_emitted, partial_failure_resilience"
+  verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, category_filtered, failures_reported_once, search_completed_emitted, partial_failure_resilience"
 }
 
 // CLI entry point: `specforge publish`. Delegates Wasm binary packaging
@@ -667,7 +686,7 @@ behavior publish_to_registry "Publish to Registry" {
   features   [extension_registry]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
-  types      [ExtensionDeclaration, RegistryConfig, ExtensionError]
+  types      [ExtensionDeclaration, RegistryConfig, PublishReceipt, ExtensionError]
   ports      [RegistryClient, FileSystem]
   produces   [extension_published_to_registry]
   requires {
@@ -678,7 +697,7 @@ behavior publish_to_registry "Publish to Registry" {
   }
   ensures {
     sha256_computed            "SHA256 hash of .wasm binary is computed and included in the upload"
-    duplicate_version_rejected "Duplicate version numbers are rejected unless --force is provided"
+    duplicate_version_rejected "A version the registry already holds is refused (R007): a published version is immutable"
     registry_url_returned      "Successful publish returns the registry URL for the published version"
     published_event_emitted    "extension_published_to_registry event fires on successful publish"
   }
@@ -689,8 +708,21 @@ behavior publish_to_registry "Publish to Registry" {
     with the .wasm binary and its SHA256 hash, before any network call
     deciding whether to refuse; the request MUST be authenticated. The
     registry MUST refuse a manifest that is not an extension declaration,
-    and takes the description and keywords it shows from the declaration. Duplicate version numbers MUST be rejected unless --force is
-    provided. Successful publish MUST return the registry URL for the
+    and takes the description and keywords it shows from the declaration. A version the registry
+    already holds MUST be refused (R007): a published version is immutable.
+    The package MUST go to the one registry that serves its name, the
+    registry add and update fetch that name from (ADR 0045). The upload MUST
+    be authenticated: with no credential for that registry
+    (SPECFORGE_REGISTRY_TOKEN unset or blank, and none stored for its alias)
+    publish MUST refuse with R001 before any network call and MUST NOT
+    create a publisher signing key; a signing key that can't be read or
+    created MUST be refused with E074 before any network call. Publish
+    refuses in one order, each refusal before anything after it is read or
+    asked: the binary (E040, E028), its declaration's errors, its name and
+    version (E072), the registry configuration (E063, E067), the registry
+    for the name (R-OPS-001), the credential (R001, R012, R-AUTH-020,
+    R-AUTH-021), the signing key (E074); then the registry's answer.
+    Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
     specforge.json registries key.
@@ -702,10 +734,17 @@ behavior publish_to_registry "Publish to Registry" {
   verify integration "the registry refuses a manifest that is not an extension declaration"
   verify integration "the registry takes a package's description and keywords from its declaration"
   verify unit "SHA256 computed and included in upload"
-  verify unit "duplicate version rejected without --force"
+  verify unit "a version already published is refused with R007"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
   verify unit "the registry refuses a name or version that is not a package name or version"
+  verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
+  verify unit "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+  verify unit "the environment token wins over the stored credential"
+  verify unit "a signing key that can't be read is refused with E074 before any network call"
+  verify unit "publish asks the registry add fetches the same name from"
+  verify unit "the declaration's warnings are reported even when publish is refused"
+  verify unit "what publish uploads is what add installs"
   verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 
@@ -713,39 +752,31 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   features   [extension_registry]
   invariants [registry_integrity, wasm_compile_cache_integrity, offline_first_extension_resolution]
   category   validation
-  types      [RegistryResponse, LockFileEntry, TrustLevel, ExtensionError]
+  types      [PackageMetadata, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   produces   [registry_integrity_verified]
   requires {
     wasm_binary_downloaded      "A .wasm binary has been downloaded from a registry"
-    registry_response_available "RegistryResponse with declared SHA256 hash is available"
+    registry_response_available "PackageMetadata with declared SHA256 hash is available"
   }
   ensures {
     hash_verified              "SHA256 hash of downloaded binary matches the declared hash"
     mismatch_aborts            "Hash mismatch produces hard error and aborts installation"
-    trust_level_assigned       "Trust level is deterministically assigned based on source type"
-    lock_file_updated          "SHA256 hash and trust level are recorded in specforge.lock"
+    lock_file_updated          "The SHA256 hash and the publisher key id are recorded in specforge.lock"
     integrity_verified_emitted "registry_integrity_verified event fires on successful verification"
   }
   contract   """
     After downloading a .wasm binary from a registry, the system MUST
-    verify its SHA256 hash against the hash declared in the RegistryResponse.
+    verify its SHA256 hash against the hash declared in the package's
+    PackageMetadata.
     Mismatches MUST produce a hard error and abort installation. The
-    trust level MUST be assigned deterministically from the source:
-    local filesystem paths MUST receive "local", git URLs MUST receive
-    "git", community registries without publisher verification MUST
-    receive "community", and registries with publisher signature
-    verification MUST receive "verified". The assigned trust level
-    MUST be recorded in specforge.lock alongside the SHA256 hash.
+    SHA256 hash and, for a signed package, its publisher key id MUST be
+    recorded in specforge.lock.
   """
   verify unit "matching SHA256 passes verification"
   verify unit "mismatched SHA256 produces hard error"
-  verify unit "trust level recorded in specforge.lock"
-  verify unit "local source assigned local trust level"
-  verify unit "git source assigned git trust level"
-  verify unit "community registry source assigned community trust level"
-  verify unit "verified registry source assigned verified trust level"
-  verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, trust_level_assigned, lock_file_updated, integrity_verified_emitted, receive"
+  verify unit "the sha256 and the publisher key id are recorded in specforge.lock"
+  verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, lock_file_updated, integrity_verified_emitted"
 }
 
 // Package trust after the SHA256 check (docs/registry-trust.md). The
@@ -756,8 +787,8 @@ behavior check_registry_reply "Check Registry Reply" {
   features   [extension_registry]
   invariants [registry_reply_binding, registry_integrity]
   category   validation
-  types      [RegistryResponse, ExtensionError]
-  ports      [RegistryClient]
+  types      [PackageMetadata, ExtensionError]
+  ports      [RegistryClient, Registry]
   requires {
     reply_received "The registry answered a request for name@version and its download passed the SHA256 check"
   }
@@ -800,7 +831,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
   features   [extension_registry]
   invariants [publisher_trust, registry_integrity]
   category   validation
-  types      [RegistryResponse, ExtensionError]
+  types      [PackageMetadata, ExtensionError]
   ports      [RegistryClient]
   requires {
     reply_checked "The registry reply passed the SHA256 check and names the package requested"
@@ -809,6 +840,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
     broken_signature_refused "A signature that is malformed or doesn't verify is refused with R-TRUST-002, even with --allow-unsigned"
     unsigned_refused         "An unsigned package is refused with R-TRUST-001 unless --allow-unsigned is given"
     unsigned_pins_nothing    "An unsigned package accepted with --allow-unsigned pins no key"
+    unsigned_reported        "An unsigned package accepted with --allow-unsigned is reported as W155"
   }
   contract   """
     A registry package's Ed25519 publisher signature MUST be verified
@@ -819,20 +851,22 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
     binary or swapped manifest), MUST be refused with R-TRUST-002, and
     --allow-unsigned MUST NOT bypass it. A package with no signature MUST
     be refused with R-TRUST-001 unless the user passes --allow-unsigned;
-    one accepted that way pins no key.
+    one accepted that way pins no key. Accepting it is reported as W155 on
+    every surface; the check itself writes nothing to the terminal.
   """
   verify integration "a signature over other bytes is refused even with --allow-unsigned"
   verify integration "a swapped manifest breaks the signature"
   verify integration "a malformed signature object is refused"
   verify integration "an unsigned package is refused without --allow-unsigned"
   verify integration "an unsigned package is accepted with --allow-unsigned and pins no key"
+  verify integration "an unsigned package accepted with --allow-unsigned is reported as W155"
 }
 
 behavior pin_publisher_key "Pin Publisher Key" {
   features   [extension_registry]
   invariants [publisher_trust]
   category   command
-  types      [RegistryResponse, LockFileEntry, ExtensionError]
+  types      [PackageMetadata, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   requires {
     signature_verified "The package's publisher signature verified"
@@ -843,6 +877,9 @@ behavior pin_publisher_key "Pin Publisher Key" {
     changed_key_refused "A key other than the pinned one is refused with R-TRUST-003 and both key ids, unless the user consents"
     consent_repins      "Consent to a key change (--yes, or yes at the prompt) re-pins the new key"
     denied_key_refused  "A key on denied_keys is refused with R-TRUST-005, even with consent"
+    repin_reported      "A re-pinned key is reported as W156 naming both key ids"
+    first_use_named     "A first-use pin is named in the operation's outcome (the publisher is pinned now)"
+    surface_decides     "Whether to accept a key change is asked of the surface that can ask (the CLI's terminal); MCP and --format json refuse it"
   }
   contract   """
     Trust on first use: the first time a signed package verifies, its
@@ -853,12 +890,17 @@ behavior pin_publisher_key "Pin Publisher Key" {
     interactive yes, or the key on trusted_keys); --allow-unsigned is not
     consent. Consent MUST re-pin the new key. A key on denied_keys MUST be
     refused with R-TRUST-005 whatever the consent. A refused package
-    leaves the pin as it was.
+    leaves the pin as it was. A re-pin is reported as W156; a first-use
+    pin is part of the outcome. The decision on a key change belongs to
+    the surface: the CLI asks on its terminal, and a surface nobody can be
+    asked on refuses.
   """
   verify integration "the key of the first verified install is pinned and accepted again"
   verify integration "a package signed by another key than the pinned one is refused"
   verify integration "consent to a key change re-pins the new key"
   verify integration "a denied key is refused even with consent"
+  verify integration "consent to a key change is reported as W156"
+  verify integration "a key change is decided by the surface that can ask"
 }
 
 behavior configure_registries "Configure Registries" {
@@ -903,6 +945,10 @@ behavior configure_registries "Configure Registries" {
     extensions and local .wasm files MUST install with no registry
     configured. First-use MUST NOT require network access — registries are
     opt-in configuration, and first use is always local/offline per P8.
+    The diagnostics of reading the registries array (E067, W140, I003) are
+    shown by an operation only once it has asked a registry: an add of an
+    exact version already installed, or a dry run of an exact version,
+    asks none and shows none.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "scope_filter routes to correct registry"
@@ -914,6 +960,7 @@ behavior configure_registries "Configure Registries" {
   verify integration "first specforge init succeeds without any registry authentication"
   verify unit "builtins and local .wasm files install with no registry configured"
   verify unit "no registry URL on the specforge.dev domain is compiled into non-test source"
+  verify unit "an operation shows the registry configuration's diagnostics once it has asked a registry"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted"
 }
 
@@ -931,83 +978,87 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError, AuthMethod]
+  types      [RegistryConfig, RegistryCredential, TokenVerified, ExtensionError, RegistryError]
   ports      [RegistryClient]
   produces   [registry_authenticated]
   requires {
-    credential_configured     "A RegistryCredential entry exists for the target registry alias"
+    credential_configured     "~/.specforge/credentials.json has an entry for the registry's alias, or SPECFORGE_REGISTRY_TOKEN is set for a publish"
     registry_client_available "RegistryClient port is available for authentication requests"
   }
   ensures {
-    token_resolved                 "Authentication token is resolved from environment variable or token file"
-    auth_header_attached           "Resolved token is attached as Authorization header"
-    missing_source_diagnosed       "Unavailable token source produces ExtensionError diagnostic with guidance"
-    double_401_diagnosed           "Failed re-resolution after 401 emits E-level diagnostic with login guidance"
-    tokens_never_logged            "Raw tokens are never logged or stored in specforge.json"
-    cache_fallback_on_network_only "Cache fallback triggers only on network-level failures, not auth failures"
-    authenticated_emitted          "registry_authenticated event fires on successful authentication"
+    token_resolved           "The token is resolved before any request: the secret login stored (OS keyring, else a 0600 file), an environment variable, or a token file"
+    auth_header_attached     "The resolved token is attached as an Authorization: Bearer header"
+    missing_source_diagnosed "An unset variable is R010 and an unreadable token file R011, before any request"
+    unauthorized_diagnosed   "A 401 is R001 naming how to log in again; a 403 is R002 with permission guidance"
+    tokens_never_logged      "Raw tokens are never logged, printed or stored in specforge.json"
+    authenticated_emitted    "registry_authenticated event fires on successful authentication"
   }
   contract   """
-    When making a request to a registry that has a configured credential,
-    the system MUST resolve the authentication token from the specified
-    source: environment variable (token_env_var) or token file (token_file).
-    The resolved token MUST be attached as an Authorization header. If the
-    token source is unavailable (env var unset, file missing), the system
-    MUST produce an ExtensionError diagnostic with guidance. On receiving
-    a 401 response, the compiler MUST re-resolve the credential from its
-    source. If the re-resolved credential also fails, the compiler MUST
-    emit an E-level diagnostic with resolution guidance (e.g., "run
-    `specforge registry login`"). On receiving a 403 response, the
-    compiler MUST emit an E-level diagnostic with permission guidance.
-    Retry logic for transient failures (429, timeout) is handled by
-    retry_registry_request. When the token source is available but the
-    registry is unreachable (network timeout, DNS failure), the system
-    MUST fall back to the cached manifest in specforge.lock and the
-    locally stored .wasm binary if available, emitting an I-level
-    diagnostic. Authentication failure (401/403) MUST NOT trigger cache
-    fallback — only network-level failures. Raw tokens MUST never be
-    logged or stored in specforge.json.
+    A registry credential is kept per registry alias in
+    ~/.specforge/credentials.json, never in specforge.json. Its token
+    comes from one of three sources: the secret specforge login --token
+    stored (in the OS keyring, else in a 0600 file under
+    ~/.specforge/secrets/), an environment variable (login --token-env),
+    or a file whose trimmed content is the token (login --token-file).
+    The system MUST resolve the token before any request: an unset or
+    blank variable MUST be R010 and a token file that can't be read or
+    is empty MUST be R011, each naming the alias and how to fix it; an
+    expired stored token is R-AUTH-020 and an unreadable keyring entry
+    R-AUTH-021. The resolved token MUST be attached as an Authorization:
+    Bearer header. A 401 answer MUST be R001, whose suggestion is
+    `specforge login --registry <alias> --token <TOKEN>`; a 403 answer
+    MUST be R002 with permission guidance. A 429 answer is retried by
+    retry_registry_request. When the registry can't be reached the
+    request fails (R004 or R005) with retry guidance; an add of a version
+    already installed asks no registry (configure_registries). A raw
+    token MUST never be logged, printed, shown in a diagnostic, or stored
+    in specforge.json.
   """
   verify unit "token resolved from environment variable"
   verify unit "token resolved from token file"
   verify unit "missing token source produces ExtensionError"
-  verify unit "401 response triggers credential re-resolution"
-  verify unit "double 401 after re-resolution emits E-level diagnostic with login guidance"
+  verify unit "a token file that can't be read is R011 before any request"
+  verify unit "a 401 is R001 naming how to log in again"
   verify unit "raw tokens never logged or stored in config"
-  verify unit "both token_env_var and token_file absent produces E-level diagnostic"
   verify unit "403 response produces E-level diagnostic with permission guidance"
-  verify unit "unreachable registry with cached extension falls back to cache with I-level diagnostic"
-  verify unit "authentication failure (401/403) does not trigger cache fallback"
-  verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, double_401_diagnosed, tokens_never_logged, cache_fallback_on_network_only, authenticated_emitted"
+  verify unit "every registry call reads an answer's status as one error"
+  verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, unauthorized_diagnosed, tokens_never_logged, authenticated_emitted"
 }
 
 behavior retry_registry_request "Retry Registry Request" {
   features   [registry_authentication]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
-  types      [RegistryConfig, RegistryError, ExtensionError]
+  types      [RegistryConfig, RegistryError, RegistryErrorBody, ExtensionError]
   ports      [RegistryClient]
   requires {
     registry_request_failed   "A registry request has received a retryable response (429 or timeout)"
     registry_client_available "RegistryClient port is available for retry requests"
   }
   ensures {
-    exponential_backoff_applied "429 responses trigger retry with exponential backoff (base 1s, max 30s, max 3 retries)"
-    timeout_diagnosed           "Network timeouts produce ExtensionError diagnostic with retry guidance"
+    exponential_backoff_applied "A 429 answer is sent again after the longer of the backoff (1 s, doubling, at most 30 s) and Retry-After, at most 3 times"
+    timeout_diagnosed           "A network timeout is not retried: it is R004, whose suggestion says to retry"
     retries_exhausted_emitted   "registry_request_retry_exhausted event fires when max retries exceeded"
   }
   contract   """
-    When a registry request receives a 429 (rate limited) response, the
-    system MUST retry with exponential backoff (base 1s, max 30s, max
-    retries 3). When a request times out (network timeout), the system
-    MUST produce an ExtensionError diagnostic with retry guidance. Retry
-    logic applies to all registry operations (authentication, download,
-    search, publish) uniformly.
+    When a registry answers a request with 429 (rate limited), the system
+    MUST send the request again after a wait: the longer of the backoff
+    (1 s, then 2 s, then 4 s) and the registry's Retry-After, at most 3
+    times. A Retry-After longer than 30 s is not waited for: the request
+    fails at once with R003, naming when to retry. When the retries are
+    exhausted the request fails with R003. Every registry call is retried
+    alike (versions, metadata, download, search, publish, authenticate):
+    a publish is safe to send again, since a registry refuses a
+    rate-limited publish before it reads the upload. A network timeout is
+    not retried: it fails with R004, whose suggestion says to retry.
   """
   produces   [registry_request_retry_exhausted]
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
   verify unit "max retries exceeded produces final error"
+  verify unit "a Retry-After longer than the longest backoff is not waited for"
+  verify integration "a rate-limited publish is sent again once the registry's wait has passed"
+  verify integration "a rate-limited answer is R003 on every registry call"
   verify contract "Retry Registry Request: registry request retry holds — registry_request_failed, registry_client_available, exponential_backoff_applied, timeout_diagnosed, retries_exhausted_emitted"
 }
 
@@ -1023,26 +1074,37 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
     registry_client_available "RegistryClient port is available for test authentication request"
   }
   ensures {
-    valid_credentials_stored      "Valid credentials stored as RegistryCredential referencing env var or token file path"
+    valid_credentials_stored      "--token is stored as a secret in the OS keyring (0600-file fallback); --token-env and --token-file are stored as references, never as the token"
     invalid_credentials_diagnosed "Invalid credentials produce error diagnostic with guidance"
     raw_token_never_stored        "Raw token value is never stored in specforge.json"
     credentials_validated_emitted "registry_credentials_validated event fires on successful validation"
   }
   contract   """
-    When specforge registry login is invoked, the system MUST validate the
+    When specforge login is invoked, the system MUST validate the
     provided credentials against the target registry by making an authenticated
-    test request. Valid credentials MUST be stored as a RegistryCredential
-    entry referencing only the environment variable name or token file path —
-    never the raw token value. The system MUST confirm successful authentication
+    test request. The credential MUST be stored under the alias of the
+    registry it was validated against: the entry --registry names, else the
+    default registry; a --registry that names no entry MUST be refused (E063)
+    before any network call. login MUST take exactly one token source:
+    --token, --token-env or --token-file (R-LOGIN-001 otherwise, before any
+    network call). The token is resolved from it and validated; then --token
+    is kept as a secret in the OS keyring (a 0600 file under
+    ~/.specforge/secrets/ when no keyring is available) and --token-env and
+    --token-file are kept as references, so the variable's or the file's
+    token is read on each use. The raw token MUST never be stored in
+    specforge.json or in credentials.json. The system MUST confirm successful authentication
     with an info message including the registry alias and authenticated scope.
     With no registry configured, login MUST make no network call and MUST
     fail with E063, whose suggestion names the specforge.json registries key.
   """
   verify unit "with no registry configured, login makes no network call and reports how to configure one"
   verify unit "valid credentials stored as RegistryCredential reference"
+  verify unit "login with a token file keeps the file's path, not its content"
+  verify unit "login takes exactly one token source"
   verify unit "invalid credentials produce error with guidance"
   verify unit "raw token never stored in specforge.json"
   verify unit "success message includes registry alias and scope"
+  verify unit "login stores the credential under the alias of the registry it validated against"
   verify contract "Validate Registry Credentials: registry credential validation holds — registry_configured, registry_client_available, valid_credentials_stored, invalid_credentials_diagnosed, raw_token_never_stored, credentials_validated_emitted"
 }
 
@@ -1054,7 +1116,7 @@ behavior logout_registry "Logout Registry" {
   ports      [FileSystem]
   produces   [registry_logged_out]
   requires {
-    alias_matches_config "The provided alias matches a RegistryConfig entry's alias field"
+    alias_given          "--registry names the alias, or the project at --path has a default registry"
     filesystem_available "FileSystem port is available for credential removal"
   }
   ensures {
@@ -1065,10 +1127,11 @@ behavior logout_registry "Logout Registry" {
     logged_out_emitted        "registry_logged_out event fires after credential removal"
   }
   contract   """
-    When specforge registry logout --alias <alias> is invoked, the system
+    When specforge logout --registry <alias> is invoked, the system
     MUST remove the stored credential reference for the given registry alias.
-    The alias MUST match a RegistryConfig entry's alias field. The removal
-    MUST delete only the RegistryCredential entry whose alias matches —
+    Without --registry, the alias is the default registry's, read from
+    the specforge.json of the project at --path.
+    The removal MUST delete only the RegistryCredential entry whose alias matches —
     credentials for other aliases (and their scopes) MUST remain untouched.
     If no credential exists for the specified alias, the command MUST succeed
     silently. The system MUST NOT attempt any network requests during logout.
@@ -1077,40 +1140,52 @@ behavior logout_registry "Logout Registry" {
   verify unit "credentials for other aliases and scopes remain untouched"
   verify unit "no credential for alias succeeds silently"
   verify unit "no network requests made during logout"
-  verify contract "Logout Registry: registry logout holds — alias_matches_config, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
+  verify unit "logout without --registry forgets the default registry's credential"
+  verify contract "Logout Registry: registry logout holds — alias_given, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
 }
 
 behavior support_private_registries "Support Private Registries" {
   features   [registry_authentication]
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
   category   command
-  types      [RegistryConfig, RegistryCredential, TrustLevel, RegistryResponse]
+  types      [RegistryConfig, RegistryCredential, PackageMetadata]
   ports      [RegistryClient]
   requires {
-    credentials_configured    "Registry has configured credentials for authentication"
+    credentials_configured    "A credential is kept for the registry's alias (credentials.json)"
     registry_client_available "RegistryClient port is available for authenticated fetching"
   }
   ensures {
-    authenticated_before_fetch "Authentication occurs before fetching from private registry"
-    scope_filter_respected     "Only extensions matching the scope_filter are fetched from authenticated registries"
-    trust_level_assigned       "Extensions receive appropriate trust level based on registry trust configuration"
-    no_auth_leaks              "Error messages do not leak authentication details"
+    authenticated_before_fetch  "Every read (versions, metadata, download, search) carries the credential kept for that registry"
+    scope_filter_respected      "Only extensions matching the scope_filter are fetched from authenticated registries"
+    same_origin_downloads       "A download from another origin than the registry's carries no credential"
+    unusable_credential_refused "A kept credential that can't be used refuses the read before any request"
+    no_auth_leaks               "Error messages do not leak authentication details"
   }
   contract   """
-    When fetching extensions from a registry with configured credentials,
-    the system MUST authenticate before fetching. The scope_filter on the
-    RegistryConfig MUST be respected — only extensions matching the scope
-    filter SHOULD be fetched from authenticated registries. Extensions from
-    private registries MUST be assigned the appropriate trust level based on
-    the registry's trust configuration. Private registry errors MUST NOT
-    leak authentication details in diagnostic messages.
+    A registry may require a token to read (specforge-registry serve
+    --private, or any registry behind authentication). Every read the
+    system makes of a registry (its versions, a version's metadata, the
+    download, a search) MUST carry the credential the user keeps for that
+    registry's alias, when one is kept; with none the read is anonymous.
+    SPECFORGE_REGISTRY_TOKEN authenticates a publish only: it names no
+    registry, and a search asks every registry. A download MUST carry
+    the credential only when its URL has the registry's origin (scheme,
+    host and port). A kept credential that can't be used (expired,
+    unreadable, an unset variable or an unreadable file) MUST refuse the
+    read with its code before any request. The scope_filter on the
+    RegistryConfig MUST be respected (resolve_registry_source). A package
+    from a private registry passes the same fetch policy as any other:
+    integrity, declaration, publisher signature and pin. Private registry
+    errors MUST NOT leak authentication details in diagnostic messages.
   """
   verify unit "authentication occurs before fetch from private registry"
   verify unit "scope_filter restricts which extensions are fetched"
-  verify unit "trust level assigned based on registry configuration"
   verify unit "error messages do not leak authentication details"
-  verify contract "Support Private Registries: private registry support holds — credentials_configured, registry_client_available, authenticated_before_fetch, scope_filter_respected, trust_level_assigned, no_auth_leaks"
+  verify unit "a download from another origin carries no credential"
+  verify unit "an unusable stored credential refuses the read before any request"
+  verify integration "a private registry refuses an anonymous read and answers an authenticated one"
+  verify integration "a registry that requires a token to read is read with the stored credential"
+  verify contract "Support Private Registries: private registry support holds — credentials_configured, registry_client_available, authenticated_before_fetch, scope_filter_respected, same_origin_downloads, unusable_credential_refused, no_auth_leaks"
   // Observability: error diagnostics for private registry operations delegate
-  // to authenticate_registry_request and retry_registry_request for auth and
-  // retry details. This behavior owns the scope_filter and trust_level logic.
+  // to authenticate_registry_request and retry_registry_request.
 }

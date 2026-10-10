@@ -1,20 +1,31 @@
+mod add_extension;
 mod analyze;
+mod collect;
 pub(crate) mod coverage;
+mod doctor;
 mod explain;
 mod export;
+mod extensions;
 mod find_definition;
 mod find_implementation;
 mod find_references;
 pub(crate) mod find_spec_for_source;
+mod format;
 mod infer_gaps;
 mod infer_progress;
 mod infer_session;
+mod init;
 mod inspect;
 pub(crate) mod list;
+mod migrate;
 mod model;
 mod outline;
 mod outline_extensions;
+mod providers;
 mod query;
+mod remove_extension;
+mod rename;
+mod render;
 mod schema;
 mod search;
 mod stats;
@@ -25,38 +36,33 @@ mod validate;
 
 use serde_json::{Value, json};
 
-use crate::mutation::{self, Mutated};
+use crate::lifecycle::Revision;
+use crate::mutation::{self, Replied};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
 use crate::target::{Call, TargetSpec};
-use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use specforge_ops::view::ProjectView;
 pub use table::CORE_TOOLS;
 
-/// The navigator over what the call reads (`specforge_ops::navigate`):
-/// its project's view, else the empty session's graph without a root, each
-/// file's text read from disk under the spec root (with no project, no
-/// file is read). The navigation tools render its answers as JSON and
-/// nothing else (ADR 0016).
-pub(crate) fn navigator<'c>(
-    call: &'c Call<'_>,
-) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
-    let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
-    specforge_ops::navigate::Navigator::new(call.view(), move |file| {
-        std::fs::read_to_string(spec_root.as_ref()?.join(file)).ok()
-    })
+/// Where the `.spec` files of the project `view` reads are keyed from: its
+/// spec root, when it has a root (the empty session has none, so no file is
+/// a project's, ADR 0025).
+pub(crate) fn spec_root<'v>(view: &ProjectView<'v>) -> Option<&'v std::path::Path> {
+    view.root().map(|_| view.env().spec_root.as_path())
 }
 
-/// A span as the MCP tools render it: the `SourceSpan` the spec types name
-/// (1-based lines, 1-based byte columns, end exclusive).
-pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
-    json!({
-        "file": span.file,
-        "start_line": span.start_line,
-        "start_col": span.start_col,
-        "end_line": span.end_line,
-        "end_col": span.end_col,
+/// The navigator over `view` (`specforge_ops::navigate`), each file's text
+/// read from disk under its spec root (with no root, no file is read). The
+/// navigation tools render its answers as JSON and nothing else (ADR 0016).
+pub(crate) fn navigator<'v>(
+    view: ProjectView<'v>,
+) -> specforge_ops::navigate::Navigator<'v, impl Fn(&str) -> Option<String> + 'v> {
+    let spec_root = spec_root(&view);
+    specforge_ops::navigate::Navigator::new(view, move |file| {
+        std::fs::read_to_string(spec_root?.join(file)).ok()
     })
 }
 
@@ -66,48 +72,50 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
     McpError::from_diagnostic(diag).into()
 }
 
-/// An auto-promoted command's run as a tool result. The command was asked
-/// for json (ADR 0011): a JSON object on stdout, and nothing on stderr, is
-/// the result's structured payload; a failure that wrote one JSON object
-/// on stderr, and nothing on stdout, is an `isError` result carrying it.
-/// Otherwise its stdout, then its stderr when it wrote any; a nonzero exit
-/// code fails the call.
-fn command_tool_result(
-    outcome: Result<specforge_protocol_types::CommandOutput, specforge_wasm::CallError>,
-) -> ToolOutcome {
+/// An auto-promoted command's output as a tool result. The command was
+/// asked for json (ADR 0011): a JSON object on stdout, and nothing on
+/// stderr, is the result's structured payload; a failure that wrote one JSON
+/// object on stderr, and nothing on stdout, is an `isError` result carrying
+/// it. Otherwise its stdout, then its stderr when it wrote any; a nonzero
+/// exit code fails the call.
+fn output_result(output: specforge_protocol_types::CommandOutput) -> ToolOutcome {
     let object = |text: &str| match serde_json::from_str::<Value>(text) {
         Ok(object @ Value::Object(_)) => Some(object),
         _ => None,
     };
-    match outcome {
-        Ok(output) => {
-            let failed = output.exit_code != 0;
-            if !failed
-                && output.stderr.is_empty()
-                && let Some(payload) = object(&output.stdout)
-            {
-                return ToolOutcome::ok(payload);
-            }
-            if failed
-                && output.stdout.is_empty()
-                && let Some(error) = object(&output.stderr)
-            {
-                return ToolOutcome::failed(error);
-            }
-            let failed = output.exit_code != 0;
-            let mut blocks = vec![output.stdout];
-            if !output.stderr.is_empty() {
-                blocks.push(output.stderr);
-            }
-            ToolOutcome::texts(blocks, failed)
-        }
-        Err(error) => extension_error(&error.diagnostic()),
+    let failed = output.exit_code != 0;
+    if !failed
+        && output.stderr.is_empty()
+        && let Some(payload) = object(&output.stdout)
+    {
+        return ToolOutcome::ok(payload);
     }
+    if failed
+        && output.stdout.is_empty()
+        && let Some(error) = object(&output.stderr)
+    {
+        return ToolOutcome::failed(error);
+    }
+    let mut blocks = vec![output.stdout];
+    if !output.stderr.is_empty() {
+        blocks.push(output.stderr);
+    }
+    ToolOutcome::texts(blocks, failed)
 }
 
 /// The core tool named `name`.
 pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
+}
+
+/// The name of the core tool `name` as `tools/list` lists it: the one way
+/// a prompt or the server's instructions name a tool. A name no core tool
+/// has is a SpecForge bug; the prompts' tests render every text that names
+/// one, so it fails there first.
+pub(crate) fn core_tool_name(name: &'static str) -> &'static str {
+    core_tool(name)
+        .map(|tool| tool.name)
+        .unwrap_or_else(|| panic!("SpecForge bug: no core tool is named {name}"))
 }
 
 /// `tools/call`: the core tool table, then the extension surface table (ADR
@@ -137,8 +145,8 @@ impl Surface for Tools {
 
     fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
         match found {
-            Found::Core(spec) => spec.target,
-            Found::Extension(_) => TargetSpec::SERVED,
+            Found::Core(spec) => spec.target(),
+            Found::Extension(_) => TargetSpec::SERVED_PROJECT,
         }
     }
 
@@ -148,8 +156,8 @@ impl Surface for Tools {
     ) -> Option<Event> {
         // The category it is listed with: no second lookup.
         let category = match found {
-            Found::Core(spec) => spec.category.as_str(),
-            Found::Extension(entry) => entry.category.as_str(),
+            Found::Core(spec) => spec.category().as_str(),
+            Found::Extension(entry) => Category::from(entry.group).as_str(),
         };
         let mut event = json!({
             "toolName": invocation.name,
@@ -183,20 +191,28 @@ impl Surface for Tools {
             // A mutation says what it wrote; `mutation::refresh` brings the
             // target up to date with it (inside the call), `mutation::report`
             // names its events and the files in its reply.
-            Found::Core(ToolSpec {
-                handler: Handler::Mutation { run, .. },
-                ..
-            }) => {
-                let mut mutated = run(call, arguments);
-                let root = mutation::refresh(call, &mut mutated);
+            // The reply is checked against its outputSchema after the refresh
+            // (which may add `diagnostics`) and before the report (so
+            // `mcp_mutation_completed.success` says what the client gets).
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Mutates { handler, .. },
+                    ..
+                },
+            ) => {
+                let mut replied = handler.run(call, arguments);
+                let root = mutation::refresh(call, &mut replied);
+                replied.outcome = conforming(spec, replied.outcome);
                 let (outcome, events) =
-                    mutation::report(&invocation.name, root.as_deref(), mutated);
+                    mutation::report(&invocation.name, root.as_deref(), replied);
                 Ran { outcome, events }
             }
-            Found::Core(ToolSpec {
-                handler: Handler::Tool { run, .. },
-                ..
-            }) => Ran::of(run(call, arguments)),
+            Found::Core(
+                spec @ ToolSpec {
+                    effect: Effect::Reads { handler, .. } | Effect::WritesOutput { handler, .. },
+                    ..
+                },
+            ) => Ran::of(conforming(spec, handler.run(call, arguments))),
             Found::Extension(entry) => {
                 let (outcome, dispatched) = extension_tool(call, entry, arguments);
                 Ran {
@@ -213,8 +229,8 @@ impl Surface for Tools {
     fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
         match found {
             // A refused mutation is a failed one: it wrote nothing, and says so.
-            Found::Core(spec) if matches!(spec.handler, Handler::Mutation { .. }) => {
-                let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
+            Found::Core(spec) if spec.is_mutation() => {
+                let (outcome, events) = mutation::report(spec.name, None, Replied::refused(error));
                 Ran { outcome, events }
             }
             _ => Ran::of(error.into()),
@@ -237,7 +253,7 @@ impl Surface for Tools {
     }
 
     fn envelope(
-        state: &McpState,
+        revision: Revision,
         found: &Found<&'static ToolSpec, ToolEntry>,
         invocation: &Invocation,
         outcome: ToolOutcome,
@@ -246,15 +262,24 @@ impl Surface for Tools {
         // A tool with an outputSchema: a core one, or an extension's that
         // declares one.
         let typed = match found {
-            Found::Core(spec) => spec.output.is_some(),
+            Found::Core(spec) => spec.output_schema().is_some(),
             Found::Extension(entry) => entry.output_schema().is_some(),
         };
         envelope(
             outcome.from_tool(&invocation.name),
             id,
-            state.sends_structured_content(),
+            revision.sends_structured_content(),
             typed,
         )
+    }
+}
+
+/// `outcome` when it conforms to `spec`'s outputSchema (a tool with none is
+/// not checked), else the `schema_mismatch` failure ([`crate::reply::conforming`]).
+fn conforming(spec: &ToolSpec, outcome: ToolOutcome) -> ToolOutcome {
+    match spec.output_schema() {
+        Some(schema) => crate::reply::conforming(spec.name, &schema, outcome),
+        None => outcome,
     }
 }
 
@@ -264,10 +289,11 @@ type Dispatched = Option<(&'static str, Value)>;
 /// An extension tool, found in the extension surface table, run by one of
 /// its two adapters over the `WasmRuntime` seam the call's project was
 /// compiled in: an explicit tool's `mcp__` export, or a command's `cmd__`
-/// export. Arguments its declaration refuses are refused first, the
-/// project resolved after; the dispatch event is the one to record when
-/// the export returned (whatever the result: a schema mismatch is a
-/// dispatched tool that failed).
+/// export. An explicit tool's arguments its declared schema refuses are
+/// refused first, the project resolved after; a command's arguments are
+/// normalized by its run, over the resolved project; the dispatch event is
+/// the one to record when the export returned (whatever the result: a schema
+/// mismatch is a dispatched tool that failed).
 fn extension_tool(
     call: &mut Call<'_>,
     entry: &ToolEntry,
@@ -295,25 +321,22 @@ fn extension_tool(
             )
         }
         ToolKind::Command(command) => {
-            let given = arguments.as_object().cloned().unwrap_or_default();
-            // The args the command line would send for the same input, or
-            // the command's own INVALID_INPUT object the CLI writes (D5).
-            let args = match command.normalize(&given) {
-                Ok(args) => args,
-                Err(refused) => return (ToolOutcome::failed(refused.to_json()), None),
-            };
             let project = match call.project() {
                 Ok(project) => project,
                 Err(refused) => return (refused.into(), None),
             };
-            command_adapter(
-                project.runtime.as_ref(),
-                project.graph(),
-                project.root,
-                specforge_ops::command::evidence(&project.view()),
+            // The run `specforge <ext> <command>` makes, over the call's
+            // project, always asked for json: the tool has no format
+            // argument (ADR 0011 A).
+            let given = arguments.as_object().cloned().unwrap_or_default();
+            let started = std::time::Instant::now();
+            let outcome = specforge_ops::command::run(
+                &project.view(),
                 command,
-                &args,
-            )
+                &given,
+                specforge_ops::command::CommandFormat::Json,
+            );
+            command_result(command, outcome, started)
         }
     }
 }
@@ -322,7 +345,7 @@ fn extension_tool(
 /// declares, before its module runs: `invalid_input` naming each
 /// violation (its schema is opaque JSON to the host, ADR 0004 D4-a).
 fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
-    let violations = crate::json_schema::violations(schema, arguments);
+    let violations = specforge_common::shape::violations(schema, arguments);
     if violations.is_empty() {
         return Ok(());
     }
@@ -361,7 +384,7 @@ fn mcp_tool_adapter(
             // An output the tool's own schema refuses is never served as
             // its structured result.
             Some(schema) => {
-                let violations = crate::json_schema::violations(schema, &value);
+                let violations = specforge_common::shape::violations(schema, &value);
                 if violations.is_empty() {
                     ToolOutcome::ok(value)
                 } else {
@@ -393,35 +416,32 @@ fn mcp_tool_adapter(
     (result, Some(("surface_mcp_tool_dispatched", event)))
 }
 
-/// An extension command: its `cmd__` export run with `args` (normalized
-/// by its derivation) over the call's graph, as `specforge <ext>
-/// <command>` runs it over the compiled one, always asked for json: the
-/// tool has no format argument (ADR 0011).
-fn command_adapter(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    graph: &specforge_graph::Graph,
-    root: &std::path::Path,
-    evidence: specforge_protocol_types::CommandEvidence,
+/// A command's run as a tool result, and its dispatch event when its export
+/// returned (whatever its exit code). Args the rule refuses are the
+/// command's own `INVALID_INPUT` object, the one the CLI writes; an export
+/// that did not answer is a structured MCP error carrying its E028 (ADR 0013
+/// D4); no dispatch is recorded for either.
+fn command_result(
     command: &specforge_ops::command::ExtensionCommand,
-    args: &serde_json::Map<String, Value>,
+    outcome: Result<specforge_protocol_types::CommandOutput, specforge_ops::command::RunError>,
+    started: std::time::Instant,
 ) -> (ToolOutcome, Dispatched) {
-    let context = specforge_ops::command::CommandContext {
-        evidence,
-        ..specforge_ops::command::CommandContext::now(specforge_ops::command::CommandFormat::Json)
-    };
-    let started = std::time::Instant::now();
-    let outcome =
-        specforge_ops::command::run_command(runtime, command, graph, args, root, &context);
-    // A command whose export returned is a dispatched command; a trap is
-    // the tool's error.
-    let dispatched = outcome.as_ref().ok().map(|output| {
-        let event = json!({
-            "extensionName": command.extension(),
-            "commandId": command.id(),
-            "exitCode": output.exit_code,
-            "durationMs": elapsed_ms(started),
-        });
-        ("surface_command_dispatched", event)
-    });
-    (command_tool_result(outcome), dispatched)
+    use specforge_ops::command::RunError;
+    match outcome {
+        Ok(output) => {
+            let event = json!({
+                "extensionName": command.extension(),
+                "commandId": command.id(),
+                "exitCode": output.exit_code,
+                "durationMs": elapsed_ms(started),
+            });
+            (
+                output_result(output),
+                Some(("surface_command_dispatched", event)),
+            )
+        }
+        Err(RunError::Args(refused)) => (ToolOutcome::failed(refused.to_json()), None),
+        Err(RunError::Call(error)) => (extension_error(&error.diagnostic()), None),
+        Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
+    }
 }

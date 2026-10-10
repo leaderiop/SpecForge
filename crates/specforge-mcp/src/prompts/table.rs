@@ -4,7 +4,6 @@
 
 use super::{context, explore, infer, review, trace};
 use crate::prompt::PromptSpec;
-use crate::target::TargetSpec;
 
 /// The Prompt spec of the prompt `$module` renders: its listing and its
 /// renderer's reading both derived from `$module::Args` (refused when they
@@ -15,9 +14,8 @@ macro_rules! prompt {
             name: $name,
             description: $description,
             arguments: <$module::Args as crate::args::Arguments>::declared,
-            target: TargetSpec::SERVED,
-            render: |call, arguments| {
-                $module::render(call, crate::args::read::<$module::Args>(&arguments)?)
+            render: |view, arguments| {
+                $module::render(view, crate::args::read::<$module::Args>(&arguments)?)
             },
         }
     };

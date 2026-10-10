@@ -1,10 +1,8 @@
 use crate::OutputFormat;
+use crate::outcome::Exit;
 use serde_json::json;
 use specforge_common::codes;
-use specforge_ops::doctor::{
-    BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, LOCK_UNREADABLE,
-    diagnose,
-};
+use specforge_ops::doctor::{About, BinaryIssue, DoctorReport, FindingStatus, Part, diagnose};
 use specforge_ops::view::ProjectView;
 use specforge_registry_client::credential_health::{
     CredentialHealth, CredentialLevel, user_credential_health,
@@ -13,19 +11,19 @@ use std::path::Path;
 
 /// `specforge doctor`: the shared project health report (extensions and
 /// their enhancements, conflicts, shadowed keywords, installed binaries)
-/// plus registry credential health. Exit 1 on any error-level finding.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+/// plus registry credential health. Exit 1 on any error-level finding or
+/// credential failure.
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
+    let project = crate::pipeline::compile_project(path);
     let report = diagnose(&ProjectView::of(&project));
     let credentials = user_credential_health();
-    let healthy = !report.has_errors();
 
     match format {
         OutputFormat::Json => {
-            let mut output = serde_json::to_value(&report).expect("serialize doctor report");
-            output["status"] = json!(if healthy { "healthy" } else { "issues_found" });
-            output["credentials_failures"] = json!(credentials.failures);
+            let mut output =
+                serde_json::to_value(report.document()).expect("a document serializes");
             output["credentials"] = json!(credentials.lines);
+            output["credentials_failures"] = json!(credentials.failures);
             println!(
                 "{}",
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
@@ -34,11 +32,8 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         OutputFormat::Human => print!("{}", render_human(&report, &credentials)),
     }
 
-    if healthy && credentials.failures == 0 {
-        0
-    } else {
-        1
-    }
+    // Doctor checks the project and the user's credentials: both must pass.
+    Exit::of_verdict(report.ok() && credentials.failures == 0)
 }
 
 /// The human report: one section per report part, then credentials.
@@ -50,13 +45,7 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     }
     // The config itself, when doctor has something to say about it (E069,
     // or no specforge.json at the root).
-    let config: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| {
-            CONFIG_CODES.iter().any(|code| code.matches(&f.code)) || f.code == CONFIG_MISSING
-        })
-        .collect();
+    let config: Vec<_> = report.about(Part::Config).collect();
     if !config.is_empty() {
         line!("Configuration:");
         for finding in config {
@@ -72,11 +61,7 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     }
 
     // The lock file, when it exists and cannot be read (E033).
-    let lock: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| f.code == LOCK_UNREADABLE)
-        .collect();
+    let lock: Vec<_> = report.about(Part::Lock).collect();
     if !lock.is_empty() {
         line!("Lock file:");
         for finding in lock {
@@ -119,42 +104,57 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
 
     line!();
     line!("Conflicts:");
-    if report.conflicts.is_empty() {
+    let mut conflicts = report.conflicts().peekable();
+    if conflicts.peek().is_none() {
         line!("  none");
     }
-    for conflict in &report.conflicts {
-        line!("  [{}] {}", conflict.code, conflict.message);
-        line!("    fix: {}", conflict.suggestion);
+    for conflict in conflicts {
+        line!("  [{}] {}", conflict.code, conflict.check);
+        line!("    fix: {}", conflict.remediation);
     }
 
     line!();
     line!("Shadowed constructs:");
-    if report.shadowed.is_empty() {
+    let mut shadowed = report.about(Part::Shadowing).peekable();
+    if shadowed.peek().is_none() {
         line!("  none");
     }
-    for shadow in &report.shadowed {
-        line!(
-            "  '{}' [{}] {}",
-            shadow.keyword,
-            shadow.code,
-            shadow.message
-        );
+    for shadow in shadowed {
+        let About::Shadowing { keyword } = &shadow.about else {
+            continue;
+        };
+        line!("  '{keyword}' [{}] {}", shadow.code, shadow.check);
+    }
+
+    line!();
+    line!("Peer requirements:");
+    let mut peers = report.about(Part::Peer).peekable();
+    if peers.peek().is_none() {
+        line!("  all satisfied");
+    }
+    for problem in peers {
+        line!("  [{}] {}", problem.code, problem.check);
+        line!("    fix: {}", problem.remediation);
     }
 
     line!();
     line!(
         "Installed binaries ({} lock entr{} checked):",
-        report.extensions_checked,
-        if report.extensions_checked == 1 {
+        report.installed_count,
+        if report.installed_count == 1 {
             "y"
         } else {
             "ies"
         }
     );
-    if report.issues.is_empty() {
+    let mut binaries = report.about(Part::Binary).peekable();
+    if binaries.peek().is_none() {
         line!("  All installed binaries healthy.");
     }
-    for issue in &report.issues {
+    for finding in binaries {
+        let About::Binary { issue } = &finding.about else {
+            continue;
+        };
         match issue {
             BinaryIssue::MissingBinary { name } => {
                 line!("  [MISSING] {name} — .wasm binary not found");
@@ -169,34 +169,19 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
                 &expected[..8.min(expected.len())],
                 &actual[..8.min(actual.len())]
             ),
-            BinaryIssue::PeerMismatch {
-                name,
-                peer,
-                required,
-                installed,
-            } => match installed {
-                Some(version) => {
-                    line!("  [PEER] {name} — requires {peer} {required}, installed '{version}'")
-                }
-                None => line!("  [PEER] {name} — requires {peer} {required}, not installed"),
-            },
         }
     }
 
     line!();
     line!("Extension load failures:");
     // A missing or changed binary is listed above, once, with its remedy.
-    let failures: Vec<_> = report
-        .load_failures
-        .iter()
-        .filter(|failure| !failure.binary_issue)
-        .collect();
-    if failures.is_empty() {
+    let mut failures = report.about(Part::Load).peekable();
+    if failures.peek().is_none() {
         line!("  none");
     }
     for failure in failures {
-        line!("  [{}] {}", failure.code, failure.message);
-        line!("    fix: {}", failure.suggestion);
+        line!("  [{}] {}", failure.code, failure.check);
+        line!("    fix: {}", failure.remediation);
     }
     if !report.z3_available {
         line!();
@@ -287,22 +272,20 @@ mod tests {
             ProjectView::new(&graph, &env, Some(dir.path()), &recorded).reporting(&diagnostics);
         let report = specforge_ops::doctor::diagnose_with(&view, true);
 
-        let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
+        let conflicts: Vec<_> = report.about(Part::Conflict).collect();
+        let codes: Vec<&str> = conflicts.iter().map(|c| c.code.as_str()).collect();
         assert_eq!(codes, ["E026", "W018"]);
         // No suggestion of its own: the catalogued explanation stands in.
         assert!(
-            report.conflicts[0]
-                .suggestion
+            conflicts[0]
+                .remediation
                 .ends_with("Rename the conflicting kind keyword."),
             "{:?}",
-            report.conflicts[0]
+            conflicts[0]
         );
         // The diagnostic's own suggestion wins.
-        assert_eq!(
-            report.conflicts[1].suggestion,
-            "rename one of the edge types"
-        );
-        assert!(report.has_errors(), "an error-level conflict fails doctor");
+        assert_eq!(conflicts[1].remediation, "rename one of the edge types");
+        assert!(!report.ok(), "an error-level conflict fails doctor");
 
         let none = CredentialHealth {
             lines: Vec::new(),

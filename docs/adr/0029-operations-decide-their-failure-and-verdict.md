@@ -45,7 +45,7 @@ nearest project, else the directory itself" on their own.
   migrate act on it on both surfaces, a directory that is no project included; migrate compiles the
   root it migrates, so a migration started from a sub-path runs the project's hooks.
 - **D7.** Export's schema-cache protocol is `ops::export::export_recorded` (as ADR 0018 D1 for check);
-  MCP still never records (ADR 0015 D10). An extension command's date is `CommandContext::now`. MCP's
+  MCP still never records (ADR 0015 D10). An extension command's date is read by the operation that runs it (`specforge_ops::command::run`, ADR 0011 O1). MCP's
   no-project refusal reads `McpError::file`, never its message; `Reach::takes_path` is the one predicate
   for an entry that takes a `path`.
 - **D8. MCP resolves a relative `test_results` against the call's project root**, as the paths of
@@ -63,6 +63,26 @@ nearest project, else the directory itself" on their own.
   `migrate --path <sub>` runs the project's hooks. Exit codes are unchanged.
 - The parity harness compares verdicts: the CLI's exit code and MCP's `ok` cannot disagree for check,
   analyze, format and migrate.
+
+## Amendment (architecture round 5, plan 15)
+
+- **D3a. Analyze's verdict includes its coverage gate; doctor carries one.** `AnalyzeOutcome::verdict()`
+  (`specforge_ops::RunVerdict`: passed, failed, unjudged) folds in the `min` gate: below it fails (E048), a
+  coverage pass that gave no figure leaves the run unjudged (E068), and a minimum the coverage pass will not
+  answer is refused before any pass runs (E068). The analysis document carries `gate`; under `--json` nothing
+  goes to stderr. `specforge.analyze` takes `min`; an unjudged gate there is `ok: false` with
+  `gate.status: "unjudged"`, not an error. `DoctorReport::ok()` is doctor's verdict; `specforge doctor` exits by
+  it and the user's credential health, which only the CLI shows.
+- **D4a. A core command's `run` returns `Exit`.** `main` alone turns it into a process code; `Refusal::report`
+  returns `Exit`, and `RunVerdict` (`specforge_ops`) is the verdict an operation that can be unjudged returns.
+  Extension commands keep their own code (ADR 0011). The build-cache write failure, the watch start failure
+  and an unknown `explain` code are refusals (`error[CODE]`).
+- **D5a. Collect's precondition is the operation's.** `collect` refuses a root that holds no project
+  (`no_project`, `OpError::no_project`) on both surfaces; the CLI finds the root by D6's rule
+  (`project_root_of`), so MCP answers `no_project` where it answered E058 for a directory that is no project.
+- **D8a. MCP resolves a relative `out_dir` of `specforge.render` against the call's project root** as it does
+  `test_results`; with no project served a relative one is invalid input on `out_dir`. `output_files` lists
+  absolute paths.
 
 ## What would reopen it
 

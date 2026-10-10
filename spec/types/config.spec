@@ -49,65 +49,143 @@ type ProviderConfig {
 
 // ── Registry Types ──────────────────────────────────────────
 
+// One entry of specforge.json's registries. The registry for a package name
+// is the first entry whose scope_filter is its scope, else the first marked
+// default_registry; none is R-OPS-001 (ADR 0045). A credential is kept per
+// alias in ~/.specforge, never here.
 type RegistryConfig {
-  alias        string             @readonly @unique
-  url          string
-  scope_filter string[]           @optional
-  credential   RegistryCredential @optional
+  alias            string  @readonly @unique
+  url              string
+  scope_filter     string  @optional
+  default_registry boolean @optional
   verify unit "RegistryConfig schema is valid"
 }
 
-type RegistryResponse {
-  extension_name      string             @readonly
-  description         string             @optional
-  latest_version      string
-  versions            string[]
-  contributes_summary ContributesSummary @optional
-  peer_dependencies   string[]           @optional
-  downloads           integer            @optional
-  published_at        string             @optional
-  wasm_size_bytes     integer            @optional
-  sha256              string             @optional
-  verify unit "RegistryResponse schema is valid"
+// ── Package registry wire (ADR 0044) ─────────────────────────
+// The JSON a package registry serves and a client reads
+// (specforge_registry_wire): one definition each, compiled into both
+// specforge-registry-server and specforge-registry-client.
+
+// GET {base}/packages/{name}: every version not yanked, oldest first.
+type VersionList "Version List" {
+  name     string
+  versions string[]
+  verify unit "VersionList is the JSON a registry serves for a package's versions"
 }
 
-type ContributesSummary {
-  entities     integer @optional
-  edges        integer @optional
-  ref_schemes  integer @optional
-  validators   integer @optional
-  renderers    integer @optional
-  providers    integer @optional
-  graph_views  integer @optional
-  collectors   integer @optional
-  prompts      integer @optional
-  parsers      integer @optional
-  grammars     integer @optional
-  body_parsers integer @optional
-  verify unit "ContributesSummary schema is valid"
+// GET {base}/packages/{name}/{version}: what a registry stores for one
+// version. signature, key_id and manifest are absent when empty.
+type PackageMetadata "Package Metadata" {
+  name         string
+  version      string
+  sha256       string
+  size_bytes   integer  @optional
+  description  string   @optional
+  keywords     string[] @optional
+  publisher    string   @optional
+  published_at string   @optional
+  wasm_url     string
+  signature    string   @optional
+  key_id       string   @optional
+  manifest     string   @optional
+  verify unit "PackageMetadata is the JSON a registry serves for one version"
 }
 
-type RegistrySearchResult {
-  results     RegistryResponse[]
-  total_count integer
-  query       string
-  verify unit "RegistrySearchResult schema is valid"
+type SearchHit "Search Hit" {
+  name        string
+  version     string
+  description string @optional
+  verify unit "SearchHit is the JSON of one search hit"
 }
 
-type TrustLevel = verified | community | local | git
+// GET {base}/search's query (specforge_registry_wire::SearchQuery): what to
+// look for, at most how many (50 when absent), and a declared category a
+// package must declare.
+type SearchQuery "Search Query" {
+  q           string
+  limit       integer @optional
+  contributes string  @optional
+  verify unit "SearchQuery is the query string a registry search reads"
+}
+
+// GET {base}/search?q=&limit=&contributes=: the latest version of each
+// matching package; contributes keeps those whose declaration declares that
+// category.
+type SearchResults "Search Results" {
+  results SearchHit[]
+  verify unit "SearchResults is the JSON a registry answers a search with"
+}
+
+// PUT {base}/packages/{name}/{version}, answered 201.
+type PublishReceipt "Publish Receipt" {
+  name       string
+  version    string
+  sha256     string
+  size_bytes integer
+  key_id     string
+  verify unit "PublishReceipt is the JSON a registry answers a publish with"
+}
+
+// POST {base}/auth/verify.
+type TokenVerified "Token Verified" {
+  valid      boolean
+  scope      string @optional
+  label      string
+  expires_at string @optional
+  verify unit "TokenVerified is the JSON a registry answers a token check with"
+}
+
+// Every error answer: {"error": {"code", "message"}}.
+type RegistryErrorBody "Registry Error Body" {
+  code    string
+  message string
+  verify unit "RegistryErrorBody is the JSON of every registry error"
+}
+
+// What the Registry port's fetch hands an operation: a package that passed
+// the fetch policy (specforge_ops::registry::Package; its binary omitted here).
+type RegistryPackage "Registry Package" {
+  name        PackageName
+  version     string
+  sha256      string
+  declaration ExtensionDeclaration
+  key_id      string @optional
+  verify unit "RegistryPackage is what a package that passed the fetch policy hands an operation"
+}
+
+// What the Registry port's search answers (specforge_ops::registry::Searched):
+// each package found, with the registry it was found in, and the diagnostic
+// of each registry that failed.
+type RegistrySearched "Registry Searched" {
+  found    SearchHit[]
+  failures Diagnostic[]
+  asked    integer
+  verify unit "RegistrySearched is what a search over the configured registries answers with"
+}
+
+// What the Registry port's publish answers: the registry that took the
+// package and the publisher key it is signed with (specforge_ops::registry::Published).
+type RegistryPublished "Registry Published" {
+  registry    string
+  url         string
+  key_id      string
+  key_created boolean
+  verify unit "RegistryPublished is what the registry that took a publish answers with"
+}
 
 // ── Registry Authentication ───────────────────────────────
 
-// At least one of token_env_var or token_file MUST be present.
-// Validation rule: authenticate_registry_request MUST emit E-level diagnostic if both are absent.
-type AuthMethod = bearer | basic | custom
-
-type RegistryCredential {
-  alias         string @readonly @unique
-  scope         string
-  token_env_var string @optional
-  token_file    string @optional
-  auth_method   AuthMethod
+// One entry of ~/.specforge/credentials.json, keyed by registry alias:
+// where that registry's token comes from. Never in specforge.json. At most
+// one of token_env and token_file is set; with neither, login stored the
+// secret (in the OS keyring when in_keyring, else in a 0600 file under
+// ~/.specforge/secrets/).
+type RegistryCredential "Registry Credential" {
+  alias      string  @readonly @unique
+  token_env  string  @optional
+  token_file string  @optional
+  in_keyring boolean @optional
+  expires_at string  @optional
   verify unit "RegistryCredential schema is valid"
 }
 

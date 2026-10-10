@@ -19,6 +19,10 @@ expression: extension_listings(&mut server)
   ],
   "tools": [
     {
+      "annotations": {
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "category": "core",
       "description": "Explicit check tool",
       "inputSchema": {
@@ -41,6 +45,10 @@ expression: extension_listings(&mut server)
       "source": "@test/cmds"
     },
     {
+      "annotations": {
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "category": "core",
       "description": "Write a coverage report",
       "inputSchema": {

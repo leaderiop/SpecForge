@@ -9,21 +9,57 @@ expression: "normalized(result, root)"
   "diagnostics": [
     {
       "code": "W001",
+      "column": 1,
+      "file": "main.spec",
+      "line": 7,
       "message": "behavior 'logout' does not implement any feature",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "suggestion": null,
+      "title": "Behavior implements no feature"
     },
     {
       "code": "W004",
+      "column": 1,
+      "file": "main.spec",
+      "line": 7,
       "message": "behavior 'logout' is testable but declares no verify obligations",
+      "origin": "@specforge/testing",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "suggestion": null,
+      "title": "Untested testable entity"
     },
     {
       "code": "W006",
+      "column": 1,
+      "file": "main.spec",
+      "line": 7,
       "message": "behavior 'logout' has no category — agents use category for task routing",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "main.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "suggestion": null,
+      "title": "Behavior missing category"
     }
   ],
   "entity_id": "logout",
@@ -33,9 +69,7 @@ expression: "normalized(result, root)"
   },
   "kind": "behavior",
   "obligated": true,
-  "reference_count": 0,
   "referenced_by": [],
-  "references": [],
   "refers_to": [],
   "source_extension": "@specforge/software",
   "source_span": {
@@ -46,6 +80,5 @@ expression: "normalized(result, root)"
     "start_line": 7
   },
   "testable": true,
-  "title": "Log out",
-  "verify_declarations": null
+  "title": "Log out"
 }

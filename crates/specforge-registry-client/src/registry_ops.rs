@@ -1,86 +1,19 @@
 #![allow(clippy::result_large_err)]
 
-use std::collections::HashSet;
-
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, codes};
 
-use super::registry_client::{
-    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
-};
+use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_protocol_types::package::Version;
-use specforge_protocol_types::{ExtensionDeclaration, PackageName};
+use specforge_registry_wire::PackageMetadata;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
-}
-
-/// Fetch `name` at `version` from `registry`, the one registry the caller
-/// chose (the client chooses nothing).
-///
-/// Returns a `Diagnostic` on failure (network error, not found, etc.); a
-/// network error carries retry guidance.
-pub fn resolve_from_registry(
-    name: &PackageName,
-    version: &Version,
-    registry: &RegistryConfig,
-    client: &dyn RegistryClient,
-) -> Result<RegistryResponse, Diagnostic> {
-    client.fetch(name, version, registry).map_err(|e| {
-        let mut diag = e.to_diagnostic();
-        // Append retry guidance for network errors
-        if matches!(
-            e,
-            RegistryError::NetworkError { .. } | RegistryError::Timeout { .. }
-        ) && let Some(ref mut s) = diag.suggestion
-        {
-            s.push_str(" You may retry the operation.");
-        }
-        diag
-    })
-}
-
-/// Search ALL configured registries, dedup by name+version, sort by name.
-///
-/// Errors from individual registries are collected but do not abort the search.
-pub fn search_registries(
-    query: &str,
-    registries: &[RegistryConfig],
-    client: &dyn RegistryClient,
-) -> (Vec<RegistrySearchResult>, Vec<Diagnostic>) {
-    let mut all_results = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut seen = HashSet::new();
-
-    for registry in registries {
-        match client.search(query, registry) {
-            Ok(results) => {
-                for result in results {
-                    let key = (result.name.clone(), result.version.clone());
-                    if seen.insert(key) {
-                        all_results.push(result);
-                    }
-                }
-            }
-            Err(e) => {
-                let mut diag = e.to_diagnostic();
-                diag.message = format!(
-                    "Search failed on registry '{}': {}",
-                    registry.alias, diag.message
-                );
-                diagnostics.push(diag);
-            }
-        }
-    }
-
-    // Sort deterministically by name, then version
-    all_results.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.version.cmp(&b.version)));
-
-    (all_results, diagnostics)
 }
 
 /// Publish to a registry, optionally signing the package.
@@ -91,22 +24,22 @@ pub fn search_registries(
 /// When `signing` is provided, the upload carries a [`PackageSignature`] over
 /// `{name, version, wasm_sha256, manifest_sha256, signed_at}`.
 /// `credential`, when provided, authenticates the upload.
-/// Rejects duplicate versions unless `force` is true. Returns the registry URL on success.
+/// A version the registry already holds is refused by the registry (R007): a
+/// published version is immutable. Returns the registry URL on success.
 pub fn publish_to_registry(
     package: &[u8],
     declaration: &ExtensionDeclaration,
     registry: &RegistryConfig,
     credential: Option<&RegistryCredential>,
     client: &dyn RegistryClient,
-    force: bool,
     signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
     // What is published is a package: a name and a version (ADR 0036).
     let invalid = |message: String| RegistryError::InvalidPackage { message }.to_diagnostic();
-    let name = declaration
+    declaration
         .package_name()
         .map_err(|why| invalid(why.to_string()))?;
-    let version = Version::parse(declaration.version()).map_err(|why| {
+    Version::parse(declaration.version()).map_err(|why| {
         invalid(format!(
             "'{}' is not a SemVer version: {why}",
             declaration.version()
@@ -132,25 +65,6 @@ pub fn publish_to_registry(
         );
         serde_json::to_string(&signature).expect("signature serialization cannot fail")
     });
-
-    // First, check if the version already exists by trying to fetch it
-    if !force {
-        match client.fetch(&name, &version, registry) {
-            Ok(_) => {
-                return Err(RegistryError::DuplicateVersion {
-                    name: declaration.name().to_string(),
-                    version: declaration.version().to_string(),
-                }
-                .to_diagnostic());
-            }
-            Err(RegistryError::NotFound { .. }) => {
-                // Good — version doesn't exist yet
-            }
-            Err(_) => {
-                // Other errors during existence check: proceed with publish attempt
-            }
-        }
-    }
 
     client
         .publish(
@@ -198,7 +112,7 @@ pub enum TrustCheck {
 /// tampered manifest, wrong key, or metadata inconsistency between the
 /// server-extracted key id and the signature object.
 pub fn verify_package_signature(
-    response: &RegistryResponse,
+    response: &PackageMetadata,
     wasm_bytes: &[u8],
 ) -> Result<TrustCheck, Diagnostic> {
     if response.signature.is_empty() {

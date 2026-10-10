@@ -33,9 +33,8 @@ expression: mcp_snap
       "specforge.json",
       "specforge.lock"
     ],
-    "orphan_warnings": [],
     "removed_extension": "@sdk/greet",
-    "success": true,
+    "stranded": [],
     "version": "0.1.0"
   }
 }

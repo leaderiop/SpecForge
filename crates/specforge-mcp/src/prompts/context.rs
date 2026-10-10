@@ -4,8 +4,8 @@ use serde_json::{Value, json};
 
 use crate::args::{Arguments, EntityIds};
 use crate::prompt::{PromptOutcome, Rendered};
-use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
+use specforge_ops::view::ProjectView;
 
 /// `specforge://prompts/context`'s arguments.
 #[derive(Debug, Arguments)]
@@ -16,8 +16,7 @@ pub struct Args {
     structural_constraints: EntityIds,
 }
 
-pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
-    let view = call.view();
+pub fn render(view: ProjectView<'_>, args: Args) -> PromptOutcome {
     let graph = view.graph();
     let entity_id = args.entity_id.as_str();
     // The inspect read view, without the reported diagnostics (the prompt

@@ -84,7 +84,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 }
 ```
 
-Peer dependencies order extension loading (peers load first, ties by name) and are checked against the loaded versions (E027). A cycle among **required** peers is E027. **Optional** peers are only a preference: extensions may name each other as optional peers, and the host adds the optional edges after the required ones in name order, skipping any that would close a cycle. A rule on another extension's kind that this one works without uses the rule's `target_extension` (see "Category: validation_rules"), not a peer.
+Peer dependencies are SemVer ranges read as Cargo reads them; one rule judges them against the loaded versions (E027; a range that is not SemVer is E073, ADR 0041). Extensions load in `specforge.json` order, except that each loads after its peers. A cycle among **required** peers is one E027 naming its extensions. **Optional** peers are only a preference: extensions may name each other as optional peers, and the host adds the optional edges after the required ones in name order, skipping any that would close a cycle. A rule on another extension's kind that this one works without uses the rule's `target_extension` (see "Category: validation_rules"), not a peer.
 
 `protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the extension then runs under the host's ceiling; see Sandbox). The others are optional and omitted when absent:
 
@@ -537,7 +537,7 @@ table below and the goldens in `crates/specforge-wasm/tests/wire/`.
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version", "supported_categories"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}` | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |

@@ -1,6 +1,7 @@
 use specforge_registry_client::credentials::{
     CredentialEntry, CredentialStore, read_credentials, write_credentials,
 };
+use specforge_registry_client::{RegistryCredential, RegistryError};
 use tempfile::TempDir;
 
 #[test]
@@ -54,12 +55,38 @@ fn get_credential_returns_bearer() {
         },
     );
 
-    let cred = store.get_credential("myregistry").unwrap();
+    let cred = store.credential("myregistry").unwrap().unwrap();
     assert_eq!(cred.alias, "myregistry");
-    match cred.auth_method {
-        specforge_registry_client::AuthMethod::Bearer(t) => assert_eq!(t, "my_token"),
-        _ => panic!("expected Bearer"),
+    assert_eq!(cred.token(), "my_token");
+}
+
+#[specforge_test_macros::test(
+    behavior = "authenticate_registry_request",
+    verify = "raw tokens never logged or stored in config"
+)]
+fn a_credentials_debug_never_shows_its_token() {
+    let credential = RegistryCredential::new("a", "secret-token-value");
+    let shown = format!("{credential:?}");
+    assert!(shown.contains("****"), "{shown}");
+    assert!(!shown.contains("secret"), "{shown}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "authenticate_registry_request",
+    verify = "a 401 is R001 naming how to log in again"
+)]
+fn a_401_is_r001_naming_how_to_log_in_again() {
+    let diagnostic = RegistryError::Unauthorized {
+        guidance: "token expired or invalid".to_string(),
     }
+    .to_diagnostic();
+    assert_eq!(diagnostic.code, "R001");
+    assert!(
+        diagnostic
+            .suggestion
+            .unwrap()
+            .contains("specforge login --registry"),
+    );
 }
 
 #[test]

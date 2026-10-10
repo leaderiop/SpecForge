@@ -18,7 +18,10 @@ the compiler must not know (principle 2): union `variants`, `abstract`, the `inv
   syntax is shared (`diagram.rs`): DOT strings, record fields and HTML labels, Mermaid strings and
   names, Markdown cells, DBML names and strings, and the bare identifier an extension name becomes.
   A DBML reference is one named `Ref`, written only between columns the output writes. The legacy
-  flat re-exports are gone: callers use `emit` or a format module.
+  flat re-exports are gone: callers use `emit`; a format module keeps an entry point of its own
+  only where a caller needs what `emit` does not take (`json::emit_json`'s plain graph for an
+  extension command, `dot::emit_dot` with `DotOptions`). `emit_brief` and `emit_context` are gone
+  (round 5, plan 15).
 - **specforge-project**: `compile` (graph checks, `load_extensions`, Wasm custom rules),
   `field_types`, `passes` (extension compiler passes), `coverage` (the host's coverage view and
   the test report format).
@@ -59,6 +62,36 @@ member that happens to be named `status` on an open-fields kind (a `type`) is no
 as the entity's status, as `abstract` already exempts nothing unless declared; MCP's `contract`
 likewise.
 
+## The model and the outline are one call each (amendment, architecture round 5, plan 14)
+
+`specforge_emitter::model::export(schema, declarations, options)` draws the logical data model:
+build, theme colours from the declarations, the selection (`extension`, `kinds`, and a `root` with
+its `depth`), the field level, and the format with its grouping. `specforge_emitter::outline::export(
+declarations, options)` draws the extension outline: the cards, the dependencies `deps` selects (in
+every format, JSON included), the enhancements and the cross-extension edges. Their intermediate
+representations, builders, filters and renderers are private. The JSON format is still the model's
+intermediate representation, serialized. Before, callers composed five public steps
+(`ModelIntermediate_from_schema`, `with_theme_colors`, `filter_entities`, `filter_fields`, `render`),
+and `render` took filters it never read.
+
+They stay beside `emit`, not in its table. `emit` exports a graph's entities: scope, depth, kinds and
+token budget over a `Graph`. The model and the outline draw what the extensions declare, from a schema
+and the declarations, with options `emit` has no use for (grouping, field level, dependency depth). A
+shared entry point would only dispatch between two unrelated inputs and option sets.
+
+Both exports are total: a name the schema does not have selects nothing. Requests are checked by the
+operation over the project view (`specforge_ops::model::model`, ADR 0015 Q3):
+- a root kind no loaded extension declares is `unknown_kind`;
+- an extension the project does not load is `extension_not_found`;
+- a kind of `kinds` the project does not know is an I020 notice.
+
+The operation returns `ModelOutcome { document, notices }`. `ModelOptions` cannot express a depth
+without a root (`ModelRoot { kind, depth }`), and an empty `kinds` selects every kind.
+
+What would reopen it: a third consumer that needs the model's intermediate representation itself
+rather than a drawing of it (an editor view of the model, say), or a format that needs both the graph
+and the schema.
+
 ## Known gaps
 
 - ~~**The prove pass** (`specforge_ops::prove`) is host-side because z3 is native. It reads
@@ -82,3 +115,10 @@ likewise.
 - ~~**`specforge-cli/src/product`** implements product queries natively.~~ Closed by
   [ADR 0008](0008-extension-commands-run-over-the-graph.md): they are `@specforge/product`'s commands.
 - The model's DOT cluster ids strip the `@specforge/` scope (snapshot-locked output).
+
+## Amendment (architecture round 5, plan 16): an extension's counts are what the model draws
+
+An extension's `entity_count` is the kinds it declares that the model keeps, and its `edge_count` the edge types
+it declares that name at least one relationship the model draws: one rule before and after a selection. A
+standalone edge type (no source or target kinds) draws nothing and is not counted, and an extension that keeps no
+kind still counts its enhancement edge types between kept kinds. The markdown summary's "N edge types" is the sum.

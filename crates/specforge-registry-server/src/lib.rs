@@ -9,3 +9,5 @@ mod publish;
 pub mod rate;
 pub mod state;
 pub mod storage;
+#[cfg(feature = "testing")]
+pub mod testing;

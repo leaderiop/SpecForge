@@ -14,7 +14,7 @@ const PALETTE: &[(&str, &str, &str, &str)] = &[
     ("#e0f2f1", "#00695c", "#26a69a", "#004d40"), // teal
 ];
 
-pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
+pub(super) fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
     let mut edge_count: usize = 0;
 

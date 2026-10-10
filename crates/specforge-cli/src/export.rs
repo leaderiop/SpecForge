@@ -4,7 +4,7 @@ use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use crate::pipeline;
 
 /// Export the project compiled at `path` to stdout. Before it writes, the
@@ -15,29 +15,14 @@ use crate::pipeline;
 /// the version the export carries. After a successful export that schema
 /// replaces the cache, so the next export compares against it. The export
 /// is written whatever the comparison finds.
-pub fn run(
-    path: &Path,
-    format: export::Format,
-    scope: Option<&str>,
-    schema: export::Schema,
-    schema_version: Option<&str>,
-    max_tokens: Option<usize>,
-) -> i32 {
-    let (project, _runtime) = pipeline::compile_project(path);
+pub fn run(path: &Path, request: &export::Request) -> Exit {
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
-    let request = export::Request {
-        format: Some(format),
-        scope,
-        max_tokens,
-        schema,
-        schema_version,
-        ..export::Request::default()
-    };
     // The export goes to stdout: there is no output directory holding
     // earlier exports, and `.specforge/` holds extensions and the watch
     // snapshot too, so nothing here shows the project was exported before.
-    let recorded = export::export_recorded(&view, &request);
+    let recorded = export::export_recorded(&view, request);
     for diagnostic in &recorded.breaking {
         eprintln!("{}", specforge_common::render_plain(diagnostic));
     }
@@ -53,7 +38,7 @@ pub fn run(
             dir.display()
         );
     }
-    0
+    Exit::Passed
 }
 
 /// `specforge schema`: the schema operation over the project compiled at
@@ -61,8 +46,8 @@ pub fn run(
 /// the document `specforge.schema` returns for the same request, pretty
 /// printed. With `publish`, the JSON Schema an export of that format
 /// conforms to. An unknown kind is refused with the closest one (exit 1).
-pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> i32 {
-    let (project, _runtime) = pipeline::compile_project(path);
+pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::Format>) -> Exit {
+    let project = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
     let output = match publish {
         Some(format) => specforge_ops::schema::json_schema(&view, format),
@@ -72,7 +57,7 @@ pub fn run_schema(path: &Path, request: &SchemaRequest, publish: Option<export::
     match output {
         Ok(text) => {
             println!("{text}");
-            0
+            Exit::Passed
         }
         Err(error) => Refusal::of(OutputFormat::Human).report(&error),
     }

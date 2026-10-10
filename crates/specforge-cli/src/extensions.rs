@@ -1,4 +1,5 @@
 use crate::OutputFormat;
+use crate::outcome::Exit;
 use serde_json::json;
 use specforge_ops::extension;
 use specforge_ops::view::ProjectView;
@@ -7,13 +8,13 @@ use std::path::Path;
 /// `specforge extensions`: every extension the project enables, has
 /// installed or loaded, alphabetically, with the entity kinds each
 /// registered and how many of the project's entities use them.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let (project, _runtime) = crate::pipeline::compile_project(path);
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
+    let project = crate::pipeline::compile_project(path);
     let entries = extension::list(&ProjectView::of(&project)).extensions;
 
     match format {
         OutputFormat::Json => {
-            let items: Vec<serde_json::Value> = entries.iter().map(|e| e.to_json()).collect();
+            let items: Vec<_> = entries.iter().map(|e| e.info()).collect();
             let output = json!({
                 "extensions": items,
                 "count": items.len(),
@@ -28,7 +29,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
                 println!("No extensions installed.");
                 println!();
                 println!("Install one with: specforge add <extension>");
-                return 0;
+                return Exit::Passed;
             }
             println!("Installed extensions:");
             println!();
@@ -62,5 +63,5 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         }
     }
 
-    0
+    Exit::Passed
 }

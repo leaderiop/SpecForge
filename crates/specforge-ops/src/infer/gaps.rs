@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-use specforge_wasm::runtime::WasmRuntime;
+
+use specforge_common::shape::Shape;
 
 use super::ScanFailure;
 use super::discovery::source_files;
@@ -72,13 +72,18 @@ pub fn compute_gap_report(
 }
 
 /// The public items of the view's source files that no entity of its
-/// graph names, scanned through its extensions' scanners on `runtime`.
-/// Without a root: `no_project`.
-pub fn gaps(view: &ProjectView, runtime: &dyn WasmRuntime) -> Result<Gaps, OpError> {
+/// graph names, scanned through its extensions' scanners in the view's
+/// runtime. Without a root: `no_project`.
+pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     let root = view.project_root()?;
     let declarations = view.registries().declarations();
     let files = source_files(root, declarations, &InferenceManifest::at(root)?);
-    let scanned = crate::scan::scan_source_files(runtime, declarations, root, &files);
+    let scanned = crate::scan::scan_source_files(
+        view.runtime().map(|r| r.as_ref()),
+        declarations,
+        root,
+        &files,
+    );
     let entity_ids: Vec<&str> = view
         .graph()
         .nodes()
@@ -116,40 +121,82 @@ impl Gaps {
 
     /// The document both surfaces answer with (the spec's
     /// `InferenceGapReport`): totals, then each directory's items.
-    pub fn to_json(&self) -> Value {
-        let by_directory: Vec<Value> = self
-            .by_directory
-            .iter()
-            .map(|(dir, gaps)| {
-                json!({
-                    "directory": dir,
-                    "count": gaps.len(),
-                    "items": gaps.iter().map(|g| json!({
-                        "name": g.name,
-                        "item_kind": g.item_kind,
-                        "file": g.file,
-                        "line": g.line,
-                    })).collect::<Vec<_>>(),
+    pub fn document(&self) -> GapsDocument {
+        GapsDocument {
+            total_pub_items: self.total_pub_items,
+            covered_items: self.covered_items,
+            gap_count: self.gap_count(),
+            approximate: self.approximate,
+            scanners_used: self.scanners_used.clone(),
+            scan_failures: self
+                .scan_failures
+                .iter()
+                .map(|failure| {
+                    let diagnostic = failure.error.diagnostic();
+                    ScanFailureRow {
+                        file: failure.file.clone(),
+                        code: diagnostic.code,
+                        message: diagnostic.message,
+                    }
                 })
-            })
-            .collect();
-        json!({
-            "total_pub_items": self.total_pub_items,
-            "covered_items": self.covered_items,
-            "gap_count": self.gap_count(),
-            "approximate": self.approximate,
-            "scanners_used": self.scanners_used,
-            "scan_failures": self.scan_failures.iter().map(|failure| {
-                let diagnostic = failure.error.diagnostic();
-                json!({
-                    "file": failure.file,
-                    "code": diagnostic.code,
-                    "message": diagnostic.message,
+                .collect(),
+            by_directory: self
+                .by_directory
+                .iter()
+                .map(|(dir, gaps)| DirectoryGaps {
+                    directory: dir.clone(),
+                    count: gaps.len(),
+                    items: gaps
+                        .iter()
+                        .map(|g| GapItem {
+                            name: g.name.clone(),
+                            item_kind: g.item_kind.clone(),
+                            file: g.file.clone(),
+                            line: g.line,
+                        })
+                        .collect(),
                 })
-            }).collect::<Vec<_>>(),
-            "by_directory": by_directory,
-        })
+                .collect(),
+        }
     }
+}
+
+/// What inference gaps answer with, on both surfaces (the spec's
+/// `InferenceGapReport`).
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct GapsDocument {
+    pub total_pub_items: usize,
+    pub covered_items: usize,
+    pub gap_count: usize,
+    pub approximate: bool,
+    pub scanners_used: Vec<String>,
+    pub scan_failures: Vec<ScanFailureRow>,
+    pub by_directory: Vec<DirectoryGaps>,
+}
+
+/// A file the scan could not read.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct ScanFailureRow {
+    pub file: String,
+    pub code: String,
+    pub message: String,
+}
+
+/// The gaps of one directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct DirectoryGaps {
+    pub directory: String,
+    pub count: usize,
+    pub items: Vec<GapItem>,
+}
+
+/// One public item no entity names.
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+pub struct GapItem {
+    pub name: String,
+    pub item_kind: String,
+    pub file: String,
+    pub line: usize,
 }
 
 #[cfg(test)]
@@ -224,7 +271,7 @@ mod tests {
             scanners_used: Vec::new(),
             scan_failures: Vec::new(),
         };
-        let doc = gaps.to_json();
+        let doc = serde_json::to_value(gaps.document()).unwrap();
         assert_eq!(doc["gap_count"], 2);
         assert_eq!(doc["by_directory"][1]["directory"], "src");
         assert_eq!(doc["by_directory"][1]["items"][0]["file"], "src/b.rs");

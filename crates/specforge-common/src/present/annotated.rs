@@ -11,14 +11,18 @@ type Span = (String, Range<usize>);
 /// `color` each severity heading is coloured (red for an error, yellow for
 /// a warning, blue for an info); without it the text carries no ANSI
 /// escape. Only the caller knows whether it writes to a terminal.
-pub fn render_diagnostics(
+pub fn render_diagnostics<S: AsRef<str>>(
     diagnostics: &[Diagnostic],
-    sources: &HashMap<String, String>,
+    sources: &HashMap<String, S>,
     color: bool,
 ) -> String {
     let mut buf = Vec::new();
 
-    let mut cache = ariadne::sources(sources.iter().map(|(k, v)| (k.clone(), v.clone())));
+    let mut cache = ariadne::sources(
+        sources
+            .iter()
+            .map(|(k, v)| (k.clone(), v.as_ref().to_string())),
+    );
 
     for diag in diagnostics {
         let kind = match diag.severity {
@@ -44,7 +48,7 @@ pub fn render_diagnostics(
         let byte_range = line_col_to_byte_range(
             sources
                 .get(span.file.as_str())
-                .map(|s| s.as_str())
+                .map(|s| s.as_ref())
                 .unwrap_or(""),
             span.start_line,
             span.start_col,

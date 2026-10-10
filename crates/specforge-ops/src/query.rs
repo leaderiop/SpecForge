@@ -5,7 +5,7 @@
 //! search. Each request holds its defaults; a kind filter reports the
 //! kinds the project does not know (I020) and still drops them.
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use specforge_common::Diagnostic;
 use specforge_graph::Node;
 
@@ -86,6 +86,26 @@ pub fn query(view: &ProjectView, request: &QueryRequest) -> Result<QueryOutcome,
         document
     };
     Ok(QueryOutcome { document, notices })
+}
+
+/// The JSON Schema of the document [`query`] answers: the export document of
+/// each agent format (derived by the emitter from the types that write it),
+/// its nodes given the `coverage_status` this operation adds
+/// ([`with_coverage`]). A brief document is also a valid context document, so
+/// the formats are alternatives, not exclusive.
+pub fn document_schema() -> Value {
+    let status = specforge_common::shape::names(STATUS.names());
+    let branches: Vec<Value> = [Format::Graph, Format::Context, Format::Brief]
+        .into_iter()
+        .filter(|format| AGENT_FORMAT.admits(*format))
+        .filter_map(|format| specforge_emitter::document_schema(format.emit_format()))
+        .map(|mut schema| {
+            schema["properties"]["nodes"]["items"]["properties"]["coverage_status"] =
+                status.clone();
+            schema
+        })
+        .collect();
+    json!({ "type": "object", "anyOf": branches })
 }
 
 /// `document` with each node that has a verdict carrying its

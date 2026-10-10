@@ -24,7 +24,7 @@ Two exemption fixes in two days (57cb4e8c, c8e03fa0) touched these copies.
 ## Decision
 
 `specforge_project::snapshot::EntitySnapshot::of(&Graph, &RegistryBuild, spec_root)` is taken once per
-compile (`CompiledProject`) and per session check (`ProjectSession`), and every reader after the graph
+compile (`CompiledProject`) and per session check (`ProjectSession`) *(ADR 0047: by the compiled project, at each check, one-shot or a session's)*, and every reader after the graph
 build reads it:
 
 - the registry checks and the rules read its records;

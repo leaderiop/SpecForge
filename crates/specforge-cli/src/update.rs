@@ -1,8 +1,8 @@
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
-use specforge_ops_registry::HttpRegistry;
+use specforge_ops_registry::ConfiguredRegistry;
 use std::path::Path;
 
 /// `specforge update`: the shared update operation, presented. Exit 1
@@ -14,29 +14,26 @@ pub fn run(
     format: OutputFormat,
     major: bool,
     allow_unsigned: bool,
-    assume_yes: bool,
-) -> i32 {
-    let registry = HttpRegistry::for_project(path, "update");
+    trust: Trust,
+) -> Exit {
+    let registry =
+        ConfiguredRegistry::for_project(path, "update").asking(crate::trust::ask_key_change);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache();
     let request = UpdateRequest {
         root: path,
         name,
         major,
         allow_unsigned,
-        trust: match (assume_yes, format) {
-            (true, _) => Trust::AssumeYes,
-            (false, OutputFormat::Json) => Trust::Refuse,
-            (false, OutputFormat::Human) => Trust::Prompt,
-        },
+        trust,
     };
-    let outcome = match extension::update(&request, &registry) {
+    let updated = extension::update(&request, &registry, &runtime);
+    format.eprint_diagnostics(&registry.reported());
+    let outcome = match updated {
         Ok(outcome) => outcome,
         Err(error) => {
             return Refusal::of(format).report(&error);
         }
     };
-    if outcome.registry_used {
-        format.eprint_diagnostics(registry.diagnostics());
-    }
     // The update ran to the end (applied or rolled back): it emits
     // `batch_update_completed`, which JSON output carries.
     let completed = batch_update_completed(&outcome);
@@ -64,12 +61,28 @@ pub fn run(
                 eprintln!("no extension was updated");
             }
         }
-        return 1;
+        return Exit::Failed;
     }
 
     let updated: Vec<_> = outcome
-        .updated()
-        .map(|(name, from, to)| json!({"name": name, "from": from, "to": to}))
+        .extensions
+        .iter()
+        .filter_map(|e| match &e.status {
+            extension::UpdateStatus::Updated {
+                from,
+                to,
+                publisher,
+                ..
+            } => {
+                let mut entry = json!({"name": e.name, "from": from, "to": to});
+                if let Some(key_id) = publisher.key_id() {
+                    entry["key_id"] = json!(key_id);
+                }
+                entry["publisher"] = json!(publisher.as_str());
+                Some(entry)
+            }
+            _ => None,
+        })
         .collect();
     match format {
         OutputFormat::Json => {
@@ -82,12 +95,21 @@ pub fn run(
         OutputFormat::Human if updated.is_empty() => println!("all extensions are up to date"),
         OutputFormat::Human => {
             println!("updated {} extension(s):", updated.len());
-            for (name, from, to) in outcome.updated() {
-                println!("  {name} {from} -> {to}");
+            for e in &outcome.extensions {
+                if let extension::UpdateStatus::Updated {
+                    from,
+                    to,
+                    publisher,
+                    ..
+                } = &e.status
+                {
+                    println!("  {} {from} -> {to}", e.name);
+                    println!("    {}", crate::add::publisher_line(publisher));
+                }
             }
         }
     }
-    0
+    Exit::Passed
 }
 
 /// The `batch_update_completed` event's payload

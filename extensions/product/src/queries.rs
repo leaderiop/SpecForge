@@ -2489,7 +2489,7 @@ pub fn bulk_status(graph: &CommandGraph) -> BulkStatus {
 pub struct HealthPayload {
     pub score: HealthScore,
     pub entity_counts: Vec<KindCount>,
-    pub orphan_counts: Vec<KindOrphanCount>,
+    pub unreferenced_counts: Vec<KindUnreferencedCount>,
     pub completeness: HealthCompleteness,
 }
 
@@ -2508,9 +2508,9 @@ pub struct KindCount {
 }
 
 #[derive(Debug, Serialize)]
-pub struct KindOrphanCount {
+pub struct KindUnreferencedCount {
     pub kind: String,
-    pub orphans: usize,
+    pub unreferenced: usize,
     pub total: usize,
 }
 
@@ -2527,11 +2527,11 @@ pub struct HealthCompleteness {
 /// milestones with references).
 pub fn project_health(graph: &CommandGraph) -> HealthPayload {
     let mut entity_counts = Vec::new();
-    let mut orphan_counts = Vec::new();
-    let (mut total_entities, mut total_orphans) = (0usize, 0usize);
+    let mut unreferenced_counts = Vec::new();
+    let (mut total_entities, mut total_unreferenced) = (0usize, 0usize);
     for &kind in PRODUCT_KINDS {
         let count = graph.nodes_of_kind(kind).count();
-        let orphans = graph
+        let unreferenced = graph
             .nodes_of_kind(kind)
             .filter(|n| graph.edges_to(&n.id).is_empty())
             .count();
@@ -2540,18 +2540,18 @@ pub fn project_health(graph: &CommandGraph) -> HealthPayload {
             count,
         });
         if count > 0 {
-            orphan_counts.push(KindOrphanCount {
+            unreferenced_counts.push(KindUnreferencedCount {
                 kind: kind.to_string(),
-                orphans,
+                unreferenced,
                 total: count,
             });
         }
         total_entities += count;
-        total_orphans += orphans;
+        total_unreferenced += unreferenced;
     }
 
     let coverage = if total_entities > 0 {
-        pct(total_entities - total_orphans, total_entities)
+        pct(total_entities - total_unreferenced, total_entities)
     } else {
         100.0
     };
@@ -2589,7 +2589,7 @@ pub fn project_health(graph: &CommandGraph) -> HealthPayload {
             completeness,
         },
         entity_counts,
-        orphan_counts,
+        unreferenced_counts,
         completeness: HealthCompleteness {
             features_with_status,
             features_total,

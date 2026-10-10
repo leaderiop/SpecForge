@@ -95,7 +95,7 @@ fn same_input_produces_identical_dot_across_runs() {
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_brief_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::brief::emit_brief(&build_graph()))
+        .map(|_| crate::export(&build_graph(), specforge_emitter::EmitFormat::Brief, None))
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -110,7 +110,7 @@ fn same_input_produces_identical_brief_across_runs() {
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_context_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::context::emit_context(&build_graph()))
+        .map(|_| crate::export(&build_graph(), specforge_emitter::EmitFormat::Context, None))
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -223,8 +223,8 @@ fn json_output_contains_no_timestamps() {
     let emit_all = |graph: &Graph| -> Vec<String> {
         vec![
             specforge_emitter::json::emit_json(graph),
-            specforge_emitter::context::emit_context(graph),
-            specforge_emitter::brief::emit_brief(graph),
+            crate::export(graph, specforge_emitter::EmitFormat::Context, None),
+            crate::export(graph, specforge_emitter::EmitFormat::Brief, None),
             specforge_emitter::dot::emit_dot(graph, &specforge_emitter::DotOptions::default()),
         ]
     };

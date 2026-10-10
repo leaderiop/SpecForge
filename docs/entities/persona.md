@@ -8,7 +8,7 @@ A `persona` declares a **user role** — a first-class entity modeling who inter
 
 It answers: **"Who uses this?"**
 
-While journeys describe *how* users interact and features describe *what* the system delivers, personas describe *who* the users are. Declaring personas as entities (rather than bare identifiers or config enums) enables orphan detection, cross-reference validation, and graph queries across the product model.
+While journeys describe *how* users interact and features describe *what* the system delivers, personas describe *who* the users are. Declaring personas as entities (rather than bare identifiers or config enums) enables unreferenced detection, cross-reference validation, and graph queries across the product model.
 
 ## ID Pattern
 
@@ -72,7 +72,7 @@ None. Personas are leaf nodes in the product graph.
 |------|-------|------|
 | E003 | error | Journey `persona` field must resolve to a declared entity (E022 when the target isn't a persona). |
 | W083 | warning | Invalid `status` value (not in PersonaStatus enum). |
-| I046 | info | Persona not referenced by any journey (orphan persona). |
+| I046 | info | Persona not referenced by any journey (unreferenced persona). |
 | I069 | info | Deprecated persona without a `reason`. |
 
 ## Design Guidance

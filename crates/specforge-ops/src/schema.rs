@@ -6,6 +6,7 @@
 
 use serde::{Serialize, Serializer};
 use serde_json::Value;
+use specforge_common::shape::Shape;
 use specforge_emitter::{
     GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaVersion,
 };
@@ -46,30 +47,42 @@ pub struct SchemaOutcome {
     pub validation_rules: Option<Vec<Value>>,
 }
 
-/// The schema as one document: its keys in `GraphProtocolSchema` order
-/// (`schema_version`, `extensions`, `entity_kinds`), then `edge_types` when
-/// edges were asked for and `validation_rules` when they were. Unfiltered,
-/// it is the schema's own serialization.
+impl SchemaOutcome {
+    /// The schema as one document: its keys in `GraphProtocolSchema` order
+    /// (`schema_version`, `extensions`, `entity_kinds`), then `edge_types`
+    /// when edges were asked for and `validation_rules` when they were.
+    /// Unfiltered, it is the schema's own serialization.
+    pub fn document(&self) -> SchemaDocument {
+        SchemaDocument {
+            schema_version: self.schema.schema_version.clone(),
+            extensions: self.schema.extensions.clone(),
+            entity_kinds: self.schema.entity_kinds.clone(),
+            edge_types: self.edges.then(|| self.schema.edge_types.clone()),
+            validation_rules: self.validation_rules.clone(),
+        }
+    }
+}
+
+/// What `specforge schema` and `specforge.schema` answer with.
+#[derive(Debug, Clone, Serialize, Shape)]
+pub struct SchemaDocument {
+    pub schema_version: SchemaVersion,
+    pub extensions: Vec<SchemaExtensionInfo>,
+    pub entity_kinds: Vec<SchemaEntityKind>,
+    /// Absent when edges were not asked for.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edge_types: Option<Vec<SchemaEdgeType>>,
+    /// Each loaded extension's rules: open values, the extension's own.
+    /// Absent unless asked for.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_rules: Option<Vec<Value>>,
+}
+
+/// The outcome serializes as its document: both surfaces answer one
+/// document for one request.
 impl Serialize for SchemaOutcome {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        #[derive(Serialize)]
-        struct Document<'a> {
-            schema_version: &'a SchemaVersion,
-            extensions: &'a [SchemaExtensionInfo],
-            entity_kinds: &'a [SchemaEntityKind],
-            #[serde(skip_serializing_if = "Option::is_none")]
-            edge_types: Option<&'a [SchemaEdgeType]>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            validation_rules: Option<&'a [Value]>,
-        }
-        Document {
-            schema_version: &self.schema.schema_version,
-            extensions: &self.schema.extensions,
-            entity_kinds: &self.schema.entity_kinds,
-            edge_types: self.edges.then_some(self.schema.edge_types.as_slice()),
-            validation_rules: self.validation_rules.as_deref(),
-        }
-        .serialize(serializer)
+        self.document().serialize(serializer)
     }
 }
 

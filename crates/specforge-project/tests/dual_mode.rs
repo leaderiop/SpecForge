@@ -7,6 +7,7 @@ use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 use std::fs;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Helper: create a temp project dir with specforge.json and optional extensions.
@@ -50,7 +51,7 @@ fn protocol_extension_loaded_with_runtime() {
         no_other_exports,
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 
@@ -68,15 +69,18 @@ fn protocol_extension_loaded_with_runtime() {
 
     // Its declaration should appear in ctx.env.registries.declarations()
     assert_eq!(
-        ctx.env.registries.declarations().len(),
+        ctx.environment().registries.declarations().len(),
         1,
         "expected 1 declaration from protocol extension"
     );
-    assert_eq!(ctx.env.registries.declarations()[0].name(), "@test/proto");
+    assert_eq!(
+        ctx.environment().registries.declarations()[0].name(),
+        "@test/proto"
+    );
 
     // KindRegistry should have "gadget"
     assert!(
-        ctx.env.registries.kinds.contains("gadget"),
+        ctx.environment().registries.kinds.contains("gadget"),
         "expected gadget kind in registry"
     );
 }
@@ -108,7 +112,7 @@ fn protocol_handshake_trap_produces_e028() {
         }),
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 
@@ -131,7 +135,7 @@ fn protocol_handshake_trap_produces_e028() {
 
     // No declaration from the broken extension
     assert!(
-        ctx.env.registries.declarations().is_empty(),
+        ctx.environment().registries.declarations().is_empty(),
         "broken extension should not produce a declaration"
     );
 }
@@ -166,7 +170,7 @@ fn protocol_version_mismatch_produces_e028() {
         WasmCallResult::Ok(serde_json::to_vec(&bad_handshake).unwrap()),
     );
 
-    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(dir.path(), Some(Arc::new(runtime)));
 
     let diagnostics = ctx.diagnostics();
 

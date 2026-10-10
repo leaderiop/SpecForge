@@ -20,9 +20,7 @@ pub fn probe_runtime() -> ComponentRuntime {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
     let blob = std::fs::read(path).expect("vendored sandbox probe blob");
     let runtime = ComponentRuntime::new();
-    runtime
-        .load_module_bytes(PROBE, &blob)
-        .expect("the probe instantiates");
+    runtime.load(PROBE, &blob).expect("the probe instantiates");
     runtime
 }
 

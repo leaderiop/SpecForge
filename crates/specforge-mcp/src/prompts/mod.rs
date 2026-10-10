@@ -10,6 +10,7 @@ mod trace;
 
 use serde_json::{Value, json};
 
+use crate::lifecycle::Revision;
 use crate::prompt::{PromptOutcome, PromptSpec, prompt_envelope};
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -53,7 +54,7 @@ impl Surface for Prompts {
     }
 
     fn target(found: &Found<&'static PromptSpec, std::convert::Infallible>) -> TargetSpec {
-        found.core_entry().target
+        found.core_entry().target()
     }
 
     fn invoked(
@@ -79,7 +80,7 @@ impl Surface for Prompts {
         if let Some(error) = spec.undeclared(&invocation.arguments) {
             return Ran::of(Err(Box::new(error)));
         }
-        Ran::of((spec.render)(call, invocation.arguments.clone()))
+        Ran::of((spec.render)(call.view(), invocation.arguments.clone()))
     }
 
     fn refused(
@@ -102,7 +103,7 @@ impl Surface for Prompts {
     }
 
     fn envelope(
-        _: &McpState,
+        _: Revision,
         found: &Found<&'static PromptSpec, std::convert::Infallible>,
         _: &Invocation,
         outcome: PromptOutcome,

@@ -1,9 +1,12 @@
-use serde_json::{Value, json};
-use specforge_ops::navigate::{DIRECTION, Direction, Occurrence, ReferenceQuery};
+use serde::Serialize;
+use specforge_common::SourceSpan;
+use specforge_common::shape::Shape;
+use specforge_ops::navigate::{DIRECTION, Direction, Occurrence, Precision, ReferenceQuery, Role};
 
 use crate::args::Arguments;
-use crate::target::Call;
-use crate::tool::{Handled, ToolOutcome};
+use crate::reply::Answered;
+use crate::tool::McpError;
+use specforge_ops::view::ProjectView;
 
 /// `specforge.find_references`'s arguments.
 #[derive(Debug, Arguments)]
@@ -17,34 +20,57 @@ pub struct Args {
     include_declaration: bool,
 }
 
+/// `specforge.find_references`'s reply (`McpReferenceResult`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Reply {
+    entity_id: String,
+    #[shape(names = specforge_ops::navigate::DIRECTION)]
+    direction: String,
+    locations: Vec<Location>,
+}
+
+/// One occurrence of the entity's ID (`McpReferenceLocation`).
+#[derive(Debug, Serialize, Shape)]
+pub struct Location {
+    referencing_entity_id: String,
+    referenced_entity_id: String,
+    /// The field naming the referenced entity; none for its declaration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    field: Option<String>,
+    role: Role,
+    precision: Precision,
+    source_span: SourceSpan,
+}
+
+impl Location {
+    /// One occurrence as a location.
+    pub(crate) fn of(occurrence: &Occurrence) -> Self {
+        Location {
+            referencing_entity_id: occurrence.holder.to_string(),
+            referenced_entity_id: occurrence.target.to_string(),
+            field: occurrence.field.as_ref().map(ToString::to_string),
+            role: occurrence.role,
+            precision: occurrence.precision,
+            source_span: occurrence.span.clone(),
+        }
+    }
+}
+
 /// `specforge.find_references`: each occurrence of the entity's ID, as
 /// the LSP's references answer it (ADR 0016). Incoming by default, the
 /// declaration only when asked for.
-pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
-    let entity_id = args.entity_id.as_str();
-    let direction = args.direction;
+pub fn call(view: ProjectView<'_>, args: Args) -> Answered<Reply> {
     let query = ReferenceQuery {
-        direction,
+        direction: args.direction,
         include_declaration: args.include_declaration,
     };
-    let occurrences = super::navigator(call)
-        .references(entity_id, query)
-        .map_err(crate::tool::McpError::from)?;
-    Ok(ToolOutcome::ok(json!({
-        "entity_id": entity_id,
-        "direction": DIRECTION.name_of(direction),
-        "locations": occurrences.iter().map(location).collect::<Vec<Value>>(),
-    })))
-}
-
-/// One occurrence as an `McpReferenceLocation`.
-pub(crate) fn location(occurrence: &Occurrence) -> Value {
-    json!({
-        "referencing_entity_id": occurrence.holder,
-        "referenced_entity_id": occurrence.target,
-        "field": occurrence.field,
-        "role": occurrence.role.as_str(),
-        "precision": occurrence.precision.as_str(),
-        "source_span": super::span_json(&occurrence.span),
-    })
+    let occurrences = super::navigator(view)
+        .references(&args.entity_id, query)
+        .map_err(McpError::from)?;
+    Ok(Reply {
+        direction: DIRECTION.name_of(args.direction).to_string(),
+        entity_id: args.entity_id,
+        locations: occurrences.iter().map(Location::of).collect(),
+    }
+    .into())
 }

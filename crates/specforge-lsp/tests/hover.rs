@@ -130,7 +130,8 @@ fn hover_shows_testability_from_the_standing() {
     .open(&["main.spec"]);
 
     for (id, testable) in [("login", true), ("auth", false)] {
-        let facts = specforge_ops::inspect::inspect(&served.state().view(), id).unwrap();
+        let state = served.state();
+        let facts = specforge_ops::inspect::inspect(&state.view(), id).unwrap();
         assert_eq!(facts.standing.testable, testable, "{id}");
         let text = served.hover_on("main.spec", id).unwrap();
         assert_eq!(text.contains("`testable`"), testable, "{id}:\n{text}");
@@ -361,7 +362,8 @@ fn hover_shows_each_coverage_case() {
     for (id, expected) in rows {
         assert_eq!(line(id).as_deref(), expected, "{id}");
         // The line agrees with the read view MCP inspect renders.
-        let facts = specforge_ops::inspect::inspect(&project.state().view(), id).unwrap();
+        let state = project.state();
+        let facts = specforge_ops::inspect::inspect(&state.view(), id).unwrap();
         if let Some(expected) = expected
             && !facts.standing.exempt()
         {

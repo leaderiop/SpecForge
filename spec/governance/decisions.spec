@@ -207,9 +207,9 @@ decision extension_peer_dependencies "Extension Peer Dependencies" {
   """
   decision     """
     Wasm extension manifests declare peer_dependencies with semver ranges. The
-    host validates all peer dependencies before loading and topologically
-    sorts extensions for initialization order (core first, then official extensions,
-    then third-party). All extensions share the same in-process graph via
+    registry build judges every peer dependency by one rule and loads each
+    extension after the peers it declares, otherwise in specforge.json order
+    (ADR 0041). All extensions share the same in-process graph via
     specforge.query_graph host function — no serialization between extensions.
     When a manifest declares a peer dependency that is not installed, the
     host emits a hard error. The existing I004 soft resolution remains for
@@ -931,8 +931,13 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     The builtin blobs are vendored under extensions/<name>/wasm/ and
     embedded at compile time, each with an inputs.json fingerprint of the
     sources it was built from; `cargo run -p xtask --bin build-builtins
-    -- --install` rebuilds and re-vendors them (wasm32-wasip2 target), and
-    CI's `--check` fails when a vendored blob drifts from its sources.
+    -- --install` rebuilds and re-vendors them (wasm32-wasip2 target) in a
+    staged workspace that holds each extension and its path crates at
+    their repo-relative paths, with the cargo home remapped, so a blob's
+    bytes depend only on its sources and the toolchain, never on the
+    checkout path. CI's `--check` fails when a vendored blob drifts from
+    its sources, and `--verify` rebuilds every blob and fails when one
+    differs.
   """
   consequences """
     Positive: one execution path, typed entry point, warm single engine

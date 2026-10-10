@@ -91,24 +91,28 @@ behavior document_open_close "Document Open/Close" {
     lsp_initialized_fired "LSP server has been initialized and is ready to receive notifications"
   }
   ensures {
-    document_tracked           "open/close state of the document is correctly reflected in the open document set"
-    file_changed_emitted       "file_changed event is produced on didOpen to trigger initial compilation"
-    closed_diagnostics_cleared "the closed buffer's diagnostics are cleared from the editor"
-    closed_file_from_disk      "a closed project source is compiled from disk again; any other closed file leaves the project"
+    document_tracked      "open/close state of the document is correctly reflected in the open document set"
+    file_changed_emitted  "file_changed event is produced on didOpen to trigger initial compilation"
+    closed_file_published "the closed document's file is published as the project reports it, in place of its buffer's diagnostics"
+    closed_file_from_disk "a closed project source is compiled from disk again; any other closed file leaves the project"
   }
   contract   """
     When the LSP server receives a textDocument/didOpen notification,
     it MUST register the document in its open document set and trigger
     an initial compilation for diagnostics. When the server receives a
     textDocument/didClose notification, it MUST remove the document from
-    its open document set, and the closed buffer's diagnostics MUST be
-    cleared from the editor. The buffer is no longer the truth for its
+    its open document set. The buffer is no longer the truth for its
     file: a project source MUST be compiled from the file on disk again
     (unsaved edits are dropped), and any other file (outside the spec root,
     excluded, or any file when no project is open) MUST leave the project.
-    What the project then reports for the file is published as for any file
-    that is not open. The server MUST track which documents are open to
-    determine the scope of incremental recompilation.
+    While a document is open its buffer is the truth for its file,
+    whatever happens to the file on disk, its deletion included (the
+    session holds it, hold_editor_buffers).
+    The closed document's file MUST then be published once, as the project
+    reports it, in place of the buffer's diagnostics: a project source
+    keeps the errors its file on disk has, and a file that left the project
+    is cleared. The server MUST track which documents are open to determine
+    the scope of incremental recompilation.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
@@ -116,7 +120,11 @@ behavior document_open_close "Document Open/Close" {
   verify unit "rapid open and close cycles do not corrupt state"
   verify unit "closing a document compiles its file from disk again, dropping its unsaved edits"
   verify unit "closing a document outside a project drops its file from the project"
-  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
+  verify unit "closing a project source publishes what the project reports for its file"
+  verify unit "closing a saved document leaves nothing to catch up on"
+  verify unit "closing a document that does not parse runs the checks its typing skipped"
+  verify unit "an open document's entities stay when its file is deleted, until it is closed"
+  verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->
@@ -437,7 +445,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   ]
   category   command
   types      [DiagnosticBag]
-  ports      [LspProtocol]
+  ports      [LspProtocol, Editor]
   consumes   [incremental_rebuild_complete] // delegates to the shared incremental pipeline's rebuild event
   requires {
     lsp_initialized_fired "LSP server has been initialized and the incremental pipeline is ready"
@@ -456,7 +464,10 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     does) MUST be published at the first one's name, with related
     information at each other's. Each publish sends every file that has
     diagnostics, and an empty list to each file that had some and has none
-    now. A diagnostic without a span about no entity is published on the
+    now. Each file's list carries the version of the buffer the project was
+    compiled from, none for a file compiled from disk, so a client drops a
+    list a newer edit superseded. A diagnostic without a span about no
+    entity is published on the
     document being edited, else on the last one such a diagnostic went on
     while it is open, else on the first open document. W143 (a define
     block, which registers nothing) MUST be published with the Unnecessary
@@ -465,6 +476,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
   verify unit "a publish clears the files whose diagnostics are gone"
+  verify unit "a publish is labelled with the version of the buffer the project was compiled from"
   verify integration "diagnostics appear within 100ms"
   verify unit "a spanless diagnostic about entities is published at the first one's name"
   verify unit "a diagnostic is published on the file its span names"
@@ -626,6 +638,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify integration "graph update serves all LSP features"
   verify integration "the LSP publishes the diagnostics specforge check reports"
   verify unit "a reload applies every open buffer again, in one update"
+  verify unit "opening a project with open documents runs the checks once"
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"
@@ -770,6 +783,9 @@ behavior complete_keywords "Complete Keywords" {
     suggestion SHOULD include a snippet template for block scaffolding
     based on the kind's field definitions from the FieldRegistry. The
     detail string MUST show the source extension name for each keyword.
+    Each kind's item MUST document the kind with its description and its
+    inference guide (compute_inference_guide), as markdown; use has no
+    documentation.
     After verify in an entity's body, the verify kinds the entity's kind
     allows (its allowed_verify_kinds) MUST be suggested, and nothing when
     the kind takes no verify statements. The registered kinds come from the
@@ -778,6 +794,7 @@ behavior complete_keywords "Complete Keywords" {
     environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
+  verify unit "a kind keyword's completion documents the kind with its description and inference guide"
   verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"

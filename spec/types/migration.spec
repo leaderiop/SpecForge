@@ -48,6 +48,16 @@ type MigrationSummary {
   verify unit "MigrationSummary schema is valid"
 }
 
+type RollbackSummary "What a migration rollback restored" {
+  restored_count integer
+  skipped_count  integer
+  failed_count   integer
+  results        MigrationResult[]
+  /// One warning per file skipped because its .bak backup is missing.
+  warnings       string[]
+  verify unit "RollbackSummary schema is valid"
+}
+
 type PreMigrationSnapshot {
   node_kinds  SchemaEntityKind[] @readonly
   edge_types  SchemaEdgeType[]   @readonly

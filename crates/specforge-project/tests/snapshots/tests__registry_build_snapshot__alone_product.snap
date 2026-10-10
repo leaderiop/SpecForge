@@ -3079,7 +3079,7 @@ expression: "digest(&load(&runtime, &[name]))"
           {
             "args": [],
             "category": "query",
-            "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
+            "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and unreferenced counts.",
             "export": "cmd__product_health",
             "id": "health",
             "title": "Show project health score"

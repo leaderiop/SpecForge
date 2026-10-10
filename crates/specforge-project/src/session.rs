@@ -1,25 +1,17 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use specforge_common::{Diagnostic, ProjectConfig, codes, read_project_config};
-use specforge_graph::{
-    FileChange, Graph, GraphBuild, GraphConfig, GraphDelta, compute_graph_delta,
-};
-use specforge_wasm::WasmRuntime;
+use specforge_common::{Diagnostic, ProjectConfig, read_project_config};
+use specforge_graph::{Applied, GraphDelta};
 
-use crate::coverage::RecordedCoverage;
+use crate::buffers::{Buffer, Held};
+use crate::compiled::CompiledProject;
 use crate::freshness::DiskSnapshot;
 use crate::inputs::{Changes, SessionInputs, UpdateKind};
-use crate::snapshot::EntitySnapshot;
-use crate::sources::{self, Read, SourceCache};
-use crate::{Environment, SourceBuild};
-
-/// The runtime a session runs its project's extensions in (every
-/// [`WasmRuntime`] is `Send + Sync`).
-pub type SharedRuntime = Arc<dyn WasmRuntime>;
+use crate::sources::Read;
+use crate::{Environment, SharedRuntime};
 
 /// Builds the runtime of the project at a root from the config read there.
 pub type BuildRuntime = Arc<dyn Fn(&Path, &ProjectConfig) -> SharedRuntime + Send + Sync>;
@@ -58,31 +50,29 @@ impl RuntimeSource {
 pub enum SourceChange<'a> {
     /// Files changed, created or deleted on disk, by path relative to the
     /// spec root. A file that is gone was deleted; one that is there and
-    /// cannot be read is E025 and leaves the graph.
+    /// cannot be read is E025 and leaves the graph. A file a buffer holds is
+    /// left as the buffer has it.
     Disk(&'a [String]),
-    /// An editor buffer is the truth for one file (`None`: it is gone).
-    Buffer {
-        path: &'a str,
-        text: Option<&'a str>,
-    },
-    /// Several editor buffers, each the truth for its file (relative to the
-    /// spec root), applied as one update with one run of the checks: an edit
-    /// the editor applied to several files at once, or every open buffer
-    /// again after a reload. Files discovery would not find are ignored.
-    Buffers(&'a [(String, String)]),
+    /// The editor holds these buffers now, each the truth for its file until
+    /// it is released ([`ProjectSession::release`]), whatever happens to the
+    /// file on disk: one update, one run of the checks. A buffer whose text
+    /// is the text the session built its file from changes nothing (its
+    /// version is still kept). A buffer of a file discovery would not find
+    /// (outside the spec root, excluded, not `.spec`) is held and builds
+    /// nothing.
+    Hold(&'a [Buffer]),
 }
 
 /// Which checks an update runs on the updated graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CheckMode<'a> {
+pub enum CheckMode {
     /// Every check `specforge check` runs.
     Full,
-    /// The editor's fast path while typing: when any of these files
-    /// (relative to the spec root) has parse errors the graph is broken and
-    /// the checks would evaluate garbage, so they are skipped and only the
-    /// parse layer is reported until they parse again. Otherwise,
-    /// [`Self::Full`].
-    SyntaxOnlyIfParseErrorsIn(&'a [&'a str]),
+    /// The editor's fast path while typing: when any file this update
+    /// changes has parse errors the graph is broken and the checks would
+    /// evaluate garbage, so they are skipped, and only the parse layer is
+    /// reported until an update runs them. Otherwise, [`Self::Full`].
+    SyntaxOnlyIfParseErrors,
 }
 
 /// What one update of a session did.
@@ -107,6 +97,32 @@ pub struct Update {
 }
 
 impl Update {
+    /// The update of `kind` that applied `applied` (a graph build's apply,
+    /// [`CompiledProject::replacing`], or nothing) and now reports
+    /// `diagnostics`: the one place an update is assembled.
+    fn of(
+        kind: UpdateKind,
+        inputs_changed: bool,
+        applied: Applied,
+        diagnostics: Vec<Diagnostic>,
+    ) -> Update {
+        let Applied {
+            files,
+            delta,
+            changed_diagnostic_files,
+            verification,
+        } = applied;
+        Update {
+            kind,
+            inputs_changed,
+            delta,
+            rebuilt_files: files,
+            changed_diagnostic_files,
+            diagnostics,
+            verification,
+        }
+    }
+
     /// How the incremental graph differs from a cold rebuild, when this
     /// update was verified and the two differ: what every surface reports
     /// where it reports (watch in its event, the LSP in its log, MCP as a
@@ -119,31 +135,22 @@ impl Update {
     }
 }
 
-/// A compiled project that accepts source changes and environment reloads.
-///
-/// It is seeded by one cold build, then kept current incrementally: only
-/// the changed files are re-read and re-parsed and the graph build applies
-/// them whole ([`specforge_graph::GraphBuild`]), the imports of every parse are
+/// A compiled project kept current, and what it is built from: its inputs
+/// (ADR 0030), the stamps of what it last read, and where each environment
+/// load gets its extension runtime. It is seeded by one cold build, then
+/// kept current incrementally (ADR 0006, 0032): only the changed files are
+/// re-read and re-parsed and the graph build applies them whole
+/// ([`specforge_graph::GraphBuild`]), the imports of every parse are
 /// resolved again (E025, I004, W113, W027), and the graph checks re-run on
-/// the patched graph. After any sequence of updates,
-/// [`ProjectSession::diagnostics`] is the set
-/// [`crate::CompiledProject::diagnostics`] reports for the same sources.
+/// the patched graph. After every update that runs the checks its compiled
+/// project reports what a fresh compile of the same sources reports, in the
+/// same order (ADR 0047).
 pub struct ProjectSession {
-    /// Shared, so a reader can keep the environment an update started
-    /// from while the session itself is busy.
-    env: Arc<Environment>,
-    runtime: Option<SharedRuntime>,
+    /// What it compiled, kept current.
+    project: CompiledProject,
     /// Where each environment load gets its runtime: a built one is fresh
     /// for every load (the extensions' `.wasm` files may have changed).
     source: RuntimeSource,
-    /// The text of every source as read, the retained trees and the
-    /// sources that could not be read.
-    sources: SourceCache,
-    /// The graph of the sources and what building it reported (ADR 0032).
-    graph: GraphBuild,
-    import_diagnostics: Vec<Diagnostic>,
-    check_diagnostics: Vec<Diagnostic>,
-    verify_incremental: bool,
     /// What the session depends on (ADR 0030). Detached (an editor with no
     /// workspace folder), files are buffers keyed by absolute path, with no
     /// spec root to resolve their imports against and no environment to
@@ -152,12 +159,12 @@ pub struct ProjectSession {
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
-    /// The current graph's entity snapshot, the recorded test report and
-    /// the coverage of the graph against it: a fresh memo after every update
-    /// and reload. A check seeds it with the snapshot it read; after an
-    /// update that skipped the checks it is made over the graph on first use
-    /// ([`Self::recorded`], the one place).
-    recorded: OnceLock<RecordedCoverage>,
+    /// The editor buffers the session holds: each is the truth for its file
+    /// until released (ADR 0046).
+    held: Held,
+    /// The last update skipped the checks (the typing fast path): the next
+    /// update, or a release, runs them even when it changes no file.
+    checks_skipped: bool,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -166,7 +173,6 @@ pub struct ProjectSession {
 /// [`Self::finish`] reads and builds the sources.
 pub struct OpeningProject {
     env: Arc<Environment>,
-    runtime: Option<SharedRuntime>,
     /// Where each environment load gets its runtime.
     source: RuntimeSource,
     /// What the loaded environment depends on.
@@ -183,33 +189,34 @@ impl OpeningProject {
     }
 
     /// Read every source, build the graph and run the checks: the session
-    /// [`ProjectSession::open`] returns.
+    /// [`ProjectSession::open`] returns. [`Self::finish_holding`] with no
+    /// buffer.
     pub fn finish(self) -> ProjectSession {
+        self.finish_holding(Vec::new())
+    }
+
+    /// [`Self::finish`], holding `buffers`: each held buffer's text is read
+    /// in place of its file by the one cold build, so the checks run once.
+    pub fn finish_holding(self, buffers: Vec<Buffer>) -> ProjectSession {
         let mut snapshot = self.snapshot;
         let discovered = self.inputs.discover();
         snapshot.stamp_all_sources(&self.inputs, &discovered);
-        // What was stamped is exactly what is read.
-        let SourceBuild {
-            sources,
-            mut graph,
-            imports,
-        } = self.env.build_sources(&discovered);
-        graph.set_verify(cfg!(debug_assertions));
-
+        // Keys as this environment gives them: the spec root may have moved.
+        let held = Held::keyed(buffers, |path| self.env.source_key(path));
+        // What was stamped is what is read, except a held file: its buffer
+        // is read in its place.
+        let texts = held.sources(|key| !self.inputs.excludes(key));
+        let mut project = CompiledProject::read(self.env, &discovered, &texts);
+        project.set_verify(cfg!(debug_assertions));
         let mut session = ProjectSession {
-            env: self.env,
-            runtime: self.runtime,
+            project,
             source: self.source,
-            sources,
-            graph,
-            import_diagnostics: imports,
-            check_diagnostics: Vec::new(),
-            verify_incremental: cfg!(debug_assertions),
             inputs: self.inputs,
             snapshot,
-            recorded: OnceLock::new(),
+            held,
+            checks_skipped: false,
         };
-        session.check_diagnostics = session.checked().0;
+        session.check();
         session
     }
 }
@@ -219,21 +226,12 @@ impl ProjectSession {
     /// until a buffer is added.
     pub fn detached() -> Self {
         ProjectSession {
-            env: Arc::new(Environment::empty()),
-            runtime: None,
+            project: CompiledProject::detached(),
             source: RuntimeSource::Fixed(None),
-            sources: SourceCache::empty(),
-            graph: {
-                let mut graph = GraphBuild::new(GraphConfig::default());
-                graph.set_verify(cfg!(debug_assertions));
-                graph
-            },
-            import_diagnostics: Vec::new(),
-            check_diagnostics: Vec::new(),
-            verify_incremental: cfg!(debug_assertions),
             inputs: SessionInputs::detached(),
             snapshot: DiskSnapshot::default(),
-            recorded: OnceLock::new(),
+            held: Held::default(),
+            checks_skipped: false,
         }
     }
 
@@ -252,20 +250,16 @@ impl ProjectSession {
     /// Open the project at `root`, each environment load getting its
     /// runtime from `source`.
     pub fn open_from(root: &Path, source: RuntimeSource) -> Self {
-        Self::begin_open_from(root, source).finish()
+        Self::begin_open(root, source).finish()
     }
 
-    /// The first half of [`Self::open`]: the environment loaded (config,
-    /// extensions, registries), no `.spec` file read. What needs only the
-    /// environment (the kinds and fields a keyword completion offers) is
-    /// served from [`OpeningProject::environment`] while
-    /// [`OpeningProject::finish`] reads and builds the sources.
-    pub fn begin_open(root: &Path) -> OpeningProject {
-        Self::begin_open_from(root, RuntimeSource::project())
-    }
-
-    /// [`Self::begin_open`] with the runtime `source` gives.
-    pub fn begin_open_from(root: &Path, source: RuntimeSource) -> OpeningProject {
+    /// The first half of [`Self::open_from`]: the environment loaded
+    /// (config, extensions, registries; each load getting its runtime from
+    /// `source`), no `.spec` file read. What needs only the environment (the
+    /// kinds and fields a keyword completion offers) is served from
+    /// [`OpeningProject::environment`] while [`OpeningProject::finish`]
+    /// reads and builds the sources.
+    pub fn begin_open(root: &Path, source: RuntimeSource) -> OpeningProject {
         // Everything is stamped before anything reads it (crate::freshness):
         // the config before its one read, the lock and the modules before
         // the runtime and the environment read them, the sources by `finish`.
@@ -275,11 +269,10 @@ impl ProjectSession {
         let inputs = SessionInputs::opened(root, &read.config);
         snapshot.stamp_environment(&inputs);
         let runtime = source.runtime_for(root, &read.config);
-        let env = Environment::from_read(root, read, runtime.as_deref());
+        let env = Environment::from_read(root, read, runtime);
         let inputs = inputs.with_check_passes(env.registries.check_passes().next().is_some());
         OpeningProject {
             env: Arc::new(env),
-            runtime,
             source,
             inputs,
             snapshot,
@@ -290,96 +283,172 @@ impl ProjectSession {
     /// build verifies every session by default; this turns it on in release
     /// (watch's `--verify-incremental`) or off.
     pub fn set_verify_incremental(&mut self, enabled: bool) {
-        self.verify_incremental = enabled;
-        self.graph.set_verify(enabled);
+        self.project.set_verify(enabled);
     }
 
-    /// Apply a change to the project's sources, then run every check.
-    /// Files discovery would not find (an `exclude` entry, a skipped
-    /// directory, not `.spec`) are ignored.
+    /// Apply a change to the project's sources, then run every check. An
+    /// update that changes no file runs no check (unless the checks were
+    /// skipped since they last ran: then it runs them). Files discovery
+    /// would not find (an `exclude` entry, a skipped directory, not `.spec`)
+    /// are ignored.
     pub fn update(&mut self, change: SourceChange<'_>) -> Update {
         self.update_with(change, CheckMode::Full)
     }
 
     /// [`Self::update`], running the checks `mode` asks for.
-    pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
-        let changes: Vec<FileChange> = match change {
+    pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode) -> Update {
+        // A disk change always applies: what an import names is read from
+        // disk, so even a file left out may move an import's diagnostic. A
+        // hold of text the session already has changes nothing.
+        let skippable = matches!(change, SourceChange::Hold(_));
+        let reads: Vec<(String, Read)> = match change {
             SourceChange::Disk(paths) => {
-                let keys: Vec<String> = paths
+                let mut keys: Vec<String> = paths
                     .iter()
                     .filter(|path| !self.excludes(path))
                     .cloned()
                     .collect();
+                self.held.leave_out(&mut keys);
                 // Stamped before they are read again (crate::freshness).
                 self.snapshot.stamp_sources(&self.inputs, &keys);
-                keys.iter()
-                    .map(|path| {
-                        self.sources
-                            .change(path, sources::read(&self.env.spec_root, path))
+                keys.into_iter()
+                    .map(|key| {
+                        let read = self.project.read_source(&key);
+                        (key, read)
                     })
                     .collect()
             }
-            SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
-            SourceChange::Buffer { path, text } => vec![self.sources.change(
-                path,
-                text.map_or(Read::Gone, |text| Read::Text(text.to_string())),
-            )],
-            SourceChange::Buffers(buffers) => {
-                let held: Vec<&(String, String)> = buffers
-                    .iter()
-                    .filter(|(path, _)| !self.excludes(path))
-                    .collect();
-                held.into_iter()
-                    .map(|(path, text)| self.sources.change(path, Read::Text(text.clone())))
-                    .collect()
+            SourceChange::Hold(buffers) => {
+                let mut reads = Vec::new();
+                for buffer in buffers {
+                    let key = self.source_key(&buffer.path);
+                    let read = Read::Text(buffer.text.clone());
+                    if !self.excludes(&key) && !self.project.is_current(&key, &read) {
+                        reads.push((key.clone(), read));
+                    }
+                    self.held.hold(key, buffer.clone());
+                }
+                reads
             }
         };
-        let applied = self.graph.apply(changes);
-        self.recorded = OnceLock::new();
-        self.import_diagnostics = self.resolve_imports();
-        let (check_diagnostics, inputs_changed) = match mode {
-            CheckMode::SyntaxOnlyIfParseErrorsIn(paths)
-                if paths.iter().any(|path| {
-                    self.graph
-                        .file_diagnostics(path)
-                        .iter()
-                        .any(|d| d.is(codes::E001))
-                }) =>
-            {
-                (Vec::new(), false)
+        self.applied(reads, mode, skippable)
+    }
+
+    /// The editor no longer holds the buffers of `paths` (absolute): each
+    /// file is the disk's again. A project source is stamped, then read
+    /// through the session's one read: its text, its E025, or gone. Any
+    /// other file (outside the spec root, excluded, not `.spec`) was never
+    /// built and changes nothing. With no project the buffer was the file's
+    /// only text, so the file leaves. One update for all of them. `None`
+    /// when none changed (each source's disk text is the text the session
+    /// built it from) and the checks are current: a release after the
+    /// typing fast path skipped them runs them.
+    pub fn release(&mut self, paths: &[PathBuf]) -> Option<Update> {
+        let mut reads = Vec::new();
+        for path in paths {
+            let key = self.source_key(path);
+            self.held.release(&key);
+            let read = if self.inputs.root().is_none() {
+                // No project: the buffer was the file's only text.
+                Read::Gone
+            } else if self.excludes(&key) {
+                // Never built: nothing to give back.
+                continue;
+            } else {
+                // Stamped before it is read (crate::freshness): a saved
+                // buffer leaves nothing stale.
+                self.snapshot
+                    .stamp_sources(&self.inputs, std::slice::from_ref(&key));
+                self.project.read_source(&key)
+            };
+            if !self.project.is_current(&key, &read) {
+                reads.push((key, read));
             }
-            _ => self.checked(),
-        };
-        self.check_diagnostics = check_diagnostics;
-        Update {
-            kind: UpdateKind::Sources,
-            inputs_changed,
-            delta: applied.delta,
-            rebuilt_files: applied.files,
-            changed_diagnostic_files: applied.changed_diagnostic_files,
-            diagnostics: self.diagnostics(),
-            verification: applied.verification,
         }
+        if reads.is_empty() && !self.checks_skipped {
+            return None;
+        }
+        Some(self.applied(reads, CheckMode::Full, true))
+    }
+
+    /// The buffer the editor holds for source `key`, as the session last
+    /// built from it.
+    pub fn buffer(&self, key: &str) -> Option<&Buffer> {
+        self.held.get(key)
+    }
+
+    /// Every buffer the session holds, given up: what a project opened in
+    /// this session's place holds next.
+    pub fn into_buffers(self) -> Vec<Buffer> {
+        self.held.into_buffers()
+    }
+
+    /// What these changed paths are to the session: classified by its
+    /// inputs ([`SessionInputs::changes`]), every file a buffer holds left
+    /// out.
+    pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
+        let mut changes = self.inputs.changes(paths);
+        self.held.leave_out(&mut changes.sources);
+        changes
+    }
+
+    /// The key of the file at `path` in this session's sources.
+    pub fn source_key(&self, path: &Path) -> String {
+        self.project.environment().source_key(path)
+    }
+
+    /// The one tail of every source update: apply `reads`, resolve the
+    /// imports, then run or skip the checks. With nothing to apply it runs
+    /// the checks only if they were skipped, else it changes nothing (when
+    /// `skippable`: a disk change always applies, to see what imports name).
+    fn applied(&mut self, reads: Vec<(String, Read)>, mode: CheckMode, skippable: bool) -> Update {
+        if reads.is_empty() && skippable {
+            return if self.checks_skipped {
+                self.recheck()
+            } else {
+                Update::of(
+                    UpdateKind::Sources,
+                    false,
+                    Applied::default(),
+                    self.project.diagnostics(),
+                )
+            };
+        }
+        let applied = self.project.apply(reads);
+        let inputs_changed = if mode == CheckMode::SyntaxOnlyIfParseErrors
+            && self.project.has_parse_errors_in(&applied.files)
+        {
+            self.project.skip_checks();
+            self.checks_skipped = true;
+            false
+        } else {
+            self.check()
+        };
+        Update::of(
+            UpdateKind::Sources,
+            inputs_changed,
+            applied,
+            self.project.diagnostics(),
+        )
     }
 
     /// `specforge.json` or an extension changed: load the environment again
-    /// and rebuild from the sources on disk.
+    /// and rebuild, from the sources on disk and the held buffers, in one
+    /// cold build that runs the checks once.
     pub fn reload_environment(&mut self) -> Update {
         if self.inputs.root().is_none() {
             // Nothing on disk to load again.
-            return Update {
-                kind: UpdateKind::Environment,
-                inputs_changed: false,
-                delta: GraphDelta::default(),
-                rebuilt_files: Vec::new(),
-                changed_diagnostic_files: Vec::new(),
-                diagnostics: self.diagnostics(),
-                verification: None,
-            };
+            return Update::of(
+                UpdateKind::Environment,
+                false,
+                Applied::default(),
+                self.project.diagnostics(),
+            );
         }
-        let root = self.env.root.clone();
-        let mut next = Self::open_from(&root, self.source.clone());
-        next.set_verify_incremental(self.verify_incremental);
+        let root = self.project.environment().root.clone();
+        let buffers = std::mem::take(&mut self.held).into_buffers();
+        let mut next = Self::begin_open(&root, self.source.clone()).finish_holding(buffers);
+        next.project.set_verify(self.project.verifies());
         let previous = std::mem::replace(self, next);
         self.replaced(&previous)
     }
@@ -387,52 +456,18 @@ impl ProjectSession {
     /// The update that replacing `previous` with this session amounts to:
     /// every file rebuilt, the delta between the two graphs.
     pub fn replaced(&self, previous: &ProjectSession) -> Update {
-        Update {
-            kind: UpdateKind::Environment,
-            inputs_changed: previous.inputs != self.inputs,
-            delta: compute_graph_delta(previous.graph(), self.graph()),
-            rebuilt_files: self
-                .graph
-                .files()
-                .map(|(path, _)| path.to_string())
-                .collect(),
-            changed_diagnostic_files: self.graph.diagnostic_files(),
-            diagnostics: self.diagnostics(),
-            verification: None,
-        }
+        Update::of(
+            UpdateKind::Environment,
+            previous.inputs != self.inputs,
+            self.project.replacing(&previous.project),
+            self.project.diagnostics(),
+        )
     }
 
-    /// Everything the project reports now, the set `specforge check`
-    /// reports: the environment's, the imports', the graph build's, the
-    /// graph checks', then surface conflicts.
-    pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        self.env
-            .diagnostics()
-            .chain(&self.import_diagnostics)
-            .cloned()
-            .chain(self.graph.diagnostics().iter().cloned())
-            .chain(self.check_diagnostics.iter().cloned())
-            .chain(self.env.surface_diagnostics().iter().cloned())
-            .collect()
-    }
-
-    pub fn graph(&self) -> &Graph {
-        self.graph.graph()
-    }
-
-    /// The text the session's current build parsed `path` (relative to the
-    /// spec root) from: the file as it was read, or the buffer as it was
-    /// given, at the last update that touched it. A span of the graph or of
-    /// a diagnostic is a position in this text, not in the file on disk or
-    /// the buffer now. `None` for a file the session does not hold.
-    pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
-        self.sources.text(path).cloned()
-    }
-
-    /// [`Self::source_text`] of every file, shared rather than copied: what
-    /// a reader keeps while the session is out for an update.
-    pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
-        self.sources.texts()
+    /// What the session compiled, as it is now: its graph, environment,
+    /// root, report, source texts and memo. Every reader goes through it.
+    pub fn project(&self) -> &CompiledProject {
+        &self.project
     }
 
     /// What the session depends on now (ADR 0030): what a changed path is,
@@ -441,32 +476,17 @@ impl ProjectSession {
         &self.inputs
     }
 
-    /// The project root: `None` with no project (detached).
-    pub fn root(&self) -> Option<&Path> {
-        self.inputs.root()
-    }
-
-    /// Where `.spec` files are keyed from: `None` unless the project was
-    /// opened from disk.
-    pub fn spec_root(&self) -> Option<&Path> {
-        self.inputs.spec_root()
-    }
-
-    /// A `.spec` path's key in this session: relative to the spec root
-    /// when the file is under it, else the path itself.
-    pub fn source_key(&self, path: &Path) -> String {
-        self.env.source_key(path)
-    }
-
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
-    /// the checks alone. `None` when there is nothing to apply: `changes` is
-    /// empty.
+    /// the checks alone; every file a buffer holds is left out. `None` when
+    /// there is nothing to apply: `changes` is empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
+        let mut sources = changes.sources.clone();
+        self.held.leave_out(&mut sources);
         if changes.environment && self.inputs.root().is_some() {
             Some(self.reload_environment())
-        } else if !changes.sources.is_empty() {
-            Some(self.update(SourceChange::Disk(&changes.sources)))
+        } else if !sources.is_empty() {
+            Some(self.update(SourceChange::Disk(&sources)))
         } else if changes.check_inputs && self.inputs.root().is_some() {
             Some(self.recheck())
         } else {
@@ -477,9 +497,12 @@ impl ProjectSession {
     /// What changed on disk since the session last built (behavior
     /// `bring_session_up_to_date`): the sources discovery finds now against
     /// those it read, and every environment and check input against what
-    /// it read. A session that was not opened from disk reports nothing.
+    /// it read, every file a buffer holds left out, whatever happened to it.
+    /// A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        self.snapshot.changes(&self.inputs)
+        let mut changes = self.snapshot.changes(&self.inputs);
+        self.held.leave_out(&mut changes.sources);
+        changes
     }
 
     /// Bring the session up to date with disk, without a watcher: apply
@@ -491,54 +514,10 @@ impl ProjectSession {
         self.apply(&changes)
     }
 
-    pub fn environment(&self) -> &Environment {
-        &self.env
-    }
-
-    /// The recorded test report and the coverage of the current graph
-    /// against it, memoized until the next update or reload.
-    pub fn recorded(&self) -> &RecordedCoverage {
-        self.recorded
-            .get_or_init(|| RecordedCoverage::over(self.graph.graph(), &self.env))
-    }
-
-    /// The current graph's entity snapshot (ADR 0019): the one its last
-    /// check read, or, when the last update skipped the checks, one taken
-    /// on first use.
-    pub fn entities(&self) -> &EntitySnapshot {
-        self.recorded().entities()
-    }
-
-    /// The environment, shared: it stays valid after the session reloads.
-    pub fn shared_environment(&self) -> Arc<Environment> {
-        Arc::clone(&self.env)
-    }
-
-    /// The runtime the project's extensions run in (none: no extension
-    /// loads).
+    /// The runtime the project's extensions were loaded in (its
+    /// environment's; none: no extension loads).
     pub fn runtime(&self) -> Option<&SharedRuntime> {
-        self.runtime.as_ref()
-    }
-
-    /// The graph build's diagnostics: duplicates, unresolved references,
-    /// reference cycles, parse errors (no import's, no check's).
-    pub fn graph_diagnostics(&self) -> Vec<Diagnostic> {
-        self.graph.diagnostics().to_vec()
-    }
-
-    /// The graph build's diagnostics in one file (relative to the spec root).
-    pub fn file_diagnostics(&self, path: &str) -> &[Diagnostic] {
-        self.graph.file_diagnostics(path)
-    }
-
-    /// Every file with graph-build diagnostics (sorted).
-    pub fn diagnostic_files(&self) -> Vec<String> {
-        self.graph.diagnostic_files()
-    }
-
-    /// How many `.spec` files the project has.
-    pub fn file_count(&self) -> usize {
-        self.graph.files().len()
+        self.project.environment().runtime.as_ref()
     }
 
     /// Whether a changed file is outside the project. A session with no
@@ -550,56 +529,34 @@ impl ProjectSession {
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
-        self.recorded = OnceLock::new();
-        let (check_diagnostics, inputs_changed) = self.checked();
-        self.check_diagnostics = check_diagnostics;
-        Update {
-            kind: UpdateKind::Checks,
+        let inputs_changed = self.check();
+        Update::of(
+            UpdateKind::Checks,
             inputs_changed,
-            delta: GraphDelta::default(),
-            rebuilt_files: Vec::new(),
-            changed_diagnostic_files: Vec::new(),
-            diagnostics: self.diagnostics(),
-            verification: None,
-        }
-    }
-
-    fn resolve_imports(&self) -> Vec<Diagnostic> {
-        if self.inputs.root().is_none() {
-            return Vec::new();
-        }
-        self.env.import_diagnostics(&self.sources, &self.graph)
-    }
-
-    /// A snapshot of the current graph, taken now (ADR 0019).
-    fn snapshot_now(&self) -> Arc<EntitySnapshot> {
-        Arc::new(self.env.entity_snapshot(self.graph.graph()))
-    }
-
-    /// Run every check on the current graph over `entities`, its snapshot:
-    /// the coverage memo starts again from that snapshot.
-    fn check_over(&mut self, entities: Arc<EntitySnapshot>) -> Vec<Diagnostic> {
-        let diagnostics =
-            self.env
-                .run_checks(self.graph.graph(), &entities, self.runtime.as_deref());
-        self.recorded = OnceLock::from(RecordedCoverage::of(entities));
-        diagnostics
+            Applied::default(),
+            self.project.diagnostics(),
+        )
     }
 
     /// Every check on the current graph, over a snapshot of it taken now,
     /// the check inputs (which the snapshot's `file_exists` rules add to)
-    /// stamped first; also whether the session's inputs changed.
-    fn checked(&mut self) -> (Vec<Diagnostic>, bool) {
-        let entities = self.snapshot_now();
+    /// stamped first: whether the session's inputs changed.
+    fn check(&mut self) -> bool {
+        self.checks_skipped = false;
+        let entities = self.project.snapshot_now();
         let mut changed = false;
         if self.inputs.root().is_some() {
-            let next = self
-                .inputs
-                .with_named(self.env.registries.files(&entities.rule_input()));
+            let next = self.inputs.with_named(
+                self.project
+                    .environment()
+                    .registries
+                    .files(&entities.rule_input()),
+            );
             changed = next != self.inputs;
             self.inputs = next;
             self.snapshot.stamp_checks(&self.inputs);
         }
-        (self.check_over(entities), changed)
+        self.project.check_over(entities);
+        changed
     }
 }

@@ -25,9 +25,9 @@ fn project(extensions: &[&str], spec: &str) -> TempDir {
 
 /// The compile's diagnostics as `[code, message]` pairs, keeping only
 /// `codes`, in the order the compile reported them.
-fn reported(runtime: &InProcessRuntime, dir: &TempDir, codes: &[&str]) -> Vec<[String; 2]> {
+fn reported(runtime: InProcessRuntime, dir: &TempDir, codes: &[&str]) -> Vec<[String; 2]> {
     let diagnostics: Vec<Diagnostic> =
-        CompiledProject::compile(dir.path(), Some(runtime)).diagnostics();
+        CompiledProject::compile(dir.path(), Some(std::sync::Arc::new(runtime))).diagnostics();
     diagnostics
         .into_iter()
         .filter(|d| codes.contains(&d.code.as_str()))
@@ -100,7 +100,7 @@ const ORDER: [&str; 9] = [
 fn structural_checks_report_in_one_order() {
     let dir = project(&["@test/shapes"], ONE_OF_EACH);
 
-    let found = reported(&shapes(), &dir, &ORDER);
+    let found = reported(shapes(), &dir, &ORDER);
 
     assert_eq!(codes_of(&found), ORDER, "{found:#?}");
     insta::assert_json_snapshot!("one_order", found);
@@ -128,7 +128,7 @@ fn kindless_extensions_leave_entities_unchecked() {
     let dir = project(&["@test/kindless"], "wibble w { }\nthing ab { }\n");
 
     let found = reported(
-        &kindless(),
+        kindless(),
         &dir,
         &[
             "E024", "E013", "E014", "W020", "E022", "E061", "W151", "I002",
@@ -172,7 +172,7 @@ fn ghost_rules() -> InProcessRuntime {
 fn a_rule_is_inert_for_an_undeclared_target_kind() {
     let dir = project(&["@test/ghost-rules"], "ghost g1 { }\n");
 
-    let found = reported(&ghost_rules(), &dir, &["E024", "W901"]);
+    let found = reported(ghost_rules(), &dir, &["E024", "W901"]);
 
     assert_eq!(codes_of(&found), ["E024"], "{found:#?}");
 }
@@ -210,7 +210,7 @@ fn docs() -> InProcessRuntime {
 fn a_field_named_like_another_kinds_file_reference_is_not_checked() {
     let dir = project(&["@test/docs"], "note n1 { paths [\"alpha\"] }\n");
 
-    let found = reported(&docs(), &dir, &["E016"]);
+    let found = reported(docs(), &dir, &["E016"]);
 
     assert!(found.is_empty(), "{found:#?}");
 }
@@ -224,7 +224,7 @@ fn a_field_named_like_another_kinds_file_reference_is_not_checked() {
 fn a_single_path_on_a_file_reference_field_is_checked() {
     let dir = project(&["@test/docs"], "doc d1 { guide \"missing.md\" }\n");
 
-    let found = reported(&docs(), &dir, &["E016"]);
+    let found = reported(docs(), &dir, &["E016"]);
 
     assert_eq!(found.len(), 1, "{found:#?}");
     assert!(found[0][1].contains("'missing.md'"), "{found:#?}");

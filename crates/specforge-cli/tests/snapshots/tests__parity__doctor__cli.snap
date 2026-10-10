@@ -60,12 +60,10 @@ expression: cli_snap
         "version": "1.0.0"
       }
     ],
-    "extensions_checked": 0,
+    "extensions_ok": true,
     "findings": [],
-    "issues": [],
-    "load_failures": [],
-    "shadowed": [],
-    "status": "healthy",
+    "installed_count": 0,
+    "ok": true,
     "z3_available": "[Z3]"
   }
 }

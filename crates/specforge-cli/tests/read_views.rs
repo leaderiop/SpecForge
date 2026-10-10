@@ -170,8 +170,8 @@ fn assert_stats_agree(root: &Path) {
         .sum();
     assert_eq!(cli["total_entities"], json!(total));
     assert_eq!(cli["total_edges"], mcp["edge_count"]);
-    assert_eq!(cli["orphan_count"], mcp["orphan_count"]);
-    for key in ["declared_pct", "proof_pct", "coverage_pct"] {
+    assert_eq!(cli["unconnected_count"], mcp["unconnected_count"]);
+    for key in ["declared_pct", "proof_pct"] {
         assert_eq!(cli[key], mcp[key], "{key} on {root:?}");
     }
     let summary = &mcp["diagnostic_summary"];
@@ -458,6 +458,45 @@ fn cli_and_mcp_model_render_the_same_text() {
     }
 }
 
+#[test]
+fn a_model_refuses_what_the_project_does_not_have() {
+    let tmp = project("fx1");
+    let root = s(tmp.path());
+
+    let run = cli(&["model", root, "--root", "behaviour"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[unknown_kind]: unknown entity kind 'behaviour'\n  hint: did you mean 'behavior'?\n"
+    );
+
+    let run = cli(&["model", root, "--extension", "software"]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[extension_not_found]: extension 'software' is not loaded by this project\n  hint: did you mean '@specforge/software'?\n"
+    );
+
+    // A kind the project does not know is reported, and selects nothing.
+    let run = cli(&["model", root, "--kinds", "behaviour", "--format", "json"]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    let model: Value = serde_json::from_str(&run.stdout).unwrap();
+    assert!(model["entities"].as_array().unwrap().is_empty());
+    assert!(
+        run.stderr
+            .contains("info[I020]: unknown entity kind 'behaviour'"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("did you mean 'behavior'?"),
+        "{}",
+        run.stderr
+    );
+}
+
 #[specforge_test_macros::test(
     behavior = "read_views_over_the_project_view",
     verify = "specforge outline and specforge.outline_extensions render the same text"
@@ -736,7 +775,7 @@ fn contract_read_views() {
     );
     assert_eq!(cli_json(&["schema", s(root)]), mcp[0]);
     assert_eq!(
-        json!(mcp[1].as_array().unwrap().len()),
+        json!(mcp[1]["entities"].as_array().unwrap().len()),
         stats["testable_count"],
         "{}",
         mcp[1]
@@ -755,7 +794,7 @@ fn contract_read_views() {
             serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap();
         let text = response["result"]["content"][0]["text"].as_str().unwrap();
         let rows: Value = serde_json::from_str(text).unwrap();
-        rows[0]["status"].as_str().unwrap().to_string()
+        rows["entities"][0]["status"].as_str().unwrap().to_string()
     };
     assert_eq!(alpha_status(), "uncovered");
     record_alpha(root, "fail");
@@ -961,8 +1000,9 @@ fn unknown_kind_wordings_today() {
 /// Every entity of `root`, by id.
 fn entity_ids(root: &Path) -> Vec<String> {
     let rows = &mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])[0];
-    rows.as_array()
-        .expect("specforge.list answers an array")
+    rows["entities"]
+        .as_array()
+        .expect("specforge.list answers an object holding the entities")
         .iter()
         .map(|row| row["id"].as_str().unwrap().to_string())
         .collect()
@@ -1021,4 +1061,248 @@ fn assert_queries_agree(root: &Path) {
 fn cli_and_mcp_query_are_one_document() {
     assert_queries_agree(project("fx1").path());
     assert_queries_agree(rv1().path());
+}
+
+// --- explore, review and infer-guide (plan 04) ---
+
+/// The payload of the prompt `name` (its second message, as JSON) for
+/// `arguments`, one `specforge mcp` session each.
+fn prompt_payloads(root: &Path, name: &str, arguments: &[Value]) -> Vec<Value> {
+    let calls: Vec<Value> = arguments
+        .iter()
+        .map(|arguments| {
+            json!({"method": "prompts/get", "params": {
+                "name": format!("specforge://prompts/{name}"), "arguments": arguments}})
+        })
+        .collect();
+    mcp_responses(root, &calls)
+        .into_iter()
+        .map(|response| {
+            let text = response["result"]["messages"][1]["content"]["text"]
+                .as_str()
+                .unwrap_or_else(|| panic!("no prompt payload in {response}"));
+            serde_json::from_str(text).unwrap()
+        })
+        .collect()
+}
+
+/// `value` less the keys the infer prompt adds to the guide's data.
+fn without(mut value: Value, keys: &[&str]) -> Value {
+    for key in keys {
+        value.as_object_mut().unwrap().remove(*key);
+    }
+    value
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_explore_cli",
+    verify = "specforge explore --format json is the explore prompt's payload for the same arguments"
+)]
+fn cli_and_prompt_explore_are_one_document() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let cases: Vec<(Vec<&str>, Value)> = vec![
+        (vec![], json!({})),
+        (vec!["login"], json!({"entity_id": "login"})),
+        (
+            vec!["login", "--depth", "0"],
+            json!({"entity_id": "login", "depth": 0}),
+        ),
+        (vec!["--kind", "behavior"], json!({"kind": "behavior"})),
+        (vec!["--kind", "behaviour"], json!({"kind": "behaviour"})),
+    ];
+    let arguments: Vec<Value> = cases
+        .iter()
+        .map(|(_, arguments)| arguments.clone())
+        .collect();
+    for ((flags, _), prompt) in cases
+        .iter()
+        .zip(prompt_payloads(root, "explore", &arguments))
+    {
+        let mut args = vec!["explore"];
+        args.extend(flags);
+        args.extend(["--path", s(root), "--format", "json"]);
+        assert_eq!(cli_json(&args), prompt, "{args:?}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_explore_cli",
+    verify = "an unknown entity is E003 naming the closest entity, exit 1"
+)]
+fn explore_refuses_an_unknown_entity() {
+    let tmp = project("fx1");
+    let run = cli(&["explore", "logn", "--path", s(tmp.path())]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[E003]: unresolved entity 'logn' — not found in graph\n  hint: did you mean 'login'?\n"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_review_cli",
+    verify = "specforge review --format json is the review prompt's payload for the same arguments"
+)]
+fn cli_and_prompt_review_are_one_document() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let cases: Vec<(Vec<&str>, Value)> = vec![
+        (vec![], json!({})),
+        (vec!["login"], json!({"entity_id": "login"})),
+        (
+            vec!["login", "--depth", "2"],
+            json!({"entity_id": "login", "depth": 2}),
+        ),
+    ];
+    let arguments: Vec<Value> = cases
+        .iter()
+        .map(|(_, arguments)| arguments.clone())
+        .collect();
+    for ((flags, _), prompt) in cases
+        .iter()
+        .zip(prompt_payloads(root, "review", &arguments))
+    {
+        let mut args = vec!["review"];
+        args.extend(flags);
+        args.extend(["--path", s(root), "--format", "json"]);
+        assert_eq!(cli_json(&args), prompt, "{args:?}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_review_cli",
+    verify = "a recorded report that cannot be read exits 2 with E045"
+)]
+fn review_refuses_an_unreadable_report() {
+    let tmp = rv1();
+    std::fs::write(tmp.path().join("specforge-report.json"), "{not json").unwrap();
+    let run = cli(&["review", "--path", s(tmp.path())]);
+    assert_eq!(run.code, Some(2), "{}", run.stderr);
+    assert!(run.stderr.starts_with("error[E045]"), "{}", run.stderr);
+
+    let ghost = cli(&["review", "ghost", "--path", s(rv1().path())]);
+    assert_eq!(ghost.code, Some(1), "{}", ghost.stderr);
+    assert!(ghost.stderr.starts_with("error[E003]"), "{}", ghost.stderr);
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_infer_guide_cli",
+    verify = "specforge infer-guide --format json is the infer prompt's guide data"
+)]
+fn cli_and_prompt_infer_guide_are_one_document() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let prompts = prompt_payloads(
+        root,
+        "infer",
+        &[json!({}), json!({"scope": "kind:behavior"})],
+    );
+    assert_eq!(
+        cli_json(&["infer-guide", "--path", s(root), "--format", "json"]),
+        without(prompts[0].clone(), &["output_format", "validation"])
+    );
+    assert_eq!(
+        cli_json(&[
+            "infer-guide",
+            "behavior",
+            "--path",
+            s(root),
+            "--format",
+            "json"
+        ]),
+        without(prompts[1].clone(), &["validation"])
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_infer_guide_cli",
+    verify = "an undeclared kind is unknown_kind naming the closest declared kind, exit 1"
+)]
+fn infer_guide_refuses_an_undeclared_kind() {
+    let tmp = project("fx1");
+    let run = cli(&["infer-guide", "behaviour", "--path", s(tmp.path())]);
+    assert_eq!(run.code, Some(1), "{}", run.stderr);
+    assert_eq!(run.stdout, "");
+    assert_eq!(
+        run.stderr,
+        "error[unknown_kind]: unknown entity kind 'behaviour'\n  hint: did you mean 'behavior'?\n"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "compute_inference_guide",
+    verify = "every builtin kind's example parses and holds no value of the wrong type"
+)]
+fn builtin_examples_are_well_typed() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "all", "version": "0.1.0", "spec_root": "spec",
+               "extensions": ["@specforge/product", "@specforge/software",
+                              "@specforge/testing", "@specforge/governance",
+                              "@specforge/formal"]})
+        .to_string(),
+    )
+    .unwrap();
+
+    let overview = cli_json(&["infer-guide", "--path", s(root), "--format", "json"]);
+    let kinds: Vec<&str> = overview["kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|kind| kind["kind"].as_str().unwrap())
+        .collect();
+    assert!(kinds.len() >= 20, "{kinds:?}");
+    let examples: Vec<String> = kinds
+        .iter()
+        .map(|kind| {
+            let guide = cli_json(&["infer-guide", kind, "--path", s(root), "--format", "json"]);
+            guide["example"].as_str().unwrap().to_string()
+        })
+        .collect();
+    std::fs::write(root.join("spec/examples.spec"), examples.join("\n\n")).unwrap();
+
+    let check = cli(&["check", s(root), "--format", "json"]);
+    let report: Value = serde_json::from_str(&check.stdout)
+        .unwrap_or_else(|e| panic!("check is not JSON ({e}): {}{}", check.stdout, check.stderr));
+    let codes: Vec<&str> = report
+        .as_array()
+        .unwrap_or_else(|| panic!("{report}"))
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    // The placeholders (`ref_id`, `ref_1`) name no entity: E003 and E010.
+    // Nothing else is wrong: no syntax error (E001), no value of the wrong
+    // type (E061).
+    for code in &codes {
+        assert!(
+            matches!(*code, "E003" | "E010") || !code.starts_with('E'),
+            "an example is wrong ({code}): {report}"
+        );
+    }
+}
+
+#[test]
+fn explore_review_and_infer_guide_human_output() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    for (name, args) in [
+        ("explore_fx1_human", vec!["explore", "login"]),
+        ("review_fx1_human", vec!["review"]),
+        ("infer_guide_fx1_human", vec!["infer-guide"]),
+        (
+            "infer_guide_fx1_behavior_human",
+            vec!["infer-guide", "behavior"],
+        ),
+    ] {
+        let mut args = args;
+        args.extend(["--path", s(root)]);
+        let run = cli(&args);
+        assert_eq!(run.code, Some(0), "{args:?}: {}", run.stderr);
+        insta::assert_snapshot!(name, normalized_text(&run.stdout, root));
+    }
 }

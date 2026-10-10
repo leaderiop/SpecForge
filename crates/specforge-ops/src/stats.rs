@@ -4,9 +4,8 @@
 //! `McpStatsResult`).
 
 use specforge_common::Diagnostic;
-use specforge_graph::Graph;
 use specforge_project::coverage::Summary;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 use crate::OpError;
 use crate::check::Counts;
@@ -16,7 +15,9 @@ use crate::view::ProjectView;
 pub struct Stats {
     pub total_entities: usize,
     pub total_edges: usize,
-    pub orphan_count: usize,
+    /// Entities no edge links to another entity (CONTEXT.md "Unconnected
+    /// entity").
+    pub unconnected_count: usize,
     /// Entities, of any kind, that declare at least one obligation.
     pub verified_count: usize,
     /// The entities that count toward coverage.
@@ -26,9 +27,6 @@ pub struct Stats {
     /// `declared_count` over `testable_count`, in percent (0 when nothing
     /// is testable): declared intent.
     pub declared_pct: f64,
-    /// Deprecated alias of [`Self::declared_pct`], kept for readers of the
-    /// old name.
-    pub coverage_pct: f64,
     /// The share of testable entities proven, in percent: the
     /// `analyze coverage --min` gate's figure. `None` without recorded
     /// test results.
@@ -49,31 +47,21 @@ pub struct Stats {
 /// notices). A recorded report that cannot be read is the error.
 pub fn stats(view: &ProjectView) -> Result<Stats, OpError> {
     let coverage = view.coverage()?;
-    Ok(tally(view.graph(), &coverage.summary, &view.reported()))
+    Ok(tally(view, &coverage.summary, &view.reported()))
 }
 
-fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats {
-    let mut entities_by_kind = BTreeMap::new();
-    for node in graph.nodes() {
-        *entities_by_kind
-            .entry(node.kind.raw.to_string())
-            .or_insert(0) += 1;
-    }
+fn tally(view: &ProjectView, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats {
+    let graph = view.graph();
+    let entities_by_kind = view
+        .entities_by_kind()
+        .into_iter()
+        .map(|(kind, count)| (kind.to_string(), count))
+        .collect();
     let verified_count = coverage.discharge_funnel.entities_with_obligations;
     let testable_count = coverage.testable_total;
     let testable_verified = coverage.testable_verified;
 
-    // Orphans: nodes with no incoming and no outgoing edges
-    let mut connected: HashSet<&str> = HashSet::new();
-    for edge in graph.edges() {
-        connected.insert(edge.source.as_str());
-        connected.insert(edge.target.as_str());
-    }
-    let orphan_count = graph
-        .nodes()
-        .iter()
-        .filter(|n| !connected.contains(n.id.raw.as_str()))
-        .count();
+    let unconnected_count = view.connectivity().unconnected().count();
 
     let declared_pct = if testable_count > 0 {
         (testable_verified as f64 / testable_count as f64) * 100.0
@@ -87,12 +75,11 @@ fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats
     Stats {
         total_entities: graph.node_count(),
         total_edges: graph.edge_count(),
-        orphan_count,
+        unconnected_count,
         verified_count,
         testable_count,
         declared_count: testable_verified,
         declared_pct,
-        coverage_pct: declared_pct,
         proof_pct,
         error_count: counts.errors,
         warning_count: counts.warnings,

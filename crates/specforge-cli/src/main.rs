@@ -5,11 +5,13 @@ mod collect;
 mod color;
 mod doctor;
 mod explain;
+mod explore;
 mod export;
 mod extension_authoring;
 mod extension_command;
 mod extensions;
 mod format;
+mod infer_guide;
 mod infer_status;
 mod init;
 mod login;
@@ -25,15 +27,18 @@ mod providers;
 mod publish;
 mod query;
 mod remove;
+mod review;
 mod search;
 mod stats;
 mod trace;
+mod trust;
 mod update;
 mod watch;
 
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
+use outcome::Exit;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -62,6 +67,18 @@ impl OutputFormat {
     fn eprint_diagnostics(self, diagnostics: &[specforge_common::Diagnostic]) {
         for diagnostic in diagnostics {
             eprintln!("{}", specforge_common::render_plain(diagnostic));
+        }
+    }
+
+    /// How a publisher key change is decided for this output: `--yes`
+    /// accepts it; JSON output can't ask anyone, so it refuses; a terminal
+    /// is asked.
+    fn trust(self, assume_yes: bool) -> specforge_ops::extension::Trust {
+        use specforge_ops::extension::Trust;
+        match (assume_yes, self) {
+            (true, _) => Trust::AssumeYes,
+            (false, OutputFormat::Json) => Trust::Refuse,
+            (false, OutputFormat::Human) => Trust::Prompt,
         }
     }
 }
@@ -143,6 +160,15 @@ enum Commands {
         /// Scope export to subgraph reachable from this entity ID
         #[arg(long)]
         scope: Option<String>,
+
+        /// With --scope, how many hops from the scoped entity to include
+        #[arg(long, requires = "scope")]
+        depth: Option<usize>,
+
+        /// Keep only entities of these kinds (comma-separated); the scoped
+        /// entity always stays
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
 
         /// Suppress schema embedding in `graph` exports (keeps format_version 1.0)
         #[arg(long)]
@@ -350,6 +376,57 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
+    /// Where to start reading the graph: starting points, hubs and unconnected entities
+    Explore {
+        /// Entity ID to explore from (omit to explore the whole project)
+        entity: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Only entities of this kind
+        #[arg(long)]
+        kind: Option<String>,
+
+        /// Hops from the entity (unbounded when omitted)
+        #[arg(long)]
+        depth: Option<usize>,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
+    /// Coverage gaps around an entity, or of the whole project
+    Review {
+        /// Entity ID to review (omit to review the whole project)
+        entity: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Hops around the entity
+        #[arg(long, default_value_t = specforge_ops::review::DEFAULT_DEPTH)]
+        depth: usize,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
+    /// What to look for in code to write a kind's entities
+    InferGuide {
+        /// Entity kind (omit for every declared kind)
+        kind: Option<String>,
+
+        /// Path to the spec root directory
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: OutputFormat,
+    },
     /// Install an extension
     Add {
         /// Extension specifier (e.g., @scope/name@1.0.0 or ./path)
@@ -398,8 +475,8 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Publish an extension to the registry: its binary, and the declaration
-    /// read from it as the package's manifest
+    /// Publish an extension to the registry that serves its name: its binary,
+    /// and the declaration read from it as the package's manifest
     Publish {
         /// The extension to publish: a .wasm component, or the extension's
         /// crate directory (its target/wasm32-wasip2/release component).
@@ -418,6 +495,10 @@ enum Commands {
     Search {
         /// Search query
         query: String,
+
+        /// Only extensions that declare this category of contribution
+        #[arg(long, value_parser = options::choice(&specforge_ops::registry::CONTRIBUTES))]
+        contributes: Option<specforge_protocol_types::DeclaredCategory>,
 
         /// Path to the project root (for registry config)
         #[arg(long, default_value = ".")]
@@ -518,13 +599,22 @@ enum Commands {
     },
     /// Authenticate with a registry
     Login {
-        /// Registry alias (defaults to "default")
+        /// Registry alias (defaults to the default registry)
         #[arg(long)]
         registry: Option<String>,
 
-        /// Authentication token
+        /// Authentication token, kept as a secret (OS keyring, else a 0600 file).
+        /// Exactly one of --token, --token-env, --token-file
         #[arg(long)]
         token: Option<String>,
+
+        /// Environment variable that holds the token; the variable's name is kept, not the token
+        #[arg(long)]
+        token_env: Option<String>,
+
+        /// File that holds the token; the file's path is kept, not the token
+        #[arg(long)]
+        token_file: Option<PathBuf>,
 
         /// Path to the project root (for registry config)
         #[arg(long, default_value = ".")]
@@ -536,9 +626,14 @@ enum Commands {
     },
     /// Remove registry credentials
     Logout {
-        /// Registry alias (defaults to "default")
+        /// Registry alias (defaults to the default registry)
         #[arg(long)]
         registry: Option<String>,
+
+        /// The project whose specforge.json names the default registry (when
+        /// --registry is not given)
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
@@ -710,6 +805,22 @@ fn main() {
     let cli = Cli::parse();
 
     let exit_code = match cli.command {
+        // An extension command's exit code is its own (ADR 0011).
+        Commands::External(argv) => {
+            let builtins: Vec<String> = Cli::command()
+                .get_subcommands()
+                .map(|c| c.get_name().to_string())
+                .collect();
+            extension_command::run(&argv, &builtins)
+        }
+        command => run(command).code(),
+    };
+    std::process::exit(exit_code);
+}
+
+/// Run one core command.
+fn run(command: Commands) -> Exit {
+    match command {
         Commands::Init {
             name,
             version,
@@ -731,23 +842,29 @@ fn main() {
             path,
             format,
             scope,
+            depth,
+            kinds,
             no_schema,
             with_schema,
             schema_version,
             max_tokens,
         } => export::run(
             &path,
-            format,
-            scope.as_deref(),
-            // context, brief and a budgeted graph export leave the schema
-            // out unless asked for it (the policy lives in specforge-ops).
-            match (no_schema, with_schema) {
-                (true, _) => specforge_ops::export::Schema::Without,
-                (_, true) => specforge_ops::export::Schema::With,
-                _ => specforge_ops::export::Schema::Default,
+            &specforge_ops::export::Request {
+                format: Some(format),
+                scope: scope.as_deref(),
+                depth,
+                kinds: kinds.iter().map(String::as_str).collect(),
+                max_tokens,
+                // context, brief and a budgeted graph export leave the schema
+                // out unless asked for it (the policy lives in specforge-ops).
+                schema: match (no_schema, with_schema) {
+                    (true, _) => specforge_ops::export::Schema::Without,
+                    (_, true) => specforge_ops::export::Schema::With,
+                    _ => specforge_ops::export::Schema::Default,
+                },
+                schema_version: schema_version.as_deref(),
             },
-            schema_version.as_deref(),
-            max_tokens,
         ),
         Commands::Schema {
             path,
@@ -780,10 +897,9 @@ fn main() {
                 format,
                 group_by,
                 fields,
-                extension_filter: extension,
-                kind_filter: (!kinds.is_empty()).then_some(kinds),
-                root,
-                depth,
+                extension,
+                kinds,
+                root: root.map(|kind| specforge_ops::model::ModelRoot { kind, depth }),
             },
         ),
         Commands::Outline {
@@ -829,13 +945,44 @@ fn main() {
             stdin,
         } => format::run(&path, check, diff, stdin, &paths),
         Commands::Stats { path, format } => stats::run(&path, format),
+        Commands::Explore {
+            entity,
+            path,
+            kind,
+            depth,
+            format,
+        } => explore::run(
+            &path,
+            &specforge_ops::explore::ExplorationRequest {
+                entity_id: entity.as_deref(),
+                kind: kind.as_deref(),
+                depth,
+            },
+            format,
+        ),
+        Commands::Review {
+            entity,
+            path,
+            depth,
+            format,
+        } => review::run(
+            &path,
+            &specforge_ops::review::ReviewRequest {
+                entity_id: entity.as_deref(),
+                depth,
+            },
+            format,
+        ),
+        Commands::InferGuide { kind, path, format } => {
+            infer_guide::run(&path, kind.as_deref(), format)
+        }
         Commands::Add {
             specifier,
             path,
             format,
             allow_unsigned,
             yes,
-        } => add::run(&specifier, &path, format, allow_unsigned, yes),
+        } => add::run(&specifier, &path, format, allow_unsigned, format.trust(yes)),
         Commands::Analyze {
             pass,
             path,
@@ -888,9 +1035,10 @@ fn main() {
         } => publish::run(extension.as_deref().unwrap_or(&path), &path, format),
         Commands::Search {
             query,
+            contributes,
             path,
             format,
-        } => search::run(&query, &path, format),
+        } => search::run(&query, contributes, &path, format),
         Commands::Update {
             name,
             path,
@@ -898,14 +1046,36 @@ fn main() {
             major,
             allow_unsigned,
             yes,
-        } => update::run(name.as_deref(), &path, format, major, allow_unsigned, yes),
+        } => update::run(
+            name.as_deref(),
+            &path,
+            format,
+            major,
+            allow_unsigned,
+            format.trust(yes),
+        ),
         Commands::Login {
             registry,
             token,
+            token_env,
+            token_file,
             path,
             format,
-        } => login::run(registry.as_deref(), token.as_deref(), &path, format),
-        Commands::Logout { registry, format } => login::run_logout(registry.as_deref(), format),
+        } => login::run(
+            registry.as_deref(),
+            &login::TokenSource {
+                token: token.as_deref(),
+                token_env: token_env.as_deref(),
+                token_file: token_file.as_deref(),
+            },
+            &path,
+            format,
+        ),
+        Commands::Logout {
+            registry,
+            path,
+            format,
+        } => login::run_logout(registry.as_deref(), &path, format),
         Commands::Providers { path, format } => providers::run(&path, format),
         Commands::Collect {
             path,
@@ -932,7 +1102,7 @@ fn main() {
             let mut cmd =
                 extension_command::with_extension_commands(Cli::command(), Path::new("."));
             clap_complete::generate(shell, &mut cmd, "specforge", &mut std::io::stdout());
-            0
+            Exit::Passed
         }
         Commands::Explain { code } => explain::run(&code),
         Commands::Migrate {
@@ -957,13 +1127,7 @@ fn main() {
             stale,
             gaps_detail,
         } => infer_status::run(&path, format, gaps, stale, gaps_detail),
-        Commands::External(argv) => {
-            let builtins: Vec<String> = Cli::command()
-                .get_subcommands()
-                .map(|c| c.get_name().to_string())
-                .collect();
-            extension_command::run(&argv, &builtins)
-        }
+        Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Extension { action } => match action {
             ExtensionAction::Init { name, path, format } => {
                 extension_authoring::run_init(&path, name.as_deref(), format)
@@ -975,13 +1139,21 @@ fn main() {
                 extension_authoring::run_validate(&path, format)
             }
         },
-    };
-    std::process::exit(exit_code);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trust_is_yes_then_what_the_output_can_ask() {
+        use specforge_ops::extension::Trust;
+        assert_eq!(OutputFormat::Human.trust(true), Trust::AssumeYes);
+        assert_eq!(OutputFormat::Json.trust(true), Trust::AssumeYes);
+        assert_eq!(OutputFormat::Json.trust(false), Trust::Refuse);
+        assert_eq!(OutputFormat::Human.trust(false), Trust::Prompt);
+    }
 
     /// `specforge query --depth` defaults to the query operation's constant,
     /// the one `specforge.query`'s schema advertises (plan 08 T8).

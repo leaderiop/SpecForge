@@ -56,14 +56,14 @@ behavior fa_build_event_bipartite_graph "Build Event-Behavior Bipartite Graph" {
     consumers_from_edges "consumers derived from Consumes edges only (not from entity fields)"
     barrier_edges        "sync block barrier references create additional synchronization edges"
     protocol_edges       "FollowsProtocol edges incorporated — protocol ordering constraints included"
-    no_orphan_nodes      "bipartite graph contains no orphan nodes disconnected from all edges"
+    no_unconnected_nodes "bipartite graph contains no node disconnected from all edges"
   }
   features [fa_event_graph_linting]
   verify unit "bipartite graph built from produces/consumes edges"
   verify unit "consumers derived from Consumes edges, not entity fields"
   verify unit "barrier references create synchronization edges"
   verify unit "FollowsProtocol edges incorporated into bipartite graph"
-  verify property "bipartite graph has no orphan nodes"
+  verify property "bipartite graph has no unconnected nodes"
   verify property "all producers and consumers are included"
 }
 

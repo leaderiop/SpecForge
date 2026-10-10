@@ -6,7 +6,7 @@ Entities: 6
   behavior: 3
   type: 3
 Edges:    2
-Orphans:  3
+Unconnected: 3
 Verified: 1
 Declared: 20% of 5 testable
 Diagnostics: 0 errors, 8 warnings, 0 info

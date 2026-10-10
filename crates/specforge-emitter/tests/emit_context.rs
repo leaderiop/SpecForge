@@ -57,8 +57,9 @@ fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::context::emit_context_with_fields(
+    let json = crate::export(
         &graph,
+        specforge_emitter::EmitFormat::Context,
         Some(&crate::support::headline_registry(&["behavior", "feature"])),
     );
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
@@ -86,7 +87,7 @@ fn context_omits_verbose_prose_fields() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::context::emit_context(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -130,7 +131,7 @@ fn context_includes_edges_and_schema_version() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::context::emit_context(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     assert!(parsed["schema_version"].is_string());
@@ -146,7 +147,7 @@ fn context_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::context::emit_context(&graph);
+    let json = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
@@ -171,7 +172,7 @@ fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let context = specforge_emitter::context::emit_context(&graph);
+    let context = crate::export(&graph, specforge_emitter::EmitFormat::Context, None);
     let full = specforge_emitter::json::emit_json(&graph);
     assert!(
         context.len() < full.len(),

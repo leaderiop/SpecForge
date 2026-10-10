@@ -114,11 +114,11 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     obligations, proven, formally discharged, report failures).
   """
   ensures {
-    intent_scored      "entities without obligations are A001, invariants A002"
-    orphans_counted    "unreferenced invariants are counted, not re-reported"
-    proof_recorded     "recorded passing tests prove an entity; a failing one is A014"
-    obligations_proven "each obligation needs a passing test that names it (A015); unknown names are A016"
-    formal_discharge   "entailed formal claims discharge verify property obligations"
+    intent_scored        "entities without obligations are A001, invariants A002"
+    unreferenced_counted "unreferenced invariants are counted, not re-reported"
+    proof_recorded       "recorded passing tests prove an entity; a failing one is A014"
+    obligations_proven   "each obligation needs a passing test that names it (A015); unknown names are A016"
+    formal_discharge     "entailed formal claims discharge verify property obligations"
   }
   verify unit "a high-risk invariant without obligations is an A002 error"
   verify unit "invariant references count as enforcement"
@@ -144,17 +144,22 @@ behavior te_coverage_gate "Proof Coverage Gate" {
     the gate: the summary's testable_proven is its numerator. It needs test results
     (the project's specforge-report.json or --test-results) and the
     coverage pass, and a project with nothing testable satisfies any
-    threshold. The analyze operation computes where the gate landed
-    (not requested, met, below, no coverage pass, unreadable summary)
-    and leaves the analysis result untouched; the CLI maps it to the
-    exit code. A coverage pass that did not run, or whose summary cannot
-    be read, is an error rather than a pass.
+    threshold. The analyze operation decides the run's verdict with the
+    gate in it: a minimum that is not a percentage is invalid input; a
+    minimum the coverage pass will not answer (not selected, its extension
+    not loaded) is refused before any pass runs (E068); proof coverage
+    under the minimum fails the run (E048); a coverage pass that ran
+    without a figure the gate reads leaves the run unjudged (E068). The
+    analysis document carries the verdict as ok and, with a minimum, where
+    the gate landed (gate: status met, below or unjudged, the minimum, and
+    the figure).
 
-    Exit codes: below the threshold (E048) exits 1; E068 (no coverage
-    pass), an unreadable coverage summary and missing test results exit 2.
-    E048 and E068 take precedence over any other finding. The coverage
-    pass must have run, so `pass` is `coverage` or `all`; naming another
-    pass alone does not satisfy the gate.
+    Exit codes: below the threshold (E048) exits 1; E068 and missing test
+    results exit 2. E048 and E068 take precedence over any other finding.
+    Under --json the document says it and nothing is written to stderr.
+    The coverage pass must have run, so `pass` is `coverage` or `all`;
+    naming another pass alone does not satisfy the gate. specforge.analyze
+    takes min and returns the same ok and gate.
   """
   ensures {
     below_fails   "proof coverage below the threshold fails with E048"
@@ -165,12 +170,13 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   verify unit "coverage below the threshold fails with E048"
   verify unit "the gate needs test results"
   verify unit "a proven entity whose kind is not testable does not raise the gate"
-  verify unit "the analysis reports where the gate landed and leaves the analysis result alone"
+  verify unit "the analysis's ok is the run verdict, the gate included, and its JSON says where the gate landed"
+  verify unit "a minimum that is not a percentage is invalid input"
   verify unit "a gate without a readable coverage pass is not met"
   verify unit "a gate without the coverage pass exits 2 with E068"
 }
 
-behavior te_orphaned_test_records "Orphaned Test Records" {
+behavior te_stray_test_records "Stray Test Records" {
   features [te_coverage_analysis]
   category validation
   contract """
@@ -178,18 +184,19 @@ behavior te_orphaned_test_records "Orphaned Test Records" {
     the graph does not know as W097, with the closest known entity id as a
     "did you mean" hint when one is near. Matching stays exact: the record
     is never reassigned to the near match. The operation returns these
-    orphans as data outside the pass reports, so `--strict` never promotes
-    them and neither `ok` nor the exit code changes. The CLI prints the W097
-    lines to stderr before the reports. The CLI `--json` output and the MCP
-    analyze result gain a top-level `orphans` list of `{entity_id, near}`
-    only when it is non-empty; with no orphans the output is unchanged.
+    stray test records as data outside the pass reports, so `--strict`
+    never promotes them and neither `ok` nor the exit code changes. The
+    CLI prints the W097 lines to stderr before the reports. The CLI
+    `--json` output and the MCP analyze result gain a top-level
+    `stray_records` list of `{entity_id, near}` only when it is
+    non-empty; with none the output is unchanged.
   """
   ensures {
     warns_with_hint "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
-    optional_field  "orphans appear in the json output only when records exist"
-    not_promoted    "strict neither promotes an orphan nor changes ok or the exit code"
+    optional_field  "stray_records appear in the json output only when records exist"
+    not_promoted    "strict neither promotes a stray record nor changes ok or the exit code"
   }
   verify unit "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
-  verify unit "orphans appear in the json output only when records exist"
-  verify unit "strict neither promotes an orphan nor changes ok or the exit code"
+  verify unit "stray_records appear in the json output only when records exist"
+  verify unit "strict neither promotes a stray record nor changes ok or the exit code"
 }

@@ -28,29 +28,27 @@ clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
-hex = "0.4.3"
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../specforge-diagnostics" }
-specforge-migrate = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-watch = { path = "../specforge-watch" }
 chrono = "0.4.41"
-specforge-parser = { workspace = true }
-specforge-emitter = { path = "../specforge-emitter" }
 specforge-wasm = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../specforge-ops-registry" }
 specforge-project = { workspace = true }
-specforge-registry = { workspace = true }
 specforge-registry-client = { path = "../specforge-registry-client" }
-semver = { workspace = true }
 
 [dev-dependencies]
+sha2 = { workspace = true }
+hex = "0.4.3"
+specforge-parser = { workspace = true }
+specforge-emitter = { path = "../specforge-emitter" }
+semver = { workspace = true }
 # Extensions declared with the SDK, served in process (`specforge_wasm::testing`).
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
 specforge-wasm = { workspace = true, features = ["testing"] }
@@ -61,10 +59,10 @@ insta = { workspace = true }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
-specforge-migrate = { workspace = true }
-specforge-component = { path = "../specforge-component" }
+specforge-component = { path = "../specforge-component", features = ["testing"] }
 specforge-lsp = { path = "../specforge-lsp" }
 tokio = { workspace = true }
-specforge-registry-server = { path = "../specforge-registry-server" }
+specforge-registry-server = { path = "../specforge-registry-server", features = ["testing"] }
+specforge-registry-client = { path = "../specforge-registry-client", features = ["testing"] }
 axum = "0.8.4"
 tower-lsp = { workspace = true }

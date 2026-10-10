@@ -113,7 +113,13 @@ fn update_without_lockfile_fails() {
 
 #[test]
 fn logout_without_credentials_succeeds() {
-    specforge_cmd().arg("logout").assert().success();
+    // A named registry is forgotten without reading any project.
+    let home = TempDir::new().unwrap();
+    specforge_cmd()
+        .args(["logout", "--registry", "plan06-no-such-registry"])
+        .env("HOME", home.path())
+        .assert()
+        .success();
 }
 
 #[test]
@@ -331,6 +337,115 @@ fn publish_without_registry_makes_no_network_call() {
         .output()
         .unwrap();
     assert_no_registry(&output);
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+}
+
+#[test]
+fn publish_with_no_credential_makes_no_network_call() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "main", "url": UNREACHABLE, "default_registry": true }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .env_remove("SPECFORGE_REGISTRY_TOKEN")
+        .arg(dir.path().join("greet.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R001", "{json}");
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+}
+
+/// The greet blob with its declared name (`@sdk/greet`, 10 bytes) replaced
+/// by another name of the same length.
+pub(crate) fn greet_named(name: &str) -> Vec<u8> {
+    let (from, to) = (b"@sdk/greet".as_slice(), name.as_bytes());
+    assert_eq!(from.len(), to.len());
+    let mut wasm = greet_wasm();
+    let mut at = 0;
+    while at + from.len() <= wasm.len() {
+        if &wasm[at..at + from.len()] == from {
+            wasm[at..at + from.len()].copy_from_slice(to);
+            at += from.len();
+        } else {
+            at += 1;
+        }
+    }
+    wasm
+}
+
+#[specforge_test(
+    behavior = "resolve_registry_source",
+    verify = "a name no registry serves is refused with R-OPS-001 before any request"
+)]
+fn publish_refuses_a_name_no_registry_serves_offline() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "acme", "url": UNREACHABLE, "scope_filter": "@acme" }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .env("SPECFORGE_REGISTRY_TOKEN", "t")
+        .arg(dir.path().join("greet.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R-OPS-001", "{json}");
+    assert!(
+        json["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("\"scope_filter\": \"@sdk\""),
+        "{json}"
+    );
+    assert_eq!(spy.hits(), 0, "publish reached the network");
+    assert!(
+        !spy.home.path().join(".specforge/signing-key.json").exists(),
+        "a refused publish created the signing key"
+    );
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
+)]
+fn publish_checks_the_name_before_the_registry_configuration() {
+    let spy = NetSpy::start();
+    let dir = project_without_registry();
+    std::fs::write(dir.path().join("ext.wasm"), greet_named("greet-ext1")).unwrap();
+    let output = spy
+        .command(&["publish", "--format", "json"])
+        .arg(dir.path().join("ext.wasm"))
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E072", "{json}");
     assert_eq!(spy.hits(), 0, "publish reached the network");
 }
 
@@ -564,7 +679,7 @@ pub(crate) fn greet_wasm() -> Vec<u8> {
 }
 
 /// A project whose only registry is `registry`.
-pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempDir {
+pub(crate) fn project_on(registry: &specforge_registry_server::testing::LocalRegistry) -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "p",
@@ -581,8 +696,8 @@ pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempD
     verify = "add extension without version resolves to latest compatible version"
 )]
 fn add_without_a_version_installs_the_latest() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let registry = FakeRegistry::serve(vec![
+    use crate::published::{Package, serve};
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.0.1", greet_wasm()),
         Package::new("@sdk/greet", "0.1.0", greet_wasm()),
     ]);
@@ -648,9 +763,9 @@ fn known_keys(home: &TempDir) -> std::path::PathBuf {
     verify = "specforge add pins the publisher key and records it in specforge.lock"
 )]
 fn add_installs_a_signed_package_and_pins_its_key() {
-    use crate::fake_registry::{FakeRegistry, Package};
+    use crate::published::{Package, serve};
     let key = specforge_registry_client::SigningKey::generate();
-    let registry = FakeRegistry::serve(vec![
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&key),
     ]);
     let dir = project_on(&registry);
@@ -677,10 +792,10 @@ fn add_installs_a_signed_package_and_pins_its_key() {
     verify = "specforge add refuses a package signed by another key than the pinned one"
 )]
 fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
-    use crate::fake_registry::{FakeRegistry, Package};
+    use crate::published::{Package, serve};
     let pinned = specforge_registry_client::SigningKey::generate();
     let other = specforge_registry_client::SigningKey::generate();
-    let registry = FakeRegistry::serve(vec![
+    let registry = serve(vec![
         Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&other),
     ]);
     let dir = project_on(&registry);
@@ -701,8 +816,8 @@ fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     verify = "specforge add refuses an unsigned package without --allow-unsigned"
 )]
 fn add_refuses_an_unsigned_package_without_allow_unsigned() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
     let home = TempDir::new().unwrap();
 
@@ -711,27 +826,54 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     assert_refused(&output, &dir, "R-TRUST-001");
 }
 
+// §3 R3 (plan 05): nothing asked a registry, so its configuration is not shown.
 #[specforge_test(
-    behavior = "verify_registry_integrity",
-    verify = "mismatched SHA256 produces hard error"
+    behavior = "configure_registries",
+    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
 )]
-fn add_refuses_a_download_that_does_not_match_the_registry_sha256() {
-    use crate::fake_registry::{FakeRegistry, Package};
-    let key = specforge_registry_client::SigningKey::generate();
-    let mut tampered = greet_wasm();
-    tampered.push(0);
-    let registry = FakeRegistry::serve(vec![
-        Package::new("@sdk/greet", "0.1.0", greet_wasm())
-            .signed_by(&key)
-            .serving(tampered),
-    ]);
-    let dir = project_on(&registry);
+fn adding_an_installed_registry_package_shows_no_registry_configuration() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    // The served registry is the default; a second entry repeats an alias (W140).
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software"],
+        "registries": [
+            {"alias": "local", "url": registry.url(), "default_registry": true},
+            {"alias": "local", "url": "http://registry.invalid/v1"},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     let home = TempDir::new().unwrap();
+    let add = || {
+        specforge_cmd()
+            .args(["add", "@sdk/greet@0.1.0", "--allow-unsigned"])
+            .arg("--path")
+            .arg(dir.path())
+            .env("HOME", home.path())
+            .output()
+            .unwrap()
+    };
 
-    let output = add_greet(&dir, &home, &["--allow-unsigned", "--yes"]);
+    let first = add();
+    assert!(first.status.success(), "{}", stderr_of(&first));
+    let hits = registry.requests().len();
 
-    assert_refused(&output, &dir, "R-OPS-002");
-    assert!(!known_keys(&home).exists(), "nothing is pinned");
+    let again = add();
+    assert!(again.status.success(), "{}", stderr_of(&again));
+    assert!(
+        String::from_utf8_lossy(&again.stdout).contains("already installed"),
+        "{}",
+        String::from_utf8_lossy(&again.stdout)
+    );
+    assert_eq!(registry.requests().len(), hits, "nothing was asked");
+    assert!(
+        !stderr_of(&again).contains("W140"),
+        "nothing asked a registry: {}",
+        stderr_of(&again)
+    );
 }
 
 // ---------------------------------------------------------------
@@ -871,4 +1013,372 @@ fn no_source_names_specforge_dev() {
         "SpecForge does not own specforge.dev (ADR 0004 N1); remove these:\n  {}",
         problems.join("\n  ")
     );
+}
+
+#[specforge_test(
+    behavior = "logout_registry",
+    verify = "logout without --registry forgets the default registry's credential"
+)]
+fn logout_without_a_registry_forgets_the_default_registrys_credential() {
+    let spy = NetSpy::start();
+    let pid = std::process::id();
+    let (default, other) = (
+        format!("plan06-logout-default-{pid}"),
+        format!("plan06-logout-other-{pid}"),
+    );
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [
+                { "alias": default, "url": UNREACHABLE, "default_registry": true },
+                { "alias": other, "url": UNREACHABLE, "scope_filter": "@other" },
+            ],
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let store = spy.home.path().join(".specforge");
+    std::fs::create_dir_all(&store).unwrap();
+    std::fs::write(
+        store.join("credentials.json"),
+        serde_json::json!({
+            "registries": { default.clone(): { "token": "t1" }, other.clone(): { "token": "t2" } }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let output = spy
+        .command(&["logout", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["registry"], default.as_str(), "{json}");
+    assert_eq!(json["status"], "removed", "{json}");
+    let kept: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(store.join("credentials.json")).unwrap()).unwrap();
+    let aliases: Vec<&String> = kept["registries"].as_object().unwrap().keys().collect();
+    assert_eq!(aliases, [&other]);
+    assert_eq!(spy.hits(), 0);
+}
+
+#[test]
+fn login_with_an_unknown_registry_is_refused_before_any_request() {
+    let spy = NetSpy::start();
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": [],
+            "registries": [{ "alias": "main", "url": UNREACHABLE, "default_registry": true }],
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let output = spy
+        .command(&[
+            "login",
+            "--registry",
+            "typo",
+            "--token",
+            "t",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "E063", "{json}");
+    let message = json["error"].as_str().unwrap();
+    assert!(
+        message.contains("typo") && message.contains("main"),
+        "{json}"
+    );
+    assert_eq!(spy.hits(), 0, "login reached the network");
+}
+
+// ---------------------------------------------------------------
+// Pins of plan 16 (T0): what the registry commands do today
+// ---------------------------------------------------------------
+
+#[specforge_test(
+    behavior = "search_registry",
+    verify = "each failed registry is reported once, and search fails when every registry failed"
+)]
+fn a_failed_registry_is_reported_once_and_search_fails_when_all_did() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "down", "url": "http://127.0.0.1:9/v1", "default_registry": true}
+    ]));
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "x", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = stderr_of(&output);
+    assert_eq!(
+        stderr.matches("search failed on registry 'down'").count(),
+        1,
+        "{stderr}"
+    );
+    assert!(stderr.contains("R005"), "{stderr}");
+}
+
+#[test]
+fn search_names_the_registry_of_each_hit() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "greet", "--format", "json", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["results"][0]["registry"], "local", "{json}");
+    assert_eq!(json["contributes"], serde_json::Value::Null, "{json}");
+    assert_eq!(json["diagnostics"], serde_json::json!([]), "{json}");
+}
+
+#[test]
+fn an_unknown_category_is_refused_before_any_request() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["search", "x", "--contributes", "widgets", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = stderr_of(&output);
+    assert!(stderr.contains("surfaces"), "{stderr}");
+    assert!(registry.requests().is_empty());
+}
+
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package accepted with --allow-unsigned is reported as W155"
+)]
+fn an_unsigned_add_reports_w155_in_both_formats() {
+    use crate::published::{Package, serve};
+    let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+
+    let add = |format: &str| {
+        let dir = project_on(&registry);
+        let home = TempDir::new().unwrap();
+        let output = specforge_cmd()
+            .args([
+                "add",
+                "@sdk/greet@0.1.0",
+                "--allow-unsigned",
+                "--format",
+                format,
+            ])
+            .arg("--path")
+            .arg(dir.path())
+            .env("HOME", home.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        output
+    };
+
+    let human = add("human");
+    assert!(
+        stderr_of(&human).contains("warning[W155]"),
+        "{}",
+        stderr_of(&human)
+    );
+    let json = add("json");
+    assert!(
+        stderr_of(&json).contains("warning[W155]"),
+        "{}",
+        stderr_of(&json)
+    );
+    let doc: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(doc["publisher"], "unsigned", "{doc}");
+}
+
+// ---------------------------------------------------------------
+// login keeps a secret or a reference (plan 16, T3)
+// ---------------------------------------------------------------
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "valid credentials stored as RegistryCredential reference"
+)]
+fn login_with_a_token_variable_keeps_the_reference() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "login",
+            "--registry",
+            "local",
+            "--token-env",
+            "P16_LOGIN_TOKEN",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .env("P16_LOGIN_TOKEN", registry.token())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["source"], "env", "{json}");
+    let stored = std::fs::read_to_string(home.path().join(".specforge/credentials.json")).unwrap();
+    assert!(
+        stored.contains("\"token_env\": \"P16_LOGIN_TOKEN\""),
+        "{stored}"
+    );
+    assert!(!stored.contains(registry.token()), "{stored}");
+    assert!(!home.path().join(".specforge/secrets").exists());
+}
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login with a token file keeps the file's path, not its content"
+)]
+fn login_with_a_token_file_keeps_the_path() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+    let file = home.path().join("token.txt");
+    std::fs::write(&file, format!("{}\n", registry.token())).unwrap();
+
+    let output = specforge_cmd()
+        .args(["login", "--registry", "local", "--token-file"])
+        .arg(&file)
+        .args(["--format", "json", "--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["source"], "token_file", "{json}");
+    let stored = std::fs::read_to_string(home.path().join(".specforge/credentials.json")).unwrap();
+    assert!(stored.contains("token_file"), "{stored}");
+    assert!(!stored.contains(registry.token()), "{stored}");
+}
+
+#[specforge_test(
+    behavior = "validate_registry_credentials",
+    verify = "login takes exactly one token source"
+)]
+fn login_with_two_token_sources_is_refused() {
+    use crate::published::serve;
+    let registry = serve(vec![]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "login",
+            "--registry",
+            "local",
+            "--token",
+            "x",
+            "--token-env",
+            "Y",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "R-LOGIN-001", "{json}");
+    assert!(registry.requests().is_empty(), "{:?}", registry.requests());
+}
+
+#[specforge_test(
+    behavior = "support_private_registries",
+    verify = "a registry that requires a token to read is read with the stored credential"
+)]
+fn add_from_a_private_registry_with_a_stored_credential() {
+    use crate::published::Package;
+    let registry = specforge_registry_server::testing::LocalRegistry::start_private();
+    let package = Package::new("@sdk/greet", "0.1.0", greet_wasm());
+    registry.store(
+        &specforge_registry_client::testing::package(
+            &package.name,
+            &package.version,
+            &package.wasm,
+            &package.manifest(),
+            None,
+        ),
+        &package.wasm,
+    );
+    let dir = project_on(&registry);
+
+    // With the credential the user keeps for the registry: installed.
+    let home = TempDir::new().unwrap();
+    std::fs::create_dir_all(home.path().join(".specforge")).unwrap();
+    std::fs::write(
+        home.path().join(".specforge/credentials.json"),
+        serde_json::json!({"registries": {"local": {"token": registry.token()}}}).to_string(),
+    )
+    .unwrap();
+    let output = add_greet(&dir, &home, &["--allow-unsigned"]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    // Without it: refused as unauthenticated, nothing installed.
+    let dir = project_on(&registry);
+    let bare = TempDir::new().unwrap();
+    let output = add_greet(&dir, &bare, &["--allow-unsigned"]);
+    assert_refused(&output, &dir, "R001");
 }

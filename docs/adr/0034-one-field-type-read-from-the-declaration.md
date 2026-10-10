@@ -42,7 +42,9 @@ the bytes.
 model.
 
 **D5. W146 is retired.** A typed schema carries no type the model cannot name. `specforge_ops::model::model`
-returns the rendered text. No code replaces it:
+returns the rendered text. *(Amended by ADR 0007's round-5 amendment: it returns `ModelOutcome { document,
+notices }`, the I020 notices of the model's `kinds` filter, and refuses an unknown root or extension. No
+catalogued code was added.)* No code replaces it:
 - a declared type the host does not read is W019 at the registry build;
 - a schema cache that cannot be read, now also one naming a type this host does not read, is no previous
   schema, as before.

@@ -514,7 +514,7 @@ These are never source — they are produced by the compiler:
 
 ### Meta-schema extensibility
 
-For domain-specific entity types beyond the 23 shipped types, the `define` mechanism in the `spec` root block allows user-defined types with attribute validation, reference resolution, orphan detection, and LSP support. See [spec entity docs](entities/spec.md) for syntax.
+For domain-specific entity types beyond the 23 shipped types, the `define` mechanism in the `spec` root block allows user-defined types with attribute validation, reference resolution, unreferenced detection, and LSP support. See [spec entity docs](entities/spec.md) for syntax.
 
 ## Progressive Adoption
 
@@ -589,7 +589,7 @@ A team using only @specforge/software gets full value from `specforge check` + `
 1. **Zero domain knowledge in core** — the compiler is a pure typed-graph engine; ALL domain vocabulary comes from extensions; if a new domain requires a compiler change, the architecture has failed
 2. **Every entity earns its place** — each answers a distinct question no other entity answers
 3. **Compiler-checked references** — entity names are typed, resolved, and validated at compile time; cross-extension references degrade gracefully via soft references
-4. **Traceability by construction** — the graph structure enforces traceability; orphan detection catches missing links
+4. **Traceability by construction** — the graph structure enforces traceability; unreferenced detection catches missing links
 5. **Progressive adoption** — start with structural core, add @specforge/software (5), @specforge/product (8), @specforge/governance (3), @specforge/formal (5 kinds, 4 passes) as needed
 6. **Language-agnostic** — the entity model works for any software project regardless of implementation language
 7. **Bounded complexity** — the DSL balances expressiveness with readability (currently 24 entity kinds across 4 extensions); beyond official extensions, write your own or use community extensions

@@ -1,27 +1,122 @@
-//! What `specforge publish` uploads: an extension binary and the
-//! declaration read from it (ADR 0012). Nothing here reaches a registry:
-//! the binary is loaded and checked before any network call, and a binary
-//! whose declaration has errors is refused.
+//! `specforge publish`: an extension binary and the declaration read from it
+//! (ADR 0012), uploaded to the registry that serves its name (ADR 0045).
+//! Every check that needs no registry runs before the registry is asked.
 
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Code, Diagnostic, Severity, codes};
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::package::{PackageName, Version};
+use specforge_wasm::WasmRuntime;
 
+use crate::extension::Candidate;
+use crate::registry::{Published, Registry, Upload};
 use crate::{OpError, OpErrorKind};
 
 /// The diagnostic for an extension that can't be found or read.
 const UNREADABLE: Code = codes::E040;
 
-/// A binary ready to publish, with the declaration it is published as.
-#[derive(Debug, Clone)]
-pub struct Prepared {
-    /// What the binary declares, loaded as every environment loads it: the
-    /// package's stored manifest.
-    pub declaration: ExtensionDeclaration,
-    pub wasm: Vec<u8>,
-    /// Warnings about the declaration (W153, W138, W021, ...), to show.
-    pub diagnostics: Vec<Diagnostic>,
+/// What a publish found and how it ended. Its warnings are reported whatever
+/// the result.
+#[derive(Debug)]
+pub struct PublishReport {
+    /// The declaration's load warnings (W153, W138), then what its registry
+    /// build alone reports (W021, ...), without E027. Empty when the binary
+    /// could not be read or loaded.
+    pub warnings: Vec<Diagnostic>,
+    pub result: Result<PublishOutcome, OpError>,
+}
+
+/// A package published.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PublishOutcome {
+    pub name: PackageName,
+    pub version: Version,
+    /// The binary's size in bytes.
+    pub size_bytes: usize,
+    pub published: Published,
+}
+
+/// Publish the extension at `extension` (a `.wasm` component, or the crate
+/// directory that builds one) to `registry`.
+///
+/// Refused in this order, each before anything after it is read or asked:
+/// 1. the binary: E040 (none at the path, none built, unreadable), E028 (not
+///    a loadable extension, read through `runtime`);
+/// 2. its declaration's errors, as the registry build of it alone reports
+///    them (E030, a refused tool schema, ...), naming every error;
+/// 3. its name and version: E072 unless a scoped package name and a full
+///    SemVer version (ADR 0036);
+/// 4. the registry: [`Registry::publish`]'s refusals.
+pub fn publish(
+    extension: &Path,
+    registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
+) -> PublishReport {
+    let mut warnings = Vec::new();
+    let result = run(extension, registry, runtime, &mut warnings);
+    PublishReport { warnings, result }
+}
+
+fn run(
+    extension: &Path,
+    registry: &dyn Registry,
+    runtime: &dyn WasmRuntime,
+    warnings: &mut Vec<Diagnostic>,
+) -> Result<PublishOutcome, OpError> {
+    let wasm = read(&binary_at(extension)?)?;
+    let (declaration, diagnostics) = declare(runtime, &wasm)?;
+    *warnings = diagnostics
+        .iter()
+        .filter(|d| d.severity != Severity::Error)
+        .cloned()
+        .collect();
+    refuse_errors(&declaration, &diagnostics)?;
+    let (name, version) = identity(&declaration)?;
+    let published = registry.publish(&Upload {
+        name: &name,
+        version: &version,
+        wasm: &wasm,
+        declaration: &declaration,
+    })?;
+    Ok(PublishOutcome {
+        name,
+        version,
+        size_bytes: wasm.len(),
+        published,
+    })
+}
+
+fn read(binary: &Path) -> Result<Vec<u8>, OpError> {
+    std::fs::read(binary).map_err(|error| {
+        OpError::coded(
+            OpErrorKind::of_io(&error),
+            UNREADABLE,
+            format!("failed to read {}: {error}", binary.display()),
+        )
+    })
+}
+
+/// What is uploaded is a registry package: a scoped name and a full version
+/// (E072).
+fn identity(declaration: &ExtensionDeclaration) -> Result<(PackageName, Version), OpError> {
+    let name = match declaration.package_name() {
+        Ok(name) if name.scope().is_some() => name,
+        Ok(name) => {
+            return Err(specforge_common::package::invalid(&format_args!(
+                "'{name}' is not a registry package name: registry packages are named @scope/name"
+            ))
+            .into());
+        }
+        Err(why) => return Err(specforge_common::package::invalid(&why).into()),
+    };
+    let version = Version::parse(declaration.version()).map_err(|why| {
+        OpError::from(specforge_common::package::invalid(&format_args!(
+            "'{}' is not a SemVer version: {why}",
+            declaration.version()
+        )))
+    })?;
+    Ok((name, version))
 }
 
 /// The binary `path` names: a `.wasm` component as given, or, for a
@@ -107,24 +202,13 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
 /// alone reports of it (its load warnings, W153 and W138, first). A binary
 /// that isn't a loadable extension is E028. Missing peers (E027) are left
 /// out: they are installed beside the extension, not with it.
-pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
-    let runtime = specforge_component::ComponentRuntime::new();
-    let module = specforge_installed::Module::new(wasm.to_vec());
-    let loaded = specforge_installed::declaration_of(&module, &runtime)?;
-    let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
-    Ok((loaded.declaration, diagnostics))
-}
-
-/// Load `wasm`, read its declaration and check it as the registry build
-/// alone would ([`declare`], [`check`]), both before any network call.
-pub fn prepare(wasm: Vec<u8>) -> Result<Prepared, OpError> {
-    let (declaration, diagnostics) = declare(&wasm)?;
-    refuse_errors(&declaration, &diagnostics)?;
-    Ok(Prepared {
-        declaration,
-        wasm,
-        diagnostics,
-    })
+pub fn declare(
+    runtime: &dyn WasmRuntime,
+    wasm: &[u8],
+) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
+    let (declaration, warnings) = Candidate::read(runtime, wasm)?.into_parts();
+    let diagnostics = diagnostics_of(&declaration, warnings);
+    Ok((declaration, diagnostics))
 }
 
 /// `warnings`, then what the registry build of `declaration` alone reports
@@ -142,19 +226,6 @@ fn diagnostics_of(
         .chain(build.surface_diagnostics)
         .filter(|d| !d.is(codes::E027))
         .collect()
-}
-
-/// Check `declaration` as the registry build alone checks it: an error
-/// (E030, a refused tool schema, ...) refuses it, naming every error;
-/// otherwise its warnings come back, after `warnings` (its load warnings,
-/// W153 and W138).
-pub fn check(
-    declaration: &ExtensionDeclaration,
-    warnings: Vec<Diagnostic>,
-) -> Result<Vec<Diagnostic>, OpError> {
-    let diagnostics = diagnostics_of(declaration, warnings);
-    refuse_errors(declaration, &diagnostics)?;
-    Ok(diagnostics)
 }
 
 fn refuse_errors(
@@ -188,63 +259,6 @@ fn refuse_errors(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_protocol_types::PeerDependency;
-    use specforge_test_macros::test as specforge_test;
-
-    fn greet() -> Vec<u8> {
-        std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm"),
-        )
-        .expect("the greet fixture is vendored")
-    }
-
-    #[specforge_test(
-        behavior = "publish_to_registry",
-        verify = "the declaration is validated before publish"
-    )]
-    fn a_built_extension_is_prepared_with_its_declaration() {
-        let prepared = prepare(greet()).unwrap();
-        assert_eq!(prepared.declaration.name(), "@sdk/greet");
-        assert_eq!(prepared.declaration.short(), "greet");
-        assert!(
-            prepared.diagnostics.is_empty(),
-            "{:?}",
-            prepared.diagnostics
-        );
-    }
-
-    #[specforge_test(
-        behavior = "publish_to_registry",
-        verify = "publish refuses a binary whose declaration has errors before any network call"
-    )]
-    fn a_declaration_with_errors_is_refused_before_any_upload() {
-        // `prepare` takes no registry: it decides before anything is sent.
-        let mut declaration = prepare(greet()).unwrap().declaration;
-        declaration.handshake.ext_short = Some("Friendly greetings".to_string());
-        let error = check(&declaration, Vec::new()).unwrap_err();
-        assert_eq!(error.code, "E030", "{error:?}");
-        assert!(
-            error
-                .message
-                .contains("@sdk/greet@0.1.0 can't be published"),
-            "{error:?}"
-        );
-        assert!(error.message.contains("ext_short"), "{error:?}");
-
-        // A required peer that isn't installed here is not an error.
-        let mut with_peer = prepare(greet()).unwrap().declaration;
-        with_peer.handshake.peer_dependencies.push(PeerDependency {
-            name: "@acme/base".to_string(),
-            version: "^1".to_string(),
-            optional: false,
-        });
-        assert!(check(&with_peer, Vec::new()).is_ok());
-
-        // A binary that isn't an extension never gets that far.
-        let error = prepare(b"\0asm\x01\0\0\0".to_vec()).unwrap_err();
-        assert_eq!(error.code, "E028", "{error:?}");
-    }
-
     #[test]
     fn a_crate_directory_names_its_built_component() {
         let dir = tempfile::tempdir().unwrap();

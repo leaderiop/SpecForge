@@ -8,11 +8,11 @@ use std::path::Path;
 
 use specforge_common::{codes, diagnostic_summary, render_diagnostics, truncate_diagnostics};
 use specforge_ops::OpError;
-use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze};
+use specforge_ops::analyze::{AnalyzeOptions, ProveOptions, ReportSource, analyze};
 use specforge_ops::view::ProjectView;
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use crate::pipeline;
 
 pub fn run(
@@ -23,8 +23,8 @@ pub fn run(
     test_results: Option<&Path>,
     min: Option<f64>,
     prove: bool,
-) -> i32 {
-    let (project, runtime) = pipeline::compile_project(path);
+) -> Exit {
+    let project = pipeline::compile_project(path);
     // Without --test-results, the operation uses what `specforge collect`
     // last recorded at the root it compiled.
     let report = match test_results {
@@ -47,31 +47,31 @@ pub fn run(
     } else {
         OutputFormat::Human
     };
-    let outcome = match analyze(&ProjectView::of(&project), Some(&runtime), &options) {
+    let outcome = match analyze(&ProjectView::of(&project), &options) {
         Ok(outcome) => outcome,
         Err(error) => return Refusal::measuring(format).report(&OpError::from(error)),
     };
-    // D3: orphaned test records, on stderr before the reports. Exact
+    // D3: stray test records, on stderr before the reports. Exact
     // matching is preserved; the warning only surfaces what was silently
     // dropped before.
-    for orphan in &outcome.orphans {
-        match &orphan.near {
+    for stray in &outcome.stray_records {
+        match &stray.near {
             Some(near) => eprintln!(
                 "{}: test record references unknown entity '{}' (did you mean '{near}'?)",
                 codes::W097,
-                orphan.entity_id
+                stray.entity_id
             ),
             None => eprintln!(
                 "{}: test record references unknown entity '{}'",
                 codes::W097,
-                orphan.entity_id
+                stray.entity_id
             ),
         }
     }
     let reports = &outcome.passes;
 
     if json {
-        let doc = outcome.to_json();
+        let doc = outcome.document();
         println!("{}", serde_json::to_string_pretty(&doc).unwrap_or_default());
     } else {
         // Human output is capped at the codebase-wide diagnostic limit so a
@@ -118,37 +118,12 @@ pub fn run(
     }
 
     // The gate comes after the reports print, so the operator still sees the
-    // full analysis; it only decides the exit code.
-    match &outcome.gate {
-        Gate::NotRequested | Gate::Met => {}
-        Gate::NoCoveragePass => {
-            eprintln!(
-                "error[{}]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`",
-                codes::E068
-            );
-            return 2;
-        }
-        Gate::UnreadableSummary(e) => {
-            eprintln!(
-                "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
-            );
-            return 2;
-        }
-        Gate::Below {
-            pct,
-            min,
-            proven,
-            total,
-        } => {
-            eprintln!(
-                "error[{}]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)",
-                codes::E048
-            );
-            return 1;
-        }
+    // full analysis. Under `--json` the document carries where it landed and
+    // nothing goes to stderr.
+    if let (OutputFormat::Human, Some(failure)) = (format, outcome.gate_failure()) {
+        eprint!("{}", crate::outcome::error_lines(&failure, None));
     }
-
-    if outcome.ok { 0 } else { 1 }
+    Exit::of(outcome.verdict())
 }
 
 /// A pass summary as `key: value` lines, nested keys dotted. Its shape is

@@ -4,16 +4,17 @@ mod capabilities;
 pub mod changes;
 pub mod completion;
 mod document;
+pub mod editor;
 pub mod hover;
 mod navigation;
 pub mod publish;
-mod reaction;
+pub mod reaction;
 mod state;
 mod uri;
 pub mod watchers;
 
 pub use answers::ClientSupport;
-pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
+pub use capabilities::initialize_result;
 pub use completion::{field_snippet, keyword_snippet};
 pub use document::{
     CompletionSite, Cursor, Document, EntityAt, LineIndex, MOD_DECLARATION, MOD_REFERENCE, Place,

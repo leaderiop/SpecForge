@@ -38,7 +38,7 @@ term diagnostic "Diagnostic" {
   context    "E-codes block compilation, W-codes warn but pass, I-codes inform. Each extension owns a range of diagnostic codes. Diagnostics include source context and did-you-mean suggestions."
   aliases    ["compiler_message", "validation_error"]
   see_also   [
-    orphan_entity,
+    unreferenced_entity,
     cycle_detection,
     declarative_validation,
     health_score,
@@ -48,10 +48,10 @@ term diagnostic "Diagnostic" {
   tags       ["core", "validation"]
 }
 
-term orphan_entity "Orphan Entity" {
-  definition "An entity with zero incoming edges of the expected type(s) for its kind. Orphan detection produces warnings (W-codes) or info diagnostics (I-codes) depending on the entity kind and the severity of being unreferenced."
-  context    "Orphan features (W041), journeys (W042), modules (W044), terms (I010), personas (I046), channels (I047). Orphan detection uses the no_incoming_edges validation pattern."
-  aliases    ["unreferenced_entity", "disconnected_entity"]
+term unreferenced_entity "Unreferenced Entity" {
+  definition "An entity with zero incoming edges of the expected type(s) for its kind. Detecting one produces warnings (W-codes) or info diagnostics (I-codes) depending on the entity kind and the severity of being unreferenced."
+  context    "Unreferenced features (W041), journeys (W042), modules (W044), terms (I010), personas (I046), channels (I047). Detection uses the no_incoming_edges validation pattern. Not the same as an unconnected entity (no edge at all)."
+  aliases    ["orphan_entity"]
   see_also   [traceability_chain]
   tags       ["validation", "graph"]
 }
@@ -161,7 +161,7 @@ term product_graph "Product Graph" {
 }
 
 term health_score "Health Score" {
-  definition "A composite metric (0.0–1.0) that aggregates five product quality sub-scores: completion ratio (30%), coverage ratio (25%), orphan ratio (20%), cycle count (15%), and error ratio (10%). Maps to a grade: excellent (>=0.9), good (>=0.7), fair (>=0.5), poor (>=0.3), critical (<0.3). Queried via pe_query_product_health."
+  definition "A composite metric (0.0–1.0) that aggregates five product quality sub-scores: completion ratio (30%), coverage ratio (25%), unreferenced ratio (20%), cycle count (15%), and error ratio (10%). Maps to a grade: excellent (>=0.9), good (>=0.7), fair (>=0.5), poor (>=0.3), critical (<0.3). Queried via pe_query_product_health."
   context    "Provides a single number for quick project health assessment. Empty projects score 1.0. Weights are fixed in v1."
   aliases    ["product_health", "composite_health"]
   see_also   [completion_ratio, coverage, scalability_tier]

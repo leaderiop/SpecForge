@@ -116,6 +116,19 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
     }
 }
 
+/// The JSON Schema of the document [`emit`] writes in `format`, derived from
+/// the types that write it (every object closed; a context node open to the
+/// headline fields its extension declares). `None` for DOT, which is text.
+pub fn document_schema(format: EmitFormat) -> Option<serde_json::Value> {
+    use specforge_common::shape::Shape;
+    match format {
+        EmitFormat::Json => Some(Export::<crate::json::JsonNode>::schema()),
+        EmitFormat::Context => Some(Export::<crate::context::ContextNode>::schema()),
+        EmitFormat::Brief => Some(Export::<crate::brief::BriefNode>::schema()),
+        EmitFormat::Dot => None,
+    }
+}
+
 /// The subgraph an export covers: the scope's (to `depth` when given), then
 /// only the kinds in `kind_filter`, the scope's own entity always kept.
 fn select<'g>(graph: &'g Graph, options: &EmitOptions<'_>) -> Result<Cow<'g, Graph>, EmitterError> {

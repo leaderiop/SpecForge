@@ -3,33 +3,79 @@ source: crates/specforge-cli/tests/inspect_views.rs
 expression: "normalized(&result, root)"
 ---
 {
-  "contract": null,
   "coverage_status": "uncovered",
   "declared": false,
   "diagnostics": [
     {
       "code": "W061",
+      "column": null,
+      "data": {
+        "kind": "reference_cycle",
+        "path": [
+          "alpha",
+          "beta",
+          "alpha"
+        ]
+      },
+      "file": null,
+      "line": null,
       "message": "reference cycle detected: alpha -> beta -> alpha",
       "severity": "Warning",
-      "suggestion": "break the cycle by removing or inverting one reference"
+      "span": null,
+      "suggestion": "break the cycle by removing or inverting one reference",
+      "title": "Reference cycle detected"
     },
     {
       "code": "W020",
+      "column": 1,
+      "file": "a.spec",
+      "line": 4,
       "message": "unrecognized field 'depends_on' on entity 'beta' of kind 'behavior' at a.spec",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 6,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 4
+      },
+      "suggestion": null,
+      "title": "Unrecognized field"
     },
     {
       "code": "W006",
+      "column": 1,
+      "file": "a.spec",
+      "line": 4,
       "message": "behavior 'beta' has no category — agents use category for task routing",
+      "origin": "@specforge/software",
       "severity": "Warning",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 6,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 4
+      },
+      "suggestion": null,
+      "title": "Behavior missing category"
     },
     {
       "code": "E006",
+      "column": 1,
+      "file": "a.spec",
+      "line": 4,
       "message": "behavior 'beta' is missing required field 'contract'",
       "severity": "Error",
-      "suggestion": null
+      "span": {
+        "end_col": 2,
+        "end_line": 6,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 4
+      },
+      "suggestion": null,
+      "title": "Missing required field"
     }
   ],
   "entity_id": "beta",
@@ -41,12 +87,7 @@ expression: "normalized(&result, root)"
   },
   "kind": "behavior",
   "obligated": false,
-  "reference_count": 2,
   "referenced_by": [
-    "alpha"
-  ],
-  "references": [
-    "alpha",
     "alpha"
   ],
   "refers_to": [
@@ -61,6 +102,5 @@ expression: "normalized(&result, root)"
     "start_line": 4
   },
   "testable": false,
-  "title": "B",
-  "verify_declarations": null
+  "title": "B"
 }

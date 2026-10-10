@@ -121,6 +121,13 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
 
     Its JSON output lists each migrated file and each backup as
     files_written.
+
+    A migration that is kept (no file failed, its hooks and checks
+    passed) and made backups MUST record each migrated file, its backup
+    and the SHA-256 of the file as the migration left it in
+    .specforge/migration.json, replacing any earlier record, and lists
+    that file as written. A kept migration made with --no-backup removes
+    the record.
   """
   verify integration "migrate --format json lists each migrated file and its backup in files_written"
   verify contract "Migrate Spec Files In Place: in-place migration holds — semantic_preservation"
@@ -133,6 +140,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   verify unit "pre-migration snapshot captured before migration_starting event"
   verify unit "files already at target version are skipped with skippedCount incremented"
   verify unit "only the project's sources are migrated: under spec_root, without excluded files"
+  verify unit "a kept migration records its files in .specforge/migration.json"
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
@@ -342,35 +350,40 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   category   command
   types      [MigrationResult, MigrationSummary, MigrationBackup]
   ports      [FileSystem]
-  consumes   [migration_started]
   produces   [migration_rolled_back]
   requires {
-    migration_started "migration_started event has been emitted, providing the set of migrated files with backups"
+    migration_recorded "For --rollback, .specforge/migration.json records the last kept migration; for an automatic rollback, the run read the files it migrated"
   }
   ensures {
-    files_restored         "All original files are restored from their .bak backups"
+    files_restored         "Every recorded file still as the migration left it is restored from its backup; an automatic rollback restores exactly the files its run migrated"
+    edited_files_kept      "A recorded file changed since the migration is left as it is, with a warning, and stays recorded"
     rollback_event_emitted "migration_rolled_back event is emitted with accurate restored, skipped, and failed counts"
   }
   maintains {
     backup_file_preservation ".bak backup files are never deleted during rollback (preserved for user inspection)"
   }
   contract   """
-    The behavior consumes migration_started to identify the set of files
-    that have backups. Rollback runs automatically when an extension
-    migration hook fails or post-migration validation detects structural
-    differences, and on demand via the --rollback CLI flag.
-    When invoked, the system MUST restore all migrated files from their
-    .bak backups. Each file MUST be restored atomically (write to temp,
-    then rename). If a .bak file is missing for a migrated file, the
-    system MUST emit a warning and skip that file. If a .bak restore
-    fails for one file, the system MUST emit an E-level diagnostic and
-    continue with the remaining files — a single restore failure MUST
-    NOT block others. After rollback, .bak files MUST be preserved (not
-    auto-deleted) so the user can retry or inspect them. The system MUST
-    report the number of files restored, skipped, and failed.
-
-    Note: consumes migration_started for informational context (the backup
-    file set created during migration_started), NOT as an execution trigger.
+    Rollback runs automatically when an extension migration hook fails
+    or post-migration validation detects structural differences, and on
+    demand via the --rollback CLI flag. An automatic rollback MUST
+    restore exactly the files its own run migrated, to the text the run
+    read before migrating them, with or without backups, and MUST NOT
+    touch any other file. --rollback MUST undo the migration recorded in
+    .specforge/migration.json and nothing else: each recorded file whose
+    SHA-256 is still the one recorded MUST be restored from its backup;
+    a recorded file changed since MUST be left as it is with a warning
+    naming it and its backup; a recorded file whose backup is missing
+    MUST be skipped with a warning naming the backup. With no record,
+    nothing is restored and one warning says so. The record then keeps
+    only the files not restored, and is removed when none is left. Each
+    file MUST be restored atomically (write to temp, then rename). If a
+    restore fails for one file, the system MUST emit an E-level
+    diagnostic and continue with the remaining files — a single restore
+    failure MUST NOT block others. After rollback, .bak files MUST be
+    preserved (not auto-deleted) so the user can retry or inspect them.
+    The system MUST report the number of files restored, skipped, and
+    failed. It MUST report each file it restored as written
+    (files_written under --format json).
   """
   verify unit "restores migrated files from .bak backups"
   verify unit "missing .bak file produces warning and skips"
@@ -379,7 +392,12 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   verify unit "summary reports restored, skipped, and failed counts"
   verify unit "a migration whose graph changes structure is rolled back automatically"
   verify unit "a migration whose extension hook fails is rolled back automatically"
-  verify contract "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
+  verify unit "a rollback reports the files it restored as written"
+  verify unit "a file edited since the migration is left as it is, its backup kept"
+  verify unit "a rollback with no recorded migration restores nothing"
+  verify unit "an automatic rollback restores only the files its run migrated"
+  verify unit "an automatic rollback restores a run made without backups"
+  verify contract "Rollback Failed Migration: migration rollback holds — migration_recorded, files_restored, edited_files_kept, rollback_event_emitted, backup_file_preservation"
 }
 
 behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
@@ -444,8 +462,10 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     migration hooks for the remaining extensions. A single extension hook
     failure MUST NOT prevent other extensions from running their hooks.
 
-    The compiler MUST invoke extension hooks in the deterministic load order
-    defined by extension_load_order_determinism. An extension that failed
+    The compiler MUST invoke extension hooks in the registry build's load
+    order (registry_build_load_order, extension_load_order_determinism). A
+    cycle among required peers is the compile's E027, not a hook failure:
+    the hooks still run. An extension that failed
     to load is not loaded, so it has no hook to invoke.
 
     Cross-extension reference stability: extension migration hooks MUST

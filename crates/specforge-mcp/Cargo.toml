@@ -19,7 +19,6 @@ specforge-component = { path = "../specforge-component" }
 specforge-registry = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-mcp-macros = { path = "../specforge-mcp-macros" }
-specforge-migrate = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-ops-registry = { path = "../specforge-ops-registry" }
 specforge-project = { workspace = true }
@@ -31,6 +30,8 @@ chrono = "0.4.41"
 
 [dev-dependencies]
 specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+# Candidates served in process (`specforge_ops::testing`).
+specforge-ops = { workspace = true, features = ["testing"] }
 # Extensions served in process (`specforge_wasm::testing`).
 specforge-wasm = { workspace = true, features = ["testing"] }
 specforge-installed = { path = "../specforge-installed", features = ["testing"] }

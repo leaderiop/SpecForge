@@ -15,7 +15,7 @@ use crate::navigation::Compiled;
 
 /// What one publish sends, read from the state alone (so it is tested
 /// without a client): each target file's diagnostics, placed and
-/// converted, with the document version they were computed against. An
+/// converted, with the version of the buffer they were computed from. An
 /// empty list clears the file.
 #[derive(Debug, Clone, Default)]
 pub struct Publication {
@@ -31,6 +31,9 @@ pub struct FilePublication {
     pub diagnostics: Vec<Diagnostic>,
     /// As code actions read them back (spanless ones placed).
     pub placed: Vec<specforge_common::Diagnostic>,
+    /// The editor's version of the text these diagnostics are positions in
+    /// (the buffer the project was compiled from); `None` for a file
+    /// compiled from disk.
     pub version: Option<i32>,
 }
 
@@ -51,7 +54,10 @@ impl Publication {
                     .first()
                     .and_then(|uri| Url::parse(uri).ok())
             });
-        let diagnostics = state.session().map(|s| s.diagnostics()).unwrap_or_default();
+        let diagnostics = state
+            .session()
+            .map(|s| s.project().diagnostics())
+            .unwrap_or_default();
         let compiled = Compiled::new(state);
         let nav = compiled.navigator();
         let mut files: BTreeMap<Url, FilePublication> = BTreeMap::new();
@@ -98,7 +104,7 @@ impl Publication {
             files.entry(uri).or_default();
         }
         for (uri, file) in &mut files {
-            file.version = state.document(uri.as_str()).and_then(|d| d.version());
+            file.version = compiled.version(uri);
         }
         Publication { files, anchor }
     }

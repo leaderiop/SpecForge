@@ -4,6 +4,10 @@ expression: product
 ---
 [
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List features: each feature's id, title, status, priority, problem and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -64,6 +68,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List journeys: each journey's id, title, persona, channel and feature counts, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -116,6 +124,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List deliverables: each deliverable's id, title, artifact type, status, journey and module counts and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -179,6 +191,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List milestones: each milestone's id, title, status, target date, feature count, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -237,6 +253,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List modules: each module's id, title, family, feature count, the modules it depends on and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -279,6 +299,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List terms: each term's id, title, definition, alias count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -317,6 +341,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List personas: each persona's id, title, technical level, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -374,6 +402,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List channels: each channel's id, title, interaction model, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -432,6 +464,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "List releases: each release's id, title, version, status, deliverable count, release date and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
     "inputSchema": {
@@ -480,6 +516,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids; beside it, how many the project's recorded tests prove (each feature's implementing behaviors, after `specforge collect`).",
     "inputSchema": {
@@ -499,6 +539,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "How many of a journey's features are done, and the ones that are not.",
     "inputSchema": {
@@ -518,6 +562,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "What deferring or removing a feature touches: the journeys, milestones and modules that list it, the deliverables holding those journeys or modules, the features depending on it (transitively), and their total.",
     "inputSchema": {
@@ -537,6 +585,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The features that declare depends_on the feature, sorted by id.",
     "inputSchema": {
@@ -556,6 +608,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The features of every journey the persona undertakes, and those journeys, sorted.",
     "inputSchema": {
@@ -575,6 +631,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The features of every journey that uses the channel, and those journeys, sorted.",
     "inputSchema": {
@@ -594,6 +654,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Every feature a deliverable reaches through its journeys or its modules, once each, and how many each path reaches.",
     "inputSchema": {
@@ -613,6 +677,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Every deliverable that holds a feature through one of its journeys or modules, once each, and how many each path reaches.",
     "inputSchema": {
@@ -632,6 +700,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The channels of every journey the persona undertakes, once each, sorted.",
     "inputSchema": {
@@ -651,6 +723,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The personas the deliverable's journeys target, once each, sorted, and the journeys that connect them.",
     "inputSchema": {
@@ -670,6 +746,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "How many of the milestones a deliverable is tracked by are completed, as a count and a ratio in [0, 1]; --details adds each milestone's feature completion.",
     "inputSchema": {
@@ -694,6 +774,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "How many of a release's deliverables are shipped, as a count and a ratio in [0, 1] (null without deliverables).",
     "inputSchema": {
@@ -713,6 +797,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The highest priority among the milestones and journeys a deliverable references that declare one (null when none does), and how many declare one.",
     "inputSchema": {
@@ -732,6 +820,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The features no milestone lists, sorted by id, with how many features there are and how many are scheduled.",
     "inputSchema": {
@@ -743,6 +835,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Per owner, the features, milestones, deliverables and releases it owns (most first, ties by owner), paged, and how many of those entities have no owner.",
     "inputSchema": {
@@ -765,6 +861,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Every feature, dependencies before dependents, by priority within a level (none counts as medium), then by id; features on or behind a depends_on cycle come last, and the cycle's members are reported.",
     "inputSchema": {
@@ -776,6 +876,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The longest depends_on chain of milestones not yet completed, earliest first, with target dates, zero slack and the blocked or in-progress bottlenecks; empty, with a message, when milestones depend on each other in a cycle.",
     "inputSchema": {
@@ -787,6 +891,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The longest depends_on chain from a module, the module first, and its length in edges; -1 and the cycle's members when the module is on or behind a dependency cycle.",
     "inputSchema": {
@@ -806,6 +914,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Each module's fan-in, fan-out and their sum over depends_on, most coupled first, paged, with the averages and the most coupled module.",
     "inputSchema": {
@@ -828,6 +940,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The deliverables that declare depends_on the deliverable, sorted by id.",
     "inputSchema": {
@@ -847,6 +963,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Per persona, by id, the features its journeys reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every persona.",
     "inputSchema": {
@@ -869,6 +989,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Per channel, by id, the features the journeys using it reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every channel.",
     "inputSchema": {
@@ -891,6 +1015,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The features two or more deliverables reach through a journey or a module, with those deliverables, most shared first, paged.",
     "inputSchema": {
@@ -913,6 +1041,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The terms reachable from a term over see_also within --max-hops (default 1, at most 5), sorted by id, the term itself left out.",
     "inputSchema": {
@@ -937,6 +1069,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "The connected components of the see_also graph between terms (undirected), largest first, ties by first term id; terms with no see_also link are counted as isolated.",
     "inputSchema": {
@@ -948,6 +1084,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Terms, see_also references between them, average and maximum connections, hub terms (more than twice the average and at least 3) and isolated terms.",
     "inputSchema": {
@@ -959,6 +1099,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "Every milestone by target date, undated ones last, by id within a date; a milestone not completed whose target date is before --as-of (default today) is overdue.",
     "inputSchema": {
@@ -975,6 +1119,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "A milestone's done, in-progress and remaining features, its completion, the days elapsed since its start date (or target date) as of --as-of (default today), features done per day and the days that pace leaves.",
     "inputSchema": {
@@ -998,6 +1146,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "A milestone's completion weighted by effort (xs=1, s=2, m=3, l=5, xl=8; a feature without one weighs as m), with its features per effort level.",
     "inputSchema": {
@@ -1017,6 +1169,10 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
     "description": "For each product kind with a lifecycle, how many entities have each status.",
     "inputSchema": {
@@ -1028,8 +1184,12 @@ expression: product
     "source": "@specforge/product"
   },
   {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "category": "core",
-    "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
+    "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and unreferenced counts.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},

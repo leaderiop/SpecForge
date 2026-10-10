@@ -10,6 +10,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 const EXTENSION: &str = "@test/shapes";
@@ -60,7 +61,7 @@ fn project(spec: &str) -> TempDir {
 /// The (target, label) of every edge out of `id`, sorted.
 fn edges_from(compiled: &CompiledProject, id: &str) -> Vec<(String, String)> {
     let mut edges: Vec<(String, String)> = compiled
-        .graph
+        .graph()
         .edges_from(id)
         .iter()
         .map(|e| (e.target.to_string(), e.label.to_string()))
@@ -94,7 +95,7 @@ iface Garage {
 "#,
     );
 
-    let compiled = CompiledProject::compile(dir.path(), Some(&shapes_extension()));
+    let compiled = CompiledProject::compile(dir.path(), Some(Arc::new(shapes_extension())));
 
     let edge = |target: &str, label: &str| (target.to_string(), label.to_string());
     assert_eq!(edges_from(&compiled, "Car"), vec![edge("Wheel", "parts")]);
@@ -126,7 +127,7 @@ fn compile_with_software(spec: &str) -> CompiledProject {
     specforge_installed::testing::install_configured(dir.path(), &specforge_project::builtins());
     fs::write(dir.path().join("a.spec"), spec).unwrap();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    CompiledProject::compile(dir.path(), Some(&runtime))
+    CompiledProject::compile(dir.path(), Some(Arc::new(runtime)))
 }
 
 /// The W002 messages, sorted.
@@ -142,7 +143,7 @@ fn w002(compiled: &CompiledProject) -> Vec<String> {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a type named in another type's field type is referenced"
 )]
 fn a_type_named_in_a_field_type_is_referenced() {
@@ -167,7 +168,7 @@ type Holder {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a type named in a port method signature is referenced"
 )]
 fn a_type_named_in_a_port_method_signature_is_referenced() {
@@ -193,7 +194,7 @@ port Scanner {
 }
 
 #[specforge_test(
-    behavior = "se_validate_orphan_types",
+    behavior = "se_validate_unreferenced_types",
     verify = "a primitive or generic wrapper name references no type"
 )]
 fn a_primitive_or_generic_wrapper_references_no_type() {
@@ -210,8 +211,8 @@ port Store {
 "#,
     );
 
-    assert!(compiled.graph.edges_from("Counter").is_empty());
-    assert!(compiled.graph.edges_from("Store").is_empty());
+    assert!(compiled.graph().edges_from("Counter").is_empty());
+    assert!(compiled.graph().edges_from("Store").is_empty());
     assert_eq!(
         w002(&compiled),
         ["type 'Counter' is not referenced by any behavior, port, or type"]

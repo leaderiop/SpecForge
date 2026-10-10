@@ -1,7 +1,5 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use specforge_common::Sym;
-use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
@@ -621,10 +619,17 @@ fn rollback_missing_bak_skips() {
     write_spec(
         root,
         "test.spec",
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
     );
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .assert()
+        .success();
+    let migrated = fs::read_to_string(root.join("spec/test.spec")).unwrap();
+    // The backup the record names is gone.
+    fs::remove_file(root.join("spec/test.spec.bak")).unwrap();
 
-    // Rollback without any .bak files
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args([
@@ -660,7 +665,7 @@ fn rollback_missing_bak_skips() {
         .stderr(predicate::str::contains("0 restored, 1 skipped, 0 failed"));
     assert_eq!(
         fs::read_to_string(root.join("spec/test.spec")).unwrap(),
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        migrated,
         "a skipped file is left alone"
     );
 }
@@ -746,265 +751,6 @@ fn rollback_failure_isolation() {
 // ===================================================================
 // Phase F: Graph Validation
 // ===================================================================
-
-// F2: Post-migration structural equivalence (format-only migration)
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural equivalence verified between pre and post graphs"
-)]
-fn format_only_migration_zero_differences() {
-    use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, FieldValue, Graph, Node};
-    use specforge_migrate::compare_graphs;
-    use specforge_parser::SpannedRef;
-
-    // A graph as compiled from files whose lines start at `first_line`:
-    // a format migration adds a header line, shifting every span.
-    let build = |first_line: usize, contract: &str, extra_edge: bool| {
-        let span = |line: usize| specforge_graph::SourceSpan {
-            file: Sym::new("spec/test.spec"),
-            start_line: line,
-            start_col: 0,
-            end_line: line,
-            end_col: 10,
-        };
-        let mut graph = Graph::new();
-        let mut fields = FieldMap::new();
-        fields.push(Sym::new("contract"), FieldValue::String(contract.into()));
-        fields.push(
-            Sym::new("invariants"),
-            FieldValue::ReferenceList(vec![SpannedRef {
-                id: "inv_a".into(),
-                span: span(first_line + 2),
-            }]),
-        );
-        graph.add_node(Node {
-            id: EntityId {
-                raw: Sym::new("beh_a"),
-            },
-            kind: EntityKind {
-                raw: Sym::new("behavior"),
-            },
-            title: Some("A".into()),
-            source_span: span(first_line),
-            fields,
-            methods: Vec::new(),
-        });
-        for (id, kind) in [("inv_a", "invariant"), ("inv_b", "invariant")] {
-            graph.add_node(Node {
-                id: EntityId { raw: Sym::new(id) },
-                kind: EntityKind {
-                    raw: Sym::new(kind),
-                },
-                title: None,
-                source_span: span(first_line + 5),
-                fields: FieldMap::new(),
-                methods: Vec::new(),
-            });
-        }
-        graph.add_edge(Edge {
-            source: Sym::new("beh_a"),
-            target: Sym::new("inv_a"),
-            label: Sym::new("invariants"),
-        });
-        if extra_edge {
-            graph.add_edge(Edge {
-                source: Sym::new("beh_a"),
-                target: Sym::new("inv_b"),
-                label: Sym::new("invariants"),
-            });
-        }
-        graph
-    };
-
-    // Same entities, edges and field values; only the spans moved.
-    let pre = build(1, "does stuff", false);
-    let post = build(2, "does stuff", false);
-    let diagnostics = compare_graphs(&pre, &post);
-    assert!(
-        diagnostics.is_empty(),
-        "shifted spans are not a structural difference: {diagnostics:?}"
-    );
-
-    // A changed field value is a difference.
-    let changed = build(2, "does other stuff", false);
-    let diagnostics = compare_graphs(&pre, &changed);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-    assert_eq!(diagnostics[0].code, "W054");
-    assert!(
-        diagnostics[0].message.contains("beh_a") && diagnostics[0].message.contains("contract"),
-        "{diagnostics:?}"
-    );
-
-    // So is an edge that appeared.
-    let grown = build(2, "does stuff", true);
-    let diagnostics = compare_graphs(&pre, &grown);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-    assert_eq!(diagnostics[0].code, "W054");
-    assert!(diagnostics[0].message.contains("inv_b"), "{diagnostics:?}");
-}
-
-// F3: Structural differences → warnings
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural differences reported as warnings"
-)]
-fn structural_differences_produce_warnings() {
-    use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
-    use specforge_migrate::compare_graphs;
-
-    let mut pre = Graph::new();
-    pre.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("foo"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: None,
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    });
-
-    let post = Graph::new(); // Empty graph — entity "foo" is missing
-
-    let diagnostics = compare_graphs(&pre, &post);
-    assert!(
-        !diagnostics.is_empty(),
-        "missing entity should produce diagnostic"
-    );
-    assert!(
-        diagnostics.iter().any(|d| d.code == "W054"),
-        "should emit W054: {diagnostics:?}"
-    );
-}
-
-// F4: Breaking schema change → W053
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "breaking graph change emits W053 warning"
-)]
-fn breaking_schema_change_produces_w053() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Post-migration: "behavior" kind removed → breaking
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(2, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: Vec::new(),
-    };
-
-    let diagnostics = check_schema_compatibility(&pre, &post);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-    assert_eq!(diagnostics[0].code, "W053");
-    assert_eq!(
-        diagnostics[0].severity,
-        specforge_common::Severity::Warning,
-        "W053 is a warning"
-    );
-    assert!(
-        diagnostics[0].message.contains("\"behavior\""),
-        "the warning names the removed kind: {diagnostics:?}"
-    );
-}
-
-// F4b: Non-breaking schema change → no W053
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "non-breaking graph change passes silently"
-)]
-fn non_breaking_schema_change_no_w053() {
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
-    };
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Post-migration: new optional field added → non-breaking
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 1, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "new_field".to_string(),
-                field_type: FieldType::String,
-                required: false,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let diagnostics = check_schema_compatibility(&pre, &post);
-    assert!(
-        diagnostics.is_empty(),
-        "a non-breaking change produces no diagnostic at all: {diagnostics:?}"
-    );
-
-    // And a real migration of an entity-bearing project passes silently.
-    let tmp = TempDir::new().unwrap();
-    let root = tmp.path();
-    setup_project(root);
-    write_spec(
-        root,
-        "test.spec",
-        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
-    );
-    let output = Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["migrate", "--path", root.to_str().unwrap()])
-        .output()
-        .unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "{stderr}");
-    assert_eq!(
-        stderr.trim(),
-        "1 migrated, 0 skipped, 0 failed",
-        "nothing but the summary"
-    );
-}
 
 // ===================================================================
 // Phase H: Integration
@@ -1593,550 +1339,9 @@ fn migration_diff_contract() {
 // Phase L: validate_post_migration_integrity — additional coverage
 // ===================================================================
 
-#[test]
-fn new_entities_after_migration_reported() {
-    use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
-    use specforge_migrate::compare_graphs;
-
-    let pre = Graph::new(); // empty before
-
-    let mut post = Graph::new();
-    post.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("new_entity"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: None,
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    });
-
-    let diags = compare_graphs(&pre, &post);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.message.contains("new_entity") && d.message.contains("appeared")),
-        "new entity should be reported: {diags:?}"
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "Validate Post-Migration Integrity: post-migration integrity validation holds — extension_hooks_complete_fired, structural_equivalence_checked, differences_reported, migration_validation_complete_emitted"
-)]
-fn post_migration_integrity_contract() {
-    use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
-    use specforge_migrate::compare_graphs;
-
-    let make_node = |id: &str| Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: None,
-        source_span: SourceSpan {
-            file: Sym::new("t.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    };
-
-    // Ensures: structural_equivalence_checked — identical graphs yield empty
-    let g = Graph::new();
-    assert!(compare_graphs(&g, &g).is_empty());
-
-    // Ensures: differences_reported — missing entity yields W054
-    let mut pre = Graph::new();
-    pre.add_node(make_node("x"));
-    let post = Graph::new();
-    let diags = compare_graphs(&pre, &post);
-    assert!(
-        diags.iter().any(|d| d.code == "W054"),
-        "missing entity → W054"
-    );
-
-    // Ensures: edge differences reported
-    let mut pre2 = Graph::new();
-    pre2.add_node(make_node("a"));
-    pre2.add_node(make_node("b"));
-    pre2.add_edge(Edge {
-        source: Sym::new("a"),
-        target: Sym::new("b"),
-        label: Sym::new("refs"),
-    });
-    let mut post2 = Graph::new();
-    post2.add_node(make_node("a"));
-    post2.add_node(make_node("b"));
-    let diags2 = compare_graphs(&pre2, &post2);
-    assert!(
-        diags2
-            .iter()
-            .any(|d| d.code == "W054" && d.message.contains("edge")),
-        "missing edge → W054: {diags2:?}"
-    );
-}
-
 // ===================================================================
 // Phase N: verify_graph_protocol_compatibility — additional coverage
 // ===================================================================
-
-#[test]
-fn entity_structure_change_triggers_check() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Add a new kind — structural change
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 1, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![
-            SchemaEntityKind {
-                name: "behavior".to_string(),
-                source_extension: "@specforge/software".to_string(),
-                testable: true,
-                dot_color: None,
-                fields: Vec::new(),
-            },
-            SchemaEntityKind {
-                name: "event".to_string(),
-                source_extension: "@specforge/software".to_string(),
-                testable: true,
-                dot_color: None,
-                fields: Vec::new(),
-            },
-        ],
-        edge_types: Vec::new(),
-    };
-
-    // Non-breaking addition → no W053
-    let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        !diags.iter().any(|d| d.code == "W053"),
-        "addition is non-breaking: {diags:?}"
-    );
-}
-
-#[test]
-fn formatting_only_change_no_schema_diff() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let schema = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // Same schema pre and post → no changes
-    let diags = check_schema_compatibility(&schema, &schema);
-    assert!(diags.is_empty(), "identical schema → no diagnostics");
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "removed node kind detected as breaking"
-)]
-fn removed_node_kind_is_breaking() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(2, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: Vec::new(),
-    };
-
-    let diags = check_schema_compatibility(&pre, &post);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-    assert_eq!(
-        diags[0].message,
-        "breaking schema change after migration: KindRemoved(\"behavior\")"
-    );
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "removed edge type detected as breaking"
-)]
-fn removed_edge_type_is_breaking() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: vec![SchemaEdgeType {
-            label: "implements".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            source_kinds: None,
-            target_kinds: None,
-        }],
-    };
-
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(2, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: Vec::new(),
-        edge_types: Vec::new(),
-    };
-
-    let diags = check_schema_compatibility(&pre, &post);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-    assert_eq!(
-        diags[0].message,
-        "breaking schema change after migration: EdgeRemoved(\"implements\")"
-    );
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "removed required field detected as breaking"
-)]
-fn removed_required_field_is_breaking() {
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
-    };
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "contract".to_string(),
-                field_type: FieldType::String,
-                required: true,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(2, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(), // field removed
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let diags = check_schema_compatibility(&pre, &post);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-    assert_eq!(
-        diags[0].message,
-        "breaking schema change after migration: FieldRemoved { kind: \"behavior\", field: \"contract\" }"
-    );
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "changed field type detected as breaking"
-)]
-fn changed_field_type_is_breaking() {
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
-    };
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "contract".to_string(),
-                field_type: FieldType::String,
-                required: true,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(2, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "contract".to_string(),
-                field_type: FieldType::StringList, // type changed
-                required: true,
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let diags = check_schema_compatibility(&pre, &post);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-    assert_eq!(
-        diags[0].message,
-        "breaking schema change after migration: FieldTypeChanged { kind: \"behavior\", field: \"contract\", old_type: \"string\", new_type: \"string_list\" }"
-    );
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "added optional field is not breaking"
-)]
-fn added_optional_field_not_breaking() {
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
-    };
-    use specforge_migrate::check_schema_compatibility;
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let post = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 1, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: vec![SchemaField {
-                name: "description".to_string(),
-                field_type: FieldType::String,
-                required: false, // optional
-                enum_values: None,
-                edge: None,
-                target_kind: None,
-                description: None,
-                default_value: None,
-                source_extension: "@specforge/software".to_string(),
-            }],
-        }],
-        edge_types: Vec::new(),
-    };
-
-    let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        diags.is_empty(),
-        "optional field addition is non-breaking: {diags:?}"
-    );
-
-    // The same field added as required is breaking: the check looks at
-    // `required`, not only at the field's presence.
-    let mut post_required = post.clone();
-    post_required.entity_kinds[0].fields[0].required = true;
-    let diags = check_schema_compatibility(&pre, &post_required);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "cross-extension reference broken by migration produces diagnostic"
-)]
-fn cross_extension_broken_reference_produces_diagnostic() {
-    use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
-    use specforge_migrate::compare_graphs;
-
-    let make_node = |id: &str, kind: &str| Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
-        title: None,
-        source_span: SourceSpan {
-            file: Sym::new("t.spec"),
-            start_line: 1,
-            start_col: 0,
-            end_line: 1,
-            end_col: 0,
-        },
-        fields: FieldMap::new(),
-        methods: Vec::new(),
-    };
-
-    // Pre: behavior→feature cross-extension edge exists
-    let mut pre = Graph::new();
-    pre.add_node(make_node("login_flow", "behavior"));
-    pre.add_node(make_node("user_auth", "feature"));
-    pre.add_edge(Edge {
-        source: Sym::new("login_flow"),
-        target: Sym::new("user_auth"),
-        label: Sym::new("implements"),
-    });
-
-    // Post: feature was removed (broken cross-extension reference)
-    let mut post = Graph::new();
-    post.add_node(make_node("login_flow", "behavior"));
-
-    let diags = compare_graphs(&pre, &post);
-    // Should report both the missing entity and the missing edge
-    assert!(
-        diags.iter().any(|d| d.message.contains("user_auth")),
-        "missing cross-extension entity → diagnostic: {diags:?}"
-    );
-    assert!(
-        diags.iter().any(|d| d.message.contains("edge")),
-        "missing cross-extension edge → diagnostic: {diags:?}"
-    );
-}
-
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "Verify Graph Protocol Compatibility After Migration: graph protocol compatibility verification holds — pre_migration_snapshot_available, extension_hooks_complete, compatibility_verified, breaking_changes_warned, graph_protocol_compatibility_emitted"
-)]
-fn graph_protocol_compatibility_contract() {
-    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
-    use specforge_migrate::check_schema_compatibility;
-
-    // Requires: pre-migration snapshot available, extension hooks complete
-    // Ensures: compatibility verified, breaking changes warned, event emitted
-
-    let pre = GraphProtocolSchema {
-        schema_version: SchemaVersion::new(1, 0, 0),
-        extensions: Vec::new(),
-        entity_kinds: vec![SchemaEntityKind {
-            name: "behavior".to_string(),
-            source_extension: "@specforge/software".to_string(),
-            testable: true,
-            dot_color: None,
-            fields: Vec::new(),
-        }],
-        edge_types: Vec::new(),
-    };
-
-    // compatibility_verified: an unchanged schema passes with no warning.
-    let diags = check_schema_compatibility(&pre, &pre);
-    assert!(diags.is_empty(), "identical → no warnings: {diags:?}");
-
-    // breaking_changes_warned: one W053 per breaking change, naming it.
-    let post_breaking = GraphProtocolSchema::empty();
-    let diags = check_schema_compatibility(&pre, &post_breaking);
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W053");
-    assert!(diags[0].message.contains("KindRemoved(\"behavior\")"));
-
-    // End to end: `specforge migrate` snapshots the schema before touching
-    // files (pre_migration_snapshot_available), runs the extension hooks
-    // (extension_hooks_complete), then compares and finishes
-    // (graph_protocol_compatibility_emitted). A format-only migration keeps
-    // the schema, so it passes with nothing but the summary.
-    let tmp = TempDir::new().unwrap();
-    let root = tmp.path();
-    fs::write(
-        root.join("specforge.json"),
-        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    write_spec(
-        root,
-        "test.spec",
-        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n  invariants [bar]\n}\n\ninvariant bar \"Bar\" {\n  guarantee \"holds\"\n}\n",
-    );
-    let output = Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["migrate", "--path", root.to_str().unwrap()])
-        .output()
-        .unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_eq!(output.status.code(), Some(0), "{stderr}");
-    assert_eq!(stderr.trim(), "1 migrated, 0 skipped, 0 failed");
-    assert!(
-        fs::read_to_string(root.join("spec/test.spec"))
-            .unwrap()
-            .starts_with("// specforge-format: 1.0\n"),
-        "the file was migrated"
-    );
-}
 
 // ===================================================================
 // Phase O: rollback_failed_migration — additional coverage
@@ -2219,18 +1424,20 @@ fn rollback_summary_counts() {
     );
     write_spec(
         root,
-        "b.spec",
-        "// specforge-format: 1.0\nbehavior b \"B\" {\n  contract \"b\"\n}\n",
+        "c.spec",
+        "// specforge-format: 0.1\nbehavior c \"C\" {\n  contract \"c\"\n}\n",
     );
 
-    // Migrate — only a.spec should be migrated (b is already at target)
     Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--path", root.to_str().unwrap()])
         .assert()
         .success();
+    // c.spec is edited after the migration: a rollback leaves it as it is.
+    let c = root.join("spec/c.spec");
+    let edited = format!("{}// edited\n", fs::read_to_string(&c).unwrap());
+    fs::write(&c, &edited).unwrap();
 
-    // Rollback — a has .bak, b doesn't
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args([
@@ -2256,12 +1463,13 @@ fn rollback_summary_counts() {
     let restored = json["restored_count"].as_u64().unwrap_or(0);
     let skipped = json["skipped_count"].as_u64().unwrap_or(0);
     assert_eq!(restored, 1, "a.spec should be restored");
-    assert_eq!(skipped, 1, "b.spec should be skipped (no .bak)");
+    assert_eq!(skipped, 1, "c.spec was edited since: skipped");
+    assert_eq!(fs::read_to_string(&c).unwrap(), edited);
 }
 
 #[specforge_test(
     behavior = "rollback_failed_migration",
-    verify = "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
+    verify = "Rollback Failed Migration: migration rollback holds — migration_recorded, files_restored, edited_files_kept, rollback_event_emitted, backup_file_preservation"
 )]
 fn rollback_contract() {
     let tmp = TempDir::new().unwrap();
@@ -2356,6 +1564,7 @@ fn migrate_json_lists_each_file_and_its_backup() {
 
     let migrated = migrate(&[]);
     let written = [
+        ".specforge/migration.json",
         "spec/a.spec",
         "spec/a.spec.bak",
         "spec/b.spec",
@@ -2367,7 +1576,10 @@ fn migrate_json_lists_each_file_and_its_backup() {
     // --rollback restores each file from its backup: those are listed.
     let before = files_under(root);
     let restored = migrate(&["--rollback"]);
-    assert_eq!(files_written(&restored), ["spec/a.spec", "spec/b.spec"]);
+    assert_eq!(
+        files_written(&restored),
+        [".specforge/migration.json", "spec/a.spec", "spec/b.spec"]
+    );
     assert_eq!(changed_since(root, &before), files_written(&restored));
 }
 
@@ -2445,5 +1657,74 @@ fn dry_run_diff_labels_are_relative_to_the_project_root() {
             .unwrap()
             .starts_with("--- a/spec/test.spec\n+++ b/spec/test.spec\n"),
         "{json}"
+    );
+}
+
+// The binary half of the migration crate's `non_breaking_schema_change_no_w053`
+// (tests/compare.rs): a real migration of an entity-bearing project passes
+// silently.
+#[specforge_test(
+    behavior = "verify_graph_protocol_compatibility_after_migration",
+    verify = "non-breaking graph change passes silently"
+)]
+fn a_migration_of_an_entity_bearing_project_prints_only_the_summary() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(
+        stderr.trim(),
+        "1 migrated, 0 skipped, 0 failed",
+        "nothing but the summary"
+    );
+}
+
+// The binary half of the migration crate's `graph_protocol_compatibility_contract`
+// (tests/compare.rs): `specforge migrate` snapshots the schema before touching
+// files (pre_migration_snapshot_available), runs the extension hooks
+// (extension_hooks_complete), then compares and finishes
+// (graph_protocol_compatibility_emitted). A format-only migration keeps the
+// schema, so it passes with nothing but the summary.
+#[specforge_test(
+    behavior = "verify_graph_protocol_compatibility_after_migration",
+    verify = "Verify Graph Protocol Compatibility After Migration: graph protocol compatibility verification holds — pre_migration_snapshot_available, extension_hooks_complete, compatibility_verified, breaking_changes_warned, graph_protocol_compatibility_emitted"
+)]
+fn a_format_only_migration_passes_graph_protocol_compatibility_silently() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n  invariants [bar]\n}\n\ninvariant bar \"Bar\" {\n  guarantee \"holds\"\n}\n",
+    );
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert_eq!(stderr.trim(), "1 migrated, 0 skipped, 0 failed");
+    assert!(
+        fs::read_to_string(root.join("spec/test.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0\n"),
+        "the file was migrated"
     );
 }

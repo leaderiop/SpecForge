@@ -6,7 +6,18 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-fn wait_for_event(rx: &mpsc::Receiver<Vec<PathBuf>>, timeout: Duration) -> Option<Vec<PathBuf>> {
+/// The paths a watcher reports: waits up to `timeout` for the first, then
+/// takes what follows until the watcher is quiet for a moment.
+fn wait_for_event(rx: &mpsc::Receiver<PathBuf>, timeout: Duration) -> Option<Vec<PathBuf>> {
+    let mut paths = vec![rx.recv_timeout(timeout).ok()?];
+    while let Ok(path) = rx.recv_timeout(Duration::from_millis(150)) {
+        paths.push(path);
+    }
+    Some(paths)
+}
+
+/// The next batch `Notify` sends, waiting up to `timeout`.
+fn next_batch(rx: &mpsc::Receiver<Vec<PathBuf>>, timeout: Duration) -> Option<Vec<PathBuf>> {
     rx.recv_timeout(timeout).ok()
 }
 
@@ -24,8 +35,7 @@ fn changed_paths_are_reported_whole() {
     fs::write(&spec_path, r#"behavior foo "Foo" { contract "x" }"#).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
 
     // Give watcher time to start
     std::thread::sleep(Duration::from_millis(100));
@@ -57,8 +67,7 @@ fn file_creation_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
 
     std::thread::sleep(Duration::from_millis(100));
 
@@ -91,8 +100,7 @@ fn file_deletion_triggers_recompilation() {
     fs::write(&spec_path, r#"behavior doomed "Doomed" { contract "bye" }"#).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
 
     std::thread::sleep(Duration::from_millis(100));
 
@@ -119,6 +127,9 @@ fn file_deletion_triggers_recompilation() {
     verify = "watch detects changes within 100ms"
 )]
 fn watch_detects_changes_within_latency_target() {
+    use specforge_project::WatchRoot;
+    use specforge_watch::{Notify, Watchers};
+
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("latency.spec");
     fs::write(&spec_path, r#"behavior init "Init" { contract "x" }"#).unwrap();
@@ -126,15 +137,20 @@ fn watch_detects_changes_within_latency_target() {
     // A short debounce window so the measurement is dominated by detection,
     // not by coalescing.
     let debounce = Duration::from_millis(10);
-    let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx, debounce).unwrap();
+    let (mut notify, batches) = Notify::new(debounce);
+    notify
+        .watch(&[WatchRoot {
+            dir: dir.path().to_path_buf(),
+            recursive: true,
+        }])
+        .unwrap();
 
     std::thread::sleep(Duration::from_millis(200));
 
     let start = Instant::now();
     fs::write(&spec_path, r#"behavior updated "Updated" { contract "y" }"#).unwrap();
 
-    let event = wait_for_event(&rx, Duration::from_secs(2));
+    let event = next_batch(&batches, Duration::from_secs(2));
     let elapsed = start.elapsed();
 
     let events = event.expect("should receive change event");
@@ -162,8 +178,7 @@ fn watch_contract_consistency() {
 
     // Requires: watch mode active on spec root
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
     std::thread::sleep(Duration::from_millis(200));
 
     // Ensures: file_changed event produced for creation
@@ -196,8 +211,7 @@ fn a_shallow_watcher_reports_its_own_entries_only() {
     let dir = TempDir::new().unwrap();
     fs::create_dir_all(dir.path().join("sub")).unwrap();
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::shallow(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::shallow(dir.path(), tx).unwrap();
     // macOS can deliver events for the directory's own creation late.
     std::thread::sleep(Duration::from_millis(1000));
     while wait_for_event(&rx, Duration::from_millis(300)).is_some() {}
@@ -215,4 +229,45 @@ fn a_shallow_watcher_reports_its_own_entries_only() {
     let events = wait_for_event(&rx, Duration::from_secs(5)).expect("its own entry is reported");
     let expected = fs::canonicalize(dir.path()).unwrap().join("own.md");
     assert!(events.contains(&expected), "{events:?}");
+}
+
+// ── one burst across two watched roots ────────────────────────
+
+#[spec(
+    behavior = "debounce_file_changes",
+    verify = "changes under different watched directories within the window join one batch"
+)]
+fn a_burst_across_two_roots_is_one_batch() {
+    use specforge_project::WatchRoot;
+    use specforge_watch::{Notify, Watchers};
+
+    let a = TempDir::new().unwrap();
+    let b = TempDir::new().unwrap();
+    let (mut notify, batches) = Notify::new(Duration::from_millis(50));
+    notify
+        .watch(&[
+            WatchRoot {
+                dir: a.path().to_path_buf(),
+                recursive: true,
+            },
+            WatchRoot {
+                dir: b.path().to_path_buf(),
+                recursive: true,
+            },
+        ])
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+
+    fs::write(a.path().join("x.spec"), "a").unwrap();
+    fs::write(b.path().join("y.spec"), "b").unwrap();
+
+    let mut seen = Vec::new();
+    while let Some(batch) = next_batch(&batches, Duration::from_secs(1)) {
+        seen.push(batch);
+    }
+    let x = fs::canonicalize(a.path()).unwrap().join("x.spec");
+    let y = fs::canonicalize(b.path()).unwrap().join("y.spec");
+    let mut expected = vec![x, y];
+    expected.sort();
+    assert_eq!(seen, [expected]);
 }

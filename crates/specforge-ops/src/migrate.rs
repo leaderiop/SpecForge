@@ -7,15 +7,19 @@
 //! restored from their backups.
 
 use specforge_common::{Diagnostic, Severity, codes};
+/// The migration crate's report types, as this operation's interface.
+pub use specforge_migrate::{
+    MigrationBackup, MigrationDiff, MigrationRecord, MigrationResult, MigrationStatus,
+    MigrationSummary, RecordChange, RollbackSummary,
+};
 use specforge_migrate::{
-    MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
-    run_rollback,
+    check_schema_compatibility, compare_graphs, migrate_project, restore, run_rollback,
 };
 use specforge_parser::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
 };
-use specforge_project::CompiledProject;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_project::{CompiledProject, SharedRuntime};
+use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
@@ -142,7 +146,7 @@ pub use specforge_protocol_types::MigrationInput;
 /// compile again and compare. A failing hook or a changed graph structure
 /// restores every migrated file from its backup. With no runtime no
 /// extension is loaded, so no hook runs.
-pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
+pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Outcome {
     // The project the path is in (else the path itself): the one the files
     // are migrated in and the one the hooks and the checks compile.
     let root = &specforge_common::project_root_of(request.root);
@@ -175,7 +179,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
     }
 
     // The graph and schema before any file is touched.
-    let pre = CompiledProject::compile(root, runtime);
+    let pre = CompiledProject::compile(root, runtime.clone());
     let pre_schema = schema_of(&pre);
 
     outcome.summary = migrate_project(root, target, false, request.no_backup);
@@ -193,18 +197,18 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
             .summary
             .results
             .iter()
-            .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+            .filter(|r| r.status == MigrationStatus::Migrated)
             .map(|r| r.file_path.clone())
             .collect(),
     };
-    let (invoked, failures) = match runtime {
-        Some(runtime) => invoke_hooks(pre.env.registries.declarations(), runtime, &input),
+    let (invoked, failures) = match pre.environment().runtime.as_deref() {
+        Some(runtime) => invoke_hooks(&pre.environment().registries, runtime, &input),
         None => (Vec::new(), Vec::new()),
     };
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
-        roll_back(root, &mut outcome);
+        roll_back(&mut outcome);
         return outcome;
     }
 
@@ -212,12 +216,34 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
     let post = CompiledProject::compile(root, runtime);
     outcome.validated = true;
     outcome.schema_warnings = check_schema_compatibility(&pre_schema, &schema_of(&post));
-    outcome.structural_differences = compare_graphs(&pre.graph, &post.graph);
+    outcome.structural_differences = compare_graphs(pre.graph(), post.graph());
     outcome.post_diagnostics = post.diagnostics();
     if !outcome.structural_differences.is_empty() {
-        roll_back(root, &mut outcome);
+        roll_back(&mut outcome);
+        return outcome;
     }
+    keep_record(root, request, &mut outcome);
     outcome
+}
+
+/// A kept migration made with backups is recorded for a later `--rollback`; one made without removes
+/// the record, since a rollback after it would mix versions.
+fn keep_record(root: &Path, request: &Request, outcome: &mut Outcome) {
+    if outcome.summary.migrated_count == 0 {
+        return;
+    }
+    let record = root.join(MigrationRecord::PATH);
+    if request.no_backup {
+        if matches!(MigrationRecord::remove(root), Ok(true)) {
+            outcome.writes.record(&record);
+        }
+        return;
+    }
+    let made = MigrationRecord::of(root, &request.target, &outcome.summary.backups)
+        .and_then(|record| record.write(root));
+    if made.is_ok() {
+        outcome.writes.record(&record);
+    }
 }
 
 /// What `migrate_project` wrote: each file it migrated and each backup
@@ -226,53 +252,65 @@ fn summary_writes(summary: &MigrationSummary) -> Writes {
     let migrated = summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+        .filter(|r| r.status == MigrationStatus::Migrated)
         .map(|r| r.file_path.as_str());
     let backups = summary.backups.iter().map(|b| b.backup_path.as_str());
     migrated.chain(backups).collect()
 }
 
-/// Restore the project's files from their backups after a failed check: a
-/// file this run migrated holds its old text again and is forgotten; any
-/// other file a backup restored was rewritten, and is recorded.
-fn roll_back(root: &Path, outcome: &mut Outcome) {
-    let summary = run_rollback(root);
+/// Restore the files this run migrated, with the text it read before them (backups or not) after a
+/// failed check: each is forgotten as a write. No other file is touched.
+fn roll_back(outcome: &mut Outcome) {
+    let summary = restore(&outcome.summary.originals);
     for restored in summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .filter(|r| r.status == MigrationStatus::Restored)
     {
-        let path = Path::new(&restored.file_path);
-        let migrated_here = outcome.summary.results.iter().any(|r| {
-            r.status == specforge_migrate::MigrationStatus::Migrated
-                && r.file_path == restored.file_path
-        });
-        if migrated_here {
-            outcome.writes.forget(path);
-        } else {
-            outcome.writes.record(path);
-        }
+        outcome.writes.forget(Path::new(&restored.file_path));
     }
     outcome.rollback = Some(summary);
 }
 
 /// What a rollback rewrote: each file it restored from its backup.
-pub fn restored(summary: &RollbackSummary) -> Writes {
+fn restored_writes(summary: &RollbackSummary) -> Writes {
     summary
         .results
         .iter()
-        .filter(|r| r.status == specforge_migrate::MigrationStatus::Restored)
+        .filter(|r| r.status == MigrationStatus::Restored)
         .map(|r| r.file_path.as_str())
         .collect()
 }
 
-/// Restore every migrated file from its `.bak` backup.
-pub fn rollback(root: &Path) -> RollbackSummary {
-    run_rollback(root)
+/// What a rollback did: the restore, and the files it rewrote.
+#[derive(Debug, Clone)]
+pub struct RollbackOutcome {
+    pub summary: RollbackSummary,
+    /// Each file restored from its backup (ADR 0022 D1).
+    pub writes: Writes,
+}
+
+impl RollbackOutcome {
+    /// The run's verdict: no file failed to restore. `specforge migrate
+    /// --rollback` exits by it.
+    pub fn ok(&self) -> bool {
+        self.summary.failed_count == 0
+    }
+}
+
+/// Restore every migrated file of the project `root` is in from its `.bak`
+/// backup.
+pub fn rollback(root: &Path) -> RollbackOutcome {
+    let summary = run_rollback(root);
+    let mut writes = restored_writes(&summary);
+    if summary.record != RecordChange::Unchanged {
+        writes.record(specforge_common::project_root_of(root).join(MigrationRecord::PATH));
+    }
+    RollbackOutcome { summary, writes }
 }
 
 fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchema {
-    let registries = &project.env.registries;
+    let registries = &project.environment().registries;
     specforge_emitter::generate_schema(
         &registries.kinds,
         &registries.edges,
@@ -284,33 +322,20 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
     )
 }
 
-/// Run each extension's declared migration hook, in dependency order. A
-/// hook that fails (E028: it trapped, or the extension does not route it)
-/// is recorded and the rest still run. Returns the hooks
-/// run (`extension:hook`) and the failures.
+/// Run each extension's declared migration hook, in the registry build's load order (ADR 0041).
+/// A hook that fails (E028: it trapped, or the extension does not route it) is recorded and the
+/// rest still run. Returns the hooks run (`extension:hook`) and the failures.
 pub fn invoke_hooks(
-    declarations: &[ExtensionDeclaration],
+    build: &RegistryBuild,
     runtime: &dyn WasmRuntime,
     input: &MigrationInput,
 ) -> HookRun {
     let calls = specforge_wasm::ExtensionCalls::new(runtime);
 
-    let order = match specforge_wasm::topological_sort_extensions(declarations) {
-        Ok(order) => order,
-        Err(diagnostics) => {
-            let reason = diagnostics
-                .first()
-                .map(|d| d.message.clone())
-                .unwrap_or_else(|| "dependency cycle".to_string());
-            return (Vec::new(), vec![reason]);
-        }
-    };
     let mut invoked = Vec::new();
     let mut failures = Vec::new();
-    for name in &order {
-        let Some(declaration) = declarations.iter().find(|d| d.name() == name) else {
-            continue;
-        };
+    for declaration in build.declarations() {
+        let name = declaration.name();
         let Some(hook) = declaration
             .handshake
             .migration_hook

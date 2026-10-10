@@ -15,6 +15,7 @@ use specforge_project::coverage::TestReport;
 use specforge_project::passes::{AnalysisContext, pass_input, run_extension_passes};
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 const EXT: &str = "@pin/passes";
@@ -140,8 +141,8 @@ fn last_input(runtime: &InProcessRuntime, export: &str) -> Value {
 )]
 fn c4_the_pass_input_of_an_analysis() {
     let dir = project();
-    let runtime = runtime();
-    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+    let runtime = Arc::new(runtime());
+    let compiled = CompiledProject::compile(dir.path(), Some(runtime.clone()));
     let report: TestReport = serde_json::from_value(json!({
         "runner": "cargo-test",
         "results": {"a": {"file": "a.rs", "tests": [
@@ -151,9 +152,9 @@ fn c4_the_pass_input_of_an_analysis() {
     }))
     .unwrap();
     let proved: HashSet<String> = ["b".to_string(), "a".to_string()].into();
-    let registries = &compiled.env.registries;
+    let registries = &compiled.environment().registries;
     let input = pass_input(&AnalysisContext {
-        graph: &compiled.graph,
+        graph: compiled.graph(),
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
         entities: compiled.entities(),
@@ -177,8 +178,8 @@ fn c4_the_pass_input_of_a_compile_carries_previous() {
         json!({"format": 1, "statuses": {"a": {"kind": "gadget", "status": "draft"}}}).to_string(),
     )
     .unwrap();
-    let runtime = runtime();
-    CompiledProject::compile(dir.path(), Some(&runtime));
+    let runtime = Arc::new(runtime());
+    CompiledProject::compile(dir.path(), Some(runtime.clone()));
     // flipped in T6: `test_results` and `proved_claims` are absent, not null
     golden(
         "pass.check.input.json",
@@ -193,8 +194,8 @@ fn span(file: &str, line: usize) -> Value {
 /// A check pass answering `answer` (raw bytes or a trap).
 fn compile_answering(answer: WasmCallResult) -> Vec<Diagnostic> {
     let dir = project();
-    let runtime = runtime().answer_raw(EXT, "__pass_audit", answer);
-    CompiledProject::compile(dir.path(), Some(&runtime)).diagnostics()
+    let runtime = Arc::new(runtime().answer_raw(EXT, "__pass_audit", answer));
+    CompiledProject::compile(dir.path(), Some(runtime.clone())).diagnostics()
 }
 
 fn pass_findings(diagnostics: &[Diagnostic]) -> Vec<&Diagnostic> {
@@ -299,7 +300,7 @@ fn c4_a_failing_check_pass_is_e028() {
 fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
     // flipped in T6: was no report at all, a stderr line
     let dir = project();
-    let runtime = runtime().answer_raw(
+    let runtime = Arc::new(runtime().answer_raw(
         EXT,
         "__pass_report",
         WasmCallResult::Trap(WasmTrapInfo {
@@ -307,13 +308,13 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
             message: "m".into(),
             export_name: "__pass_report".into(),
         }),
-    );
-    let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
-    let registries = &compiled.env.registries;
+    ));
+    let compiled = CompiledProject::compile(dir.path(), Some(runtime.clone()));
+    let registries = &compiled.environment().registries;
     let reports = run_extension_passes(
         &registries.passes,
         &AnalysisContext {
-            graph: &compiled.graph,
+            graph: compiled.graph(),
             kind_registry: &registries.kinds,
             field_registry: &registries.fields,
             entities: compiled.entities(),
@@ -321,7 +322,7 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
             test_results: None,
             proved_claims: None,
         },
-        &runtime,
+        runtime.as_ref(),
         "all",
     );
     assert_eq!(reports.len(), 1);
@@ -348,8 +349,8 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
 )]
 fn c6_the_validator_context() {
     let dir = project();
-    let runtime = runtime();
-    CompiledProject::compile(dir.path(), Some(&runtime));
+    let runtime = Arc::new(runtime());
+    CompiledProject::compile(dir.path(), Some(runtime.clone()));
     let contexts: Vec<Value> = runtime
         .calls()
         .into_iter()
@@ -366,18 +367,18 @@ fn c6_the_validator_context() {
 )]
 fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
     let dir = project();
-    let runtime = runtime().answer_raw(
+    let runtime = Arc::new(runtime().answer_raw(
         EXT,
         "validate__shape",
         WasmCallResult::Ok(br#"{"verdict":"fail","field":"needs","value":"b"}"#.to_vec()),
-    );
-    let failed = CompiledProject::compile(dir.path(), Some(&runtime)).diagnostics();
+    ));
+    let failed = CompiledProject::compile(dir.path(), Some(runtime.clone())).diagnostics();
     let e991: Vec<&Diagnostic> = failed.iter().filter(|d| d.code == "E991").collect();
     assert_eq!(e991.len(), 3, "{failed:?}");
     assert_eq!(e991[0].message, "gadget 'a' has a bad needs");
 
-    let runtime = runtime_with_trap();
-    let trapped = CompiledProject::compile(dir.path(), Some(&runtime)).diagnostics();
+    let runtime = Arc::new(runtime_with_trap());
+    let trapped = CompiledProject::compile(dir.path(), Some(runtime.clone())).diagnostics();
     let w112: Vec<&Diagnostic> = trapped.iter().filter(|d| d.code == "W112").collect();
     assert_eq!(w112.len(), 1, "{trapped:?}");
     assert_eq!(
@@ -396,7 +397,8 @@ fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
         "validate__shape",
         WasmCallResult::Ok(br#"{"field":"needs"}"#.to_vec()),
     );
-    let malformed = CompiledProject::compile(dir.path(), Some(&answering_garbage)).diagnostics();
+    let malformed =
+        CompiledProject::compile(dir.path(), Some(Arc::new(answering_garbage))).diagnostics();
     let w112: Vec<&Diagnostic> = malformed.iter().filter(|d| d.code == "W112").collect();
     assert_eq!(w112.len(), 1, "{malformed:?}");
     assert!(

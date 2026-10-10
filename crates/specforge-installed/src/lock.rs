@@ -117,20 +117,20 @@ impl LockFile {
     pub fn requirers_of(
         &self,
         peer_name: &str,
-        extra: Option<(&str, &str)>,
-    ) -> Vec<(String, String)> {
-        let mut requirers: Vec<(String, String)> = self
+        extra: Option<(&str, &specforge_protocol_types::PeerDependency)>,
+    ) -> Vec<(String, specforge_protocol_types::PeerDependency)> {
+        let mut requirers: Vec<(String, specforge_protocol_types::PeerDependency)> = self
             .entries
             .iter()
             .flat_map(|e| {
                 e.peer_dependencies
                     .iter()
                     .filter(|p| p.name == peer_name)
-                    .map(move |p| (e.name.to_string(), p.version.clone()))
+                    .map(move |p| (e.name.to_string(), p.clone()))
             })
             .collect();
-        if let Some((name, range)) = extra {
-            requirers.push((name.to_string(), range.to_string()));
+        if let Some((name, declared)) = extra {
+            requirers.push((name.to_string(), declared.clone()));
         }
         requirers
     }
@@ -504,8 +504,8 @@ mod tests {
 
         let requirers = lock.requirers_of("@shared/lib", None);
         assert_eq!(requirers.len(), 2);
-        assert!(requirers.contains(&("@a/ext".to_string(), "^1.0.0".to_string())));
-        assert!(requirers.contains(&("@b/ext".to_string(), "^2.0.0".to_string())));
+        assert!(requirers.contains(&("@a/ext".to_string(), peer("@shared/lib", "^1.0.0"))));
+        assert!(requirers.contains(&("@b/ext".to_string(), peer("@shared/lib", "^2.0.0"))));
     }
 
     #[test]
@@ -515,8 +515,11 @@ mod tests {
             ..Default::default()
         };
 
-        let requirers = lock.requirers_of("@shared/lib", Some(("@c/ext", "^3.0.0")));
+        let requirers = lock.requirers_of(
+            "@shared/lib",
+            Some(("@c/ext", &peer("@shared/lib", "^3.0.0"))),
+        );
         assert_eq!(requirers.len(), 2);
-        assert!(requirers.contains(&("@c/ext".to_string(), "^3.0.0".to_string())));
+        assert!(requirers.contains(&("@c/ext".to_string(), peer("@shared/lib", "^3.0.0"))));
     }
 }

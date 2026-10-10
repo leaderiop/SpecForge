@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
+use specforge_common::shape::Shape;
 use specforge_graph::{FieldMap, FieldValue, Graph, Node};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -16,7 +17,7 @@ pub const SCHEMA_VERSION: &str = "0.1.0";
 /// its edges, with the format and schema versions, the schema (embedded, or a
 /// reference to it) and the `token_budget` block when they apply. Field order
 /// is the wire order.
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct Export<'a, N: Serialize> {
     /// "1.0" for the schemaless graph format, "2.0" once a schema is
     /// attached; context and brief without a schema carry none.
@@ -57,7 +58,7 @@ impl<'a, N: Serialize> Export<'a, N> {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct JsonNode {
     id: String,
     kind: String,
@@ -80,7 +81,7 @@ pub(crate) fn graph_node(n: &Node) -> JsonNode {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct JsonEdge {
     pub source: String,
     pub target: String,

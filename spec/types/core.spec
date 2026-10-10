@@ -35,7 +35,7 @@ type EntityId {
 //
 // Structural node types (parsed by dedicated grammar rules, not KindRegistry):
 //   - spec: singleton project root, creates a graph node
-//   - ref: external reference, creates a graph node for orphan detection (W012)
+//   - ref: external reference, creates a graph node for unreferenced detection (W012)
 // These are NOT in the KindRegistry — the KindRegistry is exclusively for
 // extension-defined domain entity kinds. Structural node types have hardcoded
 // parsing and validation in core.

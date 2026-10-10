@@ -61,9 +61,7 @@ expression: mcp_snap
     "extensions_ok": true,
     "findings": [],
     "installed_count": 0,
-    "issues": [],
-    "load_failures": [],
-    "shadowed": [],
+    "ok": true,
     "z3_available": "[Z3]"
   }
 }

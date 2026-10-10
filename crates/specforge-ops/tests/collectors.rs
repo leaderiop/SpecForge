@@ -87,7 +87,7 @@ fn cargo_test_reports_plain_tests_as_unlinked() {
             "module_path":"shop_lib::tests","file":"src/lib.rs","status":"pass"}]}"#
             .into(),
     };
-    let out = dispatch(&runtime, collector, &[report], Some(stdout)).unwrap();
+    let out = dispatch(Some(&runtime), collector, &[report], Some(stdout)).unwrap();
     assert_eq!(out.entity_results.len(), 1, "the attribute's own result");
     let unlinked: Vec<(&str, &str)> = out
         .unlinked
@@ -121,14 +121,17 @@ fn collect_maps_results_to_the_views_entities() {
     use specforge_ops::view::ProjectView;
 
     let runtime = wasm_runtime_for(&["@specforge/testing", "@specforge/cargo-test"]);
-    let env = specforge_project::Environment::from_declarations(vec![load_via_protocol(
+    let mut env = specforge_project::Environment::from_declarations(vec![load_via_protocol(
         "@specforge/cargo-test",
     )]);
+    env.runtime = Some(std::sync::Arc::new(runtime));
     let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
         "behavior a \"A\" {\n}\n",
         "main.spec",
     )]);
     let dir = tempfile::TempDir::new().unwrap();
+    // The root holds a project: collect refuses a directory that holds none.
+    std::fs::write(dir.path().join("specforge.json"), r#"{"name": "shop"}"#).unwrap();
     let report = dir.path().join("target/specforge/shop.json");
     std::fs::create_dir_all(report.parent().unwrap()).unwrap();
     std::fs::write(
@@ -145,7 +148,6 @@ fn collect_maps_results_to_the_views_entities() {
     let reports = [report];
     let outcome = collect(
         &view,
-        &runtime,
         Request {
             runner: Some("cargo-test"),
             mode: Mode::Reports(&reports),

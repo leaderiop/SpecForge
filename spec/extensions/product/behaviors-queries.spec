@@ -659,7 +659,7 @@ behavior pe_query_partial_graph "Query Behavior on Graphs with Validation Errors
   types      [ProductEntitySummary]
   contract   """
     Product queries MUST operate on the structural graph regardless of
-    validation state. Entities with validation errors (orphans, broken
+    validation state. Entities with validation errors (unreferenced entities, broken
     references, invalid field values) MUST still be traversable and appear
     in query results. Queries MUST NOT filter entities based on diagnostic
     state. A command runs only over a built graph, so no query sees a
@@ -673,7 +673,7 @@ behavior pe_query_partial_graph "Query Behavior on Graphs with Validation Errors
   }
   features   [pe_partial_graph_queries, product_graph_diff]
   verify unit "milestone-completion includes milestones with E015 cycle diagnostic"
-  verify unit "journey-coverage includes journeys with W042 orphan diagnostic"
+  verify unit "journey-coverage includes journeys with W042 unreferenced diagnostic"
   verify unit "feature-ordering includes features with W045 cycle warning"
   verify unit "query results identical before and after validation pass"
 }

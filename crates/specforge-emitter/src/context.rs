@@ -1,12 +1,11 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::{FieldValue, Graph, Node};
+use specforge_common::shape::Shape;
+use specforge_graph::{FieldValue, Node};
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 
-use crate::json::Export;
-
-#[derive(Serialize)]
+#[derive(Serialize, Shape)]
 pub(crate) struct ContextNode {
     id: String,
     kind: String,
@@ -100,10 +99,6 @@ pub(crate) fn normative_fields(
         .collect()
 }
 
-pub fn emit_context(graph: &Graph) -> String {
-    emit_context_with_fields(graph, None)
-}
-
 /// `n` as the context export writes an entity: its title and obligations, the
 /// headline and normative fields `registry` declares.
 pub(crate) fn context_node(n: &Node, registry: Option<&FieldRegistry>) -> ContextNode {
@@ -115,17 +110,4 @@ pub(crate) fn context_node(n: &Node, registry: Option<&FieldRegistry>) -> Contex
         verify: crate::json::obligations_json(n),
         fields: normative_fields(n, registry),
     }
-}
-
-/// The context export, with each entity's normative fields when the field
-/// registry that declares them is given.
-pub fn emit_context_with_fields(graph: &Graph, registry: Option<&FieldRegistry>) -> String {
-    let nodes = graph
-        .nodes()
-        .into_iter()
-        .map(|n| context_node(n, registry))
-        .collect();
-    Export::plain(None, graph, nodes)
-        .to_json()
-        .expect("graph serialization cannot fail")
 }

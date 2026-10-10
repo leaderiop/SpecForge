@@ -1,6 +1,6 @@
 //! An in-process adapter of the [`WasmRuntime`] seam, for tests: it serves
 //! an extension straight from its SDK [`ContributionsBuilder`], routed by
-//! the guest's own [`guest_call`] — the function `component_guest!` calls in
+//! the guest's own [`GuestServed`](specforge_extension_sdk::Served) — the function `component_guest!` calls in
 //! a component — so a test declares an extension with the same builders an
 //! extension author uses, and the host loads it exactly as it loads a
 //! component.
@@ -12,7 +12,9 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
+use specforge_extension_sdk::{
+    ContributionsBuilder, ExportHandler, Served as GuestServed, no_other_exports,
+};
 
 use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
@@ -268,7 +270,7 @@ impl WasmRuntime for InProcessRuntime {
         };
         // A guest panic is a trap, as `unreachable` is in a component.
         let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            guest_call(&build(), handler, export, input)
+            GuestServed::new(build()).call(handler, export, input)
         }));
         match answer {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),

@@ -48,62 +48,6 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
     }
 }
 
-// B:lsp_initialize — verify contract "requires/ensures consistency for LSP initialization"
-#[specforge_test(
-    behavior = "lsp_initialize",
-    verify = "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
-)]
-#[tokio::test]
-async fn lsp_initialize_contract() {
-    let extensions = ["@specforge/software", "@specforge/testing"];
-    let dir = project_with(&extensions);
-    let (mut session, init) = crate::session::Session::start(Some(dir.path())).await;
-    let caps = &init["capabilities"];
-
-    // incremental_sync_advertised: TextDocumentSyncKind::INCREMENTAL.
-    assert_eq!(caps["textDocumentSync"], 2);
-
-    // semantic_legend_populated: every standard LSP token type, in order.
-    let legend = legend_of(&init);
-    assert_eq!(legend, STANDARD_TOKEN_TYPES);
-
-    // extensions_loaded, lsp_initialized_emitted: once the registries are
-    // populated the server announces how many extensions and entity kinds
-    // it loaded.
-    let kinds = registries_for(&extensions).0;
-    assert!(kinds.len() >= 5, "software alone declares five kinds");
-    let announced = session
-        .notification("window/logMessage", |p| {
-            p["message"].as_str().is_some_and(|m| m.contains("loaded"))
-        })
-        .await
-        .expect("no initialization announcement");
-    assert_eq!(
-        announced["message"],
-        format!(
-            "specforge-lsp: loaded 2 extension(s), {} entity kind(s)",
-            kinds.len()
-        )
-    );
-
-    // capabilities_reflect_extensions: nothing domain-specific is
-    // hardcoded (the legend is exactly the standard list), and the
-    // advertised legend carries what the loaded extension declares —
-    // @specforge/software gives `port` IDs the `interface` token.
-    let uri = "file:///buffer/repo.spec";
-    session.open(uri, "port repo \"Repo\" {\n}\n").await;
-    let tokens = session
-        .request(
-            "textDocument/semanticTokens/full",
-            serde_json::json!({"textDocument": {"uri": uri}}),
-        )
-        .await;
-    let data = tokens["result"]["data"].as_array().unwrap();
-    // The second token is `repo` at line 0, column 5.
-    assert_eq!(data[5..8], [0, 5, 4], "{data:?}");
-    assert_eq!(legend[data[8].as_u64().unwrap() as usize], "interface");
-}
-
 /// Every standard LSP semantic token type, in the order the server's legend
 /// lists them.
 pub(crate) const STANDARD_TOKEN_TYPES: [&str; 23] = [
@@ -132,16 +76,6 @@ pub(crate) const STANDARD_TOKEN_TYPES: [&str; 23] = [
     "decorator",
 ];
 
-/// The semantic token legend of an `initialize` result.
-pub(crate) fn legend_of(init: &serde_json::Value) -> Vec<&str> {
-    init["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
-        .as_array()
-        .expect("initialize result has no legend")
-        .iter()
-        .map(|t| t.as_str().unwrap())
-        .collect()
-}
-
 /// A temp project whose specforge.json lists `extensions`.
 pub(crate) fn project_with(extensions: &[&str]) -> tempfile::TempDir {
     let dir = tempfile::TempDir::new().unwrap();
@@ -155,7 +89,7 @@ pub(crate) fn project_with(extensions: &[&str]) -> tempfile::TempDir {
 }
 
 /// The kind and field registries `extensions` populate.
-fn registries_for(
+pub(crate) fn registries_for(
     extensions: &[&str],
 ) -> (
     specforge_registry::KindRegistry,
@@ -206,7 +140,7 @@ fn lsp_shutdown_contract() {
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
 #[specforge_test(
     behavior = "document_open_close",
-    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared, closed_file_from_disk"
+    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 )]
 #[tokio::test]
 async fn document_open_close_contract() {
@@ -231,17 +165,13 @@ async fn document_open_close_contract() {
     assert!(session.format(uri).await.is_array());
     session.close(uri).await;
 
-    // closed_diagnostics_cleared: closing publishes an empty set, which
-    // clears the editor's squiggles.
+    // closed_file_published: the closed file is published once, as the
+    // project reports it; a file outside a project has no disk text to
+    // return to, so it leaves the project and the editor's squiggles are
+    // cleared (closed_file_from_disk).
     let closed = session.diagnostics(uri).await;
     assert!(closed.is_empty(), "{closed:?}");
     assert!(session.format(uri).await.is_null());
-
-    // closed_file_from_disk: a file outside a project has no disk text to
-    // return to, so the closed file leaves the project; the publication
-    // that follows says it was compiled.
-    let after = session.diagnostics(uri).await;
-    assert!(after.is_empty(), "{after:?}");
     let found = session.workspace_symbol("login").await;
     assert!(found["result"].is_null(), "{found}");
 }
@@ -883,135 +813,6 @@ fn provide_semantic_tokens_contract() {
     );
 }
 
-const TOKENS_REFRESH: &str = "workspace/semanticTokens/refresh";
-
-/// `didChange` params replacing `uri`'s whole text.
-fn replace_all(uri: &str, version: i32, text: &str) -> serde_json::Value {
-    serde_json::json!({
-        "textDocument": {"uri": uri, "version": version},
-        "contentChanges": [{"text": text}],
-    })
-}
-
-/// A session whose client declares `workspace.semanticTokens.refreshSupport`
-/// as `refresh_support`, with `text` open at `uri` and its first compile done.
-async fn session_with_open(
-    refresh_support: bool,
-    uri: &str,
-    text: &str,
-) -> crate::session::Session {
-    let caps = serde_json::json!({
-        "workspace": {"semanticTokens": {"refreshSupport": refresh_support}},
-    });
-    let (mut session, _) = crate::session::Session::start_with_capabilities(None, caps).await;
-    session.open(uri, text).await;
-    session.diagnostics(uri).await;
-    session
-}
-
-const LOGIN: &str = "behavior login \"Login\" {\n  contract \"x\"\n}\n";
-
-#[specforge_test(
-    behavior = "provide_semantic_tokens",
-    verify = "a recompile that changes the graph asks the client to refresh semantic tokens"
-)]
-#[tokio::test]
-async fn graph_changing_recompile_requests_token_refresh() {
-    let uri = "file:///buffer/refresh.spec";
-    let mut session = session_with_open(true, uri, LOGIN).await;
-    // Opening compiled `login` into an empty graph: that is a change too.
-    assert!(
-        session
-            .notification(TOKENS_REFRESH, |_| true)
-            .await
-            .is_some(),
-        "the first compile of an entity must ask for a refresh"
-    );
-
-    // didChange adds an entity: the recompiled graph differs.
-    let grown = format!("{LOGIN}\ninvariant quota \"Quota\" {{\n}}\n");
-    session
-        .notify("textDocument/didChange", replace_all(uri, 2, &grown))
-        .await;
-    session.diagnostics(uri).await;
-    assert!(
-        session
-            .notification(TOKENS_REFRESH, |_| true)
-            .await
-            .is_some(),
-        "adding an entity must ask the client to refresh semantic tokens"
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_semantic_tokens",
-    verify = "a recompile that changes nothing token-relevant sends no semantic token refresh"
-)]
-#[tokio::test]
-async fn whitespace_only_recompile_sends_no_token_refresh() {
-    let uri = "file:///buffer/whitespace.spec";
-    let mut session = session_with_open(true, uri, LOGIN).await;
-    session.notification(TOKENS_REFRESH, |_| true).await;
-
-    // Same entities, kinds and titles; only the layout moves.
-    let spaced = format!("\n\n{}", LOGIN.replace("  contract", "      contract"));
-    session
-        .notify("textDocument/didChange", replace_all(uri, 2, &spaced))
-        .await;
-    session.diagnostics(uri).await;
-    let refresh = session
-        .notification_within(
-            TOKENS_REFRESH,
-            std::time::Duration::from_millis(500),
-            |_| true,
-        )
-        .await;
-    assert!(refresh.is_none(), "a whitespace-only edit must not refresh");
-
-    // A retitle does change what is highlighted: it refreshes.
-    session
-        .notify(
-            "textDocument/didChange",
-            replace_all(uri, 3, &spaced.replace("\"Login\"", "\"Sign in\"")),
-        )
-        .await;
-    session.diagnostics(uri).await;
-    assert!(
-        session
-            .notification(TOKENS_REFRESH, |_| true)
-            .await
-            .is_some(),
-        "a changed title must ask for a refresh"
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_semantic_tokens",
-    verify = "no semantic token refresh is sent to a client without refreshSupport"
-)]
-#[tokio::test]
-async fn client_without_refresh_support_never_gets_token_refresh() {
-    let uri = "file:///buffer/no_refresh.spec";
-    let mut session = session_with_open(false, uri, LOGIN).await;
-
-    let grown = format!("{LOGIN}\ninvariant quota \"Quota\" {{\n}}\n");
-    session
-        .notify("textDocument/didChange", replace_all(uri, 2, &grown))
-        .await;
-    session.diagnostics(uri).await;
-    let refresh = session
-        .notification_within(
-            TOKENS_REFRESH,
-            std::time::Duration::from_millis(500),
-            |_| true,
-        )
-        .await;
-    assert!(
-        refresh.is_none(),
-        "a client that did not declare refreshSupport must never be asked"
-    );
-}
-
 // B:code_action_create_entity_stub — verify contract "requires/ensures consistency for create entity stub"
 #[specforge_test(
     behavior = "code_action_create_entity_stub",
@@ -1024,7 +825,7 @@ fn code_action_create_entity_stub_contract() {
     // current file; none without a target kind
     let text = "behavior login \"L\" {\n  invariants [missing_inv]\n}\n";
     let state = buffers(&[("/p/auth.spec", text)]);
-    let diagnostics = state.session().unwrap().diagnostics();
+    let diagnostics = state.session().unwrap().project().diagnostics();
     let fixes_with = |target_kind: Option<&str>| {
         let env = specforge_project::Environment::with_registries({
             let mut build = specforge_registry::RegistryBuild::default();
@@ -1283,77 +1084,6 @@ fn shared_incremental_pipeline_contract() {
     assert!(
         state.diagnostics(a.as_str()).is_empty(),
         "diagnostics must be pushable"
-    );
-}
-
-/// A JSON-RPC session with an in-process server that keeps every message
-/// the server sends, so tests can assert on published diagnostics and log
-/// messages (the e2e client reads past them).
-/// A reference cycle has no one place: the LSP publishes it at the
-/// first entity its data names, on that entity's name, pointing at the
-/// others as related information (ADR 0016, D8), not on line 1 of the
-/// document last edited.
-#[specforge_test(
-    behavior = "emit_live_diagnostics",
-    verify = "a spanless diagnostic about entities is published at the first one's name"
-)]
-#[tokio::test]
-async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
-    use crate::session::{Session, uri_of};
-    use serde_json::Value;
-
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"c","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    let cycle = dir.path().join("cycle.spec");
-    let other = dir.path().join("other.spec");
-    let cycle_text = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
-    std::fs::write(&cycle, cycle_text).unwrap();
-    std::fs::write(&other, "behavior gamma \"G\" {\n}\n").unwrap();
-    let (mut session, _) = Session::start(Some(dir.path())).await;
-    // Edit the other document: the cycle is still published on its own.
-    let other_uri = uri_of(&other);
-    session
-        .open(&other_uri, "behavior gamma \"G\" {\n}\n")
-        .await;
-
-    let cycle_uri = uri_of(&cycle);
-    let has_w061 = |p: &Value| {
-        p["diagnostics"]
-            .as_array()
-            .is_some_and(|d| d.iter().any(|d| d["code"] == "W061"))
-    };
-    let published = session
-        .notification("textDocument/publishDiagnostics", |p| {
-            p["uri"] == cycle_uri && has_w061(p)
-        })
-        .await
-        .expect("W061 is published on the cycle's file");
-    let w061 = published["diagnostics"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|d| d["code"] == "W061")
-        .unwrap()
-        .clone();
-    let range = |r: &Value| {
-        (
-            r["start"]["line"].as_u64().unwrap(),
-            r["start"]["character"].as_u64().unwrap(),
-            r["end"]["character"].as_u64().unwrap(),
-        )
-    };
-    assert_eq!(range(&w061["range"]), (0, 9, 14), "alpha's name: {w061}");
-    let related = w061["relatedInformation"].as_array().expect("the others");
-    assert_eq!(related.len(), 1, "{w061}");
-    assert_eq!(related[0]["location"]["uri"], cycle_uri);
-    assert_eq!(
-        range(&related[0]["location"]["range"]),
-        (3, 9, 13),
-        "beta's name"
     );
 }
 

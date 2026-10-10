@@ -48,12 +48,12 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | Code | Symptom | Cause | Fix |
 |------|---------|-------|-----|
 | **W001** | `behavior 'X' does not implement any feature` | The behavior has no `features [...]` edge. | Add `features [some_feature]` (or accept it if intentional during early authoring). |
-| **W002** | `type 'X' is not referenced by any behavior, port, or type` | Orphan type. | Reference it from a behavior/port, or remove it. |
+| **W002** | `type 'X' is not referenced by any behavior, port, or type` | Unreferenced type. | Reference it from a behavior/port, or remove it. |
 | **W003** (software) | `invariant 'X' is not enforced by any behavior` | No behavior lists this invariant. | Add the invariant to an enforcing behavior's `invariants [...]`. |
 | **W113** (import) | `circular import detected: a.spec -> b.spec` | A `use` chain forms a cycle. | Break the cycle, or extract shared entities into a third file both import. |
-| **W005** | `port 'X' is not referenced by any behavior` | Orphan port. | Add it to a behavior's `ports [...]`, or remove it. |
+| **W005** | `port 'X' is not referenced by any behavior` | Unreferenced port. | Add it to a behavior's `ports [...]`, or remove it. |
 | **W006** | `behavior 'X' has no category` | Missing `category` (agents use it for task routing). | Add `category command` / `query` / `handler` / etc. |
-| **W007** | `event 'X' is not produced by any behavior` | Orphan event. | Add it to a behavior's `produces [...]`. |
+| **W007** | `event 'X' is not produced by any behavior` | Unreferenced event. | Add it to a behavior's `produces [...]`. |
 | **W008** | `feature 'X' is not implemented by any behavior` | No behavior points up to the feature. | Add `features [X]` to an implementing behavior. |
 | **W041 / W042 / W044** | `<feature/journey/module> 'X' has no incoming edges` | Product entity isn't referenced by anything upstream. | Reference it from a journey/milestone/deliverable, as appropriate. |
 | **W045 / W092** | `<feature/release> dependency cycle detected` | Cyclic `depends_on`. | Break the cycle. |
@@ -115,7 +115,7 @@ than `0` turns it on even when the output is not a terminal. When both are set,
 
 1. `specforge check` — read every diagnostic, top to bottom.
 2. Fix errors first (they block); then warnings, top down.
-3. For an orphan warning, decide: add the missing edge, or delete the dead entity.
+3. For an unreferenced warning, decide: add the missing edge, or delete the dead entity.
 4. For an enum/required-field error, consult the [tutorial entity tour](authoring-spec-files.md#act-iii--the-entity-tour) or [quick reference](../quick-reference.md) for valid values.
 5. Re-run until clean. Use `--strict` to confirm CI will pass.
 

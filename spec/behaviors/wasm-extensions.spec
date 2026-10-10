@@ -51,9 +51,10 @@ behavior load_extension_manifest "Load Extension Manifest" {
          and populate the kind, field and edge registries and the rules
       4. register_surface_contributions — populate SurfaceRegistry (CLI
          commands, MCP tools, MCP resources)
-    Steps 1-2 run per extension in topological order (see
-    topological_sort_extensions); steps 3-4 run once over every loaded
-    declaration, in that order.
+    Steps 1-2 run per extension in entry order (the extension load); step 3
+    puts the declarations in load order (registry_build_load_order) before
+    anything registers; steps 3-4 run once over every loaded declaration,
+    in that order.
   """
   verify unit "the declaration is read from the binary"
   verify unit "a declaration that cannot be read produces a diagnostic"
@@ -104,7 +105,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
 
 behavior call_extension_exports "Call Extension Exports" {
   features   [contribution_based_extensions]
-  invariants [extension_isolation]
+  invariants [extension_isolation, extensions_run_in_their_loading_runtime]
   category   command
   types      [
     CommandInput,
@@ -152,6 +153,8 @@ behavior call_extension_exports "Call Extension Exports" {
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
     migration hook's answer is not read.
+    A component guest builds its declaration once per instance and answers
+    the handshake and every describe from it.
 
     A pass diagnostic keeps the code and severity the pass gave it; when
     the code is not one the extension may use (its own catalogued code
@@ -165,6 +168,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
   verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
   verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "a guest answers the handshake and every describe from one declaration it builds once"
   verify unit "every extension call decodes the protocol type the SDK encodes"
   verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
   verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
@@ -570,6 +574,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   """
   produces   [collector_report_ingested]
   verify unit "merge replaces only the same runner"
+  verify unit "the entities results may name are the entity snapshot's, with their obligation texts"
   verify integration "collect then analyze scores the recorded tests"
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
 }
@@ -661,9 +666,18 @@ behavior run_doctor_check "Run Doctor Check" {
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
     not installed; E070: its binary is not the one the lock pins) MUST be
-    reported as an error. A missing or changed installed binary MUST be one
-    finding, whose remediation is the command that reinstalls it as its lock
-    entry records it. Each listed extension MUST carry the source the
+    reported as an error. Each problem MUST be one finding that says what it
+    is about (the config, the lock, a binary, a load, a conflict, a
+    shadowing, a peer, the toolchain); a missing or changed installed binary
+    is one binary finding, whose remediation is the command that reinstalls
+    it as its lock entry records it. The report MUST carry its verdict (no
+    error-level finding), and specforge doctor --format json and
+    specforge.doctor MUST return the same report (the CLI adds the user's
+    credentials). Each peer requirement the compile reports unsatisfied
+    (E027, E073) MUST be an error finding with the remedy its diagnostic
+    suggests: doctor and check judge peers by one rule over the loaded
+    extensions (ADR 0041), so a peer a builtin or a .wasm file entry
+    satisfies is not reported. Each listed extension MUST carry the source the
     extensions listing gives it: builtin, the lock entry's source, or
     file:<path> for a .wasm file entry of specforge.json. Run in a
     directory without specforge.json, doctor MUST report a warning finding
@@ -684,11 +698,13 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor --json produces valid JSON output"
   verify unit "doctor reports an extension that fails to load (E028, E070) as an error"
   verify unit "doctor reports a missing or changed installed binary once, with the remedy its load gives"
-  verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
+  verify unit "doctor reports the peer requirements check reports, with the remedy each suggests"
+  verify unit "a peer a builtin satisfies is not reported"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 
@@ -852,7 +868,10 @@ behavior update_all_extensions "Update All Extensions" {
     file with the new binary hashes. Peer dependency
     conflicts introduced by upgrades MUST be detected and reported before
     applying changes. If any upgrade fails, the system MUST roll back all
-    changes and report the failure. Only registry installs are updated: an
+    changes and report the failure. A write that fails while the checked
+    upgrades are applied is the update's own failure, naming the file it
+    could not write (E032) or the lock (E033); every file is put back, and no
+    extension is reported updated. Only registry installs are updated: an
     extension installed from a local file (source local:<path>) MUST NOT be
     replaced from a registry. When a registry-installed extension is
     to be updated and no registry is configured in specforge.json, update
@@ -867,6 +886,7 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "lock file records new binary hashes after update"
   verify unit "peer dependency conflicts detected before applying"
   verify unit "failed upgrade rolls back all changes"
+  verify unit "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
   verify integration "update never replaces a locally installed extension from a registry"
   verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
 }

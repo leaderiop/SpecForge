@@ -8,11 +8,11 @@
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
-use specforge_mcp::subscriptions::{Watched, subscribers};
 use specforge_ops::export::{Format, Request};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_test::prelude::*;
+use std::sync::Arc;
 
 use crate::support::*;
 
@@ -270,6 +270,60 @@ fn a_budget_too_small_is_invalid_input() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "specforge.export takes the options specforge export takes"
+)]
+fn export_takes_a_schema_version() {
+    let mut server = served();
+    // A version of another major is refused as `specforge export
+    // --schema-version` refuses it: the operation's one error.
+    let root = server.root().to_path_buf();
+    let expected = {
+        let runtime = specforge_component::ComponentRuntime::with_user_cache();
+        let project = CompiledProject::compile(&root, Some(Arc::new(runtime)));
+        specforge_ops::export::export(
+            &ProjectView::of(&project),
+            &Request {
+                format: Some(Format::Graph),
+                schema_version: Some("99.0.0"),
+                ..Request::default()
+            },
+        )
+        .unwrap_err()
+    };
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "schema_version": "99.0.0"}),
+    );
+    let error = tool_error(&reply);
+    assert_eq!(
+        error["diagnostic"]["code"],
+        expected.code.as_ref(),
+        "{error}"
+    );
+
+    // A version of this major is served at that version.
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "schema_version": "1.0.0"}),
+    );
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap();
+    let document: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(document["schema_version"], "1.0.0", "{document}");
+
+    // `depth` needs a `scope`, as on every surface.
+    let reply = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "depth": 1}),
+    );
+    let error = tool_error(&reply);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+}
+
 #[test]
 fn a_budget_too_small_for_a_resource_is_invalid_input() {
     let mut server = served();
@@ -320,7 +374,7 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
         assert_eq!(read["code"], reply["error"]["code"]);
         assert_eq!(read["message"], reply["error"]["message"]);
     }
-    assert!(server.state().subscriptions.is_empty());
+    assert!(server.state().subscriptions().is_empty());
 
     // What the server serves is subscribed to, and unsubscribing never fails.
     for uri in [
@@ -331,10 +385,13 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
         let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
         assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
     }
-    assert_eq!(subscribers(server.state(), Watched::Graph), ["default"]);
     assert_eq!(
-        subscribers(server.state(), Watched::Diagnostics),
-        ["default"]
+        server.state().subscriptions().subscribed(),
+        [
+            "specforge://graph",
+            "specforge://graph/alpha",
+            "specforge://diagnostics"
+        ]
     );
     for uri in [
         "specforge://nope",
@@ -344,7 +401,10 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
         let reply = call(&mut server, "resources/unsubscribe", json!({"uri": uri}));
         assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
     }
-    assert!(subscribers(server.state(), Watched::Graph).is_empty());
+    assert_eq!(
+        server.state().subscriptions().subscribed(),
+        ["specforge://graph/alpha", "specforge://diagnostics"]
+    );
 }
 
 // --- P10: an extension enabled on disk ---
@@ -447,7 +507,7 @@ fn a_subscription_finds_an_extension_resource_enabled_on_disk() {
     let uri = "specforge://ext/cmds/summary";
     let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
     assert_eq!(reply["result"], json!({}), "{reply}");
-    assert_eq!(subscribers(server.state(), Watched::of(uri)), ["default"]);
+    assert_eq!(server.state().subscriptions().subscribed(), [uri]);
 
     // Taken off the list again, the same lookup refuses it as `read` does.
     server.write("specforge.json", &config(&[]));
@@ -498,7 +558,7 @@ fn a_read_names_the_uri_the_client_read() {
 /// What `specforge export` writes for `request`, over the project at `root`.
 fn exported(root: &std::path::Path, request: &Request) -> String {
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
-    let project = CompiledProject::compile(root, Some(&runtime));
+    let project = CompiledProject::compile(root, Some(Arc::new(runtime)));
     specforge_ops::export::export(&ProjectView::of(&project), request).unwrap()
 }
 
@@ -572,7 +632,8 @@ fn the_entities_resource_lists_what_list_lists() {
     let mut server = served();
     // `zeta` is declared before `alpha`: both answer them sorted by id.
     let (_, resource_rows) = resource(&mut server, "specforge://entities/behavior");
-    let listed = tool(&mut server, "specforge.list", json!({"kind": "behavior"}));
+    let listed =
+        tool(&mut server, "specforge.list", json!({"kind": "behavior"}))["entities"].clone();
     assert_eq!(resource_rows, listed);
     let ids: Vec<&str> = listed
         .as_array()
@@ -622,6 +683,36 @@ fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
     // An escape that is no UTF-8 is refused, naming the key.
     let error = read_error(&mut server, "specforge://graph?scope=%ff");
     assert_eq!(error["data"]["argument"], "scope", "{error}");
+}
+
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "a count in a resource query is read as a tool's count argument is"
+)]
+fn a_resource_count_is_read_as_a_tool_reads_one() {
+    let mut server = served();
+    let error = read_error(&mut server, "specforge://brief?depth=x");
+    assert_eq!(
+        error["message"], "depth must be a non-negative integer, got 'x'",
+        "{error}"
+    );
+    assert_eq!(error["data"]["argument"], "depth", "{error}");
+    // A string holding a count, after decoding, is that count.
+    let (_, spaced) = resource(&mut server, "specforge://graph?scope=alpha&depth=%32");
+    let (_, plain) = resource(&mut server, "specforge://graph?scope=alpha&depth=2");
+    assert_eq!(spaced, plain);
+}
+
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
+)]
+fn a_depth_without_a_scope_is_refused() {
+    let mut server = served();
+    let error = read_error(&mut server, "specforge://graph?depth=2");
+    assert_eq!(error["code"], -32602, "{error}");
+    assert_eq!(error["data"]["code"], "invalid_input", "{error}");
+    assert_eq!(error["data"]["argument"], "depth", "{error}");
 }
 
 // --- P15, P16: the request's own schema ---
@@ -865,6 +956,10 @@ fn listen_and_subscribe_watch_by_one_rule() {
                 "notifications/resources/updated".to_string(),
                 context.to_string()
             ),
+            (
+                "notifications/resources/updated".to_string(),
+                context.to_string()
+            ),
             ("specforge/graphChanged".to_string(), String::new()),
         ],
         "{sent:?}"
@@ -881,6 +976,10 @@ fn listen_and_subscribe_watch_by_one_rule() {
                 "notifications/resources/updated".to_string(),
                 diagnostics.to_string()
             ),
+            (
+                "notifications/resources/updated".to_string(),
+                diagnostics.to_string()
+            ),
             ("specforge/diagnosticsChanged".to_string(), String::new()),
         ],
         "{sent:?}"
@@ -890,7 +989,7 @@ fn listen_and_subscribe_watch_by_one_rule() {
         1
     );
     assert_eq!(
-        subscribers(server.state(), Watched::Diagnostics),
-        ["default"]
+        server.state().subscriptions().subscribed(),
+        ["specforge://context", "specforge://diagnostics"]
     );
 }

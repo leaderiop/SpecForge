@@ -9,6 +9,7 @@ use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_diagnostics::{Level, check_extension_code};
 use specforge_protocol_types::ValidationSeverity;
+use specforge_wasm::WasmRuntime as _;
 use specforge_wasm::protocol::load_declaration;
 
 fn level(severity: &ValidationSeverity) -> Level {
@@ -28,9 +29,7 @@ fn builtin_rules_use_their_own_codes() {
     let mut checked = 0;
     let mut problems = Vec::new();
     for (name, bytes) in BUILTIN_EXTENSIONS {
-        runtime
-            .load_module_bytes(name, bytes)
-            .expect("builtin loads");
+        runtime.load(name, bytes).expect("builtin loads");
         let declaration = load_declaration(&runtime, name)
             .expect("builtin declares itself")
             .declaration;

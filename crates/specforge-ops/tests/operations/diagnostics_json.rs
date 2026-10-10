@@ -57,7 +57,6 @@ fn entity_without_contracts() -> Diagnostic {
     let project = Project::of_graph(graph, registries);
     let outcome = analyze(
         &project.view(),
-        None,
         &AnalyzeOptions {
             pass: "contracts".to_string(),
             ..Default::default()

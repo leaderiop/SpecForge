@@ -83,6 +83,16 @@ impl JsonRpcResponse {
     }
 }
 
+/// A JSON-RPC id as text: a string as it is, `null` as nothing, a number as
+/// its JSON text.
+pub fn id_text(id: &Value) -> String {
+    match id {
+        Value::String(text) => text.clone(),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    }
+}
+
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
     let value: Value = serde_json::from_str(input)
         .map_err(|_| JsonRpcResponse::error(None, error_codes::PARSE_ERROR, "Parse error"))?;

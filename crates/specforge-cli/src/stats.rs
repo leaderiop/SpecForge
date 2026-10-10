@@ -10,8 +10,8 @@ use crate::pipeline;
 /// `path`, its proof percentage read from what `specforge collect` last
 /// recorded there; a report that is there but unusable is an error (exit
 /// 2), as in `analyze`.
-pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let (project, _runtime) = pipeline::compile_project(path);
+pub fn run(path: &Path, format: OutputFormat) -> Exit {
+    let project = pipeline::compile_project(path);
     let stats = match specforge_ops::stats::stats(&ProjectView::of(&project)) {
         Ok(stats) => stats,
         Err(error) => return Refusal::measuring(format).report(&error),
@@ -22,7 +22,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         OutputFormat::Human => print_human(&stats),
     }
 
-    Exit::Passed.code()
+    Exit::Passed
 }
 
 fn print_human(stats: &Stats) {
@@ -31,7 +31,7 @@ fn print_human(stats: &Stats) {
         println!("  {}: {}", kind, count);
     }
     println!("Edges:    {}", stats.total_edges);
-    println!("Orphans:  {}", stats.orphan_count);
+    println!("Unconnected: {}", stats.unconnected_count);
     println!("Verified: {}", stats.verified_count);
     println!(
         "Declared: {}% of {} testable",
@@ -57,14 +57,12 @@ fn print_json(stats: &Stats) {
     let json = serde_json::json!({
         "total_entities": stats.total_entities,
         "total_edges": stats.total_edges,
-        "orphan_count": stats.orphan_count,
+        "unconnected_count": stats.unconnected_count,
         "verified_count": stats.verified_count,
         "testable_count": stats.testable_count,
         "declared_count": stats.declared_count,
         "declared_pct": stats.declared_pct,
         "proof_pct": stats.proof_pct,
-        // Deprecated alias of declared_pct.
-        "coverage_pct": stats.coverage_pct,
         "error_count": stats.error_count,
         "warning_count": stats.warning_count,
         "info_count": stats.info_count,

@@ -2,29 +2,35 @@
 //! `extensions` and their MCP tools.
 
 mod add;
+mod candidate;
 mod diamond;
+#[cfg(test)]
+mod fixtures;
 mod list;
 mod remove;
 mod resolve;
 mod update;
 
-pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, declared, parse};
+pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, parse};
+pub use candidate::{Candidate, Installable, LocalFile};
 pub use diamond::check_diamonds;
 pub use list::{
-    ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,
-    list, providers,
+    ExtensionEntry, ExtensionInfo, ExtensionListing, LockedExtension, ProviderEntry,
+    ProviderListing, ProviderRow, ProviderStatus, ProvidersDocument, Status, list, providers,
 };
-pub use remove::{RemoveOutcome, RemoveRequest, remove};
+pub use remove::{RemoveOutcome, RemoveRequest, StrandedEntity, remove};
 pub use resolve::{resolve, resolve_requirement};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateOutcome, UpdateRequest, UpdateStatus,
     update,
 };
 
+pub(crate) use add::install_local;
+pub(crate) use candidate::required_builtins;
+
 use crate::OpError;
 use crate::registry::Registry;
-use specforge_component::builtins::BUILTIN_EXTENSIONS;
-use specforge_installed::LockFile;
+use specforge_installed::{LockFile, LockSource};
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::PackageName;
 use specforge_protocol_types::package::Version;
@@ -54,18 +60,21 @@ pub const NOT_FOUND: &str = "extension_not_found";
 pub enum Origin {
     /// Embedded in the binary; enabling it is only a config entry.
     Builtin,
-    /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`.
-    /// `source` is the lock entry's (`registry`, `local:<path>`, ...).
-    Installed { source: String },
+    /// Installed under `.specforge/extensions/`, pinned in `specforge.lock`
+    /// with this source.
+    Installed { source: LockSource },
     /// Loaded from the `.wasm` file a `specforge.json` entry names; `path`
     /// as the entry writes it.
     File { path: String },
+    /// Named by an entry, neither a builtin nor locked: it does not load
+    /// (E028).
+    Unknown,
 }
 
 impl Origin {
     /// Where `name` comes from in a project: the `.wasm` file an
     /// `extensions` entry names (over a lock entry), the lock entry's
-    /// source, a builtin, else `Installed { source: "unknown" }`. The one
+    /// source, a builtin, else `Unknown`. The one
     /// rule `list` and `doctor` name sources by.
     pub fn of(name: &str, enabled: &[EnabledExtension], lock: Option<&LockFile>) -> Origin {
         if let Some(path) = enabled
@@ -79,14 +88,12 @@ impl Origin {
             lock.and_then(|lock| lock.entries.iter().find(|e| e.name.as_str() == name))
         {
             return Origin::Installed {
-                source: entry.source.to_string(),
+                source: entry.source.clone(),
             };
         }
         match builtin_name(name) {
             Some(_) => Origin::Builtin,
-            None => Origin::Installed {
-                source: "unknown".to_string(),
-            },
+            None => Origin::Unknown,
         }
     }
 
@@ -95,8 +102,9 @@ impl Origin {
     pub fn source(&self) -> String {
         match self {
             Origin::Builtin => "builtin".to_string(),
-            Origin::Installed { source } => source.clone(),
+            Origin::Installed { source } => source.to_string(),
             Origin::File { path } => format!("file:{path}"),
+            Origin::Unknown => "unknown".to_string(),
         }
     }
 }
@@ -105,9 +113,8 @@ impl Origin {
 /// `@version` suffix, which is ignored: builtins track the binary).
 pub fn builtin_name(specifier: &str) -> Option<&'static str> {
     let name = crate::config::entry_name(specifier);
-    BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(builtin, _)| *builtin)
+    specforge_project::builtins()
+        .names()
         .find(|builtin| *builtin == name)
 }
 
@@ -117,25 +124,6 @@ pub fn enabled_builtins(config: &specforge_common::ProjectConfig) -> Vec<&'stati
         .extensions
         .iter()
         .filter_map(|entry| builtin_name(entry))
-        .collect()
-}
-
-/// Builtins that `name` requires: its non-optional peer dependencies that
-/// are themselves builtins, read from its declaration.
-pub fn required_builtin_peers(name: &str) -> Vec<&'static str> {
-    let runtime = specforge_component::ComponentRuntime::new();
-    if specforge_component::builtins::load_builtins_for(&runtime, &[name.to_string()]).is_err() {
-        return Vec::new();
-    }
-    let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) else {
-        return Vec::new();
-    };
-    loaded
-        .declaration
-        .peers()
-        .iter()
-        .filter(|peer| !peer.optional)
-        .filter_map(|peer| builtin_name(&peer.name))
         .collect()
 }
 

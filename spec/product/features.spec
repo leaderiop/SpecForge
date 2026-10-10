@@ -76,7 +76,7 @@ feature product_validation "Product Validation Rules" {
   status       done
   problem      """
     Without domain-specific validation, the compiler cannot detect
-    product-level quality issues like orphan entities, dependency
+    product-level quality issues like unreferenced entities, dependency
     cycles, lifecycle inconsistencies, or invalid field values.
   """
   solution     """
@@ -105,12 +105,12 @@ feature product_health_metric "Product Health Metric" {
   """
   solution     """
     A composite health score (0.0-1.0) from weighted sub-scores:
-    completion (30%), coverage (25%), orphan ratio (20%), cycle count
+    completion (30%), coverage (25%), unreferenced ratio (20%), cycle count
     (15%), error ratio (10%). Maps to a grade for quick assessment.
   """
   acceptance   [
     "Health score returns 0.0-1.0 float with letter grade mapping",
-    "Sub-scores weighted correctly: completion 30%, coverage 25%, orphan 20%, cycle 15%, error 10%",
+    "Sub-scores weighted correctly: completion 30%, coverage 25%, unreferenced 20%, cycle 15%, error 10%",
     "Perfect project scores 1.0; empty project scores 0.0",
   ]
   effort       m

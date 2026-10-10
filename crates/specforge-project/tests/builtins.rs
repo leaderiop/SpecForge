@@ -2,6 +2,7 @@ use specforge_common::Diagnostic;
 use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::load_declaration;
+use std::sync::Arc;
 
 /// A Wasm runtime holding the builtin extensions `ext_names` — the only way
 /// extensions exist now (WASM-only migration, Phase 7: the native mirror
@@ -500,7 +501,7 @@ fn the_builtin_extensions_rules_register_cleanly() {
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     let runtime = specforge_component::ComponentRuntime::with_user_cache();
 
-    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let env = specforge_project::Environment::load(dir.path(), Some(Arc::new(runtime)));
 
     assert_eq!(env.registries.declarations().len(), 9);
     assert!(

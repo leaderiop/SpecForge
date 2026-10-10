@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::PackageName;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RegistryConfig {
@@ -13,17 +11,38 @@ pub struct RegistryConfig {
     pub default_registry: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// The token a request to one registry carries, resolved from where the user keeps it
+/// ([`crate::CredentialStore::credential`], or `SPECFORGE_REGISTRY_TOKEN` for a publish). The client
+/// sends it as `Authorization: Bearer`; it reads no variable or file itself. `Debug` never shows the
+/// token.
+#[derive(Clone, PartialEq, Eq)]
 pub struct RegistryCredential {
+    /// The registry it is for (`RegistryConfig::alias`).
     pub alias: String,
-    pub auth_method: AuthMethod,
+    token: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AuthMethod {
-    TokenEnvVar(String),
-    TokenFile(PathBuf),
-    Bearer(String),
+impl RegistryCredential {
+    pub fn new(alias: impl Into<String>, token: impl Into<String>) -> Self {
+        Self {
+            alias: alias.into(),
+            token: token.into(),
+        }
+    }
+
+    /// The raw token, for the `Authorization` header only.
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+}
+
+impl std::fmt::Debug for RegistryCredential {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RegistryCredential")
+            .field("alias", &self.alias)
+            .field("token", &"****")
+            .finish()
+    }
 }
 
 /// Parses the `"registries"` array from a JSON config string.
@@ -104,7 +123,12 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
         diagnostics.push(
             Diagnostic::new(
                 codes::I003,
-                "No registries configured and no default registry set.".to_string(),
+                if registries.is_empty() {
+                    "No registries configured and no default registry set.".to_string()
+                } else {
+                    "No registry is the default: a package no \"scope_filter\" matches has no registry (R-OPS-001)."
+                        .to_string()
+                },
             )
             .with_suggestion(
                 "Set \"default_registry\": true on one of your registries.".to_string(),
@@ -113,22 +137,4 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
     }
 
     (registries, diagnostics)
-}
-
-/// Finds the registry that serves `name`.
-///
-/// For a scoped name, a registry whose `scope_filter` is its scope;
-/// otherwise the first registry with `default_registry: true`.
-pub fn find_registry_for<'a>(
-    name: &PackageName,
-    registries: &'a [RegistryConfig],
-) -> Option<&'a RegistryConfig> {
-    if let Some(scope) = name.scope()
-        && let Some(registry) = registries
-            .iter()
-            .find(|r| r.scope_filter.as_deref() == Some(scope))
-    {
-        return Some(registry);
-    }
-    registries.iter().find(|r| r.default_registry)
 }

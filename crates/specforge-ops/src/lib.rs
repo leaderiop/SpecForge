@@ -16,6 +16,7 @@ pub mod command;
 pub mod config;
 pub mod coverage;
 pub mod doctor;
+pub mod explore;
 pub mod export;
 pub mod extension;
 pub mod format;
@@ -33,10 +34,13 @@ pub mod query;
 pub mod registry;
 pub mod rename;
 mod report;
+pub mod review;
 mod scan;
 pub mod schema;
 mod schema_cache;
 pub mod stats;
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod trace;
 pub mod view;
 mod writes;
@@ -46,6 +50,24 @@ pub use writes::Writes;
 use specforge_common::{Code, codes};
 use specforge_diagnostics::Level;
 use std::borrow::Cow;
+
+/// What a run that judges the project concluded (CONTEXT "Run verdict",
+/// ADR 0029 D3/D4): passed, failed, or it could not judge (a measuring
+/// operation that lacks what it measures against). The CLI exits 0, 1 or
+/// 2 by it; MCP returns `ok` as `verdict == Passed`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunVerdict {
+    Passed,
+    Failed,
+    Unjudged,
+}
+
+impl RunVerdict {
+    /// `Passed` when `ok`, else `Failed`.
+    pub const fn of(ok: bool) -> Self {
+        if ok { Self::Passed } else { Self::Failed }
+    }
+}
 
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
@@ -89,9 +111,9 @@ pub enum OpErrorKind {
 impl OpErrorKind {
     /// The kind of a failure reported as diagnostic `code`: the one table
     /// (E003 entity, E019/E054/E062/E064/E072 and a registry's R-RES-003/R-RES-004 input,
-    /// R-RES-001 extension, E027 and R-RES-006 conflict, E045/E067/E071 and a
+    /// R-RES-001 extension, E027 and R-RES-006/R007 conflict, E045/E067/E071 and a
     /// registry's R-TRUST-004/R-OPS-004 schema, E058/E063 precondition,
-    /// E059 permission, R004 timeout, else internal). MCP's
+    /// E059/R001/R002 permission, R004 timeout, else internal). MCP's
     /// `ErrorCode::for_diagnostic` reads it.
     pub fn of_diagnostic(code: &str) -> Self {
         const KINDS: &[(Code, OpErrorKind)] = &[
@@ -109,11 +131,15 @@ impl OpErrorKind {
             (codes::E045, OpErrorKind::SchemaMismatch),
             (codes::E067, OpErrorKind::SchemaMismatch),
             (codes::E071, OpErrorKind::SchemaMismatch),
+            (codes::E073, OpErrorKind::SchemaMismatch),
             (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),
             (codes::R_OPS_004, OpErrorKind::SchemaMismatch),
             (codes::E058, OpErrorKind::PreconditionFailed),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::R001, OpErrorKind::PermissionDenied),
+            (codes::R002, OpErrorKind::PermissionDenied),
+            (codes::R007, OpErrorKind::Conflict),
             (codes::R004, OpErrorKind::Timeout),
         ];
         KINDS
@@ -202,6 +228,12 @@ impl OpError {
         }
     }
 
+    /// `no_project` ([`OpErrorKind::PreconditionFailed`]): the operation
+    /// needs a project and `message` says where there is none.
+    pub fn no_project(message: impl Into<String>) -> Self {
+        Self::new(OpErrorKind::PreconditionFailed, "no_project", message)
+    }
+
     /// A failure reported as the catalogued diagnostic `code`, its kind
     /// [`OpErrorKind::of_diagnostic`]'s.
     pub fn diagnostic(code: Code, message: impl Into<String>) -> Self {
@@ -227,6 +259,12 @@ impl OpError {
     /// The same error, having left `writes` changed on disk.
     pub fn with_writes(mut self, writes: Writes) -> Self {
         self.writes = writes;
+        self
+    }
+
+    /// This failure with `prefix` ahead of its message; its code, kind and suggestion are kept.
+    pub fn prefixed(mut self, prefix: impl AsRef<str>) -> Self {
+        self.message = format!("{}{}", prefix.as_ref(), self.message);
         self
     }
 
@@ -279,11 +317,15 @@ mod tests {
             (codes::E045, OpErrorKind::SchemaMismatch),
             (codes::E058, OpErrorKind::PreconditionFailed),
             (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::R001, OpErrorKind::PermissionDenied),
+            (codes::R002, OpErrorKind::PermissionDenied),
+            (codes::R007, OpErrorKind::Conflict),
             (codes::E062, OpErrorKind::InvalidInput),
             (codes::E063, OpErrorKind::PreconditionFailed),
             (codes::E067, OpErrorKind::SchemaMismatch),
             (codes::E071, OpErrorKind::SchemaMismatch),
             (codes::E072, OpErrorKind::InvalidInput),
+            (codes::E073, OpErrorKind::SchemaMismatch),
             (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
             (codes::R_RES_003, OpErrorKind::InvalidInput),
             (codes::R_RES_004, OpErrorKind::InvalidInput),

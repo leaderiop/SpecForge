@@ -7,13 +7,13 @@
 //! the box. `specforge extension init` writes the same project.
 
 use crate::OutputFormat;
-use crate::outcome::Refusal;
+use crate::outcome::{Exit, Refusal};
 use serde_json::json;
 use specforge_common::codes;
 use specforge_protocol_types::PackageName;
 use std::path::{Path, PathBuf};
 
-pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
+pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> Exit {
     if !extension {
         return Refusal::of(format).coded(
             codes::E065,
@@ -60,7 +60,7 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
             println!("  specforge add {wasm}   # local-path install once built");
         }
     }
-    0
+    Exit::Passed
 }
 
 /// The crate- and directory-safe name: the last path segment, sanitized.
