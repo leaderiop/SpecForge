@@ -1477,7 +1477,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge": null,
       "exempts_obligations": false,
       "field_name": "start_date",
-      "field_type": "String",
+      "field_type": "Date",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -1528,7 +1528,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge": null,
       "exempts_obligations": false,
       "field_name": "target_date",
-      "field_type": "String",
+      "field_type": "Date",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -1936,7 +1936,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge": null,
       "exempts_obligations": false,
       "field_name": "release_date",
-      "field_type": "String",
+      "field_type": "Date",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -1987,7 +1987,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge": null,
       "exempts_obligations": false,
       "field_name": "target_date",
-      "field_type": "String",
+      "field_type": "Date",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -2173,10 +2173,10 @@ expression: "digest(&load(&runtime, &[name]))"
       "milestone.priority": "enum (critical, high, medium, low)",
       "milestone.reason": "string",
       "milestone.refs": "string_list",
-      "milestone.start_date": "string",
+      "milestone.start_date": "date",
       "milestone.status": "enum (planned, in_progress, completed, blocked)",
       "milestone.tags": "string_list",
-      "milestone.target_date": "string",
+      "milestone.target_date": "date",
       "module.depends_on": "reference_list",
       "module.description": "string",
       "module.family": "identifier",
@@ -2200,10 +2200,10 @@ expression: "digest(&load(&runtime, &[name]))"
       "release.owner": "string",
       "release.reason": "string",
       "release.refs": "string_list",
-      "release.release_date": "string",
+      "release.release_date": "date",
       "release.status": "enum (planned, in_progress, released, recalled)",
       "release.tags": "string_list",
-      "release.target_date": "string",
+      "release.target_date": "date",
       "release.version": "string",
       "term.aliases": "string_list",
       "term.context": "string",
@@ -3692,22 +3692,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "wasm_function": null
     },
     {
-      "check": "field_value_constraint",
-      "code": "I053",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "target_date",
-      "message_template": "milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD",
-      "owner": "@specforge/product",
-      "severity": "Info",
-      "target_kind": "milestone",
-      "wasm_function": null
-    },
-    {
       "check": "missing_required_field",
       "code": "I054",
       "constraint": null,
@@ -4127,38 +4111,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/product",
       "severity": "Info",
       "target_kind": "release",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "I086",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "release_date",
-      "message_template": "release '{id}' has release_date '{value}' — expected YYYY-MM-DD",
-      "owner": "@specforge/product",
-      "severity": "Info",
-      "target_kind": "release",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "I087",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "start_date",
-      "message_template": "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD",
-      "owner": "@specforge/product",
-      "severity": "Info",
-      "target_kind": "milestone",
       "wasm_function": null
     },
     {

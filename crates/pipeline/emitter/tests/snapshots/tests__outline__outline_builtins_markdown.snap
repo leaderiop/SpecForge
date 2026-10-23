@@ -8,7 +8,7 @@ expression: "drawn(&manifests, opts)"
 
 | Extension | Version | Entities | Edges | Rules | Enhances |
 |-----------|---------|----------|-------|-------|----------|
-| @specforge/product | 1.0.0 | 9 | 20 | 50 | — |
+| @specforge/product | 1.0.0 | 9 | 20 | 47 | — |
 | @specforge/software | 1.0.0 | 5 | 15 | 10 | module (+2), milestone (+1) |
 | @specforge/governance | 1.0.0 | 3 | 11 | 0 | — |
 | @specforge/formal | 1.0.0 | 5 | 10 | 12 | behavior (+7), event (+3), invariant (+1) |
@@ -49,14 +49,14 @@ expression: "drawn(&manifests, opts)"
 
 ## Extensions
 
-### @specforge/product (9 entities, 20 edges, 50 rules)
+### @specforge/product (9 entities, 20 edges, 47 rules)
 
 **Entity kinds**: feature, journey, deliverable, milestone, module, term, persona, channel, release
 
 **Contributes**: entities, edges, shared_fields, validation_rules, surfaces, passes
 
-**Validation rules**: W041, W042, W044, I010, I046, I047, E007, E015, E052, W045, W092, W093, I048, I062, I053, I061, I050, I068, I068, I068, I068, I068, I068, I068, I068, I068, I086, I087, W049, I059, W057, I060, I066, I069, I070, I057, I089, W043, W046, I067, I055, I082, I083, I048, I054, I080, I080, I080, I080, I081 (50 total)
-  Severity breakdown: 3 errors, 10 warnings, 37 info
+**Validation rules**: W041, W042, W044, I010, I046, I047, E007, E015, E052, W045, W092, W093, I048, I062, I061, I050, I068, I068, I068, I068, I068, I068, I068, I068, I068, W049, I059, W057, I060, I066, I069, I070, I057, I089, W043, W046, I067, I055, I082, I083, I048, I054, I080, I080, I080, I080, I081 (47 total)
+  Severity breakdown: 3 errors, 10 warnings, 34 info
 
 **Surfaces**: 40 CLI commands, 0 MCP tools, 0 MCP resources
 
@@ -116,8 +116,8 @@ expression: "drawn(&manifests, opts)"
 | status | enum | no | @specforge/product | — | — |
 | features | reference_list | no | @specforge/product | MilestoneDeliversFeature | feature |
 | exit_criteria | string_list | no | @specforge/product | — | — |
-| target_date | string | no | @specforge/product | — | — |
-| start_date | string | no | @specforge/product | — | — |
+| target_date | date | no | @specforge/product | — | — |
+| start_date | date | no | @specforge/product | — | — |
 | modules | reference_list | no | @specforge/product | MilestoneScopesModule | module |
 | depends_on | reference_list | no | @specforge/product | MilestoneDependsOn | milestone |
 | blockers | string_list | no | @specforge/product | — | — |
@@ -182,8 +182,8 @@ expression: "drawn(&manifests, opts)"
 | status | enum | no | @specforge/product | — | — |
 | deliverables | reference_list | no | @specforge/product | ReleaseIncludesDeliverable | deliverable |
 | milestones | reference_list | no | @specforge/product | ReleaseCompletesMilestone | milestone |
-| target_date | string | no | @specforge/product | — | — |
-| release_date | string | no | @specforge/product | — | — |
+| target_date | date | no | @specforge/product | — | — |
+| release_date | date | no | @specforge/product | — | — |
 | changelog | string | no | @specforge/product | — | — |
 | depends_on | reference_list | no | @specforge/product | ReleaseDependsOn | release |
 | owner | string | no | @specforge/product | — | — |
@@ -287,7 +287,7 @@ expression: "drawn(&manifests, opts)"
 | invariants | reference_list | no | @specforge/governance | DecisionProtectsInvariant | invariant |
 | refs | string_list | no | @specforge/governance | — | — |
 | description | string | no | @specforge/governance | — | — |
-| date | string | no | @specforge/governance | — | — |
+| date | date | no | @specforge/governance | — | — |
 | authors | string_list | no | @specforge/governance | — | — |
 | tags | string_list | no | @specforge/governance | — | — |
 | alternatives | string_list | no | @specforge/governance | — | — |
@@ -405,4 +405,4 @@ expression: "drawn(&manifests, opts)"
 ## Summary
 
 - **4** extensions, **22** entity kinds, **56** edge types
-- **72** validation rules, **15** cross-extension edges, **5** enhancements
+- **69** validation rules, **15** cross-extension edges, **5** enhancements
