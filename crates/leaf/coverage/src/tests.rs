@@ -250,7 +250,7 @@ fn exempt_entities_leave_a001_and_the_testable_count() {
     }));
     assert_eq!(out.summary.testable_exempt, 3);
     assert_eq!(out.summary.testable_total, 2);
-    assert_eq!(out.summary.testable_verified, 1);
+    assert_eq!(out.summary.testable_declared, 1);
     let a001: Vec<&str> = out
         .findings
         .iter()
@@ -498,7 +498,6 @@ fn a_pass_entity_is_read_as_the_host_decided_it() {
     behavior = "te_coverage_pass",
     verify = "the coverage summary names declared intent in the glossary's words: testable_declared and an invariant tally's without_obligations, and no key says verified"
 )]
-#[ignore = "flipped by T2"]
 fn the_summary_names_declared_intent_by_the_glossary() {
     // An invariant that declares one obligation no test proves (A015): declared, unverified.
     let (_, out) = assess_input(json!({

@@ -124,7 +124,7 @@ fn fx1_analyze_coverage_today() {
     // testable (S4); the union Status owes no obligations (D2-b, S10).
     assert_eq!(summary["testable_total"], 4, "{summary}");
     assert_eq!(summary["testable_exempt"], 1, "{summary}");
-    assert_eq!(summary["testable_verified"], 3, "{summary}");
+    assert_eq!(summary["testable_declared"], 3, "{summary}");
     assert_eq!(summary["obligations"], 4, "{summary}");
     assert_eq!(
         summary["test_results"]["obligations_proven"], 2,

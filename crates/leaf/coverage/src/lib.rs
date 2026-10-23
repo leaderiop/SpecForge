@@ -315,12 +315,12 @@ pub struct TestResultsSummary {
     pub obligations_proven: usize,
 }
 
-/// Invariants of one risk level, and how many declare no obligations.
+/// Invariants of one risk level, and how many of them declare no obligations (each is A002).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RiskTally {
     pub risk: String,
     pub total: usize,
-    pub unverified: usize,
+    pub without_obligations: usize,
 }
 
 /// The `coverage` pass summary. Its serialized form is the pass's summary
@@ -330,8 +330,9 @@ pub struct Summary {
     /// Entities that count toward coverage
     /// ([`Entity::counts_toward_coverage`]).
     pub testable_total: usize,
-    /// Testable entities that declare at least one obligation.
-    pub testable_verified: usize,
+    /// Entities that count toward coverage and declare at least one obligation: declared
+    /// intent (ADR 0004 D2-c), not proof; [`Summary::testable_proven`] is proof.
+    pub testable_declared: usize,
     /// Testable entities [`Verdict::is_proven`] holds for: the `--min`
     /// gate's numerator. (`discharge_funnel.entities_proven` counts proven
     /// entities of every kind.)
@@ -396,7 +397,7 @@ pub fn assess(
     let mut findings = Vec::new();
     let mut verdicts = BTreeMap::new();
     let mut obligation_kinds: BTreeMap<String, usize> = BTreeMap::new();
-    let (mut testable_total, mut testable_verified, mut testable_proven) = (0usize, 0usize, 0usize);
+    let (mut testable_total, mut testable_declared, mut testable_proven) = (0usize, 0usize, 0usize);
     let mut testable_exempt = 0usize;
     let mut funnel = Funnel::default();
     let (mut invariant_unreferenced, mut obligations_proven) = (0usize, 0usize);
@@ -511,7 +512,7 @@ pub fn assess(
                     Some("add a `verify unit` or `verify property` statement"),
                 );
             } else {
-                testable_verified += 1;
+                testable_declared += 1;
             }
         }
 
@@ -567,7 +568,7 @@ pub fn assess(
     });
     let summary = Summary {
         testable_total,
-        testable_verified,
+        testable_declared,
         testable_proven,
         testable_exempt,
         obligations: obligation_kinds.values().sum(),
@@ -578,10 +579,10 @@ pub fn assess(
         test_results,
         invariants: invariants
             .into_iter()
-            .map(|(risk, (total, unverified))| RiskTally {
+            .map(|(risk, (total, without_obligations))| RiskTally {
                 risk,
                 total,
-                unverified,
+                without_obligations,
             })
             .collect(),
     };

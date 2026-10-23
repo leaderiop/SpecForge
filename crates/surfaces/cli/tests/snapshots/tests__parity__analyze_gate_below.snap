@@ -103,7 +103,7 @@ expression: snapshot
               {
                 "risk": "low",
                 "total": 1,
-                "unverified": 1
+                "without_obligations": 1
               }
             ],
             "obligation_kinds": {
@@ -119,10 +119,10 @@ expression: snapshot
               "tests_failed": 0,
               "tests_recorded": 0
             },
+            "testable_declared": 1,
             "testable_exempt": 0,
             "testable_proven": 0,
-            "testable_total": 2,
-            "testable_verified": 1
+            "testable_total": 2
           }
         }
       ]

@@ -96,7 +96,10 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     shared coverage rule, which names no kind; the host's per-entity
     coverage views pass none and read no risk (ADR 0009). Exempt
     entities that declare nothing leave the testable count and are
-    counted apart (testable_exempt). Enforcement: invariants nothing
+    counted apart (testable_exempt); the testable entities that declare at
+    least one obligation are testable_declared, which is declared intent,
+    not proof (testable_proven), and each risk level's invariants that
+    declare none are its without_obligations. Enforcement: invariants nothing
     references are counted in the summary (the finding is software's
     W003 from `specforge check`, not repeated here). Proof, from the recorded
     tests (specforge-report.json, which `analyze` reads by default after

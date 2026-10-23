@@ -42,11 +42,11 @@ fn analyze_clean_project_exits_zero() {
     assert_eq!(code, 0, "clean project must exit 0: {doc}");
     assert_eq!(doc["ok"], true);
 
-    let coverage = coverage(&doc);
-    assert_eq!(coverage["summary"]["invariants"][0]["risk"], "low");
-    assert_eq!(coverage["summary"]["invariants"][0]["total"], 1);
-    assert_eq!(coverage["summary"]["invariants"][0]["unverified"], 0);
-    assert_eq!(coverage["summary"]["obligations"], 1);
+    let summary = &coverage(&doc)["summary"];
+    assert_eq!(summary["invariants"][0]["risk"], "low");
+    assert_eq!(summary["invariants"][0]["total"], 1);
+    assert_eq!(summary["invariants"][0]["without_obligations"], 0);
+    assert_eq!(summary["obligations"], 1);
 }
 
 #[specforge_test(
@@ -801,7 +801,7 @@ fn analyze_coverage_leaves_out_kinds_not_declared_testable() {
     let (doc, _) = json_body(&dir, &["coverage"]);
     let coverage = coverage(&doc);
     assert_eq!(coverage["summary"]["testable_total"], 1, "{coverage}");
-    assert_eq!(coverage["summary"]["testable_verified"], 1, "{coverage}");
+    assert_eq!(coverage["summary"]["testable_declared"], 1, "{coverage}");
     let a001: Vec<&serde_json::Value> = coverage["findings"]
         .as_array()
         .unwrap()
