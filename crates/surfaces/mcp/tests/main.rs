@@ -71,3 +71,4 @@ mod tools_core;
 mod tools_edit;
 mod tools_inference;
 mod tools_navigation;
+mod trace_gaps;

@@ -174,6 +174,7 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
   verify unit "malformed plan JSON returns validation error"
   verify unit "unverified entities are the ones the trace reaches that count toward coverage and are not proven"
   verify unit "the trace prompt refuses an entity_id given with a plan, as invalid input on plan"
+  verify unit "the trace prompt lists no gap for a field that writes a reference that does not resolve"
   verify contract "Provide MCP Trace Prompt: MCP trace prompt holds — graph_available, gaps_returned, affected_entities_listed, prompt_invoked_emitted"
 }
 

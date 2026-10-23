@@ -194,6 +194,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "tracing an entity the graph lacks is E003 naming the closest entity"
   verify unit "a reference field another extension adds to a kind is not an expected link"
   verify unit "a link carries the label of the edge it was first reached over, nearer entities first and each entity's edges in written order"
+  verify unit "a field that writes a reference has its link, resolved or not: an unresolved one is E003, never a missing link"
   verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 }
 
