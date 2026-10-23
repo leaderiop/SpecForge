@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, ProjectPath, ProjectRoot, Severity, codes};
-use specforge_formatter::unified_diff;
+use specforge_formatter::{FormatConfig, unified_diff};
 use specforge_graph::{EdgeChange, FieldForms, GraphDelta, ModifiedNodeChange, NodeAspect};
 use specforge_parser::{FormatVersion, detect_format_version, with_format_version};
 use std::path::{Path, PathBuf};
 
 mod defaults;
+mod layout;
 mod titles;
 
 // ---------------------------------------------------------------------------
@@ -172,22 +173,24 @@ impl MigrationRecord {
 // ---------------------------------------------------------------------------
 
 /// Transform content to version `to`: the header when the file is below it, then every migration step (titles, then
-/// the defaults hoist). A step runs on
+/// the defaults hoist), then the blocks they changed laid out with `config` and `forms` (ADR 0235). A step runs on
 /// any file it changes, whatever the file's version (ADR 0148 D5).
 fn transform_content(
     content: &str,
     from: &FormatVersion,
     to: &FormatVersion,
     forms: &FieldForms,
+    config: &FormatConfig,
 ) -> String {
-    if from < to {
+    let stepped = if from < to {
         defaults::hoist_defaults(
             &titles::add_titles(&with_format_version(content, to)),
             forms,
         )
     } else {
         defaults::hoist_defaults(&titles::add_titles(content), forms)
-    }
+    };
+    layout::lay_out(content, &stepped, config, forms)
 }
 
 /// `delta` without the changes the migration steps declare (`titles`: a title where the node had none), the
@@ -326,6 +329,7 @@ fn migrate_file(
     target_version: &FormatVersion,
     read: &dyn Fn(&Path) -> std::io::Result<String>,
     forms: &FieldForms,
+    config: &FormatConfig,
 ) -> FileMigration {
     let name = ProjectPath::of(root, path);
     let label = diff_label(path, root);
@@ -368,7 +372,7 @@ fn migrate_file(
     }
 
     // Transform; a file the header and the steps leave as it is has nothing to migrate.
-    let transformed = transform_content(&content, &detected_version, target_version, forms);
+    let transformed = transform_content(&content, &detected_version, target_version, forms, config);
     if transformed == content {
         return FileMigration::of(
             MigrationResult {
@@ -545,13 +549,16 @@ pub fn run_rollback(
 /// selected), in order. `root` labels the diffs. Each file is read once, through `read`: the caller decides the
 /// disk (ops reads through the request's containment, ADR 0158). Nothing is written. `forms` are the field forms the
 /// project compiles with (its environment's registry build): the defaults step hoists only what they let
-/// `FileDefaults` apply; `FieldForms::default()` declares no kind, so every default applies.
+/// `FileDefaults` apply; `FieldForms::default()` declares no kind, so every default applies. `layout` gives each source's format
+/// configuration (ops looks it up through the caller's bound, ADR 0169): the blocks the steps change are laid out
+/// with it (ADR 0235).
 pub fn migrate_project(
     root: &ProjectRoot,
     sources: &[PathBuf],
     target_version: &FormatVersion,
     read: &dyn Fn(&Path) -> std::io::Result<String>,
     forms: &FieldForms,
+    layout: &dyn Fn(&Path) -> FormatConfig,
 ) -> MigrationSummary {
     let project_root = root.dir();
 
@@ -563,7 +570,14 @@ pub fn migrate_project(
     let mut failed = 0;
 
     for target_path in sources {
-        let file = migrate_file(target_path, project_root, target_version, read, forms);
+        let file = migrate_file(
+            target_path,
+            project_root,
+            target_version,
+            read,
+            forms,
+            &layout(target_path),
+        );
 
         match file.result.status {
             MigrationStatus::Migrated => migrated += 1,

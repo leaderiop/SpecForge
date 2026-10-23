@@ -59,7 +59,7 @@ pub use buffers::Buffer;
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compiled::CompiledProject;
 pub use diagnostics_delta::DiagnosticsDelta;
-pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched, source_key};
+pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};
 use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
@@ -465,14 +465,8 @@ impl Environment {
             .map(|setup| setup.diagnostic)
     }
 
-    /// Whether `key`, a path relative to the spec root, is a source of this project once the file exists
-    /// (a `.spec` path inside the spec root, in no skipped or nested-project directory, not excluded).
-    pub fn holds_source(&self, key: &str) -> bool {
-        self.sources.holds(key)
-    }
-
-    /// Where the project's sources are discovered.
-    pub(crate) fn sources(&self) -> &SourceRoot {
+    /// Where the project's sources are discovered and how they are keyed and opened.
+    pub fn sources(&self) -> &SourceRoot {
         &self.sources
     }
 
@@ -491,7 +485,7 @@ impl Environment {
     ) -> SourceBuild {
         let (sources, files) = SourceCache::read_all(keys, held, read);
         let graph = self.graph_of(files);
-        let imports = sources.import_diagnostics(&graph);
+        let imports = sources.import_diagnostics(&graph, self.sources.prefix());
         SourceBuild {
             sources,
             graph,

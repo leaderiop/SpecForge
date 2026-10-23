@@ -264,3 +264,49 @@ fn a_raw_category_and_a_loaded_one_parse_alike() {
     .unwrap();
     assert_eq!(loaded, declared);
 }
+
+#[specforge_test_macros::test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "the SDK refuses to build an explicit MCP tool whose input schema declares path, as a property or a required name"
+)]
+fn a_tool_declaring_the_targets_path_panics_when_built() {
+    let declare = |schema: serde_json::Value| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/files", "1.0.0"));
+        c.mcp_tool("acme.read", |t| {
+            t.input_schema(schema)
+                .handler(|_| Ok(serde_json::json!({})));
+        });
+        c
+    };
+    for schema in [
+        serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+        serde_json::json!({"type": "object", "required": ["path"]}),
+    ] {
+        let panic =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| declare(schema.clone())))
+                .err()
+                .expect("a tool declaring the call target's path is refused when built");
+        let message = panic.downcast_ref::<String>().cloned().unwrap_or_default();
+        assert_eq!(
+            message,
+            "MCP tool 'acme.read' is refused by the host: its input schema declares 'path', which the call target takes",
+            "{schema}"
+        );
+    }
+    // Any other name, the SDK's default schema, and a schema that is no object (E055's) build.
+    for schema in [
+        serde_json::json!({"type": "object", "properties": {"file": {"type": "string"}}, "required": ["file"]}),
+        serde_json::json!({"type": "object"}),
+        serde_json::json!("not an object"),
+    ] {
+        assert_eq!(
+            declare(schema.clone())
+                .declaration()
+                .surfaces
+                .mcp_tools
+                .len(),
+            1,
+            "{schema}"
+        );
+    }
+}

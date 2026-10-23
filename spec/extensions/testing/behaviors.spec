@@ -96,7 +96,10 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     shared coverage rule, which names no kind; the host's per-entity
     coverage views pass none and read no risk (ADR 0009). Exempt
     entities that declare nothing leave the testable count and are
-    counted apart (testable_exempt). Enforcement: invariants nothing
+    counted apart (testable_exempt); the testable entities that declare at
+    least one obligation are testable_declared, which is declared intent,
+    not proof (testable_proven), and each risk level's invariants that
+    declare none are its without_obligations. Enforcement: invariants nothing
     references are counted in the summary (the finding is software's
     W003 from `specforge check`, not repeated here). Proof, from the recorded
     tests (specforge-report.json, which `analyze` reads by default after
@@ -136,6 +139,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
   verify unit "an entity's status is not_testable when its kind is not testable, exempt when it is testable and does not count, and otherwise how its verdict proves it"
   verify unit "the rule reads a pass entity as the host decided it, with no risk unless the grading caller sets one"
   verify unit "without a risk grading no kind is risk-tallied and nothing is A002"
+  verify unit "the coverage summary names declared intent in the glossary's words: testable_declared and an invariant tally's without_obligations, and no key says verified"
 }
 
 behavior te_coverage_gate "Proof Coverage Gate" {

@@ -44,7 +44,7 @@ fn product_extension_loads_via_protocol() {
     assert_eq!(manifest.version(), "1.0.0");
     assert_eq!(manifest.entities.len(), 9);
     assert_eq!(manifest.edges.len(), 20);
-    assert_eq!(manifest.validation_rules.len(), 50);
+    assert_eq!(manifest.validation_rules.len(), 47);
     assert_eq!(manifest.shared_fields.len(), 1, "shared fields (tags)");
     assert!(manifest.declares(DeclaredCategory::Entities));
     assert!(manifest.declares(DeclaredCategory::ValidationRules));

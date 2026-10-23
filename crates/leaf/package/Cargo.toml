@@ -9,7 +9,8 @@ description = "The host's reading of what an extension package is called, which 
 [dependencies]
 # The declaration and its declared peers, as the guest wire carries them.
 specforge-protocol-types = { path = "../protocol-types" }
-semver = { workspace = true }
+# A registry reply carries a version as its text (ADR 0231).
+semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 
 [dev-dependencies]

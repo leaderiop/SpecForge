@@ -1,7 +1,8 @@
 //! The extension project `specforge extension init` writes.
 //!
 //! The generated project mirrors `fixtures/greet-extension`: a cdylib crate
-//! depending on `specforge-extension-sdk`, built as a `wasm32-wasip2`
+//! depending on `specforge-extension-sdk` at this specforge's version (the SDK
+//! shares the workspace version, ADR 0238), built as a `wasm32-wasip2`
 //! component, with a `src/lib.rs` skeleton that builds and describes out of
 //! the box.
 
@@ -58,6 +59,7 @@ pub(crate) fn scaffold(dir: &Path, name: &str) -> Result<(), String> {
     std::fs::create_dir_all(dir.join(".cargo"))
         .map_err(|e| format!("failed to create .cargo: {}", e))?;
 
+    let sdk = env!("CARGO_PKG_VERSION"); // the SDK's version: both inherit [workspace.package] (ADR 0238 D1)
     let cargo_toml = format!(
         r#"[package]
 name = "{crate_name}"
@@ -68,7 +70,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "0.1"
+specforge-extension-sdk = "{sdk}"
 serde_json = "1.0"
 
 [profile.release]
@@ -197,6 +199,23 @@ mod tests {
         for refused in ["@justscope", "   ", "Bad", "@a/../b"] {
             assert!(PackageName::parse(refused).is_err(), "{refused}");
         }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "scaffold_wasm_extension_project",
+        verify = "the scaffold names the SDK at the version this specforge is built with"
+    )]
+    fn the_scaffold_names_the_sdk_at_this_builds_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("my-ext");
+        scaffold(&project, "@you/my-ext").unwrap();
+        let cargo = std::fs::read_to_string(project.join("Cargo.toml")).unwrap();
+        // The SDK shares this crate's workspace version (ADR 0238 D1).
+        let line = format!(
+            "specforge-extension-sdk = \"{}\"\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        assert!(cargo.contains(&line), "{cargo}");
     }
 
     #[test]

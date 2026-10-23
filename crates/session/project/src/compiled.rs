@@ -135,8 +135,8 @@ impl CompiledProject {
         }
     }
 
-    /// This project as if `texts` (by source key, relative to the spec root) were the text of their sources:
-    /// a key no compiled source has when the environment's [`Environment::holds_source`] admits it, then
+    /// This project as if `texts` (by source key, relative to the project root) were the text of their sources:
+    /// a key no compiled source has when the environment's [`SourceRoot::holds_key`] admits it, then
     /// every check. What `specforge check` reports once those texts are written. Reads no source: every
     /// other source is what this project holds (the text it read, or the E025 it recorded for one it could
     /// not read: over MCP, one the bound refused, ADR 0158); the checks read the disk as a compile's do.
@@ -147,7 +147,7 @@ impl CompiledProject {
             self.sources.keys().into_iter().map(String::from).collect();
         let mut planned: BTreeMap<String, &str> = BTreeMap::new();
         for (key, text) in texts {
-            if keys.contains(key) || self.env.holds_source(key) {
+            if keys.contains(key) || self.env.sources().holds_key(key) {
                 keys.insert(key.clone());
                 planned.insert(key.clone(), text.as_str());
             }
@@ -184,8 +184,8 @@ impl CompiledProject {
         self.on_disk.then_some(self.env.root())
     }
 
-    /// The keys of the sources it holds (each `.spec` file's path relative to
-    /// the spec root): those in its graph and those that could not be read.
+    /// The keys of the sources it holds (each `.spec` file's path from
+    /// the project root): those in its graph and those that could not be read.
     /// What a `use` path may name (ADR 0055).
     pub fn source_keys(&self) -> BTreeSet<&str> {
         self.sources.keys()
@@ -223,7 +223,7 @@ impl CompiledProject {
         }))
     }
 
-    /// The text the graph's spans for `path` (relative to the spec root)
+    /// The text the graph's spans for `path` (relative to the project root)
     /// are positions in: the file as read, or the buffer as given, at the
     /// last change of that file. `None` for a file it does not hold.
     pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
@@ -360,11 +360,9 @@ impl CompiledProject {
         reads: &mut impl Reads,
     ) -> Self {
         let keys = reads.discover(env.sources());
-        let spec_root = env.spec_root().to_path_buf();
         let rooted = env.project_root().is_some();
-        Self::built(env, &keys, held, rooted, |key| {
-            reads.source(&spec_root, key)
-        })
+        let sources = env.sources().clone();
+        Self::built(env, &keys, held, rooted, |key| reads.source(&sources, key))
     }
 
     /// The cold build of `keys` in `env` (ADR 0032's one cold pipeline, [`Environment::build_sources`]): each
@@ -413,7 +411,8 @@ impl CompiledProject {
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.import_diagnostics = if self.on_disk {
-            self.sources.import_diagnostics(&self.graph)
+            self.sources
+                .import_diagnostics(&self.graph, self.env.sources().prefix())
         } else {
             Vec::new()
         };

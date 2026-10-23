@@ -1,8 +1,8 @@
 //! `specforge migrate` and the MCP `specforge.migrate` tool: one migration: the format version header and the
 //! migration steps (`titles`, `defaults`).
 //!
-//! The run loads the environment first and plans with its field forms (the header, then the `titles` and `defaults`
-//! steps): a project with nothing to migrate, or with a file that cannot be migrated, is left alone (no compile, no
+//! The run loads the environment first and plans with its field forms and each file's format configuration (the header, then the `titles` and `defaults`
+//! steps, each changed block laid out): a project with nothing to migrate, or with a file that cannot be migrated, is left alone (no compile, no
 //! hooks, nothing written). Otherwise it compiles the project in that environment and judges the plan in memory
 //! ([`judge`], ADR 0186): the extensions' migration hooks run, and the planned texts are compiled over the project
 //! and compared with it. A dry run, or a migration the judgement refuses, ends there and writes nothing; a kept one is
@@ -11,6 +11,7 @@
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_formatter::FormatConfig;
 use specforge_graph::{GraphDelta, compute_graph_delta};
 /// The migration crate's report types, as this operation's interface.
 pub use specforge_migrate::{
@@ -30,6 +31,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use crate::authoring::edit::validate::added;
+use crate::authoring::format::{Configs, Forms, Place};
 use crate::change::{ProjectChange, unreadable, unwritable};
 use crate::{Caller, Held, OpError, OpErrorKind, ReadFailure, Refusal, Writes, Wrote};
 
@@ -394,7 +396,7 @@ fn remove_record(record: &Held) -> Result<(), OpError> {
     }
 }
 
-/// Migrate the project at `request.root`: load the environment, plan with its field forms (the header and the
+/// Migrate the project at `request.root`: load the environment, plan with its field forms and each file's format configuration (the header and the
 /// `titles` and `defaults` steps), compile in it, judge the plan in memory ([`judge`]: the extensions'
 /// migration hooks in `runtime` in dependency order, then the planned texts compiled and compared with the project),
 /// and write a kept migration as one project change. A dry run, or a migration whose hook fails or whose graph delta
@@ -434,12 +436,20 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
     // The environment the plan's defaults step reads its field forms from and the judge compiles in: loaded once,
     // before the plan (ADR 0186 D5, amended). It reads no source.
     let env = Environment::load(project, runtime);
+    // Each source's format configuration, looked up once per run through the run's bound (ADR 0169 D3, ADR 0235): the
+    // plan lays out the blocks its steps change with it. A W141 is the format run's to report, as for a typed edit.
+    let mut configs = Configs::new(Forms::none(), &bound);
+    let layouts: HashMap<&Path, FormatConfig> = sources
+        .iter()
+        .map(|source| (source.as_path(), configs.layout(Place::File(source))))
+        .collect();
     let plan = migrate_project(
         project,
         &sources,
         target,
         &read_source,
         env.registries().field_forms(),
+        &|path| layouts.get(path).cloned().unwrap_or_default(),
     );
     let from = plan
         .results

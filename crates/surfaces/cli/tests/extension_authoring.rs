@@ -294,6 +294,50 @@ fn extension_build_reports_a_failed_build() {
     );
 }
 
+/// `init` prints `extension build --dir <relative>`; the build reads the component where cargo built it.
+#[specforge_test(
+    behavior = "build_wasm_extension",
+    verify = "specforge extension build with a relative --dir reads the component it built"
+)]
+fn extension_build_with_a_relative_dir_reads_what_it_built() {
+    if !wasip2_installed() {
+        eprintln!("skipped: the wasm32-wasip2 target is not installed");
+        return;
+    }
+    let dir = scratch();
+    let krate = dir.root().join("tiny");
+    fs::create_dir_all(krate.join("src")).unwrap();
+    fs::write(
+        krate.join("Cargo.toml"),
+        "[package]\nname = \"tiny\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n",
+    )
+    .unwrap();
+    fs::write(krate.join("src/lib.rs"), "").unwrap();
+    // Run from the temp root (Cli::on's cwd), naming the crate relatively.
+    let mut build = Cli::on(&dir).with_toolchain().bare_command(&[
+        "extension",
+        "build",
+        "--format",
+        "json",
+        "--dir",
+        "tiny",
+    ]);
+    build.env("CARGO_NET_OFFLINE", "true");
+    without_coverage_environment(&mut build);
+    let output = build.output().unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    let component = PathBuf::from(json["component"].as_str().unwrap());
+    assert!(
+        component.ends_with("tiny/target/wasm32-wasip2/release/tiny.wasm"),
+        "{json}"
+    );
+    assert!(
+        !krate.join("tiny").exists(),
+        "cargo built below the crate a second time"
+    );
+}
+
 /// Clear what `cargo llvm-cov` exports from `command`'s environment. The scaffold's component is built
 /// for wasm32-wasip2, which has no profiler runtime: the instrumentation `cargo llvm-cov` adds to the
 /// workspace crates it compiles (through `RUSTC_WRAPPER`, `RUSTFLAGS` or whichever channel the
@@ -312,9 +356,10 @@ fn without_coverage_environment(command: &mut assert_cmd::Command) {
     }
 }
 
-/// `init`, then `build`, then `validate`: the scaffold builds, as is, into
+/// `init`, then `build`, then `validate`: the scaffold's files, unedited, build into
 /// a component that declares a valid extension. Needs the wasm32-wasip2
-/// target (CI installs it); without it, the build is skipped.
+/// target (CI installs it); without it, the build is skipped. The SDK comes from a cargo
+/// configuration beside the crate, offline.
 #[specforge_test(
     behavior = "build_wasm_extension",
     verify = "build produces .wasm binary"
@@ -325,14 +370,26 @@ fn a_scaffolded_extension_builds_and_validates() {
         return;
     }
     let (dir, ext) = init("round-trip");
-    // Build against this repository's SDK, from the local cargo cache.
-    let mut cargo = fs::read_to_string(ext.join("Cargo.toml")).unwrap();
-    let sdk = repo_root().join("crates/runtime/extension-sdk");
-    cargo.push_str(&format!(
-        "\n[patch.crates-io]\nspecforge-extension-sdk = {{ path = {:?} }}\n",
-        sdk.canonicalize().unwrap()
-    ));
-    fs::write(ext.join("Cargo.toml"), cargo).unwrap();
+    // The scaffold's files build as written. The SDK this build compiles is not on crates.io (and the build is
+    // offline): a cargo configuration beside the crate supplies it. The patch applies only when its version is
+    // the one the scaffold names, so a scaffold naming another SDK fails to resolve.
+    let scaffolded = || -> Vec<Vec<u8>> {
+        ["Cargo.toml", ".cargo/config.toml", "src/lib.rs"]
+            .iter()
+            .map(|f| fs::read(ext.join(f)).unwrap())
+            .collect()
+    };
+    let written = scaffolded();
+    let sdk = repo_root()
+        .join("crates/runtime/extension-sdk")
+        .canonicalize()
+        .unwrap();
+    fs::create_dir_all(dir.root().join(".cargo")).unwrap();
+    fs::write(
+        dir.root().join(".cargo/config.toml"),
+        format!("[patch.crates-io]\nspecforge-extension-sdk = {{ path = {sdk:?} }}\n"),
+    )
+    .unwrap();
 
     // A target directory configured elsewhere doesn't move the component
     // out of the crate, where `validate` and `publish` look.
@@ -356,6 +413,11 @@ fn a_scaffolded_extension_builds_and_validates() {
     let component = PathBuf::from(json["component"].as_str().unwrap());
     assert!(component.ends_with("target/wasm32-wasip2/release/round_trip.wasm"));
     assert!(component.exists());
+    assert_eq!(
+        scaffolded(),
+        written,
+        "the scaffold was edited before it was built"
+    );
 
     let output = Cli::on(&dir)
         .bare_command(&["extension", "validate", "--format", "json", "--dir"])
@@ -367,6 +429,7 @@ fn a_scaffolded_extension_builds_and_validates() {
     assert_eq!(json["valid"], true);
     assert_eq!(json["extension"], "@local/round-trip");
     assert_eq!(json["short"], "round-trip");
+    assert_eq!(json["protocol"], specforge_protocol_types::PROTOCOL_VERSION);
     assert_eq!(json["declaration"]["entities"][0]["name"], "thing");
 }
 
@@ -468,6 +531,35 @@ fn extension_validate_a_valid_declaration() {
         .stdout(predicates::str::contains(
             "@sdk/greet v0.1.0 declares a valid extension",
         ));
+}
+
+#[specforge_test(
+    behavior = "validate_wasm_extension_locally",
+    verify = "specforge extension validate reports the protocol its component speaks"
+)]
+fn extension_validate_reports_the_protocol_its_component_speaks() {
+    let project = scratch();
+    let output = Cli::on(&project)
+        .bare_command(&["extension", "validate", "--format", "json", "--dir"])
+        .arg(greet_wasm())
+        .output()
+        .unwrap();
+    let json = json_of(&output);
+    // The greet fixture is built with this repository's SDK: it speaks the host's protocol.
+    assert_eq!(
+        json["protocol"],
+        specforge_protocol_types::PROTOCOL_VERSION,
+        "{json}"
+    );
+    Cli::on(&project)
+        .bare_command(&["extension", "validate", "--dir"])
+        .arg(greet_wasm())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(format!(
+            "protocol {}",
+            specforge_protocol_types::PROTOCOL_VERSION
+        )));
 }
 
 // ===============================================================

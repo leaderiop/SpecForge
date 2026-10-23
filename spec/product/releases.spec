@@ -24,7 +24,7 @@ release alpha "SpecForge Alpha" {
     output_and_export,
     project_init,
   ]
-  target_date  "2026-06-01"
+  target_date  2026-06-01
   changelog    """
     Initial alpha with core compiler pipeline, CLI binary, and basic
     validation. Includes tree-sitter grammar for .spec files, import

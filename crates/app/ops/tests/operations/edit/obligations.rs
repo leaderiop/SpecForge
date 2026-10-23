@@ -106,16 +106,46 @@ fn an_equal_verify_line_is_not_added_twice() {
     );
 }
 
-#[test]
-fn an_obligation_names_its_kind_before_the_first_colon() {
-    use specforge_ops::authoring::edit::Obligation;
-    let parsed = |text| Obligation::parse(text);
-    let with = |kind: Option<&str>, text: &str| Obligation {
+fn with(kind: Option<&str>, text: &str) -> Obligation {
+    Obligation {
         kind: kind.map(String::from),
         text: text.into(),
-    };
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "edit_entity_obligation",
+    verify = "a prefix is an obligation's kind only when it is one of the verify kinds its entity's kind accepts"
+)]
+fn a_prefix_is_a_kind_only_when_it_is_one_of_the_verify_kinds() {
+    let kinds = ["unit".to_string(), "property".to_string()];
+    let parsed = |text| Obligation::parse(text, &kinds);
     assert_eq!(parsed("unit: rejects x"), with(Some("unit"), "rejects x"));
-    assert_eq!(parsed("rejects: a b"), with(Some("rejects"), "a b"));
+    assert_eq!(parsed("rejects: a b"), with(None, "rejects: a b"));
+    assert_eq!(parsed("http://x.y works"), with(None, "http://x.y works"));
+    assert_eq!(parsed("Unit: x"), with(None, "Unit: x"));
     assert_eq!(parsed("two words: x"), with(None, "two words: x"));
     assert_eq!(parsed("plain"), with(None, "plain"));
+    assert_eq!(Obligation::parse("unit: x", &[]), with(None, "unit: x"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "edit_entity_obligation",
+    verify = "an obligation the entity writes in either reading of a prefix is the one its text names"
+)]
+fn an_obligation_written_in_either_reading_is_the_one_named() {
+    let c = compile(
+        &["@specforge/software", "@specforge/testing"],
+        &[(
+            "a.spec",
+            "type user \"User\" {\n  verify \"unit: whole\"\n  verify Given \"kinded\"\n}\n",
+        )],
+    );
+    let view = ProjectView::of(&c.project);
+    let on = |id, text| Obligation::on(&view, id, text);
+    assert_eq!(on("user", "unit: whole"), with(None, "unit: whole"));
+    assert_eq!(on("user", "Given: kinded"), with(Some("Given"), "kinded"));
+    assert_eq!(on("user", "unit: new"), with(Some("unit"), "new"));
+    assert_eq!(on("user", "Given: new"), with(None, "Given: new"));
+    assert_eq!(on("nobody", "unit: x"), with(None, "unit: x"));
 }

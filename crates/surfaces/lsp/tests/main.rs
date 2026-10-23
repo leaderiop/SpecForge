@@ -41,7 +41,9 @@ mod session;
 mod snippets;
 mod stale;
 mod state;
+mod token_agreement;
 mod union_title;
+mod use_bindings;
 
 /// Every `.spec` file under `dir`, recursively.
 pub fn spec_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {

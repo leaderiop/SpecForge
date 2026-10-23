@@ -116,10 +116,12 @@ impl Resolution<'_> {
                             format!("name a {expected} here, or drop the reference")
                         }
                         (Target::Absent(_), _, Some(extension)) => format!(
-                            "name a {expected} here (enable the extension that declares it with `specforge add {extension}`), or drop the reference"
+                            "name a {expected} here (enable the extension that declares it with `{}`), or drop the reference",
+                            specforge_common::remedy::command("specforge add {}", &[extension])
                         ),
                         (Target::Absent(_), _, None) => format!(
-                            "name a {expected} here (find an extension that declares it with `specforge search {expected}`), or drop the reference"
+                            "name a {expected} here (find an extension that declares it with `{}`), or drop the reference",
+                            specforge_common::remedy::command("specforge search {}", &[expected])
                         ),
                     }),
                 )
@@ -155,10 +157,12 @@ impl Resolution<'_> {
                 .with_span(span)
                 .with_suggestion(match provider {
                     Some(extension) => format!(
-                        "enable the extension that declares '{kind}' with `specforge add {extension}`, or drop the field"
+                        "enable the extension that declares '{kind}' with `{}`, or drop the field",
+                        specforge_common::remedy::command("specforge add {}", &[extension])
                     ),
                     None => format!(
-                        "find an extension that declares '{kind}' with `specforge search {kind}`, or drop the field"
+                        "find an extension that declares '{kind}' with `{}`, or drop the field",
+                        specforge_common::remedy::command("specforge search {}", &[kind])
                     ),
                 }),
             ),

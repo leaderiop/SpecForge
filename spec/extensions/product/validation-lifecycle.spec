@@ -402,8 +402,8 @@ behavior detect_journeys_without_channels "Detect Journeys without Channels" {
   contract """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on journeys scoped to the JourneyUsesChannel edge. A journey with no
-    edge to a channel (no channels field, an empty list, or only references
-    that don't resolve) MUST produce an I055 info diagnostic: "journey
+    edge to a channel (no channels field or an empty list; a channel it
+    names that does not exist is E003, reported alone) MUST produce an I055 info diagnostic: "journey
     '{id}' uses no channels". A journey without channels has no defined
     interaction medium, weakening traceability. Info-level respects
     incremental adoption — journeys may be authored before channels are
@@ -691,8 +691,8 @@ behavior detect_release_without_deliverables "Detect Release Without Deliverable
   contract    """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on releases scoped to the ReleaseIncludesDeliverable edge. A release
-    with no edge to a deliverable (no deliverables field, an empty list, or
-    only references that don't resolve) SHOULD produce an I082 info
+    with no edge to a deliverable (no deliverables field or an empty list; a
+    deliverable it names that does not exist is E003, reported alone) SHOULD produce an I082 info
     diagnostic: "release '{id}' includes no deliverables".
   """
   diagnostic  I082
@@ -709,8 +709,8 @@ behavior detect_release_without_milestones "Detect Release Without Milestones" {
   contract    """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on releases scoped to the ReleaseCompletesMilestone edge. A release
-    with no edge to a milestone (no milestones field, an empty list, or
-    only references that don't resolve) SHOULD produce an I083 info
+    with no edge to a milestone (no milestones field or an empty list; a
+    milestone it names that does not exist is E003, reported alone) SHOULD produce an I083 info
     diagnostic: "release '{id}' completes no milestones".
   """
   diagnostic  I083
@@ -757,18 +757,15 @@ behavior detect_invalid_release_date "Detect Invalid Release Date" {
   category    validation
   features    [pe_release_coordination]
   contract    """
-    The @specforge/product extension MUST declare a field_value_constraint
-    matches rule on the release release_date field with the regex
-    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A release whose release_date is
-    present and doesn't match SHOULD produce an I086 info diagnostic:
-    "release '{id}' has release_date '{value}' — expected YYYY-MM-DD".
-    The regex checks the shape only, not that the date exists.
+    The @specforge/product extension MUST declare release_date a date
+    field; a value that is no calendar day is the core's E061 (I086
+    retired into it).
   """
-  diagnostic  I086
-  severity    info
-  description "Invalid release_date format"
-  verify unit "release_date '2026-06-01' produces no I086"
-  verify unit "release_date 'June 2026' produces I086"
+  diagnostic  E061
+  severity    error
+  description "Invalid release_date"
+  verify unit "a release_date that is a calendar day passes"
+  verify unit "a release_date that is no calendar day is E061"
 }
 
 behavior detect_invalid_start_date "Detect Invalid Start Date" {
@@ -776,18 +773,15 @@ behavior detect_invalid_start_date "Detect Invalid Start Date" {
   category    validation
   invariants  [pe_milestone_temporal_consistency]
   contract    """
-    The @specforge/product extension MUST declare a field_value_constraint
-    matches rule on the milestone start_date field with the regex
-    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A milestone whose start_date is
-    present and doesn't match SHOULD produce an I087 info diagnostic:
-    "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD".
-    The regex checks the shape only, not that the date exists.
+    The @specforge/product extension MUST declare start_date a date
+    field; a value that is no calendar day is the core's E061 (I087
+    retired into it).
   """
-  diagnostic  I087
-  severity    info
-  description "Invalid milestone start_date format"
-  verify unit "start_date '2026-01-15' produces no I087"
-  verify unit "start_date 'Jan 15' produces I087"
+  diagnostic  E061
+  severity    error
+  description "Invalid milestone start_date"
+  verify unit "a start_date that is a calendar day passes"
+  verify unit "a start_date that is no calendar day is E061"
 }
 
 behavior detect_journey_flow_feature_references "Detect Journey Flow Feature References" {

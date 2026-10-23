@@ -238,7 +238,7 @@ const PAIRS: &[Pair] = &[
             "epsilon",
             "Epsilon",
             "--in",
-            "main.spec",
+            "spec/main.spec",
             "--contract",
             "The system MUST do epsilon",
             "--invariants",
@@ -253,7 +253,7 @@ const PAIRS: &[Pair] = &[
         tool: "specforge.edit",
         arguments: || {
             json!({"dry_run": true, "edits": [{"op": "create", "kind": "behavior", "id": "epsilon",
-                "title": "Epsilon", "file": "main.spec",
+                "title": "Epsilon", "file": "spec/main.spec",
                 "fields": {"contract": "The system MUST do epsilon", "invariants": ["rule_one"]}}]})
         },
     },
@@ -381,6 +381,24 @@ const PAIRS: &[Pair] = &[
         exit: 0,
         tool: "specforge.edit",
         arguments: || json!({"dry_run": true, "edits": [{"op": "remove_verify", "entity_id": "delta", "kind": "unit", "text": "delta works"}]}),
+    },
+    Pair {
+        label: "edit_link_verify_colon_text",
+        project: edit_project,
+        cli: &[
+            "link",
+            "delta",
+            "--verify",
+            "Given: a request, it is handled",
+            "--dry-run",
+            "--path",
+            "{root}",
+            "--format",
+            "json",
+        ],
+        exit: 0,
+        tool: "specforge.edit",
+        arguments: || json!({"dry_run": true, "edits": [{"op": "add_verify", "entity_id": "delta", "text": "Given: a request, it is handled"}]}),
     },
     Pair {
         label: "edit_delete",
@@ -713,6 +731,20 @@ fn every_edit_verb_is_one_request_on_both_surfaces() {
         assert!(!document["diff"].as_str().unwrap().is_empty(), "{label}");
     }
     assert_eq!(pair("edit_delete_referenced").0, Outcome::Refused);
+}
+
+#[specforge_test_macros::test(
+    behavior = "edit_entity_obligation",
+    verify = "specforge link --verify and specforge.edit add_verify write one obligation from one text"
+)]
+fn a_verify_text_with_a_colon_is_one_obligation_on_both_surfaces() {
+    let document = answered("edit_link_verify_colon_text");
+    let diff = document["diff"].as_str().unwrap();
+    assert!(
+        diff.contains(r#"+  verify "Given: a request, it is handled""#),
+        "{document}"
+    );
+    assert_eq!(document["added"], json!([]), "{document}");
 }
 
 /// The kinds of the nodes a row's surfaces both answered.

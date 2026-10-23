@@ -240,10 +240,10 @@ pub trait ToolSpec: Sync {
             .collect()
     }
 
-    /// The refusal of a call that sends a name neither the tool nor its
-    /// target declares ([`crate::args::undeclared`]).
+    /// The refusal of a call that sends a name the tool does not declare
+    /// ([`crate::args::undeclared`]; the target's never reach it).
     fn undeclared(&self, arguments: &Value) -> Option<McpError> {
-        crate::args::undeclared(arguments, &self.arguments(), self.target())
+        crate::args::undeclared(arguments, &self.arguments())
     }
 
     /// The tool as `tools/list` describes it under `revision`: it lists its

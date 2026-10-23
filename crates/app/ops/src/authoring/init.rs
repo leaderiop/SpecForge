@@ -347,8 +347,9 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
 fn no_registry(specifier: &str) -> OpError {
     let builtins: Vec<&str> = specforge_project::builtins().names().collect();
     crate::registry::no_registry("init").with_suggestion(format!(
-        "init with builtins ({}) and local .wasm files, then add a \"registries\" entry to specforge.json and run `specforge add {specifier}`",
-        builtins.join(", ")
+        "init with builtins ({}) and local .wasm files, then add a \"registries\" entry to specforge.json and run `{}`",
+        builtins.join(", "),
+        specforge_common::remedy::command("specforge add {}", &[specifier])
     ))
 }
 

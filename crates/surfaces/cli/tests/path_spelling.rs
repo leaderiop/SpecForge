@@ -86,6 +86,8 @@ fn format_document_names_a_named_file_from_the_project_root_from_any_cwd() {
 fn format_failures_name_the_file_from_the_project_root() {
     let project = project_with_a_bad_file();
     let root = project.root().to_path_buf();
+    // A file that exists but cannot be read; one that names nothing is refused before the run.
+    fs::write(root.join("spec/nope.spec"), [0xff]).unwrap();
 
     let document = document_from(
         &project,

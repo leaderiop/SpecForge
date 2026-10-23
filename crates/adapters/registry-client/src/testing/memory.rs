@@ -357,10 +357,13 @@ impl RegistryClient for MemoryClient {
                 VersionRequirement::Latest.pick_from(versions, |m| Version::parse(&m.version).ok())
             })
             .filter(|m| declares(m))
-            .map(|m| SearchHit {
-                name: m.name.clone(),
-                version: m.version.clone(),
-                description: m.metadata.description.clone(),
+            // A stored row no client could read is not served (ADR 0036).
+            .filter_map(|m| {
+                Some(SearchHit {
+                    name: PackageName::parse(&m.name).ok()?,
+                    version: Version::parse(&m.version).ok()?,
+                    description: m.metadata.description.clone(),
+                })
             })
             .collect();
         hits.truncate(DEFAULT_SEARCH_LIMIT as usize);

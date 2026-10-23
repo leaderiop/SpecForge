@@ -34,7 +34,7 @@ fn new_writes_the_canonical_block() {
             "archive_task",
             "Archive a Task",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--category",
             "command",
             "--types",
@@ -80,7 +80,7 @@ fn new_in_a_spelling_of_an_existing_file_adds_to_it() {
             "archive_task",
             "Archive a Task",
             "--in",
-            "./behaviors/task.spec",
+            "./spec/behaviors/task.spec",
             "--contract",
             "The system MUST archive a done task.",
         ],
@@ -96,9 +96,9 @@ fn new_in_a_spelling_of_an_existing_file_adds_to_it() {
 
 #[specforge_test(
     behavior = "create_entity",
-    verify = "new refuses a file named from the project root, naming its spec-root spelling"
+    verify = "new refuses a file named from the spec root, with no suggestion"
 )]
-fn new_in_a_project_root_spelling_is_refused_naming_its_file() {
+fn new_in_a_spec_root_spelling_is_refused_with_no_suggestion() {
     let project = todo();
     let before = project.read(TASKS);
     let run = sf(
@@ -109,44 +109,16 @@ fn new_in_a_project_root_spelling_is_refused_naming_its_file() {
             "archive_task",
             "Archive a Task",
             "--in",
-            "spec/behaviors/task.spec",
+            "behaviors/task.spec",
             "--contract",
             "The system MUST archive a done task.",
         ],
     )
     .exits(1);
     assert!(run.stderr.contains("error[not_a_source]"), "{}", run.stderr);
-    assert!(run.stderr.contains("behaviors/task.spec"), "{}", run.stderr);
+    assert!(!run.stderr.contains("hint:"), "{}", run.stderr);
     assert_eq!(project.read(TASKS), before);
-}
-
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new --in refuses a new file named from the project root, naming its spec-root spelling"
-)]
-fn new_in_a_project_root_spelling_of_a_new_file_is_refused() {
-    let project = todo();
-    let run = sf(
-        &project,
-        &[
-            "new",
-            "behavior",
-            "archive_task",
-            "Archive a Task",
-            "--in",
-            "spec/behaviors/archive.spec",
-            "--contract",
-            "The system MUST archive a done task.",
-        ],
-    )
-    .exits(1);
-    assert!(run.stderr.contains("error[not_a_source]"), "{}", run.stderr);
-    assert!(
-        run.stderr.contains("behaviors/archive.spec"),
-        "{}",
-        run.stderr
-    );
-    assert!(!project.root().join("spec/spec").exists());
+    assert!(!project.root().join("behaviors").exists());
 }
 
 #[specforge_test(
@@ -332,7 +304,7 @@ fn a_misspelt_field_flag_is_a_clap_error() {
             "archive_task",
             "Archive",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--contrcat",
             "x",
         ],
@@ -384,7 +356,7 @@ fn json_output_is_the_edit_report() {
     );
     assert_eq!(
         document.json["affected_files"],
-        serde_json::json!(["behaviors/task.spec"])
+        serde_json::json!(["spec/behaviors/task.spec"])
     );
     assert_eq!(
         document.json["files_written"],
@@ -451,7 +423,7 @@ fn new_with_path_after_the_kind_reads_that_projects_fields() {
         "archive_task",
         "Archive a Task",
         "--in",
-        "behaviors/task.spec",
+        "spec/behaviors/task.spec",
         "--contract",
         "When asked, the system MUST archive.",
         "--dry-run",
@@ -479,7 +451,7 @@ fn new_given_one_value_field_twice_is_refused() {
             "archive_task",
             "Archive",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--contract",
             "first",
             "--contract",
@@ -505,7 +477,7 @@ fn new_of_an_unknown_kind_is_refused_as_unknown_kind() {
             "archive_task",
             "Archive",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--contract",
             "x",
         ],
@@ -536,6 +508,28 @@ fn new_help_begins_with_what_new_does() {
 
 #[specforge_test(
     behavior = "create_entity",
+    verify = "new's help and its usage errors name the program as specforge new"
+)]
+fn new_usage_names_the_program() {
+    let project = todo();
+    let help = sf(&project, &["new", "--help"]).exits(0);
+    assert!(
+        help.stdout
+            .contains("Usage: specforge new [OPTIONS] [KIND]"),
+        "{}",
+        help.stdout
+    );
+    let missing = sf(&project, &["new", "behavior"]).exits(2);
+    assert!(
+        missing.stderr.contains("Usage: specforge new ")
+            && missing.stderr.contains("<KIND> <ID> <TITLE>"),
+        "{}",
+        missing.stderr
+    );
+}
+
+#[specforge_test(
+    behavior = "create_entity",
     verify = "new refuses one of its options given twice, wherever each stands"
 )]
 fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {
@@ -546,14 +540,14 @@ fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {
         &[
             "new",
             "--in",
-            "behaviors/a.spec",
+            "spec/behaviors/a.spec",
             "behavior",
             "archive_task",
             "Archive",
             "--contract",
             "c",
             "--in",
-            "behaviors/b.spec",
+            "spec/behaviors/b.spec",
             "--dry-run",
         ],
     );
@@ -569,7 +563,7 @@ fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {
             "--contract",
             "c",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--dry-run",
             "--format",
             "human",
@@ -672,7 +666,7 @@ fn a_field_value_spelled_as_path_names_no_project() {
             "--contract",
             &spelled,
             "--in",
-            "behaviors/x.spec",
+            "spec/behaviors/x.spec",
         ],
     );
     assert_eq!(run.code, 2, "{}{}", run.stdout, run.stderr);

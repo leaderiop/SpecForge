@@ -33,7 +33,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Shape)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Edit {
-    /// A new entity in `file` (relative to the spec root; created when missing).
+    /// A new entity in `file` (relative to the project root; created when missing).
     Create {
         kind: String,
         id: String,
@@ -113,7 +113,7 @@ impl Shape for Input {
     }
 }
 
-/// A `verify` obligation given to `Create`.
+/// A `verify` obligation: given to `Create`, or named by the CLI's `--verify` text (ADR 0237).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Shape)]
 pub struct Obligation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -122,11 +122,12 @@ pub struct Obligation {
 }
 
 impl Obligation {
-    /// `kind:text` as an obligation: the kind is a word (the grammar's identifier) before the first colon, the
-    /// text what follows it with its leading spaces trimmed; with no such word, the whole text and no kind.
-    pub fn parse(text: &str) -> Obligation {
+    /// `kind:text` as an obligation of an entity whose kind accepts `verify_kinds` (ADR 0237): the part before the
+    /// first colon is the kind when it is one of them, the text what follows it with its leading spaces trimmed;
+    /// otherwise the whole text and no kind.
+    pub fn parse(text: &str, verify_kinds: &[String]) -> Obligation {
         match text.split_once(':') {
-            Some((kind, rest)) if specforge_graph::field_form::is_word(kind) => Obligation {
+            Some((kind, rest)) if verify_kinds.iter().any(|k| k == kind) => Obligation {
                 kind: Some(kind.to_string()),
                 text: rest.trim_start().to_string(),
             },
@@ -136,6 +137,54 @@ impl Obligation {
             },
         }
     }
+
+    /// The reading `parse` did not make of a word prefix: the whole text when it took a kind, the word as the kind
+    /// when it kept the text; none without a word before the first colon.
+    fn other(&self, text: &str) -> Option<Obligation> {
+        match (&self.kind, text.split_once(':')) {
+            (Some(_), _) => Some(Obligation {
+                kind: None,
+                text: text.to_string(),
+            }),
+            (None, Some((word, rest))) if specforge_graph::field_form::is_word(word) => {
+                Some(Obligation {
+                    kind: Some(word.to_string()),
+                    text: rest.trim_start().to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// The obligation `text` names on `entity_id`, as `--verify` gives it (ADR 0237): when the entity writes the
+    /// other reading of a word prefix (as a kind, or kept in the text) and not the one [`Obligation::parse`] makes
+    /// with its kind's verify kinds, that other one; otherwise the parse. An entity the project does not hold reads
+    /// with no verify kinds, and the plan then refuses it (`not_found`) as it does today.
+    pub fn on(view: &ProjectView<'_>, entity_id: &str, text: &str) -> Obligation {
+        let node = view.graph().node(entity_id);
+        let kinds = node.map_or(&[][..], |n| verify_kinds_of(view, n.kind.raw.as_str()));
+        let parsed = Obligation::parse(text, kinds);
+        let writes = |o: &Obligation| {
+            node.is_some_and(|n| {
+                n.obligations
+                    .iter()
+                    .any(|s| s.kind == o.kind.as_deref().unwrap_or("") && s.description == o.text)
+            })
+        };
+        match parsed.other(text) {
+            Some(other) if !writes(&parsed) && writes(&other) => other,
+            _ => parsed,
+        }
+    }
+}
+
+/// The verify kinds `kind` accepts: declared, or an enhancement's (`KindRegistryEntry::allowed_verify_kinds`); none
+/// for a kind no loaded extension declares, or one that accepts no verify statement.
+pub fn verify_kinds_of<'v>(view: &ProjectView<'v>, kind: &str) -> &'v [String] {
+    view.registries()
+        .kinds()
+        .get(kind)
+        .map_or(&[], |entry| entry.allowed_verify_kinds.as_slice())
 }
 
 /// The part of a request a refusal is about (ADR 0072). MCP names every one `edits`.
@@ -184,9 +233,9 @@ pub struct EditReport {
     /// The entities whose block the edits, taken together, create, change or delete, sorted
     /// (`PlannedChange::entities`).
     pub entities: Vec<String>,
-    /// The files the edits change, relative to the spec root, sorted.
+    /// The files the edits change, relative to the project root, sorted.
     pub affected_files: Vec<String>,
-    /// A unified diff of every affected file (spec-root-relative headers), in file order. Empty when nothing changes.
+    /// A unified diff of every affected file (project-root-relative headers), in file order. Empty when nothing changes.
     pub diff: String,
     /// The warnings and infos the edited project reports that the project did not, in report order.
     pub added: DiagnosticList,
@@ -228,9 +277,9 @@ struct Located {
 }
 
 impl<'v> Planner<'v> {
-    /// The format configuration of the file `key` names (relative to the spec root).
+    /// The format configuration of the file `key` names (relative to the project root).
     fn config_of(&mut self, key: &str) -> FormatConfig {
-        let path = self.view.env().spec_root().join(key);
+        let path = self.view.env().sources().path(key);
         self.configs.layout(Place::File(&path))
     }
 
@@ -364,7 +413,7 @@ impl<'v> Planner<'v> {
     fn finish(self) -> Result<EditPlan, Refusal<EditField>> {
         let project = self.view.project();
         let change = PlannedChange::new(
-            self.view.env().spec_root().to_path_buf(),
+            self.view.env().sources().clone(),
             "cannot apply the edits",
             self.texts
                 .into_iter()

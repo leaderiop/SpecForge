@@ -104,7 +104,14 @@ fn record_listing(_: &Layout, ledger: &mut Ledger, input: &Path) {
 }
 
 fn record_hop(l: &Layout, ledger: &mut Ledger, _: &Path) {
-    ledger.source(&l.root, "a.spec");
+    ledger.source(
+        &specforge_common::SourceRoot::new(
+            l.root.clone(),
+            l.root.clone(),
+            specforge_common::Exclude::default(),
+        ),
+        "a.spec",
+    );
 }
 
 fn lay_listing(l: &Layout) -> PathBuf {

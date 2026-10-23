@@ -39,6 +39,7 @@ pub use connectivity::Connectivity;
 pub use entity::{DEPTH_WITHOUT_ENTITY, EntityField, not_found};
 pub use kinds::{KindFilter, KnownKinds, UNKNOWN_KIND, kinds_of_text, kinds_of_texts};
 pub use selection::{Entity, Select, Selection};
+pub(crate) use source_file::FILE_NOT_FOUND;
 pub use source_file::NOT_A_SOURCE;
 
 use crate::schema_version::{SchemaCache, VersionedSchema};

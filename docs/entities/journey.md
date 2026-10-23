@@ -30,14 +30,14 @@ journey create_user_web "Create a New User" {
   channels [web, cli, api]
   features [user_management]
 
-  flow """
-    1. Admin opens user management page
-    2. Clicks "New User"
-    3. Fills form (name, email, role)
-    4. Submits — system validates uniqueness
-    5. Success: user appears in list
-    6. Failure: inline error on email field
-  """
+  flow [
+    "Admin opens user management page",
+    "Clicks \"New User\"",
+    "Fills form (name, email, role)",
+    "Submits — system validates uniqueness",
+    "Success: user appears in list",
+    "Failure: inline error on email field",
+  ]
 }
 ```
 
@@ -164,15 +164,15 @@ journey create_user_web "Create a New User" {
   channels [web]
   features [user_management]
 
-  flow """
-    1. Admin navigates to Settings > Users
-    2. Clicks "Add User" button
-    3. Modal opens with form: name, email, role dropdown
-    4. Admin fills fields and clicks "Create"
-    5. System validates email uniqueness
-    6. Success: modal closes, user appears in table, toast notification
-    7. Failure: inline error below email field, "Email already in use"
-  """
+  flow [
+    "Admin navigates to Settings > Users",
+    "Clicks \"Add User\" button",
+    "Modal opens with form: name, email, role dropdown",
+    "Admin fills fields and clicks \"Create\"",
+    "System validates email uniqueness",
+    "Success: modal closes, user appears in table, toast notification",
+    "Failure: inline error below email field, \"Email already in use\"",
+  ]
 
   refs [figma.frame:user-create-modal]
 }
@@ -190,14 +190,14 @@ journey create_user_api "Create User via API" {
   channels [api]
   features [user_management]
 
-  flow """
-    1. Consumer sends POST /api/v1/users with JSON body
-    2. System validates request body schema
-    3. System validates email uniqueness
-    4. Success: 201 Created with user object in response body
-    5. Validation failure: 422 Unprocessable Entity with error details
-    6. Duplicate email: 409 Conflict with error message
-  """
+  flow [
+    "Consumer sends POST /api/v1/users with JSON body",
+    "System validates request body schema",
+    "System validates email uniqueness",
+    "Success: 201 Created with user object in response body",
+    "Validation failure: 422 Unprocessable Entity with error details",
+    "Duplicate email: 409 Conflict with error message",
+  ]
 }
 ```
 
@@ -213,13 +213,13 @@ journey search_records_cli "Search Records from Terminal" {
   channels [cli]
   features [full_text_search]
 
-  flow """
-    1. Operator runs: specforge search "user email:alice@"
-    2. System performs full-text search with field filtering
-    3. Results displayed in table format with highlighting
-    4. Operator can pipe output to jq or other tools
-    5. No results: informative message with suggestion to broaden query
-  """
+  flow [
+    "Operator runs: specforge search \"user email:alice@\"",
+    "System performs full-text search with field filtering",
+    "Results displayed in table format with highlighting",
+    "Operator can pipe output to jq or other tools",
+    "No results: informative message with suggestion to broaden query",
+  ]
 }
 ```
 
@@ -237,15 +237,15 @@ journey purchase_and_track "Purchase and Track Order" {
   features [order_checkout, order_tracking]
   priority high
 
-  flow """
-    1. User reviews cart and clicks "Checkout"
-    2. System validates inventory for all items
-    3. User confirms shipping address and payment method
-    4. System processes payment and creates order
-    5. Success: confirmation page with order number and ETA
-    6. User can track order status on "My Orders" page
-    7. System sends email notification at each fulfillment stage
-    8. Payment failure: error page with retry option, cart preserved
-  """
+  flow [
+    "User reviews cart and clicks \"Checkout\"",
+    "System validates inventory for all items",
+    "User confirms shipping address and payment method",
+    "System processes payment and creates order",
+    "Success: confirmation page with order number and ETA",
+    "User can track order status on \"My Orders\" page",
+    "System sends email notification at each fulfillment stage",
+    "Payment failure: error page with retry option, cart preserved",
+  ]
 }
 ```

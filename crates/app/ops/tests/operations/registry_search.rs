@@ -2,17 +2,18 @@
 
 use specforge_common::{Diagnostic, DiagnosticList, codes};
 use specforge_ops::registry::{Found, Searched};
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::DeclaredCategory;
 use specforge_test_macros::test as specforge_test;
 
 fn searched() -> Searched {
     Searched {
-        found: vec![Found {
-            name: "@acme/x".into(),
-            version: "1.0.0".into(),
-            description: "d".into(),
-            registry: "local".into(),
-        }],
+        found: vec![Found::new(
+            PackageName::parse("@acme/x").unwrap(),
+            Version::new(1, 0, 0),
+            "d",
+            "local".into(),
+        )],
         failures: vec![Diagnostic::new(codes::R005, "down")],
         asked: 2,
     }

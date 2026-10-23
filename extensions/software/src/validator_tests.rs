@@ -163,7 +163,7 @@ fn port_methods_accept_documented_primitives_without_host_list() {
             name: "ratio".to_string(),
             ty: "number".to_string(),
         }],
-        returns: Some("Result<(integer, boolean, timestamp), never>".to_string()),
+        returns: Some("Result<(integer, boolean, timestamp, date), never>".to_string()),
     }]);
     assert_eq!(validate_port_methods(&ctx), pass());
 }

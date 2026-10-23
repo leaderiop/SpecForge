@@ -13,18 +13,18 @@ behavior create_entity "Create an Entity" {
   invariants [typed_edit_canonical_form, typed_edit_atomicity]
   category   mutation
   contract   """
-    A create edit names a kind, an id, a title and a file relative to the spec
-    root; every spelling of the file under the spec root is that file (its source key; ADR 0195). The block is written in the canonical form, after the last block of
+    A create edit names a kind, an id, a title and a file relative to the project
+    root, inside the spec root; every spelling of the file under the project root is that file (its source key; ADR 0195, ADR 0242). The block is written in the canonical form, after the last block of
     its kind in the file, or at the end of the file; a file that does not exist
     is created, unless the later edits of the list leave it empty: a file that does not
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused
     invalid_title before the project is read; ADR 0225), and the file MUST be a project source.
     Each field is written as a set of it writes it, so a field that holds what its file's default holds, as the graph stores both,
-    is not written, and each verify obligation as an add-verify writes it, so an equal one given twice is written
+    is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
     once. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
-    and one given twice is refused, --help with a kind is that kind's help and an unknown kind is refused as unknown_kind,
+    and one given twice is refused, --help with a kind is that kind's help, its help and its usage errors name the program as specforge new, and an unknown kind is refused as unknown_kind,
     and a line whose --path a field's value spells is refused; a field named like one of its options is no flag of it, and
     the kind's help says to set it with specforge set. A create takes whole fields; a `field.entry` path is refused.
     The skeleton of a new block of a kind is what a create of it writes with no values, with a slot where each value
@@ -34,8 +34,9 @@ behavior create_entity "Create an Entity" {
   verify unit "new writes the block in the canonical form after the last block of its kind"
   verify unit "new creates a missing source file"
   verify unit "new refuses a blank title"
+  verify unit "new's help names a date field's value as YYYY-MM-DD"
   verify unit "new refuses a file that is not a project source"
-  verify unit "new reads every spelling of a file under the spec root as that file"
+  verify unit "new reads every spelling of a file under the project root as that file"
   verify unit "two spellings of one new file in one list are one file"
   verify unit "new refuses an id that is taken"
   verify unit "new refuses a reserved id before the edited project is compiled"
@@ -50,12 +51,12 @@ behavior create_entity "Create an Entity" {
   verify unit "a file new creates is not written when the later edits leave it empty"
   verify integration "new reads its field flags from the project its --path names, wherever --path stands"
   verify integration "new --in reads a spelling of an existing file as that file"
-  verify integration "new refuses a file named from the project root, naming its spec-root spelling"
-  verify integration "new --in refuses a new file named from the project root, naming its spec-root spelling"
+  verify integration "new refuses a file named from the spec root, with no suggestion"
   verify integration "new refuses a field given twice that takes one value"
   verify integration "new refuses an unknown kind as unknown_kind"
   verify unit "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
   verify integration "new --help begins with what new does"
+  verify integration "new's help and its usage errors name the program as specforge new"
   verify integration "new refuses one of its options given twice, wherever each stands"
   verify integration "new's help of a kind shows each of its options as every command declares it"
   verify integration "new --help of a kind the project does not declare is refused as unknown_kind"
@@ -89,7 +90,9 @@ behavior edit_entity_field "Edit an Entity Field" {
     replaces the header title where the parse read it, or writes one after
     the name when the header has none; a union's string variant is never its
     title; a spec block's title is its name, and a retitle of it is
-    refused not_editable. A field the kind does not declare is refused. A field that is the other
+    refused not_editable. A field the kind does not declare is refused. A spec
+    block's fields are declared by no kind: a set, unset, link or unlink of one is refused not_editable, naming the
+    file to edit, as its retitle is. A field that is the other
     side of a relation another kind owns is refused naming the owning field (ADR 0157).
     A set, unset, link or unlink of a field the block writes twice first removes its later entries, which the
     graph does not hold (E081, ADR 0215). A union (`kind name = a | b`) holds only its variants: a set,
@@ -114,6 +117,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set of a new entry writes its annotations"
   verify unit "retitle replaces the header title"
   verify unit "retitle of a spec block is refused: its title is its name"
+  verify unit "a set or unset of a spec block's field is refused not_editable: no kind declares its fields"
   verify unit "retitle of an untitled union writes the title after its name, never over a variant"
   verify unit "every member edit of a union is refused as one not_editable, before its field is read"
   verify unit "retitle and delete take a union"
@@ -157,7 +161,12 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
     or before the closing brace. A remove-verify edit removes the statement
     with that kind and text. Where each statement is written is read from the
     block's parse: an entry named verify inside a block field is a field, never
-    a statement (ADR 0187, amended). An equal line is not added twice.
+    a statement (ADR 0187, amended). An equal line is not added twice. The
+    CLI's --verify kind:text names its kind only when the part before the first
+    colon is one of the verify kinds the entity's kind accepts (declared, or an
+    enhancement's), else the whole text is the obligation's text; it names the
+    obligation the entity already writes in either reading of the prefix
+    (ADR 0237). An MCP edit names its kind and is never split.
   """
   verify unit "a verify line is added after the last one"
   verify unit "a verify line is removed by kind and text"
@@ -165,6 +174,11 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "add-verify writes after the last statement, never inside a block field"
   verify unit "add-verify on a union is refused as not_editable, a union has no verify statements"
   verify unit "add-verify on a braced block writes the statement whatever its members are named"
+  verify unit "a prefix is an obligation's kind only when it is one of the verify kinds its entity's kind accepts"
+  verify unit "an obligation the entity writes in either reading of a prefix is the one its text names"
+  verify unit "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
+  verify unit "--verify names the obligation the entity writes in either reading of its prefix"
+  verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
 }
 
 behavior delete_entity "Delete an Entity" {
@@ -181,6 +195,8 @@ behavior delete_entity "Delete an Entity" {
     in a defaults block, in a field its kind does not declare or as a type name
     a derived field reads, refuses the delete as not_editable, naming where it
     is written.
+    A use binding that imports the entity is removed, its statement with it
+    when it was the last (ADR 0233).
   """
   verify unit "delete removes the block and the comment above it"
   verify unit "delete keeps the format header above the block"
@@ -190,6 +206,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references removes a reference list written as one value"
   verify unit "delete with unlink_references refuses a reference no typed edit writes"
   verify unit "delete with unlink_references refuses a type name a derived field reads"
+  verify unit "delete with unlink_references removes a use binding that imports it"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {

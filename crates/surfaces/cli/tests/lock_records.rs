@@ -77,3 +77,34 @@ fn a_lock_entry_its_binary_does_not_declare_is_e070_until_an_add_rewrites_it() {
     let (ok, found) = check(&project);
     assert!(ok, "{found:?}");
 }
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
+)]
+fn doctor_calls_no_binary_healthy_beside_an_e070() {
+    let project = greeting_project();
+    project.write("greet.wasm", greet_wasm());
+    Cli::on(&project)
+        .command(&["add", "greet.wasm"])
+        .assert()
+        .success();
+    let mut edited = lock(&project);
+    edited["entries"][0]["version"] = "0.2.0".into();
+    std::fs::write(project.root().join("specforge.lock"), edited.to_string()).unwrap();
+
+    let run = Cli::on(&project).run(&["doctor"]);
+    assert_eq!(run.code, 1, "{}", run.stdout);
+    let from = &run.stdout[run
+        .stdout
+        .find("Installed binaries")
+        .expect("binaries section")..];
+    let binaries = &from[..from.find("\n\n").unwrap_or(from.len())];
+    assert!(!binaries.contains("healthy"), "{binaries}");
+    assert!(
+        run.stdout
+            .contains("declares version 0.1.0, but its lock entry records 0.2.0"),
+        "{}",
+        run.stdout
+    );
+}

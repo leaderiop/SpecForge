@@ -186,7 +186,10 @@ fn a_document_is_found_after_its_key_moves() {
         tower_lsp::lsp_types::FileEvent::new(config, tower_lsp::lsp_types::FileChangeType::CHANGED),
     ]));
     let state = served.state();
-    assert!(state.compiled_text("a.spec").is_some(), "the key moved");
+    assert!(
+        state.compiled_text("spec/a.spec").is_some(),
+        "the key stays"
+    );
     assert!(state.document(&uri).is_some());
     assert!(answers::document_symbols(&state, &uri).is_some());
     let hover = hover_text(&state, &uri, Position::new(0, 6)).unwrap_or_default();

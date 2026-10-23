@@ -143,6 +143,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify integration "a freshly initialised project passes format --check and check"
   verify unit "init writes the starter's values in the forms of the fields the extensions it enables declare"
   verify unit "init writes the project's version into its starter as one string the starter reads back, whatever the version holds"
+  verify unit "the product starter's journey flow is a list of steps"
   verify unit "init refuses a starter that does not parse, naming the extension whose template it is, before anything is written"
   verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 }
@@ -443,6 +444,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "an install enables the builtins it requires first, whatever its source"
   verify unit "an extension no specforge.json entry enables is not judged"
   verify unit "an add of an extension a .wasm file entry loads is refused, naming the entry, and writes nothing"
+  verify unit "an add refused over a .wasm file entry names the remove of that entry as one shell word"
   verify unit "an add of an extension a .wasm file entry loads in place of a broken install is refused, naming the entry, and writes nothing"
   verify integration "add and check agree: an add check would report E027 or E073 for is refused, and an add that passes leaves none"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"

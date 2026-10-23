@@ -8,6 +8,7 @@ use crate::{FieldForms, FileDefaults, GraphInputs, Reading};
 use specforge_common::{SourceSpan, Sym};
 use specforge_parser::{FieldEntry, MethodDecl, SpecFile};
 use std::borrow::Cow;
+use std::fmt;
 
 /// Who writes a token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +17,19 @@ pub enum Holder {
     Block(Sym),
     /// The file's `defaults` block for a kind (ADR 0149): no node, and no typed edit writes it (ADR 0151 D5).
     Defaults(Sym),
+    /// A selective `use` statement's binding (ADR 0233): no node, no block holds it.
+    Use,
+}
+
+impl fmt::Display for Holder {
+    /// A block's id, or `defaults <kind>`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Block(id) => write!(f, "{id}"),
+            Self::Defaults(kind) => write!(f, "defaults {kind}"),
+            Self::Use => f.write_str("use"),
+        }
+    }
 }
 
 /// How a token is written: what a typed edit can do about it.
@@ -29,6 +43,9 @@ pub enum Form {
     Undeclared,
     /// A type name a derived field links through (ADR 0127 D3): in a field written as a type, or a method signature.
     Derived,
+    /// A `use` binding's imported name (never its alias): a rename edits it, a delete with `unlink_references`
+    /// removes it (ADR 0233).
+    Binding,
 }
 
 /// One token of a file that names an entity.
@@ -39,14 +56,25 @@ pub struct WrittenToken {
     pub holder: Holder,
     /// The blocks whose node holds it as a reference, sorted, once each: its block; each block that takes the default's
     /// entry (`Holder::Defaults`; whatever it writes in a derived field), but not one a derived name of the default
-    /// names (a block never derives an edge to itself); none for a default no block takes. The graph build links exactly these (the debug assertion of `GraphBuild`).
+    /// names (a block never derives an edge to itself); none for a default no block takes or a `use` binding. The graph build links exactly these (the debug assertion of `GraphBuild`).
     pub held_by: Vec<Sym>,
-    /// The entry's key, or the derived field a type name links through.
+    /// The entry's key, the derived field a type name links through, or, for a binding, the path its statement
+    /// imports from.
     pub field: Sym,
-    /// Where it writes the ID: the ID's own bytes, inside the quotes of a quoted reference (ADR 0218).
     /// Where it writes the ID: the ID's own bytes, inside the quotes of a quoted reference (ADR 0218).
     pub span: SourceSpan,
     pub form: Form,
+}
+
+impl WrittenToken {
+    /// Where it is written, as a refusal names it: `file:line (holder, field)`.
+    #[must_use]
+    pub fn place(&self) -> String {
+        format!(
+            "{}:{} ({}, {})",
+            self.span.file, self.span.start_line, self.holder, self.field
+        )
+    }
 }
 
 /// Every token of `file` that names an entity, in written order, read the way the graph build reads it:
@@ -56,6 +84,8 @@ pub struct WrittenToken {
 ///   ([`Reading::references`], ADR 0093) and the type names a derived field of the holder's kind reads in them, that
 ///   name an entity its target admits, `kind_of` answering an entity's kind (`None`: no such entity); never the
 ///   block's own id;
+/// - each selective `use` binding's imported name, held by none, as [`Holder::Use`] (ADR 0233); its alias names
+///   nothing;
 /// - each names the blocks that hold it (`held_by`).
 ///
 /// A `define` block (never a node, W143) is skipped. A reference without a span (a value built without a position)
@@ -117,6 +147,24 @@ pub fn written_tokens(
         );
         for token in &mut tokens[from..] {
             token.held_by = vec![id];
+        }
+    }
+    // A `use` binding's imported name names its entity wherever it is declared; its alias names nothing (ADR 0233).
+    for import in &file.imports {
+        for binding in import
+            .bindings
+            .iter()
+            .flatten()
+            .filter(|b| !b.name.is_empty())
+        {
+            tokens.push(WrittenToken {
+                target: Sym::new(&binding.name),
+                holder: Holder::Use,
+                held_by: Vec::new(),
+                field: import.path,
+                span: binding.name_span.clone(),
+                form: Form::Binding,
+            });
         }
     }
     let at = |t: &WrittenToken| {

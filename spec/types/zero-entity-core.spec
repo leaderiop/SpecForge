@@ -172,7 +172,7 @@ type FieldDescriptor "Field Descriptor" {
   // The field on the target kind that holds the inverse reference
   inverse_of          string                 @optional
   /// The field states what the entity promises (a behavior's contract, an
-  /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
+  /// invariant's guarantee), as opposed to prose; the review document quotes it whole, and with headline it is the entity's statement.
   normative           boolean                @optional
   /// Set on an entity (true, or a non-empty value), the entity owes no
   /// obligations of its own: W004, coverage and stats leave it out.
@@ -201,7 +201,9 @@ type DerivedReferenceSource "Where a derived reference field takes its targets f
 type FieldType "FieldType: how the host reads a field's value (FieldType in specforge-protocol-types). Every output names a field type by these names: the declaration, the Graph Protocol schema and exports, the published JSON Schema, the model, the hover and E061 (ADR 0034). The host also reads the older spellings — each name with a `_type` suffix, and \"boolean\" — and never writes them. verify is NOT a field type — it is a grammar-level construct parsed by a dedicated rule (parse_verify_statements). Whether an entity kind supports verify is declared via the supports_verify flag on EntityKindDescriptor, not via field type registration." = "string"
   | "integer"
   | "bool"
+  | "date"
   | "enum"
+  | "identifier"
   | "string_list"
   | "reference"
   | "reference_list"

@@ -57,7 +57,7 @@ decision postgres_over_mongodb "PostgreSQL over MongoDB" {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `date` | date | When the decision was made (YYYY-MM-DD). |
+| `date` | date | When the decision was made: one calendar day, written bare (`2026-03-01`); another value is E061. |
 | `consequences` | string list | Known consequences -- both positive and negative. |
 | `invariants` | reference list | Invariants this decision protects. |
 | `refs` | reference list | External references linked to this decision. |

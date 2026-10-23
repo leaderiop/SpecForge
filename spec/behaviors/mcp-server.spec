@@ -266,7 +266,7 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
     listing_is_the_reading "The input schema or prompt listing states each argument's type, description, default, enumerated values and whether it is required, as the reading applies them"
     absent_is_the_default  "An absent or null argument reads as the default its listing states; a missing required one is refused naming it"
     value_read_by_type     "A value is read by its declared type, a boolean or count also from a string holding one, as extension command tools read them; any other value is invalid input naming the argument"
-    undeclared_refused     "An argument neither the entry nor its call target declares is invalid input naming it, with the declared argument it is close to"
+    undeclared_refused     "An argument the entry does not declare is invalid input naming it, with the declared argument it is close to; the call target's own (path) never reaches an entry's handler, core or extension"
     refusal_names_argument "A refusal about a value the caller sent names its argument, whatever its kind: the operation states which field of its request the refusal is about, and the entry maps each field to the argument that sends it"
   }
   contract   """
@@ -285,9 +285,13 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
     is read as the AgentPlan type, from an object or a string holding its JSON,
     checked against the schema its listing states. Any other
     value MUST be refused as invalid input naming the argument, with the
-    wording extension command tools use. An argument that neither the entry
-    nor its call target declares MUST be refused as invalid input naming it,
-    with the closest declared name as a suggestion. An argument whose
+    wording extension command tools use. An argument that the entry does not
+    declare MUST be refused as invalid input naming it, with the closest
+    declared name as a suggestion. The call target MUST take the names it
+    reads (path, for every entry that reads a project) out of the call's
+    arguments before any handler runs: a core tool, a prompt, an extension
+    command and an explicit extension tool are each handed only their own
+    (ADR 0239). An argument whose
     default depends on others (specforge.format's write) MUST state no
     default; its description states the rule. An operation's refusal of a
     core tool's, prompt's or resource's call that rejects a value the caller
@@ -303,6 +307,8 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
   verify unit "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
   verify unit "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
   verify unit "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
+  verify unit "an extension command given its own project's path, or a null one, runs as it does without one, and another project's path is the target's refusal"
+  verify unit "an explicit extension tool's export and its schema check are never handed the call target's path"
   verify unit "a prompt reads its arguments by the same rule its listing states"
   verify unit "an agent plan is read as the AgentPlan type, from an object or a string holding its JSON"
   verify unit "an operation's refusal of a core tool's call names the argument it is about"

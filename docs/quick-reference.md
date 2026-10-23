@@ -167,7 +167,7 @@ Written on the other side (derived, never a field here): deliverable `journeys` 
 ### milestone
 > @specforge/product — A significant project checkpoint with tracked progress
 
-Optional: `behaviors`, `blockers`, `contributors`, `depends_on`, `description`, `exit_criteria`, `features`, `modules`, `owner`, `priority` (enum: critical, high, medium, low), `reason`, `refs`, `start_date`, `status` (enum: planned, in_progress, completed, blocked), `tags`, `target_date`
+Optional: `behaviors`, `blockers`, `contributors`, `depends_on`, `description`, `exit_criteria`, `features`, `modules`, `owner`, `priority` (enum: critical, high, medium, low), `reason`, `refs`, `start_date` (date), `status` (enum: planned, in_progress, completed, blocked), `tags`, `target_date` (date)
 Writes: `behaviors` → behavior (`MilestoneIncludesBehavior`) (from @specforge/software), `depends_on` → milestone (`MilestoneDependsOn`), `features` → feature (`MilestoneDeliversFeature`), `modules` → module (`MilestoneScopesModule`)
 Written on the other side (derived, never a field here): deliverable `milestones` (`DeliverableTrackedByMilestone`), release `milestones` (`ReleaseCompletesMilestone`)
 
@@ -190,7 +190,7 @@ Written on the other side (derived, never a field here): journey `persona` (`Jou
 > @specforge/product — A versioned product release bundling deliverables
 
 Required: `version`
-Optional: `changelog`, `contributors`, `deliverables`, `depends_on`, `description`, `milestones`, `owner`, `reason`, `refs`, `release_date`, `status` (enum: planned, in_progress, released, recalled), `tags`, `target_date`
+Optional: `changelog`, `contributors`, `deliverables`, `depends_on`, `description`, `milestones`, `owner`, `reason`, `refs`, `release_date` (date), `status` (enum: planned, in_progress, released, recalled), `tags`, `target_date` (date)
 Writes: `deliverables` → deliverable (`ReleaseIncludesDeliverable`), `depends_on` → release (`ReleaseDependsOn`), `milestones` → milestone (`ReleaseCompletesMilestone`)
 
 ### term
@@ -249,7 +249,7 @@ Written on the other side (derived, never a field here): decision `constraints` 
 > @specforge/governance — An architectural or design decision with rationale and status
 
 Required: `context`, `decision`, `status` (enum: proposed, accepted, deprecated, superseded)
-Optional: `affects_features`, `alternatives`, `authors`, `consequences`, `constraints`, `date`, `deciders`, `description`, `invariants`, `reason`, `refs`, `superseded_by`, `tags`
+Optional: `affects_features`, `alternatives`, `authors`, `consequences`, `constraints`, `date` (date), `deciders`, `description`, `invariants`, `reason`, `refs`, `superseded_by`, `tags`
 Writes: `affects_features` → feature (`DecisionAffectsFeature`), `constraints` → constraint (`DecisionImposesConstraint`), `invariants` → invariant (`DecisionProtectsInvariant`), `superseded_by` → decision (`DecisionSupersedesDecision`)
 
 ### failure_mode

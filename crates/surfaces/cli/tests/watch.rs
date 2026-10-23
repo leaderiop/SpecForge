@@ -516,7 +516,7 @@ fn watch_follows_a_moved_spec_root() {
     assert_eq!(event["event"], "rebuilt", "{event}");
     assert_eq!(
         event["rebuilt_files"],
-        serde_json::json!(["three.spec"]),
+        serde_json::json!(["b/three.spec"]),
         "{event}"
     );
     assert_eq!(

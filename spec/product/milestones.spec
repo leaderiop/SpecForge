@@ -39,8 +39,8 @@ use "product/modules"
 milestone structural_parsing "Phase 1: Structural Parsing" {
   description   "Tree-sitter grammar and parser crate that turns .spec files into typed AST nodes with multi-error recovery."
   status        completed
-  start_date    "2025-04-15"
-  target_date   "2025-06-01"
+  start_date    2025-04-15
+  target_date   2025-06-01
   owner         "specforge-team"
   contributors  ["specforge-team"]
   features      [spec_file_parsing, error_recovery_during_parsing, editor_query_files]
@@ -57,8 +57,8 @@ milestone structural_parsing "Phase 1: Structural Parsing" {
 milestone resolution_and_graph "Phase 2: Resolution & Graph Construction" {
   description   "Import resolution and mutable entity graph that links all intra-project references across files."
   status        completed
-  start_date    "2025-06-01"
-  target_date   "2025-07-15"
+  start_date    2025-06-01
+  target_date   2025-07-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [structural_parsing]
@@ -77,8 +77,8 @@ milestone resolution_and_graph "Phase 2: Resolution & Graph Construction" {
 milestone validation_and_errors "Phase 3: Validation & Error Reporting" {
   description   "Structural and semantic validation with ariadne-powered diagnostic reporting and CI exit codes."
   status        completed
-  start_date    "2025-07-15"
-  target_date   "2025-08-30"
+  start_date    2025-07-15
+  target_date   2025-08-30
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [resolution_and_graph]
@@ -97,8 +97,8 @@ milestone validation_and_errors "Phase 3: Validation & Error Reporting" {
 milestone output_and_export "Phase 4: Output & Agent Export" {
   description   "Graph serialization to JSON, DOT, and agent-optimized formats with multi-resolution queries and deterministic output."
   status        completed
-  start_date    "2025-08-30"
-  target_date   "2025-10-15"
+  start_date    2025-08-30
+  target_date   2025-10-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [validation_and_errors]
@@ -120,8 +120,8 @@ milestone output_and_export "Phase 4: Output & Agent Export" {
 milestone project_init "Phase 5: Project Initialization" {
   description   "Project scaffolding via specforge init with interactive extension selection and specforge.json configuration."
   status        completed
-  start_date    "2025-10-15"
-  target_date   "2025-11-01"
+  start_date    2025-10-15
+  target_date   2025-11-01
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [output_and_export]
@@ -140,8 +140,8 @@ milestone project_init "Phase 5: Project Initialization" {
 milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
   description   "File watching with debounced incremental rebuild, graph deltas, and minimal invalidation (only changed files re-parsed)."
   status        completed
-  start_date    "2025-10-15"
-  target_date   "2025-11-15"
+  start_date    2025-10-15
+  target_date   2025-11-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [output_and_export]
@@ -160,8 +160,8 @@ milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
 milestone lsp_server "Phase 7: LSP Server" {
   description   "Full Language Server Protocol implementation with navigation, completion, refactoring, live diagnostics, and semantic tokens."
   status        completed
-  start_date    "2025-11-15"
-  target_date   "2025-12-15"
+  start_date    2025-11-15
+  target_date   2025-12-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [ms_incremental_compilation]
@@ -192,8 +192,8 @@ milestone lsp_server "Phase 7: LSP Server" {
 milestone ms_code_formatting "Phase 8: Code Formatting" {
   description   "Idempotent code formatter with CST-preserving comment handling, CLI check mode, and LSP formatting integration."
   status        completed
-  start_date    "2025-10-15"
-  target_date   "2025-11-30"
+  start_date    2025-10-15
+  target_date   2025-11-30
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [output_and_export]
@@ -218,8 +218,8 @@ milestone ms_code_formatting "Phase 8: Code Formatting" {
 milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
   description   "Core compiler refactored to have zero hardcoded entity types. All domain vocabulary comes from extensions via ExtensionDeclaration declarations."
   status        completed
-  start_date    "2025-12-01"
-  target_date   "2026-01-15"
+  start_date    2025-12-01
+  target_date   2026-01-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [ms_code_formatting]
@@ -256,8 +256,8 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
 milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
   description   "Wasm component runtime with compile caching, sandbox enforcement, peer dependency validation, and surface contribution dispatch. The host-function import surface is not part of it: it is planned as Phase 15 (wasm_host_functions)."
   status        completed
-  start_date    "2026-01-15"
-  target_date   "2026-02-01"
+  start_date    2026-01-15
+  target_date   2026-02-01
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [zero_entity_core]
@@ -292,8 +292,8 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
 milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
   description   "Full extension lifecycle: install, upgrade, remove, author, build, test, publish. Registry integration and lock management."
   status        completed
-  start_date    "2026-02-01"
-  target_date   "2026-02-28"
+  start_date    2026-02-01
+  target_date   2026-02-28
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [wasm_runtime]
@@ -337,8 +337,8 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
 milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   description   "First-party domain extension implementing behavior, invariant, event, type, and port entity kinds for software engineering specifications."
   status        completed
-  start_date    "2026-03-01"
-  target_date   "2026-04-15"
+  start_date    2026-03-01
+  target_date   2026-04-15
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [zero_entity_core, wasm_runtime]
@@ -358,8 +358,8 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
 milestone schema_versioning "Phase 12: Graph Protocol Schema Versioning" {
   description   "Self-describing graph protocol schema embedded in exports with version auto-computation, breaking change detection, and schema negotiation."
   status        completed
-  start_date    "2025-10-15"
-  target_date   "2025-11-30"
+  start_date    2025-10-15
+  target_date   2025-11-30
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [output_and_export]
@@ -378,8 +378,8 @@ milestone schema_versioning "Phase 12: Graph Protocol Schema Versioning" {
 milestone mcp_server "Phase 13: MCP Server" {
   description   "Model Context Protocol server exposing graph resources, core/navigation/mutation/project tools, delta notifications, and guided prompts."
   status        completed
-  start_date    "2025-12-15"
-  target_date   "2026-01-31"
+  start_date    2025-12-15
+  target_date   2026-01-31
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [schema_versioning]
@@ -412,8 +412,8 @@ milestone mcp_server "Phase 13: MCP Server" {
 milestone migration "Phase 14: Migration" {
   description   "Spec file migration with dry-run preview, backup, post-migration validation, rollback, and extension migration hook invocation."
   status        completed
-  start_date    "2026-05-01"
-  target_date   "2026-06-30"
+  start_date    2026-05-01
+  target_date   2026-06-30
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [extension_ecosystem]

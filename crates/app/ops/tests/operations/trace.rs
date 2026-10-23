@@ -250,33 +250,6 @@ fn trace_missing_link_flagged() {
     );
 }
 
-// B:compute_traceability_chain — a missing link is an expected edge that is
-// absent, not a broken reference: a dangling edge is E003 in check.
-#[specforge_test(behavior = "compute_traceability_chain")]
-fn trace_dangling_edge_is_not_a_missing_link() {
-    let mut graph = Graph::new();
-    graph.add_node(node("a", "feature"));
-    graph.add_node(node("b", "behavior"));
-    graph.add_edge(Edge {
-        source: "b".into(),
-        target: "a".into(),
-        label: "features".into(),
-    });
-    // b declares an invariant that does not exist.
-    graph.add_edge(Edge {
-        source: "b".into(),
-        target: "phantom".into(),
-        label: "invariants".into(),
-    });
-
-    let trace = chain_in(&graph, crate::trace_support::build(), "b").unwrap();
-    assert!(trace.missing.is_empty(), "{:?}", trace.missing);
-    assert!(
-        !trace.downstream.iter().any(|l| l.entity_id == "phantom"),
-        "an undeclared entity is not part of the chain"
-    );
-}
-
 // B:compute_traceability_chain — the expected edges come from the
 // registries alone.
 #[specforge_test(behavior = "compute_traceability_chain")]
@@ -366,7 +339,8 @@ fn reach_lists_what_the_chains_reach_and_what_is_unverified() {
 /// The end-to-end trace tests, which `specforge-cli` ran through the binary: the same requests, over a compiled
 /// project.
 mod compiled {
-    use crate::compiled_support::{TestProject, built, specs, trace_document, traced};
+    use crate::compiled_support::{TestProject, built, exported_as, specs, trace_document, traced};
+    use specforge_ops::read::export::Format;
     use specforge_ops::read::trace::Target;
     use specforge_project::CompiledProject;
     use specforge_test_macros::test as specforge_test;
@@ -721,6 +695,89 @@ behavior beta "B" { contract "first" features [alpha] }
         }
         assert_eq!(missing_links(&traces[2]), software_gaps("pay"));
         assert_eq!(missing_links(&traces[3]).len(), 6);
+    }
+
+    /// software + product loaded. main.spec: `pay` writes a feature and a
+    /// quoted invariant that do not exist, `refund` writes its features
+    /// empty, `store`'s `types` link is derived from its method's signature.
+    /// inherited.spec: `void` inherits a feature that does not exist from its
+    /// file's defaults.
+    const UNRESOLVED: [(&str, &str); 2] = [
+        (
+            "main.spec",
+            "behavior pay \"Pay\" {\n    contract \"The system MUST take payment once\"\n    features [nowhere]\n    invariants [\"nothing\"]\n}\n\n\
+             behavior refund \"Refund\" {\n    contract \"The system MUST return the payment\"\n    features []\n}\n\n\
+             port store \"Store\" {\n    direction outbound\n    method load(id: string) -> Receipt\n}\n\n\
+             type Receipt \"Receipt\" {\n    total string\n}\n",
+        ),
+        (
+            "inherited.spec",
+            "defaults behavior {\n    features [nowhere_inherited]\n}\n\n\
+             behavior void \"Void\" {\n    contract \"The system MUST cancel the payment\"\n}\n",
+        ),
+    ];
+
+    #[specforge_test(
+        behavior = "compute_traceability_chain",
+        verify = "a field that writes a reference has its link, resolved or not: an unresolved one is E003, never a missing link"
+    )]
+    fn a_field_that_writes_an_unresolved_reference_has_no_missing_link() {
+        let project = TestProject::new()
+            .enabling(&["@specforge/software", "@specforge/product"])
+            .files(&UNRESOLVED);
+        let compiled = project.compile();
+        // Each unresolved reference is check's E003.
+        let unresolved: Vec<String> = compiled
+            .diagnostics()
+            .into_iter()
+            .filter(|d| d.code == "E003")
+            .map(|d| d.message)
+            .collect();
+        for id in ["nowhere", "nothing", "nowhere_inherited"] {
+            assert!(
+                unresolved.iter().any(|m| m.contains(&format!("'{id}'"))),
+                "{unresolved:?}"
+            );
+        }
+
+        let labels = |id: &str| -> Vec<String> {
+            missing_links(&run_trace(&compiled, &[id]))
+                .into_iter()
+                .map(|(_, label, _, _)| label)
+                .collect()
+        };
+        // pay writes both fields, neither resolving: only what it leaves out is missing.
+        assert_eq!(labels("pay"), ["consumes", "ports", "produces", "types"]);
+        // An empty list writes nothing.
+        assert_eq!(
+            labels("refund"),
+            [
+                "consumes",
+                "features",
+                "invariants",
+                "ports",
+                "produces",
+                "types"
+            ]
+        );
+        // An inherited value is written.
+        assert_eq!(
+            labels("void"),
+            ["consumes", "invariants", "ports", "produces", "types"]
+        );
+        // A derived field's edge is its link.
+        assert_eq!(labels("store"), Vec::<String>::new());
+
+        // The review document lists the same references, unresolved.
+        let markdown = exported_as(&compiled, Format::Markdown);
+        assert!(
+            markdown.contains("| features | `nowhere` | — | *unresolved* |"),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains("| invariants | `nothing` | — | *unresolved* |"),
+            "{markdown}"
+        );
     }
 
     #[specforge_test(

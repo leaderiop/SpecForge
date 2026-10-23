@@ -76,8 +76,8 @@ fn kinds(c: &mut ContributionsBuilder) {
                 .description("Free-form description of the decision");
         });
         k.field("date", |f| {
-            f.field_type(FieldType::String)
-                .description("Date the decision was made or last updated");
+            f.field_type(FieldType::Date)
+                .description("The day the decision was made or last updated");
         });
         k.field("authors", |f| {
             f.field_type(FieldType::StringList)

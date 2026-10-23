@@ -74,8 +74,8 @@ journey sign_in "Sign In" {
 milestone mvp "Minimum Viable Product" {
   status      in_progress
   features    [user_auth]
-  start_date  "2026-01-15"
-  target_date "2026-03-31"
+  start_date  2026-01-15
+  target_date 2026-03-31
   owner       "alice"
   exit_criteria [
     "All MVP features done",

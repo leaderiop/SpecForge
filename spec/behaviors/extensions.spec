@@ -449,7 +449,8 @@ behavior remove_extension "Remove Extension" {
     nothing. An entry that enables an extension neither builtin nor
     installed (it does not load, E028) MUST be removable by its name,
     dropping only its specforge.json entry; a name no entry or lock entry
-    has is extension_not_found (E072 when it is no package name); while
+    has is extension_not_found (E072 when it is no package name; for a
+    builtin, saying it is not enabled, never that it is not installed); while
     specforge.lock is there and can't be read, a removal whose answer the lock
     would decide (an entry of unknown origin, a name the project has nothing
     under) MUST be refused with the lock's E033, the refusal add and update
@@ -494,6 +495,7 @@ behavior remove_extension "Remove Extension" {
   verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "the remove document names the extension's source and version whatever its origin"
   verify unit "specforge remove with no lock file reports error"
+  verify unit "removing a builtin no entry enables says it is not enabled, never that it is not installed"
   verify unit "a removal that fails changes nothing"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
@@ -788,7 +790,13 @@ behavior search_registry "Search Registry" {
     name + version — when the same name + version appears from multiple
     registries, the first registry in specforge.json declaration order
     wins, and each result names that registry. Output MUST be
-    deterministic — sorted by name, then version. Each registry that
+    deterministic — sorted by name, then version (by SemVer precedence).
+    A hit that is no package name or no SemVer version makes that
+    registry's reply unreadable (R009): that registry failed, and the others
+    are still asked. A registry serves no stored package whose name is no
+    package name (ADR 0036). A hit's description MUST be listed printable:
+    each control character and bidirectional control as its \u{..} escape,
+    on every surface. Each registry that
     fails MUST be reported once, with its code (on stderr under human
     output, in the document's diagnostics under --format json, each in the shape
     every command writes a diagnostic); the document names --contributes only
@@ -817,6 +825,9 @@ behavior search_registry "Search Registry" {
   verify integration "search's document writes its diagnostics as check does and carries no null"
   verify unit "deduplicates results across registries"
   verify unit "output is deterministic"
+  verify unit "a search reply holding a hit that is no package name or no SemVer version is that registry's failure, R009"
+  verify unit "a registry serves no stored package whose name is no package name"
+  verify unit "a hit's description is listed printable, each control character as its escape"
   verify unit "error from one registry does not abort search of others"
   verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, category_filtered, failures_reported_once, search_completed_emitted, partial_failure_resilience"
 }
@@ -924,6 +935,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "the registry refuses a name or version that is not a package name or version"
   verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
   verify unit "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+  verify integration "a publish refused for want of a credential names the login command with the registry alias as one shell word"
   verify unit "the environment token wins over the stored credential"
   verify unit "a signing key that can't be read is refused with E074 before any network call"
   verify unit "publish asks the registry add fetches the same name from"
@@ -1019,6 +1031,10 @@ behavior check_registry_reply "Check Registry Reply" {
     accepts it, and the lock is left as it was. A lock entry that pins no
     hash pins no bytes.
     A refused reply pins no key and installs nothing.
+    Text the registry supplies (an error's message, a reply's or a served
+    manifest's name and version, a digest) MUST be written in a diagnostic
+    printable: each control character and bidirectional control as its
+    \u{..} escape.
   """
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
@@ -1033,6 +1049,7 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "add of the version specforge.lock pins, served as its bytes, installs them and leaves the lock as it was"
   verify integration "a fetch of the version specforge.lock pins served as other bytes is refused before its download"
   verify integration "a package published with a legacy manifest is refused with a re-publish suggestion"
+  verify unit "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {

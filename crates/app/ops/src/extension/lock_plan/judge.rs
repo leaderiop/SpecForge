@@ -257,7 +257,10 @@ fn loaded_from_a_file(name: &str, path: &str) -> OpError {
         "extension_conflict",
         format!("'{name}' is loaded from the .wasm file entry '{path}' in specforge.json"),
     )
-    .with_suggestion(format!("remove that entry first: specforge remove {path}"))
+    .with_suggestion(format!(
+        "remove that entry first: {}",
+        specforge_common::remedy::command("specforge remove {}", &[path])
+    ))
     .with_data(serde_json::json!({ "extension": name, "file": path }))
 }
 
@@ -401,7 +404,8 @@ fn diamond(registry: &dyn Registry, set: &ProjectPeers, edge: &Edge, locked: &st
             ),
         )
         .with_suggestion(format!(
-            "install '{peer}' at {unified} (specforge add {peer}@{unified}), or at another version every requirer accepts, then retry; when a locked extension must move with it, specforge update --major moves them together"
+            "install '{peer}' at {unified} ({}), or at another version every requirer accepts, then retry; when a locked extension must move with it, specforge update --major moves them together",
+            specforge_common::remedy::command("specforge add {}", &[&format!("{peer}@{unified}")])
         )),
         Err(diagnostic) => OpError::of(OpErrorKind::Conflict, diagnostic),
     }

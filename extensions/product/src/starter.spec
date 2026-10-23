@@ -29,10 +29,7 @@ journey onboarding "New user onboarding" {
   persona  developer
   channels [cli]
   features [user_auth]
-  flow     """
-    1. Developer installs the CLI
-    2. Developer signs in with their credentials
-  """
+  flow     ["Developer installs the CLI", "Developer signs in with their credentials"]
 }
 
 module core "Core module" {

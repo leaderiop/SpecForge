@@ -65,7 +65,9 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     spec files according to the canonical style.
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
     return FormatDiff entries for each changed file. The tool MUST run the
-    same format operation as specforge format. A file that cannot be read or
+    same format operation as specforge format. A path in paths that names
+    nothing MUST refuse the call before any file is read, as file_not_found
+    about paths, naming the file as spelled. A file that cannot be read or
     written MUST NOT stop the others from being formatted: the result MUST
     name it, and the call MUST be reported as failed, with the kind of
     failure the OS gave (permission_denied for a file it refused, file_not_found
@@ -98,6 +100,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "a file that cannot be written does not stop the others, and the failed call names it"
   verify unit "a file that cannot be read fails the call, is named, and does not stop the others"
   verify unit "a file that does not exist fails the call as file_not_found, naming it"
+  verify unit "a path that names nothing refuses the call about paths, naming it"
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify unit "the format tool advertises no default for write, and check or diff without write writes nothing"
@@ -144,7 +147,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     references across all spec files. The edits are exactly every token that
     names the entity: its declaration's name (where the parse read it, on any
     line of the header) and each reference, a reference
-    written in a defaults block that no block takes included, as the editor's
+    written in a defaults block that no block takes and a use binding's
+    imported name (never its alias) included, as the editor's
     find-references returns them;
     text in strings, comments and verify statements that mentions the ID
     is not a reference and is not edited; a quoted reference is a reference,
@@ -233,7 +237,7 @@ behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {
   """
   verify unit "specforge.edit applies a list of edits all or nothing"
   verify unit "specforge.edit writes two spellings of one new file as one file"
-  verify unit "specforge.edit refuses a new file named from the project root, naming its spec-root spelling"
+  verify unit "specforge.edit refuses a new file outside the spec root, with no suggestion"
   verify unit "specforge.edit with dry_run writes nothing and returns the diff"
   verify unit "specforge.edit of a list that cancels out writes nothing and names no entity"
 }

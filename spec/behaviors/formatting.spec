@@ -43,6 +43,8 @@ behavior format_spec_files "Format Spec Files" {
     apply formatting rules, and write the formatted output back to disk.
     Files that are already correctly formatted MUST NOT be rewritten.
     The command MUST print the names of changed files and a summary count.
+    A file the user named is printed as typed; a file the run found is
+    printed from the project root, as the document names it (ADR 0102).
     A file that cannot be read or written, or that has a region left
     unformatted (format_with_parse_errors), MUST make the command exit with
     code 1; every other file is still formatted and written. A file whose
@@ -63,7 +65,9 @@ behavior format_spec_files "Format Spec Files" {
   """
   verify unit "files matching the canonical format are not rewritten"
   verify unit "a value is written in its field's form, read from the project's declarations"
+  verify unit "check, format and set agree on a quoted number, a quoted date and a whole value on a list field"
   verify unit "changed files are printed to stdout"
+  verify unit "with no path typed, the human output names each file it found from the project root"
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
   verify integration "a file whose write fails part-way is left whole and is not in files_written"
@@ -229,12 +233,15 @@ behavior format_from_stdin "Format from Standard Input" {
     unformatted, the formatted text MUST still be printed and the command
     MUST exit with code 1. Its output is the formatted text, so --stdin
     MUST refuse --format json (invalid_input, the error document on stdout).
+    It MUST also refuse a path, --check and --diff as a refused command line
+    (exit 2): the text's place is --path.
     Values are written in the forms of the declarations of the project the text belongs to.
   """
   verify unit "stdin content is formatted and written to stdout"
   verify unit "--stdin refuses --format json with the error document"
   verify unit "stdin with a region left unformatted prints the formatted text and exits 1"
   verify unit "stdin mode does not read or write files"
+  verify unit "--stdin refuses a path, --check and --diff as a usage error"
   verify property "stdin formatting is idempotent"
   verify property "stdin formatting converges to canonical form"
   verify contract "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
@@ -285,6 +292,7 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "a bounded caller's configuration that leaves the bound or has more than one name is a W141 naming where it lands or how many names it has, never its content"
   verify unit "an unbounded caller follows a linked configuration"
   verify unit "a typed edit and init lay out with the defaults when their bound refuses the configuration"
+  verify unit "a bounded migration lays out with the defaults when its bound refuses the configuration"
   verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
 }
 
@@ -334,7 +342,7 @@ behavior apply_format_rules "Apply Format Rules" {
     formats to the empty text. A value is written in its field's form
     (ADR 0147): a quoted word (on a reference list, a quoted entity id, scheme
     refs included) on a field whose declared type writes it bare
-    loses its quotes, and a bare word on a text field gains them, read from
+    loses its quotes, and a bare word on a text field gains them; a number, true or false and a calendar day is written bare on its field, a literal on a text field quoted, and a one-line whole value on a list field in brackets; a multi-line text is kept byte-for-byte; read from
     the declarations of the document's own project, found from its place; a `defaults <kind>` block's values are read in the forms of the kind it names, as the graph applies them; nothing else in a string literal changes, and
     a triple-quoted one is kept byte-for-byte. Statements keep their source
     order; only runs of imports are sorted. An expression block's
@@ -367,6 +375,8 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "a value is written in its field's form, read from the project's declarations"
   verify unit "without the project's declarations no value is rewritten"
   verify unit "a defaults block's values are written in the forms of the kind it names"
+  verify unit "a number, a boolean, a literal and a whole value on a list field are written in their field's form"
+  verify unit "a multi-line text on a list field is left as written"
   verify unit "a document of the project the caller holds is written in its lent forms, without loading them again"
   verify unit "another project's forms load once per run"
   verify unit "a document outside any project is written as it is"
@@ -641,7 +651,8 @@ behavior discover_format_targets "Discover Format Targets" {
     of a walked file) MUST be read before any file: one that does not say
     which files are its sources refuses the whole run (config_invalid). A
     file named explicitly selects no configuration and is formatted
-    whatever specforge.json says.
+    whatever specforge.json says. A named path that names nothing MUST
+    refuse the run (file_not_found, about the paths) before any file is read.
   """
   verify unit "no arguments formats all .spec files under spec_root"
   verify unit "files the project's exclude entries leave out are not formatted"
@@ -654,5 +665,7 @@ behavior discover_format_targets "Discover Format Targets" {
   verify contract "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
   verify unit "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
   verify unit "a named file is formatted whatever specforge.json says"
+  verify unit "a named path that names nothing refuses the run about paths before any file is read"
+  verify unit "format refuses a path that names nothing and exits 1, so a mistyped directory fails a check"
   verify unit "a project's sources end at a nested project, which a run from the project does not format"
 }

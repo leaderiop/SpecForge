@@ -14,6 +14,7 @@ use crate::asking::Asking;
 use crate::options::{Choice, OptionTable};
 use crate::{OpError, OpErrorKind};
 use serde::Serialize;
+use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
 use specforge_installed::LockFileEntry;
@@ -141,14 +142,15 @@ impl<'a> LockedPin<'a> {
             LOCKED_BYTES_CHANGED,
             format!(
                 "registry package {name}@{version} is not the binary specforge.lock pins: \
-                 the lock records sha256 {}, the registry serves {sha256}",
-                self.sha256
+                 the lock records sha256 {}, the registry serves {}",
+                self.sha256,
+                printable(sha256)
             ),
         )
         .with_suggestion(format!(
             "a published version never changes: check the registry that serves '{name}'; to install \
-             the bytes it serves instead, remove the extension (`specforge remove {name}`) and add it \
-             again"
+             the bytes it serves instead, remove the extension (`{}`) and add it again",
+            specforge_common::remedy::command("specforge remove {}", &[name.as_str()])
         )))
     }
 }
@@ -309,14 +311,29 @@ pub struct Published {
     pub key_created: bool,
 }
 
-/// One package a search found.
+/// One package a search found, built with [`Found::new`] by both adapters of the port.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct Found {
-    pub name: String,
-    pub version: String,
+    #[shape(as = String)]
+    pub name: PackageName,
+    #[shape(as = String)]
+    pub version: Version,
+    /// The registry's description, printable ([`specforge_common::remedy::printable`]).
     pub description: String,
     /// The alias of the registry it was found in: the first in `specforge.json` order that lists it.
     pub registry: String,
+}
+
+impl Found {
+    /// What a registry lists for `name@version`, its `description` as given: written printable.
+    pub fn new(name: PackageName, version: Version, description: &str, registry: String) -> Found {
+        Found {
+            name,
+            version,
+            description: printable(description).into_owned(),
+            registry,
+        }
+    }
 }
 
 /// What a search found, and the registries that failed (each failure is reported, the others still asked).
@@ -536,6 +553,28 @@ impl Registry for Unconfigured {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+    )]
+    fn a_locked_pin_quotes_the_served_digest_printable() {
+        let pin = LockedPin {
+            version: "1.0.0",
+            sha256: "A",
+            key_id: None,
+        };
+        let name = PackageName::parse("@a/x").unwrap();
+        let error = pin
+            .admits(&name, &Version::new(1, 0, 0), "B\u{1b}[2J")
+            .unwrap_err();
+        assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
+        assert!(!error.message.contains(char::is_control), "{error:?}");
+        assert!(
+            error.message.ends_with("the registry serves B\\u{1b}[2J"),
+            "{error:?}"
+        );
+    }
 
     #[specforge_test_macros::test(
         type = "KeyPin",

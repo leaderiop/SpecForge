@@ -83,7 +83,11 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     The declarative validation engine MUST execute each registered pattern
     against the compiled graph. no_incoming_edges MUST check that every
     entity of the target kind has at least one incoming edge. no_outgoing_edges
-    MUST check outgoing edges. An edge rule with an edge type counts only
+    MUST report an entity that points at nothing: no field writes a reference,
+    resolved or not, and no edge leaves it (with an edge type, only that edge
+    type's fields and edges). A reference that does not resolve is E003,
+    reported alone: no edge rule reports its cascade. no_edges MUST report an
+    entity no edge points at that points at nothing. An edge rule with an edge type counts only
     the edges of that type: an edge is of the type its field writes from
     the kind of the entity it starts at (registry_build_edges). The rule is
     inert when no loaded field can write such an edge at its target kind.
@@ -110,6 +114,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
   verify unit "an edge rule over an edge type several kinds write without declaring it counts the edges of every writing kind"
   verify unit "an edge rule does not count an edge of another edge type, whatever kinds it links"
+  verify unit "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
+  verify unit "one mistyped id is E003 alone: no builtin edge rule reports the entity whose field writes it"
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
@@ -432,7 +438,7 @@ behavior check_field_value_types "Check Field Value Types" {
     become a one-item list (a bare word the one-item reference list
     `field [value]` parses to), and a list mixing strings, integers and
     booleans the list of its items' text. A quoted integer or boolean on an
-    integer or bool field MUST become that integer or boolean, and an
+    integer or bool field MUST become that integer or boolean, a quoted calendar day on a date field MUST become that date, and an
     integer or boolean on a string or enum field MUST become its text.
     Coercion MUST NOT produce a diagnostic.
 
@@ -441,7 +447,7 @@ behavior check_field_value_types "Check Field Value Types" {
     and the value given. A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
     (suggesting the closest); an integer field an integer; a bool field
-    true or false; an identifier field one word (letters, digits and `_`,
+    true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no
     extension registers keep their parsed value (W020 reports them). The
@@ -455,10 +461,12 @@ behavior check_field_value_types "Check Field Value Types" {
     naming the defaults block, however many blocks take it), naming the
     field and the form (ADR 0147): bare for an enum, identifier or reference
     value and each item of a reference list, quoted for text and each item of
-    a string list. The check runs right after E061, only on a value E061
+    a string list; an integer, true or false and a calendar day bare; a list
+    field's whole value in brackets, one item per value (a multi-line text
+    on a list field is one item: split it, format cannot). The check runs right after E061, only on a value E061
     admits, and agrees with `specforge format`: a value is W159 exactly when
     format rewrites it (both ask FieldForms::rewrite), except a default no block
-    takes, which is W161. A bare word on a kind
+    takes, which is W161, and a multi-line text on a list field, which format cannot split. A bare word on a kind
     that takes members is not W159: it may be a member's type; nor is a
     quoted value that is not a word, or true or false, on a bare field.
   """
@@ -477,5 +485,11 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a bare word on a kind that takes members is not W159"
   verify unit "a value E061 refuses is not W159"
   verify unit "a value a defaults block writes in the other form is W159 once, at the default"
+  verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+  verify unit "a list item's W159 writes the whole list in its field's form"
+  verify unit "a multi-line text on a list field is W159, naming each line as an item"
+  verify unit "a quoted calendar day on a date field is W159, written bare"
+  verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
+  verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }

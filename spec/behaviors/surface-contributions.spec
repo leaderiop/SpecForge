@@ -134,8 +134,15 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     required lists the required args that are not flags, since a flag is
     false unless set; no undeclared property is accepted.
     If an explicit MCP tool contribution already exists with the same
-    name, the explicit tool MUST win and I017 MUST be emitted. Auto-
-    promoted tools appear in list_mcp_tools alongside explicit tools.
+    name, the explicit tool MUST win and I017 MUST be emitted.
+    The SDK MUST refuse to build an extension whose explicit MCP tool declares
+    path in its input_schema, as a property or a required name, by the one rule
+    the host also reads (specforge_protocol_types::tool_input), as it refuses a
+    command arg named path. An explicit MCP tool whose input_schema declares
+    path, as a property or a required name, MUST NOT be served, and I017 MUST
+    say why: path is the call target's on every call (ADR 0239), as an arg
+    named path is the host's on a command. Auto-promoted tools appear in list_mcp_tools
+    alongside explicit tools.
   """
   verify unit "CLI command auto-promoted to MCP tool"
   verify unit "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
@@ -145,6 +152,8 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
   verify unit "a required flag is not required over MCP, as on the command line"
   verify unit "an explicit extension tool named as a core tool is not listed, with I017"
+  verify unit "the SDK refuses to build an explicit MCP tool whose input schema declares path, as a property or a required name"
+  verify unit "an explicit extension tool whose input schema declares path is not listed, with I017"
   verify integration "each auto-promoted tool is a command line of the same name whose help shows the tool's description and each of its arguments"
   verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
 }

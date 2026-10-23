@@ -99,23 +99,18 @@ behavior validate_milestone_target_date_format "Validate Milestone Target Date F
   category validation
   types    [Diagnostic, ProductMilestone]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    matches rule on the milestone target_date field with the regex
-    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A milestone whose target_date is
-    present and doesn't match MUST produce an I053 info diagnostic:
-    "milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD".
-    The regex checks the shape only, not that the date exists. Info-level
-    respects incremental adoption — projects may use free-form dates
-    before standardizing.
+    The @specforge/product extension MUST declare target_date a date field;
+    a value that is no calendar day is the core's E061 (I053 retired into
+    it). Absent target_date is valid: incremental adoption.
   """
   ensures {
-    fires_invalid_format "milestone with non-YYYY-MM-DD target_date produces I053"
-    suppresses_valid     "milestone with valid YYYY-MM-DD target_date suppresses I053"
-    absent_passes        "milestone with no target_date produces no I053"
+    fires_invalid_format "a milestone's target_date that is no calendar day is E061"
+    suppresses_valid     "milestone with valid YYYY-MM-DD target_date passes"
+    absent_passes        "milestone with no target_date produces no E061"
   }
   verify unit "milestone with valid YYYY-MM-DD target_date passes"
-  verify unit "milestone with invalid target_date format produces I053"
-  verify unit "milestone with no target_date produces no I053"
+  verify unit "a milestone's target_date that is no calendar day is E061"
+  verify unit "milestone with no target_date produces no E061"
 }
 
 behavior validate_deliverable_version_format "Validate Deliverable Version Format" {

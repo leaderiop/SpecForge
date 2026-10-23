@@ -74,6 +74,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
     migration_backup_safety,
     migration_atomicity,
     migration_semantic_preservation,
+    migration_canonical_form,
     zero_domain_knowledge_core,
     document_project_paths,
   ]
@@ -104,7 +105,11 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
     migration_starting before beginning transforms.
 
     The system MUST transform .spec files from the detected source version
-    to the target version. Before modifying any file, the system MUST
+    to the target version. Every block a migration step adds or changes MUST
+    then be laid out by the formatter with its file's format configuration,
+    read through the run's bound, and the project's field forms, as a typed
+    edit lays out the block it changes; no other byte changes, and a file no
+    step changes is skipped as it is. Before modifying any file, the system MUST
     create a backup copy with a .bak extension unless --no-backup is
     specified. A migration MUST be written all or nothing: when any file
     cannot be read or migrated, no file is written, and the report names every
@@ -183,10 +188,11 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   verify unit "a header below leading blank lines is rewritten where it stands"
   verify property "the header migrate writes is the header the parser reads"
   verify integration "migrate leaves a nested project's files alone"
+  verify unit "every block a migration step changed is laid out with its file's format configuration"
 }
 
 behavior add_missing_titles "Add Missing Titles" {
-  invariants [migration_idempotency, migration_semantic_preservation]
+  invariants [migration_idempotency, migration_semantic_preservation, migration_canonical_form]
   category   mutation
   ports      [FileSystem]
   contract   """
@@ -228,7 +234,7 @@ behavior add_missing_titles "Add Missing Titles" {
 }
 
 behavior hoist_file_defaults "Hoist File Defaults" {
-  invariants [migration_idempotency, migration_semantic_preservation]
+  invariants [migration_idempotency, migration_semantic_preservation, migration_canonical_form]
   category   mutation
   ports      [FileSystem]
   contract   """
@@ -250,6 +256,8 @@ behavior hoist_file_defaults "Hoist File Defaults" {
     idempotent. The hoist keeps the graph by asking the rule the graph applies;
     the graph comparison still refuses, and writes nothing, should any step
     change it.
+    The block and every block the step shortened are laid out by the
+    formatter (migrate_spec_files_in_place).
   """
   verify unit "a list every block writes alike is hoisted"
   verify unit "the most common list is hoisted and the others keep theirs"
@@ -266,6 +274,7 @@ behavior hoist_file_defaults "Hoist File Defaults" {
   verify unit "a field or a kind the field forms do not declare is never hoisted"
   verify unit "a field its kind does not declare is never hoisted, and the other steps are written"
   verify unit "the block goes above the file's first block when an import follows it"
+  verify unit "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {

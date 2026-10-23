@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-12). Amends [ADR 0006](0006-one-incremental-rebuild.md) (the sentence
 "ignored, as a cold compile ignores it"), [ADR 0032](0032-one-graph-build.md) ("The resolver returns what is
 read") and [ADR 0004](0004-architecture-migration-decisions.md) D1-b; completes
-[ADR 0030](0030-a-sessions-inputs-are-one-value.md) D1.
+[ADR 0030](0030-a-sessions-inputs-are-one-value.md) D1. W027 covers every selective import and is placed on the binding, [ADR 0233](0233-a-use-binding-is-a-finder-token.md). Amended by [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md): D1, a key is a path from the project root; the resolver takes the spec root's key prefix and still reads nothing (also ADR 0032's "with no spec root" note).
 
 The resolver decided what a `use` path names by asking the disk: `resolve_imports(spec_root, files, exists)`,
 with `exists` always `Path::is_file`, and go-to-definition's `resolve_import` calling `is_file` itself. The

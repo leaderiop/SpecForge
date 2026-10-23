@@ -25,10 +25,14 @@ pub(super) fn unknown(
         }
 
         let suggestion = Some(match candidates.kind_owner(keyword) {
-            Some(ext) => format!("install it with: specforge add {ext}"),
-            None => {
-                format!("search for an extension that provides it with: specforge search {keyword}")
-            }
+            Some(ext) => format!(
+                "install it with: {}",
+                specforge_common::remedy::command("specforge add {}", &[ext])
+            ),
+            None => format!(
+                "search for an extension that provides it with: {}",
+                specforge_common::remedy::command("specforge search {}", &[keyword])
+            ),
         });
 
         let mut diagnostic = Diagnostic::new(
@@ -85,9 +89,13 @@ pub(super) fn unchecked(
         n => (n, "entities", "are"),
     };
     let suggestion = match candidates.kind_owner(first) {
-        Some(ext) => format!("install it with: specforge add {ext}"),
+        Some(ext) => format!(
+            "install it with: {}",
+            specforge_common::remedy::command("specforge add {}", &[ext])
+        ),
         None => format!(
-            "enable the extension that declares them; search with: specforge search {first}"
+            "enable the extension that declares them; search with: {}",
+            specforge_common::remedy::command("specforge search {}", &[first])
         ),
     };
     vec![

@@ -72,7 +72,7 @@ fn tally(view: &ProjectView, coverage: &Summary, diagnostics: &[Diagnostic]) -> 
         })
         .collect();
     let testable_count = coverage.testable_total;
-    let declared = coverage.testable_verified;
+    let declared = coverage.testable_declared;
 
     let unconnected_count = view.connectivity().unconnected().count();
 

@@ -87,10 +87,10 @@ pub trait PromptSpec: Sync {
         TargetSpec::SERVED_VIEW
     }
 
-    /// The refusal of a request that sends a name neither the prompt nor
-    /// its target declares ([`crate::args::undeclared`]).
+    /// The refusal of a request that sends a name the prompt does not declare
+    /// ([`crate::args::undeclared`]; the target's never reach it).
     fn undeclared(&self, arguments: &Value) -> Option<McpError> {
-        crate::args::undeclared(arguments, &self.arguments(), self.target())
+        crate::args::undeclared(arguments, &self.arguments())
     }
 
     /// The prompt as `prompts/list` describes it.

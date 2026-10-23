@@ -203,3 +203,26 @@ fn a_value_of_a_shape_its_type_never_takes_is_an_error() {
         e061("  summary expr { a < 1 }\n  summary a | b\n  details {\n    k \"x\"\n  }\n");
     assert!(admitted.is_empty(), "{admitted:?}");
 }
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a date field takes one calendar day, bare or quoted; any other value is E061"
+)]
+fn a_date_that_is_no_calendar_day_is_e061() {
+    let found = e061("  due 2026-02-30\n");
+    assert_eq!(
+        found,
+        [(
+            "field 'due' of ticket 't1' is declared date, but was given 2026-02-30".to_string(),
+            Some("there is no such day: write a calendar day, YYYY-MM-DD".to_string())
+        )]
+    );
+    let found = e061("  due \"March 2026\"\n");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(
+        found[0].0,
+        "field 'due' of ticket 't1' is declared date, but was given \"March 2026\""
+    );
+    assert!(e061("  due 2026-03-01\n").is_empty());
+    assert!(e061("  due \"2026-03-01\"\n").is_empty());
+}

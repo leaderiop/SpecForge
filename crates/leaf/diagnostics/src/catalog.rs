@@ -168,7 +168,7 @@ catalog! {
         "An install, update or uninstall step failed: creating the staging directory, writing the binary, or moving it into place or aside. Everything the change wrote was put back; when something couldn't be, the error names it. Check filesystem permissions and retry.";
     E033: Error core,
         "Lock file error",
-        "`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge update` also reports it when there is no lock file to update (run `specforge add` first). A lock that is there and can't be read loads no installed extension (each entry that needs it is E028), and every change whose answer it would decide is refused with this code before anything is read or written: an `add` or `init` that installs, any `update`, a `remove` of an extension whose origin only the lock could tell. Enabling or disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock, or delete it and install the extensions again with `specforge add`.";
+        "`specforge.lock` couldn't be serialized, written, read, or parsed (a lock entry's source must be `registry` or `local:<path>`, the path not empty and holding no control character); `specforge update` also reports it when there is no lock file to update (run `specforge add` first). A lock that is there and can't be read loads no installed extension (each entry that needs it is E028), and every change whose answer it would decide is refused with this code before anything is read or written: an `add` or `init` that installs, any `update`, a `remove` of an extension whose origin only the lock could tell. Enabling or disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock, or delete it and install the extensions again with `specforge add`.";
     E034: Error formal,
         "Unmitigated event cycle",
         "`specforge analyze`'s `event_graph_analyze` pass found a cycle in the event flow graph (a behavior `produces` an event another behavior `consumes`, and so on back to the first) through two or more behaviors, and no behavior or event in it declares `sync`. The message gives one cycle path. Declare a `sync` constraint (a timeout, barrier or delivery bound) on one of its members, or break the cycle. The analysis is structural: a declared `sync` counts as the mitigation, what it says is not checked.";
@@ -198,7 +198,7 @@ catalog! {
         "The `depends_on` edges between `deliverable` entities form a cycle. Break the cycle by removing or inverting one of the dependencies.";
     E054: Error core,
         "Invalid extension specifier",
-        "The argument given to `specforge add` (or `specforge.add_extension`, or `init --extensions`) isn't a builtin's name, a local path (ending in `.wasm`, or starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry package `@scope/name` with an optional `@version` or `@requirement`. A registry package name is lowercase letters, digits, `.`, `_` or `-` in two parts that each start with a letter or digit. A local path that names nothing, or no readable component, is E040. Nothing is asked of any registry.";
+        "The argument given to `specforge add` (or `specforge.add_extension`, or `init --extensions`) isn't a builtin's name, a local path (ending in `.wasm`, or starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry package `@scope/name` with an optional `@version` or `@requirement`. A registry package name is lowercase letters, digits, `.`, `_` or `-` in two parts that each start with a letter or digit. A local path that names nothing, or no readable component, is E040; a local path `specforge.lock` cannot record (one holding a control character) is this code, and nothing is written. Nothing is asked of any registry.";
     E055: Error core,
         "Invalid surface contribution schema",
         "An extension's explicit MCP tool declares an `input_schema` or `output_schema` that isn't a JSON object, so the tool is not registered. Declare the schema as a JSON Schema object. (A command argument type outside `string`, `path`, `bool`, `enum` and `integer` fails the extension's load as E028: its surfaces don't parse.)";
@@ -216,7 +216,7 @@ catalog! {
         "A runner extension declares the command that runs its tests, and `specforge collect` only runs it after you approve it for the project. The approval is asked at an interactive prompt and remembered per project, extension and command, in your user-level `~/.specforge/collector-consent.json`, never in the project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes` to run the command, or `--no-run` to parse a report the runner already wrote. The MCP server never asks: approve the command once with `specforge collect` in a terminal, or call `specforge.collect` without `run` to parse the existing report.";
     E061: Error core,
         "Field value is not the declared type",
-        "The extension that registers a field declares its type, and the value given can't be that type. A string field takes text, a bare word, a date, a type union or an `expr { }` group; an enum one of its declared values (the suggestion names the closest one; the closed vocabularies the builtins declare, a feature's `status`, a failure mode's `severity`, a property's `property_type`, and the like, are enum fields); an integer field an integer; a bool field true or false; a reference field one id; a string_list or reference_list field a list; a block field a block. Values that can be read as the declared type are converted without a diagnostic: a single string, id, integer, boolean or date on a list field becomes a one-item list, a list is stored as written, a quoted integer or boolean the number or boolean. Fix the value, or check the field's type with `specforge schema --kind <kind>`.";
+        "The extension that registers a field declares its type, and the value given can't be that type. A string field takes text, a bare word, a date, a type union or an `expr { }` group; an enum one of its declared values (the suggestion names the closest one; the closed vocabularies the builtins declare, a feature's `status`, a failure mode's `severity`, a property's `property_type`, and the like, are enum fields); an integer field an integer; a bool field true or false; a date field one calendar day, `YYYY-MM-DD`, that exists (`2026-02-30` is none); a reference field one id; a string_list or reference_list field a list; a block field a block. Values that can be read as the declared type are converted without a diagnostic: a single string, id, integer, boolean or date on a list field becomes a one-item list, a list is stored as written, a quoted integer, boolean or calendar day the number, boolean or date. Fix the value, or check the field's type with `specforge schema --kind <kind>`.";
     E062: Error core,
         "Token budget too small for the export",
         "`specforge export --max-tokens` (or the MCP `export` tool's `max_tokens`) keeps the most central entities that fit the budget, but some of the export never shrinks: the envelope (`format_version`, `schema_version`), the `token_budget` block listing the dropped entity IDs, and, with `--with-schema`, the embedded schema, which is never cut short, and, in a scoped export (`--scope`), the scope's own entity. The budget is below that fixed part, so no export fits. Raise the budget, or drop `--with-schema` when the schema alone is over it.";
@@ -243,7 +243,7 @@ catalog! {
         "The project root has a `specforge.json` that isn't used as written. When it can't be read, isn't valid JSON, isn't a JSON object, or its `extensions` value isn't an array, the compile uses the default config: no extension loads and only structure is checked (I002 says so), and `specforge add`, `specforge update` and `specforge remove` refuse (config_invalid) without changing anything. `specforge format`, `specforge migrate` and the rename tools refuse the same way when the file can't be used or `spec_root`, `exclude` or `extensions` has the wrong type, since they could not tell which files are the project's sources; on any other problem they still run, report the E069 and fail. When a key has the wrong type (`name`, `version` or `spec_root` not a string, `exclude` not an array), that key's default is used; when an item of `extensions` or `exclude` isn't a string, or an `exclude` item can match no source (empty, starting with `!`, with a `.` or `..` name, or not a glob pattern), that item is ignored; the rest of the file is used. Each problem is one E069, and `check` fails on it, so a broken config can't pass a CI that checks nothing. Fix the file: the message names the JSON error's line and column, or the key and the item. A missing `specforge.json` is not this: it is a project with the default config (`specforge doctor` says so).";
     E070: Error core,
         "Installed extension does not match its lock entry",
-        "An installed extension's binary, `.specforge/extensions/<name>/extension.wasm`, is not the one its `specforge.lock` entry pins: its SHA-256 differs from the recorded hash (it was changed or replaced after install), or it declares another extension, another version or other peers than the entry records. It is not loaded, and `check` fails. Reinstall it with the command the suggestion names (`specforge add <path>` for a local install, `specforge add <name>@<version>` for a registry one); `specforge doctor` lists it as `stale_hash`.";
+        "An installed extension's binary, `.specforge/extensions/<name>/extension.wasm`, is not the one its `specforge.lock` entry pins: its SHA-256 differs from the recorded hash (it was changed or replaced after install), or it declares another extension, another version or other peers than the entry records. It is not loaded, and `check` fails. Reinstall it with the command the suggestion names (`specforge add <path>` for a local install, `specforge add <name>@<version>` for a registry one); `specforge doctor` lists a changed binary as `stale_hash`, and a binary declaring other than its entry records as an extension-load error.";
     E071: Error core,
         "Unusable inference manifest",
         "A file inference keeps at the project root is there and can't be used as written: `specforge-infer.json` (the analyzed source files and the inference sessions) or `specforge-anchors.json` (the source anchors navigation reads). It can't be read, isn't valid JSON, doesn't have the manifest's shape (a field missing or of the wrong type, a session status other than `active`, `paused` or `completed`), or, for `specforge-infer.json`, has a `version` other than 1. Nothing reads such a file as empty, and nothing writes over it: `specforge infer-status`, `specforge.infer_progress`, `specforge.infer_gaps`, the infer prompt's plan and every `specforge.infer_session` action refuse with this code, `specforge.find_implementation`, `specforge.find_spec_for_source`, `specforge.infer_gaps`, `specforge infer-status --gaps-detail` and the infer prompt's file scope refuse when it is the anchors manifest, and `specforge check --lint inferred` reports it as an error instead of I200 and I202. Fix the file where the message says (it names the line and column of a JSON or shape error), or move it aside to start over. A missing file is not this: inference has recorded nothing yet.";
@@ -297,7 +297,7 @@ catalog! {
         "`specforge analyze`'s `event_graph_analyze` pass found no unmitigated cycle in the event flow graph: no cycle through two or more behaviors (E034) and no behavior re-producing an event it consumes (W032), unless a member declares `sync`. Reported once, when behaviors produce or consume events. The analysis is structural; cycles that depend on runtime conditions are not analyzed. Nothing to do.";
     I010: Info product,
         "Unreferenced term",
-        "A `term` entity has no edges at all, meaning nothing links to or from it via `see_also` or similar references. Link the term from a relevant entity, or remove it if it's unused.";
+        "A `term` has no edges and names nothing: no entity links to it, and it names no term in `see_also` and no `module` (a name it writes that does not exist is E003 alone). Link the term from a relevant entity, or remove it if it's unused.";
     I011: Info formal,
         "Ensures without requires",
         "`specforge analyze`'s `condition_check` pass found a `behavior` that declares an `ensures` clause but no `requires` clause, so it guarantees its postconditions for every input. Add a `requires` clause naming what callers must establish first, or leave it out if the behavior accepts every input.";
@@ -312,7 +312,7 @@ catalog! {
         "`.specforge/schema-cache.json` exists but cannot be read: it is not JSON, not a recorded schema, or names a field type this host does not read. The schema is versioned as if no export had been made, at 1.0.0, by every reader of the schema, until the next `specforge export` records a new cache. Agents that read earlier exports must not take the version as continuing theirs.";
     I017: Info core,
         "Extension surface not served under its name",
-        "MCP serves each name once (ADR 0017): the core tools and resources first, then each extension's explicit MCP tools and resources in extension load order, then its commands as the tools `specforge.<ext>.<command>`. A contribution not served under its name is reported here, with why: an explicit tool named as a core tool or an earlier extension's tool; a resource whose URIs a core resource or an earlier extension resource already serves; a command whose tool name an explicit tool (or a core tool) already has; a command the host refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one option, or a default its declaration contradicts); a command another command routes first under its name (`specforge check` reports that one as E039). I017 itself only MCP reports. Rename the contribution if the collision is unintended; otherwise no action is needed.";
+        "MCP serves each name once (ADR 0017): the core tools and resources first, then each extension's explicit MCP tools and resources in extension load order, then its commands as the tools `specforge.<ext>.<command>`. A contribution not served under its name is reported here, with why: an explicit tool named as a core tool or an earlier extension's tool; an explicit tool whose input schema declares `path`, which the call target takes out of every call; a resource whose URIs a core resource or an earlier extension resource already serves; a command whose tool name an explicit tool (or a core tool) already has; a command the host refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one option, or a default its declaration contradicts); a command another command routes first under its name (`specforge check` reports that one as E039). I017 itself only MCP reports. Rename the contribution if the collision is unintended; otherwise no action is needed.";
     I020: Info core,
         "Unknown entity kind in a filter",
         "A kind filter (`specforge export --kinds`, `specforge query --kinds`, `specforge explore --kind`, `specforge model --kinds`, and the `kinds` or `kind` of the `specforge.export`, `specforge.query`, `specforge.search`, `specforge.list`, `specforge.coverage` and `specforge.model` MCP tools, the explore prompt and the graph resources) names a kind that no loaded extension declares and no entity is written with. The kind matches nothing and is dropped from the filter; the report goes to stderr on the CLI and rides in the tool result's `_meta.diagnostics` over MCP, with a `did you mean` suggestion when a known kind is close (a kind equal but for case first: kind names are case-sensitive keywords). Fix the spelling, or enable the extension that defines the kind.";
@@ -328,15 +328,12 @@ catalog! {
     I050: Info product,
         "Journey with empty flow",
         "A `journey` declares `flow []`: it has no steps. Add the steps the user goes through. (A journey with no `flow` field at all is the core's E006, since `flow` is required.)";
-    I053: Info product,
-        "Milestone target date not YYYY-MM-DD",
-        "A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026` or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.";
     I054: Info product,
         "Journey without persona",
         "A `journey` has no `persona` field, so it names no user role. Set `persona` to the persona who takes the journey.";
     I055: Info product,
         "Journey without channels",
-        "A `journey` has no edge to a `channel`: no `channels` field, an empty list, or only references that don't resolve. List the channels the journey happens through in `channels`.";
+        "A `journey` names no channel: no `channels` field or an empty list (a channel it names that does not exist is E003 alone). List the channels the journey happens through in `channels`.";
     I057: Info product,
         "Blocked milestone without dependencies",
         "A `milestone` has `status: blocked` but no `depends_on` entries, so nothing in the plan says what it waits for; the status may be stale. Add the milestones it depends on to `depends_on`, or update the status.";
@@ -366,7 +363,7 @@ catalog! {
         "A `deliverable` has `status: deprecated` but no `reason` field explaining why. Add a `reason` field documenting why it was deprecated.";
     I067: Info product,
         "Module without features",
-        "A `module` has no edge to a `feature`: no `features` field, an empty list, or only references that don't resolve. A module that implements no features is likely incomplete. List the features it implements in `features`.";
+        "A `module` names no feature: no `features` field or an empty list (a feature it names that does not exist is E003 alone). A module that implements no features is likely incomplete. List the features it implements in `features`.";
     I068: Info product,
         "Tag not lowercase-hyphenated",
         "An entity of a product kind has a `tags` entry that isn't lowercase-hyphenated: 2 to 50 characters of a-z, 0-9 and `-`, not starting or ending with `-` (for example `Core`, `my_tag`, `a` or a tag with spaces). Empty entries are ignored. Rewrite the tag, e.g. `My Tag` as `my-tag`.";
@@ -387,16 +384,10 @@ catalog! {
         "A `feature` has no `effort` field. Set `effort` to one of xs, s, m, l, xl.";
     I082: Info product,
         "Release without deliverables",
-        "A `release` has no edge to a `deliverable`: no `deliverables` field, an empty list, or only references that don't resolve. List the deliverables it ships in `deliverables`.";
+        "A `release` names no deliverable: no `deliverables` field or an empty list (a deliverable it names that does not exist is E003 alone). List the deliverables it ships in `deliverables`.";
     I083: Info product,
         "Release without milestones",
-        "A `release` has no edge to a `milestone`: no `milestones` field, an empty list, or only references that don't resolve. List the milestones it completes in `milestones`.";
-    I086: Info product,
-        "Release date not YYYY-MM-DD",
-        "A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June 2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.";
-    I087: Info product,
-        "Milestone start date not YYYY-MM-DD",
-        "A `milestone`'s `start_date` doesn't match `YYYY-MM-DD` (for example `Jan 15`). Write the date as an ISO 8601 calendar date, e.g. `2026-01-15`.";
+        "A `release` names no milestone: no `milestones` field or an empty list (a milestone it names that does not exist is E003 alone). List the milestones it completes in `milestones`.";
     I089: Info product,
         "Recalled release without reason",
         "A `release` has `status: recalled` but no `reason` field, or an empty one. Add a `reason` explaining why the release was recalled.";
@@ -519,7 +510,7 @@ catalog! {
         "The registry serves the version of a package that `specforge.lock` pins, but not the binary the lock pins: its SHA-256 is another. A published version never changes (R007), so the registry, or the address `specforge.json` sends the package to, now serves something else under that version. Nothing was downloaded or installed, no publisher key was pinned or asked about, and the lock is left as it was; `specforge add --dry-run` reports it too. Check the registry. If you trust the bytes it now serves, remove the extension (`specforge remove <name>`) and add it again, which pins them.";
     W001: Warning software,
         "Behavior implements no feature",
-        "A `behavior` entity has no outgoing edge to any `feature`, meaning it doesn't implement anything declared. Add an `implements` reference to a feature, or remove the behavior if it's unused.";
+        "A `behavior` names no feature in `features` (no field, or an empty list), so it implements nothing declared. A feature it names that does not exist is E003 alone, never W001 too. List the features it implements in `features`, or remove the behavior if it's unused.";
     W002: Warning software,
         "Unreferenced type",
         "A `type` entity has no incoming references from any `behavior`, `port`, or other `type`. Reference the type where it's used, or remove it if it's dead.";
@@ -558,7 +549,7 @@ catalog! {
         "Two extensions register an edge type with the same label; the first-registered extension's definition wins and the later one is ignored. Rename one of the conflicting edge types to avoid the collision.";
     W019: Warning core,
         "Unknown field type",
-        "An extension manifest declares a field whose `field_type` value the compiler doesn't recognize (it must be one of `string`, `integer`, `bool`, `enum`, `string_list`, `reference`, `reference_list`, or `block`). Correct the field's `field_type` in the manifest.";
+        "An extension manifest declares a field whose `field_type` value the compiler doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`, `enum`, `identifier`, `string_list`, `reference`, `reference_list`, or `block`). Correct the field's `field_type` in the manifest.";
     W020: Warning core,
         "Unrecognized field",
         "An entity sets a field that isn't declared for its kind by any installed extension. Remove the field, fix a typo in its name, or install the extension that declares it.";
@@ -569,8 +560,8 @@ catalog! {
         "Duplicate validation rule code",
         "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.";
     W027: Warning core,
-        "Re-export binding not found",
-        "A selective `pub use { A, B } from \"target\"` re-export names a binding that isn't actually exported by the target module. Correct the binding name or remove it from the re-export list.";
+        "Import binding not found",
+        "A selective import, `use { A, B } from \"target\"` or `pub use { A, B } from \"target\"`, names a binding the target file does not export: an entity it neither declares nor re-exports with `pub use`. References resolve without `use`, so the binding changes nothing, but it names nothing either; a rename and a delete keep bindings in step with the entities they name (ADR 0233). Correct the binding's name, or remove it.";
     W029: Warning formal,
         "Event never consumed",
         "An `event` entity is produced by one or more behaviors but has no consumer, meaning nothing reacts to it. Add a behavior that consumes the event, or remove the unused production.";
@@ -606,7 +597,7 @@ catalog! {
         "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.";
     W043: Warning product,
         "Deliverable without journeys",
-        "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
+        "A `deliverable` names no journey: no `journeys` field or an empty list (a journey it names that does not exist is E003 alone). Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
     W044: Warning product,
         "Unreferenced module",
         "A `module` entity has no incoming edges, meaning no `deliverable` or `milestone` references it. Reference the module from a deliverable or milestone, or remove it if it is unused.";
@@ -615,7 +606,7 @@ catalog! {
         "Two or more `feature` entities form a cycle through their `depends_on` edges. Break the cycle by removing or restructuring one of the `depends_on` references.";
     W046: Warning product,
         "Deliverable without modules",
-        "A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or only references that don't resolve, so it has no structural decomposition. List the modules it ships in `modules`.";
+        "A `deliverable` names no module: no `modules` field or an empty list (a module it names that does not exist is E003 alone), so it has no structural decomposition. List the modules it ships in `modules`.";
     W049: Warning product,
         "Milestone without features",
         "A `milestone` entity has no `features` field, so it may be empty. Modules listed in `modules` don't count: the check reads only `features`. List the features the milestone delivers, or remove the milestone.";
@@ -759,7 +750,7 @@ catalog! {
         "An entity declares `verify` statements, but its kind accepts none: no extension made the kind testable (`supports_verify`). `verify` is reserved syntax; what an obligation means comes from an extension, so a kind takes statements only once one enables them (ADR 0002, ADR 0094). The statements are not fields, so this is not W020. Enable an extension that makes the kind testable (for software kinds, `specforge add @specforge/testing`), or remove the statements.";
     W159: Warning core,
         "Value not written in its field's form",
-        "A field's declared type decides how its value is written (ADR 0147): bare for an enum, identifier or reference value and each item of a reference list; quoted for text and each item of a string list. This value is written the other way. It reads the same, so the graph is unchanged; run specforge format (or format the document in the editor) to rewrite every value in its form. A bare word on a kind that takes members (type, port) is left alone: it may be a member's type. A value a `defaults <kind>` block writes is reported once, at the default, however many blocks take it.";
+        "A field's declared type decides how its value is written (ADR 0147): bare for an enum, identifier or reference value and each item of a reference list; quoted for text and each item of a string list; an integer, true or false and a calendar day bare; a list field's value in brackets, one item per value. A multi-line text on a list field is one item: split it, format cannot. This value is written the other way. It reads the same, so the graph is unchanged; run specforge format (or format the document in the editor) to rewrite every value in its form. A bare word on a kind that takes members (type, port) is left alone: it may be a member's type. A value a `defaults <kind>` block writes is reported once, at the default, however many blocks take it.";
     W161: Warning core,
         "Default that changes nothing",
         "Either a block writes a field with exactly its file's default value, so the line restates the default, or a `defaults <kind>` field reaches no block: every block of that kind in the file writes its own value, or the file declares none. Delete the line. A block that must keep its value whatever the default becomes may write it; a different value replaces the default whole (ADR 0149).";

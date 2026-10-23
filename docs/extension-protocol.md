@@ -47,14 +47,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.5.0" }
+{ "host_version": "1.6.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.5.0",
+  "protocol_version": "1.6.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -174,13 +174,13 @@ Optional flags, `false` and omitted from the wire unless set (ADR 0007): on
 a kind, `contract_target` (a reference field that targets the kind is a
 contract obligation, A010) and `declares_types` (its entity ids are the type
 names custom validators receive as `declared_types`); on a field, `normative`
-(the context export keeps it), `headline` (the context export lifts it, as its field text, to the
+(the review document quotes it whole), `headline` (the context export lifts it, as its field text, to the
 node's top level; with `normative`, it is the statement MCP `inspect` reports
 as `contract`) and `exempts_obligations` (an entity that sets it owes no
 `verify` obligations).
 
 Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
-`bool`, `enum` (values in `enum_values`), `identifier` (one word from an open set, written bare), `string_list`, `reference`,
+`bool`, `date` (one calendar day, `YYYY-MM-DD`, written as a string), `enum` (values in `enum_values`), `identifier` (one word from an open set, written bare), `string_list`, `reference`,
 `reference_list`, `block`. The host also reads the `_type`-suffixed
 spellings (`string_type`, ...) and `boolean`; an unknown type drops the
 field with W019. Every host output names a field type by these names — the
@@ -189,7 +189,7 @@ hover and E061; the older spellings are read, never written (ADR 0034).
 
 What a field takes and what is written for it (ADR 0064): `string` takes text, a bare word, a date, a type
 union or an `expr { }` group, and is written as a string (a group as its conjuncts, one per line); `enum` one of
-its `enum_values`; `identifier` one word (letters, digits and `_`, starting with a letter or `_`), written as a string; `integer` and `bool` their JSON scalars; `reference` one id, written as a string;
+its `enum_values`; `identifier` one word (letters, digits and `_`, starting with a letter or `_`), written as a string; `integer` and `bool` their JSON scalars; `date` one calendar day, `YYYY-MM-DD`, written as a string (a quoted day is read as the day); `reference` one id, written as a string;
 `string_list` and `reference_list` a list (a single value is stored as a one-item list; a list is stored as written), written as an
 array of strings; `block` a block, written as an object of its entries. Anything else is E061.
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
@@ -301,8 +301,8 @@ check leaves it as written.
 | Check | Fires when | Requires (W112 when missing) | Reads | W147 when set |
 |-------|------------|------------------------------|-------|---------------|
 | `no_incoming_edges` | no edge points at the entity (only edges of `edge_type`, from its source kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
-| `no_outgoing_edges` | the entity points at nothing (only edges of `edge_type`, to its target kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
-| `no_edges` | the entity has no edges in either direction | — | — | `edge_type`, `constraint`, `wasm_function` |
+| `no_outgoing_edges` | the entity points at nothing: no field writes a reference (resolved or not; one that does not resolve is E003, reported alone) and no edge leaves it (only `edge_type`'s fields and edges, to its target kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
+| `no_edges` | no edge points at the entity and it points at nothing (as `no_outgoing_edges`) | — | — | `edge_type`, `constraint`, `wasm_function` |
 | `missing_field_when_flag_set` | `field` is absent (when `field` is `verify`, the entity's `verify` statements; an entity owing none is exempt) | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `missing_required_field` | `field` is absent | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `file_exists` | a path `field` names (its text, or each item of a list; a block or an expression names none) does not exist, relative to the spec root; the diagnostic suggests a close sibling | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
@@ -397,6 +397,10 @@ that does not know the field ignores it). The host reads the declaration by one 
   options), two args whose names spell one option (`all_kinds`, `all-kinds`), a flag or a required arg
   with a default, or a default its type refuses, runs on no surface: the CLI refuses it (exit 2) and MCP
   serves no tool for it (I017). The SDK refuses to build such an extension.
+- **Refused MCP tools.** An explicit MCP tool whose `input_schema` declares `path` (a property or a
+  required name) is not served (I017): `path` is the call target's, taken out of every call before the
+  tool's export or schema check sees it (ADR 0239). The host and the SDK read one rule
+  (`specforge_protocol_types::tool_input`): the SDK refuses to build such an extension.
 - **Normalized args.** Both surfaces send a `cmd__` export the same args for the same input: every
   declared arg the caller set, as its type (an integer or a flag may come as the string a command line
   gives); an absent arg its default; an unset flag `false` (a flag is never required). A missing
@@ -623,6 +627,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.3.0` | the same as `1.0.0` |
 | `1.4.0` | the same as `1.0.0` |
 | `1.5.0` | the same as `1.0.0` |
+| `1.6.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -643,6 +648,7 @@ or answered.
 | `1.3.0` | An enhancement declares no `edge_types`: an edge type is declared once, in `edges` (an enhancement's fields name it as their `edge`). A 1.3 host reports a 1.2 guest's enhancement `edge_types` key as W138 and ignores it (ADR 0060). |
 | `1.4.0` | A recorded test is one `TestResult` with a `TestStatus`: `passed`, `failed` or `skipped`, decoded strictly on the collect wire (a collector's other status is E028), and a pass's `test_results` carry the same, `duration_ms` included (they said `pass`/`fail`). A 1.3 pass that reads `test_results` misreads 1.4 values (ADR 0069). |
 | `1.5.0` | An entity's `verify` statements are no field text (ADR 0094): a pass's `PassEntity.fields` and a validator's `ValidatorField` carry no `verify` entry, so a field named `verify` is never overwritten; a pass reads the statements in `verify_kinds` and `verify_texts`, and the graph a command gets may carry a node-level `verify`, which a guest ignores. A 1.4 guest that read `fields["verify"]` loses it. An enhancement names no `source_extension`: the host credits its fields to the answering extension and reads the kind's owner from its kind registry (ADR 0096); a 1.5 host reports a 1.4 guest's key as W138 and ignores it. |
+| `1.6.0` | A field's `field_type` may be `date` (ADR 0234), and a validator's `primitives` include `date`; a 1.5 host drops a `date` field with W019. (`identifier`, ADR 0147, came under 1.5.0 without a bump.) |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

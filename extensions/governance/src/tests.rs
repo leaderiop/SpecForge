@@ -59,3 +59,9 @@ fn governance_declares_its_rating_and_status_vocabularies() {
 fn the_constraint_category_is_a_word() {
     assert_eq!(declared("constraint", "category").field_type, "identifier");
 }
+
+/// A decision's date is one calendar day (ADR 0234).
+#[test]
+fn a_decisions_date_is_a_date() {
+    assert_eq!(declared("decision", "date").field_type, "date");
+}

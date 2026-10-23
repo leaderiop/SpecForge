@@ -110,7 +110,7 @@ impl ProjectConfig {
             Some(spec_root) => root.join(spec_root),
             None => root.to_path_buf(),
         };
-        crate::SourceRoot::new(dir, self.exclude.clone())
+        crate::SourceRoot::new(root.to_path_buf(), dir, self.exclude.clone())
     }
 }
 
@@ -209,8 +209,8 @@ impl ConfigProblem {
             format!("specforge.json: {self}; it is ignored")
         };
         Diagnostic::new(codes::E069, message).with_suggestion(format!(
-            "fix specforge.json; `specforge explain {}` says what it must be",
-            codes::E069
+            "fix specforge.json; `{}` says what it must be",
+            crate::remedy::command("specforge explain {}", &[codes::E069.id()])
         ))
     }
 }

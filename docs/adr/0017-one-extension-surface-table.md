@@ -143,3 +143,5 @@ an extension call is `precondition_failed` (-32602 with that McpError for a reso
 
 A third surface needing a derivation `ExtensionCommand` cannot give (it grows a method, not a copy),
 or MCP adopting -32002 for unknown resources.
+
+Amended by [ADR 0239](0239-the-call-target-takes-its-own-arguments.md): an explicit tool whose input schema declares `path` is not served (I017), and the SDK refuses to build it, by one rule both run (`specforge_protocol_types::tool_input`).

@@ -1,8 +1,8 @@
 use super::{as_written, comment_text, holds_comment, lines_keeping_strings, node_text, one_line};
 use crate::config::FormatConfig;
 use specforge_common::structural;
-use specforge_graph::FieldForms;
 use specforge_graph::field_form::spell;
+use specforge_graph::{FieldForms, Place};
 use specforge_parser::Written;
 use tree_sitter::Node;
 use tree_sitter_specforge::{field, kind};
@@ -318,7 +318,7 @@ fn field_member(
             // Multi-line values (triple-quoted strings, ...) are opaque: the
             // first line follows the key, the rest stays as written. A
             // string's lines are its value, so its trailing whitespace stays.
-            let value = match in_form(value, source, &key, forms) {
+            let value = match in_form(value, source, &key, forms, Place::Whole) {
                 Some(text) => vec![text],
                 None => lines_keeping_strings(value, source),
             };
@@ -351,7 +351,9 @@ fn list_value(
     let items: Vec<String> = children
         .iter()
         .filter(|c| !matches!(c.kind(), "[" | "]" | ","))
-        .map(|c| in_form(*c, source, key, forms).unwrap_or_else(|| one_line(*c, source)))
+        .map(|c| {
+            in_form(*c, source, key, forms, Place::Item).unwrap_or_else(|| one_line(*c, source))
+        })
         .collect();
     let one_line = format!("[{}]", items.join(", "));
     let indent = config.indent_str();
@@ -366,10 +368,10 @@ fn list_value(
     lines
 }
 
-/// `node`, a string or a bare word, written in its field's form when the
-/// declared type writes it the other way (`FieldForms::rewrite`, the rule
-/// `check` reports as W159); `None` leaves it as written.
-fn in_form(node: Node, source: &str, key: &str, forms: Forms) -> Option<String> {
+/// `node`, a value of one field (`Place::Whole`) or one item of its list, written in its field's form when the
+/// declared type writes it another way (`FieldForms::rewrite`, the rule `check` reports as W159); `None` leaves it
+/// as written. A multi-line text stays: on a list field format cannot tell where one item ends.
+fn in_form(node: Node, source: &str, key: &str, forms: Forms, place: Place) -> Option<String> {
     let (kind, forms) = forms?;
     let text = node_text(node, source);
     let (written, word) = match node.kind() {
@@ -379,12 +381,32 @@ fn in_form(node: Node, source: &str, key: &str, forms: Forms) -> Option<String> 
             text.strip_prefix("\"\"\"")?.strip_suffix("\"\"\"")?,
         ),
         kind::IDENTIFIER => (Written::Bare, text),
+        kind::INTEGER | kind::NEGATIVE_INTEGER | kind::BOOLEAN | kind::DATE_LITERAL => {
+            (Written::Literal, text)
+        }
+        kind::SCHEME_REF_ID => (Written::SchemeRef, text),
         _ => return None,
     };
-    Some(spell::spelled(
-        word,
-        forms.rewrite(kind, key, written, word)?,
-    ))
+    let triple = node.kind() == kind::TRIPLE_QUOTED_STRING;
+    if triple && word.contains('\n') {
+        return None;
+    }
+    let respell = forms.rewrite(kind, key, written, word.trim(), place)?;
+    let item = if written == Written::Quoted && respell.to == Written::Quoted {
+        // Only `listed` changes: the text keeps its escapes.
+        if triple {
+            spell::quoted(word.trim())
+        } else {
+            text.to_string()
+        }
+    } else {
+        spell::spelled(word.trim(), respell.to)
+    };
+    Some(if respell.listed {
+        format!("[{item}]")
+    } else {
+        item
+    })
 }
 
 /// `verify [kind] "description"`, single-spaced.

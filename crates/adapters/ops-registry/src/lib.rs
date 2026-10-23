@@ -10,6 +10,7 @@
 mod reports;
 
 use reports::PolicyReports;
+use specforge_common::remedy::printable;
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::registry::{
     Found, KeyPin, METADATA_MISMATCH, Manifest, NO_REGISTRY, NO_REGISTRY_FOR_NAME, Package,
@@ -473,12 +474,12 @@ impl Registry for ConfiguredRegistry {
                             .iter()
                             .any(|f| f.name == hit.name && f.version == hit.version)
                         {
-                            found.push(Found {
-                                name: hit.name,
-                                version: hit.version,
-                                description: hit.description,
-                                registry: registry.alias.clone(),
-                            });
+                            found.push(Found::new(
+                                hit.name,
+                                hit.version,
+                                &hit.description,
+                                registry.alias.clone(),
+                            ));
                         }
                     }
                 }
@@ -567,7 +568,8 @@ fn reply_names(
             METADATA_MISMATCH,
             format!(
                 "registry answered {name}@{version} with {}@{}",
-                metadata.name, metadata.version
+                printable(&metadata.name),
+                printable(&metadata.version)
             ),
         )
         .with_suggestion("don't install the package, and check the registry"));
@@ -587,8 +589,8 @@ fn declaration_names(
             METADATA_MISMATCH,
             format!(
                 "registry served {name}@{version} with the declaration of {}@{}",
-                declaration.name(),
-                declaration.version()
+                printable(declaration.name()),
+                printable(declaration.version())
             ),
         )
         .with_suggestion("don't install the package, and check the registry"));
@@ -609,7 +611,10 @@ fn read_declaration(
         OpError::coded(
             OpErrorKind::SchemaMismatch,
             UNREADABLE_MANIFEST,
-            format!("the manifest of {name}@{version} can't be read: {why}"),
+            format!(
+                "the manifest of {name}@{version} can't be read: {}",
+                printable(&why)
+            ),
         )
         .with_suggestion("don't install the package, and check the registry")
     };
@@ -678,6 +683,35 @@ mod tests {
             ),
         ] {
             assert_eq!(failure(error.clone()).kind, kind, "{error:?}");
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+    )]
+    fn a_reply_or_manifest_naming_another_package_is_quoted_printable() {
+        let name = PackageName::parse("@sdk/greet").unwrap();
+        let version = Version::new(1, 0, 0);
+        let metadata = PackageMetadata {
+            name: "@sdk/gre\u{1b}[2Jet".into(),
+            version: "1.0.0".into(),
+            ..Default::default()
+        };
+        let declaration: ExtensionDeclaration = serde_json::from_value(serde_json::json!({
+            "handshake": {"protocol_version": "1.0.0", "name": "@sdk/gre\u{1b}[2Jet",
+                "version": "1.0.0", "peer_dependencies": [], "sandbox_policy": null}
+        }))
+        .unwrap();
+        for error in [
+            reply_names(&name, &version, &metadata).unwrap_err(),
+            declaration_names(&name, &version, &declaration).unwrap_err(),
+        ] {
+            assert!(!error.message.contains(char::is_control), "{error:?}");
+            assert!(
+                error.message.contains("@sdk/gre\\u{1b}[2Jet@1.0.0"),
+                "{error:?}"
+            );
         }
     }
 

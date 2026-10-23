@@ -43,6 +43,9 @@ pub fn tickets() -> ExtensionDeclaration {
             k.field("details", |f| {
                 f.field_type(FieldType::Block);
             });
+            k.field("due", |f| {
+                f.field_type(FieldType::Date);
+            });
             k.field("label", |f| {
                 f.field_type(FieldType::Identifier);
             });

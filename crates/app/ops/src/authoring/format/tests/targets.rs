@@ -192,6 +192,7 @@ fn the_ci_gate_paths_reach_only_their_sources() {
         .iter()
         .flat_map(|(_, dir)| {
             specforge_common::SourceRoot::new(
+                workspace.to_path_buf(),
                 workspace.join(dir),
                 specforge_common::Exclude::default(),
             )

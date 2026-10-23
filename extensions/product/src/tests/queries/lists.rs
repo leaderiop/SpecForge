@@ -121,8 +121,11 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
     // The retired value rules are gone.
     for rule in &declaration.validation_rules {
         assert!(
-            !["W077", "W078", "W079", "W080", "W083", "W084", "W085", "W095"]
-                .contains(&rule.code.as_str()),
+            ![
+                "W077", "W078", "W079", "W080", "W083", "W084", "W085", "W095", "I053", "I086",
+                "I087",
+            ]
+            .contains(&rule.code.as_str()),
             "{} is retired to E061",
             rule.code
         );

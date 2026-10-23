@@ -23,7 +23,8 @@ impl<'a> Install<'a> {
         let pin = Pin {
             name,
             version: declared.version().to_string(),
-            source: LockSource::Local(shown_path(root, &local.path)),
+            source: LockSource::local(shown_path(root, &local.path))
+                .map_err(|why| unrecordable(&local.path, &why))?,
             key_id: None,
             peers: declared.peers().to_vec(),
         };
@@ -228,6 +229,21 @@ fn first_difference(
         .into_iter()
         .find(|category| served.describe_items(*category) != binary.describe_items(*category))
         .map(DeclaredCategory::name)
+}
+
+/// An `add` of a file whose path `specforge.lock` cannot record (ADR 0230): refused before anything is
+/// staged, so the lock never holds a source its own read refuses.
+fn unrecordable(path: &Path, why: &str) -> OpError {
+    OpError::coded(
+        OpErrorKind::InvalidInput,
+        codes::E054,
+        format!(
+            "'{}' cannot be recorded in specforge.lock: {}",
+            specforge_common::remedy::printable(&path.display().to_string()),
+            specforge_common::remedy::printable(why)
+        ),
+    )
+    .with_suggestion("rename the file, then add it again")
 }
 
 /// `path` as the lock records it: relative to the project root when it is under it, absolute

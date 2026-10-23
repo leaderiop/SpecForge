@@ -7,10 +7,11 @@
 
 mod build;
 mod defaults;
-pub use defaults::{FileDefaults, Held};
+pub use defaults::{FileDefaults, Held, written_fields};
 pub mod field_form;
 pub use field_form::{
-    FieldForm, FieldForms, FieldJson, Reading, Reference, Rewrite, Target, ValueShape,
+    FieldForm, FieldForms, FieldJson, Place, Reading, Reference, Respell, Rewrite, Target,
+    ValueShape,
 };
 mod delta;
 pub use delta::{

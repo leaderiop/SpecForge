@@ -32,7 +32,7 @@ const TESTING: &[&str] = &["@specforge/software", "@specforge/testing"];
 
 #[specforge_test_macros::test(
     behavior = "create_entity",
-    verify = "new reads every spelling of a file under the spec root as that file"
+    verify = "new reads every spelling of a file under the project root as that file"
 )]
 fn a_create_in_a_spelling_of_an_existing_file_adds_to_it() {
     let planned = plan_in_spec_dir(
@@ -40,12 +40,12 @@ fn a_create_in_a_spelling_of_an_existing_file_adds_to_it() {
         &[create(
             "behavior",
             "archive_task",
-            "./tasks.spec",
+            "./spec/tasks.spec",
             &[("contract", one("The system MUST archive."))],
         )],
     );
-    assert_eq!(planned.report().affected_files, ["tasks.spec"]);
-    assert!(planned.change().after()["tasks.spec"].starts_with(TASKS));
+    assert_eq!(planned.report().affected_files, ["spec/tasks.spec"]);
+    assert!(planned.change().after()["spec/tasks.spec"].starts_with(TASKS));
 }
 
 #[specforge_test_macros::test(
@@ -59,19 +59,19 @@ fn two_spellings_of_one_new_file_are_one_file() {
             create(
                 "behavior",
                 "alpha_one",
-                "./n.spec",
+                "./spec/n.spec",
                 &[("contract", one("The system MUST archive."))],
             ),
             create(
                 "behavior",
                 "beta_one",
-                "n.spec",
+                "spec/n.spec",
                 &[("contract", one("The system MUST archive."))],
             ),
         ],
     );
-    assert_eq!(planned.report().affected_files, ["n.spec"]);
-    let after = &planned.change().after()["n.spec"];
+    assert_eq!(planned.report().affected_files, ["spec/n.spec"]);
+    let after = &planned.change().after()["spec/n.spec"];
     assert!(
         after.contains("behavior alpha_one") && after.contains("behavior beta_one"),
         "{after}"
@@ -160,7 +160,7 @@ fn kind_and_code(error: &specforge_ops::OpError) -> (specforge_ops::OpErrorKind,
 
 #[specforge_test_macros::test(
     behavior = "read_a_named_spec_file",
-    verify = "every spelling of a spec file under the spec root reads as its source key"
+    verify = "every spelling of a spec file under the project root reads as its source key"
 )]
 fn the_view_reads_every_spelling_into_its_source_key() {
     let (_dir, project) = spec_dir_project();
@@ -168,12 +168,12 @@ fn the_view_reads_every_spelling_into_its_source_key() {
     let spec_root = project.environment().spec_root().to_path_buf();
     let absolute = spec_root.join("a.spec");
     for (named, key) in [
-        ("a.spec", "a.spec"),
-        ("./a.spec", "a.spec"),
-        (".//a.spec", "a.spec"),
-        (absolute.to_str().unwrap(), "a.spec"),
-        ("sub/./b.spec", "sub/b.spec"),
-        ("sub//b.spec", "sub/b.spec"),
+        ("spec/a.spec", "spec/a.spec"),
+        ("./spec/a.spec", "spec/a.spec"),
+        (".//spec/a.spec", "spec/a.spec"),
+        (absolute.to_str().unwrap(), "spec/a.spec"),
+        ("spec/sub/./b.spec", "spec/sub/b.spec"),
+        ("spec/sub//b.spec", "spec/sub/b.spec"),
     ] {
         assert_eq!(view.source(named).unwrap(), key, "{named}");
         assert_eq!(view.source_place(named).unwrap(), key, "{named}");
@@ -183,17 +183,20 @@ fn the_view_reads_every_spelling_into_its_source_key() {
         assert_eq!(view.source(key).unwrap(), key);
         assert_eq!(view.source_place(key).unwrap(), key);
     }
-    assert_eq!(view.source_place("new/c.spec").unwrap(), "new/c.spec");
+    assert_eq!(
+        view.source_place("spec/new/c.spec").unwrap(),
+        "spec/new/c.spec"
+    );
 }
 
 #[specforge_test_macros::test(
     behavior = "read_a_named_spec_file",
-    verify = "a spelling that leaves the spec root is not_a_source"
+    verify = "a spelling that leaves the project root is not_a_source"
 )]
-fn the_view_refuses_a_spelling_outside_the_spec_root() {
+fn the_view_refuses_a_spelling_outside_the_project_root() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
-    for named in ["../x.spec", "sub/../a.spec", "/elsewhere/x.spec"] {
+    for named in ["../x.spec", "spec/sub/../a.spec", "/elsewhere/x.spec"] {
         for refused in [view.source(named), view.source_place(named)] {
             let error = refused.unwrap_err();
             assert_eq!(
@@ -228,58 +231,17 @@ fn the_view_reads_no_source_as_file_not_found() {
 
 #[specforge_test_macros::test(
     behavior = "read_a_named_spec_file",
-    verify = "a spec file named from the project root is refused naming its spec-root spelling"
+    verify = "a new spec file under the spec root is a place, whatever directory it repeats"
 )]
-fn the_view_refuses_a_project_root_spelling_naming_its_key() {
+fn a_new_file_repeating_a_directory_stays_a_place() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
-    let error = view.source("spec/a.spec").unwrap_err();
-    assert_eq!(error.kind, specforge_ops::OpErrorKind::FileNotFound);
-    assert!(
-        error.suggestion.as_deref().unwrap().contains("'a.spec'"),
-        "{error:?}"
-    );
-    let error = view.source_place("spec/a.spec").unwrap_err();
-    assert_eq!(error.code, "not_a_source");
-    assert!(
-        error.suggestion.as_deref().unwrap().contains("'a.spec'"),
-        "{error:?}"
-    );
-    let error = view.source_place("spec/new.spec").unwrap_err();
-    assert_eq!(error.code, "not_a_source");
-    assert!(
-        error.suggestion.as_deref().unwrap().contains("'new.spec'"),
-        "{error:?}"
-    );
-}
-
-#[specforge_test_macros::test(
-    behavior = "read_a_named_spec_file",
-    verify = "a new spec file named from the project root is refused naming its spec-root spelling"
-)]
-fn the_view_refuses_a_new_file_named_from_the_project_root() {
-    let (_dir, project) = spec_dir_project();
-    let view = ProjectView::of(&project);
-    for (named, key) in [
-        ("spec/new.spec", "'new.spec'"),
-        ("spec/types/x.spec", "'types/x.spec'"),
-        ("spec/sub/y.spec", "'sub/y.spec'"),
+    for named in [
+        "spec/new/c.spec",
+        "spec/specs/x.spec",
+        "spec/sub/spec/z.spec",
+        "spec/types/x.spec",
     ] {
-        let error = view.source_place(named).unwrap_err();
-        assert_eq!(error.code, "not_a_source", "{named}");
-        assert_eq!(error.file(), Some(named), "{named}");
-        assert!(
-            error.suggestion.as_deref().unwrap().contains(key),
-            "{error:?}"
-        );
-    }
-}
-
-#[test]
-fn a_new_file_not_repeating_the_spec_root_stays_a_place() {
-    let (_dir, project) = spec_dir_project();
-    let view = ProjectView::of(&project);
-    for named in ["new/c.spec", "specs/x.spec", "sub/spec/z.spec"] {
         assert_eq!(view.source_place(named).unwrap(), named);
     }
 }
@@ -291,18 +253,40 @@ fn a_new_file_not_repeating_the_spec_root_stays_a_place() {
 fn a_refusal_of_a_named_file_names_it() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
-    for named in ["nope.spec", "./gone.spec", "spec/a.spec", "../x.spec"] {
+    for named in ["nope.spec", "./gone.spec", "spec/gone.spec", "../x.spec"] {
         assert_eq!(
             view.source(named).unwrap_err().file(),
             Some(named),
             "{named}"
         );
     }
-    for named in ["notes.txt", "spec/a.spec", "../x.spec"] {
+    for named in ["notes.txt", "spec/notes.txt", "../x.spec"] {
         assert_eq!(
             view.source_place(named).unwrap_err().file(),
             Some(named),
             "{named}"
         );
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_a_named_spec_file",
+    verify = "a spec file is named from the project root, as every document names it"
+)]
+fn the_view_reads_a_spec_file_from_the_project_root() {
+    let (_dir, project) = spec_dir_project();
+    let view = ProjectView::of(&project);
+    for named in ["spec/a.spec", "./spec//a.spec"] {
+        assert_eq!(view.source(named).unwrap(), "spec/a.spec", "{named}");
+    }
+    let missing = view.source("a.spec").unwrap_err();
+    assert_eq!(
+        kind_and_code(&missing),
+        (specforge_ops::OpErrorKind::FileNotFound, "file_not_found")
+    );
+    assert_eq!(missing.suggestion, None);
+    assert_eq!(view.source_place("spec/new.spec").unwrap(), "spec/new.spec");
+    let outside = view.source_place("new.spec").unwrap_err();
+    assert_eq!(outside.code, "not_a_source");
+    assert_eq!(outside.suggestion, None);
 }

@@ -121,7 +121,15 @@ fn rename_and_delete_find_the_same_tokens() {
     let events = "type Task \"Task\" {\n  id string\n}\n\nevent task_done \"Done Event\" {\n  payload Task\n}\n";
     let scheme =
         format!("ref gh.issue:42 \"Issue 42\"\n\n{B}  refs [gh.issue:42, \"RFC 1\"]\n}}\n");
+    let bound = format!("use {{ inv_a }} from \"rules.spec\"\n\n{}", own_list);
     let table: Vec<Row> = vec![
+        (
+            "use binding",
+            vec![("rules.spec", rules), ("b.spec", &bound)],
+            "inv_a",
+            ("rules.spec", 1),
+            true,
+        ),
         (
             "own list",
             vec![("rules.spec", rules), ("b.spec", &own_list)],

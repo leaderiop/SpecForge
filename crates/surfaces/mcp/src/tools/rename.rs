@@ -73,7 +73,7 @@ impl CoreTool for Tool {
 
         // Planned on the call's project as it is on disk (the target brought
         // the served project up to date, or compiled the project `path`
-        // names), whose spans are relative to its spec root, which the plan keeps.
+        // names), whose spans are relative to the project root, which the plan keeps.
         //
         // The operation decided what kind of failure it is, and which entity it
         // is about; an invalid new ID is the argument's fault.

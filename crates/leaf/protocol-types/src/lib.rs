@@ -18,8 +18,9 @@
 //!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
 //!   ([`MigrationInput`]).
 //!
-//! And one rule both sides run: [`command_args`], what a command's declared
-//! args admit and what its export receives (ADR 0017).
+//! And two rules both sides run: [`command_args`], what a command's declared
+//! args admit and what its export receives (ADR 0017), and [`tool_input`],
+//! what an explicit MCP tool's input schema may not declare (ADR 0239).
 //!
 //! What sits here is what both sides compile: every builtin blob is built from this crate, so an
 //! item only the host reads lives host-side (the package names and the peer rule are
@@ -32,6 +33,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod calls;
 pub mod command_args;
 mod declaration;
+pub mod tool_input;
 mod vocabulary;
 pub use calls::*;
 pub use declaration::{
@@ -51,8 +53,9 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 /// ADR 0069's: a recorded test's status is `passed`, `failed` or `skipped`,
 /// and a pass's test results carry `duration_ms`; 1.5.0 is ADR 0094's: an
 /// entity's `verify` statements are no field text, so a pass's and a validator's
-/// `fields` carry no `verify` entry.
-pub const PROTOCOL_VERSION: &str = "1.5.0";
+/// `fields` carry no `verify` entry; 1.6.0 is ADR 0234's: a field's type may be `date`, and
+/// the primitives a validator gets include `date`.
+pub const PROTOCOL_VERSION: &str = "1.6.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -309,7 +312,8 @@ pub struct FieldDescriptor {
     #[serde(default)]
     pub inverse_of: Option<String>,
     /// The field states what the entity promises (a contract, a guarantee)
-    /// rather than prose; token-optimized exports keep it.
+    /// rather than prose: the review document quotes it whole, and with
+    /// `headline` it is the entity's statement (ADR 0236).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub normative: bool,
     /// Set on an entity (`true`, or a non-empty value), the entity owes no

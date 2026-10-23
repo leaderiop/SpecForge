@@ -122,6 +122,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "severity_filter restricts returned diagnostics"
   verify unit "strict mode promotes warnings to errors"
   verify integration "validate with lint profiles reports what specforge check reports with the same profiles"
+  verify integration "validate and the diagnostics resource suggest the reinstall command a lock entry's recorded path calls for, as one shell word"
   verify unit "validate reports files changed on disk since the last call"
   verify unit "an unknown severity_filter or lint profile is invalid input"
   verify unit "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
@@ -563,7 +564,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
     and the identifier token's source span. LSP equivalence: with the
     defaults it returns the occurrences textDocument/references returns
     with includeDeclaration false, but a token in a defaults block that no
-    block takes, which no entity holds, is not listed, and a default the
+    block takes, or a use binding, which no entity holds, is not listed, and a default the
     blocks take is listed once per block. A reference written in a duplicate
     declaration (E002, W060) is listed, held by its id. An entity with no references MUST return
     an empty list, not an error.
@@ -666,12 +667,11 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
     not one of the project's sources as the compile read them (one that does
     not exist, a directory, specforge.json or any file that is not a .spec
     source, one an exclude entry leaves out) MUST be refused as
-    file_not_found, naming it (file); a spelling from the project root of a
-    source is refused naming its spec-root spelling (ADR 0195 D5); a source
-    with no entity has an empty outline.
-    The file is read into its source key (ADR 0195): every spelling of a source
-    under the spec root is that source; one that leaves the spec root is
-    invalid_input. With no project served, no
+    file_not_found, naming it (file), with no suggestion (a source's
+    spec-root spelling included); a source with no entity has an empty outline.
+    The file is read into its source key (ADR 0195, ADR 0242): every spelling
+    of a source under the project root is that source; one that leaves the
+    project root is invalid_input. With no project served, no
     file is a project's: the tool MUST return the no-project refusal
     (precondition_failed), whatever the server's working directory holds.
   """
@@ -684,8 +684,8 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "with no project served, outline is the no-project refusal"
   verify unit "sorted by line number"
   verify unit "a file that is not one of the project's sources is file_not_found, though it exists"
-  verify unit "outline reads every spelling of a source under the spec root as that source"
-  verify unit "outline refuses a project-root spelling of a source naming its spec-root spelling"
+  verify unit "outline reads every spelling of a source under the project root as that source"
+  verify unit "outline refuses a spec-root spelling of a source, with no suggestion"
 }
 
 behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {

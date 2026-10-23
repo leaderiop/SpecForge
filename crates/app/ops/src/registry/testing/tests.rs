@@ -165,12 +165,12 @@ fn a_search_lists_the_version_add_installs() {
             declaration("@acme/tool", "2.0.0-beta.1", &[]),
         ));
     let searched = registry.search("tool", None).unwrap();
-    let found: Vec<(&str, &str)> = searched
+    let found: Vec<(&str, String)> = searched
         .found
         .iter()
-        .map(|f| (f.name.as_str(), f.version.as_str()))
+        .map(|f| (f.name.as_str(), f.version.to_string()))
         .collect();
-    assert_eq!(found, [("@acme/tool", "1.4.0")]);
+    assert_eq!(found, [("@acme/tool", "1.4.0".to_string())]);
 
     // The category is judged on the listed version: 1.0.0 declares entities, the listed
     // 2.0.0 does not.
@@ -194,7 +194,7 @@ fn a_search_lists_the_version_add_installs() {
     );
     // Under no category it is listed at 2.0.0.
     let searched = registry.search("cat", None).unwrap();
-    assert_eq!(searched.found[0].version, "2.0.0");
+    assert_eq!(searched.found[0].version.to_string(), "2.0.0");
 }
 
 #[test]

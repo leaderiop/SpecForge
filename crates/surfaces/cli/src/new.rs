@@ -45,20 +45,21 @@ pub(crate) struct Args {
 /// `new`'s own options, each declared once: `--path` and `--format` as every command declares them.
 fn options() -> Command {
     Command::new("new")
+        .bin_name("specforge new")
         .about(ABOUT)
         .disable_help_flag(true)
         .arg(
             Arg::new(IN)
                 .long(IN)
                 .value_name("FILE")
-                .help("The file, relative to the spec root; created when missing"),
+                .help("The file, relative to the project root; created when missing"),
         )
         .arg(
             Arg::new(VERIFY)
                 .long(VERIFY)
                 .action(ArgAction::Append)
                 .value_name("KIND:TEXT")
-                .help("A `verify` obligation, as `kind:text` (or just `text`); repeat for several"),
+                .help("A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several"),
         )
         .arg(
             Arg::new(DRY_RUN)
@@ -147,6 +148,7 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
         arg = match field.field_type {
             FieldType::ReferenceList => arg.value_name("ID,…"),
             FieldType::Block => arg.value_name("NAME=TEXT"),
+            FieldType::Date => arg.value_name("YYYY-MM-DD"),
             _ => arg.value_name("VALUE"),
         };
         cmd = cmd.arg(arg);
@@ -252,7 +254,7 @@ impl Args {
             .get_one::<OutputFormat>(OutputArg::NAME)
             .copied()
             .unwrap_or(format);
-        match edit(kind, &fields, &matches) {
+        match edit(kind, &fields, edit::verify_kinds_of(&view, kind), &matches) {
             Ok(edit) => execute_on(
                 &compiled,
                 vec![edit],
@@ -266,19 +268,24 @@ impl Args {
 }
 
 /// The edit `matches`, the second reading of the line, asks for.
-fn edit(kind: &str, fields: &[FieldInfo], matches: &ArgMatches) -> Result<Edit, OpError> {
+fn edit(
+    kind: &str,
+    fields: &[FieldInfo],
+    verify_kinds: &[String],
+    matches: &ArgMatches,
+) -> Result<Edit, OpError> {
     let file = matches.get_one::<String>(IN).cloned().ok_or_else(|| {
         OpError::new(
             OpErrorKind::InvalidInput,
             "invalid_edit",
-            "new needs --in <file>, relative to the spec root",
+            "new needs --in <file>, relative to the project root",
         )
     })?;
     let verify = matches
         .get_many::<String>(VERIFY)
         .into_iter()
         .flatten()
-        .map(|text| Obligation::parse(text))
+        .map(|text| Obligation::parse(text, verify_kinds))
         .collect();
     Ok(Edit::Create {
         kind: kind.to_string(),

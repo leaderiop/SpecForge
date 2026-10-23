@@ -4,13 +4,13 @@ use specforge_parser::{ImportBinding, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
-/// A `pub use` of one file: what it re-exports and from where.
-struct ReexportDeclaration {
+/// A `use` of one file that re-exports or selects: what it imports, from where, and whether it re-exports.
+struct Selective {
     /// The target source's key.
     target_path: String,
-    /// `None`: everything the target exports.
+    /// `None`: everything the target exports (only a `pub use "t"` is kept so).
     bindings: Option<Vec<ImportBinding>>,
-    span: specforge_common::SourceSpan,
+    is_pub: bool,
 }
 
 /// What one `use` path names among a compile's sources.
@@ -35,8 +35,16 @@ enum Named<'s> {
 /// is a source exactly when one of the two holds it. An import of an
 /// unreadable source names it and reports nothing more, and a re-export
 /// from one reports no W027: what it exports is unknown.
+///
+/// `spec_dir` is the spec root as a prefix of the keys (`SourceRoot::prefix`, `""` when the spec root is the project
+/// root): an import path is read from the spec root, and the key it names carries the prefix. It is a lexical
+/// value: the resolver still reads, lists and stats nothing.
 #[must_use]
-pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec<Diagnostic> {
+pub fn resolve_imports(
+    parsed: &[(&str, &SpecFile)],
+    unreadable: &[&str],
+    spec_dir: &Path,
+) -> Vec<Diagnostic> {
     let mut files: Vec<(&str, &SpecFile)> = parsed.to_vec();
     files.sort_by(|a, b| a.0.cmp(b.0));
     let mut diagnostics = Vec::new();
@@ -47,27 +55,31 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
         .chain(unreadable.iter().copied())
         .collect();
 
-    // Candidates for fuzzy suggestions (source keys without .spec).
+    // Candidates for fuzzy suggestions: what an import path would spell (source keys without the spec dir and
+    // .spec).
     let candidates: Vec<&str> = sources
         .iter()
-        .map(|key| key.strip_suffix(".spec").unwrap_or(key))
+        .map(|key| {
+            let key = under(spec_dir, key);
+            key.strip_suffix(".spec").unwrap_or(key)
+        })
         .collect();
 
     // Resolve imports and build the file dependency graph, tracking each
     // file's `pub use` re-exports.
     let mut import_graph: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    let mut reexport_map: BTreeMap<String, Vec<ReexportDeclaration>> = BTreeMap::new();
+    let mut reexport_map: BTreeMap<String, Vec<Selective>> = BTreeMap::new();
     for (path, spec_file) in &files {
         let mut deps = Vec::new();
         let mut reexports = Vec::new();
         for import in &spec_file.imports {
-            match name(&sources, path, import.path.as_str()) {
+            match name(&sources, spec_dir, path, import.path.as_str()) {
                 Named::Source(target) => {
-                    if import.is_pub {
-                        reexports.push(ReexportDeclaration {
+                    if import.is_pub || import.bindings.is_some() {
+                        reexports.push(Selective {
                             target_path: target.to_string(),
                             bindings: import.bindings.clone(),
-                            span: import.span.clone(),
+                            is_pub: import.is_pub,
                         });
                     }
                     deps.push(target.to_string());
@@ -141,7 +153,7 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
     let mut order = topological_sort(&import_graph, &cyclic);
     order.extend(cyclic.iter().copied());
     let by_path: HashMap<&str, &SpecFile> = files.iter().copied().collect();
-    let scope_inputs: Vec<(&str, &SpecFile, &[ReexportDeclaration])> = order
+    let scope_inputs: Vec<(&str, &SpecFile, &[Selective])> = order
         .iter()
         .filter_map(|path| {
             Some((
@@ -158,23 +170,29 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
 /// The key of the source `use "<import_path>"` in source `importing` names
 /// among `sources`, by the cascade [`resolve_imports`] uses: a relative path
 /// (`./`, `../`) from `importing`'s directory, any other path from the spec
-/// root; `<path>.spec` (`<path>` itself when it ends in `.spec`), else
+/// root (`spec_dir`, see [`resolve_imports`]); `<path>.spec` (`<path>` itself when it ends in `.spec`), else
 /// `<path>/index.spec`. Keys compare exactly. `None` for an extension
 /// import (`@scope/name`) or a path that names no source.
 #[must_use]
 pub fn import_target<'s>(
     sources: &BTreeSet<&'s str>,
+    spec_dir: &Path,
     importing: &str,
     import_path: &str,
 ) -> Option<&'s str> {
-    match name(sources, importing, import_path) {
+    match name(sources, spec_dir, importing, import_path) {
         Named::Source(key) => Some(key),
         Named::Extension { .. } | Named::Nothing => None,
     }
 }
 
 /// The one cascade (both public functions go through it).
-fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> Named<'s> {
+fn name<'s>(
+    sources: &BTreeSet<&'s str>,
+    spec_dir: &Path,
+    importing: &str,
+    import_path: &str,
+) -> Named<'s> {
     if let Some(rest) = import_path.strip_prefix('@') {
         return match rest.split_once('/') {
             Some((scope, name)) => Named::Extension {
@@ -185,7 +203,9 @@ fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> 
         };
     }
     let from = if import_path.starts_with("./") || import_path.starts_with("../") {
-        Path::new(importing).parent().unwrap_or(Path::new(""))
+        Path::new(under(spec_dir, importing))
+            .parent()
+            .unwrap_or(Path::new(""))
     } else {
         Path::new("")
     };
@@ -194,8 +214,24 @@ fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> 
     };
     candidates(&base)
         .iter()
-        .find_map(|candidate| sources.get(candidate.to_string_lossy().as_ref()).copied())
+        .find_map(|candidate| {
+            let candidate = candidate.to_string_lossy();
+            let key = match spec_dir.as_os_str().is_empty() {
+                true => candidate.into_owned(),
+                false => format!("{}/{candidate}", spec_dir.to_string_lossy()),
+            };
+            sources.get(key.as_str()).copied()
+        })
         .map_or(Named::Nothing, Named::Source)
+}
+
+/// `key` without the spec dir it is under (a key is named from the project root, the spec root being its prefix).
+fn under<'a>(spec_dir: &Path, key: &'a str) -> &'a str {
+    Path::new(key)
+        .strip_prefix(spec_dir)
+        .ok()
+        .and_then(Path::to_str)
+        .unwrap_or(key)
 }
 
 /// `path` under `from` (both relative to the spec root), `.` and `..`
@@ -284,7 +320,7 @@ fn topological_sort<'a>(
 /// non-cyclic files, cyclic files appended at the end). For cycle participants
 /// whose scope hasn't been computed yet, only their `declared` set is used
 /// (no transitive resolution).
-fn compute_file_scopes(files: &[(&str, &SpecFile, &[ReexportDeclaration])]) -> Vec<Diagnostic> {
+fn compute_file_scopes(files: &[(&str, &SpecFile, &[Selective])]) -> Vec<Diagnostic> {
     let mut scopes: HashMap<String, HashSet<String>> = HashMap::new();
     let mut diagnostics = Vec::new();
 
@@ -320,22 +356,30 @@ fn compute_file_scopes(files: &[(&str, &SpecFile, &[ReexportDeclaration])]) -> V
                     additional_exports.extend(target_exported);
                 }
                 Some(bindings) => {
-                    // pub use { A, B } from "target" — re-export selected
+                    // use { A, B } from "target": a found name is re-exported when the statement is `pub`; a
+                    // missing one is W027 whether or not it is, placed on the binding (ADR 0233).
                     for binding in bindings {
                         if target_exported.contains(&binding.name) {
-                            // Use alias if present, otherwise use the original name
-                            let export_name = binding.alias.as_ref().unwrap_or(&binding.name);
-                            additional_exports.insert(export_name.clone());
+                            if reexport.is_pub {
+                                // Use alias if present, otherwise use the original name
+                                let export_name = binding.alias.as_ref().unwrap_or(&binding.name);
+                                additional_exports.insert(export_name.clone());
+                            }
                         } else {
+                            let how = if reexport.is_pub {
+                                "re-export"
+                            } else {
+                                "import"
+                            };
                             diagnostics.push(
                                 Diagnostic::new(
                                     codes::W027,
                                     format!(
-                                        "selective re-export '{}' not found in target '{}'",
+                                        "selective {how} '{}' not found in target '{}'",
                                         binding.name, reexport.target_path
                                     ),
                                 )
-                                .with_span(reexport.span.clone()),
+                                .with_span(binding.name_span.clone()),
                             );
                         }
                     }

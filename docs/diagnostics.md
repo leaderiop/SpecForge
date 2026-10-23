@@ -432,15 +432,16 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge
-update` also reports it when there is no lock file to update (run `specforge
-add` first). A lock that is there and can't be read loads no installed extension
-(each entry that needs it is E028), and every change whose answer it would
-decide is refused with this code before anything is read or written: an `add` or
-`init` that installs, any `update`, a `remove` of an extension whose origin only
-the lock could tell. Enabling or disabling a builtin, or a `.wasm` file entry,
-still works. Fix specforge.lock, or delete it and install the extensions again
-with `specforge add`.
+`specforge.lock` couldn't be serialized, written, read, or parsed (a lock
+entry's source must be `registry` or `local:<path>`, the path not empty and
+holding no control character); `specforge update` also reports it when there is
+no lock file to update (run `specforge add` first). A lock that is there and
+can't be read loads no installed extension (each entry that needs it is E028),
+and every change whose answer it would decide is refused with this code before
+anything is read or written: an `add` or `init` that installs, any `update`, a
+`remove` of an extension whose origin only the lock could tell. Enabling or
+disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock,
+or delete it and install the extensions again with `specforge add`.
 
 Owner: core
 Level: error
@@ -598,7 +599,9 @@ starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry
 package `@scope/name` with an optional `@version` or `@requirement`. A registry
 package name is lowercase letters, digits, `.`, `_` or `-` in two parts that
 each start with a letter or digit. A local path that names nothing, or no
-readable component, is E040. Nothing is asked of any registry.
+readable component, is E040; a local path `specforge.lock` cannot record (one
+holding a control character) is this code, and nothing is written. Nothing is
+asked of any registry.
 
 Owner: core
 Level: error
@@ -691,12 +694,13 @@ or an `expr { }` group; an enum one of its declared values (the suggestion names
 the closest one; the closed vocabularies the builtins declare, a feature's
 `status`, a failure mode's `severity`, a property's `property_type`, and the
 like, are enum fields); an integer field an integer; a bool field true or false;
+a date field one calendar day, `YYYY-MM-DD`, that exists (`2026-02-30` is none);
 a reference field one id; a string_list or reference_list field a list; a block
 field a block. Values that can be read as the declared type are converted
 without a diagnostic: a single string, id, integer, boolean or date on a list
-field becomes a one-item list, a list is stored as written, a quoted integer or
-boolean the number or boolean. Fix the value, or check the field's type with
-`specforge schema --kind <kind>`.
+field becomes a one-item list, a list is stored as written, a quoted integer,
+boolean or calendar day the number, boolean or date. Fix the value, or check the
+field's type with `specforge schema --kind <kind>`.
 
 Owner: core
 Level: error
@@ -853,7 +857,8 @@ recorded hash (it was changed or replaced after install), or it declares another
 extension, another version or other peers than the entry records. It is not
 loaded, and `check` fails. Reinstall it with the command the suggestion names
 (`specforge add <path>` for a local install, `specforge add <name>@<version>`
-for a registry one); `specforge doctor` lists it as `stale_hash`.
+for a registry one); `specforge doctor` lists a changed binary as `stale_hash`,
+and a binary declaring other than its entry records as an extension-load error.
 
 Owner: core
 Level: error
@@ -1165,9 +1170,9 @@ Level: info
 ```
 I010: Unreferenced term
 
-A `term` entity has no edges at all, meaning nothing links to or from it via
-`see_also` or similar references. Link the term from a relevant entity, or
-remove it if it's unused.
+A `term` has no edges and names nothing: no entity links to it, and it names no
+term in `see_also` and no `module` (a name it writes that does not exist is E003
+alone). Link the term from a relevant entity, or remove it if it's unused.
 
 Owner: @specforge/product
 Level: info
@@ -1244,14 +1249,15 @@ MCP serves each name once (ADR 0017): the core tools and resources first, then
 each extension's explicit MCP tools and resources in extension load order, then
 its commands as the tools `specforge.<ext>.<command>`. A contribution not served
 under its name is reported here, with why: an explicit tool named as a core tool
-or an earlier extension's tool; a resource whose URIs a core resource or an
-earlier extension resource already serves; a command whose tool name an explicit
-tool (or a core tool) already has; a command the host refuses (an arg taking
-`--path`, `--format` or `--help`, two args spelling one option, or a default its
-declaration contradicts); a command another command routes first under its name
-(`specforge check` reports that one as E039). I017 itself only MCP reports.
-Rename the contribution if the collision is unintended; otherwise no action is
-needed.
+or an earlier extension's tool; an explicit tool whose input schema declares
+`path`, which the call target takes out of every call; a resource whose URIs a
+core resource or an earlier extension resource already serves; a command whose
+tool name an explicit tool (or a core tool) already has; a command the host
+refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one
+option, or a default its declaration contradicts); a command another command
+routes first under its name (`specforge check` reports that one as E039). I017
+itself only MCP reports. Rename the contribution if the collision is unintended;
+otherwise no action is needed.
 
 Owner: core
 Level: info
@@ -1326,18 +1332,6 @@ Owner: @specforge/product
 Level: info
 ```
 
-## I053
-
-```
-I053: Milestone target date not YYYY-MM-DD
-
-A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026`
-or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.
-
-Owner: @specforge/product
-Level: info
-```
-
 ## I054
 
 ```
@@ -1355,8 +1349,8 @@ Level: info
 ```
 I055: Journey without channels
 
-A `journey` has no edge to a `channel`: no `channels` field, an empty list, or
-only references that don't resolve. List the channels the journey happens
+A `journey` names no channel: no `channels` field or an empty list (a channel it
+names that does not exist is E003 alone). List the channels the journey happens
 through in `channels`.
 
 Owner: @specforge/product
@@ -1485,9 +1479,9 @@ Level: info
 ```
 I067: Module without features
 
-A `module` has no edge to a `feature`: no `features` field, an empty list, or
-only references that don't resolve. A module that implements no features is
-likely incomplete. List the features it implements in `features`.
+A `module` names no feature: no `features` field or an empty list (a feature it
+names that does not exist is E003 alone). A module that implements no features
+is likely incomplete. List the features it implements in `features`.
 
 Owner: @specforge/product
 Level: info
@@ -1576,9 +1570,9 @@ Level: info
 ```
 I082: Release without deliverables
 
-A `release` has no edge to a `deliverable`: no `deliverables` field, an empty
-list, or only references that don't resolve. List the deliverables it ships in
-`deliverables`.
+A `release` names no deliverable: no `deliverables` field or an empty list (a
+deliverable it names that does not exist is E003 alone). List the deliverables
+it ships in `deliverables`.
 
 Owner: @specforge/product
 Level: info
@@ -1589,33 +1583,9 @@ Level: info
 ```
 I083: Release without milestones
 
-A `release` has no edge to a `milestone`: no `milestones` field, an empty list,
-or only references that don't resolve. List the milestones it completes in
-`milestones`.
-
-Owner: @specforge/product
-Level: info
-```
-
-## I086
-
-```
-I086: Release date not YYYY-MM-DD
-
-A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June
-2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.
-
-Owner: @specforge/product
-Level: info
-```
-
-## I087
-
-```
-I087: Milestone start date not YYYY-MM-DD
-
-A `milestone`'s `start_date` doesn't match `YYYY-MM-DD` (for example `Jan 15`).
-Write the date as an ISO 8601 calendar date, e.g. `2026-01-15`.
+A `release` names no milestone: no `milestones` field or an empty list (a
+milestone it names that does not exist is E003 alone). List the milestones it
+completes in `milestones`.
 
 Owner: @specforge/product
 Level: info
@@ -2182,9 +2152,10 @@ Level: error
 ```
 W001: Behavior implements no feature
 
-A `behavior` entity has no outgoing edge to any `feature`, meaning it doesn't
-implement anything declared. Add an `implements` reference to a feature, or
-remove the behavior if it's unused.
+A `behavior` names no feature in `features` (no field, or an empty list), so it
+implements nothing declared. A feature it names that does not exist is E003
+alone, never W001 too. List the features it implements in `features`, or remove
+the behavior if it's unused.
 
 Owner: @specforge/software
 Level: warning
@@ -2350,9 +2321,9 @@ Level: warning
 W019: Unknown field type
 
 An extension manifest declares a field whose `field_type` value the compiler
-doesn't recognize (it must be one of `string`, `integer`, `bool`, `enum`,
-`string_list`, `reference`, `reference_list`, or `block`). Correct the field's
-`field_type` in the manifest.
+doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
+`enum`, `identifier`, `string_list`, `reference`, `reference_list`, or `block`).
+Correct the field's `field_type` in the manifest.
 
 Owner: core
 Level: warning
@@ -2409,11 +2380,14 @@ Level: warning
 ## W027
 
 ```
-W027: Re-export binding not found
+W027: Import binding not found
 
-A selective `pub use { A, B } from "target"` re-export names a binding that
-isn't actually exported by the target module. Correct the binding name or remove
-it from the re-export list.
+A selective import, `use { A, B } from "target"` or `pub use { A, B } from
+"target"`, names a binding the target file does not export: an entity it neither
+declares nor re-exports with `pub use`. References resolve without `use`, so the
+binding changes nothing, but it names nothing either; a rename and a delete keep
+bindings in step with the entities they name (ADR 0233). Correct the binding's
+name, or remove it.
 
 Owner: core
 Level: warning
@@ -2576,9 +2550,9 @@ Level: warning
 ```
 W043: Deliverable without journeys
 
-A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list,
-or only references that don't resolve. Nothing says which user journeys it
-supports. List the journeys it serves in `journeys`.
+A `deliverable` names no journey: no `journeys` field or an empty list (a
+journey it names that does not exist is E003 alone). Nothing says which user
+journeys it supports. List the journeys it serves in `journeys`.
 
 Owner: @specforge/product
 Level: warning
@@ -2614,9 +2588,9 @@ Level: warning
 ```
 W046: Deliverable without modules
 
-A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or
-only references that don't resolve, so it has no structural decomposition. List
-the modules it ships in `modules`.
+A `deliverable` names no module: no `modules` field or an empty list (a module
+it names that does not exist is E003 alone), so it has no structural
+decomposition. List the modules it ships in `modules`.
 
 Owner: @specforge/product
 Level: warning
@@ -3310,12 +3284,14 @@ W159: Value not written in its field's form
 
 A field's declared type decides how its value is written (ADR 0147): bare for an
 enum, identifier or reference value and each item of a reference list; quoted
-for text and each item of a string list. This value is written the other way. It
-reads the same, so the graph is unchanged; run specforge format (or format the
-document in the editor) to rewrite every value in its form. A bare word on a
-kind that takes members (type, port) is left alone: it may be a member's type. A
-value a `defaults <kind>` block writes is reported once, at the default, however
-many blocks take it.
+for text and each item of a string list; an integer, true or false and a
+calendar day bare; a list field's value in brackets, one item per value. A
+multi-line text on a list field is one item: split it, format cannot. This value
+is written the other way. It reads the same, so the graph is unchanged; run
+specforge format (or format the document in the editor) to rewrite every value
+in its form. A bare word on a kind that takes members (type, port) is left
+alone: it may be a member's type. A value a `defaults <kind>` block writes is
+reported once, at the default, however many blocks take it.
 
 Owner: core
 Level: warning
@@ -3374,6 +3350,9 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E053 | (nothing) |
 | E060 | (nothing) |
 | I006 | (nothing) |
+| I053 | [E061](#e061) |
+| I086 | [E061](#e061) |
+| I087 | [E061](#e061) |
 | W011 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

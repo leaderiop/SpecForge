@@ -331,13 +331,13 @@ fn init_reads_a_relative_local_specifier_from_the_project_it_creates() {
     assert!(lock.contains("@sdk/greet"), "{lock}");
 }
 
-/// `outline`'s `file` is joined onto the spec root: whether a file outside
+/// `outline`'s `file` is joined onto the project root: whether a file outside
 /// it exists is answered (success against `file_not_found`).
 #[specforge_test(
     invariant = "mcp_served_project_consistency",
     verify = "a file or directory an MCP tool argument names resolves inside the call's project"
 )]
-fn outline_of_a_file_outside_the_spec_root_is_refused() {
+fn outline_of_a_file_outside_the_project_root_is_refused() {
     let scene = Scene::new();
     let mut server = scene.serve();
     let reply = call_tool(

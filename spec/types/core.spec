@@ -92,6 +92,7 @@ type JsonValue "Opaque JSON value for Wasm host function I/O. Serialized as serd
 }
 
 type SourceSpan "Source Span" {
+  /// The source's key: its path from the project root (ADR 0242).
   file       string  @readonly
   start_line integer @readonly
   start_col  integer @readonly

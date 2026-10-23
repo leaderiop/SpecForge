@@ -125,6 +125,12 @@ fn named_today() -> Vec<Refusal> {
             "invalid_input",
             Some("kind"),
         ),
+        (
+            "specforge.format",
+            json!({"paths": ["nope.spec"]}),
+            "file_not_found",
+            Some("paths"),
+        ),
     ]
 }
 

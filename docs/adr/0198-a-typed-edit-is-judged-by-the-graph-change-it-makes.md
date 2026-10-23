@@ -1,6 +1,6 @@
 # A typed edit is judged by the graph change it makes
 
-**Status:** accepted (2026-10-21, architecture round 21, plan 07). Amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (a second condition for writing). Cites [ADR 0167](0167-a-typed-edit-is-compared-with-the-checked-report.md) D1 (E080 is unchanged and judged first), [ADR 0186](0186-a-migration-is-judged-before-it-is-written.md) D1 (the migration's declared-change pattern) and [ADR 0032](0032-one-graph-build.md) (the delta's invariant). Amended by round 22 plan 07 (2026-10-21): a rename declares a substitution; a capture refuses it.
+**Status:** accepted (2026-10-21, architecture round 21, plan 07). Amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (a second condition for writing). Cites [ADR 0167](0167-a-typed-edit-is-compared-with-the-checked-report.md) D1 (E080 is unchanged and judged first), [ADR 0186](0186-a-migration-is-judged-before-it-is-written.md) D1 (the migration's declared-change pattern) and [ADR 0032](0032-one-graph-build.md) (the delta's invariant). Amended by round 22 plan 07 (2026-10-21): a rename declares a substitution; a capture refuses it. The round-22 amendment's last consequence is answered by [ADR 0233](0233-a-use-binding-is-a-finder-token.md): a `use` binding is a finder token, so a rename edits it.
 
 ## Context
 

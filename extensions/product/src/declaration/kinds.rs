@@ -213,11 +213,11 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .description("Conditions that must be met to consider the milestone complete");
         });
         k.field("target_date", |f| {
-            f.field_type(FieldType::String)
+            f.field_type(FieldType::Date)
                 .description("Planned completion date for this milestone");
         });
         k.field("start_date", |f| {
-            f.field_type(FieldType::String)
+            f.field_type(FieldType::Date)
                 .description("Date when work on this milestone began or is planned to begin");
         });
         k.field("modules", |f| {
@@ -442,11 +442,11 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .target_kind("milestone");
         });
         k.field("target_date", |f| {
-            f.field_type(FieldType::String)
+            f.field_type(FieldType::Date)
                 .description("Planned release date");
         });
         k.field("release_date", |f| {
-            f.field_type(FieldType::String)
+            f.field_type(FieldType::Date)
                 .description("Actual date the release shipped");
         });
         k.field("changelog", |f| {

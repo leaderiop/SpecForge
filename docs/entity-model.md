@@ -268,7 +268,7 @@ When the target kind's extension is not installed, the compiler emits `I004` ins
 
 ## Field Type Vocabulary (C2-08)
 
-Extensions declare fields with one of eight typed vocabularies
+Extensions declare fields with one of ten typed vocabularies
 (`specforge_protocol_types::FieldType`; every output names a type as below, ADR 0034). Author-facing meaning:
 
 | Type | Value shape | Reference semantics |
@@ -276,7 +276,9 @@ Extensions declare fields with one of eight typed vocabularies
 | `string` | free text | none |
 | `integer` | whole number | none |
 | `bool` | true/false | none |
+| `date` | one calendar day, `YYYY-MM-DD`, written bare | none |
 | `enum` | one of the declared enum values | none |
+| `identifier` | one word from an open set, written bare | none |
 | `string_list` | list of strings | none |
 | `reference` | a single entity id | MUST resolve to a declared entity (E003) |
 | `reference_list` | list of entity ids | each MUST resolve (E003) |
@@ -287,8 +289,9 @@ become typed graph edges), `required` (E006 enforcement), and
 `file_reference=true` (path values validated to exist, e.g. `gherkin`), and
 `normative=true` when the field states what the entity promises rather than
 prose (a behavior's `contract`, an invariant's `guarantee`, a decision's
-`decision`): `specforge export --format context` keeps normative fields and
-drops the rest, without core knowing any field by name. `headline=true`
+`decision`): the review document (`specforge export --format markdown`) quotes
+it whole, and with `headline=true` it is the entity's statement (MCP `inspect`'s
+`contract`), without core knowing any field by name. `headline=true`
 lifts the field, as its field text, to the context node's top level (a behavior's `contract`, a
 feature's `status`), and `exempts_obligations=true` makes an entity that sets
 it owe no `verify` obligations (formal's `abstract true`; W004, coverage and

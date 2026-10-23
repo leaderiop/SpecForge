@@ -21,17 +21,17 @@ behavior resolve_use_imports "Resolve Use Imports" {
   consumes   [registries_populated]
   requires {
     registries_populated_fired "registries_populated event has fired, confirming KindRegistry and FieldRegistry are ready"
-    sources_held               "The compile holds its sources: the path relative to the spec root of every .spec file discovery kept, parsed or unreadable, and of every editor buffer of one"
+    sources_held               "The compile holds its sources: the path from the project root of every .spec file discovery kept, parsed or unreadable, and of every editor buffer of one"
   }
   ensures {
-    imports_resolved        "All use directives are resolved to the project sources they name, relative to the spec root"
+    imports_resolved        "All use directives are resolved to the project sources they name, an import path read from the spec root"
     missing_files_diagnosed "An import that names no project source produces E025"
     dependency_graph_built  "File dependency graph is constructed from resolved imports"
   }
   contract   """
     The resolver MUST resolve a use directive against the project's
-    sources, the .spec files the compile holds, by their paths relative
-    to the spec root, and MUST NOT read, list or stat any file. A
+    sources, the .spec files the compile holds, by their paths from
+    the project root, and MUST NOT read, list or stat any file. A
     relative path (./ or ../) is read from the importing file's
     directory, any other path from the spec root. The .spec extension
     MUST be appended implicitly, and a dotted name keeps its dots
@@ -51,6 +51,8 @@ behavior resolve_use_imports "Resolve Use Imports" {
     reports nothing more and a re-export from it no W027. An editor
     buffer the session holds for a file discovery would find is a
     source, saved or not.
+    A selective use, pub or not, of a name its target does not export (neither
+    declares nor re-exports) MUST produce W027, placed on the binding (ADR 0233).
     The resolver MUST build the file dependency graph from imports.
     A .spec file that an exclude entry of specforge.json leaves out MUST
     NOT be compiled, on every surface (check, watch, the LSP and MCP),
@@ -79,6 +81,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
     directory is never entered.
   """
   verify unit "a use path resolves to the project source it names"
+  verify unit "an import path is read from the spec root among keys named from the project root"
   verify unit "missing import file produces E025"
   verify unit "an import path may spell out the .spec extension"
   verify unit "relative import traversing above spec_root is rejected"
@@ -105,6 +108,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit "an exclude entry with a slash is anchored at the spec root"
   verify unit "exclude entries are glob patterns matched against a file and its directories"
   verify unit "an exclude entry that can match no source is E069 and ignored"
+  verify unit "a selective use of a name its target does not export is W027"
 }
 
 // No consumes — called inline during use import resolution
@@ -256,7 +260,7 @@ behavior resolve_reexports "Resolve pub use Re-exports" {
     selective_reexported "pub use { A, B } adds only the named entities to the file's exports"
     chains_transitive    "exports through several pub use files chain transitively"
     plain_use_private    "a plain use adds nothing to the file's exports"
-    unknown_name_warned  "a selective re-export of a name the target doesn't export is W027"
+    unknown_name_warned  "a selective re-export of a name the target doesn't export is W027, placed on the binding"
   }
   contract """
     References resolve across the project without use (ADR 0004 D1-a),
@@ -266,7 +270,7 @@ behavior resolve_reexports "Resolve pub use Re-exports" {
     add only the named ones (`A as B` adds B). Exports MUST chain
     transitively, so a barrel index file can re-export its sub-files. A
     plain `use` MUST NOT add anything. A selective re-export of a name the
-    target doesn't export MUST produce W027. When files import each other
+    target doesn't export MUST produce W027, placed on the binding. When files import each other
     in a cycle, a re-export through a cycle participant MUST use only that
     file's declared set, never a transitive closure through the cycle.
   """

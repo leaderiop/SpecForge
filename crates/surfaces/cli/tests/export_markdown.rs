@@ -101,7 +101,7 @@ fn complete_task_reads_as_a_review_document() {
 
     ## behavior `complete_task` — Complete a Task
 
-    `behaviors/task.spec:31`
+    `spec/behaviors/task.spec:31`
 
     **contract**
 

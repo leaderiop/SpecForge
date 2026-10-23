@@ -357,10 +357,11 @@ behavior lex_spec_text "Lex Spec Text" {
     valid_utf8_input "Input buffer is valid UTF-8"
   }
   ensures {
-    lexemes_match_grammar  "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
-    strings_as_the_grammar "a string spanning lines is one lexeme, as the grammar reads it; one the grammar would not close is marked unclosed"
-    half_typed_text_lexes  "text the grammar rejects still lexes, an unclosed regular string ending at its line's end and an unclosed triple-quoted one before the next line that starts a top-level form"
-    form_starts_as_grammar "a line starts a top-level form of the grammar exactly where the grammar reads one, whether its lexemes are read alone or in their document"
+    lexemes_match_grammar      "every identifier, scheme ref ID, number, string and comment the grammar reads is one lexeme with the same bytes"
+    strings_as_the_grammar     "a string spanning lines is one lexeme, as the grammar reads it; one the grammar would not close is marked unclosed"
+    half_typed_text_lexes      "text the grammar rejects still lexes, an unclosed regular string ending at its line's end and an unclosed triple-quoted one before the next line that starts a top-level form"
+    form_starts_as_grammar     "a line starts a top-level form of the grammar exactly where the grammar reads one, whether its lexemes are read alone or in their document"
+    body_statements_as_grammar "a body line starts a verify or method statement exactly where the grammar reads one, read on its line; a verify line being typed is told apart"
   }
   contract   """
     The lexer MUST read a .spec text, complete or half-typed, into the
@@ -384,7 +385,17 @@ behavior lex_spec_text "Lex Spec Text" {
     read in one walk (form_starts): a line that starts a top-level form at
     most as deep as the last line begun with no bracket open closes every
     bracket open before it; the parser's recovery and the LSP's document
-    both read that walk. The expression
+    both read that walk. Which statement a line of a block's body starts (a
+    field, a verify statement or a method statement) is read from lexemes by
+    one rule (body_statement_at). verify starts a statement when a regular
+    string follows it, directly or after one identifier on its line, and
+    method when an identifier follows it on its line, then ( or nothing. A
+    triple-quoted string is a field's value. A verify with nothing after it on
+    its line, or one identifier and nothing after it, and no regular string
+    next, is a verify line being typed: the grammar reads a field named
+    verify. The rule reads a kind on its line only, where the grammar, for
+    which a line break is whitespace, takes the next line's word and string as
+    the kind and description of a verify written alone (ADR 0241). The expression
     tokenizer of the prove pass (parse_expression) reads a sub-language with
     lexical rules of its own and is not built on the lexer; it MUST cut the
     expressions of the repository's spec into the same tokens (the
@@ -399,6 +410,8 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "an unclosed triple-quoted string ends before the next line that starts a top-level form"
   verify unit "the grammar ends an unclosed body at exactly the lines the form-start rule reads as form starts"
   verify unit "a document's form starts are the grammar's top-level nodes, and stay so with every body left unclosed"
+  verify unit "a body line starts a verify or method statement exactly where the grammar reads one, on every spec file of the repository"
+  verify unit "a verify line being typed is told apart from a verify statement and from a field"
 }
 
 behavior parse_define_blocks "Parse Define Blocks" {

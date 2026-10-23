@@ -11,6 +11,9 @@ fn forms() -> FieldForms {
     for (kind, field, ty) in [
         ("behavior", "category", FieldType::Identifier),
         ("behavior", "contract", FieldType::String),
+        ("behavior", "points", FieldType::Integer),
+        ("behavior", "urgent", FieldType::Bool),
+        ("behavior", "due", FieldType::Date),
         ("behavior", "types", FieldType::ReferenceList),
         ("behavior", "tags", FieldType::StringList),
         ("type", "description", FieldType::String),
@@ -132,5 +135,30 @@ fn a_defaults_block_of_a_kind_that_takes_members_keeps_a_bare_word() {
 )]
 fn a_defaults_block_naming_an_undeclared_kind_rewrites_nothing() {
     let text = "defaults widget {\n  category \"cart\"\n}\n";
+    assert_eq!(fmt_forms(text), text);
+}
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a number, a boolean, a literal and a whole value on a list field are written in their field's form"
+)]
+fn a_number_a_boolean_a_literal_and_a_whole_value_on_a_list_are_written_in_their_form() {
+    let format = fmt_forms;
+    let once = format(
+        "behavior b \"B\" {\n  points \"3\"\n  urgent \"true\"\n  tags \"x\"\n  types a\n  contract 7\n  due \"2026-03-01\"\n}\n",
+    );
+    assert_eq!(
+        once,
+        "behavior b \"B\" {\n  points   3\n  urgent   true\n  tags     [\"x\"]\n  types    [a]\n  contract \"7\"\n  due      2026-03-01\n}\n"
+    );
+    assert_eq!(format(&once), once, "a fixed point");
+}
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a multi-line text on a list field is left as written"
+)]
+fn a_multi_line_text_on_a_list_field_is_left_as_written() {
+    let text = "behavior b \"B\" {\n  tags \"\"\"\n    one\n    two\n  \"\"\"\n}\n";
     assert_eq!(fmt_forms(text), text);
 }

@@ -306,10 +306,10 @@ behavior login "User Login" {
         file_errors
     );
 
-    // `use "types"` resolved to the file types.spec (extension appended,
-    // path relative to the spec root), and only that.
+    // `use "types"` resolved to types.spec (extension appended, path relative to the spec root), only.
+    let keys = ctx.source_keys();
     assert_eq!(
-        specforge_resolver::import_target(&ctx.source_keys(), "behaviors.spec", "types"),
+        specforge_resolver::import_target(&keys, "".as_ref(), "behaviors.spec", "types"),
         Some("types.spec")
     );
     // The import's types edge links the two files' entities.

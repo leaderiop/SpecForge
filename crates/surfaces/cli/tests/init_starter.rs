@@ -60,3 +60,54 @@ fn an_init_whose_version_holds_a_quote_formats_and_checks_clean() {
         );
     }
 }
+
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "the product starter's journey flow is a list of steps"
+)]
+fn the_product_starters_flow_is_a_list_of_steps() {
+    let starter = include_str!("../../../../extensions/product/src/starter.spec")
+        .replace("{project}", "demo")
+        .replace("{version}", "0.1.0");
+    let dir = TestProject::new()
+        .enabling(&["@specforge/product"])
+        .config(|c| c["spec_root"] = "spec".into())
+        .file("spec/demo.spec", &starter);
+    let cli = Cli::on(&dir);
+    let export = cli.run(&["export", "--format", "json"]).exits(0).json();
+    let text = export.to_string();
+    let flow = find_flow(&export).unwrap_or_else(|| panic!("no onboarding flow in {text}"));
+    let steps = flow.as_array().expect("flow is a list");
+    assert_eq!(steps.len(), 2, "{flow}");
+    assert!(
+        steps.iter().all(|s| !s.as_str().unwrap().contains('\n')),
+        "{flow}"
+    );
+    let w159 = cli
+        .document(&["check"])
+        .json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "W159")
+        .count();
+    assert_eq!(w159, 0);
+}
+
+/// The `flow` of the node `onboarding`, wherever the export puts it.
+fn find_flow(v: &serde_json::Value) -> Option<&serde_json::Value> {
+    match v {
+        serde_json::Value::Object(m) => {
+            let is_it = m.get("id").and_then(|i| i.as_str()) == Some("onboarding");
+            let flow = m
+                .get("flow")
+                .or_else(|| m.get("fields").and_then(|f| f.get("flow")));
+            if let (true, Some(f)) = (is_it, flow) {
+                return Some(f);
+            }
+            m.values().find_map(find_flow)
+        }
+        serde_json::Value::Array(a) => a.iter().find_map(find_flow),
+        _ => None,
+    }
+}

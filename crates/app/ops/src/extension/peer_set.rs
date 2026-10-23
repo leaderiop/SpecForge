@@ -296,7 +296,7 @@ mod tests {
         LockFileEntry {
             name: PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: LockSource::parse(source),
+            source: LockSource::parse(source).unwrap(),
             wasm_hash: "hash".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),

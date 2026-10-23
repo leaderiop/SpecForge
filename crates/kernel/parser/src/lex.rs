@@ -11,7 +11,9 @@
 //! The parser's recovery from unclosed strings, the LSP's document, navigation
 //! and the formatter read text through this module and scan none themselves
 //! (ADR 0023, ADR 0038). Where a top-level form starts is this module's too
-//! (`starts_top_level_form`): recovery and the LSP's document both ask it.
+//! (`starts_top_level_form`): recovery and the LSP's document both ask it. Which
+//! statement a line of a block's body starts is this module's too
+//! (`body_statement_at`): the LSP's document asks it.
 //!
 //! This is the second reader of the language's text beside the grammar, and
 //! `expr::tokenize` is a third that is not built on it. `tokenize` reads the
@@ -207,6 +209,64 @@ pub fn form_starts(text: &str, lexemes: &[Lexeme]) -> Vec<usize> {
         }
     }
     starts
+}
+
+/// Which statement a line of a block's body starts (ADR 0241): what
+/// `crates/kernel/tree-sitter/grammar.js`'s `field`, `verify_statement` and
+/// `method_statement` read, from lexemes, on a half-typed line too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyStatement {
+    /// `verify [kind] "description"`: a `"..."` string (not `"""..."""`, closed or
+    /// not) follows `verify` directly, or after one identifier.
+    Verify,
+    /// `verify`, or `verify` and one identifier, with nothing after it on its
+    /// line and no `"..."` string next: a verify line being typed. The grammar
+    /// reads a field named verify (`verify string`).
+    VerifyTyped,
+    /// `method name(...)`: an identifier follows `method` on its line, then `(`
+    /// or nothing yet.
+    Method,
+    /// A field's key, or a line the grammar reads as no statement.
+    Field,
+}
+
+/// The statement a body line whose first lexeme is `lexemes[i]` (of `text`)
+/// starts. The one reading of it: the LSP's document asks it, and a test holds
+/// it to the grammar's `verify_statement` and `method_statement` nodes. Only
+/// body statements are asked: in a nested block `verify` and `method` are
+/// always keys, which the caller knows from its frames.
+///
+/// A statement's kind is read on its line, where the grammar reads across line
+/// breaks: a bare `verify` above `contract "c"` is a verify line being typed
+/// here, while the grammar takes the next line as its kind and description.
+pub fn body_statement_at(text: &str, lexemes: &[Lexeme], i: usize) -> BodyStatement {
+    let Some(first) = lexemes.get(i) else {
+        return BodyStatement::Field;
+    };
+    let line_end = text[first.end..]
+        .find('\n')
+        .map_or(text.len(), |nl| first.end + nl);
+    let mut next = lexemes[i + 1..]
+        .iter()
+        .filter(|l| l.kind != LexemeKind::Comment);
+    let (a, b) = (next.next(), next.next());
+    let (a_on, b_on) = (
+        a.filter(|l| l.start < line_end),
+        b.filter(|l| l.start < line_end),
+    );
+    let ident = |l: Option<&Lexeme>| l.is_some_and(|l| l.kind == LexemeKind::Ident);
+    // The grammar's `string`: a triple-quoted one is a field's value, never a description.
+    let regular = |l: Option<&Lexeme>| {
+        l.is_some_and(|l| l.kind.is_str() && !l.text(text).starts_with(TRIPLE))
+    };
+    match first.text(text) {
+        "verify" if regular(a) || (ident(a_on) && regular(b)) => BodyStatement::Verify,
+        "verify" if a_on.is_none() || (ident(a_on) && b_on.is_none()) => BodyStatement::VerifyTyped,
+        "method" if ident(a_on) && (b_on.is_none() || b.is_some_and(|b| b.is_punct('('))) => {
+            BodyStatement::Method
+        }
+        _ => BodyStatement::Field,
+    }
 }
 
 /// The start of the first line after the one holding byte `from` of `text`

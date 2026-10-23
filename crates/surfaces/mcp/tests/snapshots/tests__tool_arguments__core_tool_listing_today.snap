@@ -21,7 +21,7 @@ expression: listing
         },
         "format": {
           "default": "graph",
-          "description": "Output detail level: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title",
+          "description": "Output detail level: graph (also json): every entity with its fields, file and line (Graph Protocol); context: every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent; brief: id, kind and title",
           "enum": [
             "graph",
             "context",
@@ -185,6 +185,7 @@ expression: listing
                             "string",
                             "integer",
                             "bool",
+                            "date",
                             "enum",
                             "identifier",
                             "string_list",
@@ -1196,7 +1197,7 @@ expression: listing
         },
         "format": {
           "default": "graph",
-          "description": "Export format: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title; dot: Graphviz; markdown: a document a reviewer reads: each entity's statements, fields, links and obligations",
+          "description": "Export format: graph (also json): every entity with its fields, file and line (Graph Protocol); context: every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent; brief: id, kind and title; dot: Graphviz; markdown: a document a reviewer reads: each entity's statements, fields, links and obligations",
           "enum": [
             "graph",
             "context",
@@ -1772,6 +1773,7 @@ expression: listing
                         "string",
                         "integer",
                         "bool",
+                        "date",
                         "enum",
                         "identifier",
                         "string_list",
@@ -3005,7 +3007,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "file": {
-          "description": "Spec file, relative to the project's spec root",
+          "description": "Spec file, relative to the project root",
           "type": "string"
         }
       },
@@ -3143,7 +3145,7 @@ expression: listing
           "type": "string"
         },
         "file_path": {
-          "description": "Only diagnostics in this spec file, relative to the spec root",
+          "description": "Only diagnostics in this spec file, relative to the project root",
           "type": "string"
         }
       },
@@ -7169,7 +7171,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "format": {
-          "description": "Renderer to use: graph (also json): every entity with its fields, file and line (Graph Protocol); context: headline and normative fields and verify, for an agent; brief: id, kind and title; dot: Graphviz; markdown: a document a reviewer reads: each entity's statements, fields, links and obligations",
+          "description": "Renderer to use: graph (also json): every entity with its fields, file and line (Graph Protocol); context: every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent; brief: id, kind and title; dot: Graphviz; markdown: a document a reviewer reads: each entity's statements, fields, links and obligations",
           "enum": [
             "graph",
             "context",

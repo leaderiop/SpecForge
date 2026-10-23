@@ -10,7 +10,7 @@ use specforge_test_macros::test as spec;
 
 use super::cycles::cycle_rule;
 use super::{Built, constraint, declaring_with_kinds, messages, rule, rules, rules_of};
-use crate::support::written::snapshot_of;
+use crate::support::written::{linked, snapshot_of};
 use crate::support::{NoDisk, declare};
 
 /// What `built`'s rules report over `text`, written as one file.
@@ -86,6 +86,54 @@ fn an_edge_rule_counts_only_its_edge_type() {
     let built = implementing(declared, false);
     assert!(built.rules.is_empty());
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
+}
+
+/// `typo` writes a feature nothing declares; `elsewhere` an event nothing
+/// declares (another edge type's field); `empty` an empty feature list;
+/// `real` implements `f1`.
+const UNRESOLVED: &str = "behavior typo \"Typo\" {\n  features [nope_feature]\n}\n\n\
+                          behavior elsewhere \"Elsewhere\" {\n  events [nope_event]\n}\n\n\
+                          behavior empty \"Empty\" {\n  features []\n}\n\n\
+                          behavior real \"Real\" {\n  features [f1]\n}\n\n\
+                          feature f1 \"F1\" {\n}\n";
+
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
+)]
+fn an_edge_rule_reports_no_cascade_of_an_unresolved_reference() {
+    // Each reference that does not resolve is the linker's E003.
+    let built = implementing(rule("W900", "no_outgoing_edges"), true);
+    let unresolved = linked(&built.build, &[("t.spec", UNRESOLVED)]);
+    assert_eq!(
+        unresolved.iter().filter(|d| d.code == "E003").count(),
+        2,
+        "{unresolved:?}"
+    );
+
+    // The ids `declared` reports over UNRESOLVED, by entity id.
+    let reported =
+        |mut declared: ValidationRuleDescriptor, edge_type: Option<&str>| -> Vec<String> {
+            declared.edge_type = edge_type.map(str::to_string);
+            declared.message_template = "{id}".to_string();
+            over_text(&implementing(declared, true), UNRESOLVED)
+                .into_iter()
+                .map(|d| d.message)
+                .collect()
+        };
+    // Its edge type's fields: `elsewhere`'s unresolved event is another
+    // edge type's, and `empty` wrote nothing.
+    assert_eq!(
+        reported(
+            rule("W900", "no_outgoing_edges"),
+            Some("BehaviorImplementsFeature")
+        ),
+        ["elsewhere", "empty"]
+    );
+    // Any field: only `empty` links nothing.
+    assert_eq!(reported(rule("W901", "no_outgoing_edges"), None), ["empty"]);
+    // No edge in and nothing linked out: the same.
+    assert_eq!(reported(rule("W902", "no_edges"), None), ["empty"]);
 }
 
 #[spec(

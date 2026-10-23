@@ -29,7 +29,9 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   contract """
     When specforge extension init is invoked, the system MUST scaffold a
     new extension crate written with specforge-extension-sdk: a Cargo.toml
-    depending on the SDK, a src/lib.rs whose #[extension(name, version,
+    depending on specforge-extension-sdk at the version of the specforge that
+    scaffolds it (the SDK shares that version), which builds, unedited, into a
+    component the host loads, a src/lib.rs whose #[extension(name, version,
     short, description)] declares the extension and whose
     component_guest! generates every export, and a cargo configuration
     building a wasm32-wasip2 component. No manifest file is written: the
@@ -48,6 +50,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "specforge extension init --format=json outputs structured JSON"
   verify unit "specforge extension init uses default name when --name not provided"
   verify unit "the scaffold's extension name is a package name"
+  verify unit "the scaffold names the SDK at the version this specforge is built with"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 
@@ -65,7 +68,8 @@ behavior build_wasm_extension "Build Wasm Extension" {
   contract """
     When specforge extension build is invoked, the system MUST compile
     the extension crate to a wasm32-wasip2 component (cargo build
-    --release --target wasm32-wasip2) and name the component it built.
+    --release --target wasm32-wasip2) and name the component it built, read
+    where it built it whether --dir is relative or absolute.
     Build errors MUST be reported as ExtensionError diagnostics (E040).
     Before compiling, it MUST check that the extension project
     structure exists and fail with a diagnostic when it doesn't.
@@ -74,6 +78,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
   verify unit "build produces .wasm binary"
   verify unit "build errors reported as ExtensionError diagnostics"
   verify unit "specforge extension build validates project structure exists"
+  verify unit "specforge extension build with a relative --dir reads the component it built"
   verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 }
 
@@ -108,7 +113,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
     (load_extension_declaration) and report what the registry build of
     that declaration alone reports (E030, W021, W138, ...; missing peers
     are not reported, they are installed beside it), with the declaration
-    itself and its diagnostics, in the shape every command writes a
+    itself, the protocol version its handshake states, and its diagnostics, in the shape every command writes a
     diagnostic, under --format json; it reads and declares the binary as
     publish does. No built component is an error (E040), and
     a binary that is not an extension is E028, and one declaring a builtin's
@@ -124,6 +129,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   verify unit "specforge extension validate reports a declared name that is no package name (E072), as add and the extension load refuse it"
   verify unit "specforge extension validate errors when no built component is found"
   verify unit "specforge extension validate writes its diagnostics as check does"
+  verify unit "specforge extension validate reports the protocol its component speaks"
   verify contract "Validate Wasm Extension Locally: local Wasm extension validation holds — wasm_binary_available, wasm_runtime_available, fixtures_available, production_sandbox_used, export_failures_diagnosed, extension_fixtures_validated_emitted"
 }
 

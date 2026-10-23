@@ -105,9 +105,9 @@
         },
         {
           "default_value": null,
-          "description": "Date the decision was made or last updated",
+          "description": "The day the decision was made or last updated",
           "edge": null,
-          "field_type": "string",
+          "field_type": "date",
           "file_reference": false,
           "inverse_of": null,
           "name": "date",

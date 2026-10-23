@@ -15,8 +15,8 @@ use tower_lsp::lsp_types::{TextDocumentContentChangeEvent, Url};
 /// project session (the one `specforge watch` holds: environment, graph, per-file parses and
 /// diagnostics).
 pub struct LspState {
-    /// Every file the editor has open or was sent diagnostics for, by session key, keyed under
-    /// the spec root readers see (`LspState::rekey`).
+    /// Every file the editor has open or was sent diagnostics for, by session key, keyed from
+    /// the project root readers see (`LspState::rekey`).
     files: Files,
     project: Project,
     /// [`LspState::token_signature`] as of the last recompile, so a
@@ -264,7 +264,7 @@ impl LspState {
     }
 
     /// The keys of the sources the project was last compiled from (each a
-    /// `.spec` file's path relative to the spec root, parsed or unreadable,
+    /// `.spec` file's path from the project root, parsed or unreadable,
     /// open buffers included): what a `use` path may name. While the session
     /// is out for an update, its last complete compile's.
     pub fn source_keys(&self) -> BTreeSet<&str> {
@@ -300,10 +300,10 @@ impl LspState {
         self.files.publish_formatter(findings)
     }
 
-    /// Keep `files` keyed under the spec root readers see: called by `show_environment`,
+    /// Keep `files` keyed from the project root readers see: called by `show_environment`,
     /// `set_session` and `shutdown`, the three places the environment changes.
     fn rekey(&mut self) {
-        let spec_root = self.spec_root().to_path_buf();
-        self.files.rekey(&spec_root);
+        let sources = self.environment().sources().clone();
+        self.files.rekey(&sources);
     }
 }

@@ -250,7 +250,7 @@ fn exempt_entities_leave_a001_and_the_testable_count() {
     }));
     assert_eq!(out.summary.testable_exempt, 3);
     assert_eq!(out.summary.testable_total, 2);
-    assert_eq!(out.summary.testable_verified, 1);
+    assert_eq!(out.summary.testable_declared, 1);
     let a001: Vec<&str> = out
         .findings
         .iter()
@@ -490,4 +490,42 @@ fn a_pass_entity_is_read_as_the_host_decided_it() {
     assert!(!entity.referenced);
     wire.incoming_edge_count = 2;
     assert!(Entity::from(&wire).referenced);
+}
+
+/// 11-D1: "unverified" is the glossary's word for what counts and is not proven
+/// (ADR 0015 D4); the summary's declared counts must not use it.
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "the coverage summary names declared intent in the glossary's words: testable_declared and an invariant tally's without_obligations, and no key says verified"
+)]
+fn the_summary_names_declared_intent_by_the_glossary() {
+    // An invariant that declares one obligation no test proves (A015): declared, unverified.
+    let (_, out) = assess_input(json!({
+        "entities": [{"id": "done_has_time", "kind": "invariant", "testable": true,
+                      "fields": {"risk": "low"}, "verify_kinds": ["unit"], "verify_texts": ["holds"]}],
+        "test_results": {"runner": "r", "results": {}}
+    }));
+    assert_eq!(codes(&out), ["A015"]);
+    let summary = serde_json::to_value(&out.summary).unwrap();
+    assert_eq!(summary["testable_declared"], 1, "{summary}");
+    assert_eq!(summary["testable_proven"], 0, "{summary}");
+    assert_eq!(
+        summary["invariants"][0]["without_obligations"], 0,
+        "{summary}"
+    );
+    fn keys(value: &Value, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    out.push(k.clone());
+                    keys(v, out);
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|v| keys(v, out)),
+            _ => {}
+        }
+    }
+    let mut all = Vec::new();
+    keys(&summary, &mut all);
+    assert!(all.iter().all(|k| !k.contains("verified")), "{all:?}");
 }

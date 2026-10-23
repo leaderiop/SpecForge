@@ -355,7 +355,7 @@ decision pe_diagnostic_code_gaps "Intentional Diagnostic Code Gaps" {
   context      """
     Product's warning codes are W041-W046, W049, W057, W092 and W093
     (W077-W080, W083-W085 and W095 are retired to E061); its info codes are I010, I046-I048,
-    I050, I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087 and
+    I050, I054, I055, I057, I059-I062, I066-I070, I080-I083 and
     I089. Of the warning codes between them, W050-W052 are retired,
     W053, W054 and W060-W062 are core's, and W063 is retired; W047, W048,
     W055, W056, W058, W064-W076, W081, W082 and W086-W091 are
@@ -1595,8 +1595,8 @@ decision pe_temporal_start_date "Start Date on Milestones" {
     computed and critical path analysis is topology-only.
   """
   decision     """
-    Add start_date (string @optional, ISO 8601) to milestones. I087 reports
-    a start_date not in YYYY-MM-DD shape; no rule checks its order.
+    Add start_date (date @optional, ISO 8601) to milestones. E061 reports
+    a start_date that is no calendar day; no rule checks its order.
   """
   consequences [
     "Duration is computable (target_date - start_date)",
@@ -2028,7 +2028,7 @@ decision pe_deterministic_time_queries "Deterministic Time-Dependent Queries" {
 
 decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queries" {
   status       superseded
-  date         "2026-03-13"
+  date         2026-03-13
   deciders     ["specforge-core"]
   context      """
     Matrix queries (persona-coverage-matrix, module-coupling, channel-coverage-matrix,

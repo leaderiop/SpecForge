@@ -1,3 +1,4 @@
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 
 use super::registry_config::{RegistryConfig, RegistryCredential};
@@ -52,14 +53,14 @@ impl RegistryError {
         match self {
             RegistryError::Unauthorized { guidance } => Diagnostic::new(
                 codes::R001,
-                format!("Registry authentication failed: {guidance}"),
+                format!("Registry authentication failed: {}", printable(guidance)),
             )
             .with_suggestion(
                 "Log in: `specforge login --registry <alias> --token <TOKEN>`.".to_string(),
             ),
             RegistryError::Forbidden { guidance } => Diagnostic::new(
                 codes::R002,
-                format!("Registry access forbidden: {guidance}"),
+                format!("Registry access forbidden: {}", printable(guidance)),
             )
             .with_suggestion(
                 "Check your permissions for this registry or package scope.".to_string(),
@@ -75,7 +76,7 @@ impl RegistryError {
                     )
             }
             RegistryError::NetworkError { message } => {
-                Diagnostic::new(codes::R005, format!("Registry network error: {message}"))
+                Diagnostic::new(codes::R005, format!("Registry network error: {}", printable(message)))
                     .with_suggestion("Check your network connection, then retry.".to_string())
             }
             RegistryError::NotFound { specifier } => {
@@ -89,7 +90,7 @@ impl RegistryError {
             .with_suggestion("Bump the version number before publishing.".to_string()),
             RegistryError::Refused { code, message } => Diagnostic::new(
                 codes::R008,
-                format!("the registry refused the request ({code}): {message}"),
+                format!("the registry refused the request ({code}): {}", printable(message)),
             )
             .with_suggestion(
                 "fix what the registry names and try again; sending the same request again is refused the same way"
@@ -98,7 +99,8 @@ impl RegistryError {
             RegistryError::InvalidReply { subject, message } => Diagnostic::new(
                 codes::R009,
                 format!(
-                    "the registry's answer for {subject} is not the registry protocol's JSON: {message}"
+                    "the registry's answer for {subject} is not the registry protocol's JSON: {}",
+                    printable(message)
                 ),
             )
             .with_suggestion(

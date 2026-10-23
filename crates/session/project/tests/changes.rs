@@ -300,9 +300,9 @@ fn stale_sees_an_edit_to_a_symlinked_sources_target() {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a discovered .spec file is a source change keyed relative to the spec root"
+    verify = "a discovered .spec file is a source change keyed from the project root"
 )]
-fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
+fn a_discovered_spec_file_is_a_source_keyed_from_the_project_root() {
     let (dir, session) = open(
         json!({"name": "c", "version": "0.1.0", "spec_root": "spec"}),
         &[
@@ -326,14 +326,14 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
         session
             .changes([root.join("spec/gone.spec").as_path()])
             .sources(),
-        vec!["gone.spec"]
+        vec!["spec/gone.spec"]
     );
     assert_eq!(
         session
             .project()
             .environment()
             .source_key(&root.join("spec/sub/b.spec")),
-        "sub/b.spec"
+        "spec/sub/b.spec"
     );
     // A .spec file outside the spec root is not a source of the project.
     write(root, "outside.spec", "term out \"O\" {}\n");
@@ -352,7 +352,7 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_spec_root() {
         root.join("notes.txt"),
     ];
     let changes = session.changes(paths.iter().map(|p| p.as_path()));
-    assert_eq!(changes.sources(), vec!["a.spec", "sub/b.spec"]);
+    assert_eq!(changes.sources(), vec!["spec/a.spec", "spec/sub/b.spec"]);
     assert!(changes.environment().is_empty() && changes.check_inputs().is_empty());
 }
 

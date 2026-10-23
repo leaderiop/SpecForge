@@ -75,12 +75,12 @@ fn context_includes_contracts_and_verify() {
     assert_eq!(node["status"], "done");
 }
 
-// B:export_agent_context_format — verify unit "context format omits verbose prose fields"
+// B:export_agent_context_format — verify unit "context format leaves out each entity's source location"
 #[specforge_test(
     behavior = "export_agent_context_format",
-    verify = "context format omits verbose prose fields"
+    verify = "context format leaves out each entity's source location"
 )]
-fn context_omits_verbose_prose_fields() {
+fn context_leaves_out_the_source_location() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
@@ -89,11 +89,12 @@ fn context_omits_verbose_prose_fields() {
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
 
-    // Context omits description (verbose prose)
     assert!(
-        node.get("description").is_none() || node["description"].is_null(),
-        "context must omit description"
+        node.get("file").is_none() && node.get("line").is_none(),
+        "{node}"
     );
+    // A description is a field like any other.
+    assert!(node["fields"].get("description").is_some(), "{node}");
 }
 
 // B:export_agent_context_format — verify unit "output includes schema_version field"
@@ -182,9 +183,9 @@ fn context_is_smaller_than_full_json() {
 
 #[specforge_test(
     behavior = "export_agent_context_format",
-    verify = "context format keeps each entity's normative fields"
+    verify = "context format keeps every field an entity writes, its headline lifted"
 )]
-fn context_keeps_normative_fields() {
+fn context_keeps_every_field_an_entity_writes() {
     use crate::support::{build_of, field, kind};
 
     let mut fields = FieldMap::new();
@@ -225,13 +226,15 @@ fn context_keeps_normative_fields() {
     };
     let node = emit(Some(&registries));
     assert_eq!(node["fields"]["guarantee"], "Ids MUST be unique", "{node}");
-    assert!(
-        node["fields"].get("description").is_none(),
-        "prose stays out"
+    assert_eq!(
+        node["fields"]["description"], "Long prose about ids",
+        "{node}"
     );
-    assert!(
-        emit(None).get("fields").is_none(),
-        "no extension, no fields"
+    let bare = emit(None);
+    assert_eq!(bare["fields"]["guarantee"], "Ids MUST be unique", "{bare}");
+    assert_eq!(
+        bare["fields"]["description"], "Long prose about ids",
+        "{bare}"
     );
 }
 
@@ -335,8 +338,9 @@ fn a_headline_field_named_coverage_status_is_not_lifted() {
     };
     let plain: serde_json::Value = serde_json::from_str(&emit(None)).unwrap();
     assert!(plain["nodes"][0].get("coverage_status").is_none());
+    assert_eq!(plain["nodes"][0]["fields"]["coverage_status"], "x");
     let text = emit(Some(&verdicts));
-    assert_eq!(text.matches("\"coverage_status\"").count(), 1, "{text}");
+    assert_eq!(text.matches("\"coverage_status\"").count(), 2, "{text}");
     let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["nodes"][0]["coverage_status"], "covered");
 }

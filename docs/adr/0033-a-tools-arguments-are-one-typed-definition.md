@@ -38,7 +38,7 @@ ignored, though extension command tools (ADR 0017 D4) and resources (ADR 0024 D4
   `invalid_input` on it, with the close declared name as a suggestion. The call target's names are
   its own (`TargetSpec::accepted`: `path` for every reach but `Unscoped`, including a `Served`
   entry's unlisted own-root `path`; `use_cached` for `FreshUnlessCached`), and the target reads them
-  by D2. *(ADR 0077: `use_cached` is gone; the target's only name is `path`.)*
+  by D2. *(ADR 0077: `use_cached` is gone; the target's only name is `path`.)* *([ADR 0239](0239-the-call-target-takes-its-own-arguments.md): the target's names never reach a handler, core or extension; `undeclared` reads the entry's own.)*
 - **D4. A default is spelled once.** A field's `#[arg(default)]` reads an ops constant when another
   surface states the same default, and the CLI's `default_value` reads the same constant
   (`init::DEFAULT_VERSION`, `query::{DEPTH, SEARCH_LIMIT}`, `analyze::EVERY_PASS`,

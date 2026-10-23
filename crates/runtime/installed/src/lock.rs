@@ -82,26 +82,66 @@ fn peers_text(peers: &[specforge_protocol_types::PeerDependency]) -> String {
         .join(", ")
 }
 
-/// Where a lock entry's binary came from. Serialized as the lock's string:
-/// `registry`, `local:<path>`, or anything else, kept as it was written.
+/// Where a lock entry's binary came from, read where the lock is read (ADR 0230): `registry`, or
+/// `local:<path>` with a path the lock can record ([`LocalPath`]). Any other text makes the lock
+/// unreadable (E033), as a name that is no package name does (ADR 0036).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LockSource {
     /// Installed from a registry.
     Registry,
     /// Installed from a `.wasm` file at this path (as `add` recorded it).
-    Local(String),
-    /// A source this version of SpecForge does not know, kept verbatim.
-    Other(String),
+    Local(LocalPath),
+}
+
+/// The path a local install was read from, as `add` recorded it (relative to the project root when
+/// the file is under it, else absolute): never empty and never holding a control character, so it can
+/// be shown and handed back to `specforge add`. Spaces and shell metacharacters are a path's own: the
+/// command writer quotes them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalPath(String);
+
+impl LocalPath {
+    /// `path` as a recordable local path; the reason when it is not one.
+    pub fn new(path: String) -> Result<LocalPath, String> {
+        if path.is_empty() {
+            Err("a local source names no path".to_string())
+        } else if path.contains(char::is_control) {
+            Err(format!(
+                "a local source holds a control character: {path:?}"
+            ))
+        } else {
+            Ok(LocalPath(path))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// The `specforge add` argument that reinstalls from it: `./<path>` when relative, so `add` reads it
+    /// as a path whatever its first character (`-x.wasm`, `@x`); the path when absolute.
+    pub fn add_argument(&self) -> String {
+        if std::path::Path::new(&self.0).is_absolute() || self.0.starts_with('/') {
+            self.0.clone()
+        } else {
+            format!("./{}", self.0)
+        }
+    }
 }
 
 const LOCAL_PREFIX: &str = "local:";
 
 impl LockSource {
+    /// A local source at `path`; the reason when the lock cannot record it.
+    pub fn local(path: impl Into<String>) -> Result<LockSource, String> {
+        LocalPath::new(path.into()).map(LockSource::Local)
+    }
+
     /// The path of a local install.
-    pub fn local_path(&self) -> Option<&str> {
+    pub fn local_path(&self) -> Option<&LocalPath> {
         match self {
             LockSource::Local(path) => Some(path),
-            LockSource::Registry | LockSource::Other(_) => None,
+            LockSource::Registry => None,
         }
     }
 
@@ -109,14 +149,16 @@ impl LockSource {
         matches!(self, LockSource::Registry)
     }
 
-    /// Read the lock's string.
-    pub fn parse(text: &str) -> LockSource {
+    /// Read the lock's string; the reason when it is neither `registry` nor `local:<path>`.
+    pub fn parse(text: &str) -> Result<LockSource, String> {
         if text == "registry" {
-            LockSource::Registry
+            Ok(LockSource::Registry)
         } else if let Some(path) = text.strip_prefix(LOCAL_PREFIX) {
-            LockSource::Local(path.to_string())
+            LockSource::local(path)
         } else {
-            LockSource::Other(text.to_string())
+            Err(format!(
+                "unknown source {text:?} (a lock entry's source is \"registry\" or \"local:<path>\")"
+            ))
         }
     }
 }
@@ -125,8 +167,7 @@ impl std::fmt::Display for LockSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LockSource::Registry => f.write_str("registry"),
-            LockSource::Local(path) => write!(f, "{LOCAL_PREFIX}{path}"),
-            LockSource::Other(text) => f.write_str(text),
+            LockSource::Local(path) => write!(f, "{LOCAL_PREFIX}{}", path.as_str()),
         }
     }
 }
@@ -139,7 +180,8 @@ impl Serialize for LockSource {
 
 impl<'de> Deserialize<'de> for LockSource {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer).map(|text| LockSource::parse(&text))
+        let text = String::deserialize(deserializer)?;
+        LockSource::parse(&text).map_err(serde::de::Error::custom)
     }
 }
 
@@ -218,7 +260,11 @@ fn parse_lock_file(path: &Path, content: &str) -> Result<LockFile, Diagnostic> {
     serde_json::from_str::<LockFile>(content).map_err(|e| {
         Diagnostic::new(
             codes::E033,
-            format!("corrupt lock file at '{}': {}", path.display(), e),
+            format!(
+                "corrupt lock file at '{}': {}",
+                path.display(),
+                specforge_common::remedy::printable(&e.to_string())
+            ),
         )
         .with_suggestion(REMEDY.to_string())
     })
@@ -360,7 +406,7 @@ mod tests {
             entries: vec![LockFileEntry {
                 name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
                 version: "1.0.0".to_string(),
-                source: crate::LockSource::parse("registry"),
+                source: crate::LockSource::Registry,
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
@@ -402,7 +448,7 @@ mod tests {
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
                     version: "1.0.0".to_string(),
-                    source: crate::LockSource::parse("registry"),
+                    source: crate::LockSource::Registry,
                     wasm_hash: "abc123".to_string(),
                     key_id: None,
                     peer_dependencies: Vec::new(),
@@ -410,7 +456,7 @@ mod tests {
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/governance").unwrap(),
                     version: "1.0.0".to_string(),
-                    source: crate::LockSource::parse("local"),
+                    source: crate::LockSource::Registry,
                     wasm_hash: "def456".to_string(),
                     key_id: None,
                     peer_dependencies: Vec::new(),
@@ -555,24 +601,34 @@ mod tests {
     fn a_source_reads_and_writes_as_the_lock_spells_it() {
         for (text, source) in [
             ("registry", LockSource::Registry),
-            ("local:ext/x.wasm", LockSource::Local("ext/x.wasm".into())),
-            ("local:", LockSource::Local(String::new())),
+            ("local:ext/x.wasm", LockSource::local("ext/x.wasm").unwrap()),
             (
-                "git+https://h/r",
-                LockSource::Other("git+https://h/r".into()),
+                "local:/a b/x.wasm",
+                LockSource::local("/a b/x.wasm").unwrap(),
             ),
-            ("local", LockSource::Other("local".into())),
         ] {
-            assert_eq!(LockSource::parse(text), source, "{text}");
+            assert_eq!(LockSource::parse(text).unwrap(), source, "{text}");
             assert_eq!(source.to_string(), text);
             let json = serde_json::to_string(&source).unwrap();
             assert_eq!(json, format!("\"{text}\""));
             assert_eq!(serde_json::from_str::<LockSource>(&json).unwrap(), source);
         }
-        assert_eq!(
-            LockSource::Local("a.wasm".into()).local_path(),
-            Some("a.wasm")
-        );
+        for text in [
+            "local:",
+            "local",
+            "local:a\nb.wasm",
+            "local:\u{1b}[8m",
+            "git+https://h/r",
+            "Registry",
+            "",
+        ] {
+            assert!(LockSource::parse(text).is_err(), "{text:?}");
+        }
+        let path = LockSource::local("a.wasm").unwrap();
+        assert_eq!(path.local_path().map(LocalPath::as_str), Some("a.wasm"));
+        assert_eq!(path.local_path().unwrap().add_argument(), "./a.wasm");
+        let absolute = LockSource::local("/a/b.wasm").unwrap();
+        assert_eq!(absolute.local_path().unwrap().add_argument(), "/a/b.wasm");
         assert!(LockSource::Registry.is_registry());
 
         // A lock written before sources were typed reads and writes back

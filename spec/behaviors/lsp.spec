@@ -130,7 +130,7 @@ behavior document_open_close "Document Open/Close" {
     both spellings MUST name one open document, one list of published
     diagnostics and one staleness. Every answer and publish about the file
     MUST name it by the URI the client opened it with. An environment load
-    that moves the spec root keeps every open document.
+    that moves the spec root keeps every open document and its key.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
@@ -241,7 +241,8 @@ behavior find_all_references "Find All References" {
     When a user triggers find-references on an entity ID, the LSP MUST
     return every location across all .spec files where that entity's ID is
     written as a reference: another entity's field, or a file's defaults
-    block whether or not a block takes it; the identifier token as written, one
+    block whether or not a block takes it, or a use binding's imported name
+    (never its alias); the identifier token as written, one
     location per occurrence. What the entity itself references is not a reference
     to it. The entity's own declaration (its name token) MUST be included
     when the request asks for it (includeDeclaration) and MUST NOT be
@@ -258,6 +259,8 @@ behavior find_all_references "Find All References" {
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
+  verify unit "find-refs include a use binding's imported name"
+  verify unit "the written tokens of a file include a use binding's imported name, never its alias"
 }
 
 behavior hover_information "Hover Information" {
@@ -409,7 +412,8 @@ behavior prepare_rename "Prepare Rename" {
     textDocument/prepareRename to validate that the cursor is on a
     renameable token (entity ID in a declaration or reference; every token a
     rename edits is renameable, a reference in a defaults block that no block
-    takes and one in a duplicate declaration included). The
+    takes, one in a duplicate declaration and a use binding's imported name
+    included). The
     response MUST include the range of the token to be renamed. If
     the cursor is not on a renameable token, the response MUST indicate
     that rename is not available at that position. While the document is
@@ -430,6 +434,7 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename from a document the project does not build answers that rename is not available"
   verify unit "prepare rename from a document opened since the compile waits for it"
   verify contract "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
+  verify unit "prepare rename answers on a use binding's imported name"
 }
 
 behavior rename_entity_id "Rename Entity ID" {
@@ -461,11 +466,12 @@ behavior rename_entity_id "Rename Entity ID" {
     or none are. The new ID follows the same rule as the MCP rename tool's:
     a name that is not a legal entity ID, that is a reserved word (a structural
     keyword or a declared kind's keyword, E013), that is taken, or that the project
-    already writes for no entity (a type name, a reference that does not resolve: the
+    already writes for no entity (a type name, a reference that does not resolve, a use binding naming nothing: the
     rename would make it name the renamed entity), MUST be refused with an error
     saying why, naming each place. The edits are exactly every token that names the
     entity: its declaration's name and each reference, a reference written in
-    a defaults block that no block takes included, as the editor's
+    a defaults block that no block takes and a use binding's imported name
+    (never its alias) included, as the editor's
     find-references returns them;
     text in strings, comments and verify statements that mentions the ID
     is not a reference and is not edited; a quoted reference is a reference,
@@ -503,6 +509,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename edits a quoted reference inside its quotes"
   verify unit "a rename is refused while a source that spells the new ID does not parse"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
+  verify unit "rename edits a use binding's imported name, never its alias"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {
@@ -746,7 +753,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   }
   ensures {
     tokens_classified            "all tokens in .spec files are classified according to their semantic role"
-    structural_keywords_enforced "use, define, and verify are always classified as keyword regardless of extensions"
+    structural_keywords_enforced "use and define are always classified as keyword, and verify and method wherever they start a statement, regardless of extensions"
     extension_delegation_applied "entity ID declaration classification follows provide_extension_entity_semantic_tokens"
   }
   contract   """
@@ -759,7 +766,9 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     as "function" otherwise; it MUST carry the declaration modifier.
     provide_extension_entity_semantic_tokens (behaviors/zero-entity-lsp.spec)
     states this rule from the extension's side. Structural keywords (use,
-    define, verify) MUST always be classified as "keyword". Triple-quoted
+    define) MUST always be classified as "keyword", and verify and method
+    wherever they start a statement as the grammar reads one (lex_spec_text):
+    a field named verify is a property like any field. Triple-quoted
     strings MUST be classified as strings. Enhanced fields from entity
     enhancements MUST be classified as property. For entity kinds with
     registered grammar contributions, semantic token classification MAY
@@ -814,6 +823,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "a comment after code on its line is classified as comment"
   verify unit "a define block's name is not a declaration"
   verify unit "classification agrees with the grammar on every spec file of the repository"
+  verify unit "classification agrees with the grammar on the forms the repository's spec does not write"
   verify unit "a reference is classified as the kind of the entity it names"
   verify unit "an enum field's value is an enumMember and a boolean field's value a keyword"
   verify unit "a union and an inline ref after an unclosed body are classified as top-level forms"
@@ -840,6 +850,9 @@ behavior complete_field_names "Complete Field Names" {
     the FieldRegistry for valid field names for the current entity kind
     and suggest them as completions. Suggestions MUST be filtered to
     fields registered for the entity kind by its extension manifest.
+    A field the body already writes MUST NOT be suggested (writing it
+    again is E081, E078 in a defaults block), except the one under the
+    cursor, which completing rewrites.
     A field's snippet MUST be the member a set of it writes, in the form
     its field's type decides, laid out relative to its line (the client
     adjusts the lead). The cursor is
@@ -852,6 +865,7 @@ behavior complete_field_names "Complete Field Names" {
   """
   verify unit "field name completion uses FieldRegistry for entity kind"
   verify unit "suggestions are filtered by entity kind"
+  verify unit "a field the block already writes is not suggested, but the one under the cursor is"
   verify unit "no field name suggestions outside entity blocks"
   verify unit "a bracket inside a string opens no reference list"
   verify unit "nothing is suggested inside a string, a comment or a nested block"
@@ -896,8 +910,10 @@ behavior complete_keywords "Complete Keywords" {
     inference guide (compute_inference_guide), as markdown; use has no
     documentation.
     After verify in an entity's body, the verify kinds the entity's kind
-    allows (its allowed_verify_kinds) MUST be suggested, and nothing when
-    the kind takes no verify statements. The registered kinds come from the
+    allows (its allowed_verify_kinds) MUST be suggested, on a verify statement
+    and, on the cursor's line, on a verify line being typed (lex_spec_text),
+    nothing after the kind, and nothing when the kind takes no verify
+    statements. The registered kinds come from the
     environment (CONTEXT: Environment), which is loaded before any .spec
     file is read, so keyword completion MUST name them as soon as the
     environment is loaded, while the workspace is still being indexed.
@@ -907,6 +923,7 @@ behavior complete_keywords "Complete Keywords" {
   verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"
+  verify unit "nothing is suggested after the kind of a verify statement being typed"
   verify unit "keywords are suggested after a top-level form that follows an unclosed body"
   verify unit "no keyword suggestions inside entity blocks"
   verify unit "snippet templates based on kind field definitions"

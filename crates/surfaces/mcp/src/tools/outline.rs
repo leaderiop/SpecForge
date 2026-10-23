@@ -13,7 +13,7 @@ use specforge_ops::view::ProjectView;
 /// `specforge.outline`'s arguments.
 #[derive(Debug, Arguments)]
 pub struct Args {
-    /// Spec file, relative to the project's spec root
+    /// Spec file, relative to the project root
     file: String,
 }
 
@@ -83,7 +83,7 @@ impl Entry {
 /// `specforge.outline`: the entities a file declares, in line order, each
 /// with its method members, each selecting its name: the tree the LSP's
 /// document symbols are (`specforge_ops::read::navigate::outline`). `file` is a
-/// spec file of the project, relative to its spec root, as spans name it.
+/// spec file of the project, relative to the project root, as spans name it.
 pub(crate) struct Tool;
 
 impl CoreTool for Tool {

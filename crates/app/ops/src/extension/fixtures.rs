@@ -43,7 +43,7 @@ pub(super) fn entry(
     LockFileEntry {
         name: PackageName::parse(name).unwrap(),
         version: version.to_string(),
-        source: LockSource::parse(source),
+        source: LockSource::parse(source).unwrap(),
         wasm_hash: hex_sha256(&module_of(name, version, &peers)),
         key_id: None,
         peer_dependencies: peers,

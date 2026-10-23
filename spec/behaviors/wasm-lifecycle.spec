@@ -41,6 +41,9 @@ behavior load_wasm_module "Load Wasm Module" {
     W149), and load those same bytes into the Wasm runtime. A loaded
     binary that declares another extension, another version or other
     peers than its lock entry records MUST be refused with E070.
+    The command an E028, E070 or W149 suggestion names MUST reinstall the
+    entry as its lock entry records it, its recorded path written ./<path>
+    when relative and quoted as one shell word.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
@@ -50,6 +53,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "tampered installed binary refused via E070 lockfile pin"
   verify integration "a lock entry whose binary declares another version or other peers is refused with E070 through check, and add of its file rewrites it"
   verify unit "legacy lockfile entry without hash loads with W149"
+  verify unit "the command an E028, E070 or W149 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
   verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
@@ -129,7 +133,9 @@ behavior install_wasm_extension "Install Wasm Extension" {
     step, every file it changed MUST be put back — the previous binary,
     the previous lock, the previous specforge.json — so no partial install
     remains. A specforge.lock that is there and can't be read MUST refuse
-    the install (E033) before anything is written or downloaded. The lock
+    the install (E033) before anything is written or downloaded. An add MUST
+    refuse a local file whose path holds a control character (E054) before
+    anything is written, so it never records a source the lock read refuses. The lock
     is written, and resolved within the project, only by a change that
     installs or uninstalls a module: an add whose installs are all already
     present writes specforge.json alone. An
@@ -158,6 +164,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "an add of a registry install whose lock entry pins no hash fetches it and pins its bytes"
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
+  verify unit "an add of a local file whose path holds a control character is refused (E054) before anything is written"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

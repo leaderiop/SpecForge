@@ -612,7 +612,14 @@ const CHECKED_KEYWORDS: [&str; 11] = [
     "$ref",
     "$defs",
 ];
-const ANNOTATIONS: [&str; 5] = ["$schema", "$id", "title", "description", "examples"];
+const ANNOTATIONS: [&str; 6] = [
+    "$schema",
+    "$id",
+    "title",
+    "description",
+    "examples",
+    "format",
+];
 
 /// Every keyword of `document`, with its JSON Pointer, that [`violations`]
 /// neither checks nor treats as an annotation: what a document held to this
@@ -621,7 +628,7 @@ const ANNOTATIONS: [&str; 5] = ["$schema", "$id", "title", "description", "examp
 /// of schemas; `enum`, `required` and `examples` hold values. Checked:
 /// `type`, `enum`, `properties`, `required`, `additionalProperties`,
 /// `items`, `oneOf`, `anyOf`, `minimum`, `$ref`, `$defs`; annotations:
-/// `$schema`, `$id`, `title`, `description`, `examples`.
+/// `$schema`, `$id`, `title`, `description`, `examples`, `format`.
 pub fn unchecked_keywords(document: &Value) -> Vec<String> {
     let mut found = Vec::new();
     walk_keywords(document, "", &mut found);

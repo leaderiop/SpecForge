@@ -225,7 +225,10 @@ fn a_moved_spec_root_rearms_and_catches_up() {
     assert_eq!(applied(&events[0]).update.kind, UpdateKind::Environment);
     let catch_up = applied(&events[1]);
     assert_eq!(catch_up.update.kind, UpdateKind::Sources);
-    assert_eq!(catch_up.update.rebuilt_files, ["three.spec"]);
+    assert_eq!(
+        catch_up.update.rebuilt_files,
+        [specs.join("three.spec").to_string_lossy().as_ref()]
+    );
     let armed = recorder.armed();
     let moved = WatchRoot {
         dir: specs,
@@ -294,7 +297,7 @@ fn what_was_written_before_the_watchers_is_applied_at_the_start() {
     let events = watch.catch_up();
 
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).update.rebuilt_files, ["b.spec"]);
+    assert_eq!(applied(&events[0]).update.rebuilt_files, ["spec/b.spec"]);
     assert!(watch.catch_up().is_empty(), "nothing is stale now");
 }
 
@@ -323,7 +326,7 @@ fn changed_paths_are_named_by_key_or_by_path_under_the_root() {
         named,
         &[
             guide.to_string_lossy().into_owned(),
-            "a.spec".to_string(),
+            "spec/a.spec".to_string(),
             "specforge.json".to_string()
         ]
     );
@@ -435,7 +438,7 @@ fn applied_says_what_the_update_left() {
         "{:?}",
         left.extensions
     );
-    assert_eq!(left.changed, ["b.spec"]);
+    assert_eq!(left.changed, ["spec/b.spec"]);
 }
 
 #[spec(
@@ -455,8 +458,11 @@ fn a_directory_event_reaches_every_source_under_it() {
 
     assert_eq!(events.len(), 1, "{events:?}");
     let moved = applied(&events[0]);
-    assert_eq!(moved.changed, ["new/b.spec", "old/b.spec"]);
-    assert_eq!(moved.update.rebuilt_files, ["new/b.spec", "old/b.spec"]);
+    assert_eq!(moved.changed, ["spec/new/b.spec", "spec/old/b.spec"]);
+    assert_eq!(
+        moved.update.rebuilt_files,
+        ["spec/new/b.spec", "spec/old/b.spec"]
+    );
     assert!(watch.session().stale().is_empty());
 }
 
@@ -488,7 +494,7 @@ fn a_symlinked_sources_target_is_watched() {
     .unwrap();
     let events = watch.changed(&[target]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
 }
 
 #[cfg(unix)]
@@ -527,7 +533,7 @@ fn a_sources_middle_hop_pointed_elsewhere_is_seen() {
     std::os::unix::fs::symlink(real.join("other.spec"), &hop).unwrap();
     let events = watch.changed(&[hop]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
 }
 
 #[cfg(unix)]
@@ -555,7 +561,7 @@ fn a_hop_into_a_missing_directory_is_followed_when_it_is_created() {
     std::os::unix::fs::symlink(far.join("newdir/final.spec"), &hop).unwrap();
     let events = watch.changed(&[hop]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
     assert!(
         recorder.armed().last().unwrap().contains(&WatchRoot {
             dir: far.clone(),
@@ -573,7 +579,7 @@ fn a_hop_into_a_missing_directory_is_followed_when_it_is_created() {
     .unwrap();
     let events = watch.changed(&[far.join("newdir")]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
     assert!(
         recorder.armed().last().unwrap().contains(&WatchRoot {
             dir: far.join("newdir"),
@@ -616,7 +622,7 @@ fn a_dangling_source_links_missing_directory_outside_the_root_is_watched() {
     .unwrap();
     let events = watch.changed(&[far.join("newdir")]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
 }
 
 #[cfg(unix)]
@@ -649,7 +655,7 @@ fn a_sources_directory_link_pointed_elsewhere_is_seen() {
     std::os::unix::fs::symlink(outside.join("v2"), &alias).unwrap();
     let events = watch.changed(&[alias]);
     assert_eq!(events.len(), 1, "{events:?}");
-    assert_eq!(applied(&events[0]).changed, ["link.spec"]);
+    assert_eq!(applied(&events[0]).changed, ["spec/link.spec"]);
 }
 
 #[cfg(unix)]

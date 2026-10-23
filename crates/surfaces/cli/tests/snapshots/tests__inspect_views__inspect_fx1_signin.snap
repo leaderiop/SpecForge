@@ -9,7 +9,7 @@ expression: "normalized(result, root)"
     {
       "code": "I048",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 23,
       "message": "feature 'signin' has no acceptance criteria",
       "origin": "@specforge/product",
@@ -17,7 +17,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 26,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 23
       },
@@ -27,7 +27,7 @@ expression: "normalized(result, root)"
     {
       "code": "I080",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 23,
       "message": "feature 'signin' has no owner",
       "origin": "@specforge/product",
@@ -35,7 +35,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 26,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 23
       },
@@ -45,7 +45,7 @@ expression: "normalized(result, root)"
     {
       "code": "I081",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 23,
       "message": "feature 'signin' has no effort estimate",
       "origin": "@specforge/product",
@@ -53,7 +53,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 26,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 23
       },
@@ -76,7 +76,7 @@ expression: "normalized(result, root)"
   "source_span": {
     "end_col": 2,
     "end_line": 26,
-    "file": "main.spec",
+    "file": "spec/main.spec",
     "start_col": 1,
     "start_line": 23
   },

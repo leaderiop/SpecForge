@@ -1,6 +1,6 @@
 # One project, four surfaces: the migration's decisions
 
-**Status:** accepted (2026-09-30); amended the same day after the decision research. Amended by round 18 plan 08 (2026-10-19): D6-d's docs link is `CodeEntry::docs_href`, the entry's own.
+**Status:** accepted (2026-09-30); amended the same day after the decision research. Amended by round 18 plan 08 (2026-10-19): D6-d's docs link is `CodeEntry::docs_href`, the entry's own. Amended by round 26 plan 11: D2-c's word reaches the coverage summary (`testable_declared`).
 
 The architecture review in `.planning/architecture/` found that the CLI, `specforge watch`, the LSP
 and the MCP server each assemble the compiler on their own, and so drift apart. It plans six
@@ -41,6 +41,7 @@ Changed answers are marked *(amended)*.
 - **D2-c** *(amended)* An entity is "declared" when it has at least one `verify` statement; the spec's
   file-reference clause is dropped (no extension declares such a field). Stats gains `declared_pct` and
   `proof_pct`; `coverage_pct` stayed as a deprecated alias of `declared_pct` until ADR 0048 D7 removed it.
+  *(Amended, round 26 plan 11: the coverage pass summary's `testable_verified` is `testable_declared`.)*
 - **D2-d** `inspect.testable` means the kind's testability; a separate `declared` field says whether
   the entity declares obligations.
 - **D2-e** A malformed `specforge-report.json` is an **error** in MCP, as in the CLI, reported as an

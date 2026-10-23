@@ -70,6 +70,7 @@ const PRIMITIVE_TYPES: &[&str] = &[
     "integer",
     "boolean",
     "timestamp",
+    "date",
     "never",
     // stdlib containers: their type arguments are checked recursively
     "Result",

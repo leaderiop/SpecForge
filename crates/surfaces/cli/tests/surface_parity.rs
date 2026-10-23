@@ -170,8 +170,6 @@ struct Project {
     dir: TestProject,
     /// Canonical project root.
     root: PathBuf,
-    /// Canonical spec root (the root, or `root/spec_root`).
-    spec_root: PathBuf,
     /// The fixture's entry file, absolute.
     entry: PathBuf,
 }
@@ -183,24 +181,17 @@ fn fixtures_dir() -> PathBuf {
 fn project(fixture: &str, entry: &str) -> Project {
     let dir = TestProject::copy_of(fixtures_dir().join(fixture));
     let root = fs::canonicalize(dir.root()).unwrap();
-    let config: Value =
-        serde_json::from_str(&fs::read_to_string(root.join("specforge.json")).unwrap()).unwrap();
-    let spec_root = match config["spec_root"].as_str() {
-        Some(sr) => root.join(sr),
-        None => root.clone(),
-    };
     Project {
         entry: root.join(entry),
         dir,
         root,
-        spec_root,
     }
 }
 
 impl Project {
-    /// `path` relative to the spec root, as `check` prints it.
+    /// `path` relative to the project root, as `check` prints it.
     fn relative(&self, path: &Path) -> String {
-        path.strip_prefix(&self.spec_root)
+        path.strip_prefix(&self.root)
             .unwrap_or(path)
             .to_string_lossy()
             .into_owned()

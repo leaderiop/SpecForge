@@ -9,6 +9,7 @@ mod file_entry_name;
 mod load;
 mod load_once;
 mod lock_and_health;
+mod lock_source;
 mod origin;
 mod reads;
 mod records;

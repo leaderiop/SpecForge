@@ -533,22 +533,14 @@ pub fn read<A: Arguments>(arguments: &Value) -> Result<A, Box<McpError>> {
     A::read(&Given(given))
 }
 
-/// The refusal of the first name in `arguments` that neither `declared` nor
-/// `target` declares (`path` for every reach but `Unscoped`:
-/// [`TargetSpec::accepted`]): `invalid_input` on
+/// The refusal of the first name in `arguments` that `declared` does not
+/// declare (the call target's names never reach it:
+/// [`TargetSpec::handler_arguments`]): `invalid_input` on
 /// that name, `unknown argument '<name>'`, and `did you mean '<close>'?` as
 /// its suggestion when a declared name is close. `None` when every name is
 /// declared.
-pub fn undeclared(
-    arguments: &Value,
-    declared: &[Argument],
-    target: TargetSpec,
-) -> Option<McpError> {
-    let known: Vec<&str> = declared
-        .iter()
-        .map(|argument| argument.name)
-        .chain(target.accepted().iter().map(|argument| argument.name()))
-        .collect();
+pub fn undeclared(arguments: &Value, declared: &[Argument]) -> Option<McpError> {
+    let known: Vec<&str> = declared.iter().map(|argument| argument.name).collect();
     unknown_argument(arguments, &known)
 }
 

@@ -9,7 +9,7 @@ expression: "normalized(result, root)"
     {
       "code": "W123",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 28,
       "message": "property 'no_lost_login' is not referenced by any behavior — it may be unused",
       "origin": "@specforge/formal",
@@ -17,7 +17,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 32,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 28
       },
@@ -38,7 +38,7 @@ expression: "normalized(result, root)"
   "source_span": {
     "end_col": 2,
     "end_line": 32,
-    "file": "main.spec",
+    "file": "spec/main.spec",
     "start_col": 1,
     "start_line": 28
   },

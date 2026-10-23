@@ -3,7 +3,7 @@
 //! built graph, once per compile (ADR 0115); the registry checks and the rules
 //! read them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use specforge_common::SourceSpan;
@@ -28,6 +28,11 @@ pub struct EntityRecord {
     pub incoming: EdgeCounts,
     /// Edges out of it, in total and by edge type.
     pub outgoing: EdgeCounts,
+    /// The fields it gives their link (ADR 0232: a written reference,
+    /// resolved or not, or an edge out of it), typed as its edges are. What
+    /// the outgoing edge rules read, so a reference that does not resolve is
+    /// E003 alone. Host-internal: never on the wire.
+    pub linked: Linked,
     /// What exempts it from obligations of its own whatever its kind, if
     /// anything: decided from its structure and the registries, never from
     /// a field's name.
@@ -56,7 +61,7 @@ pub struct FieldRecord {
     /// the wire.
     pub value_span: Option<SourceSpan>,
     /// Each value written in the other form than its field's declared type
-    /// gives it (ADR 0147), in source order. Host-internal: never on the
+    /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
     pub rewrites: Vec<Rewrite>,
 }
@@ -76,6 +81,16 @@ pub struct EdgeCounts {
     /// ([`crate::EdgeRegistry::written_by`]); an edge of no type counts in
     /// `total` only.
     pub by_type: BTreeMap<String, usize>,
+}
+
+/// The fields an entity gives their link ([`EntityRecord::linked`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Linked {
+    /// At least one field has its link.
+    pub any: bool,
+    /// The edge types those fields write ([`crate::EdgeRegistry::written_by`]);
+    /// a field of no edge type counts in `any` only.
+    pub by_type: BTreeSet<String>,
 }
 
 /// One graph edge (label = the field that wrote it) and its edge type.
@@ -167,6 +182,7 @@ impl EntityRecord {
             obligations: Vec::new(),
             incoming: EdgeCounts::default(),
             outgoing: EdgeCounts::default(),
+            linked: Linked::default(),
             exemption: None,
             methods: Vec::new(),
         }
@@ -237,6 +253,11 @@ impl EntityRecord {
             Direction::Incoming => &mut self.incoming,
             Direction::Outgoing => &mut self.outgoing,
         };
+        if direction == Direction::Outgoing && count > 0 {
+            // An edge out of it is its field's link.
+            self.linked.any = true;
+            self.linked.by_type.extend(edge_type.map(str::to_string));
+        }
         counts.total += count;
         if let Some(edge_type) = edge_type {
             *counts.by_type.entry(edge_type.to_string()).or_default() += count;
@@ -278,6 +299,15 @@ impl EntityRecord {
         match edge_type {
             Some(edge_type) => counts.by_type.get(edge_type).copied().unwrap_or(0),
             None => counts.total,
+        }
+    }
+
+    /// It gives a field its link (ADR 0232): one of `edge_type`'s fields
+    /// when set, any field otherwise.
+    pub fn links(&self, edge_type: Option<&str>) -> bool {
+        match edge_type {
+            Some(edge_type) => self.linked.by_type.contains(edge_type),
+            None => self.linked.any,
         }
     }
 
@@ -352,6 +382,9 @@ mod tests {
         assert_eq!(record.edges(Direction::Outgoing, Some("Other")), 0);
         assert_eq!(record.edges(Direction::Incoming, None), 1);
         assert_eq!(record.edges(Direction::Incoming, Some("Contains")), 1);
+        // An outgoing edge is its field's link; an incoming one is not.
+        assert!(record.links(None) && record.links(Some("Implements")));
+        assert!(!record.links(Some("Contains")) && !record.links(Some("Other")));
     }
 
     #[test]

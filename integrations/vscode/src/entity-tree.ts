@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { fileUri } from "./paths";
 import * as cp from "child_process";
 import { findCliBinary } from "./find-binary";
 
@@ -340,7 +341,7 @@ export class EntityTreeProvider
 
     // Navigate to definition on click
     if (entity.file) {
-      const uri = vscode.Uri.file(entity.file);
+      const uri = fileUri(entity.file);
       const line = entity.line ? Math.max(0, entity.line - 1) : 0;
       item.command = {
         command: "vscode.open",

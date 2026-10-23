@@ -3,6 +3,8 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+mod bindings;
 mod contracts;
 mod cycles;
 mod resolution;
+mod spec_dir;

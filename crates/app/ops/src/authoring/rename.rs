@@ -3,7 +3,7 @@
 //! runs it ([`run`]: planned, then written as one project change unless the
 //! request previews, as one planned change, ADR 0184) and recompiles; the LSP hands the plan's edits to the
 //! editor. The edits are exactly the tokens the graph's finder reads (ADR 0163: the
-//! declaration's name and each reference's token): text in strings,
+//! declaration's name, each reference's token and each `use` binding's imported name, ADR 0233): text in strings,
 //! comments and verify statements that mentions the ID is not a reference,
 //! and is left alone (ADR 0016). A rename changes the graph by a substitution only: a name written for no entity that
 //! its new ID would capture refuses it (`name_captured`, ADR 0198).
@@ -42,7 +42,7 @@ pub const CAPTURED: &str = "name_captured";
 pub struct RenamePlan {
     pub old_id: String,
     pub new_id: String,
-    /// One per occurrence: the token's span as navigation found it, relative to the spec root; its
+    /// One per occurrence: the token's span as navigation found it, relative to the project root; its
     /// text becomes the new ID.
     edits: Vec<TextEdit>,
     /// The texts the edits make, planned with them (ADR 0184).
@@ -184,7 +184,7 @@ pub fn plan(
         })?);
     }
     let change = PlannedChange::new(
-        nav.view().env().spec_root().to_path_buf(),
+        nav.view().env().sources().clone(),
         format!("cannot rename '{old_id}'"),
         files,
     );
@@ -205,20 +205,13 @@ fn captured(nav: &Navigator<'_>, node: &Node, new_id: &str) -> Vec<String> {
     let kind = node.kind.raw;
     let kind_of = |name: &str| (name == new_id).then_some(kind);
     let mut places = Vec::new();
-    for (key, file) in nav.view().project().parsed() {
+    for (_, file) in nav.view().project().parsed() {
         for token in written_tokens(file, inputs, kind_of) {
             let own = token.holder == Holder::Block(node.id.raw) && token.form == Form::Derived;
             if token.target.as_str() != new_id || own {
                 continue;
             }
-            let holder = match token.holder {
-                Holder::Block(id) => id.to_string(),
-                Holder::Defaults(kind) => format!("defaults {kind}"),
-            };
-            let place = format!(
-                "{key}:{} ({holder}, {})",
-                token.span.start_line, token.field
-            );
+            let place = token.place();
             if !places.contains(&place) {
                 places.push(place);
             }
@@ -274,7 +267,7 @@ pub fn run(
 pub struct RenameDocument {
     pub old_name: String,
     pub new_name: String,
-    /// The files the edits touch, relative to the spec root, sorted.
+    /// The files the edits touch, relative to the project root, sorted.
     pub affected_files: Vec<String>,
     /// The rename was only planned: nothing was written.
     pub dry_run: bool,

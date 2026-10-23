@@ -67,7 +67,14 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "1.0.0"
+specforge-extension-sdk = "0.2.0"
+```
+
+That is an outside author's crate, and what `specforge extension init` writes. A builtin in
+`extensions/` names the SDK by path instead:
+
+```toml
+specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
 ```
 
 ### Compile Target
@@ -289,7 +296,9 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `String` | a quoted string |
 | `Integer` | a whole number |
 | `Bool` | `true` or `false` |
+| `Date` | one calendar day, `YYYY-MM-DD`, written bare |
 | `Enum` | one of its vocabulary's values (declared with `vocabulary`) |
+| `Identifier` | one word from an open set, written bare |
 | `StringList` | a list of quoted strings |
 | `Reference` | one entity id; creates an edge |
 | `ReferenceList` | a list of entity ids; creates one edge per id |
@@ -322,7 +331,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 | `CheckKind` | Reads |
 |---|---|
-| `NoIncomingEdges`, `NoOutgoingEdges`, `NoEdges` | the entity's edges (optionally only `edge_type` edges) |
+| `NoIncomingEdges`, `NoOutgoingEdges`, `NoEdges` | the entity's edges (optionally only `edge_type` edges); the outgoing ones also read a written reference that does not resolve as a link (ADR 0232) |
 | `MissingFieldWhenFlagSet`, `MissingRequiredField` | `field` (required) |
 | `FieldValueConstraint` | `field` and a `constraint`: `NonEmpty`, `OneOf` with `values`, or `Matches` with a `pattern` |
 | `CycleDetection` | `edge_type` (required) |
@@ -393,6 +402,11 @@ runs the same rule on what it receives. The builder panics on a declaration the 
 arg named `path`, `format` or `help`, two args spelling one option such as `all_kinds` and `all-kinds`,
 a flag or required arg with a default, a default its type refuses) and on a required flag or an empty
 `one_of`, so the extension's first test finds it.
+
+An MCP tool's `input_schema` may not declare `path`, as a property or a required name: `path` names
+the project, the host's call target reads it from every MCP call and takes it out before the tool's
+export sees it (`specforge_protocol_types::tool_input`, ADR 0239). The builder panics on such a tool,
+as on a command arg named `path`, so the extension's first test finds it.
 
 ### Collectors
 
@@ -547,6 +561,8 @@ cargo build --target wasm32-wasip2 --release
 
 The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_software.wasm`.
 
+`specforge extension validate` reports the protocol version the built component speaks (`protocol` under `--format json`).
+
 ### Test
 
 An extension is tested natively (`cargo test`, no wasm build) at three depths:
@@ -564,11 +580,13 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
 
 ```toml
 [dev-dependencies]
-specforge-extension-sdk = { version = "0.1", features = ["testing"] }   # MockHost, call_every_command
-specforge-wasm = { version = "0.1", features = ["testing"] }
-specforge-protocol-types = "0.1"
-specforge-test = "0.1"   # to link a test to the obligation it proves
+specforge-extension-sdk = { version = "0.2.0", features = ["testing"] }   # MockHost, call_every_command
 ```
+
+`specforge-wasm`'s `InProcessRuntime` and `specforge-test` are not published: the builtins in this
+repository take them by path (`extensions/product/Cargo.toml`); an extension outside it tests its
+declaration with `MockHost` and `call_every_command`, and its commands through
+`specforge extension build` and `validate`. The in-repository harness looks like this:
 
 ```rust
 use specforge_protocol_types::{CommandEvidence, CommandFormat, CommandInput, RawGraph};

@@ -493,8 +493,9 @@ command tests in `extensions/product/src/tests.rs`.
 - **`specforge analyze --prove`.** The formal ladder's top rung: contracts
   become verification conditions discharged by an SMT backend. Design
   groundwork is in [RES-25](../../spec/research/RES-25-sources/).
-- **Publish.** `cargo publish` your SDK extension crate; the SDK itself
-  (`specforge-extension-sdk`) is on crates.io.
+- **Publish.** `cargo publish` your SDK extension crate; the SDK
+  (`specforge-extension-sdk`, with its macros and `specforge-protocol-types`) is on crates.io at the
+  version `specforge --version` prints; `specforge extension init` names it.
 
 The source of truth for everything in this guide:
 [`docs/extension-sdk.md`](../extension-sdk.md) and

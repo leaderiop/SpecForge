@@ -17,7 +17,7 @@ Options:
 
           Possible values:
           - graph:    every entity with its fields, file and line (Graph Protocol)
-          - context:  headline and normative fields and verify, for an agent
+          - context:  every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent
           - brief:    id, kind and title
           - dot:      Graphviz
           - markdown: a document a reviewer reads: each entity's statements, fields, links and obligations

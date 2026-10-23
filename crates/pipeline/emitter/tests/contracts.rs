@@ -230,11 +230,10 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     let a = nodes.iter().find(|n| n["id"] == "a").unwrap();
     assert_eq!(a["status"], "planned");
     assert!(
-        !json.contains("Long prose"),
-        "description text must not appear: {json}"
+        json.contains("Long prose"),
+        "a description is a field like any other: {json}"
     );
     for node in nodes {
-        assert!(node.get("description").is_none(), "{node}");
         assert!(node.get("file").is_none(), "{node}");
     }
 

@@ -373,7 +373,7 @@ invariant pe_milestone_temporal_consistency "Milestone Temporal Consistency" {
   guarantee """
     When both start_date and target_date are present on a milestone,
     start_date MUST be on or before target_date. Both fields MUST
-    be valid ISO 8601 date format when present.
+    be date fields: E061 otherwise.
   """
   risk      medium
   verify unit "start_date <= target_date when both present"

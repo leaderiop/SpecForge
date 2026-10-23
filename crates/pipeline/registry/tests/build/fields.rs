@@ -57,12 +57,12 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
     assert!(!build.fields().contains("epic", "estimate"));
 }
 
-/// The field names a type is declared under: its own, and (but for `identifier`, which
-/// has no older spelling) the one a `_type` alias is tried on.
+/// The field names a type is declared under: its own, and (but for `identifier` and `date`,
+/// which have no older spelling) the one a `_type` alias is tried on.
 fn spellings(field_type: FieldType) -> Vec<String> {
     let name = field_type.as_str();
     let mut names = vec![name.to_string()];
-    if field_type != FieldType::Identifier {
+    if !matches!(field_type, FieldType::Identifier | FieldType::Date) {
         names.push(format!("{name}_alias"));
     }
     names

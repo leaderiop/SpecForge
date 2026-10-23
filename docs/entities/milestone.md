@@ -31,7 +31,7 @@ milestone mvp_phase "Phase 1: Core" {
     "All scheduled features implemented",
     "specforge check --strict passes",
   ]
-  target_date   "2026-06-30"
+  target_date   2026-06-30
 }
 ```
 
@@ -49,7 +49,8 @@ All fields are optional at the type level. The compiler emits warnings and info 
 | `modules` | EntityId[] | Modules included in this phase. Creates `MilestoneScopesModule` edges. |
 | `depends_on` | EntityId[] | Other milestones that must complete before this phase can start. Creates `MilestoneDependsOn` edges. Cycles detected by E015. |
 | `exit_criteria` | string[] | Exit criteria that must be satisfied before the phase is considered complete. Completed milestones without criteria emit W057. |
-| `target_date` | string | Target completion date in ISO 8601 format (`YYYY-MM-DD`, e.g., `2026-06-30`). Not validated by the compiler. |
+| `target_date` | date | Target completion day, written bare (`2026-06-30`); another value is E061. |
+| `start_date` | date | The day work on the milestone began or is planned to begin, written bare; another value is E061. |
 | `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. |
 | `reason` | string | Rationale for current status. A `blocked` milestone without `blockers` emits I060. |
 | `tags` | string[] | Free-form tags for categorization. |
@@ -84,11 +85,9 @@ All fields are optional at the type level. The compiler emits warnings and info 
 | W057 | warning | Completed milestone without exit criteria. |
 | E015 | error | Circular milestone dependency — `depends_on` edges form a cycle. |
 | E061 | error | A value outside the field's vocabulary. |
-| I053 | info | `target_date` present but not YYYY-MM-DD. |
 | I057 | info | Blocked milestone without `depends_on`. |
 | I060 | info | Blocked milestone without `blockers`. |
 | I080 | info | No `owner`. |
-| I087 | info | `start_date` present but not YYYY-MM-DD. |
 
 ## Design Guidance
 
@@ -170,7 +169,7 @@ milestone search_analytics "Search & Analytics" {
   status        planned
   depends_on    [mvp_phase]
   features      [full_text_search, analytics_dashboard]
-  target_date   "2026-09-30"
+  target_date   2026-09-30
 
   exit_criteria [
     "Full-text search returns results in < 200ms",

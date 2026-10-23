@@ -1,7 +1,8 @@
 # The crate map is generated from the workspace
 
 **Status:** accepted (2026-10-14, structure round, plan 12). Builds on ADR 0084 (the layer rule) and ADR 0066 (one
-check list).
+check list). Extended by [ADR 0238](0238-the-scaffold-names-the-sdk-this-build-speaks.md) (the version a crate
+publishes is the workspace's, and the scaffold names it).
 
 The workspace's crates sit in `crates/<layer>/<crate>/` (ADR 0083, ADR 0084). Three things described them, and each had
 drifted. `ARCHITECTURE.md` named 3 of the crates. `spec/product/modules.spec` declared 12 of 31, and 12 of its 14

@@ -2,6 +2,7 @@
 //! for a field it does not declare.
 
 use super::super::EditField;
+use super::super::write::not_editable;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::find_close_match;
@@ -17,7 +18,7 @@ const OTHER_SIDE: &str = "other_side";
 /// The entity an edit changes, and where it is.
 pub struct Site<'a> {
     pub view: &'a ProjectView<'a>,
-    /// The file, relative to the spec root.
+    /// The file, relative to the project root.
     pub key: &'a str,
     pub id: &'a str,
     pub kind: &'a str,
@@ -45,8 +46,19 @@ impl Site<'_> {
         }
     }
 
-    /// `other_side` when `owning_fields` names an owner, else `unknown_field` with its near miss.
+    /// `not_editable` for a spec block, `other_side` when `owning_fields` names an owner, else `unknown_field` with
+    /// its near miss.
     fn unknown_field(&self, field: &str, target: Option<&str>) -> Refusal<EditField> {
+        // Spec is a grammar rule, no kind: no kind declares its fields (as its retitle is refused).
+        if self.kind == specforge_common::structural::SPEC {
+            return not_editable(
+                EditField::Field,
+                format!(
+                    "'{}' is a spec block: no kind declares its fields; edit the text in {}",
+                    self.id, self.key
+                ),
+            );
+        }
         let target = target.and_then(|id| {
             let node = self.view.graph().node(id)?;
             Some((id, node.kind.raw.as_str()))

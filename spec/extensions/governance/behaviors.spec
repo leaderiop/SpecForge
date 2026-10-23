@@ -74,7 +74,7 @@ behavior ge_register_field_definitions "Register Governance Field Definitions" {
     kinds_and_edges_registered "all 3 kinds and 4 edge types are registered"
   }
   ensures {
-    decision_fields     "decision has: status(enum DecisionStatus, required), date(string), context(string), decision(string), consequences(string[]), invariants(reference[]->invariant, DecisionInvariant)"
+    decision_fields     "decision has: status(enum DecisionStatus, required), date(date), context(string), decision(string), consequences(string[]), invariants(reference[]->invariant, DecisionInvariant)"
     constraint_fields   "constraint has: category(identifier), priority(enum ConstraintPriority), metric(string, proof_role bound), constrains(reference[]->behavior, ConstrainsBehavior), protects(reference[]->invariant, ProtectsInvariant)"
     failure_mode_fields "failure_mode has: invariant(reference->invariant, FailureModeInvariant), severity(enum FailureSeverity, required), occurrence(enum FailureOccurrence), detection(enum FailureDetection), post_severity(enum FailureSeverity), post_occurrence(enum FailureOccurrence), post_detection(enum FailureDetection), rpn(integer), cause(string), effect(string), mitigation(string), post_mitigation(block)"
   }

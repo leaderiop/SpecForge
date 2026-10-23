@@ -35,14 +35,14 @@ expression: snapshot
           "kind": "unresolved_reference",
           "target": "missing"
         },
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "line": 4,
         "message": "unresolved reference 'missing' in entity 'alpha'",
         "severity": "Error",
         "span": {
           "end_col": 22,
           "end_line": 4,
-          "file": "main.spec",
+          "file": "spec/main.spec",
           "start_col": 15,
           "start_line": 4
         },

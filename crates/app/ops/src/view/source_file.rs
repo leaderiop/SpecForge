@@ -1,10 +1,11 @@
 //! A spec file a request names (a typed create's `file`, outline's `file`, the fixes' `file_path`): read into its
-//! source key, the path relative to the spec root that the compile and the editor name it by, or refused once
+//! source key, the path from the project root that the compile and the editor name it by, or refused once
 //! (ADR 0195). Every spelling of one file is that file; the key is what the ledger, the LSP and a span's `file` say.
-//! A refusal names the file as the request spelled it. A new file's project-root spelling is refused like an existing
-//! one's, when it repeats the spec root as a directory no source is in.
+//! A refusal names the file as the request spelled it.
 
 use std::path::{Component, Path, PathBuf};
+
+use specforge_common::SourceRoot;
 
 use super::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -12,19 +13,26 @@ use crate::{OpError, OpErrorKind};
 /// A create's file is not a project source.
 pub const NOT_A_SOURCE: &str = "not_a_source";
 
-const FILE_NOT_FOUND: &str = "file_not_found";
+pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
-/// `named`'s source key under `spec_root`, with `.` and doubled separators gone; `None` when it leaves the spec root
+/// `named`'s source key in `sources`, with `.` and doubled separators gone; `None` when it leaves the project root
 /// (a `..`, or an absolute path elsewhere). A project with no spec root (one assembled in memory) keys its sources
 /// by whatever path they were given, so an absolute path is a key there.
-fn key_of(spec_root: &Path, named: &str) -> Option<String> {
-    let key = specforge_project::source_key(spec_root, &spec_root.join(named));
+fn key_of(sources: &SourceRoot, named: &str) -> Option<String> {
+    // A `..` anywhere leaves the project root's reading of the name, whatever it lands on.
+    if Path::new(named)
+        .components()
+        .any(|c| c == Component::ParentDir)
+    {
+        return None;
+    }
+    let key = sources.key(&sources.base().join(named)).into_string();
     let mut rebuilt = PathBuf::new();
     for component in Path::new(&key).components() {
         match component {
             Component::Normal(name) => rebuilt.push(name),
             Component::CurDir => {}
-            Component::RootDir | Component::Prefix(_) if spec_root.as_os_str().is_empty() => {
+            Component::RootDir | Component::Prefix(_) if sources.base().as_os_str().is_empty() => {
                 rebuilt.push(component.as_os_str());
             }
             _ => return None,
@@ -37,96 +45,45 @@ fn outside(named: &str) -> OpError {
     OpError::new(
         OpErrorKind::InvalidInput,
         NOT_A_SOURCE,
-        format!("'{named}' is outside the spec root: a spec file is named from the spec root"),
+        format!("'{named}' leaves the project root: a spec file is named from the project root"),
     )
     .with_file(named)
 }
 
 impl ProjectView<'_> {
-    /// The key of the project-root reading of `named` when that is a compiled source and the spec-root reading is
-    /// not: the mistake of naming a file as `format`'s paths do.
-    fn project_root_reading(&self, named: &str) -> Option<String> {
-        let key = self.project_root_key(named)?;
-        self.project()
-            .source_keys()
-            .contains(key.as_str())
-            .then_some(key)
-    }
-
-    /// The spec-root key of `named` read from the project root, when that differs from the spec root's own reading.
-    fn project_root_key(&self, named: &str) -> Option<String> {
-        let root = self.root()?;
-        let spec_root = self.env().spec_root();
-        (root != spec_root).then_some(())?;
-        key_of(spec_root, &root.join(named).to_string_lossy())
-    }
-
-    /// The project-root reading of a new file `key` (its spec-root spelling) that repeats the spec root as a
-    /// directory no source is in, and that discovery would keep: `spec/types/x.spec` for `types/x.spec`.
-    fn project_root_place(&self, named: &str, key: &str) -> Option<String> {
-        let read = self.project_root_key(named)?;
-        let dir = Path::new(key).components().next()?;
-        let holds_a_source = self
-            .project()
-            .source_keys()
-            .iter()
-            .any(|k| Path::new(k).starts_with(dir));
-        (read != key && !holds_a_source && self.env().holds_source(&read)).then_some(read)
-    }
-
-    fn did_you_mean(&self, named: &str) -> Option<String> {
-        self.project_root_reading(named).map(Self::spec_root_hint)
-    }
-
-    fn spec_root_hint(key: String) -> String {
-        format!("did you mean '{key}'? a spec file is named from the spec root")
-    }
-
     /// The source key of the compiled source `named` names. A spelling that leaves the spec root is `not_a_source`
     /// (kind `InvalidInput`); any other that is none of the compile's sources (missing, a directory, not a `.spec`
     /// file, excluded) is `file_not_found`. Reads no file.
     pub fn source(&self, named: &str) -> Result<String, OpError> {
-        let key = key_of(self.env().spec_root(), named).ok_or_else(|| outside(named))?;
+        let key = key_of(self.env().sources(), named).ok_or_else(|| outside(named))?;
         if self.project().source_keys().contains(key.as_str()) {
             return Ok(key);
         }
-        let error = OpError::new(
+        Err(OpError::new(
             OpErrorKind::FileNotFound,
             FILE_NOT_FOUND,
             format!("'{named}' is none of this project's sources"),
         )
-        .with_file(named);
-        Err(match self.did_you_mean(named) {
-            Some(suggestion) => error.with_suggestion(suggestion),
-            None => error,
-        })
+        .with_file(named))
     }
 
     /// The key of a file a typed edit may create or change: a compiled source, or a new file discovery would keep.
     /// `not_a_source` (kind `InvalidInput`) otherwise.
     pub fn source_place(&self, named: &str) -> Result<String, OpError> {
-        let key = key_of(self.env().spec_root(), named).ok_or_else(|| outside(named))?;
+        let key = key_of(self.env().sources(), named).ok_or_else(|| outside(named))?;
         if self.project().source_keys().contains(key.as_str()) {
             return Ok(key);
         }
-        let suggestion = self.did_you_mean(named).or_else(|| {
-            self.project_root_place(named, &key)
-                .map(Self::spec_root_hint)
-        });
-        if suggestion.is_none() && self.env().holds_source(&key) {
+        if self.env().sources().holds_key(&key) {
             return Ok(key);
         }
-        let error = OpError::new(
+        Err(OpError::new(
             OpErrorKind::InvalidInput,
             NOT_A_SOURCE,
             format!(
                 "'{named}' is not a source of this project (a .spec file inside the spec root, not excluded)"
             ),
         )
-        .with_file(named);
-        Err(match suggestion {
-            Some(suggestion) => error.with_suggestion(suggestion),
-            None => error,
-        })
+        .with_file(named))
     }
 }

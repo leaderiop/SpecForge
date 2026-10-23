@@ -18,7 +18,7 @@ Arguments:
 
 Options:
       --verify <KIND:TEXT>
-          A `verify` obligation, as `kind:text` (or just `text`)
+          A `verify` obligation: `kind:text` when the kind is one of the entity's verify kinds, else the whole text
 
       --dry-run
           Print the diff and write nothing

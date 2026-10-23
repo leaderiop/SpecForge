@@ -182,13 +182,8 @@ pub fn completion(state: &LspState, uri: &Url, position: Position) -> Option<Com
     let place = file
         .as_deref()
         .map_or(format::Place::Detached, format::Place::File);
-    let items = crate::completion::items(
-        &cursor.completion(),
-        &cursor.word_edit(),
-        state.client().insert_replace,
-        &state.view(),
-        place,
-    );
+    let items =
+        crate::completion::items(&cursor, state.client().insert_replace, &state.view(), place);
     Some(CompletionResponse::Array(items))
 }
 
@@ -210,7 +205,12 @@ pub fn definition(
             // The source the compile resolves the import to, from its
             // first line: no text needed.
             let sources = state.source_keys();
-            let target = specforge_resolver::import_target(&sources, &key, &path)?;
+            let target = specforge_resolver::import_target(
+                &sources,
+                state.environment().sources().prefix(),
+                &key,
+                &path,
+            )?;
             Some(GotoDefinitionResponse::Scalar(Location {
                 uri: compiled.uri(target),
                 range: Range::default(),

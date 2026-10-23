@@ -1,7 +1,7 @@
 use super::{
     Ctx, Expect, Frame, FrameKind, Header, Import, Role, Syntax, UseStep, line_end, statement_start,
 };
-use specforge_parser::lex::{self, Lexeme, LexemeKind, lex};
+use specforge_parser::lex::{self, BodyStatement, Lexeme, LexemeKind, lex};
 
 /// Punctuation that continues a value after an atom.
 fn continues_value(c: char) -> bool {
@@ -521,17 +521,23 @@ impl Walk<'_> {
         let members = self
             .top
             .is_some_and(|f| self.syntax.frames[f as usize].kind != FrameKind::Block);
-        match (kind, word) {
+        let statement = match word {
+            Some("verify" | "method") if members => {
+                lex::body_statement_at(self.text, &self.syntax.lexemes, i)
+            }
+            _ => BodyStatement::Field,
+        };
+        match (kind, statement) {
             (LexemeKind::Punct('}'), _) => {
                 if !self.close(i, '}') {
                     self.set(i, Role::Other);
                 }
             }
-            (_, Some("verify")) if members && self.is_verify_statement(i) => {
+            (_, BodyStatement::Verify) => {
                 self.set(i, Role::Keyword);
                 self.state = Expect::VerifyKind;
             }
-            (_, Some("method")) if members && self.is_method_statement(i) => {
+            (_, BodyStatement::Method) => {
                 self.set(i, Role::Keyword);
                 self.state = Expect::MethodName;
             }
@@ -662,44 +668,6 @@ impl Walk<'_> {
                 self.set(i, role);
             }
         }
-    }
-
-    /// Whether `verify` (lexeme `i`) starts a verify statement, not a field
-    /// named verify: a string follows, or a kind then a string, or nothing
-    /// yet on its line (being typed).
-    fn is_verify_statement(&self, i: usize) -> bool {
-        let Some(next) = self.next_on_line(i) else {
-            return true;
-        };
-        match next.kind {
-            LexemeKind::Str { .. } => true,
-            LexemeKind::Ident => {
-                let at = self.syntax.lexemes[i + 1..]
-                    .iter()
-                    .position(|l| l.start == next.start)
-                    .map_or(i + 1, |p| i + 1 + p);
-                self.next_on_line(at)
-                    .is_none_or(|after| after.kind.is_str())
-            }
-            _ => false,
-        }
-    }
-
-    /// Whether `method` (lexeme `i`) starts a method statement, not a field
-    /// named method: a name follows, then `(` (or nothing yet: typed).
-    fn is_method_statement(&self, i: usize) -> bool {
-        let Some(name) = self.next_on_line(i) else {
-            return false;
-        };
-        if name.kind != LexemeKind::Ident {
-            return false;
-        }
-        let at = self.syntax.lexemes[i + 1..]
-            .iter()
-            .position(|l| l.start == name.start)
-            .map_or(i + 1, |p| i + 1 + p);
-        self.next_on_line(at)
-            .is_none_or(|after| after.is_punct('('))
     }
 
     /// Whether `[` (lexeme `i`) is an array suffix: written right after

@@ -392,8 +392,8 @@ fn contract_export() {
         json!([{"kind": "unit", "description": "works"}])
     );
     assert!(
-        alpha.get("fields").is_none(),
-        "context flattens fields: {alpha}"
+        alpha["fields"].get("contract").is_none(),
+        "context lifts the contract, not repeats it: {alpha}"
     );
 
     let brief = tool(&mut server, "specforge.export", json!({"format": "brief"}));
@@ -2142,7 +2142,7 @@ fn contract_doctor() {
     let local = local.strip_prefix(&dir).unwrap().display();
     assert_eq!(
         finding["remediation"],
-        format!("run `specforge add {local}` to reinstall it")
+        format!("run `specforge add ./{local}` to reinstall it")
     );
     assert_eq!(tool(&mut server, "specforge.doctor", json!({})), report);
 
@@ -2274,8 +2274,8 @@ fn contract_brief_resource() {
 )]
 fn contract_diagnostics_resource() {
     // broken.spec: `broken` names `ghost`, which no entity declares (E003
-    // at 2:16–2:21); `lonely` (lines 4–5), a behavior nothing references,
-    // is a warning by a rule the extension declares (W901, in its range).
+    // at 2:16–2:21, alone: no edge rule reports its cascade, ADR 0232);
+    // `lonely` (lines 4–5) links nothing: W901, the extension's rule.
     let mut server = contracts_project()
         .file(
             "broken.spec",
@@ -2302,7 +2302,6 @@ fn contract_diagnostics_resource() {
              "suggestion": null,
              "data": {"kind": "unresolved_reference", "target": "ghost", "entity": "broken", "field": "features"},
              "file": "broken.spec", "line": 2, "column": 15},
-            {"code": "W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 1, "column": 1},
             {"code": "W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 4, "column": 1},
         ])
     );

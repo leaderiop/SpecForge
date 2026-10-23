@@ -11,6 +11,7 @@ invariant migration_idempotency "Migration Idempotency" {
   risk      medium
   verify property "running migrate twice produces identical files"
   verify unit "file already at target version is unchanged"
+  verify unit "a file no migration step changes is skipped as written, unformatted"
 }
 
 invariant migration_backup_safety "Migration Backup Safety" {
@@ -75,6 +76,20 @@ invariant migration_semantic_preservation "Migration Semantic Preservation" {
   risk      high
   verify property "pre-migration and post-migration entity graphs are structurally identical"
   verify unit "migration that only changes formatting preserves graph structure"
+}
+
+invariant migration_canonical_form "Migration Canonical Form" {
+  guarantee """
+    Every block a migration step adds or changes MUST be format-clean
+    afterwards, laid out by the formatter with its file's format
+    configuration (looked up through the run's bound) and its project's
+    field forms, before the plan is diffed, judged and written. No byte
+    outside those blocks changes but the format header, and a file no step
+    changes is left as it is.
+  """
+  risk      medium
+  verify property "every block a migration writes is unchanged by format"
+  verify unit "a block no migration step changed is left as written"
 }
 
 invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {

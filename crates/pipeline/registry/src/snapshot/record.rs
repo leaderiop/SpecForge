@@ -3,12 +3,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use specforge_graph::{Graph, Node, ValueShape};
-use specforge_parser::FieldValue;
+use specforge_parser::{FieldMap, FieldValue};
 
 use super::text::{field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
-    EdgeCounts, EntityRecord, Exemption, FieldRecord, MethodRecord, ObligationRecord, ParamRecord,
+    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ObligationRecord,
+    ParamRecord,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
 
@@ -35,6 +36,7 @@ pub(super) fn record(
     graph: &Graph,
     kind_of: &HashMap<&str, &str>,
     node: &Node,
+    written: Option<&FieldMap>,
     registries: &RegistryBuild,
 ) -> (EntityRecord, Vec<String>) {
     let id = node.id.raw.as_str();
@@ -63,6 +65,15 @@ pub(super) fn record(
             .map(|e| edge_type_of(kind_of, registries, id, e.label.as_str()))
             .collect(),
     );
+    // The fields it gives their link, typed like its edges (ADR 0232).
+    let fields = graph.linked_fields(registries.field_forms(), node);
+    let linked = Linked {
+        any: !fields.is_empty(),
+        by_type: fields
+            .iter()
+            .filter_map(|field| edge_type_of(kind_of, registries, id, field.as_str()))
+            .collect(),
+    };
     let entries = node.fields.entries();
     let mut seen = HashSet::new();
     let referenced: Vec<String> = entries
@@ -93,11 +104,15 @@ pub(super) fn record(
                 items: field_items(&entry.value),
                 shape: ValueShape::of(&entry.value),
                 value_span: entry.value_span.clone(),
-                rewrites: registries.field_forms().rewrites(
-                    node.kind.raw.as_str(),
-                    entry,
-                    &node.source_span,
-                ),
+                rewrites: written
+                    .and_then(|w| w.entry(entry.key.as_str()))
+                    .map_or_else(Vec::new, |entry| {
+                        registries.field_forms().rewrites(
+                            node.kind.raw.as_str(),
+                            entry,
+                            &node.source_span,
+                        )
+                    }),
             })
             .collect(),
         obligations: node
@@ -110,6 +125,7 @@ pub(super) fn record(
             .collect(),
         incoming,
         outgoing,
+        linked,
         exemption: exemption(node, registries.kinds(), registries.fields()),
         methods: node
             .methods

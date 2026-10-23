@@ -18,6 +18,7 @@ use specforge_protocol_types::FieldType;
 use crate::Graph;
 
 pub mod spell;
+pub use spell::{Place, Respell, Rewrite};
 
 /// What a field's value was written as, after the graph build coerced it:
 /// one variant per parsed value form, so a check tells `"1"` from `1`, a
@@ -131,20 +132,6 @@ impl FieldForm {
         self.field_type
     }
 
-    /// How a value of this type is written (ADR 0147): `Bare` for an `enum`,
-    /// `identifier`, `reference` or `reference_list` item; `Quoted` for a
-    /// `string` or `string_list` item; `None` for the rest.
-    pub fn written(&self) -> Option<Written> {
-        match self.field_type {
-            FieldType::Enum
-            | FieldType::Identifier
-            | FieldType::Reference
-            | FieldType::ReferenceList => Some(Written::Bare),
-            FieldType::String | FieldType::StringList => Some(Written::Quoted),
-            FieldType::Integer | FieldType::Bool | FieldType::Block => None,
-        }
-    }
-
     /// An enum's declared values; empty for every other type.
     pub fn enum_values(&self) -> &[String] {
         &self.enum_values
@@ -160,6 +147,7 @@ impl FieldForm {
     ///   list `field [value]` parses to.
     /// - `integer`: a quoted integer becomes the integer.
     /// - `bool`: a quoted or bare `true` / `false` becomes the boolean.
+    /// - `date`: a quoted calendar day becomes the date.
     /// - `string`, `enum`: an integer or boolean becomes its text.
     /// - `reference`, `block`: stored as written.
     pub fn coerce(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
@@ -174,6 +162,9 @@ impl FieldForm {
                     "false" => Some(FieldValue::Boolean(false)),
                     _ => None,
                 }
+            }
+            (FieldType::Date, FieldValue::String(s)) if spell::is_date(s) => {
+                Some(FieldValue::Date(s.clone()))
             }
             (
                 FieldType::String | FieldType::Enum | FieldType::Identifier,
@@ -197,6 +188,7 @@ impl FieldForm {
     /// | `identifier` | one word (letters, digits and `_`, starting with a letter or `_`), bare or quoted |
     /// | `integer` | an integer |
     /// | `bool` | `true` or `false` |
+    /// | `date` | one calendar day, `YYYY-MM-DD`, that exists |
     /// | `reference` | a bare word or a string |
     /// | `string_list`, `reference_list` | a list, however its items were written |
     /// | `block` | a block |
@@ -210,6 +202,14 @@ impl FieldForm {
             FieldType::Bool => match shape {
                 ValueShape::Boolean => Ok(()),
                 _ => Err(Refusal::with("use true or false")),
+            },
+            FieldType::Date => match shape {
+                ValueShape::Date if spell::is_date(text) => Ok(()),
+                ValueShape::Date => Err(Refusal::with(
+                    "there is no such day: write a calendar day, YYYY-MM-DD",
+                )),
+                s if s.is_list() => Err(single_value()),
+                _ => Err(Refusal::with("write a calendar day, YYYY-MM-DD")),
             },
             FieldType::Enum if !self.enum_values.is_empty() => {
                 let values = &self.enum_values;
@@ -264,7 +264,7 @@ impl FieldForm {
     /// The JSON Schema of what [`write`] writes for every value
     /// [`Self::admit`] takes: `{"type":"string"}` for `string`, `reference`
     /// and a valueless `enum`; `{"type":"string","enum":[…]}` for an `enum`;
-    /// `{"type":"integer"}`; `{"type":"boolean"}`;
+    /// `{"type":"integer"}`; `{"type":"boolean"}`; `{"type":"string","format":"date"}` for a `date`;
     /// `{"type":"array","items":{"type":"string"}}` for both lists;
     /// `{"type":"object","additionalProperties":<FieldJson>}` for a `block`
     /// (its entries are undeclared values), `FieldJson` defined in `defs`.
@@ -278,6 +278,7 @@ impl FieldForm {
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
             FieldType::Integer => json!({"type": "integer"}),
             FieldType::Bool => json!({"type": "boolean"}),
+            FieldType::Date => json!({"type": "string", "format": "date"}),
             FieldType::StringList | FieldType::ReferenceList => {
                 json!({"type": "array", "items": {"type": "string"}})
             }
@@ -296,15 +297,6 @@ pub fn is_word(text: &str) -> bool {
         .next()
         .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
-}
-
-/// A value written in the other form than its field's: where it is (quotes
-/// included), its text, and the form it takes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Rewrite {
-    pub span: SourceSpan,
-    pub text: String,
-    pub to: Written,
 }
 
 /// Every registered field's form, and the kinds that take any field: what
@@ -391,58 +383,6 @@ impl FieldForms {
             Reading::Member | Reading::Undeclared => None,
         };
         coerced.map_or(Cow::Borrowed(&entry.value), Cow::Owned)
-    }
-
-    /// The form `kind`'s field `field` writes a value in, when `written`/`text`
-    /// is not it (ADR 0147); `None` leaves the value as written: the field
-    /// has no declared form, the value is already in it or is neither bare
-    /// nor quoted, a bare form cannot hold `text` ([`spell::holds_bare`]: not
-    /// a word (on a `reference_list` not an entity id), or `true` / `false`, which would read back as a
-    /// boolean), or a bare word sits on
-    /// a kind that takes members (it may be a member's type).
-    pub fn rewrite(
-        &self,
-        kind: &str,
-        field: &str,
-        written: Written,
-        text: &str,
-    ) -> Option<Written> {
-        let Reading::Declared(form) = self.reading(kind, field) else {
-            return None;
-        };
-        let to = form.written()?;
-        if written == to || !matches!(written, Written::Bare | Written::Quoted) {
-            return None;
-        }
-        let holds = match to {
-            Written::Bare => spell::holds_bare(form.field_type(), text),
-            _ => !self.member_kinds.contains(kind),
-        };
-        holds.then_some(to)
-    }
-
-    /// Every value of `entry` (a scalar, or each list item) that
-    /// [`Self::rewrite`] would write otherwise, in source order. A scalar
-    /// without a value span is reported at `fallback`.
-    pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
-        let field = entry.key.as_str();
-        let one = |written, text: &str, span: &SourceSpan| {
-            self.rewrite(kind, field, written, text).map(|to| Rewrite {
-                span: span.clone(),
-                text: text.to_string(),
-                to,
-            })
-        };
-        let span = entry.value_span.as_ref().unwrap_or(fallback);
-        match &entry.value {
-            FieldValue::String(text) => one(Written::Quoted, text, span).into_iter().collect(),
-            FieldValue::Identifier(text) => one(Written::Bare, text, span).into_iter().collect(),
-            FieldValue::List(items) => items
-                .iter()
-                .filter_map(|item| one(item.written, &item.text, &item.span))
-                .collect(),
-            _ => Vec::new(),
-        }
     }
 
     /// No field is declared.

@@ -436,3 +436,73 @@ fn repeats_widens_restates_to_stored_values() {
         }
     }
 }
+
+#[specforge_test(
+    behavior = "apply_file_defaults",
+    verify = "a block's written fields are its entries before they are stored"
+)]
+fn written_fields_are_a_nodes_entries_before_they_are_stored() {
+    let forms = FieldForms::new(
+        [
+            ("rpn", FieldType::Integer),
+            ("refs", FieldType::StringList),
+            ("on", FieldType::Date),
+        ]
+        .into_iter()
+        .map(|(field, ty)| {
+            (
+                ("thing".to_string(), field.to_string()),
+                FieldForm::new(ty, vec![]),
+            )
+        })
+        .collect(),
+        Default::default(),
+        ["thing".to_string()].into_iter().collect(),
+    );
+    let parsed = [parse(
+        "defaults thing {\n  refs \"a\"\n}\n\nthing a \"A\" {\n  rpn \"100\"\n  on \"2026-03-01\"\n}\n",
+        "t.spec",
+    )];
+    let config = GraphConfig {
+        inputs: GraphInputs {
+            field_forms: forms.clone(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let (graph, _) = build_graph_with_config(&parsed, &config);
+    let node = graph.node("a").unwrap();
+    let stored = |key: &str| node.fields.get(key).unwrap().clone();
+    assert_eq!(stored("rpn"), specforge_parser::FieldValue::Integer(100));
+    assert_eq!(
+        stored("on"),
+        specforge_parser::FieldValue::Date("2026-03-01".into())
+    );
+    assert!(
+        matches!(stored("refs"), specforge_parser::FieldValue::List(items) if items.len() == 1)
+    );
+
+    let written = specforge_graph::written_fields(parsed.iter(), &forms);
+    let fields = &written[&node.source_span];
+    let keys: Vec<&str> = fields.entries().iter().map(|e| e.key.as_str()).collect();
+    let node_keys: Vec<&str> = node
+        .fields
+        .entries()
+        .iter()
+        .map(|e| e.key.as_str())
+        .collect();
+    assert_eq!(keys, node_keys);
+    let text = |key: &str| fields.entry(key).unwrap().value.clone();
+    assert_eq!(
+        text("rpn"),
+        specforge_parser::FieldValue::String("100".into())
+    );
+    assert_eq!(
+        text("on"),
+        specforge_parser::FieldValue::String("2026-03-01".into())
+    );
+    assert_eq!(
+        text("refs"),
+        specforge_parser::FieldValue::String("a".into())
+    );
+}

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { fileUri } from "./paths";
 import * as cp from "child_process";
 import { restartClient } from "./lsp-client";
 import { GraphWebviewPanel } from "./graph-webview";
@@ -163,7 +164,7 @@ export function registerCommands(
           placeHolder: "Select an entity to navigate to",
         });
         if (picked?.file) {
-          const doc = await vscode.workspace.openTextDocument(picked.file);
+          const doc = await vscode.workspace.openTextDocument(fileUri(picked.file));
           await vscode.window.showTextDocument(doc);
         }
       } catch {

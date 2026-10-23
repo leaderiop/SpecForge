@@ -562,7 +562,7 @@ type McpCoverageResult "Mcp Coverage Result" {
 type McpRenameResult "Mcp Rename Result" {
   old_name       string       @readonly
   new_name       string       @readonly
-  /// The files the rename edits, relative to the spec root.
+  /// The files the rename edits, relative to the project root.
   affected_files string[]
   /// The tokens it replaces: each the span find_references answers.
   edits          TextEdit[]
@@ -577,7 +577,7 @@ type McpRenameResult "Mcp Rename Result" {
 type McpEditResult "Mcp Edit Result" {
   /// The entities whose blocks the edits, taken together, create, change or delete, sorted.
   entities       string[]
-  /// The files the edits change, relative to the spec root.
+  /// The files the edits change, relative to the project root.
   affected_files string[]
   /// A unified diff of every affected file.
   diff           string
@@ -612,7 +612,7 @@ type McpTraceLink "Mcp Trace Link" {
   verify unit "McpTraceLink schema is valid"
 }
 
-type McpMissingLink "An edge the registries lead an entity to have, which the graph does not instantiate" {
+type McpMissingLink "An expected reference field an entity writes no reference in and no edge of carries" {
   from          string @readonly
   from_kind     string @readonly
   /// The field that would declare the edge.

@@ -52,9 +52,8 @@ pub fn complete_at<'v>(
 ) -> (String, Vec<CompletionItem>) {
     let doc = Document::new(text.into());
     let cursor = doc.at(Position::new(line, character)).expect("a position");
-    let site = cursor.completion();
-    let found = items(&site, &cursor.word_edit(), false, view, place);
-    (format!("{site:?}"), found)
+    let found = items(&cursor, false, view, place);
+    (format!("{:?}", cursor.completion()), found)
 }
 
 /// The items at a position of `text`, in a project made of `text` alone.
@@ -420,6 +419,18 @@ fn verify_suggests_the_kinds_the_entity_allows() {
     assert!(complete(text, 5, 9, &fixture.view()).1.is_empty());
 }
 
+#[spec(
+    behavior = "complete_keywords",
+    verify = "nothing is suggested after the kind of a verify statement being typed"
+)]
+fn nothing_is_suggested_after_a_verify_kind_being_typed() {
+    let fixture = Fixture::new();
+    let text = "task t \"T\" {\n  verify unit \n}\n";
+    let (site, found) = complete(text, 1, 14, &fixture.view());
+    assert_eq!(site, "Nothing");
+    assert!(found.is_empty());
+}
+
 #[test]
 fn a_single_reference_value_completes_its_target_kinds_ids() {
     let fixture = Fixture::new();
@@ -566,4 +577,23 @@ fn a_kind_keyword_is_documented_by_its_guide() {
 
     let use_keyword = found.iter().find(|i| i.label == "use").unwrap();
     assert!(use_keyword.documentation.is_none());
+}
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "a field the block already writes is not suggested, but the one under the cursor is"
+)]
+fn a_field_the_block_writes_is_not_suggested_again() {
+    let text = "behavior login \"Login\" {\n  category command\n  \n}\n";
+    let names = labels(&complete_in_project(text, 2, 2))
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
+    assert!(!names.contains(&"category".to_string()), "{names:?}");
+    assert!(names.contains(&"contract".to_string()), "{names:?}");
+    // On the written key itself, completing rewrites it: it is offered.
+    assert_eq!(labels(&complete_in_project(text, 1, 5)), ["category"]);
+    // A defaults block's body too (a repeat there is E078).
+    let defaults = "defaults behavior {\n  category command\n  \n}\n";
+    assert!(!labels(&complete_in_project(defaults, 2, 2)).contains(&"category"));
 }

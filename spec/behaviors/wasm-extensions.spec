@@ -701,8 +701,12 @@ behavior run_doctor_check "Run Doctor Check" {
     one source diagnostic doctor reports is E013, an entity id that is a
     keyword, as a shadowing finding. A missing or changed installed binary
     is one binary finding, whose remediation is the command that reinstalls
-    it as its lock entry records it, and an unreadable lock one lock finding;
-    the load diagnostics they cause are not listed again. So doctor fails
+    it as its lock entry records it, each value one shell word, and an unreadable lock one lock finding;
+    the load diagnostics they cause are not listed again. The binaries
+    section states that hash check only: a binary that declares another
+    extension, version or peers than its entry records is the
+    extension-load error E070, and doctor MUST NOT call the installed
+    binaries healthy beside it. So doctor fails
     whenever check fails on a diagnostic of the project's setup. The report
     MUST carry its verdict (no
     error-level finding), and specforge doctor --format json and
@@ -745,6 +749,9 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor lists the extensions the extensions listing lists, each with its version, source and status"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
+  verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
+  verify integration "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
@@ -773,7 +780,10 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
     PackageName and the requirement a VersionRequirement (latest when
     absent), or else a local path (a .wasm file or an extension's crate
     directory, with or without ./). A package reference that is not one
-    MUST be refused with E054 before any registry is asked; a path that
+    MUST be refused with E054 before any registry is asked; its suggestion
+    names only the forms add installs (a builtin's name, a local path,
+    @scope/name[@version]), never a git+ URL, which is refused with E064 and
+    suggests those forms; a path that
     names nothing is refused when it is read (resolve_extension_source); a requirement that is not one MUST be refused with
     R-RES-003 before any registry is asked. No other code may split
     name@requirement. Each string a change names (an add argument, an
@@ -786,6 +796,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
   verify unit "each add argument reads as one extension source"
+  verify unit "E054's suggestion names only the forms add installs, and E064 suggests them"
   verify unit "a string holding commas is one extension specifier, for add and init alike"
   verify unit "a specifier that is no builtin's name, git+ URL or @scope/name reference is a local path, a bare crate directory included"
   verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
@@ -886,6 +897,9 @@ behavior read_lock_file "Read Lock File" {
     lock), and add, update and remove refuse to change what is installed
     with one refusal, that E033 and its remedy, until it is fixed or deleted, so it is never silently replaced; a
     change the lock does not decide (enabling or disabling a builtin or a .wasm file entry) still runs.
+    A lock entry's source MUST be registry or local:<path>, the path not empty and holding no control
+    character; any other source makes the lock unreadable (E033), and the message names it escaped, so no
+    diagnostic carries a control character the lock holds.
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
@@ -894,6 +908,9 @@ behavior read_lock_file "Read Lock File" {
   verify unit "a lock file that can't be read names one remedy, whatever made it unreadable"
   verify unit "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
   verify unit "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
+  verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
+  verify unit "a lock entry's source is registry or local:<path>; any other source is E033"
+  verify integration "check prints no control character a lock entry's source holds"
   verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 

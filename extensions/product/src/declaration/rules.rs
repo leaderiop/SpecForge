@@ -120,17 +120,6 @@ pub(super) fn rules(c: &mut ContributionsBuilder) {
                 .values(MODULE_FAMILY.values());
         });
     });
-    c.rule("I053", |r| {
-        r.check(CheckKind::FieldValueConstraint)
-            .severity(ValidationSeverity::Info)
-            .message_template("milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD")
-            .target_kind("milestone")
-            .field("target_date");
-        r.constraint(|fc| {
-            fc.kind(ConstraintKind::Matches)
-                .pattern("^\\d{4}-\\d{2}-\\d{2}$");
-        });
-    });
     c.rule("I061", |r| {
         r.check(CheckKind::FieldValueConstraint)
             .severity(ValidationSeverity::Info)
@@ -165,28 +154,6 @@ pub(super) fn rules(c: &mut ContributionsBuilder) {
             });
         });
     }
-    c.rule("I086", |r| {
-        r.check(CheckKind::FieldValueConstraint)
-            .severity(ValidationSeverity::Info)
-            .message_template("release '{id}' has release_date '{value}' — expected YYYY-MM-DD")
-            .target_kind("release")
-            .field("release_date");
-        r.constraint(|fc| {
-            fc.kind(ConstraintKind::Matches)
-                .pattern("^\\d{4}-\\d{2}-\\d{2}$");
-        });
-    });
-    c.rule("I087", |r| {
-        r.check(CheckKind::FieldValueConstraint)
-            .severity(ValidationSeverity::Info)
-            .message_template("milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD")
-            .target_kind("milestone")
-            .field("start_date");
-        r.constraint(|fc| {
-            fc.kind(ConstraintKind::Matches)
-                .pattern("^\\d{4}-\\d{2}-\\d{2}$");
-        });
-    });
     c.rule("W049", |r| {
         r.check(CheckKind::MissingFieldWhenFlagSet)
             .severity(ValidationSeverity::Warning)

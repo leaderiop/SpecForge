@@ -118,7 +118,7 @@ async fn a_filled_keyword_snippet_is_the_block_new_writes() {
 )]
 #[tokio::test]
 async fn a_field_snippet_is_the_member_set_writes() {
-    let text = "failure_mode disk_full \"Disk full\" {\n    severity high\n    cause    \"c\"\n    effect   \"e\"\n    \n}\n\nprocess p1 \"P\" {\n    alphabet      [\"a\"]\n    initial_state \"s\"\n    \n}\n";
+    let text = "failure_mode disk_full \"Disk full\" {\n    severity high\n    detection low\n    effect   \"e\"\n    \n}\n\nprocess p1 \"P\" {\n    description   \"d\"\n    initial_state \"s\"\n    \n}\n";
     let found = items_at(text, &[(4, 4), (10, 4)]).await;
 
     let block = item(&found[0], "post_mitigation");

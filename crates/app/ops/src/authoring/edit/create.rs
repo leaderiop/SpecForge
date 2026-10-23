@@ -7,12 +7,16 @@ use super::write::not_editable;
 use super::{EditField, Input, Obligation, Planner};
 use crate::authoring::entity_id::validate_id;
 use crate::authoring::rename;
+use crate::read::navigate::{TextEdit, apply_edits};
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::Sym;
 use specforge_graph::field_form::spell;
 use specforge_graph::{Form, Holder, written_tokens};
 use specforge_parser::parse;
 use std::collections::BTreeSet;
+
+/// A field of a block that names an entity: (entity, field, whether it is a list).
+type Referrer = (String, String, bool);
 
 /// The header line of a new `kind` block, its braces on the lines it opens (ADR 0175 D7).
 pub(super) fn header(kind: &str, id: &str, title: &str) -> String {
@@ -101,7 +105,8 @@ impl Planner<'_> {
     ) -> Result<(), Refusal<EditField>> {
         let located = self.locate(id)?;
         if unlink_references {
-            for (referrer, field, list) in self.referrers(id, &located.kind)? {
+            let (referrers, bound) = self.referrers(id, &located.kind)?;
+            for (referrer, field, list) in referrers {
                 self.declared.field(&referrer, &field);
                 self.on(&referrer, |site, text| {
                     if list {
@@ -110,6 +115,13 @@ impl Planner<'_> {
                         block::unset(site, text, &field)
                     }
                 })?;
+            }
+            for key in bound {
+                if let Some(text) = self.text(&key)
+                    && let Some(new) = unbind(&text, &key, id)
+                {
+                    self.texts.insert(key, new);
+                }
             }
         }
         self.on(id, |site, text| {
@@ -123,14 +135,15 @@ impl Planner<'_> {
     }
 
     /// Every field of another block that names `id` (of kind `kind`), as the graph's finder reads the texts the plan
-    /// holds so far (ADR 0163): (entity, field, whether it is a list), in file order. A token no typed edit writes
+    /// holds so far (ADR 0163): (entity, field, whether it is a list), in file order, and the keys of the files with a
+    /// `use` binding that imports it (ADR 0233). A token no typed edit writes
     /// refuses the delete, naming each place: an entry of a `defaults` block (ADR 0151 D5), a field its holder's kind
     /// does not declare, or a type name a derived field reads.
     fn referrers(
         &self,
         id: &str,
         kind: &str,
-    ) -> Result<Vec<(String, String, bool)>, Refusal<EditField>> {
+    ) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
         let inputs = self.view.registries().graph_inputs();
         let kind = Sym::new(kind);
         let kind_of = |name: &str| (name == id).then_some(kind);
@@ -142,7 +155,7 @@ impl Planner<'_> {
                 .into_iter()
                 .map(String::from),
         );
-        let (mut found, mut elsewhere) = (Vec::new(), Vec::new());
+        let (mut found, mut elsewhere, mut bound) = (Vec::new(), Vec::new(), BTreeSet::new());
         for key in keys {
             let Some(text) = self.text(&key) else {
                 continue;
@@ -151,7 +164,7 @@ impl Planner<'_> {
                 if token.target.as_str() != id {
                     continue;
                 }
-                let place = match (token.holder, token.form) {
+                match (token.holder, token.form) {
                     // The block being deleted takes its own tokens with it.
                     (Holder::Block(holder), _) if holder.as_str() == id => continue,
                     (Holder::Block(holder), Form::Single | Form::Item) => {
@@ -165,17 +178,21 @@ impl Planner<'_> {
                         }
                         continue;
                     }
-                    (Holder::Block(holder), _) => holder.to_string(),
-                    (Holder::Defaults(of), _) => format!("defaults {of}"),
-                };
-                let at = format!("{key}:{} ({place}, {})", token.span.start_line, token.field);
+                    // A use binding names no field: the delete removes it (`unbind`).
+                    (Holder::Use, _) => {
+                        bound.insert(key.clone());
+                        continue;
+                    }
+                    (Holder::Block(_) | Holder::Defaults(_), _) => {}
+                }
+                let at = token.place();
                 if !elsewhere.contains(&at) {
                     elsewhere.push(at);
                 }
             }
         }
         if elsewhere.is_empty() {
-            return Ok(found);
+            return Ok((found, bound));
         }
         Err(not_editable(
             EditField::Entity,
@@ -185,6 +202,56 @@ impl Planner<'_> {
             ),
         ))
     }
+}
+
+/// `text`, the planned text of source `key`, without the `use` bindings that import `id` (ADR 0233): a statement
+/// keeps its other bindings, written `{ a, b as c }` as the formatter writes an import; one left with none goes
+/// whole, with one blank line beside it, as a deleted block goes (`Block::delete`). `None` when no binding of `text`
+/// imports `id`.
+fn unbind(text: &str, key: &str, id: &str) -> Option<String> {
+    let file = parse(text, key);
+    let mut out = text.to_string();
+    // Bottom-up, so the positions of the statements above stay those of `text`.
+    for import in file.imports.iter().rev() {
+        let Some(bindings) = &import.bindings else {
+            continue;
+        };
+        let kept: Vec<String> = bindings
+            .iter()
+            .filter(|b| b.name != id)
+            .map(|b| match &b.alias {
+                Some(alias) => format!("{} as {alias}", b.name),
+                None => b.name.clone(),
+            })
+            .collect();
+        if kept.len() == bindings.len() {
+            continue;
+        }
+        if let (Some(first), Some(last)) = (bindings.first(), bindings.last())
+            && !kept.is_empty()
+        {
+            let mut span = first.span.clone();
+            (span.end_line, span.end_col) = (last.span.end_line, last.span.end_col);
+            let edit = TextEdit {
+                span,
+                new_text: kept.join(", "),
+            };
+            out = apply_edits(&out, [&edit])?;
+            continue;
+        }
+        let mut lines: Vec<&str> = out.split('\n').collect();
+        let (first, last) = (import.span.start_line - 1, import.span.end_line - 1);
+        let before_blank = first > 0 && lines[first - 1].trim().is_empty();
+        let after_blank = last + 1 < lines.len() && lines[last + 1].trim().is_empty();
+        let (first, last) = match (before_blank, after_blank) {
+            (true, _) => (first - 1, last),
+            (false, true) => (first, last + 1),
+            _ => (first, last),
+        };
+        lines.drain(first..=last);
+        out = lines.join("\n");
+    }
+    (out != text).then_some(out)
 }
 
 /// `existing` with `block` after the last block of `kind`, else at the end, one blank line between.

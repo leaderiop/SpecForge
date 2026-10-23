@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-08)
 
+**Extended by [ADR 0231](0231-a-search-hit-is-a-package-name-at-the-wire.md) (round 26):** D2, a hit that is no package name makes the search reply unreadable (R009); D4, the port contract gains R-S3 (a found description is printable).
+
 **Amended in architecture round 20 (plan 10):** D3, D4, D5: an operation opens its registry once (`Registry::open`).
 
 **Amended by [ADR 0213](0213-trust-is-decided-once-from-the-described-metadata-before-any-download.md) (round 24):** D3's rejection of the policy in ops is narrowed: the signature check and the pin store stay in the adapter; the decision over their results is ops'.

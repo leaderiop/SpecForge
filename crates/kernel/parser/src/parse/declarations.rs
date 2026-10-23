@@ -191,7 +191,16 @@ impl<'a> ParseContext<'a> {
                         let alias = child
                             .child_by_field_name(field::ALIAS)
                             .map(|n| self.text(n).to_string());
-                        bs.push(ImportBinding { name, alias });
+                        let span = self.span(child);
+                        let name_span = child
+                            .child(0)
+                            .map_or_else(|| span.clone(), |n| self.span(n));
+                        bs.push(ImportBinding {
+                            name,
+                            alias,
+                            span,
+                            name_span,
+                        });
                     }
                 }
                 (ImportKind::Selective, Some(bs), None)

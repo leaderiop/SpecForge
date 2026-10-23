@@ -26,6 +26,8 @@ pub struct Loaded {
     /// define), in the order the handshake and the categories were read,
     /// each naming the extension by the name its handshake declares.
     pub warnings: Vec<Diagnostic>,
+    /// The protocol version the guest's handshake states; its major is the host's (checked).
+    pub protocol_version: String,
 }
 
 /// Load `extension`'s declaration through `runtime`: the handshake
@@ -46,6 +48,7 @@ pub fn load_declaration(
         }
     })?;
     check_protocol_version(&response)?;
+    let protocol_version = response.protocol_version.clone();
     // The limits the extension declares (the ceiling when it declares
     // none) hold every call after the handshake.
     runtime.apply_limits(extension, sandbox.limits);
@@ -72,6 +75,7 @@ pub fn load_declaration(
     Ok(Loaded {
         declaration,
         warnings,
+        protocol_version,
     })
 }
 

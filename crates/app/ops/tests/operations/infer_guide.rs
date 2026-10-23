@@ -175,11 +175,14 @@ fn the_example_writes_each_field_by_its_type() {
         k.field("refs_to", |f| {
             f.field_type(FieldType::ReferenceList).target_kind("gadget");
         });
+        k.field("due", |f| {
+            f.field_type(FieldType::Date);
+        });
     });
     let project = project_of("", vec![c.declaration()]);
     assert_eq!(
         kind_guide(&project.view(), "gadget").unwrap().example(),
-        "gadget example_gadget \"Example Title\" {\n  level low\n  note \"...\"\n  refs_to [ref_1, ref_2]\n}"
+        "gadget example_gadget \"Example Title\" {\n  due 2026-01-01\n  level low\n  note \"...\"\n}"
     );
 }
 

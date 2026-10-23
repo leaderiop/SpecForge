@@ -3,6 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+mod agent_context;
 mod analyze;
 mod asking;
 mod beside;
@@ -22,6 +23,7 @@ mod determinism;
 mod docs_relations;
 mod docs_truth;
 mod edit;
+mod edit_obligations;
 mod expected_publisher;
 mod explain;
 mod export;
@@ -34,6 +36,7 @@ mod extensions;
 mod file_entry_names;
 mod format;
 mod format_corpus;
+mod format_paths;
 mod hard_links;
 mod init;
 mod init_enclosing;
@@ -47,6 +50,7 @@ mod mcp;
 mod mcp_add;
 mod migrate;
 mod navigation_parity;
+mod one_spelling;
 mod options;
 mod outcome;
 mod parity;
@@ -62,11 +66,13 @@ mod read_views;
 mod refusal_wire;
 mod registry;
 mod registry_dry_run;
+mod registry_text;
 mod remove_peers;
 mod request_pairs;
 mod schema_cache;
 mod schema_notices;
 mod stats;
+mod suggested_commands;
 mod support;
 mod surface_parity;
 mod toolchain;

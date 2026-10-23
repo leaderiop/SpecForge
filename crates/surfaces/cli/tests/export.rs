@@ -368,10 +368,7 @@ fn export_context_keeps_an_invariants_guarantee() {
         .find(|n| n["id"] == "unique_ids")
         .unwrap_or_else(|| panic!("no unique_ids in {parsed}"));
     assert_eq!(node["fields"]["guarantee"], "Ids MUST be unique", "{node}");
-    assert!(
-        node["fields"].get("risk").is_none(),
-        "risk isn't normative: {node}"
-    );
+    assert_eq!(node["fields"]["risk"], "duplicates", "{node}");
 }
 
 // ── --max-tokens on the graph export ──────────────────────────────────

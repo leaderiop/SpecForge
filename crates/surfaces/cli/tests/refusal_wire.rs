@@ -189,7 +189,14 @@ fn project_change_refusals_print_as_pinned() {
     chmod(&spec, 0o555);
     out.push_str(&printed(
         &p,
-        &["new", "type", "account", "Account", "--in", "fresh.spec"],
+        &[
+            "new",
+            "type",
+            "account",
+            "Account",
+            "--in",
+            "spec/fresh.spec",
+        ],
     ));
     chmod(&spec, 0o755);
 

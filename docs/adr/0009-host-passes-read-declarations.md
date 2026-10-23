@@ -1,6 +1,6 @@
 # Prove, coverage grading, the build cache and the context schema read declarations
 
-**Status:** accepted (2026-10-03)
+**Status:** accepted (2026-10-03); D amended by [ADR 0236](0236-an-entitys-agent-context-is-everything-it-holds.md) (the context export's `fields` holds every field not lifted); amended by round 26 plan 11 (`without_obligations`)
 
 ADR 0007 left four places where the host still names a domain (principle 2), listed as its known
 gaps, plus one it introduced: the prove pass reads `constraint`'s `metric` and any entity's
@@ -121,3 +121,9 @@ The summary key `invariant_orphans` is renamed `invariant_unreferenced`: an inva
 unreferenced entity (CONTEXT.md). The reason this ADR gave for keeping the keys, that renaming them would break
 consumers, does not hold before a release (no backward compatibility); `invariant_enforced` and `invariants` keep
 their names, which say what they are.
+
+## Amendment (architecture round 26, plan 11): `without_obligations`
+
+An `invariants` entry's `unverified` is renamed `without_obligations`: it counted invariants that declare no
+obligations, while "unverified" is what counts toward coverage and is not proven (ADR 0015 D4).
+`invariant_enforced`, `invariant_unreferenced` and `invariants` keep their names.

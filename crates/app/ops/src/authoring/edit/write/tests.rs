@@ -35,6 +35,18 @@ fn each_field_type_is_written_in_its_form() {
         r#""many""#
     );
     assert_eq!(declared(FieldType::Bool, "abstract", one("true")), "true");
+    assert_eq!(
+        declared(FieldType::Date, "date", one("2026-03-01")),
+        "2026-03-01"
+    );
+    assert_eq!(
+        declared(FieldType::Date, "date", one("2026-02-30")),
+        r#""2026-02-30""#
+    );
+    assert_eq!(
+        declared(FieldType::Date, "date", one("March")),
+        r#""March""#
+    );
     assert_eq!(declared(FieldType::Enum, "status", one("done")), "done");
     assert_eq!(
         declared(FieldType::Enum, "status", one("two words")),

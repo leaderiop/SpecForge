@@ -32,7 +32,7 @@ expression: snapshot
             "category": "core",
             "contract": "The system MUST work"
           },
-          "file": "main.spec",
+          "file": "spec/main.spec",
           "id": "alpha",
           "kind": "behavior",
           "line": 1,

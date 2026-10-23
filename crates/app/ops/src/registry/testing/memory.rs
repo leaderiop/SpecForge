@@ -432,16 +432,17 @@ impl Registry for MemoryRegistry {
         Ok(Searched {
             found: listed
                 .into_iter()
-                .map(|p| Found {
-                    name: p.name().to_string(),
-                    version: p.version().to_string(),
-                    description: p
-                        .declaration
-                        .handshake
-                        .description
-                        .clone()
-                        .unwrap_or_default(),
-                    registry: IN_MEMORY_KEY.to_string(),
+                .map(|p| {
+                    Found::new(
+                        p.name().clone(),
+                        p.version().clone(),
+                        p.declaration
+                            .handshake
+                            .description
+                            .as_deref()
+                            .unwrap_or_default(),
+                        IN_MEMORY_KEY.to_string(),
+                    )
                 })
                 .collect(),
             failures: Vec::new(),

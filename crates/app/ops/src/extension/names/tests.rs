@@ -322,4 +322,27 @@ fn a_local_file_outside_the_containment_is_refused_at_the_read() {
     assert_eq!(error.code, crate::OUTSIDE_ROOT);
 }
 
+#[specforge_test(
+    behavior = "parse_extension_specifier",
+    verify = "E054's suggestion names only the forms add installs, and E064 suggests them"
+)]
+fn e054_suggests_only_the_forms_add_installs() {
+    for refused in [
+        parse("").unwrap_err(),
+        parse("@acme/").unwrap_err(),
+        no_specifier(),
+    ] {
+        assert_eq!(refused.code, "E054");
+        let suggestion = refused.suggestion.as_deref().expect("a suggestion");
+        assert!(!suggestion.contains("git+"), "{suggestion}");
+        assert!(
+            suggestion.contains("'@scope/name[@version]'"),
+            "{suggestion}"
+        );
+    }
+    let git = git_not_supported("https://x/y");
+    assert_eq!(git.code, "E064");
+    assert_eq!(git.suggestion.as_deref(), Some(SPECIFIER_FORMS));
+}
+
 mod ask;

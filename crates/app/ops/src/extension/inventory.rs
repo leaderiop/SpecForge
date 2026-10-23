@@ -374,7 +374,7 @@ mod tests {
                 row(
                     "@acme/stale",
                     Origin::Installed {
-                        source: LockSource::Local("/x/stale.wasm".into())
+                        source: LockSource::local("/x/stale.wasm").unwrap()
                     },
                     Status::NotConfigured,
                     Some("3.0.0"),

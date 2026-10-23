@@ -163,7 +163,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   }
   ensures {
     full_chain_traversed         "Trace covers both upstream and downstream connections from the target entity"
-    missing_links_flagged        "Expected edges from extension manifests that are not instantiated are flagged with missing status"
+    missing_links_flagged        "Expected reference fields an entity writes no reference in, and no edge of carries, are flagged with missing status"
     trace_chain_computed_emitted "trace_chain_computed event is emitted after successful traversal"
   }
   contract   """
@@ -172,10 +172,12 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     following all registered edge types. The trace MUST show the full
     chain of connected entities regardless of their kind. Missing links
     in expected edges (as declared by extension manifests) MUST be flagged.
-    A TraceLink with status "missing" indicates an edge type registered
-    in an extension manifest that is NOT instantiated between the two
-    entities in the current graph. This distinguishes from broken
-    references (E003), which are caught during resolution.
+    A TraceLink with status "missing" is an expected reference field
+    (registered in an extension manifest) the entity writes no
+    reference in and no edge of carries (a derived field's edges count).
+    A field that writes a reference has its link, resolved or not: a
+    reference that does not resolve is a broken reference (E003),
+    reported by check, never a missing link.
     A relation is written on its owning field only (ADR 0150): its other
     side is the target's upstream, under the owning field's label.
     The JSON trace output MUST carry the Graph Protocol schema_version.
@@ -194,6 +196,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "tracing an entity the graph lacks is E003 naming the closest entity"
   verify unit "a reference field another extension adds to a kind is not an expected link"
   verify unit "a link carries the label of the edge it was first reached over, nearer entities first and each entity's edges in written order"
+  verify unit "a field that writes a reference has its link, resolved or not: an unresolved one is E003, never a missing link"
   verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 }
 
@@ -456,25 +459,23 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
   ports      [CompilerApi]
   contract   """
     A spec file a request names (a typed create's file, outline's file, the
-    fixes' file_path) MUST be read into its source key, the path relative to
-    the spec root that the compile and the editor name it by: every spelling
-    of one file is that file (a leading or inner ., a doubled separator, its
-    absolute path under the spec root). A spelling that leaves the spec root
-    (a .. or an absolute path elsewhere) MUST be refused as not_a_source. A
-    read of a file that is none of the compiled sources MUST be
-    file_not_found; a create MUST be refused as not_a_source unless the file
-    is one discovery would keep. A spelling from the project root of an
-    existing source, and of a new file whose spec-root spelling repeats the spec
-    root as a directory no source is in, MUST be refused naming its spec-root
-    spelling. A refusal
-    MUST name the file as the request spelled it.
+    fixes' file_path) MUST be read into its source key, the path from the
+    project root that the compile and the editor name it by (ADR 0242): every
+    spelling of one file is that file (a leading or inner ., a doubled
+    separator, its absolute path under the project root). A spelling that
+    leaves the project root (a .. or an absolute path elsewhere) MUST be
+    refused as not_a_source. A read of a file that is none of the compiled
+    sources, the spec root's own spelling of one included, MUST be
+    file_not_found with no suggestion; a create MUST be refused as
+    not_a_source unless the file is one discovery would keep. A refusal MUST
+    name the file as the request spelled it.
   """
-  verify unit "every spelling of a spec file under the spec root reads as its source key"
-  verify unit "a spelling that leaves the spec root is not_a_source"
+  verify unit "every spelling of a spec file under the project root reads as its source key"
+  verify unit "a spelling that leaves the project root is not_a_source"
   verify unit "a read of a file that is no compiled source is file_not_found"
-  verify unit "a spec file named from the project root is refused naming its spec-root spelling"
   verify unit "a refusal of a named spec file names the file as the request spelled it"
-  verify unit "a new spec file named from the project root is refused naming its spec-root spelling"
+  verify unit "a spec file is named from the project root, as every document names it"
+  verify unit "a new spec file under the spec root is a place, whatever directory it repeats"
 }
 
 // Inspect (specforge_ops::read::inspect): one entity's facts. specforge.inspect,
@@ -1151,7 +1152,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
     validation_complete_fired "validation_complete event has fired, confirming the graph is ready for agent export"
   }
   ensures {
-    token_optimized_output  "Output omits verbose prose fields to minimize token consumption"
+    token_optimized_output  "Output leaves out source locations and the embedded schema, and writes a headline once"
     schema_version_present  "Output includes a schema_version field identifying the Graph Protocol version"
     scope_enforced          "When --scope is specified, only the reachable subgraph is returned"
     invalid_scope_diagnosed "Non-existent scope entity produces E003 and exit code 1"
@@ -1160,14 +1161,14 @@ behavior export_agent_context_format "Export Agent Context Format" {
   contract   """
     When specforge export --format=context is invoked, the system MUST produce
     a token-optimized representation of the graph containing entity IDs,
-    contracts, relationships, and coverage status. Each entity also carries
-    the fields its extension declares normative (an invariant's guarantee,
-    a decision's decision text), so every kind keeps the text that states
-    what it promises; core reads the flag and knows no field by name. The
-    fields an extension declares headline (a behavior's contract, a status)
-    sit at the entity's top level instead, each as its field text; a field no extension declares
-    headline is never lifted, whatever its name. The output MUST omit
-    verbose fields (full descriptions, prose) to minimize token consumption.
+    contracts, relationships, and coverage status. Each entity carries every
+    member it holds (its fields, the annotations written after them and its
+    methods, as the graph format writes them); the fields an extension
+    declares headline (a behavior's contract, a status) sit at the entity's
+    top level instead, each as its field text, and are not repeated; a field
+    no extension declares headline is never lifted, whatever its name. The
+    output MUST leave out each entity's source location, and the schema
+    unless asked, to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph
     Protocol version. An optional --scope parameter MUST allow scoping to
@@ -1176,15 +1177,16 @@ behavior export_agent_context_format "Export Agent Context Format" {
     and exit with code 1. When coverage metadata is available from
     compute_project_statistics, the context export MUST include
     coverage_pct and testable_entity_count in the graph metadata. An entity
-    also carries its methods under `methods`, and the annotations of the
-    fields it keeps under `annotations`, as the graph format writes them.
+    also carries its methods under `methods` and its fields' annotations
+    under `annotations`, as the graph format writes them.
   """
   verify unit "context format includes entity IDs and contracts"
-  verify unit "context format omits verbose prose fields"
-  verify unit "context format keeps each entity's normative fields"
-  verify unit "context format keeps an entity's methods and the annotations of the fields it keeps"
+  verify unit "context format leaves out each entity's source location"
+  verify unit "context format keeps every field an entity writes, its headline lifted"
+  verify unit "context format keeps an entity's methods and its fields' annotations"
   verify unit "context format lifts a headline field as its field text, whatever its written shape"
   verify integration "export --format context keeps an invariant's guarantee"
+  verify integration "the context export and the context prompt carry the same members of every entity"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
