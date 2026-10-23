@@ -167,7 +167,7 @@ feature pe_validation_suite "Product Validation Suite" {
   solution """
     Declarative validation rules (E007, E015, E052, W041-W046, W049, W057,
     W092, W093, I010, I046-I048, I050,
-    I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087, I089)
+    I054, I055, I057, I059-I062, I066-I070, I080-I083, I089)
     detect common product
     specification quality issues. The core's declarative engine runs
     them, and every diagnostic is reported whatever its severity.
@@ -183,7 +183,7 @@ feature pe_validation_suite "Product Validation Suite" {
     personas and channels no journey references (I046, I047); features
     without acceptance criteria (I048); journeys with an empty flow
     (I050); milestone target dates, release dates and milestone start
-    dates not in YYYY-MM-DD shape (I053, I086, I087); journeys without a
+    dates that are no calendar day (E061); journeys without a
     persona or channels (I054, I055); blocked milestones without
     depends_on (I057); deferred features without reason (I059); blocked
     milestones without blockers (I060); deliverable versions that are
@@ -390,8 +390,8 @@ feature pe_temporal_planning "Temporal Planning" {
     consistency of start dates.
   """
   solution """
-    Add start_date (string @optional, ISO 8601) to milestones. I087 reports
-    a start_date not in YYYY-MM-DD shape; no rule checks its order relative
+    Add start_date (date @optional, ISO 8601) to milestones. E061 reports
+    a start_date that is no calendar day; no rule checks its order relative
     to target_date.
   """
   tags     ["temporal", "planning", "v1-1"]

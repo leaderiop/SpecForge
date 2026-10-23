@@ -6,7 +6,7 @@ use "types/core"
 
 type GovernanceDecision "Governance Decision" {
   status       DecisionStatus @optional
-  date         string         @optional
+  date         date           @optional
   context      string
   decision     string
   consequences string[]       @optional

@@ -76,7 +76,7 @@ are suggestions, not problems.
 | **I059 / I060 / I066 / I069 / I070 / I089** | An entity has a `deferred`/`blocked`/`deprecated`/`recalled` status but no `reason`/`blockers` explaining it. |
 | **I057** | A `blocked` milestone has no `depends_on`. |
 | **I048 / I050 / I054 / I055 / I067 / I082 / I083** | A feature without acceptance criteria, a journey with `flow []`, without a persona or channels, a module without features, a release without deliverables or milestones. |
-| **I053 / I086 / I087** | A milestone `target_date`, release `release_date` or milestone `start_date` not in YYYY-MM-DD shape. |
+| **E061 on a date field** | A decision `date`, milestone `target_date` / `start_date` or release `release_date` that is no calendar day: write one calendar day, `YYYY-MM-DD`, bare. |
 | **I061 / I062 / I068** | A deliverable `version` that isn't semver, a module `family` outside core/platform/extension/integration/advisory, a tag that isn't lowercase-hyphenated. |
 | **I080 / I081** | A feature, milestone, deliverable or release without `owner`; a feature without `effort`. |
 

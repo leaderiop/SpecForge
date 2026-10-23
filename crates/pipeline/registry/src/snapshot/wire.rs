@@ -138,7 +138,7 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
 
 /// Type names accepted by E004 without a declared `type` entity. Sent to
 /// the guest as `context.primitives`; the guest may also carry its own
-/// embedded copy. `number`, `integer`, `boolean` and `timestamp` are the
+/// embedded copy. `number`, `integer`, `boolean`, `timestamp` and `date` are the
 /// portable primitives docs/entities/type.md documents; `never` marks an
 /// impossible error channel (docs/entities/port.md).
 const PRIMITIVE_TYPES: &[&str] = &[
@@ -162,6 +162,7 @@ const PRIMITIVE_TYPES: &[&str] = &[
     "integer",
     "boolean",
     "timestamp",
+    "date",
     "never",
     // stdlib containers: their type arguments are checked recursively
     "Result",

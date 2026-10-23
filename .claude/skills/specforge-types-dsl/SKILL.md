@@ -98,6 +98,7 @@ type CreateUserCommand "Create User Command" {
 | `integer` | Integer value |
 | `boolean` | True/false |
 | `timestamp` | Date/time |
+| `date` | Calendar day (TypeScript `string`, Python `datetime.date`, Go `civil.Date`) |
 | `void` | No value (return types only) |
 
 ## Relationships

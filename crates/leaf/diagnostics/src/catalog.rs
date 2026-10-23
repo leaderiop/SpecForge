@@ -328,9 +328,6 @@ catalog! {
     I050: Info product,
         "Journey with empty flow",
         "A `journey` declares `flow []`: it has no steps. Add the steps the user goes through. (A journey with no `flow` field at all is the core's E006, since `flow` is required.)";
-    I053: Info product,
-        "Milestone target date not YYYY-MM-DD",
-        "A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026` or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.";
     I054: Info product,
         "Journey without persona",
         "A `journey` has no `persona` field, so it names no user role. Set `persona` to the persona who takes the journey.";
@@ -391,12 +388,6 @@ catalog! {
     I083: Info product,
         "Release without milestones",
         "A `release` names no milestone: no `milestones` field or an empty list (a milestone it names that does not exist is E003 alone). List the milestones it completes in `milestones`.";
-    I086: Info product,
-        "Release date not YYYY-MM-DD",
-        "A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June 2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.";
-    I087: Info product,
-        "Milestone start date not YYYY-MM-DD",
-        "A `milestone`'s `start_date` doesn't match `YYYY-MM-DD` (for example `Jan 15`). Write the date as an ISO 8601 calendar date, e.g. `2026-01-15`.";
     I089: Info product,
         "Recalled release without reason",
         "A `release` has `status: recalled` but no `reason` field, or an empty one. Add a `reason` explaining why the release was recalled.";

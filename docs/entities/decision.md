@@ -60,7 +60,7 @@ decision use_postgresql "PostgreSQL over MongoDB" {
 |-------|------|-------------|
 | `title` | string | Human-readable name (the string after the entity ID). |
 | `number` | integer | Optional sequential number for display in reports (e.g., `number 1`). |
-| `date` | date | When the decision was made (YYYY-MM-DD). |
+| `date` | date | When the decision was made: one calendar day, written bare (`2026-03-01`); another value is E061. |
 | `consequences` | string list | Known consequences of this decision — both positive and negative. |
 | `invariants` | reference list | Invariants that this decision protects or enables. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this decision. |

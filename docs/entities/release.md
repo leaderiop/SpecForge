@@ -25,7 +25,7 @@ Deliverables have individual versions and statuses, but multiple deliverables of
 | `status` | ReleaseStatus | no | planned, in_progress, released, recalled; absent: planned; another value is E061 |
 | `deliverables` | EntityId[] | no | Deliverables shipping in this release |
 | `milestones` | EntityId[] | no | Milestones targeted by this release |
-| `release_date` | string | no | ISO 8601 date YYYY-MM-DD (not validated) |
+| `release_date` | date | no | The day the release shipped, written bare (`2026-06-01`); another value is E061 |
 | `changelog` | string | no | Free-text release notes |
 | `depends_on` | EntityId[] | no | Other releases that must ship first |
 | `owner` | string | no | Person or team responsible |
@@ -69,7 +69,6 @@ Transitions are not checked by the compiler.
 | I080 | info | No `owner` |
 | I082 | info | No deliverables (no `deliverables`, or an empty list) |
 | I083 | info | No milestones (no `milestones`, or an empty list) |
-| I086 | info | `release_date` present but not YYYY-MM-DD |
 | I089 | info | Recalled release without a `reason` |
 
 ## Queries

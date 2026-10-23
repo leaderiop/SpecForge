@@ -316,38 +316,6 @@ module m_none "None" {
 }
 
 #[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "milestone with valid YYYY-MM-DD target_date passes"
-)]
-#[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "milestone with invalid target_date format produces I053"
-)]
-#[specforge_test(
-    behavior = "validate_milestone_target_date_format",
-    verify = "milestone with no target_date produces no I053"
-)]
-fn i053_reports_milestone_target_dates_not_yyyy_mm_dd() {
-    let diags = product_diagnostics(
-        r#"
-milestone dated "Dated" {
-  target_date "2026-06-30"
-}
-milestone free_form "Free form" {
-  target_date "Q3 2026"
-}
-milestone undated "Undated" {
-  status planned
-}
-"#,
-    );
-    assert_quiet(&diags, "I053", "dated");
-    assert_fires(&diags, "I053", "free_form");
-    assert_quiet(&diags, "I053", "undated");
-    assert!(reported(&diags, "I053", "free_form")[0].contains("target_date 'Q3 2026'"));
-}
-
-#[specforge_test(
     behavior = "validate_deliverable_version_format",
     verify = "deliverable with valid semver version passes"
 )]
@@ -870,53 +838,77 @@ release shipped "Shipped" {
 }
 
 #[specforge_test(
-    behavior = "detect_invalid_release_date",
-    verify = "release_date '2026-06-01' produces no I086"
+    behavior = "validate_milestone_target_date_format",
+    verify = "milestone with valid YYYY-MM-DD target_date passes"
+)]
+#[specforge_test(
+    behavior = "validate_milestone_target_date_format",
+    verify = "a milestone's target_date that is no calendar day is E061"
+)]
+#[specforge_test(
+    behavior = "validate_milestone_target_date_format",
+    verify = "milestone with no target_date produces no E061"
 )]
 #[specforge_test(
     behavior = "detect_invalid_release_date",
-    verify = "release_date 'June 2026' produces I086"
+    verify = "a release_date that is a calendar day passes"
 )]
-fn i086_reports_release_dates_not_yyyy_mm_dd() {
+#[specforge_test(
+    behavior = "detect_invalid_release_date",
+    verify = "a release_date that is no calendar day is E061"
+)]
+#[specforge_test(
+    behavior = "detect_invalid_start_date",
+    verify = "a start_date that is a calendar day passes"
+)]
+#[specforge_test(
+    behavior = "detect_invalid_start_date",
+    verify = "a start_date that is no calendar day is E061"
+)]
+fn a_product_date_that_is_no_calendar_day_is_e061() {
     let diags = product_diagnostics(
         r#"
-release iso "ISO" {
-  version "1.0.0"
-  release_date "2026-06-01"
+milestone dated "Dated" {
+  target_date 2026-06-30
+  start_date  2026-01-15
 }
-release prose "Prose" {
-  version "1.1.0"
+milestone prose "Prose" {
+  target_date "Q3 2026"
+  start_date  "Jan 15"
+}
+milestone undated "Undated" {
+  status planned
+}
+release iso "ISO" {
+  version      "1.0.0"
+  release_date 2026-06-01
+}
+release prose_release "Prose release" {
+  version      "1.1.0"
   release_date "June 2026"
 }
 "#,
     );
-    assert_quiet(&diags, "I086", "iso");
-    assert_fires(&diags, "I086", "prose");
-    assert!(reported(&diags, "I086", "prose")[0].contains("release_date 'June 2026'"));
-}
-
-#[specforge_test(
-    behavior = "detect_invalid_start_date",
-    verify = "start_date '2026-01-15' produces no I087"
-)]
-#[specforge_test(
-    behavior = "detect_invalid_start_date",
-    verify = "start_date 'Jan 15' produces I087"
-)]
-fn i087_reports_milestone_start_dates_not_yyyy_mm_dd() {
-    let diags = product_diagnostics(
-        r#"
-milestone iso "ISO" {
-  start_date "2026-01-15"
-}
-milestone prose "Prose" {
-  start_date "Jan 15"
-}
-"#,
+    assert_quiet(&diags, "E061", "dated");
+    assert_quiet(&diags, "E061", "undated");
+    assert_quiet(&diags, "E061", "iso");
+    let prose = reported(&diags, "E061", "prose");
+    assert_eq!(prose.len(), 2, "{prose:?}");
+    assert!(
+        prose
+            .iter()
+            .any(|m| m.contains("'target_date'") && m.contains("\"Q3 2026\""))
     );
-    assert_quiet(&diags, "I087", "iso");
-    assert_fires(&diags, "I087", "prose");
-    assert!(reported(&diags, "I087", "prose")[0].contains("start_date 'Jan 15'"));
+    assert!(
+        prose
+            .iter()
+            .any(|m| m.contains("'start_date'") && m.contains("\"Jan 15\""))
+    );
+    assert_fires(&diags, "E061", "prose_release");
+    assert!(reported(&diags, "E061", "prose_release")[0].contains("\"June 2026\""));
+    for retired in ["I053", "I086", "I087"] {
+        assert!(diags.iter().all(|(code, _)| code != retired), "{retired}");
+    }
 }
 
 #[specforge_test(

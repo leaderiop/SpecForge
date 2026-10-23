@@ -757,18 +757,15 @@ behavior detect_invalid_release_date "Detect Invalid Release Date" {
   category    validation
   features    [pe_release_coordination]
   contract    """
-    The @specforge/product extension MUST declare a field_value_constraint
-    matches rule on the release release_date field with the regex
-    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A release whose release_date is
-    present and doesn't match SHOULD produce an I086 info diagnostic:
-    "release '{id}' has release_date '{value}' — expected YYYY-MM-DD".
-    The regex checks the shape only, not that the date exists.
+    The @specforge/product extension MUST declare release_date a date
+    field; a value that is no calendar day is the core's E061 (I086
+    retired into it).
   """
-  diagnostic  I086
-  severity    info
-  description "Invalid release_date format"
-  verify unit "release_date '2026-06-01' produces no I086"
-  verify unit "release_date 'June 2026' produces I086"
+  diagnostic  E061
+  severity    error
+  description "Invalid release_date"
+  verify unit "a release_date that is a calendar day passes"
+  verify unit "a release_date that is no calendar day is E061"
 }
 
 behavior detect_invalid_start_date "Detect Invalid Start Date" {
@@ -776,18 +773,15 @@ behavior detect_invalid_start_date "Detect Invalid Start Date" {
   category    validation
   invariants  [pe_milestone_temporal_consistency]
   contract    """
-    The @specforge/product extension MUST declare a field_value_constraint
-    matches rule on the milestone start_date field with the regex
-    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A milestone whose start_date is
-    present and doesn't match SHOULD produce an I087 info diagnostic:
-    "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD".
-    The regex checks the shape only, not that the date exists.
+    The @specforge/product extension MUST declare start_date a date
+    field; a value that is no calendar day is the core's E061 (I087
+    retired into it).
   """
-  diagnostic  I087
-  severity    info
-  description "Invalid milestone start_date format"
-  verify unit "start_date '2026-01-15' produces no I087"
-  verify unit "start_date 'Jan 15' produces I087"
+  diagnostic  E061
+  severity    error
+  description "Invalid milestone start_date"
+  verify unit "a start_date that is a calendar day passes"
+  verify unit "a start_date that is no calendar day is E061"
 }
 
 behavior detect_journey_flow_feature_references "Detect Journey Flow Feature References" {

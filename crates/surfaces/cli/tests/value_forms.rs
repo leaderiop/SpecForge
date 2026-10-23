@@ -185,7 +185,6 @@ fn check_format_and_set_agree_on_a_quoted_number_a_quoted_date_and_a_whole_value
     behavior = "check_field_value_types",
     verify = "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
 )]
-#[ignore = "flipped by T8, once R1 re-vendors"]
 fn a_date_field_holds_one_calendar_day_written_bare() {
     let dir = TestProject::new()
         .enabling(&["@specforge/product", "@specforge/governance"])

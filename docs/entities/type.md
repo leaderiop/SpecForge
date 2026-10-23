@@ -90,7 +90,7 @@ Each field in a struct type has:
 | Part | Description |
 |------|-------------|
 | `name` | The field identifier. |
-| `type` | The field's type: primitive (`string`, `number`, `boolean`, `timestamp`), another type name, or an array (`TypeName[]`). |
+| `type` | The field's type: primitive (`string`, `number`, `boolean`, `timestamp`, `date`), another type name, or an array (`TypeName[]`). |
 | `annotations` | Zero or more annotations (see below). |
 
 ### Field Annotations
@@ -111,6 +111,7 @@ Each field in a struct type has:
 | `integer` | Integer value | `number` | `int` | `int` |
 | `boolean` | True/false | `boolean` | `bool` | `bool` |
 | `timestamp` | Date/time | `Date` | `datetime` | `time.Time` |
+| `date` | Calendar day | `string` | `datetime.date` | `civil.Date` |
 | `void` | No value (for return types) | `void` | `None` | — |
 
 ## Relationships

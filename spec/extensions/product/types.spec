@@ -130,12 +130,12 @@ type ProductMilestone "Product Milestone" {
   // (e.g., "all features in [some_feature] done") are "anchored" and
   // enable automated verification.
   exit_criteria string[]        @optional
-  // ISO 8601 date format: YYYY-MM-DD. A value not matching ^\d{4}-\d{2}-\d{2}$
-  // produces I053. Absent target_date is valid (incremental adoption).
-  target_date   string          @optional
+  // ISO 8601 date format: YYYY-MM-DD. A value that is no calendar day is the core's
+  // E061. Absent target_date is valid (incremental adoption).
+  target_date   date            @optional
   // ISO 8601 date format: YYYY-MM-DD, no later than target_date. A value
-  // not in YYYY-MM-DD shape produces I087; no rule checks the order.
-  start_date    string          @optional
+  // that is no calendar day is the core's E061; no rule checks the order.
+  start_date    date            @optional
   modules       EntityId[]      @optional
   depends_on    EntityId[]      @optional
   // Free-text descriptions of external impediments (regulatory, third-party,
@@ -206,9 +206,9 @@ type ProductRelease "Product Release" {
   status       ReleaseStatus @optional // absent: the declared default (planned)
   deliverables EntityId[]    @optional
   milestones   EntityId[]    @optional
-  target_date  string        @optional
-  // ISO 8601 date format: YYYY-MM-DD. Other values produce I086.
-  release_date string        @optional
+  target_date  date          @optional
+  // ISO 8601 date format: YYYY-MM-DD. Other values are the core's E061.
+  release_date date          @optional
   changelog    string        @optional
   depends_on   EntityId[]    @optional
   owner        string        @optional
@@ -339,7 +339,7 @@ type MilestoneTimelinePayload "Milestone Timeline Payload" {
 
 type MilestoneTimelineEntry "Milestone Timeline Entry" {
   milestone_id EntityId
-  target_date  string          @optional
+  target_date  date            @optional
   status       MilestoneStatus @optional
   is_overdue   boolean
   priority     Priority        @optional
@@ -486,7 +486,7 @@ type MilestoneListEntry "Milestone List Entry" {
   id            EntityId
   title         string
   status        MilestoneStatus @optional
-  target_date   string          @optional
+  target_date   date            @optional
   feature_count integer
   priority      Priority        @optional
   tags          string[]        @optional
@@ -897,7 +897,7 @@ type ChannelCoverageMatrixPayload "Channel Coverage Matrix Payload" {
 type CriticalPathNode "Critical Path Node" {
   entity_id   EntityId
   entity_kind string
-  target_date string  @optional
+  target_date date    @optional
   status      string  @optional
   slack_days  integer @optional
   verify property "CriticalPathNode"
@@ -973,7 +973,7 @@ type ReleaseListEntry "Release List Entry" {
   version           string        @optional
   status            ReleaseStatus @optional
   deliverable_count integer
-  release_date      string        @optional
+  release_date      date          @optional
   tags              string[]      @optional
   verify property "ReleaseListEntry"
 }

@@ -51,8 +51,9 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 /// ADR 0069's: a recorded test's status is `passed`, `failed` or `skipped`,
 /// and a pass's test results carry `duration_ms`; 1.5.0 is ADR 0094's: an
 /// entity's `verify` statements are no field text, so a pass's and a validator's
-/// `fields` carry no `verify` entry.
-pub const PROTOCOL_VERSION: &str = "1.5.0";
+/// `fields` carry no `verify` entry; 1.6.0 is ADR 0234's: a field's type may be `date`, and
+/// the primitives a validator gets include `date`.
+pub const PROTOCOL_VERSION: &str = "1.6.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -49,7 +49,7 @@ milestone mvp "Phase 1: Core" {
 | `modules` | reference list | Module dependencies for this phase. |
 | `depends_on` | reference list | Other milestones that must complete before this phase. Forms a DAG validated by E015 (cycle detection). |
 | `exit_criteria` | string list | Exit criteria for phase completion. Completed milestones without criteria emit W057. |
-| `target_date` | string @optional | Target completion date in ISO 8601 format (`YYYY-MM-DD`). Validated by I053. |
+| `target_date` | date @optional | Target completion day, written bare (`YYYY-MM-DD`). Another value is E061. |
 | `priority` | Priority @optional | Importance level: `critical`, `high`, `medium`, `low`. |
 | `reason` | string @optional | Rationale for current status (expected when `blocked`, checked by I060). |
 | `tags` | string[] @optional | Faceted filtering tags. |
@@ -99,7 +99,6 @@ milestone mvp "Phase 1: Core" {
 | W057 | warning | Completed milestone without exit criteria. |
 | E061 | error | A value outside the field's vocabulary (`status`, `priority`). |
 | I051 | info | Milestone features not reachable from milestone modules (gap). |
-| I053 | info | Invalid `target_date` format (not ISO 8601 `YYYY-MM-DD`). |
 | I057 | info | Blocked milestone without a `depends_on` reference. |
 | I060 | info | Blocked milestone without a `reason`. |
 | I064 | info | Milestone temporal inconsistency (depends on a later-dated milestone). |

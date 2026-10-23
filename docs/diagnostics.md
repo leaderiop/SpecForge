@@ -1330,18 +1330,6 @@ Owner: @specforge/product
 Level: info
 ```
 
-## I053
-
-```
-I053: Milestone target date not YYYY-MM-DD
-
-A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026`
-or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.
-
-Owner: @specforge/product
-Level: info
-```
-
 ## I054
 
 ```
@@ -1596,30 +1584,6 @@ I083: Release without milestones
 A `release` names no milestone: no `milestones` field or an empty list (a
 milestone it names that does not exist is E003 alone). List the milestones it
 completes in `milestones`.
-
-Owner: @specforge/product
-Level: info
-```
-
-## I086
-
-```
-I086: Release date not YYYY-MM-DD
-
-A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June
-2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.
-
-Owner: @specforge/product
-Level: info
-```
-
-## I087
-
-```
-I087: Milestone start date not YYYY-MM-DD
-
-A `milestone`'s `start_date` doesn't match `YYYY-MM-DD` (for example `Jan 15`).
-Write the date as an ISO 8601 calendar date, e.g. `2026-01-15`.
 
 Owner: @specforge/product
 Level: info
@@ -3382,6 +3346,9 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E053 | (nothing) |
 | E060 | (nothing) |
 | I006 | (nothing) |
+| I053 | [E061](#e061) |
+| I086 | [E061](#e061) |
+| I087 | [E061](#e061) |
 | W011 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |
