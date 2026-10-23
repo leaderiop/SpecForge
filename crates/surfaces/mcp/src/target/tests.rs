@@ -386,3 +386,34 @@ fn the_target_takes_the_names_no_extension_tool_may_declare() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "list_mcp_tools",
+    verify = "a tool's path is declared once, by its target"
+)]
+fn the_target_takes_its_names_out_of_the_arguments() {
+    let given = serde_json::json!({"path": ".", "limit": 2});
+    let any = TargetSpec::Project {
+        reach: Reach::AnyProject,
+        without: WithoutProject::Refused,
+    };
+    for spec in [
+        TargetSpec::NewProject,
+        TargetSpec::SERVED_VIEW,
+        TargetSpec::SERVED_PROJECT,
+        any,
+    ] {
+        assert_eq!(
+            spec.handler_arguments(&given),
+            serde_json::json!({"limit": 2}),
+            "{spec:?}"
+        );
+        assert_eq!(
+            spec.handler_arguments(&serde_json::json!({"path": null})),
+            serde_json::json!({}),
+            "{spec:?}"
+        );
+    }
+    // An Unscoped entry's target takes nothing: its path is the entry's undeclared argument.
+    assert_eq!(TargetSpec::Unscoped.handler_arguments(&given), given);
+}

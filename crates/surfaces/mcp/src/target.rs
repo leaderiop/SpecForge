@@ -5,7 +5,9 @@
 //! session, brought up to date with disk; another project, opened as a session for this call
 //! only; or the directory `init` creates. Handlers read their project as a
 //! [`ProjectRef`] and cannot tell which adapter answered it; they never
-//! resolve a root or reload anything themselves.
+//! resolve a root or reload anything themselves. The handler is handed the
+//! call's arguments without the names the target read
+//! ([`TargetSpec::handler_arguments`], ADR 0239).
 
 use serde_json::Value;
 
@@ -131,13 +133,29 @@ impl TargetSpec {
     /// every target but `Unscoped` (a `Served` entry accepts its own
     /// project's root and refuses another's,
     /// [`TargetError::OtherProjectRefused`]). [`Self::fields`] stays the
-    /// listed ones.
+    /// listed ones. These are the names the target takes out of a call before
+    /// its handler runs ([`Self::handler_arguments`]).
     pub fn accepted(self) -> &'static [TargetArgument] {
         if self == TargetSpec::Unscoped {
             &[]
         } else {
             &[TargetArgument::Path]
         }
+    }
+
+    /// `arguments` as the entry's handler is handed them: without the names
+    /// the target reads ([`Self::accepted`]), whatever their value. The target
+    /// took them; no handler, core or extension, declares, reads or refuses
+    /// them (ADR 0239). `Unscoped` takes none: `path` stays, and is the
+    /// entry's undeclared argument.
+    pub fn handler_arguments(self, arguments: &Value) -> Value {
+        let mut handed = arguments.clone();
+        if let Value::Object(given) = &mut handed {
+            for argument in self.accepted() {
+                given.remove(argument.name());
+            }
+        }
+        handed
     }
 
     /// The names [`Self::properties`] declares, for the schema drift test.

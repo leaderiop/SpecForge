@@ -266,7 +266,7 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
     listing_is_the_reading "The input schema or prompt listing states each argument's type, description, default, enumerated values and whether it is required, as the reading applies them"
     absent_is_the_default  "An absent or null argument reads as the default its listing states; a missing required one is refused naming it"
     value_read_by_type     "A value is read by its declared type, a boolean or count also from a string holding one, as extension command tools read them; any other value is invalid input naming the argument"
-    undeclared_refused     "An argument neither the entry nor its call target declares is invalid input naming it, with the declared argument it is close to"
+    undeclared_refused     "An argument the entry does not declare is invalid input naming it, with the declared argument it is close to; the call target's own (path) never reaches an entry's handler, core or extension"
     refusal_names_argument "A refusal about a value the caller sent names its argument, whatever its kind: the operation states which field of its request the refusal is about, and the entry maps each field to the argument that sends it"
   }
   contract   """
@@ -285,9 +285,13 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
     is read as the AgentPlan type, from an object or a string holding its JSON,
     checked against the schema its listing states. Any other
     value MUST be refused as invalid input naming the argument, with the
-    wording extension command tools use. An argument that neither the entry
-    nor its call target declares MUST be refused as invalid input naming it,
-    with the closest declared name as a suggestion. An argument whose
+    wording extension command tools use. An argument that the entry does not
+    declare MUST be refused as invalid input naming it, with the closest
+    declared name as a suggestion. The call target MUST take the names it
+    reads (path, for every entry that reads a project) out of the call's
+    arguments before any handler runs: a core tool, a prompt, an extension
+    command and an explicit extension tool are each handed only their own
+    (ADR 0239). An argument whose
     default depends on others (specforge.format's write) MUST state no
     default; its description states the rule. An operation's refusal of a
     core tool's, prompt's or resource's call that rejects a value the caller

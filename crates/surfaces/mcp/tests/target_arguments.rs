@@ -12,7 +12,6 @@ use specforge_test::prelude::*;
     behavior = "read_mcp_arguments_as_declared",
     verify = "an extension command given its own project's path, or a null one, runs as it does without one, and another project's path is the target's refusal"
 )]
-#[ignore = "flipped by T4"]
 fn an_extension_command_given_its_projects_path_runs_as_without_it() {
     let fake = FakeExtension::new().with_output(
         "cmd__report",
@@ -52,7 +51,6 @@ fn an_extension_command_given_its_projects_path_runs_as_without_it() {
     behavior = "read_mcp_arguments_as_declared",
     verify = "an explicit extension tool's export and its schema check are never handed the call target's path"
 )]
-#[ignore = "flipped by T4"]
 fn an_explicit_extension_tool_is_never_handed_the_targets_path() {
     let closed = json!({"name": "test.closed_in", "description": "Closed input",
         "export": "mcp__closed_in",

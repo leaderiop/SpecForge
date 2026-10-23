@@ -173,11 +173,17 @@ pub(crate) fn serve<S: Surface>(
     }
     // The project the call acts on, resolved (and brought up to date)
     // before the handler runs: handlers never pick a root or reload.
-    let outcome = match target::resolve(state, revision, S::target(&found), &invocation.arguments) {
+    let spec = S::target(&found);
+    // The handler is handed the call's arguments without the target's own (ADR 0239).
+    let handed = Invocation {
+        name: invocation.name.clone(),
+        arguments: spec.handler_arguments(&invocation.arguments),
+    };
+    let outcome = match target::resolve(state, revision, spec, &invocation.arguments) {
         Ok(target) => {
             let mut call = Call::new(state, target);
             // The handler records its own events through `call.events()`.
-            let mut outcome = S::run(&mut call, &found, &invocation);
+            let mut outcome = S::run(&mut call, &found, &handed);
             // With nothing served, a refusal that names a file or an
             // entity is the no-project refusal, whichever kind of request
             // it is.
@@ -186,12 +192,7 @@ pub(crate) fn serve<S: Surface>(
             }
             outcome
         }
-        Err(refused) => S::refused(
-            &found,
-            &invocation,
-            McpError::from(refused),
-            &mut *state.events,
-        ),
+        Err(refused) => S::refused(&found, &handed, McpError::from(refused), &mut *state.events),
     };
     if let Some(event) = S::completed(&found, &invocation, &outcome) {
         state.events.record(event);
