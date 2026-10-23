@@ -199,6 +199,24 @@ mod tests {
         }
     }
 
+    #[ignore = "flipped by T4"]
+    #[specforge_test_macros::test(
+        behavior = "scaffold_wasm_extension_project",
+        verify = "the scaffold names the SDK at the version this specforge is built with"
+    )]
+    fn the_scaffold_names_the_sdk_at_this_builds_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("my-ext");
+        scaffold(&project, "@you/my-ext").unwrap();
+        let cargo = std::fs::read_to_string(project.join("Cargo.toml")).unwrap();
+        // The SDK shares this crate's workspace version (ADR 0238 D1).
+        let line = format!(
+            "specforge-extension-sdk = \"{}\"\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        assert!(cargo.contains(&line), "{cargo}");
+    }
+
     #[test]
     fn scaffold_writes_buildable_shape() {
         let dir = tempfile::tempdir().unwrap();

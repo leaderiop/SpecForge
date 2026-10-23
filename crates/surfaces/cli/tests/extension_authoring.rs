@@ -294,6 +294,51 @@ fn extension_build_reports_a_failed_build() {
     );
 }
 
+/// `init` prints `extension build --dir <relative>`; the build reads the component where cargo built it.
+#[ignore = "flipped by T3"]
+#[specforge_test(
+    behavior = "build_wasm_extension",
+    verify = "specforge extension build with a relative --dir reads the component it built"
+)]
+fn extension_build_with_a_relative_dir_reads_what_it_built() {
+    if !wasip2_installed() {
+        eprintln!("skipped: the wasm32-wasip2 target is not installed");
+        return;
+    }
+    let dir = scratch();
+    let krate = dir.root().join("tiny");
+    fs::create_dir_all(krate.join("src")).unwrap();
+    fs::write(
+        krate.join("Cargo.toml"),
+        "[package]\nname = \"tiny\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n",
+    )
+    .unwrap();
+    fs::write(krate.join("src/lib.rs"), "").unwrap();
+    // Run from the temp root (Cli::on's cwd), naming the crate relatively.
+    let mut build = Cli::on(&dir).with_toolchain().bare_command(&[
+        "extension",
+        "build",
+        "--format",
+        "json",
+        "--dir",
+        "tiny",
+    ]);
+    build.env("CARGO_NET_OFFLINE", "true");
+    without_coverage_environment(&mut build);
+    let output = build.output().unwrap();
+    let json = json_of(&output);
+    assert!(output.status.success(), "{json}");
+    let component = PathBuf::from(json["component"].as_str().unwrap());
+    assert!(
+        component.ends_with("tiny/target/wasm32-wasip2/release/tiny.wasm"),
+        "{json}"
+    );
+    assert!(
+        !krate.join("tiny").exists(),
+        "cargo built below the crate a second time"
+    );
+}
+
 /// Clear what `cargo llvm-cov` exports from `command`'s environment. The scaffold's component is built
 /// for wasm32-wasip2, which has no profiler runtime: the instrumentation `cargo llvm-cov` adds to the
 /// workspace crates it compiles (through `RUSTC_WRAPPER`, `RUSTFLAGS` or whichever channel the

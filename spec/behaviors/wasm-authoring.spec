@@ -48,6 +48,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "specforge extension init --format=json outputs structured JSON"
   verify unit "specforge extension init uses default name when --name not provided"
   verify unit "the scaffold's extension name is a package name"
+  verify unit "the scaffold names the SDK at the version this specforge is built with"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 
@@ -74,6 +75,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
   verify unit "build produces .wasm binary"
   verify unit "build errors reported as ExtensionError diagnostics"
   verify unit "specforge extension build validates project structure exists"
+  verify unit "specforge extension build with a relative --dir reads the component it built"
   verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 }
 
