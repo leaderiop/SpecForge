@@ -123,3 +123,16 @@ fn the_editors_tokens_hold_a_use_binding_and_find_references_no_holder() {
         "{refs:?}"
     );
 }
+
+#[test]
+fn a_delete_that_leaves_a_use_binding_reports_w027() {
+    let c = project(&[
+        ("rules.spec", RULES),
+        ("c.spec", "use { inv_b } from \"rules.spec\"\n"),
+    ]);
+    let planned = plan(&c, &[delete("inv_b", false)]).unwrap();
+    let added = &planned.report().added.0;
+    let w027: Vec<_> = added.iter().filter(|d| d.code == "W027").collect();
+    assert_eq!(w027.len(), 1, "{added:?}");
+    assert!(w027[0].message.contains("inv_b"), "{}", w027[0].message);
+}

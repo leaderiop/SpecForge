@@ -2412,11 +2412,14 @@ Level: warning
 ## W027
 
 ```
-W027: Re-export binding not found
+W027: Import binding not found
 
-A selective `pub use { A, B } from "target"` re-export names a binding that
-isn't actually exported by the target module. Correct the binding name or remove
-it from the re-export list.
+A selective import, `use { A, B } from "target"` or `pub use { A, B } from
+"target"`, names a binding the target file does not export: an entity it neither
+declares nor re-exports with `pub use`. References resolve without `use`, so the
+binding changes nothing, but it names nothing either; a rename and a delete keep
+bindings in step with the entities they name (ADR 0233). Correct the binding's
+name, or remove it.
 
 Owner: core
 Level: warning

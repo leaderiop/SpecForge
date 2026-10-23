@@ -21,7 +21,6 @@ fn w027(files: &[(&str, &str)]) -> Vec<String> {
         .collect()
 }
 
-#[ignore = "flipped by T7"]
 #[specforge_test(
     behavior = "resolve_use_imports",
     verify = "a selective use of a name its target does not export is W027"
@@ -38,5 +37,17 @@ fn a_selective_use_of_a_name_its_target_does_not_export_is_w027() {
     assert_eq!(
         found,
         ["c.spec 1:16-1:20 selective import 'Nope' not found in target 'a.spec'"]
+    );
+}
+
+#[test]
+fn w027_is_placed_on_the_binding() {
+    let found = w027(&[
+        ("user.spec", "behavior User \"U\" { contract \"c\" }"),
+        ("top.spec", "pub use { User, Gone } from \"./user\"\n"),
+    ]);
+    assert_eq!(
+        found,
+        ["top.spec 1:17-1:21 selective re-export 'Gone' not found in target 'user.spec'"]
     );
 }

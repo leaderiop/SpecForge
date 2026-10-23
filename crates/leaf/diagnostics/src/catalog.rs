@@ -569,8 +569,8 @@ catalog! {
         "Duplicate validation rule code",
         "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.";
     W027: Warning core,
-        "Re-export binding not found",
-        "A selective `pub use { A, B } from \"target\"` re-export names a binding that isn't actually exported by the target module. Correct the binding name or remove it from the re-export list.";
+        "Import binding not found",
+        "A selective import, `use { A, B } from \"target\"` or `pub use { A, B } from \"target\"`, names a binding the target file does not export: an entity it neither declares nor re-exports with `pub use`. References resolve without `use`, so the binding changes nothing, but it names nothing either; a rename and a delete keep bindings in step with the entities they name (ADR 0233). Correct the binding's name, or remove it.";
     W029: Warning formal,
         "Event never consumed",
         "An `event` entity is produced by one or more behaviors but has no consumer, meaning nothing reacts to it. Add a behavior that consumes the event, or remove the unused production.";

@@ -4,13 +4,13 @@ use specforge_parser::{ImportBinding, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
-/// A `pub use` of one file: what it re-exports and from where.
-struct ReexportDeclaration {
+/// A `use` of one file that re-exports or selects: what it imports, from where, and whether it re-exports.
+struct Selective {
     /// The target source's key.
     target_path: String,
-    /// `None`: everything the target exports.
+    /// `None`: everything the target exports (only a `pub use "t"` is kept so).
     bindings: Option<Vec<ImportBinding>>,
-    span: specforge_common::SourceSpan,
+    is_pub: bool,
 }
 
 /// What one `use` path names among a compile's sources.
@@ -56,18 +56,18 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
     // Resolve imports and build the file dependency graph, tracking each
     // file's `pub use` re-exports.
     let mut import_graph: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    let mut reexport_map: BTreeMap<String, Vec<ReexportDeclaration>> = BTreeMap::new();
+    let mut reexport_map: BTreeMap<String, Vec<Selective>> = BTreeMap::new();
     for (path, spec_file) in &files {
         let mut deps = Vec::new();
         let mut reexports = Vec::new();
         for import in &spec_file.imports {
             match name(&sources, path, import.path.as_str()) {
                 Named::Source(target) => {
-                    if import.is_pub {
-                        reexports.push(ReexportDeclaration {
+                    if import.is_pub || import.bindings.is_some() {
+                        reexports.push(Selective {
                             target_path: target.to_string(),
                             bindings: import.bindings.clone(),
-                            span: import.span.clone(),
+                            is_pub: import.is_pub,
                         });
                     }
                     deps.push(target.to_string());
@@ -141,7 +141,7 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
     let mut order = topological_sort(&import_graph, &cyclic);
     order.extend(cyclic.iter().copied());
     let by_path: HashMap<&str, &SpecFile> = files.iter().copied().collect();
-    let scope_inputs: Vec<(&str, &SpecFile, &[ReexportDeclaration])> = order
+    let scope_inputs: Vec<(&str, &SpecFile, &[Selective])> = order
         .iter()
         .filter_map(|path| {
             Some((
@@ -284,7 +284,7 @@ fn topological_sort<'a>(
 /// non-cyclic files, cyclic files appended at the end). For cycle participants
 /// whose scope hasn't been computed yet, only their `declared` set is used
 /// (no transitive resolution).
-fn compute_file_scopes(files: &[(&str, &SpecFile, &[ReexportDeclaration])]) -> Vec<Diagnostic> {
+fn compute_file_scopes(files: &[(&str, &SpecFile, &[Selective])]) -> Vec<Diagnostic> {
     let mut scopes: HashMap<String, HashSet<String>> = HashMap::new();
     let mut diagnostics = Vec::new();
 
@@ -320,22 +320,30 @@ fn compute_file_scopes(files: &[(&str, &SpecFile, &[ReexportDeclaration])]) -> V
                     additional_exports.extend(target_exported);
                 }
                 Some(bindings) => {
-                    // pub use { A, B } from "target" — re-export selected
+                    // use { A, B } from "target": a found name is re-exported when the statement is `pub`; a
+                    // missing one is W027 whether or not it is, placed on the binding (ADR 0233).
                     for binding in bindings {
                         if target_exported.contains(&binding.name) {
-                            // Use alias if present, otherwise use the original name
-                            let export_name = binding.alias.as_ref().unwrap_or(&binding.name);
-                            additional_exports.insert(export_name.clone());
+                            if reexport.is_pub {
+                                // Use alias if present, otherwise use the original name
+                                let export_name = binding.alias.as_ref().unwrap_or(&binding.name);
+                                additional_exports.insert(export_name.clone());
+                            }
                         } else {
+                            let how = if reexport.is_pub {
+                                "re-export"
+                            } else {
+                                "import"
+                            };
                             diagnostics.push(
                                 Diagnostic::new(
                                     codes::W027,
                                     format!(
-                                        "selective re-export '{}' not found in target '{}'",
+                                        "selective {how} '{}' not found in target '{}'",
                                         binding.name, reexport.target_path
                                     ),
                                 )
-                                .with_span(reexport.span.clone()),
+                                .with_span(binding.name_span.clone()),
                             );
                         }
                     }
