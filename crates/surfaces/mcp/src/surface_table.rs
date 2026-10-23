@@ -21,6 +21,7 @@
 use serde_json::Value;
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::extension::command::{ExtensionCommand, ExtensionCommands};
+use specforge_protocol_types::tool_input;
 use specforge_registry::RegistryBuild;
 
 use crate::lifecycle::Revision;
@@ -163,7 +164,11 @@ impl ExtensionSurfaceTable {
         for declaration in registries.declarations() {
             let extension = declaration.name();
             for tool in &declaration.surfaces.mcp_tools {
-                if let Some(why) = table.tool_name_taken(&tool.name, core_tools) {
+                let refused = table.tool_name_taken(&tool.name, core_tools).or_else(|| {
+                    tool_input::refusal(&tool.input_schema)
+                        .map(|refusal| format!("the host refuses it: {refusal}"))
+                });
+                if let Some(why) = refused {
                     table.not_served(format!(
                         "MCP tool '{}' of '{extension}' not served: {why}",
                         tool.name

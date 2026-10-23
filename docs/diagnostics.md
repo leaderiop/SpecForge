@@ -1248,14 +1248,15 @@ MCP serves each name once (ADR 0017): the core tools and resources first, then
 each extension's explicit MCP tools and resources in extension load order, then
 its commands as the tools `specforge.<ext>.<command>`. A contribution not served
 under its name is reported here, with why: an explicit tool named as a core tool
-or an earlier extension's tool; a resource whose URIs a core resource or an
-earlier extension resource already serves; a command whose tool name an explicit
-tool (or a core tool) already has; a command the host refuses (an arg taking
-`--path`, `--format` or `--help`, two args spelling one option, or a default its
-declaration contradicts); a command another command routes first under its name
-(`specforge check` reports that one as E039). I017 itself only MCP reports.
-Rename the contribution if the collision is unintended; otherwise no action is
-needed.
+or an earlier extension's tool; an explicit tool whose input schema declares
+`path`, which the call target takes out of every call; a resource whose URIs a
+core resource or an earlier extension resource already serves; a command whose
+tool name an explicit tool (or a core tool) already has; a command the host
+refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one
+option, or a default its declaration contradicts); a command another command
+routes first under its name (`specforge check` reports that one as E039). I017
+itself only MCP reports. Rename the contribution if the collision is unintended;
+otherwise no action is needed.
 
 Owner: core
 Level: info

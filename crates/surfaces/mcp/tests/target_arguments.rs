@@ -77,3 +77,53 @@ fn an_explicit_extension_tool_is_never_handed_the_targets_path() {
         }
     }
 }
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "an explicit extension tool whose input schema declares path is not listed, with I017"
+)]
+fn an_explicit_tool_declaring_path_is_not_served() {
+    let file_tool = |name: &str, schema: Value| {
+        json!({"name": name, "description": "Reads a file",
+            "export": format!("mcp__{}", name.replace('.', "_")), "input_schema": schema})
+    };
+    let fake = FakeExtension::new()
+        .with_tool(file_tool(
+            "test.file_tool",
+            json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+        ))
+        .with_tool(file_tool(
+            "test.needs_path",
+            json!({"type": "object", "required": ["path"]}),
+        ));
+    let (mut server, ext, _dir) = fake_extension::initialized(fake);
+    let resp = call(&mut server, "tools/list", json!({}));
+    let listed: Vec<String> = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_string())
+        .collect();
+    for name in ["test.file_tool", "test.needs_path"] {
+        assert!(
+            !listed.contains(&name.to_string()),
+            "{name} listed: {listed:?}"
+        );
+        let i017 = format!(
+            "MCP tool '{name}' of '@test/cmds' not served: the host refuses it: its input schema declares 'path', which the call target takes"
+        );
+        assert!(
+            server
+                .state()
+                .diagnostics()
+                .iter()
+                .any(|d| d.code == "I017" && d.message == i017),
+            "{i017}"
+        );
+        let resp = call_tool(&mut server, name, json!({"path": "README.md"}));
+        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    }
+    assert!(ext.calls().is_empty());
+    // The fake's own explicit tool (no path in its schema) is still served.
+    assert!(listed.contains(&"specforge.cmds.check".to_string()));
+}

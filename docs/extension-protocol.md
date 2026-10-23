@@ -397,6 +397,10 @@ that does not know the field ignores it). The host reads the declaration by one 
   options), two args whose names spell one option (`all_kinds`, `all-kinds`), a flag or a required arg
   with a default, or a default its type refuses, runs on no surface: the CLI refuses it (exit 2) and MCP
   serves no tool for it (I017). The SDK refuses to build such an extension.
+- **Refused MCP tools.** An explicit MCP tool whose `input_schema` declares `path` (a property or a
+  required name) is not served (I017): `path` is the call target's, taken out of every call before the
+  tool's export or schema check sees it (ADR 0239). The host and the SDK read one rule
+  (`specforge_protocol_types::tool_input`): the SDK refuses to build such an extension.
 - **Normalized args.** Both surfaces send a `cmd__` export the same args for the same input: every
   declared arg the caller set, as its type (an integer or a flag may come as the string a command line
   gives); an absent arg its default; an unset flag `false` (a flag is never required). A missing

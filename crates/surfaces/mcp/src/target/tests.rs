@@ -362,3 +362,27 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
         call.containment()
     ));
 }
+
+#[specforge_test_macros::test(
+    behavior = "list_mcp_tools",
+    verify = "a tool's path is declared once, by its target"
+)]
+fn the_target_takes_the_names_no_extension_tool_may_declare() {
+    let any = TargetSpec::Project {
+        reach: Reach::AnyProject,
+        without: WithoutProject::Refused,
+    };
+    for spec in [
+        TargetSpec::NewProject,
+        TargetSpec::SERVED_VIEW,
+        TargetSpec::SERVED_PROJECT,
+        any,
+    ] {
+        let names: Vec<&str> = spec.accepted().iter().map(|a| a.name()).collect();
+        assert_eq!(
+            names,
+            specforge_protocol_types::tool_input::TARGET_ARGUMENTS,
+            "{spec:?}"
+        );
+    }
+}
