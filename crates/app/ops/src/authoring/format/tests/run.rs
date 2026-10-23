@@ -118,7 +118,7 @@ fn clean_needs_every_file_read_and_canonical() {
     // A file that is not text fails as an internal error, and the run says so.
     assert_eq!(outcome.failures[0].kind(), OpErrorKind::Internal);
     assert_eq!(outcome.failure_kind(), Some(OpErrorKind::Internal));
-    let error = outcome.failures[0].to_op_error();
+    let error = outcome.failures[0].to_op_error(missing[0].display());
     assert_eq!(
         (error.kind, &*error.code),
         (OpErrorKind::Internal, crate::FILE_UNREADABLE)
@@ -198,7 +198,7 @@ fn written_lists_only_files_on_disk() {
     assert_eq!(outcome.failures[0].kind(), OpErrorKind::PermissionDenied);
     assert_eq!(outcome.failure_kind(), Some(OpErrorKind::PermissionDenied));
     assert_eq!(
-        &*outcome.failures[0].to_op_error().code,
+        &*outcome.failures[0].to_op_error(locked.display()).code,
         crate::FILE_UNWRITABLE
     );
     let written: Vec<&Path> = outcome.written().collect();

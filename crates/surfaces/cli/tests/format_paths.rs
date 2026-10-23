@@ -39,7 +39,6 @@ fn format_refuses_a_path_that_names_nothing() {
     behavior = "format_spec_files",
     verify = "with no path typed, the human output names each file it found from the project root"
 )]
-#[ignore = "flipped by T3"]
 fn format_names_a_file_it_found_from_the_project_root() {
     let project = project();
     let cli = Cli::on(&project);

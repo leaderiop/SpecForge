@@ -180,35 +180,18 @@ impl Failure {
     }
 
     /// The failure as every operation reports one: its kind, its own code
-    /// ([`FILE_UNREADABLE`], [`FILE_UNWRITABLE`]) and the message [`Display`] gives.
-    ///
-    /// [`Display`]: std::fmt::Display
-    pub fn to_op_error(&self) -> OpError {
+    /// ([`FILE_UNREADABLE`], [`FILE_UNWRITABLE`]) and the message [`Self::naming`] gives for `name`.
+    pub fn to_op_error(&self, name: impl std::fmt::Display) -> OpError {
         let code = match self {
             Failure::Read { .. } => crate::FILE_UNREADABLE,
             Failure::Write { .. } => crate::FILE_UNWRITABLE,
         };
-        OpError::new(self.kind(), code, self.to_string())
+        OpError::new(self.kind(), code, self.naming(name))
     }
-}
 
-impl Failure {
-    /// [`Display`](std::fmt::Display) naming the file as `name` does: what a document says.
-    pub fn naming(&self, name: &ProjectPath) -> String {
+    /// `failed to read <name>: <error>` (or `write`): the file named as the caller shows it.
+    pub fn naming(&self, name: impl std::fmt::Display) -> String {
         format!("failed to {} {name}: {}", self.verb(), self.error())
-    }
-}
-
-impl std::fmt::Display for Failure {
-    /// `failed to read <path>: <error>` (or `write`).
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "failed to {} {}: {}",
-            self.verb(),
-            self.path().display(),
-            self.error()
-        )
     }
 }
 
@@ -337,7 +320,7 @@ impl Outcome {
             }),
             message: failed.then(|| {
                 let reasons: Vec<String> = (self.failures.iter())
-                    .map(|f| f.naming(&named(f.path())))
+                    .map(|f| f.naming(named(f.path())))
                     .collect();
                 reasons.join("; ")
             }),

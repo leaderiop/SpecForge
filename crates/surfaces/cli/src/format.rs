@@ -1,6 +1,6 @@
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::terminal::{Terminal, errln, out, outln};
-use specforge_common::{Diagnostic, ProjectRoot};
+use specforge_common::{Diagnostic, ProjectPath, ProjectRoot};
 use specforge_formatter::unified_diff;
 use specforge_ops::authoring::format::{self, Mode, Request};
 use specforge_ops::{OpError, OpErrorKind};
@@ -101,12 +101,19 @@ impl Args {
         // A failed file is reported as every operation's failure is
         // (`error[CODE]: …`), its code and kind the OS-given ones.
         // The run's exit is its verdict (`outcome.ok()`), not this report's.
+        // A file the user typed is shown as typed; one the run found, from the project root as
+        // the document names it (ADR 0102 D4, ADR 0242).
+        let shown = |path: &Path| match self.paths.is_empty() {
+            true => ProjectPath::of(project_root.dir(), path).to_string(),
+            false => path.display().to_string(),
+        };
         for failure in &outcome.failures {
-            let _ = Refusal::of(format).report(terminal, &failure.to_op_error());
+            let _ =
+                Refusal::of(format).report(terminal, &failure.to_op_error(shown(failure.path())));
         }
 
         for change in &outcome.changes {
-            let shown = change.path.display().to_string();
+            let shown = shown(&change.path);
             if self.diff {
                 out!(
                     terminal,

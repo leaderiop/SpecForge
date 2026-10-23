@@ -43,6 +43,8 @@ behavior format_spec_files "Format Spec Files" {
     apply formatting rules, and write the formatted output back to disk.
     Files that are already correctly formatted MUST NOT be rewritten.
     The command MUST print the names of changed files and a summary count.
+    A file the user named is printed as typed; a file the run found is
+    printed from the project root, as the document names it (ADR 0102).
     A file that cannot be read or written, or that has a region left
     unformatted (format_with_parse_errors), MUST make the command exit with
     code 1; every other file is still formatted and written. A file whose
