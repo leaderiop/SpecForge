@@ -1302,12 +1302,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`field_form::spell::id_span`), so the finder's tokens, the linker's E003/E022/I004, navigation, rename and the replace fix
   read the same span; W159 and the formatter read the whole value (ADR 0218).
 - **Written token**: a place a file writes an entity's ID as a reference: a field's reference (a block's own, or a
-  `defaults` entry whether or not a block takes it) or a type name a derived field reads. The graph's one finder answers
+  `defaults` entry whether or not a block takes it), a type name a derived field reads, or a selective `use`
+  binding's imported name, held by no block (ADR 0233). The graph's one finder answers
   them per parsed file (`specforge_graph::written_tokens`), with who writes each and how, and the blocks that hold it (`held_by`). Every question of where a name is written asks
   it: rename and the editor's references (`Navigator::tokens`), find-references (`Navigator::references`), the token at
   a position (`Navigator::occurrence_at`: prepareRename, hover, definition) and a delete's referrer scan (ADR 0163,
   ADR 0176, ADR 0218: at its reference span). The graph keeps no position of a reference; a declaration's name is the parse's (ADR 0187). The finder reads each block the way the graph build stores it
   (its entries coerced), so a list written as one value is one item, never a type name.
+- **Use binding**: one `A` or `A as B` of a selective `use { … } from "path"`. Its imported name `A` is a written
+  token of the entity it names (`Holder::Use`, `Form::Binding`); its alias `B` names nothing a reader resolves, so it
+  is no token. A rename edits the name, a delete with `unlink_references` removes the binding, and W027 reports one the
+  target does not export (ADR 0233).
 - **Declaration name**: where a block's name is written, as the parse read it (`specforge_parser::Entity::name_span`;
   a method's, `MethodDecl::name_span`): an entity's identifier on whichever line of its header, a scheme ref's ID, a
   spec block's quoted string. Navigation reads it from the compile's parses to answer a definition, an outline, a
@@ -1359,7 +1364,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and each touched block formatted; the plan is refused with E080
   when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
   A delete with `unlink_references` removes every reference the graph build would link, found by the graph's finder
-  in the planned texts (ADR 0163); one written in a `defaults` block, an undeclared field or as a derived type name refuses it (`not_editable`, ADR 0156).
+  in the planned texts (ADR 0163), and a `use` binding that imports it (ADR 0233); one written in a `defaults` block, an undeclared field or as a derived type name refuses it (`not_editable`, ADR 0156).
   A list value is taken by its field's type: a reference list's items split at commas however given, a string list's never (ADR 0157). The stub fixes are typed edits too (ADR 0161).
   A `field.entry` path names one entry of a block field the kind declares; `set` and `unset` take one, `link`, `unlink` and `create` refuse it (ADR 0151, amended).
   A union's members are not edited: every verb but retitle and delete refuses one (`not_editable`), before its field is read (ADR 0219).

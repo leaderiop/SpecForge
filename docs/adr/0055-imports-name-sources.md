@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-12). Amends [ADR 0006](0006-one-incremental-rebuild.md) (the sentence
 "ignored, as a cold compile ignores it"), [ADR 0032](0032-one-graph-build.md) ("The resolver returns what is
 read") and [ADR 0004](0004-architecture-migration-decisions.md) D1-b; completes
-[ADR 0030](0030-a-sessions-inputs-are-one-value.md) D1.
+[ADR 0030](0030-a-sessions-inputs-are-one-value.md) D1. W027 covers every selective import and is placed on the binding, [ADR 0233](0233-a-use-binding-is-a-finder-token.md).
 
 The resolver decided what a `use` path names by asking the disk: `resolve_imports(spec_root, files, exists)`,
 with `exists` always `Path::is_file`, and go-to-definition's `resolve_import` calling `is_file` itself. The
