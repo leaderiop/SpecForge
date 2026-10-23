@@ -4,7 +4,7 @@
 (D2), [ADR 0116](0116-navigation-reads-the-text-the-project-was-compiled-from.md) (D3),
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) (the round-15 amendment) and
 [ADR 0124](0124-what-the-caller-lends-an-operation-is-one-value.md) (D2). Amended by round 20 plan 09 (2026-10-21):
-D1, a missing file reads as empty, and the change answers the entities its blocks change.
+D1, a missing file reads as empty, and the change answers the entities its blocks change. Amended by [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md): D1, per file from the project root.
 
 ## Context
 

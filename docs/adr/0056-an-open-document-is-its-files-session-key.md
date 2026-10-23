@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-12). Amends [ADR 0023](0023-the-lsp-reads-a-document-through-one-module.md) D2 and
 [ADR 0043](0043-the-lsp-reaction-talks-to-the-editor-through-a-port.md) D6; refines
-[ADR 0046](0046-the-project-session-holds-the-editor-buffers.md) D4.
+[ADR 0046](0046-the-project-session-holds-the-editor-buffers.md) D4. Amended by [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md): D3, re-keyed when the project root changes.
 
 The LSP kept its open documents, the diagnostics it last published and the anchor of diagnostics about no entity
 under the URI string the client sent, while navigation and publication rebuilt URIs from session keys with

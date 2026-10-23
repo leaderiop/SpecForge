@@ -53,13 +53,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reads them, is refused (`inside_project_sources`, ADR 0197), since a nested project ends its sources (ADR 0080).
 - **Project path**: how a surface document names a file an operation opened or wrote: relative to the project root
   with `/` between components, absolute and canonical outside it (`specforge_common::ProjectPath`, ADR 0102). A
-  declaration's location (a span, a navigation result) is not one: it is named by its source key, relative to the spec
-  root (ADR 0055). The CLI's human output names files as typed.
+  declaration's location is one too (its **source key**, ADR 0242). The CLI's human output names files as typed.
 - **Named spec file**: a spec file a request names (a typed create's `file`, `new --in`, outline's `file`, the fixes'
-  `file_path`): read by the project view into its source key, relative to the spec root, every spelling of one file
-  being that file, or refused once (`not_a_source` outside the spec root or where no source can be, `file_not_found`
-  for a read of no source); a new file's project-root spelling is refused like an existing one's; the refusal names the file as the request spelled it (`OpError::file`, MCP's
+  `file_path`): read from the project root by the project view into its source key, every spelling of one file
+  being that file, or refused once (`not_a_source` outside the project root or where no source can be, `file_not_found`
+  for a read of no source); the refusal names the file as the request spelled it (`OpError::file`, MCP's
   `McpError.file`) (`ProjectView::source`, ADR 0195).
+- **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
+  text a span, a diagnostic, an export node and every plan name it by (ADR 0242).
 - **Format version**: the `.spec` file format a file was written against, `MAJOR.MINOR`, declared by
   the `// specforge-format:` header on its first non-blank line; a file with no header is at the
   current version and reports nothing (migration steps still run on it). The parser reads it with the file
@@ -244,7 +245,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   writes (`specforge_ops::change::ProjectChange`, ADR 0128). Its failure is its own: one code per cause
   (`file_changed`, `file_unreadable`, `file_unwritable`), the file named from the root the change was opened under,
   after what the operation was doing (ADR 0155).
-- **Planned change**: what a plan of a project's sources will write: per file, relative to the spec root, the text it
+- **Planned change**: what a plan of a project's sources will write: per file, from the project root, the text it
   was planned on (none for a new file) and the text it will hold; an unchanged file is not in it. It answers the
   affected files, the after texts, the text edits, the diff and the entities whose blocks it creates, changes or
   deletes; a new file reads as empty, so one left empty is not in it (ADR 0184, amended). It is written as one project change
@@ -1038,8 +1039,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, what format and migrate
   rewrite (`specforge_common::SourceRoot`, built by `ProjectConfig::sources` from a config read through
   `config::rewritable`, never past a problem that hides them), and the only files a `use` import names: a
-  compile holds each by its **key**, its path relative to the spec root, and resolves imports against the
-  keys alone (`specforge_resolver`, ADR 0055). An editor buffer the session holds for such a path is a
+  compile holds each by its **key**, its project path; an import path is read from the spec root, against the
+  keys alone (`specforge_resolver`, ADR 0055, ADR 0242). An editor buffer the session holds for such a path is a
   source, saved or not.
   `SourceRoot::files` lists them and `SourceRoot::holds` answers for one path, by one policy: the spec root is
   read whatever its own name and whatever it holds, no skipped directory below it is entered, no symlink is
