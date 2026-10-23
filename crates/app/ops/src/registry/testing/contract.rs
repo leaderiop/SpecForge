@@ -10,11 +10,14 @@ use super::{Published, declaration};
 use crate::asking::testing::{Asked, Scripted};
 use crate::asking::{Asking, ExpectedFrom};
 
+/// A description with a terminal sequence and a newline in it: what R-S3 holds a listing to write printable.
+const ODD_DESCRIPTION: &str = "plain \u{1b}[2J\nnext";
+
 /// The packages the contract runs over, the signed ones signed by `key_id`:
 /// `@contract/base` 1.0.0, 1.1.0 and 2.0.0-beta.1 (signed); `@contract/app` 1.0.0 (signed, a required peer
 /// `@contract/base ^1.0`); `@contract/plain` 1.0.0 (unsigned); `@contract/denied` 1.0.0 (signed by
 /// `denied_key_id`, which the adapter under test must be set up to find on the user's deny list). Each binary
-/// is `"\0asm {name} {version}"`.
+/// is `"\0asm {name} {version}"`. `@contract/plain` is described [`ODD_DESCRIPTION`] (R-S3).
 pub fn contract_packages(key_id: &str, denied_key_id: &str) -> Vec<Published> {
     let package = |name: &str, version: &str, peers: &[(&str, &str)]| {
         Published::new(
@@ -22,12 +25,14 @@ pub fn contract_packages(key_id: &str, denied_key_id: &str) -> Vec<Published> {
             declaration(name, version, peers),
         )
     };
+    let mut plain = package("@contract/plain", "1.0.0", &[]);
+    plain.declaration.handshake.description = Some(ODD_DESCRIPTION.to_string());
     vec![
         package("@contract/base", "1.0.0", &[]).signed_by(key_id),
         package("@contract/base", "1.1.0", &[]).signed_by(key_id),
         package("@contract/base", "2.0.0-beta.1", &[]).signed_by(key_id),
         package("@contract/app", "1.0.0", &[("@contract/base", "^1.0")]).signed_by(key_id),
-        package("@contract/plain", "1.0.0", &[]),
+        plain,
         package("@contract/denied", "1.0.0", &[]).signed_by(denied_key_id),
     ]
 }
@@ -40,7 +45,7 @@ pub(super) fn refuse(allow_unsigned: bool) -> TrustPolicy<'static> {
 /// The `Registry` contract (ADR 0044): what every adapter of the port does with `published` (built by
 /// [`contract_packages`]) published, nothing pinned and the signer of `@contract/denied` on the user's deny list. Panics naming the clause that failed: C0 opens, C1–C7
 /// list, fetch and publish; C15 holds an unsigned package to the key expected for its name; R-S finds a package by its name and category; R-S2 lists a package once,
-/// at the version `specforge add <name>` installs from it.
+/// at the version `specforge add <name>` installs from it; R-S3 lists a description printable.
 pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]) {
     let find = |name: &str, version: &str| {
         published
@@ -488,6 +493,21 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     assert!(
         searched.found.is_empty(),
         "R-S: not found under a category it does not declare: {searched:?}"
+    );
+
+    // R-S3
+    let searched = registry
+        .search("contract/plain", None)
+        .unwrap_or_else(|e| panic!("R-S3: search fails: {e:?}"));
+    let descriptions: Vec<&str> = searched
+        .found
+        .iter()
+        .map(|f| f.description.as_str())
+        .collect();
+    assert_eq!(
+        descriptions,
+        ["plain \\u{1b}[2J\\nnext"],
+        "R-S3: a description is listed printable"
     );
 
     // R-S2

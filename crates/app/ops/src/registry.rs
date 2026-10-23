@@ -311,16 +311,29 @@ pub struct Published {
     pub key_created: bool,
 }
 
-/// One package a search found.
+/// One package a search found, built with [`Found::new`] by both adapters of the port.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct Found {
     #[shape(as = String)]
     pub name: PackageName,
     #[shape(as = String)]
     pub version: Version,
+    /// The registry's description, printable ([`specforge_common::remedy::printable`]).
     pub description: String,
     /// The alias of the registry it was found in: the first in `specforge.json` order that lists it.
     pub registry: String,
+}
+
+impl Found {
+    /// What a registry lists for `name@version`, its `description` as given: written printable.
+    pub fn new(name: PackageName, version: Version, description: &str, registry: String) -> Found {
+        Found {
+            name,
+            version,
+            description: printable(description).into_owned(),
+            registry,
+        }
+    }
 }
 
 /// What a search found, and the registries that failed (each failure is reported, the others still asked).

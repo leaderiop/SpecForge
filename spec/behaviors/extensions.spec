@@ -792,7 +792,9 @@ behavior search_registry "Search Registry" {
     A hit that is no package name or no SemVer version makes that
     registry's reply unreadable (R009): that registry failed, and the others
     are still asked. A registry serves no stored package whose name is no
-    package name (ADR 0036). Each registry that
+    package name (ADR 0036). A hit's description MUST be listed printable:
+    each control character and bidirectional control as its \u{..} escape,
+    on every surface. Each registry that
     fails MUST be reported once, with its code (on stderr under human
     output, in the document's diagnostics under --format json, each in the shape
     every command writes a diagnostic); the document names --contributes only

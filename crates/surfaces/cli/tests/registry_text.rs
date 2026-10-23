@@ -29,7 +29,6 @@ fn serve_hostile() -> LocalRegistry {
     registry
 }
 
-#[ignore = "flipped by T5"]
 #[specforge_test(
     behavior = "search_registry",
     verify = "a hit's description is listed printable, each control character as its escape"

@@ -474,12 +474,12 @@ impl Registry for ConfiguredRegistry {
                             .iter()
                             .any(|f| f.name == hit.name && f.version == hit.version)
                         {
-                            found.push(Found {
-                                name: hit.name,
-                                version: hit.version,
-                                description: hit.description,
-                                registry: registry.alias.clone(),
-                            });
+                            found.push(Found::new(
+                                hit.name,
+                                hit.version,
+                                &hit.description,
+                                registry.alias.clone(),
+                            ));
                         }
                     }
                 }

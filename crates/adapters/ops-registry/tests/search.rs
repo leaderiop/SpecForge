@@ -301,7 +301,6 @@ fn a_stored_name_that_is_no_package_name_is_not_listed() {
     assert_eq!(names, ["@sdk/good"]);
 }
 
-#[ignore = "flipped by T5"]
 #[specforge_test(
     behavior = "search_registry",
     verify = "a hit's description is listed printable, each control character as its escape"

@@ -8,12 +8,12 @@ use specforge_test_macros::test as specforge_test;
 
 fn searched() -> Searched {
     Searched {
-        found: vec![Found {
-            name: PackageName::parse("@acme/x").unwrap(),
-            version: Version::new(1, 0, 0),
-            description: "d".into(),
-            registry: "local".into(),
-        }],
+        found: vec![Found::new(
+            PackageName::parse("@acme/x").unwrap(),
+            Version::new(1, 0, 0),
+            "d",
+            "local".into(),
+        )],
         failures: vec![Diagnostic::new(codes::R005, "down")],
         asked: 2,
     }
