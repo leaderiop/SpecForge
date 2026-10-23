@@ -26,10 +26,17 @@ pub enum ImportKind {
     Namespace,
 }
 
+/// One `A` or `A as B` of a selective import.
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportBinding {
+    /// The imported name: the entity it names, wherever it is declared (references resolve without `use`).
     pub name: String,
+    /// What `as` names it here: nothing resolves it (an alias written in a field is E003).
     pub alias: Option<String>,
+    /// The whole binding, its alias included: what a delete removes.
+    pub span: SourceSpan,
+    /// The imported name as written: the binding's written token (ADR 0233).
+    pub name_span: SourceSpan,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -70,3 +70,21 @@ fn a_methods_name_span_is_its_name_on_any_line() {
         .expect("span");
     assert_eq!(columns(name), (2, 12, 18));
 }
+
+#[test]
+fn an_import_bindings_spans_are_its_name_and_the_whole_binding() {
+    let file = parse(
+        "pub use { Repo as Store, Gone } from \"a.spec\"\n",
+        "main.spec",
+    );
+    let bindings = file.imports[0].bindings.as_ref().unwrap();
+    let at = |s: &SourceSpan| (s.start_line, s.start_col, s.end_col);
+    assert_eq!(
+        (at(&bindings[0].name_span), at(&bindings[0].span)),
+        ((1, 11, 15), (1, 11, 24))
+    );
+    assert_eq!(
+        (at(&bindings[1].name_span), at(&bindings[1].span)),
+        ((1, 26, 30), (1, 26, 30))
+    );
+}
