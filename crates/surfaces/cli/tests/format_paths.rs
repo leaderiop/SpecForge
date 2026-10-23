@@ -61,7 +61,6 @@ fn format_names_a_file_it_found_from_the_project_root() {
     behavior = "format_from_stdin",
     verify = "--stdin refuses a path, --check and --diff as a usage error"
 )]
-#[ignore = "flipped by T4"]
 fn stdin_refuses_a_path_check_and_diff() {
     let project = project();
     let cli = Cli::on(&project).stdin(MESSY);

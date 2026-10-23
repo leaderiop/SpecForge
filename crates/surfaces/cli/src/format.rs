@@ -27,7 +27,7 @@ pub(crate) struct Args {
     diff: bool,
 
     /// Read from stdin, write to stdout
-    #[arg(long)]
+    #[arg(long, conflicts_with_all = ["paths", "check", "diff"])]
     stdin: bool,
 
     #[command(flatten)]

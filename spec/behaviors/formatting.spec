@@ -233,6 +233,8 @@ behavior format_from_stdin "Format from Standard Input" {
     unformatted, the formatted text MUST still be printed and the command
     MUST exit with code 1. Its output is the formatted text, so --stdin
     MUST refuse --format json (invalid_input, the error document on stdout).
+    It MUST also refuse a path, --check and --diff as a refused command line
+    (exit 2): the text's place is --path.
     Values are written in the forms of the declarations of the project the text belongs to.
   """
   verify unit "stdin content is formatted and written to stdout"
