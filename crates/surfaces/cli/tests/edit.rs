@@ -536,6 +536,30 @@ fn new_help_begins_with_what_new_does() {
 
 #[specforge_test(
     behavior = "create_entity",
+    verify = "new's help and its usage errors name the program as specforge new"
+)]
+#[ignore = "flipped by T10"]
+fn new_usage_names_the_program() {
+    let project = todo();
+    let help = sf(&project, &["new", "--help"]).exits(0);
+    assert!(
+        help.stdout
+            .contains("Usage: specforge new [OPTIONS] [KIND]"),
+        "{}",
+        help.stdout
+    );
+    let missing = sf(&project, &["new", "behavior"]).exits(2);
+    assert!(
+        missing
+            .stderr
+            .contains("Usage: specforge new <KIND> <ID> <TITLE>"),
+        "{}",
+        missing.stderr
+    );
+}
+
+#[specforge_test(
+    behavior = "create_entity",
     verify = "new refuses one of its options given twice, wherever each stands"
 )]
 fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {

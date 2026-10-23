@@ -57,6 +57,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new refuses an unknown kind as unknown_kind"
   verify unit "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
   verify integration "new --help begins with what new does"
+  verify integration "new's help and its usage errors name the program as specforge new"
   verify integration "new refuses one of its options given twice, wherever each stands"
   verify integration "new's help of a kind shows each of its options as every command declares it"
   verify integration "new --help of a kind the project does not declare is refused as unknown_kind"
