@@ -459,7 +459,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   as its `edge` (a kind's own, shared and enhancement fields), its ends (the declared kind on a side it declares,
   else its writers'), and the edge type each field writes (`EdgeRegistry::written_by`). A field writing a declared
   edge type outside its declared ends is W021 and writes none. A graph edge's label is the field that wrote it; its
-  edge type is read from the field, once, in the entity snapshot. Rules count by it, the schema prints its ends,
+  edge type is read from the field, once, in the entity snapshot. Rules count by it (an outgoing rule, the linked fields of it, ADR 0232), the schema prints its ends,
   trace names it (ADR 0060).
 - **Owning field**: the one reference field that writes a relation's edges, declared by an extension (ADR 0150).
   A relation is written there and nowhere else; its other side is derived.
@@ -909,9 +909,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   neither done nor deprecated (W154), a done feature depending on an unfinished one (I063), a
   milestone due before its dependency (I064), a shipped deliverable tracking an incomplete milestone
   (I065). Its declarative rules check one entity at a time (ADR 0039).
-- **Missing link**: an expected edge, from the registries, that a traced entity lacks
-  (`MissingLink`). The only gap a trace reports. Written, like a plan gap, as an
-  `McpTraceGap` row (`specforge_ops::read::trace::Gap`).
+- **Missing link**: an expected reference field, from the registries, that a traced entity writes no reference in
+  and no edge of carries (`MissingLink`, ADR 0232). A reference that does not resolve is written: E003, never a
+  missing link. The only gap a trace reports. Written, like a plan gap, as an `McpTraceGap` row
+  (`specforge_ops::read::trace::Gap`).
+- **Linked field**: a field an entity gives its link: it writes a reference in it, resolved or not, or an edge
+  from the entity carries its label (`Graph::linked_fields`, ADR 0232). A missing link is an expected field that
+  is not linked; an outgoing edge rule (`no_outgoing_edges`, the outgoing half of `no_edges`) reports an entity
+  with no linked field of its edge type, so a reference that does not resolve is E003 alone.
 - **Agent plan**: what an agent intends to do, entity by entity, in the order it will do it
   (`specforge_ops::read::plan::AgentPlan`, spec type `AgentPlan`: a `plan_id` and entries of `entity_id` and `action`).
   Its entry order is its dependency order; the graph's edges are the dependencies, and entities on one cycle come
