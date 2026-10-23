@@ -554,6 +554,8 @@ cargo build --target wasm32-wasip2 --release
 
 The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_software.wasm`.
 
+`specforge extension validate` reports the protocol version the built component speaks (`protocol` under `--format json`).
+
 ### Test
 
 An extension is tested natively (`cargo test`, no wasm build) at three depths:

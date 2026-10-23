@@ -116,7 +116,9 @@ pub fn validate(extension: &Path, runtime: &dyn WasmRuntime) -> Result<Validated
     // publish and extension validate are the CLI's only (ADR 0045 D6): unbounded, as the CLI is (ADR 0092 D6).
     let LocalComponent { path, bytes } =
         LocalComponent::read(extension, &Containment::unbounded())?;
-    let (declaration, diagnostics) = declare(runtime, &bytes)?;
+    let loaded = super::candidate::read_declaration(runtime, &bytes)?;
+    let protocol = loaded.protocol_version.clone();
+    let (declaration, diagnostics) = declared(loaded);
     not_a_builtins_name(declaration.name()).map_err(|e| {
         e.with_suggestion(
             "a builtin's name belongs to specforge: declare another name in the extension's source and rebuild it",
@@ -127,6 +129,7 @@ pub fn validate(extension: &Path, runtime: &dyn WasmRuntime) -> Result<Validated
         wasm: bytes,
         declaration,
         diagnostics,
+        protocol,
     })
 }
 
@@ -138,6 +141,8 @@ pub struct Validated {
     pub declaration: ExtensionDeclaration,
     /// [`declare`]'s: the load warnings, then what the registry build of the declaration alone reports.
     pub diagnostics: Vec<Diagnostic>,
+    /// The protocol version the component's handshake states.
+    pub protocol: String,
 }
 
 impl Validated {
@@ -153,6 +158,7 @@ impl Validated {
             extension: self.declaration.name().to_string(),
             version: self.declaration.version().to_string(),
             short: self.declaration.short().to_string(),
+            protocol: self.protocol.clone(),
             component: self.binary.display().to_string(),
             diagnostics: DiagnosticList(self.diagnostics.clone()),
             declaration: self.declaration.clone(),
@@ -167,6 +173,8 @@ pub struct ValidateDocument {
     pub extension: String,
     pub version: String,
     pub short: String,
+    /// The protocol version the component's handshake states.
+    pub protocol: String,
     /// The component read, as given or as the crate built it.
     pub component: String,
     pub diagnostics: DiagnosticList,
@@ -187,16 +195,23 @@ pub fn declare(
     runtime: &dyn WasmRuntime,
     wasm: &[u8],
 ) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
-    let Loaded {
+    Ok(declared(super::candidate::read_declaration(runtime, wasm)?))
+}
+
+/// A loaded declaration with its diagnostics, as [`declare`] reports them.
+fn declared(
+    Loaded {
         declaration,
         warnings,
-    } = super::candidate::read_declaration(runtime, wasm)?;
+        ..
+    }: Loaded,
+) -> (ExtensionDeclaration, Vec<Diagnostic>) {
     // E072 after the load warnings, before the registry build's (ADR 0223 D4).
     let name = specforge_package::PackageName::declared_by(&declaration)
         .err()
         .map(|why| specforge_common::package::invalid(&why));
     let diagnostics = diagnostics_of(&declaration, warnings.into_iter().chain(name).collect());
-    Ok((declaration, diagnostics))
+    (declaration, diagnostics)
 }
 
 /// `before` (the load warnings, the name's E072), then what the registry build of `declaration` alone reports,

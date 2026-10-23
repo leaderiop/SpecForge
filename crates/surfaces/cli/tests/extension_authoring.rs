@@ -429,6 +429,7 @@ fn a_scaffolded_extension_builds_and_validates() {
     assert_eq!(json["valid"], true);
     assert_eq!(json["extension"], "@local/round-trip");
     assert_eq!(json["short"], "round-trip");
+    assert_eq!(json["protocol"], specforge_protocol_types::PROTOCOL_VERSION);
     assert_eq!(json["declaration"]["entities"][0]["name"], "thing");
 }
 
@@ -530,6 +531,35 @@ fn extension_validate_a_valid_declaration() {
         .stdout(predicates::str::contains(
             "@sdk/greet v0.1.0 declares a valid extension",
         ));
+}
+
+#[specforge_test(
+    behavior = "validate_wasm_extension_locally",
+    verify = "specforge extension validate reports the protocol its component speaks"
+)]
+fn extension_validate_reports_the_protocol_its_component_speaks() {
+    let project = scratch();
+    let output = Cli::on(&project)
+        .bare_command(&["extension", "validate", "--format", "json", "--dir"])
+        .arg(greet_wasm())
+        .output()
+        .unwrap();
+    let json = json_of(&output);
+    // The greet fixture is built with this repository's SDK: it speaks the host's protocol.
+    assert_eq!(
+        json["protocol"],
+        specforge_protocol_types::PROTOCOL_VERSION,
+        "{json}"
+    );
+    Cli::on(&project)
+        .bare_command(&["extension", "validate", "--dir"])
+        .arg(greet_wasm())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(format!(
+            "protocol {}",
+            specforge_protocol_types::PROTOCOL_VERSION
+        )));
 }
 
 // ===============================================================

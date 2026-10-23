@@ -234,9 +234,10 @@ fn run_validate(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit 
         OutputFormat::Json => terminal.json(&validated.document()),
         OutputFormat::Human if validated.valid() => outln!(
             terminal,
-            "{} v{} declares a valid extension ({})",
+            "{} v{} declares a valid extension, protocol {} ({})",
             declaration.name(),
             declaration.version(),
+            validated.protocol,
             validated.binary.display()
         ),
         OutputFormat::Human => errln!(
