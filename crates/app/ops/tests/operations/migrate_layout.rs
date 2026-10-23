@@ -19,8 +19,8 @@ fn milestones(indent: &str) -> String {
 }
 
 /// A project of the software and product extensions holding `text` as `a.spec`, with `fmt` as its
-/// `.specforgefmt.toml` when given; migrated; the file after.
-fn migrated(text: &str, fmt: Option<&str>) -> (tempfile::TempDir, String) {
+/// `.specforgefmt.toml` when given.
+fn project(text: &str, fmt: Option<&str>) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
@@ -36,6 +36,12 @@ fn migrated(text: &str, fmt: Option<&str>) -> (tempfile::TempDir, String) {
         &specforge_project::builtins(),
         &specforge_wasm::testing::InProcessRuntime::new(),
     );
+    dir
+}
+
+/// [`project`], migrated; the file after.
+fn migrated(text: &str, fmt: Option<&str>) -> (tempfile::TempDir, String) {
+    let dir = project(text, fmt);
     let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
     let outcome = run(
         &request(&root),
@@ -51,7 +57,6 @@ fn unformatted(path: &std::path::Path, text: &str) -> bool {
     format::document(Place::File(path), text, None, None, &Forms::none()).changed()
 }
 
-#[ignore = "flipped by T2"]
 #[specforge_test(
     behavior = "hoist_file_defaults",
     verify = "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
@@ -74,7 +79,6 @@ fn a_hoist_leaves_the_blocks_it_shortened_format_clean() {
     assert!(!unformatted(&dir.path().join("a.spec"), &after), "{after}");
 }
 
-#[ignore = "flipped by T2"]
 #[specforge_test(
     behavior = "hoist_file_defaults",
     verify = "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
@@ -91,4 +95,38 @@ fn a_hoisted_defaults_block_takes_the_files_indent() {
         "{after}"
     );
     assert!(!unformatted(&dir.path().join("a.spec"), &after), "{after}");
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "load_format_config",
+    verify = "a bounded migration lays out with the defaults when its bound refuses the configuration"
+)]
+fn a_bounded_migration_lays_out_with_the_defaults_when_the_configuration_links_outside() {
+    let dir = project(&milestones("  "), None);
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("c.toml"), "indent_width = 4\n").unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("c.toml"),
+        dir.path().join(".specforgefmt.toml"),
+    )
+    .unwrap();
+    let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
+    let containment = specforge_ops::Containment::within(dir.path());
+
+    let outcome = run(
+        &specforge_ops::authoring::migrate::Request {
+            caller: specforge_ops::testing::bounded(&containment),
+            ..request(&root)
+        },
+        Some(specforge_project::testing::component_runtime()),
+    );
+    assert!(outcome.ok() && outcome.migrated(), "{outcome:?}");
+
+    let after = std::fs::read_to_string(dir.path().join("a.spec")).unwrap();
+    assert!(
+        after.starts_with("defaults milestone {\n  features [f1]\n}\n"),
+        "{after}"
+    );
+    assert!(!after.contains("    features"), "{after}");
 }

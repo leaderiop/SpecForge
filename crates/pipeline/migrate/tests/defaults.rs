@@ -4,6 +4,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use specforge_formatter::FormatConfig;
 use specforge_graph::FieldForms;
 use specforge_migrate::migrate_project;
 use specforge_parser::CURRENT_FORMAT_VERSION;
@@ -33,6 +34,7 @@ fn migrated_with(text: &str, forms: &FieldForms) -> String {
         &CURRENT_FORMAT_VERSION,
         &|path: &Path| std::fs::read_to_string(path),
         forms,
+        &|_| FormatConfig::default(),
     );
     summary
         .rewrites

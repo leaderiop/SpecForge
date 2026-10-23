@@ -4,6 +4,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use specforge_formatter::FormatConfig;
 use specforge_graph::{FieldForms, build_graph, compute_graph_delta};
 use specforge_migrate::{beyond_steps, migrate_project};
 use specforge_parser::{CURRENT_FORMAT_VERSION, parse};
@@ -28,6 +29,7 @@ fn migrated(text: &str) -> String {
         &CURRENT_FORMAT_VERSION,
         &|path: &Path| std::fs::read_to_string(path),
         &FieldForms::default(),
+        &|_| FormatConfig::default(),
     );
     summary
         .rewrites
@@ -184,7 +186,7 @@ fn beyond_steps_drops_only_titles_the_step_added() {
 fn a_header_whose_name_is_on_its_second_line_takes_its_title_after_the_name() {
     assert_eq!(
         migrated("feature\n  second_auth {\n  status proposed\n}\n"),
-        "feature\n  second_auth \"Second Auth\" {\n  status proposed\n}\n"
+        "feature second_auth \"Second Auth\" {\n  status proposed\n}\n"
     );
 }
 
@@ -206,7 +208,7 @@ fn a_blank_title_is_replaced_where_it_is_written() {
         ("type T \"\n\" {\n}\n", "type T \"T\" {\n}\n"),
         (
             "feature\n  second_auth \"\" {\n  status proposed\n}\n",
-            "feature\n  second_auth \"Second Auth\" {\n  status proposed\n}\n",
+            "feature second_auth \"Second Auth\" {\n  status proposed\n}\n",
         ),
         (
             "// An issue\nref gh.issue:42 \"\"\n",

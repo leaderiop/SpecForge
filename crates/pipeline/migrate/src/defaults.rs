@@ -10,8 +10,8 @@ use specforge_parser::{Entity, FieldEntry, FieldValue, Written, parse};
 /// and no comment on or directly above its line, and at least two blocks write the same list; that list becomes the
 /// default and is deleted from those blocks, the others keep theirs. A kind's block is written only when it saves at
 /// least one line. The block goes after the last import that stands above the file's first block, else before the
-/// first form's doc comment as the parse reads it (below the format header), with its keys padded to the longest; the layout of the edited blocks is left to
-/// `specforge format`. A file with a syntax error is returned unchanged. A field is hoisted only where the graph's
+/// first form's doc comment as the parse reads it (below the format header); the block and every block the hoist
+/// shortened are laid out afterwards with the file's format configuration (ADR 0235). A file with a syntax error is returned unchanged. A field is hoisted only where the graph's
 /// defaults rule applies it under `forms` (`FileDefaults::entry`, ADR 0149 D4, ADR 0154 D1): the forms the migrate
 /// operation's judge compiles with, so the hoist keeps the graph by construction and the judge's graph comparison is
 /// the safety net (ADR 0186).
@@ -79,13 +79,7 @@ pub(crate) fn hoist_defaults(text: &str, forms: &FieldForms) -> String {
         if rows.len() <= fields.len() + 3 {
             continue;
         }
-        let width = fields.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
-        let mut block = format!("defaults {kind} {{\n");
-        for (key, value) in &fields {
-            block.push_str(&format!("  {key:<width$} {value}\n"));
-        }
-        block.push_str("}\n");
-        blocks.push(block);
+        blocks.push(defaults_text(kind, &fields));
         removed.extend(rows);
     }
     if blocks.is_empty() {
@@ -128,11 +122,21 @@ pub(crate) fn hoist_defaults(text: &str, forms: &FieldForms) -> String {
     out
 }
 
+/// `defaults <kind> { <key> <value> ... }` as raw text, one field per line: what the E077 probe parses and what the
+/// hoist inserts, laid out afterwards by `layout::lay_out` (ADR 0235).
+fn defaults_text(kind: &str, fields: &[(String, String)]) -> String {
+    let body: String = fields
+        .iter()
+        .map(|(key, value)| format!("  {key} {value}\n"))
+        .collect();
+    format!("defaults {kind} {{\n{body}}}\n")
+}
+
 /// Whether the graph's defaults rule applies `key`, written `value`, in a `defaults <kind>` block under `forms`:
 /// asked of [`FileDefaults`] over that one-field block, so E077 is decided where the graph decides it.
 fn applied(forms: &FieldForms, kind: &str, key: &str, value: &str) -> bool {
     let probe = parse(
-        &format!("defaults {kind} {{\n  {key} {value}\n}}\n"),
+        &defaults_text(kind, &[(key.to_string(), value.to_string())]),
         "defaults.spec",
     );
     FileDefaults::of(&probe, forms).0.entry(kind, key).is_some()

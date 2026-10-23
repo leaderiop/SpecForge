@@ -286,6 +286,7 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "a bounded caller's configuration that leaves the bound or has more than one name is a W141 naming where it lands or how many names it has, never its content"
   verify unit "an unbounded caller follows a linked configuration"
   verify unit "a typed edit and init lay out with the defaults when their bound refuses the configuration"
+  verify unit "a bounded migration lays out with the defaults when its bound refuses the configuration"
   verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
 }
 

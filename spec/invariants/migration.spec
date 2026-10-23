@@ -11,6 +11,7 @@ invariant migration_idempotency "Migration Idempotency" {
   risk      medium
   verify property "running migrate twice produces identical files"
   verify unit "file already at target version is unchanged"
+  verify unit "a file no migration step changes is skipped as written, unformatted"
 }
 
 invariant migration_backup_safety "Migration Backup Safety" {
@@ -88,6 +89,7 @@ invariant migration_canonical_form "Migration Canonical Form" {
   """
   risk      medium
   verify property "every block a migration writes is unchanged by format"
+  verify unit "a block no migration step changed is left as written"
 }
 
 invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {

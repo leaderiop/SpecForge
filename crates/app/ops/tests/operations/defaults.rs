@@ -219,6 +219,6 @@ fn a_migration_over_a_field_its_kind_does_not_declare_writes_its_titles() {
         after.starts_with("defaults behavior {\n  ports [Repo]\n}\n\ntype Session \"Session\" {"),
         "{after}"
     );
-    assert_eq!(after.matches("tags [Session]").count(), 5, "{after}");
+    assert_eq!(after.matches("tags     [Session]").count(), 5, "{after}");
     assert!(outcome.structural_differences().is_empty());
 }

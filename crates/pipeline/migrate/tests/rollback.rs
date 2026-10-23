@@ -4,6 +4,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use specforge_formatter::FormatConfig;
 use specforge_graph::FieldForms;
 use specforge_migrate::backup_of;
 use specforge_migrate::{MigrationRecord, RecordChange, migrate_project, run_rollback};
@@ -36,6 +37,7 @@ fn migrated(dir: &TempDir) {
         &CURRENT_FORMAT_VERSION,
         &|path: &Path| std::fs::read_to_string(path),
         &FieldForms::default(),
+        &|_| FormatConfig::default(),
     );
     assert!(summary.migrated_count >= 1, "{summary:?}");
     let rewrite = &summary.rewrites[0];
@@ -141,6 +143,7 @@ fn a_migrated_file_is_read_once() {
             std::fs::read_to_string(path)
         },
         &FieldForms::default(),
+        &|_| FormatConfig::default(),
     );
 
     assert_eq!(reads.get(), 1);
@@ -168,6 +171,7 @@ fn migrate_project_rewrites_only_the_sources_it_is_given() {
         &CURRENT_FORMAT_VERSION,
         &|path: &Path| std::fs::read_to_string(path),
         &FieldForms::default(),
+        &|_| FormatConfig::default(),
     );
 
     assert_eq!(summary.results.len(), 1, "{summary:?}");
