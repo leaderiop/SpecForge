@@ -10,8 +10,8 @@ keywords = ["specforge", "wasm", "component-model", "extensions", "ai-agents"]
 categories = ["development-tools"]
 
 [dependencies]
-specforge-protocol-types = { path = "../../leaf/protocol-types", version = "0.1.0" }
-specforge-extension-sdk-macros = { path = "../extension-sdk-macros", version = "0.1.0" }
+specforge-protocol-types = { path = "../../leaf/protocol-types", version = "0.2.0" }
+specforge-extension-sdk-macros = { path = "../extension-sdk-macros", version = "0.2.0" }
 wit-bindgen = "0.30"
 serde = { workspace = true }
 serde_json = { workspace = true }

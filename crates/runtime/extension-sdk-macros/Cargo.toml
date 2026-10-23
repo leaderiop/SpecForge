@@ -16,7 +16,7 @@ proc-macro = true
 syn = { version = "2", features = ["full", "parsing", "derive"] }
 quote = "1"
 proc-macro2 = "1"
-specforge-protocol-types = { path = "../../leaf/protocol-types", version = "0.1.0" }
+specforge-protocol-types = { path = "../../leaf/protocol-types", version = "0.2.0" }
 
 [dev-dependencies]
 specforge-test = { workspace = true }

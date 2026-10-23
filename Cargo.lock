@@ -1132,7 +1132,7 @@ dependencies = [
 
 [[package]]
 name = "gate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "insta",
  "serde",
@@ -2800,7 +2800,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "chrono",
@@ -2840,7 +2840,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ariadne",
  "glob",
@@ -2861,7 +2861,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-component"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde_json",
  "specforge-common",
@@ -2881,7 +2881,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-coverage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2892,7 +2892,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-cycles"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "specforge-test",
  "specforge-test-macros",
@@ -2900,7 +2900,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-diagnostics"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "specforge-repo-root",
  "specforge-test",
@@ -2909,7 +2909,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-emitter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "insta",
@@ -2933,7 +2933,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-extension-sdk"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2948,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-extension-sdk-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2960,7 +2960,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-formatter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "regex",
@@ -2979,7 +2979,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-graph"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "serde",
@@ -2996,7 +2996,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-installed"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "semver",
  "serde",
@@ -3016,7 +3016,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-lsp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde_json",
  "specforge-common",
@@ -3044,7 +3044,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "insta",
@@ -3073,7 +3073,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-mcp-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3082,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-migrate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3098,7 +3098,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-ops"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "getrandom 0.3.4",
@@ -3134,7 +3134,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-ops-registry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "serde_json",
@@ -3154,7 +3154,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-package"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "semver",
  "serde",
@@ -3166,7 +3166,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-parser"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "insta",
@@ -3183,7 +3183,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-project"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "insta",
  "serde",
@@ -3212,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-protocol-types"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3223,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-registry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "insta",
  "regex",
@@ -3245,7 +3245,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-registry-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -3268,7 +3268,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-registry-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
@@ -3297,7 +3297,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-registry-wire"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -3315,14 +3315,14 @@ dependencies = [
 
 [[package]]
 name = "specforge-repo-root"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "tempfile",
 ]
 
 [[package]]
 name = "specforge-resolver"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "specforge-common",
  "specforge-cycles",
@@ -3333,7 +3333,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-shape-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3364,7 +3364,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "semver",
  "serde",
@@ -3381,7 +3381,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-watch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "notify",
  "serde_json",
@@ -3902,7 +3902,7 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 
 [[package]]
 name = "tree-sitter-specforge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cc",
  "specforge-repo-root",
