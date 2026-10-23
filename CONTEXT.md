@@ -691,6 +691,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   read refuses every registry operation with E067 first, so a scope it claims never falls to the default. `add`, `update` and
   `publish` ask that one registry; `search` asks every entry. A registry credential is kept under
   the registry's root (`login --registry <alias>`, else the default registry's; `logout --url <root>` needs no project).
+- **Search hit**: one package a registry search lists: a package name, the SemVer version `latest` picks among its
+  stored versions, its declaration's description (printable) and, once merged, the registry it was found in
+  (`specforge_registry_wire::SearchHit`, `specforge_ops::registry::Found`, ADR 0231). A reply holding a hit that is
+  neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
+- **Printable text**: text another program supplies (a registry's reply or error), as SpecForge writes it into a
+  message or a listing: each control character and bidirectional control as its `\u{..}` escape
+  (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, so every surface carries the same.
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment
