@@ -924,6 +924,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "the registry refuses a name or version that is not a package name or version"
   verify unit "publish refuses in one order, each refusal before anything after it is read or asked"
   verify unit "with no credential for its registry, publish refuses with R001 before any network call and creates no signing key"
+  verify integration "a publish refused for want of a credential names the login command with the registry alias as one shell word"
   verify unit "the environment token wins over the stored credential"
   verify unit "a signing key that can't be read is refused with E074 before any network call"
   verify unit "publish asks the registry add fetches the same name from"

