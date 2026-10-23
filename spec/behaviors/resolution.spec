@@ -81,6 +81,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
     directory is never entered.
   """
   verify unit "a use path resolves to the project source it names"
+  verify unit "an import path is read from the spec root among keys named from the project root"
   verify unit "missing import file produces E025"
   verify unit "an import path may spell out the .spec extension"
   verify unit "relative import traversing above spec_root is rejected"

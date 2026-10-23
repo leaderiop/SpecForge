@@ -5,9 +5,8 @@
 use crate::change::ProjectChange;
 use crate::read::navigate::{SourceText, TextEdit};
 use crate::{Caller, OpError, Writes};
-use specforge_common::Sym;
+use specforge_common::{SourceRoot, Sym};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Per file under the spec root: the text it was planned on (`None`: the file is new) and the text it will hold. A
@@ -18,7 +17,7 @@ use std::sync::Arc;
 /// one. Files, edits and the diff are in key order.
 #[derive(Debug, Clone)]
 pub struct PlannedChange {
-    spec_root: PathBuf,
+    sources: SourceRoot,
     /// What the operation was doing, the head of a failure's message (`cannot rename 'a'`, ADR 0155).
     doing: String,
     files: BTreeMap<String, (Option<Arc<str>>, String)>,
@@ -28,7 +27,7 @@ impl PlannedChange {
     /// `files`: (path relative to the spec root, planned-on text, after text); an unchanged one is dropped, and a new
     /// one whose after text is empty is unchanged.
     pub(crate) fn new(
-        spec_root: PathBuf,
+        sources: SourceRoot,
         doing: impl Into<String>,
         files: impl IntoIterator<Item = (String, Option<Arc<str>>, String)>,
     ) -> Self {
@@ -38,7 +37,7 @@ impl PlannedChange {
             .map(|(key, before, after)| (key, (before, after)))
             .collect();
         PlannedChange {
-            spec_root,
+            sources,
             doing: doing.into(),
             files,
         }
@@ -114,9 +113,9 @@ impl PlannedChange {
     /// 0104): checked against the text it was planned on, then replaced or created; on any failure, every file
     /// already written is put back (one that cannot be is the error's writes). Returns the files it wrote.
     pub fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
-        let mut change = ProjectChange::new(&self.spec_root, self.doing.as_str());
+        let mut change = ProjectChange::new(self.sources.base(), self.doing.as_str());
         for (key, (before, after)) in &self.files {
-            let held = caller.containment().resolve(&self.spec_root.join(key))?;
+            let held = caller.containment().resolve(&self.sources.path(key))?;
             change.stage(
                 held,
                 before.as_ref().map(|b| b.as_bytes().to_vec()),
@@ -145,6 +144,7 @@ fn blocks(into: &mut Blocks, key: &str, text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn text(s: &str) -> Option<Arc<str>> {
         Some(Arc::from(s))
@@ -152,7 +152,11 @@ mod tests {
 
     fn change(files: Vec<(&str, Option<Arc<str>>, &str)>) -> PlannedChange {
         PlannedChange::new(
-            PathBuf::from("/root"),
+            SourceRoot::new(
+                PathBuf::from("/root"),
+                PathBuf::from("/root"),
+                specforge_common::Exclude::default(),
+            ),
             "cannot test",
             files
                 .into_iter()

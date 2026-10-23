@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Arc;
 
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, SourceRoot, codes};
 use specforge_graph::{FileChange, GraphBuild};
 use specforge_parser::{Previous, SpecFile, parse_incremental};
 use specforge_registry::Disk;
@@ -27,11 +27,11 @@ pub(crate) enum Read {
     Gone,
 }
 
-/// Read source `relative` under `spec_root` through `disk`: the one read of a
+/// Read source `relative` of `sources` through `disk`: the one read of a
 /// `.spec` file. Its text; its E025 when it is there and is not UTF-8 text or
 /// cannot be read; `Gone` when the disk says `NotFound`.
-pub(crate) fn read(disk: &dyn Disk, spec_root: &Path, relative: &str) -> Read {
-    match disk.read(&spec_root.join(relative)) {
+pub(crate) fn read(disk: &dyn Disk, sources: &SourceRoot, relative: &str) -> Read {
+    match disk.read(&sources.path(relative)) {
         Ok(bytes) => match String::from_utf8(bytes) {
             Ok(text) => Read::Text(text),
             Err(_) => unreadable(relative, "stream did not contain valid UTF-8"),
@@ -217,12 +217,16 @@ impl SourceCache {
     /// that could not be read, then the resolver's over `graph`'s parses (E025,
     /// I004, W113, W027), an unreadable source being one an import may name.
     /// The same function after a cold read and after every update.
-    pub fn import_diagnostics(&self, graph: &GraphBuild) -> Vec<Diagnostic> {
+    pub fn import_diagnostics(&self, graph: &GraphBuild, spec_dir: &Path) -> Vec<Diagnostic> {
         let parsed: Vec<(&str, &SpecFile)> = graph.files().collect();
         let unreadable: Vec<&str> = self.unreadable.keys().map(String::as_str).collect();
         self.unreadable()
             .cloned()
-            .chain(specforge_resolver::resolve_imports(&parsed, &unreadable))
+            .chain(specforge_resolver::resolve_imports(
+                &parsed,
+                &unreadable,
+                spec_dir,
+            ))
             .collect()
     }
 
@@ -249,6 +253,11 @@ impl SourceCache {
 
 #[cfg(test)]
 mod tests {
+    fn spec_sources() -> specforge_common::SourceRoot {
+        let spec = std::path::PathBuf::from("/spec");
+        specforge_common::SourceRoot::new(spec.clone(), spec, specforge_common::Exclude::default())
+    }
+
     use super::*;
     use specforge_graph::GraphConfig;
     use specforge_parser::parse;
@@ -292,7 +301,7 @@ mod tests {
             ("new.spec".to_string(), "type fresh \"F\" {}\n"),
         ]);
         let (cache, files) = SourceCache::read_all(&["a.spec".to_string()], &held, |key| {
-            read(&disk, Path::new("/spec"), key)
+            read(&disk, &spec_sources(), key)
         });
         assert_eq!(files.len(), 2);
         assert!(files.iter().all(|f| f.entities.len() == 1));
@@ -311,7 +320,7 @@ mod tests {
         let disk = MemoryDisk::new()
             .with_file("/spec/a.spec", b"term alpha \"A\" {}\n")
             .with_file("/spec/bad.spec", b"term beta \"B\xff\xfe\" {\n}\n");
-        let spec = Path::new("/spec");
+        let spec = &spec_sources();
 
         assert!(matches!(
             read(&disk, spec, "a.spec"),
@@ -340,7 +349,7 @@ mod tests {
             Path::new("/spec").join(path),
             b"term beta \"B\xff\xfe\" {\n}\n",
         );
-        read(&disk, Path::new("/spec"), path)
+        read(&disk, &spec_sources(), path)
     }
 
     #[test]

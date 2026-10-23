@@ -35,8 +35,16 @@ enum Named<'s> {
 /// is a source exactly when one of the two holds it. An import of an
 /// unreadable source names it and reports nothing more, and a re-export
 /// from one reports no W027: what it exports is unknown.
+///
+/// `spec_dir` is the spec root as a prefix of the keys (`SourceRoot::prefix`, `""` when keys are named from the
+/// spec root): an import path is read from the spec root, and the key it names carries the prefix. It is a lexical
+/// value: the resolver still reads, lists and stats nothing.
 #[must_use]
-pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec<Diagnostic> {
+pub fn resolve_imports(
+    parsed: &[(&str, &SpecFile)],
+    unreadable: &[&str],
+    spec_dir: &Path,
+) -> Vec<Diagnostic> {
     let mut files: Vec<(&str, &SpecFile)> = parsed.to_vec();
     files.sort_by(|a, b| a.0.cmp(b.0));
     let mut diagnostics = Vec::new();
@@ -47,10 +55,14 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
         .chain(unreadable.iter().copied())
         .collect();
 
-    // Candidates for fuzzy suggestions (source keys without .spec).
+    // Candidates for fuzzy suggestions: what an import path would spell (source keys without the spec dir and
+    // .spec).
     let candidates: Vec<&str> = sources
         .iter()
-        .map(|key| key.strip_suffix(".spec").unwrap_or(key))
+        .map(|key| {
+            let key = under(spec_dir, key);
+            key.strip_suffix(".spec").unwrap_or(key)
+        })
         .collect();
 
     // Resolve imports and build the file dependency graph, tracking each
@@ -61,7 +73,7 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
         let mut deps = Vec::new();
         let mut reexports = Vec::new();
         for import in &spec_file.imports {
-            match name(&sources, path, import.path.as_str()) {
+            match name(&sources, spec_dir, path, import.path.as_str()) {
                 Named::Source(target) => {
                     if import.is_pub || import.bindings.is_some() {
                         reexports.push(Selective {
@@ -158,23 +170,29 @@ pub fn resolve_imports(parsed: &[(&str, &SpecFile)], unreadable: &[&str]) -> Vec
 /// The key of the source `use "<import_path>"` in source `importing` names
 /// among `sources`, by the cascade [`resolve_imports`] uses: a relative path
 /// (`./`, `../`) from `importing`'s directory, any other path from the spec
-/// root; `<path>.spec` (`<path>` itself when it ends in `.spec`), else
+/// root (`spec_dir`, see [`resolve_imports`]); `<path>.spec` (`<path>` itself when it ends in `.spec`), else
 /// `<path>/index.spec`. Keys compare exactly. `None` for an extension
 /// import (`@scope/name`) or a path that names no source.
 #[must_use]
 pub fn import_target<'s>(
     sources: &BTreeSet<&'s str>,
+    spec_dir: &Path,
     importing: &str,
     import_path: &str,
 ) -> Option<&'s str> {
-    match name(sources, importing, import_path) {
+    match name(sources, spec_dir, importing, import_path) {
         Named::Source(key) => Some(key),
         Named::Extension { .. } | Named::Nothing => None,
     }
 }
 
 /// The one cascade (both public functions go through it).
-fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> Named<'s> {
+fn name<'s>(
+    sources: &BTreeSet<&'s str>,
+    spec_dir: &Path,
+    importing: &str,
+    import_path: &str,
+) -> Named<'s> {
     if let Some(rest) = import_path.strip_prefix('@') {
         return match rest.split_once('/') {
             Some((scope, name)) => Named::Extension {
@@ -185,7 +203,9 @@ fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> 
         };
     }
     let from = if import_path.starts_with("./") || import_path.starts_with("../") {
-        Path::new(importing).parent().unwrap_or(Path::new(""))
+        Path::new(under(spec_dir, importing))
+            .parent()
+            .unwrap_or(Path::new(""))
     } else {
         Path::new("")
     };
@@ -194,8 +214,24 @@ fn name<'s>(sources: &BTreeSet<&'s str>, importing: &str, import_path: &str) -> 
     };
     candidates(&base)
         .iter()
-        .find_map(|candidate| sources.get(candidate.to_string_lossy().as_ref()).copied())
+        .find_map(|candidate| {
+            let candidate = candidate.to_string_lossy();
+            let key = match spec_dir.as_os_str().is_empty() {
+                true => candidate.into_owned(),
+                false => format!("{}/{candidate}", spec_dir.to_string_lossy()),
+            };
+            sources.get(key.as_str()).copied()
+        })
         .map_or(Named::Nothing, Named::Source)
+}
+
+/// `key` without the spec dir it is under (as it is when the keys are named from the spec root).
+fn under<'a>(spec_dir: &Path, key: &'a str) -> &'a str {
+    Path::new(key)
+        .strip_prefix(spec_dir)
+        .ok()
+        .and_then(Path::to_str)
+        .unwrap_or(key)
 }
 
 /// `path` under `from` (both relative to the spec root), `.` and `..`

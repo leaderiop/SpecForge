@@ -3,13 +3,14 @@ use specforge_parser::{SpecFile, parse};
 use specforge_resolver::{import_target, resolve_imports};
 use specforge_test_macros::test as specforge_test;
 use std::collections::BTreeSet;
+use std::path::Path;
 
 /// The import diagnostics of `files` (key, text), parsed as a compile parses
 /// them, `unreadable` held but unread.
 fn resolve(files: &[(&str, &str)], unreadable: &[&str]) -> Vec<Diagnostic> {
     let parsed: Vec<(&str, SpecFile)> = files.iter().map(|(k, t)| (*k, parse(t, k))).collect();
     let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(k, f)| (*k, f)).collect();
-    resolve_imports(&files, unreadable)
+    resolve_imports(&files, unreadable, Path::new(""))
 }
 
 /// A project's sources, as (key, text).
@@ -281,6 +282,7 @@ fn bare_path_precedence_over_index() {
     assert_eq!(
         import_target(
             &dir.iter().map(|(key, _)| *key).collect(),
+            Path::new(""),
             "main.spec",
             "models"
         ),
@@ -518,7 +520,7 @@ fn resolve_one_import_by_the_compile_cascade() {
         "lib/shared/utils.spec",
         "sub/main.spec",
     ]);
-    let resolve = |import: &str| import_target(&sources, "sub/main.spec", import);
+    let resolve = |import: &str| import_target(&sources, Path::new(""), "sub/main.spec", import);
 
     assert_eq!(resolve("types"), Some("types.spec"));
     assert_eq!(resolve("types.spec"), Some("types.spec"));
@@ -539,7 +541,10 @@ fn resolve_one_import_by_the_compile_cascade() {
 fn no_import_reaches_above_the_spec_root() {
     let sources = BTreeSet::from(["main.spec", "outside.spec"]);
     for import in ["../outside", "sub/../../outside", "/outside"] {
-        assert_eq!(import_target(&sources, "main.spec", import), None);
+        assert_eq!(
+            import_target(&sources, Path::new(""), "main.spec", import),
+            None
+        );
         let diagnostics = resolve(
             &[
                 (

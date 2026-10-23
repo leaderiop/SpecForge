@@ -31,6 +31,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use specforge_common::SourceRoot;
 use specforge_registry::{Disk, PlainDisk};
 
 use super::Changes;
@@ -156,10 +157,10 @@ impl Stamps {
 
     /// Whether the row (`class`, `recorded`) differs from its stamp: a hop
     /// compares its source's stamp, by key, as the read that recorded it does.
-    fn moved(&self, class: &Class, recorded: &Path, spec_root: &Path, sources: &dyn Disk) -> bool {
+    fn moved(&self, class: &Class, recorded: &Path, root: &SourceRoot, sources: &dyn Disk) -> bool {
         match class {
             Class::Hop(key) => !unchanged(
-                &spec_root.join(key),
+                &root.path(key),
                 self.sources.get(key).and_then(Option::as_ref),
                 sources,
             ),
@@ -182,10 +183,10 @@ impl Stamps {
         scope: Scope<'_>,
         sources: &dyn Disk,
     ) -> Changes {
-        let Some(spec_root) = inputs.spec_root() else {
+        let Some(root) = inputs.sources() else {
             return Changes::default();
         };
-        let everything = [String::new()];
+        let everything = [root.prefix().to_string_lossy().into_owned()];
         let regions: &[String] = match scope {
             Scope::Everything => &everything,
             Scope::Reached(reach) => &reach.regions,
@@ -199,7 +200,7 @@ impl Stamps {
                 let moved = self
                     .sources
                     .get(key)
-                    .is_none_or(|entry| !unchanged(&spec_root.join(key), entry.as_ref(), sources));
+                    .is_none_or(|entry| !unchanged(&root.path(key), entry.as_ref(), sources));
                 if seen.insert(key.clone()) && moved {
                     changes.sources.push(key.clone());
                 }
@@ -230,7 +231,7 @@ impl Stamps {
                     for (class, recorded) in reached {
                         let moved = *memo
                             .entry((class, recorded.as_path()))
-                            .or_insert_with(|| self.moved(class, recorded, spec_root, sources));
+                            .or_insert_with(|| self.moved(class, recorded, root, sources));
                         if moved {
                             note(&mut changes, class, path);
                         }

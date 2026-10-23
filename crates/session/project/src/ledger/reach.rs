@@ -48,8 +48,9 @@ impl SessionInputs {
                 _ => path.to_path_buf(),
             };
             if disk.canonical_spec_root.starts_with(&canonical_path) {
-                regions.push(String::new());
-            } else if let Some(relative) = relative_canonical(&disk.canonical_spec_root, &in_dir) {
+                regions.push(disk.sources.prefix().to_string_lossy().into_owned());
+            } else if relative_canonical(&disk.canonical_spec_root, &in_dir).is_some() {
+                let relative = disk.sources.key(&in_dir).into_string();
                 let relative = Path::new(&relative);
                 // A nested project's `specforge.json` (below the spec root,
                 // not an input of this project) is every source under its
@@ -60,7 +61,11 @@ impl SessionInputs {
                         .iter()
                         .any(|row| row.class == Class::Environment && row.key == in_dir);
                 match relative.parent() {
-                    Some(directory) if marker && !directory.as_os_str().is_empty() => {
+                    Some(directory)
+                        if marker
+                            && !directory.as_os_str().is_empty()
+                            && directory != disk.sources.prefix() =>
+                    {
                         regions.push(directory.to_string_lossy().into_owned());
                     }
                     _ => regions.push(relative.to_string_lossy().into_owned()),

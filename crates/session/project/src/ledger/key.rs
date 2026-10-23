@@ -1,4 +1,5 @@
-//! How a source is keyed: by its path relative to the spec root (as `specforge check` names it).
+//! How a source is keyed: by [`SourceRoot::key`], its one mint. What stays here are the canonical forms of the paths
+//! the ledger watches and follows, and the keys of a walk.
 
 use std::path::{Path, PathBuf};
 
@@ -7,33 +8,11 @@ use specforge_common::{SourceRoot, Walked};
 use crate::Environment;
 
 impl Environment {
-    /// A `.spec` path's key: relative to the spec root when the file is
-    /// under it (as `specforge check` names it), else the path itself.
-    /// With no spec root (no project), every key is the path itself.
+    /// A `.spec` path's key ([`SourceRoot::key`]): what the session holds, the parser is handed and a span says.
+    /// With no project, the path itself.
     pub fn source_key(&self, path: &Path) -> String {
-        source_key(self.sources.dir(), path)
+        self.sources.key(path).into_string()
     }
-}
-
-/// `path`'s key under `spec_root` (see [`Environment::source_key`]). The
-/// editor and the workspace may spell one directory differently (a
-/// symlinked temp dir), so when the plain forms differ the path is compared
-/// by its directory's canonical form and its own name: a symlinked file is
-/// keyed by its own name, never its target's, and a deleted file is keyed
-/// the same way.
-pub fn source_key(spec_root: &Path, path: &Path) -> String {
-    if spec_root.as_os_str().is_empty() {
-        return path.to_string_lossy().into_owned();
-    }
-    if let Ok(relative) = path.strip_prefix(spec_root) {
-        return relative.to_string_lossy().into_owned();
-    }
-    if let Ok(canonical_root) = std::fs::canonicalize(spec_root)
-        && let Ok(relative) = in_canonical_dir(path).strip_prefix(&canonical_root)
-    {
-        return relative.to_string_lossy().into_owned();
-    }
-    path.to_string_lossy().into_owned()
 }
 
 /// The keys of what `walked` (a walk of `sources`) holds for a session to read:
@@ -44,24 +23,8 @@ pub(crate) fn discovered_keys(sources: &SourceRoot, walked: &Walked) -> Vec<Stri
     paths.sort();
     paths
         .into_iter()
-        .map(|path| discovered(sources.dir(), path))
+        .map(|path| sources.key(path).into_string())
         .collect()
-}
-
-/// The key of a path discovery walked: relative to the spec root, lexically. A
-/// walk joins entry names onto the spec root, so the path is under it by
-/// construction; every other spelling goes through [`source_key`].
-pub(crate) fn discovered(spec_root: &Path, path: &Path) -> String {
-    debug_assert!(
-        path.starts_with(spec_root),
-        "{} is not under {}",
-        path.display(),
-        spec_root.display()
-    );
-    path.strip_prefix(spec_root)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .into_owned()
 }
 
 /// The key of `canonical_path` under `canonical_root`, both canonical (a link

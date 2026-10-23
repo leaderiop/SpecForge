@@ -44,7 +44,6 @@ use crate::sources::{self, Read};
 use disk::RunDisk;
 pub use disk::SourceDisk;
 pub use inputs::{SessionInputs, WatchRoot, Watched};
-pub use key::source_key;
 use recorded::{Class, Recording};
 use stamps::{Entry, Scope, Stamps};
 
@@ -111,8 +110,8 @@ pub(crate) trait Reads {
     ) -> Environment;
     /// The keys of the sources discovery finds under `sources` now, sorted.
     fn discover(&mut self, sources: &SourceRoot) -> Vec<String>;
-    /// Source `key` under `spec_root`: its text, its E025, or gone.
-    fn source(&mut self, spec_root: &Path, key: &str) -> Read;
+    /// Source `key` of `sources`: its text, its E025, or gone.
+    fn source(&mut self, sources: &SourceRoot, key: &str) -> Read;
     /// Run `check` (the checks over one snapshot) with the disk they read
     /// through (ADR 0107): the ledger's records and stamps each read as a
     /// check input; `Unrecorded`'s only reads.
@@ -156,8 +155,8 @@ impl Reads for Unrecorded<'_> {
         walked_keys(sources)
     }
 
-    fn source(&mut self, spec_root: &Path, key: &str) -> Read {
-        sources::read(self.sources, spec_root, key)
+    fn source(&mut self, sources: &SourceRoot, key: &str) -> Read {
+        sources::read(self.sources, sources, key)
     }
 
     fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
@@ -200,8 +199,8 @@ impl Reads for Ledger {
 
     /// Stamped, then read, each link hop included: a source written after its
     /// stamp is seen next time.
-    fn source(&mut self, spec_root: &Path, key: &str) -> Read {
-        self.read_source(spec_root, key, |disk| sources::read(disk, spec_root, key))
+    fn source(&mut self, sources: &SourceRoot, key: &str) -> Read {
+        self.read_source(sources, key, |disk| sources::read(disk, sources, key))
     }
 
     /// The checks' reads, each stamped and recorded as a check input when
@@ -264,17 +263,17 @@ impl Ledger {
     /// stamp and link are forgotten (so its return is seen). Each key's
     /// read, in order.
     pub(crate) fn reread(&mut self, keys: &[String]) -> Vec<(String, Read)> {
-        let Some(spec_root) = self.inputs.spec_root().map(Path::to_path_buf) else {
+        let Some(sources) = self.inputs.sources().cloned() else {
             return keys.iter().map(|key| (key.clone(), Read::Gone)).collect();
         };
         keys.iter()
             .map(|key| {
                 let read = if self.inputs.excludes(key) {
                     // No source (any more): a record kept would hide its return.
-                    self.forget_source(&spec_root, key);
+                    self.forget_source(&sources, key);
                     Read::Gone
                 } else {
-                    self.read_source(&spec_root, key, |disk| sources::read(disk, &spec_root, key))
+                    self.read_source(&sources, key, |disk| sources::read(disk, &sources, key))
                 };
                 (key.clone(), read)
             })
@@ -315,11 +314,11 @@ impl Ledger {
     /// parameter so a test can write between the stamp and the read.
     pub(crate) fn read_source(
         &mut self,
-        spec_root: &Path,
+        sources: &SourceRoot,
         key: &str,
         read: impl FnOnce(&dyn Disk) -> Read,
     ) -> Read {
-        let path = spec_root.join(key);
+        let path = sources.path(key);
         let disk = self.source_disk();
         let run = self.run();
         let plain: &dyn Disk = &PlainDisk;
@@ -330,8 +329,8 @@ impl Ledger {
 
     /// Source `key` is no source (any more): its stamp and hops are
     /// forgotten.
-    fn forget_source(&mut self, spec_root: &Path, key: &str) {
-        let path = spec_root.join(key);
+    fn forget_source(&mut self, sources: &SourceRoot, key: &str) {
+        let path = sources.path(key);
         self.record(Recording::Source { key, path: &path }, Vec::new());
     }
 

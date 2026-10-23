@@ -72,7 +72,7 @@ fn a_source_that_is_no_source_any_more_leaves_the_record() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
     assert_eq!(ledger.discover(&sources), ["sub/c.spec"]);
-    ledger.source(sources.dir(), "sub/c.spec");
+    ledger.source(&sources, "sub/c.spec");
     assert!(ledger.stale().is_empty());
 
     // A nested project took it.
@@ -93,10 +93,7 @@ fn a_source_read_as_gone_is_recorded_and_stays_unchanged_while_it_is_gone() {
     let mut ledger = Ledger::opening_through(None);
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
-    assert!(matches!(
-        ledger.source(sources.dir(), "late.spec"),
-        Read::Gone
-    ));
+    assert!(matches!(ledger.source(&sources, "late.spec"), Read::Gone));
     assert!(ledger.stale().sources.is_empty());
 
     rewrite(&dir.path().join("late.spec"), "behavior c \"C\" {\n}\n");

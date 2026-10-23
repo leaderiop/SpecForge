@@ -110,7 +110,7 @@ impl ProjectConfig {
             Some(spec_root) => root.join(spec_root),
             None => root.to_path_buf(),
         };
-        crate::SourceRoot::new(dir, self.exclude.clone())
+        crate::SourceRoot::new(root.to_path_buf(), dir, self.exclude.clone())
     }
 }
 

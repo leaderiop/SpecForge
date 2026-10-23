@@ -8,7 +8,7 @@ use specforge_test_macros::test as specforge_test;
 fn resolve(files: &[(&str, &str)]) -> Vec<Diagnostic> {
     let parsed: Vec<(&str, SpecFile)> = files.iter().map(|(k, t)| (*k, parse(t, k))).collect();
     let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(k, f)| (*k, f)).collect();
-    resolve_imports(&files, &[])
+    resolve_imports(&files, &[], std::path::Path::new(""))
 }
 
 // B:resolve_use_imports — verify contract "requires/ensures consistency for use import resolution"

@@ -205,7 +205,12 @@ pub fn definition(
             // The source the compile resolves the import to, from its
             // first line: no text needed.
             let sources = state.source_keys();
-            let target = specforge_resolver::import_target(&sources, &key, &path)?;
+            let target = specforge_resolver::import_target(
+                &sources,
+                state.environment().sources().prefix(),
+                &key,
+                &path,
+            )?;
             Some(GotoDefinitionResponse::Scalar(Location {
                 uri: compiled.uri(target),
                 range: Range::default(),

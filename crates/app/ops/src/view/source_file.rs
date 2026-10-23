@@ -6,6 +6,8 @@
 
 use std::path::{Component, Path, PathBuf};
 
+use specforge_common::SourceRoot;
+
 use super::ProjectView;
 use crate::{OpError, OpErrorKind};
 
@@ -14,17 +16,24 @@ pub const NOT_A_SOURCE: &str = "not_a_source";
 
 pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
-/// `named`'s source key under `spec_root`, with `.` and doubled separators gone; `None` when it leaves the spec root
+/// `named`'s source key in `sources`, with `.` and doubled separators gone; `None` when it leaves the spec root
 /// (a `..`, or an absolute path elsewhere). A project with no spec root (one assembled in memory) keys its sources
 /// by whatever path they were given, so an absolute path is a key there.
-fn key_of(spec_root: &Path, named: &str) -> Option<String> {
-    let key = specforge_project::source_key(spec_root, &spec_root.join(named));
+fn key_of(sources: &SourceRoot, named: &str) -> Option<String> {
+    // A `..` anywhere leaves the spec root's reading of the name, whatever it lands on.
+    if Path::new(named)
+        .components()
+        .any(|c| c == Component::ParentDir)
+    {
+        return None;
+    }
+    let key = sources.key(&sources.base().join(named)).into_string();
     let mut rebuilt = PathBuf::new();
     for component in Path::new(&key).components() {
         match component {
             Component::Normal(name) => rebuilt.push(name),
             Component::CurDir => {}
-            Component::RootDir | Component::Prefix(_) if spec_root.as_os_str().is_empty() => {
+            Component::RootDir | Component::Prefix(_) if sources.base().as_os_str().is_empty() => {
                 rebuilt.push(component.as_os_str());
             }
             _ => return None,
@@ -58,7 +67,7 @@ impl ProjectView<'_> {
         let root = self.root()?;
         let spec_root = self.env().spec_root();
         (root != spec_root).then_some(())?;
-        key_of(spec_root, &root.join(named).to_string_lossy())
+        key_of(self.env().sources(), &root.join(named).to_string_lossy())
     }
 
     /// The project-root reading of a new file `key` (its spec-root spelling) that repeats the spec root as a
@@ -71,7 +80,7 @@ impl ProjectView<'_> {
             .source_keys()
             .iter()
             .any(|k| Path::new(k).starts_with(dir));
-        (read != key && !holds_a_source && self.env().holds_source(&read)).then_some(read)
+        (read != key && !holds_a_source && self.env().sources().holds_key(&read)).then_some(read)
     }
 
     fn did_you_mean(&self, named: &str) -> Option<String> {
@@ -86,7 +95,7 @@ impl ProjectView<'_> {
     /// (kind `InvalidInput`); any other that is none of the compile's sources (missing, a directory, not a `.spec`
     /// file, excluded) is `file_not_found`. Reads no file.
     pub fn source(&self, named: &str) -> Result<String, OpError> {
-        let key = key_of(self.env().spec_root(), named).ok_or_else(|| outside(named))?;
+        let key = key_of(self.env().sources(), named).ok_or_else(|| outside(named))?;
         if self.project().source_keys().contains(key.as_str()) {
             return Ok(key);
         }
@@ -105,7 +114,7 @@ impl ProjectView<'_> {
     /// The key of a file a typed edit may create or change: a compiled source, or a new file discovery would keep.
     /// `not_a_source` (kind `InvalidInput`) otherwise.
     pub fn source_place(&self, named: &str) -> Result<String, OpError> {
-        let key = key_of(self.env().spec_root(), named).ok_or_else(|| outside(named))?;
+        let key = key_of(self.env().sources(), named).ok_or_else(|| outside(named))?;
         if self.project().source_keys().contains(key.as_str()) {
             return Ok(key);
         }
@@ -113,7 +122,7 @@ impl ProjectView<'_> {
             self.project_root_place(named, &key)
                 .map(Self::spec_root_hint)
         });
-        if suggestion.is_none() && self.env().holds_source(&key) {
+        if suggestion.is_none() && self.env().sources().holds_key(&key) {
             return Ok(key);
         }
         let error = OpError::new(

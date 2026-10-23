@@ -279,7 +279,7 @@ struct Located {
 impl<'v> Planner<'v> {
     /// The format configuration of the file `key` names (relative to the spec root).
     fn config_of(&mut self, key: &str) -> FormatConfig {
-        let path = self.view.env().spec_root().join(key);
+        let path = self.view.env().sources().path(key);
         self.configs.layout(Place::File(&path))
     }
 
@@ -413,7 +413,7 @@ impl<'v> Planner<'v> {
     fn finish(self) -> Result<EditPlan, Refusal<EditField>> {
         let project = self.view.project();
         let change = PlannedChange::new(
-            self.view.env().spec_root().to_path_buf(),
+            self.view.env().sources().clone(),
             "cannot apply the edits",
             self.texts
                 .into_iter()

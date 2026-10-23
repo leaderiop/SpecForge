@@ -136,7 +136,7 @@ impl CompiledProject {
     }
 
     /// This project as if `texts` (by source key, relative to the spec root) were the text of their sources:
-    /// a key no compiled source has when the environment's [`Environment::holds_source`] admits it, then
+    /// a key no compiled source has when the environment's [`SourceRoot::holds_key`] admits it, then
     /// every check. What `specforge check` reports once those texts are written. Reads no source: every
     /// other source is what this project holds (the text it read, or the E025 it recorded for one it could
     /// not read: over MCP, one the bound refused, ADR 0158); the checks read the disk as a compile's do.
@@ -147,7 +147,7 @@ impl CompiledProject {
             self.sources.keys().into_iter().map(String::from).collect();
         let mut planned: BTreeMap<String, &str> = BTreeMap::new();
         for (key, text) in texts {
-            if keys.contains(key) || self.env.holds_source(key) {
+            if keys.contains(key) || self.env.sources().holds_key(key) {
                 keys.insert(key.clone());
                 planned.insert(key.clone(), text.as_str());
             }
@@ -360,11 +360,9 @@ impl CompiledProject {
         reads: &mut impl Reads,
     ) -> Self {
         let keys = reads.discover(env.sources());
-        let spec_root = env.spec_root().to_path_buf();
         let rooted = env.project_root().is_some();
-        Self::built(env, &keys, held, rooted, |key| {
-            reads.source(&spec_root, key)
-        })
+        let sources = env.sources().clone();
+        Self::built(env, &keys, held, rooted, |key| reads.source(&sources, key))
     }
 
     /// The cold build of `keys` in `env` (ADR 0032's one cold pipeline, [`Environment::build_sources`]): each
@@ -413,7 +411,8 @@ impl CompiledProject {
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.import_diagnostics = if self.on_disk {
-            self.sources.import_diagnostics(&self.graph)
+            self.sources
+                .import_diagnostics(&self.graph, self.env.sources().prefix())
         } else {
             Vec::new()
         };

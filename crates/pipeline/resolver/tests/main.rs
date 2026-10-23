@@ -7,3 +7,4 @@ mod bindings;
 mod contracts;
 mod cycles;
 mod resolution;
+mod spec_dir;

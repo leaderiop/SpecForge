@@ -417,16 +417,13 @@ fn copy_tree(from: &Path, to: &Path) {
     }
 }
 
-/// What a test wrote, created or deleted at the sources `keys` (each relative to the spec root), taken the way
+/// What a test wrote, created or deleted at the sources `keys` (each a key), taken the way
 /// watch and the LSP take a watcher's batch: [`ProjectSession::changes`] of those paths, then
 /// [`ProjectSession::apply`]. `None` when nothing the paths reach differs from what the session read (a file the
 /// test did not touch, an excluded or undiscovered one) and for a detached session.
 pub fn disk_changed(session: &mut ProjectSession, keys: &[impl AsRef<str>]) -> Option<Update> {
-    let spec_root = session.inputs().spec_root()?.to_path_buf();
-    let paths: Vec<PathBuf> = keys
-        .iter()
-        .map(|key| spec_root.join(key.as_ref()))
-        .collect();
+    let sources = session.inputs().sources()?;
+    let paths: Vec<PathBuf> = keys.iter().map(|key| sources.path(key.as_ref())).collect();
     let changes = session.changes(paths.iter().map(PathBuf::as_path));
     session.apply(&changes)
 }

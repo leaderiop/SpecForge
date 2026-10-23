@@ -8,7 +8,7 @@ use specforge_test_macros::test as specforge_test;
 fn w027(files: &[(&str, &str)]) -> Vec<String> {
     let parsed: Vec<_> = files.iter().map(|(k, t)| (*k, parse(t, k))).collect();
     let refs: Vec<_> = parsed.iter().map(|(k, f)| (*k, f)).collect();
-    resolve_imports(&refs, &[])
+    resolve_imports(&refs, &[], std::path::Path::new(""))
         .iter()
         .filter(|d| d.code == "W027")
         .map(|d| {

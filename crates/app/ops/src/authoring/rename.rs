@@ -184,7 +184,7 @@ pub fn plan(
         })?);
     }
     let change = PlannedChange::new(
-        nav.view().env().spec_root().to_path_buf(),
+        nav.view().env().sources().clone(),
         format!("cannot rename '{old_id}'"),
         files,
     );

@@ -45,11 +45,16 @@ fn a_source_written_between_its_stamp_and_its_read_is_seen_next_time() {
         &specforge_common::ProjectConfig::default(),
         Vec::new(),
     ));
-    let read = ledger.read_source(spec_root, "a.spec", |disk| {
+    let sources = specforge_common::SourceRoot::new(
+        spec_root.to_path_buf(),
+        spec_root.to_path_buf(),
+        specforge_common::Exclude::default(),
+    );
+    let read = ledger.read_source(&sources, "a.spec", |disk| {
         // The file is stamped when it is first asked about, before the write.
         assert!(disk.exists(&spec_root.join("a.spec")));
         fs::write(spec_root.join("a.spec"), NEW).unwrap();
-        sources::read(disk, spec_root, "a.spec")
+        sources::read(disk, &sources, "a.spec")
     });
     assert_eq!(text(&read), Some(NEW));
     // The stamp is the old file's, so the next comparison catches up.
@@ -72,8 +77,8 @@ fn the_unrecorded_reads_are_the_ledgers() {
     let keys = ledger.discover(&sources);
     assert_eq!(keys, unrecorded.discover(&sources));
     for key in &keys {
-        let one = ledger.source(sources.dir(), key);
-        let two = unrecorded.source(sources.dir(), key);
+        let one = ledger.source(&sources, key);
+        let two = unrecorded.source(&sources, key);
         assert_eq!(text(&one), text(&two), "{key}");
     }
 
@@ -116,8 +121,8 @@ fn both_reads_read_each_source_through_the_disk_they_are_handed() {
     assert_eq!(keys, unrecorded.discover(&sources));
     assert!(!keys.is_empty());
     for key in &keys {
-        let one = ledger.source(sources.dir(), key);
-        let two = unrecorded.source(sources.dir(), key);
+        let one = ledger.source(&sources, key);
+        let two = unrecorded.source(&sources, key);
         // The same E025, with the bound's suggestion, from both adapters.
         match (&one, &two) {
             (Read::Unreadable(a), Read::Unreadable(b)) => {
@@ -159,10 +164,7 @@ fn a_dangling_link_is_read_as_gone_and_records_its_chain() {
     let keys = ledger.discover(&sources);
     assert_eq!(keys, ["a.spec", "link.spec", "sub/b.spec"]);
     assert_eq!(keys, unrecorded.discover(&sources));
-    assert!(matches!(
-        ledger.source(sources.dir(), "link.spec"),
-        Read::Gone
-    ));
+    assert!(matches!(ledger.source(&sources, "link.spec"), Read::Gone));
     assert!(
         ledger
             .inputs()

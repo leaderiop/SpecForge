@@ -27,7 +27,7 @@ pub(super) fn judged(dir: &Path) -> Result<Option<PathBuf>, OpError> {
     let configured = config.sources(root);
     let spec_root =
         std::fs::canonicalize(configured.dir()).unwrap_or_else(|_| configured.dir().to_path_buf());
-    let sources = SourceRoot::new(spec_root.clone(), config.exclude);
+    let sources = SourceRoot::new(root.to_path_buf(), spec_root.clone(), config.exclude);
     if dir != spec_root && dir.starts_with(&spec_root) {
         let lost = sources.files_at(dir);
         if !lost.is_empty() {

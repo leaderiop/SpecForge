@@ -303,7 +303,7 @@ impl LspState {
     /// Keep `files` keyed under the spec root readers see: called by `show_environment`,
     /// `set_session` and `shutdown`, the three places the environment changes.
     fn rekey(&mut self) {
-        let spec_root = self.spec_root().to_path_buf();
-        self.files.rekey(&spec_root);
+        let sources = self.environment().sources().clone();
+        self.files.rekey(&sources);
     }
 }

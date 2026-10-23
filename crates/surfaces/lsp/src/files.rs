@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, SourceRoot};
 use tower_lsp::lsp_types::{self as lsp, TextDocumentContentChangeEvent, Url};
 
 use crate::document::Document;
@@ -19,8 +19,8 @@ use crate::uri;
 #[derive(Default)]
 pub struct Files {
     by_key: BTreeMap<String, Entry>,
-    /// The spec root the keys were computed under ([`Files::rekey`]); empty with no project.
-    spec_root: PathBuf,
+    /// Where the keys were computed under ([`Files::rekey`]); no project's sources by default.
+    sources: SourceRoot,
     /// The open document diagnostics about no entity were last published on.
     anchor: Option<String>,
 }
@@ -75,12 +75,11 @@ pub struct Findings {
 impl Files {
     // ---- identity --------------------------------------------------------------------
 
-    /// The session key of the file `uri` names: `specforge_project::source_key` of its
-    /// percent-decoded path under the spec root. Two spellings of one file's URI are one key;
-    /// so are two spellings of one directory (a symlink, a drive letter's case), which
-    /// `source_key` compares canonically.
+    /// The session key of the file `uri` names: [`SourceRoot::key`] of its percent-decoded
+    /// path. Two spellings of one file's URI are one key; so are two spellings of one directory
+    /// (a symlink, a drive letter's case), which the key compares canonically.
     pub fn key_of(&self, uri: &Url) -> String {
-        specforge_project::source_key(&self.spec_root, &uri::path_of(uri))
+        self.sources.key(&uri::path_of(uri)).into_string()
     }
 
     /// The URI the client names `key` by: the one it opened the document with, or the one the
@@ -92,10 +91,9 @@ impl Files {
         }
     }
 
-    /// The absolute path of session file `key` (the spec root joined with it; a key outside
-    /// the spec root is its own path).
+    /// The absolute path of session file `key` ([`SourceRoot::path`]).
     pub fn file_path(&self, key: &str) -> PathBuf {
-        self.spec_root.join(key)
+        self.sources.path(key)
     }
 
     // ---- the open documents (the handlers write them as the client reports them) -------
@@ -265,10 +263,12 @@ impl Files {
 
     // ---- environment loads -------------------------------------------------------------
 
-    /// Key every file anew under `spec_root` (an environment load moved it): each keeps its
-    /// URI, its path, its document and its parts. Nothing when the keys are under it already.
-    pub(crate) fn rekey(&mut self, spec_root: &Path) {
-        if self.spec_root == spec_root {
+    /// Key every file anew under `sources` (an environment load moved their base): each keeps
+    /// its URI, its path, its document and its parts. Nothing moves when the base is the same.
+    pub(crate) fn rekey(&mut self, sources: &SourceRoot) {
+        let moved = self.sources.base() != sources.base();
+        self.sources = sources.clone();
+        if !moved {
             return;
         }
         let anchor = self
@@ -278,10 +278,9 @@ impl Files {
         let entries = std::mem::take(&mut self.by_key);
         self.by_key = entries
             .into_values()
-            .map(|entry| (specforge_project::source_key(spec_root, &entry.path), entry))
+            .map(|entry| (self.sources.key(&entry.path).into_string(), entry))
             .collect();
-        self.anchor = anchor.map(|path| specforge_project::source_key(spec_root, &path));
-        self.spec_root = spec_root.to_path_buf();
+        self.anchor = anchor.map(|path| self.sources.key(&path).into_string());
     }
 
     /// Forget everything (shutdown).
@@ -359,9 +358,14 @@ mod tests {
         }
     }
 
+    fn sources(spec_root: &str) -> SourceRoot {
+        let dir = PathBuf::from(spec_root);
+        SourceRoot::new(dir.clone(), dir, specforge_common::Exclude::default())
+    }
+
     fn rooted(spec_root: &str) -> Files {
         let mut files = Files::default();
-        files.rekey(Path::new(spec_root));
+        files.rekey(&sources(spec_root));
         files
     }
 
@@ -397,7 +401,7 @@ mod tests {
         ));
 
         // The environment loads: the files are keyed under the spec root.
-        files.rekey(Path::new("/proj/spec"));
+        files.rekey(&sources("/proj/spec"));
         assert_eq!(files.key_of(&uri), "@acme/a.spec");
         let document = files.document("@acme/a.spec").expect("the document moved");
         assert_eq!((document.text(), document.version()), ("text", Some(3)));
@@ -410,7 +414,7 @@ mod tests {
         );
 
         // And back, when the project goes.
-        files.rekey(Path::new(""));
+        files.rekey(&SourceRoot::default());
         assert!(files.document("/proj/spec/@acme/a.spec").is_some());
         assert_eq!(files.anchor(), Some("/proj/spec/@acme/a.spec"));
     }

@@ -131,14 +131,27 @@ fn is_dangling(path: &Path) -> bool {
 /// resolves to a file.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceRoot {
+    root: PathBuf,
     dir: PathBuf,
+    prefix: PathBuf,
     exclude: Exclude,
 }
 
 impl SourceRoot {
-    /// The sources under `dir` (a spec root) that `exclude` does not leave out.
-    pub fn new(dir: PathBuf, exclude: Exclude) -> Self {
-        SourceRoot { dir, exclude }
+    /// The sources under `dir` (a spec root) of the project at `root` that `exclude` does not leave out.
+    pub fn new(root: PathBuf, dir: PathBuf, exclude: Exclude) -> Self {
+        let prefix = Self::prefix_of(&dir, &dir);
+        SourceRoot {
+            root,
+            dir,
+            prefix,
+            exclude,
+        }
+    }
+
+    /// The project root (empty with no project).
+    pub fn root(&self) -> &Path {
+        &self.root
     }
 
     /// The spec root.
@@ -292,6 +305,8 @@ impl SourceRoot {
     }
 }
 
+mod keys;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,7 +383,7 @@ mod tests {
     }
 
     fn sources(dir: &Path, exclude: Exclude) -> SourceRoot {
-        SourceRoot::new(dir.to_path_buf(), exclude)
+        SourceRoot::new(dir.to_path_buf(), dir.to_path_buf(), exclude)
     }
 
     #[specforge_test(

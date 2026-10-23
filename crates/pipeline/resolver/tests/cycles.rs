@@ -18,7 +18,7 @@ fn w113_names_every_file_of_an_import_cycle() {
     let parsed: Vec<_> = files.iter().map(|(k, t)| (*k, parse(t, k))).collect();
     let refs: Vec<_> = parsed.iter().map(|(k, f)| (*k, f)).collect();
 
-    let diagnostics = resolve_imports(&refs, &[]);
+    let diagnostics = resolve_imports(&refs, &[], std::path::Path::new(""));
 
     let messages: Vec<&str> = diagnostics
         .iter()
