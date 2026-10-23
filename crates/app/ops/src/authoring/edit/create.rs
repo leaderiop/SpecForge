@@ -151,7 +151,7 @@ impl Planner<'_> {
                 if token.target.as_str() != id {
                     continue;
                 }
-                let place = match (token.holder, token.form) {
+                match (token.holder, token.form) {
                     // The block being deleted takes its own tokens with it.
                     (Holder::Block(holder), _) if holder.as_str() == id => continue,
                     (Holder::Block(holder), Form::Single | Form::Item) => {
@@ -165,10 +165,9 @@ impl Planner<'_> {
                         }
                         continue;
                     }
-                    (Holder::Block(holder), _) => holder.to_string(),
-                    (Holder::Defaults(of), _) => format!("defaults {of}"),
-                };
-                let at = format!("{key}:{} ({place}, {})", token.span.start_line, token.field);
+                    (Holder::Block(_) | Holder::Defaults(_), _) => {}
+                }
+                let at = token.place();
                 if !elsewhere.contains(&at) {
                     elsewhere.push(at);
                 }

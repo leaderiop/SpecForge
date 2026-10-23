@@ -8,6 +8,7 @@ use crate::{FieldForms, FileDefaults, GraphInputs, Reading};
 use specforge_common::{SourceSpan, Sym};
 use specforge_parser::{FieldEntry, MethodDecl, SpecFile};
 use std::borrow::Cow;
+use std::fmt;
 
 /// Who writes a token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +17,16 @@ pub enum Holder {
     Block(Sym),
     /// The file's `defaults` block for a kind (ADR 0149): no node, and no typed edit writes it (ADR 0151 D5).
     Defaults(Sym),
+}
+
+impl fmt::Display for Holder {
+    /// A block's id, or `defaults <kind>`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Block(id) => write!(f, "{id}"),
+            Self::Defaults(kind) => write!(f, "defaults {kind}"),
+        }
+    }
 }
 
 /// How a token is written: what a typed edit can do about it.
@@ -44,9 +55,19 @@ pub struct WrittenToken {
     /// The entry's key, or the derived field a type name links through.
     pub field: Sym,
     /// Where it writes the ID: the ID's own bytes, inside the quotes of a quoted reference (ADR 0218).
-    /// Where it writes the ID: the ID's own bytes, inside the quotes of a quoted reference (ADR 0218).
     pub span: SourceSpan,
     pub form: Form,
+}
+
+impl WrittenToken {
+    /// Where it is written, as a refusal names it: `file:line (holder, field)`.
+    #[must_use]
+    pub fn place(&self) -> String {
+        format!(
+            "{}:{} ({}, {})",
+            self.span.file, self.span.start_line, self.holder, self.field
+        )
+    }
 }
 
 /// Every token of `file` that names an entity, in written order, read the way the graph build reads it:

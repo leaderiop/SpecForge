@@ -4,7 +4,7 @@
 use crate::defaults::forms;
 use crate::derived::{derived, inputs};
 use specforge_graph::{
-    GraphConfig, GraphInputs, Holder, WrittenToken, build_graph_with_config, written_tokens,
+    GraphConfig, GraphInputs, WrittenToken, build_graph_with_config, written_tokens,
 };
 use specforge_parser::parse;
 use specforge_test_macros::test as specforge_test;
@@ -37,13 +37,10 @@ fn show(tokens: &[WrittenToken]) -> Vec<String> {
     tokens
         .iter()
         .map(|t| {
-            let holder = match t.holder {
-                Holder::Block(id) => id.to_string(),
-                Holder::Defaults(kind) => format!("defaults {kind}"),
-            };
             format!(
-                "{} {holder} {} {:?} {}:{}-{}:{}",
+                "{} {} {} {:?} {}:{}-{}:{}",
                 t.target,
+                t.holder,
                 t.field,
                 t.form,
                 t.span.start_line,

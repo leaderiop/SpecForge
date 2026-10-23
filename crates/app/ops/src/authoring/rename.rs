@@ -205,20 +205,13 @@ fn captured(nav: &Navigator<'_>, node: &Node, new_id: &str) -> Vec<String> {
     let kind = node.kind.raw;
     let kind_of = |name: &str| (name == new_id).then_some(kind);
     let mut places = Vec::new();
-    for (key, file) in nav.view().project().parsed() {
+    for (_, file) in nav.view().project().parsed() {
         for token in written_tokens(file, inputs, kind_of) {
             let own = token.holder == Holder::Block(node.id.raw) && token.form == Form::Derived;
             if token.target.as_str() != new_id || own {
                 continue;
             }
-            let holder = match token.holder {
-                Holder::Block(id) => id.to_string(),
-                Holder::Defaults(kind) => format!("defaults {kind}"),
-            };
-            let place = format!(
-                "{key}:{} ({holder}, {})",
-                token.span.start_line, token.field
-            );
+            let place = token.place();
             if !places.contains(&place) {
                 places.push(place);
             }
