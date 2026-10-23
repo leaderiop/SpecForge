@@ -1418,6 +1418,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `"""…"""` before it (ADR 0038 D7), so a block being typed never takes the forms after it. Tests hold it
   to the grammar's top-level nodes on the repository's spec, both ways, and the scanner's copy to it
   (ADR 0038 D6-D8, ADR 0063).
+- **Body statement**: a statement of an entity's or define block's body: a field, a `verify` statement (an
+  obligation) or a `method` statement. Which one a line starts is read from its lexemes by one rule
+  (`specforge_parser::lex::body_statement_at`) that the LSP's document asks. A test holds it to the grammar on the
+  repository's spec and a fixture of the forms the spec does not write. Two divergences are named: the kind is read
+  on its line, and a **verify line being typed** (`verify`, or `verify` and one word, alone on its line) is a field
+  to the document, as to the grammar, and the statement it is becoming only to completion on the cursor's line
+  (ADR 0241).
 - **Body shape**: how a block's body is written: **braced** (`kind name "Title" { ... }`: fields, methods, `verify`
   statements) or a **union** (`kind name "Title" = a | b`: its variants and nothing else). The parse answers it once,
   from the syntax (`specforge_parser::FieldMap::is_union`, the parser's own variant list), never from a field's name:
