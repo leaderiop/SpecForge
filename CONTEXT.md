@@ -906,8 +906,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   its kind's (`KindRegistryEntry::allowed_verify_kinds`: declared, or an enhancement's; the testing extension's for
   software and governance kinds); W009 reports another. The CLI's `--verify kind:text` takes the prefix as the kind
   only when it is one of them, and names the obligation an entity already writes in either reading (ADR 0237).
+- **Declared**: an entity that declares at least one obligation (ADR 0004 D2-c): stats' `declared_count`, the
+  coverage summary's `testable_declared`. It says nothing of proof; an invariant tally's `without_obligations` counts
+  those that declare none.
 - **Unverified**: an entity that counts toward coverage and is not proven
-  (its standing counts and its verdict is not proven; `ProjectCoverage::is_unverified`). Stats reports no "verified" count; its proof figure is `proof_pct`.
+  (its standing counts and its verdict is not proven; `ProjectCoverage::is_unverified`). Stats reports no "verified" count; its proof figure is `proof_pct`; the coverage summary names no count verified.
 - **Delivery evidence**: what the recorded test report proves of a feature, beside the `status`
   its author declares (a claim): the behaviors that implement it (name it in `features`), how many
   the coverage rule counts proven, their obligations and failing tests. A feature is **proven** when
