@@ -136,6 +136,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
   verify unit "an entity's status is not_testable when its kind is not testable, exempt when it is testable and does not count, and otherwise how its verdict proves it"
   verify unit "the rule reads a pass entity as the host decided it, with no risk unless the grading caller sets one"
   verify unit "without a risk grading no kind is risk-tallied and nothing is A002"
+  verify unit "the coverage summary names declared intent in the glossary's words: testable_declared and an invariant tally's without_obligations, and no key says verified"
 }
 
 behavior te_coverage_gate "Proof Coverage Gate" {
