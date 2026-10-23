@@ -65,7 +65,6 @@ fn an_init_whose_version_holds_a_quote_formats_and_checks_clean() {
     behavior = "scaffold_starter_spec_file",
     verify = "the product starter's journey flow is a list of steps"
 )]
-#[ignore = "flipped by T4"]
 fn the_product_starters_flow_is_a_list_of_steps() {
     let starter = include_str!("../../../../extensions/product/src/starter.spec")
         .replace("{project}", "demo")
