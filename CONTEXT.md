@@ -1176,6 +1176,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`@specforge/product`'s `extensions/product/src/tests/`, with `ExtensionCalls::run_command`); the
   component runtime tests a builtin only for what its vendored bytes prove: its declaration snapshots,
   that each command answers through it, and what a native test cannot hold it to (ADR 0013 D8).
+- **Target argument**: a name the call target reads from an MCP call beside the entry's own: `path`, for every
+  entry that reads a project (`specforge_mcp::target::TargetArgument`, `TargetSpec::accepted`, ADR 0033 D3). The
+  target takes it out of the call: every handler, a core tool, a prompt, an extension command or an explicit
+  extension tool, is handed the arguments without it, so none declares, reads or refuses it. No explicit extension
+  tool's input schema may declare one (`specforge_protocol_types::tool_input`): the SDK refuses to build it and the
+  host does not serve it (I017), as for a command declaring an arg named `path` (ADR 0017, [ADR 0239](docs/adr/0239-the-call-target-takes-its-own-arguments.md)).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
@@ -1204,8 +1210,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   doc comment as description, its type (how a value is read, and the JSON type listed), its default,
   and its option table or name list. The input schema (or the prompt's listed arguments) and the
   reading both derive from it: absent is the default, a value is read by its type under the arg rule
-  extension commands follow (a boolean or a count may come as a string), and an argument neither it
-  nor the call target declares is refused.
+  extension commands follow (a boolean or a count may come as a string), and an argument it does not
+  declare is refused (the call target's never reach it).
 - **Tool reply**: the one typed definition of what a core tool answers (`Reply` beside its handler,
   or the outcome document both surfaces print, `pub use … as Reply`, with MCP's own extras
   flattened beside it), deriving `Serialize` and `Shape`

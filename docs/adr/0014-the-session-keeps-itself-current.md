@@ -1,6 +1,6 @@
 # The project session keeps itself current; MCP calls name their target
 
-**Status:** accepted (2026-10-05). D5 applies to handshake sessions, D6's root is looked at again while nothing is served, D11 is superseded (ADR 0077).
+**Status:** accepted (2026-10-05). D5 applies to handshake sessions, D6's root is looked at again while nothing is served, D11 is superseded (ADR 0077). The call target takes its own arguments out of every call ([ADR 0239](0239-the-call-target-takes-its-own-arguments.md)).
 
 Amended by ADR 0092: a `path` that names another project must lie inside the served project (or, while none is served, the server's root); "another project" is a project nested in it.
 
