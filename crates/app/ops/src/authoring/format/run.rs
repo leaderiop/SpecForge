@@ -60,7 +60,8 @@ pub struct Request<'a> {
     /// directory is walked (`specforge_common::walk_spec_files`), taking the
     /// sources of each project the walk reaches, not those of a project
     /// nested in one of them, without the files their project's `exclude`
-    /// entries leave out (D3).
+    /// entries leave out (D3). A named path that names nothing (not even a dangling symlink) refuses
+    /// the run before anything is read ([`FormatField::Paths`], `file_not_found`, ADR 0242).
     pub paths: &'a [PathBuf],
     pub mode: Mode,
     /// What the run may reach (`caller.containment()`, ADR 0104): a named path that leaves it is
@@ -427,6 +428,11 @@ impl FileFailure {
     }
 }
 
+/// Nothing is at `spelled`, not even a dangling symlink (which stays a target, and fails as a read).
+fn names_nothing(spelled: &Path) -> bool {
+    matches!(std::fs::symlink_metadata(spelled), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
+}
+
 /// Format every target of `request`. Refused (`config_invalid`, nothing
 /// read or written) when the `specforge.json` of a project whose sources
 /// the run selects does not say which files they are
@@ -435,18 +441,28 @@ impl FileFailure {
 /// outcome's diagnostics, and fails [`Outcome::ok`]. A named `.spec` file
 /// selects no config: it is formatted all the same (ADR 0021 D3).
 pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
-    // Every named path is held to the containment before anything is read: relative ones are read
-    // against its root (bounded) or the process's directory (unbounded).
+    // Every named path is held to the containment, and must name something, before anything is read:
+    // relative ones are read against its root (bounded) or the process's directory (unbounded).
     let named = request
         .paths
         .iter()
         .map(|path| {
-            request
+            let held = request
                 .caller
                 .containment()
                 .resolve(path)
-                .map(|held| held.spelled)
-                .map_err(|outside| OpError::from(outside).about(FormatField::Paths))
+                .map_err(|outside| OpError::from(outside).about(FormatField::Paths))?;
+            if names_nothing(&held.spelled) {
+                let shown = path.display().to_string();
+                return Err(OpError::new(
+                    OpErrorKind::FileNotFound,
+                    crate::view::FILE_NOT_FOUND,
+                    format!("'{shown}' names no file or directory"),
+                )
+                .with_file(shown)
+                .about(FormatField::Paths));
+            }
+            Ok(held.spelled)
         })
         .collect::<Result<Vec<PathBuf>, _>>()?;
     let Targets { files, diagnostics } =

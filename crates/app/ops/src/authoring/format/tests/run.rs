@@ -103,7 +103,8 @@ fn clean_needs_every_file_read_and_canonical() {
 
     // A file that cannot be read: a failure, so not clean.
     let dir = project_with("{}", &[("spec/a.spec", canonical)]);
-    let missing = [dir.path().join("spec/missing.spec")];
+    std::fs::write(dir.path().join("spec/binary.spec"), [0xff, 0xfe]).unwrap();
+    let missing = [dir.path().join("spec/binary.spec")];
     let outcome = run(&Request {
         root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
         paths: &missing,
@@ -114,13 +115,13 @@ fn clean_needs_every_file_read_and_canonical() {
     assert!(!outcome.succeeded() && !outcome.clean());
     assert!(!outcome.found_nothing());
     assert!(matches!(&outcome.failures[0], Failure::Read { path, .. } if path == &missing[0]));
-    // A missing file is not found, and the run says so.
-    assert_eq!(outcome.failures[0].kind(), OpErrorKind::FileNotFound);
-    assert_eq!(outcome.failure_kind(), Some(OpErrorKind::FileNotFound));
+    // A file that is not text fails as an internal error, and the run says so.
+    assert_eq!(outcome.failures[0].kind(), OpErrorKind::Internal);
+    assert_eq!(outcome.failure_kind(), Some(OpErrorKind::Internal));
     let error = outcome.failures[0].to_op_error();
     assert_eq!(
         (error.kind, &*error.code),
-        (OpErrorKind::FileNotFound, crate::FILE_UNREADABLE)
+        (OpErrorKind::Internal, crate::FILE_UNREADABLE)
     );
     assert!(error.message.starts_with("failed to read "), "{error:?}");
 }
@@ -128,7 +129,8 @@ fn clean_needs_every_file_read_and_canonical() {
 #[test]
 fn a_failed_run_is_a_target_the_run_could_not_read() {
     let dir = project_with("{}", &[("spec/a.spec", MESSY)]);
-    let missing = [dir.path().join("spec/missing.spec")];
+    std::fs::write(dir.path().join("spec/binary.spec"), [0xff, 0xfe]).unwrap();
+    let missing = [dir.path().join("spec/binary.spec")];
     let outcome = run(&Request {
         root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
         paths: &missing,
@@ -139,7 +141,7 @@ fn a_failed_run_is_a_target_the_run_could_not_read() {
 
     let error = outcome.failed(false).expect("a failed run");
 
-    assert_eq!(error.kind, OpErrorKind::FileNotFound);
+    assert_eq!(error.kind, OpErrorKind::Internal);
     assert_eq!(error.code, "format_file_failed");
     assert_eq!(error.message, outcome.document(false).message.unwrap());
     assert_eq!(
@@ -210,6 +212,8 @@ fn a_locked_or_missing_file_fails_with_the_kind_the_os_gave() {
     let dir = project();
     let locked = dir.path().join("spec/a.spec");
     let missing = dir.path().join("spec/missing.spec");
+    // A dangling link names something, so it is a target; reading it finds nothing.
+    std::os::unix::fs::symlink(dir.path().join("spec/nowhere.spec"), &missing).unwrap();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
     let named = [locked.clone(), missing.clone()];
     let outcome = run(&Request {

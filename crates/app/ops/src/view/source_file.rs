@@ -12,7 +12,7 @@ use crate::{OpError, OpErrorKind};
 /// A create's file is not a project source.
 pub const NOT_A_SOURCE: &str = "not_a_source";
 
-const FILE_NOT_FOUND: &str = "file_not_found";
+pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
 /// `named`'s source key under `spec_root`, with `.` and doubled separators gone; `None` when it leaves the spec root
 /// (a `..`, or an absolute path elsewhere). A project with no spec root (one assembled in memory) keys its sources

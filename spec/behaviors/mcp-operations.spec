@@ -65,7 +65,9 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     spec files according to the canonical style.
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
     return FormatDiff entries for each changed file. The tool MUST run the
-    same format operation as specforge format. A file that cannot be read or
+    same format operation as specforge format. A path in paths that names
+    nothing MUST refuse the call before any file is read, as file_not_found
+    about paths, naming the file as spelled. A file that cannot be read or
     written MUST NOT stop the others from being formatted: the result MUST
     name it, and the call MUST be reported as failed, with the kind of
     failure the OS gave (permission_denied for a file it refused, file_not_found

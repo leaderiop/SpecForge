@@ -18,7 +18,6 @@ fn project() -> TestProject {
     behavior = "discover_format_targets",
     verify = "format refuses a path that names nothing and exits 1, so a mistyped directory fails a check"
 )]
-#[ignore = "flipped by T2"]
 fn format_refuses_a_path_that_names_nothing() {
     let project = project();
     let cli = Cli::on(&project);

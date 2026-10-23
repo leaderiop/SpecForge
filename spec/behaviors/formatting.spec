@@ -647,7 +647,8 @@ behavior discover_format_targets "Discover Format Targets" {
     of a walked file) MUST be read before any file: one that does not say
     which files are its sources refuses the whole run (config_invalid). A
     file named explicitly selects no configuration and is formatted
-    whatever specforge.json says.
+    whatever specforge.json says. A named path that names nothing MUST
+    refuse the run (file_not_found, about the paths) before any file is read.
   """
   verify unit "no arguments formats all .spec files under spec_root"
   verify unit "files the project's exclude entries leave out are not formatted"

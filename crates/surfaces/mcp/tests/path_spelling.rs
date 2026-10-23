@@ -260,7 +260,6 @@ fn a_named_file_with_nothing_served_is_no_projects_file() {
     behavior = "provide_mcp_format_tool",
     verify = "a path that names nothing refuses the call about paths, naming it"
 )]
-#[ignore = "flipped by T2"]
 fn format_refuses_a_path_that_names_nothing_about_paths() {
     let mut server = named_files();
     let reply = call_tool(

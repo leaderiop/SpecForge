@@ -333,14 +333,9 @@ fn format_fails_on_a_missing_file_as_not_found() {
 
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "file_not_found", "{error}");
-    let failures = error["data"]["failures"].as_array().unwrap();
-    assert_eq!(failures.len(), 1, "{error}");
-    assert_eq!(failures[0]["operation"], "read", "{error}");
-    assert_eq!(failures[0]["code"], "file_not_found", "{error}");
-    assert!(
-        failures[0]["file"].as_str().unwrap().ends_with("nope.spec"),
-        "{error}"
-    );
+    assert_eq!(error["argument"], "paths", "{error}");
+    assert_eq!(error["file"], "nope.spec", "{error}");
+    assert!(error["data"].get("failures").is_none(), "{error}");
 }
 
 // --- specforge.rename ---
