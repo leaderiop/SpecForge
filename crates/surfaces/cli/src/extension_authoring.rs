@@ -167,6 +167,7 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
 
     // The component the host loads, built where the candidate module's reader looks
     // for it (`WASM_TARGET`, `target_dir`: the crate's own `target/`, whatever CARGO_TARGET_DIR says).
+    // Cargo runs in the crate, so it names that directory from there, whatever `--dir`'s spelling.
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let output = match std::process::Command::new(cargo)
         .args([
@@ -176,7 +177,7 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
             WASM_TARGET,
             "--target-dir",
         ])
-        .arg(target_dir(path))
+        .arg(target_dir(Path::new("")))
         .current_dir(path)
         .output()
     {

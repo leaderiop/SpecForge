@@ -66,7 +66,8 @@ behavior build_wasm_extension "Build Wasm Extension" {
   contract """
     When specforge extension build is invoked, the system MUST compile
     the extension crate to a wasm32-wasip2 component (cargo build
-    --release --target wasm32-wasip2) and name the component it built.
+    --release --target wasm32-wasip2) and name the component it built, read
+    where it built it whether --dir is relative or absolute.
     Build errors MUST be reported as ExtensionError diagnostics (E040).
     Before compiling, it MUST check that the extension project
     structure exists and fail with a diagnostic when it doesn't.

@@ -295,7 +295,6 @@ fn extension_build_reports_a_failed_build() {
 }
 
 /// `init` prints `extension build --dir <relative>`; the build reads the component where cargo built it.
-#[ignore = "flipped by T3"]
 #[specforge_test(
     behavior = "build_wasm_extension",
     verify = "specforge extension build with a relative --dir reads the component it built"
