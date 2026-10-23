@@ -24,16 +24,19 @@ pub fn command(template: &str, values: &[&str]) -> String {
     out
 }
 
-/// `text` with each control character (`char::is_control`: C0, DEL, C1) written as its escape
-/// (`\n`, `\u{1b}`); the text itself when it holds none.
+/// `text` with each control character (`char::is_control`: C0, DEL, C1) and each bidirectional
+/// control (U+200E, U+200F, U+202A-U+202E, U+2066-U+2069) written as its escape (`\n`, `\u{1b}`);
+/// the text itself when it holds none. The form of any text another program supplies (a lock, a
+/// registry's reply or error) in a message or a listing: it cannot move a terminal's cursor, set its
+/// title, write a line of its own or reorder what is shown (ADR 0230, 0231).
 pub fn printable(text: &str) -> Cow<'_, str> {
-    if !text.contains(char::is_control) {
+    if !text.contains(is_unprintable) {
         return Cow::Borrowed(text);
     }
     Cow::Owned(
         text.chars()
             .map(|c| {
-                if c.is_control() {
+                if is_unprintable(c) {
                     c.escape_default().to_string()
                 } else {
                     c.to_string()
@@ -41,6 +44,13 @@ pub fn printable(text: &str) -> Cow<'_, str> {
             })
             .collect(),
     )
+}
+
+/// A character a terminal acts on, or one that reorders how the text around it is shown
+/// ("Trojan Source").
+fn is_unprintable(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 
 fn word(value: &str) -> String {
@@ -105,6 +115,19 @@ mod tests {
         assert!(matches!(printable("plain"), Cow::Borrowed("plain")));
         let word = command("specforge add {}", &["x\ny"]);
         assert_eq!(word, "specforge add 'x\\ny'");
+    }
+
+    #[test]
+    fn a_bidirectional_control_is_written_as_its_escape() {
+        let shown = printable("a\u{202e}b\u{2066}c");
+        assert_eq!(shown, "a\\u{202e}b\\u{2066}c");
+        assert!(!shown.contains(is_unprintable));
+    }
+
+    #[test]
+    fn printable_is_idempotent() {
+        let once = printable("nice \u{1b}[2J\u{1b}]0;pwned\u{7}\n\u{202e}");
+        assert_eq!(printable(&once), once);
     }
 
     #[cfg(unix)]
