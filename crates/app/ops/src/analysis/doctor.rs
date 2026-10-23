@@ -136,10 +136,13 @@ impl Finding {
         let code = &diagnostic.code;
         let fallback = match about {
             About::Conflict { .. } => format!(
-                "uninstall or reconfigure one of the conflicting extensions \
-                 (`specforge explain {code}`)"
+                "uninstall or reconfigure one of the conflicting extensions (`{}`)",
+                specforge_common::remedy::command("specforge explain {}", &[code])
             ),
-            _ => format!("run `specforge explain {code}`"),
+            _ => format!(
+                "run `{}`",
+                specforge_common::remedy::command("specforge explain {}", &[code])
+            ),
         };
         Finding {
             status: FindingStatus::of(diagnostic.severity),
@@ -398,7 +401,10 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
             status: FindingStatus::Error,
             code: LOCK_UNREADABLE.into(),
             remediation: remediation(problem, || {
-                format!("run `specforge explain {}`", problem.code)
+                format!(
+                    "run `{}`",
+                    specforge_common::remedy::command("specforge explain {}", &[&problem.code])
+                )
             }),
         });
     }

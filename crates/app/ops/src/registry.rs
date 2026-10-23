@@ -147,8 +147,8 @@ impl<'a> LockedPin<'a> {
         )
         .with_suggestion(format!(
             "a published version never changes: check the registry that serves '{name}'; to install \
-             the bytes it serves instead, remove the extension (`specforge remove {name}`) and add it \
-             again"
+             the bytes it serves instead, remove the extension (`{}`) and add it again",
+            specforge_common::remedy::command("specforge remove {}", &[name.as_str()])
         )))
     }
 }

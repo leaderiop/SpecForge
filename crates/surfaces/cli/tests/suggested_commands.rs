@@ -144,7 +144,6 @@ fn the_next_steps_name_a_directory_with_a_space_as_one_shell_word() {
     behavior = "publish_to_registry",
     verify = "a publish refused for want of a credential names the login command with the registry alias as one shell word"
 )]
-#[ignore = "flipped by T7"]
 fn a_registry_alias_is_named_as_one_shell_word_in_the_login_remedy() {
     let project = TestProject::new()
         .config(|c| {

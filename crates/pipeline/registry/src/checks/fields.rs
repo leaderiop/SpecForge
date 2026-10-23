@@ -86,7 +86,8 @@ pub(super) fn unknown(
             }
             let suggestion = candidates.field_owner(kind, field_name).map(|ext| {
                 format!(
-                    "{ext} declares '{field_name}' on '{kind}': install it with: specforge add {ext}"
+                    "{ext} declares '{field_name}' on '{kind}': install it with: {}",
+                    specforge_common::remedy::command("specforge add {}", &[ext])
                 )
             });
             let mut diagnostic = Diagnostic::new(

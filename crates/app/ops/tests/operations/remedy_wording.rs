@@ -4,6 +4,11 @@
 //! `z3`) precedes it in its clause: a whole command reads the same on every surface. The diagnostic catalog's
 //! explanations are exempt: they name each surface's spelling side by side.
 //!
+//! A command a remedy names with a value is written by `specforge_common::remedy::command`, never by hand
+//! (ADR 0230): a literal below the surfaces holding `specforge <subcommand> … {value}` is refused, since the value
+//! it pastes may be a lock entry, a `specforge.json` entry or a declaration. The template of a `remedy::command`
+//! call is the one literal allowed to hold a `{}`.
+//!
 //! A command's declared description is read from the committed `describe_surfaces.json` of each builtin (ADR 0135 D5).
 //!
 //! Not seen: strings built at run time from pieces (`format!("--{}", name)`), text coming from extensions, and the
@@ -16,6 +21,48 @@ use syn::visit::Visit;
 
 const LAYERS: [&str; 7] = [
     "leaf", "kernel", "pipeline", "runtime", "session", "app", "adapters",
+];
+/// The CLI's subcommands, from `specforge --help`. A new subcommand is not guarded until it is added here.
+const SUBCOMMANDS: [&str; 39] = [
+    "init",
+    "check",
+    "export",
+    "schema",
+    "model",
+    "outline",
+    "query",
+    "trace",
+    "format",
+    "stats",
+    "explore",
+    "review",
+    "infer-guide",
+    "add",
+    "remove",
+    "extensions",
+    "publish",
+    "search",
+    "analyze",
+    "watch",
+    "new",
+    "set",
+    "unset",
+    "link",
+    "unlink",
+    "delete",
+    "update",
+    "login",
+    "logout",
+    "providers",
+    "collect",
+    "doctor",
+    "mcp",
+    "migrate",
+    "completions",
+    "explain",
+    "infer-status",
+    "extension",
+    "help",
 ];
 const PROGRAMS: [&str; 3] = ["specforge ", "cargo ", "z3 "];
 /// Relative to `crates/`.
@@ -87,18 +134,56 @@ struct Literals(Vec<String>);
 
 impl Literals {
     fn tokens(&mut self, tokens: TokenStream) {
+        // The last four trees before this one: `remedy :: command` then its argument group.
+        let mut trail: Vec<String> = Vec::new();
         for tree in tokens {
-            match tree {
-                TokenTree::Group(group) => self.tokens(group.stream()),
+            match &tree {
+                TokenTree::Group(group) => {
+                    let template = trail.ends_with(&[
+                        "remedy".into(),
+                        ":".into(),
+                        ":".into(),
+                        "command".into(),
+                    ]);
+                    if template {
+                        // The writer's template is not a hand-written command: skip its first literal.
+                        let mut rest = group.stream().into_iter();
+                        let first = rest.next();
+                        if !matches!(first, Some(TokenTree::Literal(_))) {
+                            self.tokens(first.into_iter().collect());
+                        }
+                        self.tokens(rest.collect());
+                    } else {
+                        self.tokens(group.stream());
+                    }
+                }
                 TokenTree::Literal(literal) => {
-                    if let syn::Lit::Str(text) = syn::Lit::new(literal) {
+                    if let syn::Lit::Str(text) = syn::Lit::new(literal.clone()) {
                         self.0.push(text.value());
                     }
                 }
                 _ => {}
             }
+            trail.push(tree.to_string());
+            if trail.len() > 4 {
+                trail.remove(0);
+            }
         }
     }
+}
+
+/// Whether `func` is `…remedy::command`.
+fn is_remedy_command(func: &syn::Expr) -> bool {
+    let syn::Expr::Path(path) = func else {
+        return false;
+    };
+    let names: Vec<_> = path
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    names.ends_with(&["remedy".into(), "command".into()])
 }
 
 impl<'ast> Visit<'ast> for Literals {
@@ -113,6 +198,17 @@ impl<'ast> Visit<'ast> for Literals {
         });
         if !cfg_test {
             syn::visit::visit_item_mod(self, item);
+        }
+    }
+
+    fn visit_expr_call(&mut self, call: &'ast syn::ExprCall) {
+        if is_remedy_command(&call.func) {
+            // The first argument is the template; the values after it are visited as any expression.
+            for value in call.args.iter().skip(1) {
+                self.visit_expr(value);
+            }
+        } else {
+            syn::visit::visit_expr_call(self, call);
         }
     }
 
@@ -179,6 +275,90 @@ fn no_message_below_the_surfaces_names_a_bare_flag() {
         offenders.len(),
         offenders.join("\n")
     );
+}
+
+/// The clauses in `text` that write a value into a `specforge <subcommand>` command by hand: the clause (up to the
+/// first backtick, `,`, `;`, `(`, `)` or line end) after a `specforge ` whose first word is a subcommand, holding a `{` that
+/// is not a doubled `{{`.
+fn hand_written_commands(text: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    for (at, _) in text.match_indices("specforge ") {
+        if text[..at].ends_with(|c: char| c.is_alphanumeric() || c == '.' || c == '-') {
+            continue;
+        }
+        let rest = &text[at + "specforge ".len()..];
+        let clause = &rest[..rest
+            .find(['`', ',', ';', '(', ')', '\n'])
+            .unwrap_or(rest.len())];
+        let first = clause.split_whitespace().next().unwrap_or_default();
+        if SUBCOMMANDS.contains(&first) && clause.replace("{{", "").contains('{') {
+            found.push(clause);
+        }
+    }
+    found
+}
+
+#[test]
+fn no_command_below_the_surfaces_writes_a_value_by_hand() {
+    let crates = specforge_repo_root::repo_root().join("crates");
+    let mut offenders = Vec::new();
+    for path in source_files() {
+        let relative = path.strip_prefix(&crates).unwrap().display().to_string();
+        let source = std::fs::read_to_string(&path).unwrap();
+        let found = literals(&source).unwrap_or_else(|error| panic!("{relative}: {error}"));
+        for text in &found {
+            for clause in hand_written_commands(text) {
+                offenders.push(format!("{relative}: {clause}"));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "{} commands write a value by hand; use specforge_common::remedy::command (ADR 0230):\n{}",
+        offenders.len(),
+        offenders.join("\n")
+    );
+}
+
+#[test]
+fn a_command_clause_holding_a_placeholder_is_written_by_hand() {
+    for refused in [
+        "install it with: specforge add {peer}",
+        "remove that entry first: specforge remove {path}",
+        "(`specforge explain {}`)",
+        "run: specforge login --registry {} --token <T>",
+    ] {
+        assert!(!hand_written_commands(refused).is_empty(), "{refused}");
+    }
+    for allowed in [
+        "no specforge project at {}",
+        "failed to load specforge grammar: {e}",
+        "this specforge build's builtin extensions are broken",
+        "rewrite it with `specforge check --cache`, or delete {FILE}",
+        "run: specforge login --registry <alias> --token <NEW_TOKEN> (for {root})",
+        "specforge update --major moves them together",
+        "{{literal braces}} specforge add {{x}}",
+        "specforge.json {path}",
+        "specforge check\n\nspec \"{project}\" {",
+    ] {
+        assert!(hand_written_commands(allowed).is_empty(), "{allowed}");
+    }
+}
+
+#[test]
+fn the_remedy_writers_templates_are_not_literals() {
+    let source = r#"
+        fn f(x: &str) -> String {
+            let a = specforge_common::remedy::command("specforge add {}", &[x]);
+            let b = format!("run `{}`", remedy::command("specforge login --registry {} --token <TOKEN>", &[x]));
+            let c = "specforge add {x}";
+            a + &b + c
+        }
+    "#;
+    let found = literals(source).unwrap();
+    // Only the hand-written literals are read: the templates (and their --flags) are the writer's.
+    assert_eq!(found, ["run `{}`", "specforge add {x}"]);
+    assert!(bare_flags("specforge login --registry {} --token <TOKEN>").is_empty());
 }
 
 /// Every string value of every `describe_surfaces.json` snapshot of a builtin or a fixture, as `snapshot-dir: text`,

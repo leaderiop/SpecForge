@@ -93,8 +93,8 @@ impl Installable {
         let declaration = read_declaration(runtime, module.bytes())?.declaration;
         not_a_builtins_name(declaration.name()).map_err(|e| {
             e.with_suggestion(format!(
-                "enable the builtin instead: specforge add {}",
-                declaration.name()
+                "enable the builtin instead: {}",
+                specforge_common::remedy::command("specforge add {}", &[declaration.name()])
             ))
         })?;
         Ok(Installable {

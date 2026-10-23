@@ -280,7 +280,10 @@ impl LoadProblem {
                     "extension '{name}' is enabled in specforge.json but not installed (no specforge.lock entry)"
                 ),
             )
-            .with_suggestion(format!("install it with: specforge add {name}")),
+            .with_suggestion(format!(
+                "install it with: {}",
+                specforge_common::remedy::command("specforge add {}", &[name])
+            )),
             LoadProblem::LockUnreadable => Diagnostic::new(
                 codes::E028,
                 format!(
@@ -288,7 +291,8 @@ impl LoadProblem {
                 ),
             )
             .with_suggestion(format!(
-                "fix specforge.lock, or delete it and install the extension again: specforge add {name}"
+                "fix specforge.lock, or delete it and install the extension again: {}",
+                specforge_common::remedy::command("specforge add {}", &[name])
             )),
             LoadProblem::ModuleMissing { path } => Diagnostic::new(
                 codes::E028,

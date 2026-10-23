@@ -140,16 +140,16 @@ fn run_init(path: &Path, name: Option<&str>, format: OutputFormat, terminal: &Te
             outln!(terminal);
             outln!(terminal, "next steps:");
             let dir = ext_dir.display().to_string();
-            for command in ["build", "validate"] {
-                outln!(
-                    terminal,
-                    "  {}",
-                    specforge_common::remedy::command(
-                        &format!("specforge extension {command} --dir {{}}"),
-                        &[&dir]
-                    )
-                );
-            }
+            outln!(
+                terminal,
+                "  {}",
+                specforge_common::remedy::command("specforge extension build --dir {}", &[&dir])
+            );
+            outln!(
+                terminal,
+                "  {}",
+                specforge_common::remedy::command("specforge extension validate --dir {}", &[&dir])
+            );
         }
     }
     Exit::Passed

@@ -131,8 +131,9 @@ fn unsigned_for_an_expected_key(name: &PackageName, expected: &str, from: Expect
         message,
         format!(
             "a package its publisher signs does not arrive unsigned: check the registry that serves \
-             '{name}'; if its publisher stopped signing it, remove the extension (`specforge remove \
-             {name}`) and its pin in ~/.specforge/known-keys.json, then add it again"
+             '{name}'; if its publisher stopped signing it, remove the extension (`{}`) and its \
+             pin in ~/.specforge/known-keys.json, then add it again",
+            specforge_common::remedy::command("specforge remove {}", &[name.as_str()])
         ),
     )
 }

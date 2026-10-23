@@ -113,8 +113,11 @@ impl ConfiguredRegistry {
                     format!("no credential for registry '{}'", registry.alias),
                 )
                 .with_suggestion(format!(
-                    "log in with `specforge login --registry {} --token <TOKEN>`, or set {TOKEN_VARIABLE}",
-                    registry.alias
+                    "log in with `{}`, or set {TOKEN_VARIABLE}",
+                    specforge_common::remedy::command(
+                        "specforge login --registry {} --token <TOKEN>",
+                        &[&registry.alias]
+                    )
                 ))
             })
     }
