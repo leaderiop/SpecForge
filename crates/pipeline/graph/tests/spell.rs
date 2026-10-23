@@ -245,3 +245,32 @@ fn is_date_holds_only_calendar_days() {
         assert_eq!(spell::is_date(text), expected, "{text}");
     }
 }
+
+#[test]
+fn each_declared_type_has_one_form() {
+    for field_type in FieldType::ALL {
+        let form = FieldForm::new(*field_type, vec![]);
+        for text in [
+            "command",
+            "true",
+            "two words",
+            "gh.issue:7",
+            "a\"b",
+            "",
+            "42",
+            "2026-03-01",
+            "2026-02-30",
+            "x-y",
+        ] {
+            let expected = match (field_type, text.trim().parse::<i64>()) {
+                (FieldType::Integer, Ok(n)) => n.to_string(),
+                _ => spell::spelled(text, spell::form(&form, text)),
+            };
+            assert_eq!(
+                spell::value(&form, text),
+                expected,
+                "{field_type:?} {text:?}"
+            );
+        }
+    }
+}

@@ -1,15 +1,16 @@
 //! How a value is spelled in `.spec` text (ADR 0147, ADR 0153): the one escape table ([`escaped`], [`quoted`]), the
 //! one rule for when a value may stand bare, and each declared type's one-line spelling. `FieldForms::rewrite`
 //! (format's rewrite and W159), the typed-edit writer and create, migrate's `titles` step, W159's message and init's
-//! starter read it; nothing else quotes a value. It also says where a quoted value writes the id it reads
+//! starter read it; nothing else quotes a value. [`form`] is the one table that says how a declared type writes a
+//! text. It also says where a quoted value writes the id it reads
 //! ([`id_span`]).
 
 use specforge_common::SourceSpan;
-use specforge_parser::Written;
 use specforge_parser::lex::is_entity_id;
+use specforge_parser::{FieldEntry, FieldValue, Written};
 use specforge_protocol_types::FieldType;
 
-use super::{FieldForm, is_word};
+use super::{FieldForm, FieldForms, Reading, is_word};
 
 /// `text` as the inside of a one-line `"…"`: `\`, `"`, line feed, tab and carriage return escaped, every other
 /// character as it is. What a template writes between quotes; [`quoted`] is this between two `"`.
@@ -102,30 +103,110 @@ pub fn is_date(text: &str) -> bool {
     (1..=last).contains(&day)
 }
 
-/// How `text`, one value of a field of `form` or one item of its list, is written on one line:
+/// How a field of `form` writes `text`, one value or one item of its list: the one table (ADR 0234).
 ///
 /// | declared | written |
 /// |---|---|
-/// | `integer` | the integer, when `text` is one; else quoted (E061 reports it) |
-/// | `bool` | `true` / `false`; anything else quoted (E061) |
-/// | `date` | a calendar day, bare ([`is_date`]); anything else quoted (E061) |
-/// | `string_list` item | a scheme ref id bare (it then names an entity, ADR 0093); else quoted |
-/// | `reference_list` item | an entity id bare (a word or a scheme ref id), never `true` / `false`; else quoted |
+/// | `integer` | a literal when `text` is an integer; else quoted (E061 reports it) |
+/// | `bool` | a literal when `true` / `false`; else quoted (E061) |
+/// | `date` | a literal when [`is_date`]; else quoted (E061) |
+/// | `string_list` item | a scheme ref id as a scheme ref (it then names an entity, ADR 0093); else quoted |
+/// | `reference_list` item | an entity id bare ([`holds_bare`]: a word or a scheme ref id), never `true` / `false`; else quoted |
 /// | `reference`, `enum`, `identifier` | bare when [`holds_bare`] (a word); else quoted |
 /// | `string`, `block` | quoted |
-pub fn value(form: &FieldForm, text: &str) -> String {
+pub fn form(form: &FieldForm, text: &str) -> Written {
     let field_type = form.field_type();
     match field_type {
-        FieldType::Integer => text
-            .trim()
-            .parse::<i64>()
-            .map_or_else(|_| quoted(text), |n| n.to_string()),
-        FieldType::Bool if matches!(text, "true" | "false") => text.to_string(),
-        FieldType::Date if is_date(text) => text.to_string(),
-        FieldType::StringList if text.contains(':') && is_entity_id(text) => text.to_string(),
-        _ => match form.written() {
-            Some(Written::Bare) if holds_bare(field_type, text) => text.to_string(),
-            _ => quoted(text),
-        },
+        FieldType::Integer if text.trim().parse::<i64>().is_ok() => Written::Literal,
+        FieldType::Bool if matches!(text, "true" | "false") => Written::Literal,
+        FieldType::Date if is_date(text) => Written::Literal,
+        FieldType::StringList if text.contains(':') && is_entity_id(text) => Written::SchemeRef,
+        FieldType::Enum
+        | FieldType::Identifier
+        | FieldType::Reference
+        | FieldType::ReferenceList
+            if holds_bare(field_type, text) =>
+        {
+            Written::Bare
+        }
+        _ => Written::Quoted,
+    }
+}
+
+/// `text`, one value of a field of `form` or one item of its list, written on one line in the form [`form`] says
+/// (an integer as the number it parses to).
+pub fn value(form: &FieldForm, text: &str) -> String {
+    match (form.field_type(), text.trim().parse::<i64>()) {
+        (FieldType::Integer, Ok(n)) => n.to_string(),
+        _ => spelled(text, self::form(form, text)),
+    }
+}
+
+/// A value written in the other form than its field's: where it is (quotes included), its text, and the form it
+/// takes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rewrite {
+    pub span: SourceSpan,
+    pub text: String,
+    pub to: Written,
+}
+
+impl FieldForms {
+    /// The form `kind`'s field `field` writes a value in, when `written`/`text`
+    /// is not it (ADR 0147); `None` leaves the value as written: the field
+    /// has no declared form, the value is already in it or is neither bare
+    /// nor quoted, a bare form cannot hold `text` ([`holds_bare`]: not
+    /// a word (on a `reference_list` not an entity id), or `true` / `false`, which would read back as a
+    /// boolean), or a bare word sits on
+    /// a kind that takes members (it may be a member's type).
+    pub fn rewrite(
+        &self,
+        kind: &str,
+        field: &str,
+        written: Written,
+        text: &str,
+    ) -> Option<Written> {
+        let Reading::Declared(form) = self.reading(kind, field) else {
+            return None;
+        };
+        if matches!(
+            form.field_type(),
+            FieldType::Integer | FieldType::Bool | FieldType::Date | FieldType::Block
+        ) {
+            return None;
+        }
+        // A quoted scheme ref id on a string list is text; unquoted it would name an entity (ADR 0093).
+        let to = match self::form(form, text) {
+            Written::SchemeRef => Written::Quoted,
+            to => to,
+        };
+        if written == to || !matches!(written, Written::Bare | Written::Quoted) {
+            return None;
+        }
+        (to == Written::Bare || !self.member_kinds.contains(kind)).then_some(to)
+    }
+
+    /// Every value of `entry` (a scalar, or each list item) that
+    /// [`Self::rewrite`] would write otherwise, in source order. A scalar
+    /// without a value span is reported at `fallback`.
+    pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
+        let field = entry.key.as_str();
+        let one = |written, text: &str, span: &SourceSpan| {
+            self.rewrite(kind, field, written, text).map(|to| Rewrite {
+                span: span.clone(),
+                text: text.to_string(),
+                to,
+            })
+        };
+        let span = entry.value_span.as_ref().unwrap_or(fallback);
+        match &entry.value {
+            FieldValue::String(text) => one(Written::Quoted, text, span).into_iter().collect(),
+            FieldValue::Identifier(text) => one(Written::Bare, text, span).into_iter().collect(),
+            FieldValue::List(items) => items
+                .iter()
+                .filter_map(|item| one(item.written, &item.text, &item.span))
+                .collect(),
+            _ => Vec::new(),
+        }
     }
 }
