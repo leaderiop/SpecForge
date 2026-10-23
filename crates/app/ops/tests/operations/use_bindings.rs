@@ -51,7 +51,6 @@ fn rename_edits_a_use_binding_and_never_its_alias() {
     );
 }
 
-#[ignore = "flipped by T6"]
 #[specforge_test(
     behavior = "delete_entity",
     verify = "delete with unlink_references removes a use binding that imports it"

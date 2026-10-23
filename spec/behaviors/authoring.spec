@@ -181,6 +181,8 @@ behavior delete_entity "Delete an Entity" {
     in a defaults block, in a field its kind does not declare or as a type name
     a derived field reads, refuses the delete as not_editable, naming where it
     is written.
+    A use binding that imports the entity is removed, its statement with it
+    when it was the last (ADR 0233).
   """
   verify unit "delete removes the block and the comment above it"
   verify unit "delete keeps the format header above the block"
