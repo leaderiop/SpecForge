@@ -85,7 +85,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   version, after the header rewrite (`specforge_migrate`'s `titles` and `defaults`).
   The plan reads the environment the judge compiles in: the defaults step hoists only what `FileDefaults` applies
   under its field forms (ADR 0186, amended). The graph comparison keeps exactly the changes the steps declare: for
-  `titles`, a title where the block had none.
+  `titles`, a title where the block had none. Every block a step adds or changes is then laid out by the formatter with its file's
+  **Format configuration** and the project's field forms (**Changed block**, ADR 0235); the steps write raw text.
+- **Changed block**: a block of a migration's planned text that the text read has no block of its kind, id and rank
+  for, or whose lines differ from that block's: what a migration lays out (`specforge_migrate`'s `layout::lay_out`,
+  ADR 0235). A file with none is skipped as it is.
 - **Added error**: an error the edited compile reports that the checked report has no diagnostic left to pair, by code,
   severity, file and message with its digits collapsed (ADR 0211); the one rule behind E080 and a migration's refusal.
 - **Migration verdict**: whether a planned migration is kept, decided before anything is written: its hooks pass, and
@@ -1044,7 +1048,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   LSP all format through `specforge_ops::authoring::format::document` (ADR 0021); it is looked up by `Configs`, through
   the disk the caller hands it (ADR 0169): over MCP a `.specforgefmt.toml` that leaves the project or has more than one
   name is a W141 and the defaults apply. A typed edit lays a multi-line value out with it, looked up once per plan
-  through its view's disk (`Site::config`, ADR 0153, ADR 0169). Its values are written in the field forms of the same
+  through its view's disk (`Site::config`, ADR 0153, ADR 0169). A migration lays out each **Changed block** with it, looked up once per run through the run's bound
+  (ADR 0235). Its values are written in the field forms of the same
   project (**Lent forms**).
 - **Formatted document**: one `.spec` text formatted with its format configuration, whole or in the
   blocks a range touches (`specforge_ops::authoring::format::document` → `FormattedDocument`): the formatted text,
