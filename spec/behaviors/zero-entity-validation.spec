@@ -110,6 +110,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
   verify unit "an edge rule over an edge type several kinds write without declaring it counts the edges of every writing kind"
   verify unit "an edge rule does not count an edge of another edge type, whatever kinds it links"
+  verify unit "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
+  verify unit "one mistyped id is E003 alone: no builtin edge rule reports the entity whose field writes it"
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
