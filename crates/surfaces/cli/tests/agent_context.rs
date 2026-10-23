@@ -19,6 +19,7 @@ fn assert_one_agent_context(project: TestProject) {
         .as_array()
         .unwrap()
         .iter()
+        .filter(|e| e["kind"] != "spec") // a spec's id (`todo-app`) is no entity ID
         .map(|e| e["id"].as_str().unwrap().to_string())
         .collect();
     assert!(ids.len() > 1, "{listed}");
@@ -29,6 +30,7 @@ fn assert_one_agent_context(project: TestProject) {
         ];
         let [export, prompt]: [Value; 2] = mcp_calls(&mut served, &calls).try_into().unwrap();
         let node = &export["nodes"][0];
+        assert!(!node.is_null(), "{export}");
         let payload: Value =
             serde_json::from_str(prompt["messages"][1]["content"]["text"].as_str().unwrap())
                 .unwrap();
@@ -80,7 +82,6 @@ fn assert_one_agent_context(project: TestProject) {
     behavior = "export_agent_context_format",
     verify = "the context export and the context prompt carry the same members of every entity"
 )]
-#[ignore = "flipped by T2"]
 fn the_context_export_and_prompt_carry_the_same_members() {
     assert_one_agent_context(TestProject::copy_of(
         specforge_repo_root::repo_root().join("examples/todo-app"),

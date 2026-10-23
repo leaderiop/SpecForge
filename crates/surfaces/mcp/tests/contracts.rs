@@ -392,8 +392,8 @@ fn contract_export() {
         json!([{"kind": "unit", "description": "works"}])
     );
     assert!(
-        alpha.get("fields").is_none(),
-        "context flattens fields: {alpha}"
+        alpha["fields"].get("contract").is_none(),
+        "context lifts the contract, not repeats it: {alpha}"
     );
 
     let brief = tool(&mut server, "specforge.export", json!({"format": "brief"}));

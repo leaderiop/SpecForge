@@ -89,7 +89,7 @@ fn a_graph_node_writes_its_methods_and_its_fields_annotations() {
 
 #[specforge_test(
     behavior = "export_agent_context_format",
-    verify = "context format keeps an entity's methods and the annotations of the fields it keeps"
+    verify = "context format keeps an entity's methods and its fields' annotations"
 )]
 fn a_context_node_keeps_its_methods_and_its_fields_annotations() {
     let build = build_of(vec![
@@ -98,10 +98,13 @@ fn a_context_node_keeps_its_methods_and_its_fields_annotations() {
     ]);
     let export = crate::export(&graph(), EmitFormat::Context, Some(&build));
     assert_eq!(node(&export, "order_store")["methods"], save());
+    let graph_export = crate::export(&graph(), EmitFormat::Json, None);
+    let (context, graph_node) = (node(&export, "Order"), node(&graph_export, "Order"));
     assert_eq!(
-        node(&export, "Order")["annotations"],
-        json!({"note": [{"name": "since", "value": "1.2"}]})
+        context["annotations"], graph_node["annotations"],
+        "{context}"
     );
+    assert_eq!(context["fields"], graph_node["fields"], "{context}");
 }
 
 #[specforge_test(

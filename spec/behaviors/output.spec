@@ -1154,7 +1154,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
     validation_complete_fired "validation_complete event has fired, confirming the graph is ready for agent export"
   }
   ensures {
-    token_optimized_output  "Output omits verbose prose fields to minimize token consumption"
+    token_optimized_output  "Output leaves out source locations and the embedded schema, and writes a headline once"
     schema_version_present  "Output includes a schema_version field identifying the Graph Protocol version"
     scope_enforced          "When --scope is specified, only the reachable subgraph is returned"
     invalid_scope_diagnosed "Non-existent scope entity produces E003 and exit code 1"
@@ -1163,14 +1163,14 @@ behavior export_agent_context_format "Export Agent Context Format" {
   contract   """
     When specforge export --format=context is invoked, the system MUST produce
     a token-optimized representation of the graph containing entity IDs,
-    contracts, relationships, and coverage status. Each entity also carries
-    the fields its extension declares normative (an invariant's guarantee,
-    a decision's decision text), so every kind keeps the text that states
-    what it promises; core reads the flag and knows no field by name. The
-    fields an extension declares headline (a behavior's contract, a status)
-    sit at the entity's top level instead, each as its field text; a field no extension declares
-    headline is never lifted, whatever its name. The output MUST omit
-    verbose fields (full descriptions, prose) to minimize token consumption.
+    contracts, relationships, and coverage status. Each entity carries every
+    member it holds (its fields, the annotations written after them and its
+    methods, as the graph format writes them); the fields an extension
+    declares headline (a behavior's contract, a status) sit at the entity's
+    top level instead, each as its field text, and are not repeated; a field
+    no extension declares headline is never lifted, whatever its name. The
+    output MUST leave out each entity's source location, and the schema
+    unless asked, to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph
     Protocol version. An optional --scope parameter MUST allow scoping to
@@ -1179,13 +1179,13 @@ behavior export_agent_context_format "Export Agent Context Format" {
     and exit with code 1. When coverage metadata is available from
     compute_project_statistics, the context export MUST include
     coverage_pct and testable_entity_count in the graph metadata. An entity
-    also carries its methods under `methods`, and the annotations of the
-    fields it keeps under `annotations`, as the graph format writes them.
+    also carries its methods under `methods` and its fields' annotations
+    under `annotations`, as the graph format writes them.
   """
   verify unit "context format includes entity IDs and contracts"
-  verify unit "context format omits verbose prose fields"
-  verify unit "context format keeps each entity's normative fields"
-  verify unit "context format keeps an entity's methods and the annotations of the fields it keeps"
+  verify unit "context format leaves out each entity's source location"
+  verify unit "context format keeps every field an entity writes, its headline lifted"
+  verify unit "context format keeps an entity's methods and its fields' annotations"
   verify unit "context format lifts a headline field as its field text, whatever its written shape"
   verify integration "export --format context keeps an invariant's guarantee"
   verify integration "the context export and the context prompt carry the same members of every entity"
