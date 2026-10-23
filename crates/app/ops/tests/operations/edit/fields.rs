@@ -126,6 +126,28 @@ fn retitling_a_spec_block_is_refused_as_not_editable() {
     assert!(message.contains("spec block"), "{message}");
 }
 
+#[specforge_test_macros::test(
+    behavior = "edit_entity_field",
+    verify = "a set or unset of a spec block's field is refused not_editable: no kind declares its fields"
+)]
+#[ignore = "flipped by T12"]
+fn a_field_edit_of_a_spec_block_is_refused_as_not_editable() {
+    let c = project(&[
+        ("tasks.spec", TASKS),
+        ("guide.spec", "spec \"Guide\" {\n  version \"0.1.0\"\n}\n"),
+    ]);
+    for edit in [
+        set("Guide", "version", one("0.2.0")),
+        unset("Guide", "version"),
+    ] {
+        let (code, message) = refused(&c, &[edit]);
+        assert_eq!(code, "not_editable");
+        assert!(message.contains("'Guide' is a spec block"), "{message}");
+        assert!(message.contains("guide.spec"), "{message}");
+        assert!(!message.contains("kind 'spec'"), "{message}");
+    }
+}
+
 #[test]
 fn an_entity_that_does_not_exist_is_refused_with_a_close_match() {
     let c = tasks();

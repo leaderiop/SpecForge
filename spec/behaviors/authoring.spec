@@ -116,6 +116,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set of a new entry writes its annotations"
   verify unit "retitle replaces the header title"
   verify unit "retitle of a spec block is refused: its title is its name"
+  verify unit "a set or unset of a spec block's field is refused not_editable: no kind declares its fields"
   verify unit "retitle of an untitled union writes the title after its name, never over a variant"
   verify unit "every member edit of a union is refused as one not_editable, before its field is read"
   verify unit "retitle and delete take a union"
