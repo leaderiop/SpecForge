@@ -309,6 +309,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension declaration, the operation payloads, the extension vocabulary and the command-arg rule. Every
   builtin blob is built from it, so it holds nothing only the host reads: the host's reading of package names,
   version requirements and peer ranges is `specforge-package` (ADR 0050).
+- **SDK version**: the workspace version, which `specforge-extension-sdk`, its macros, the guest wire and the CLI
+  share. `extension init` names it, and a release publishes the three guest crates at it before its tag (ADR 0238).
+  Not the protocol version, which the handshake states and `extension validate` reports.
 - **Committed blob**: a wasm component the repository commits, at `<crate>/wasm/<artifact>` with the `inputs.json` its
   build recorded: a builtin (`extensions/<name>`, embedded in the host) or a test fixture (`fixtures/<name>`). Listed
   once, `specforge_component::committed::COMMITTED`; git tracks exactly that list. An SDK blob answers the host's
