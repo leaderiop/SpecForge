@@ -474,7 +474,6 @@ fn an_add_whose_installs_are_all_present_writes_no_lock_and_is_not_bounded_by_it
     behavior = "install_wasm_extension",
     verify = "an add of a local file whose path holds a control character is refused (E054) before anything is written"
 )]
-#[ignore = "flipped by T3"]
 fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
     use crate::config::testing::files_under;
 

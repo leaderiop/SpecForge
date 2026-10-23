@@ -23,7 +23,7 @@ fn lock_file_roundtrip() {
             LockFileEntry {
                 name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
                 version: "1.0.0".to_string(),
-                source: specforge_installed::LockSource::parse("registry"),
+                source: specforge_installed::LockSource::Registry,
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
@@ -31,7 +31,7 @@ fn lock_file_roundtrip() {
             LockFileEntry {
                 name: specforge_package::PackageName::parse("@specforge/governance").unwrap(),
                 version: "2.0.0".to_string(),
-                source: specforge_installed::LockSource::parse("local:./ext"),
+                source: specforge_installed::LockSource::parse("local:./ext").unwrap(),
                 wasm_hash: "def456".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
@@ -71,7 +71,7 @@ fn entry(name: &str, hash: &str) -> LockFileEntry {
     LockFileEntry {
         name: specforge_package::PackageName::parse(name).unwrap(),
         version: "1.0.0".to_string(),
-        source: specforge_installed::LockSource::parse("registry"),
+        source: specforge_installed::LockSource::Registry,
         wasm_hash: hash.to_string(),
         key_id: None,
         peer_dependencies: Vec::new(),

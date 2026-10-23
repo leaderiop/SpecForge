@@ -888,6 +888,9 @@ behavior read_lock_file "Read Lock File" {
     lock), and add, update and remove refuse to change what is installed
     with one refusal, that E033 and its remedy, until it is fixed or deleted, so it is never silently replaced; a
     change the lock does not decide (enabling or disabling a builtin or a .wasm file entry) still runs.
+    A lock entry's source MUST be registry or local:<path>, the path not empty and holding no control
+    character; any other source makes the lock unreadable (E033), and the message names it escaped, so no
+    diagnostic carries a control character the lock holds.
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"

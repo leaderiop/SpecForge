@@ -40,7 +40,7 @@ fn add_document_names_what_the_add_did() {
                 "sha256": "ab", "source": "registry", "key_id": "k1", "publisher": "pinned_now", "peers_enabled": []}),
         ),
         (
-            installed_from(None, LockSource::Local("x.wasm".into())),
+            installed_from(None, LockSource::local("x.wasm").unwrap()),
             serde_json::json!({"specifier": "s", "action": "installed", "extension": "@acme/x", "version": "1.0.0",
                 "sha256": "ab", "source": "local:x.wasm", "peers_enabled": []}),
         ),

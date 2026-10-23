@@ -432,15 +432,16 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed; `specforge
-update` also reports it when there is no lock file to update (run `specforge
-add` first). A lock that is there and can't be read loads no installed extension
-(each entry that needs it is E028), and every change whose answer it would
-decide is refused with this code before anything is read or written: an `add` or
-`init` that installs, any `update`, a `remove` of an extension whose origin only
-the lock could tell. Enabling or disabling a builtin, or a `.wasm` file entry,
-still works. Fix specforge.lock, or delete it and install the extensions again
-with `specforge add`.
+`specforge.lock` couldn't be serialized, written, read, or parsed (a lock
+entry's source must be `registry` or `local:<path>`, the path not empty and
+holding no control character); `specforge update` also reports it when there is
+no lock file to update (run `specforge add` first). A lock that is there and
+can't be read loads no installed extension (each entry that needs it is E028),
+and every change whose answer it would decide is refused with this code before
+anything is read or written: an `add` or `init` that installs, any `update`, a
+`remove` of an extension whose origin only the lock could tell. Enabling or
+disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock,
+or delete it and install the extensions again with `specforge add`.
 
 Owner: core
 Level: error
@@ -598,7 +599,9 @@ starting with `./`, `../` or `/`), a `git+https://...` URL, or a registry
 package `@scope/name` with an optional `@version` or `@requirement`. A registry
 package name is lowercase letters, digits, `.`, `_` or `-` in two parts that
 each start with a letter or digit. A local path that names nothing, or no
-readable component, is E040. Nothing is asked of any registry.
+readable component, is E040; a local path `specforge.lock` cannot record (one
+holding a control character) is this code, and nothing is written. Nothing is
+asked of any registry.
 
 Owner: core
 Level: error

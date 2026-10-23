@@ -59,7 +59,7 @@ mod tests {
         LockFileEntry {
             name: specforge_package::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
-            source: crate::LockSource::parse("registry"),
+            source: crate::LockSource::Registry,
             wasm_hash: hash.to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),

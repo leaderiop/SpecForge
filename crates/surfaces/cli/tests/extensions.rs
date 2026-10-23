@@ -220,7 +220,7 @@ fn extensions_json_format() {
         dir.root(),
         &[
             ("@acme/software", "1.2.0", "registry"),
-            ("@acme/governance", "1.0.0", "local"),
+            ("@acme/governance", "1.0.0", "local:ext/x.wasm"),
         ],
     );
 
@@ -241,7 +241,7 @@ fn extensions_json_format() {
     // Sorted alphabetically, governance first
     assert_eq!(extensions[0]["name"], "@acme/governance");
     assert_eq!(extensions[0]["version"], "1.0.0");
-    assert_eq!(extensions[0]["source"], "local");
+    assert_eq!(extensions[0]["source"], "local:ext/x.wasm");
 
     assert_eq!(extensions[1]["name"], "@acme/software");
     assert_eq!(extensions[1]["version"], "1.2.0");
@@ -304,7 +304,7 @@ fn extensions_contract() {
         dir.root(),
         &[
             ("@specforge/governance", "1.0.0", "registry"),
-            ("@specforge/software", "2.0.0", "local"),
+            ("@specforge/software", "2.0.0", "local:ext/y.wasm"),
         ],
     );
 

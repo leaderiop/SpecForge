@@ -27,7 +27,9 @@ pub use layout::{LOCK_FILE, lock_path};
 pub use load::{
     Builtins, EnabledExtension, LoadFailure, LoadProblem, LoadSubject, Loaded, Recorded,
 };
-pub use lock::{LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file};
+pub use lock::{
+    LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file,
+};
 pub use module::{Module, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};
 
@@ -131,7 +133,7 @@ impl Installed {
         let entry = self.lock.entries().iter().find(|e| e.name.as_str() == name);
         let specifier = match entry {
             Some(e) => match e.source.local_path() {
-                Some(path) => path.to_string(),
+                Some(path) => path.as_str().to_string(),
                 None if semver::Version::parse(version).is_ok() => format!("{name}@{version}"),
                 None => name.to_string(),
             },
@@ -183,7 +185,7 @@ mod tests {
         let entry = |name: &str, source: &str, key: Option<&str>| LockFileEntry {
             name: PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
-            source: LockSource::parse(source),
+            source: LockSource::parse(source).unwrap(),
             wasm_hash: "hash".to_string(),
             key_id: key.map(str::to_string),
             peer_dependencies: Vec::new(),
@@ -227,7 +229,7 @@ mod tests {
         let entry = |name: &str, version: &str, source: &str| LockFileEntry {
             name: specforge_package::PackageName::parse(name).unwrap(),
             version: version.to_string(),
-            source: LockSource::parse(source),
+            source: LockSource::parse(source).unwrap(),
             wasm_hash: "hash".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),

