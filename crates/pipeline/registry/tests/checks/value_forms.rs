@@ -124,3 +124,59 @@ fn a_defaults_block_below_a_block_is_still_reported_once_at_the_default() {
         )]
     );
 }
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+)]
+#[ignore = "flipped by T9"]
+fn a_number_a_boolean_a_literal_or_a_whole_value_on_a_list_field_is_w159() {
+    let found = w159(
+        "ticket t1 \"T\" {\n  points   \"3\"\n  urgent   \"true\"\n  labels   \"one\"\n  \
+         watchers t1\n  summary  7\n}\n",
+    );
+    let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "field 'points' of ticket 't1' is a number: write it bare, as points 3",
+            "field 'urgent' of ticket 't1' is true or false: write it bare, as urgent true",
+            "field 'labels' of ticket 't1' is a list: write it in brackets, as labels [\"one\"]",
+            "field 'watchers' of ticket 't1' is a list: write it in brackets, as watchers [t1]",
+            "field 'summary' of ticket 't1' is text: quote it, as summary \"7\"",
+        ]
+    );
+    assert_eq!((found[0].1, found[0].2), (2, 12), "{found:?}");
+}
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a list item's W159 writes the whole list in its field's form"
+)]
+#[ignore = "flipped by T9"]
+fn a_list_items_w159_writes_the_whole_list() {
+    let found = w159("ticket t1 \"T\" {\n  watchers [\"t1\", t1]\n}\n");
+    let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "an item of field 'watchers' of ticket 't1' is a word: write it bare, as watchers [t1, t1]"
+        ]
+    );
+}
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a multi-line text on a list field is W159, naming each line as an item"
+)]
+#[ignore = "flipped by T9"]
+fn a_multi_line_text_on_a_list_field_is_w159_naming_its_lines() {
+    let found = w159("ticket t1 \"T\" {\n  labels \"\"\"\n    one\n    two\n  \"\"\"\n}\n");
+    let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "field 'labels' of ticket 't1' is a list written as one text: write each line as its own item, as labels [\"one\", \"two\"]"
+        ]
+    );
+}

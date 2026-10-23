@@ -134,3 +134,34 @@ fn a_defaults_block_naming_an_undeclared_kind_rewrites_nothing() {
     let text = "defaults widget {\n  category \"cart\"\n}\n";
     assert_eq!(fmt_forms(text), text);
 }
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a number, a boolean, a literal and a whole value on a list field are written in their field's form"
+)]
+#[ignore = "flipped by T9"]
+fn a_number_a_boolean_a_literal_and_a_whole_value_on_a_list_are_written_in_their_form() {
+    let mut declared = HashMap::new();
+    for (field, ty) in [
+        ("points", FieldType::Integer),
+        ("urgent", FieldType::Bool),
+        ("tags", FieldType::StringList),
+        ("types", FieldType::ReferenceList),
+        ("contract", FieldType::String),
+    ] {
+        declared.insert(
+            ("behavior".to_string(), field.to_string()),
+            FieldForm::new(ty, vec![]),
+        );
+    }
+    let forms = FieldForms::new(declared, BTreeSet::new(), BTreeSet::new());
+    let format = |s: &str| format_source(s, &FormatConfig::default(), &forms).formatted;
+    let once = format(
+        "behavior b \"B\" {\n  points \"3\"\n  urgent \"true\"\n  tags \"x\"\n  types a\n  contract 7\n}\n",
+    );
+    assert_eq!(
+        once,
+        "behavior b \"B\" {\n  points   3\n  urgent   true\n  tags     [\"x\"]\n  types    [a]\n  contract \"7\"\n}\n"
+    );
+    assert_eq!(format(&once), once, "a fixed point");
+}
