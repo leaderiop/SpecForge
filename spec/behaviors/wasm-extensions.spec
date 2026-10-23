@@ -702,7 +702,11 @@ behavior run_doctor_check "Run Doctor Check" {
     keyword, as a shadowing finding. A missing or changed installed binary
     is one binary finding, whose remediation is the command that reinstalls
     it as its lock entry records it, each value one shell word, and an unreadable lock one lock finding;
-    the load diagnostics they cause are not listed again. So doctor fails
+    the load diagnostics they cause are not listed again. The binaries
+    section states that hash check only: a binary that declares another
+    extension, version or peers than its entry records is the
+    extension-load error E070, and doctor MUST NOT call the installed
+    binaries healthy beside it. So doctor fails
     whenever check fails on a diagnostic of the project's setup. The report
     MUST carry its verdict (no
     error-level finding), and specforge doctor --format json and

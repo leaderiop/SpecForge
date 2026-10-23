@@ -857,7 +857,8 @@ recorded hash (it was changed or replaced after install), or it declares another
 extension, another version or other peers than the entry records. It is not
 loaded, and `check` fails. Reinstall it with the command the suggestion names
 (`specforge add <path>` for a local install, `specforge add <name>@<version>`
-for a registry one); `specforge doctor` lists it as `stale_hash`.
+for a registry one); `specforge doctor` lists a changed binary as `stale_hash`,
+and a binary declaring other than its entry records as an extension-load error.
 
 Owner: core
 Level: error

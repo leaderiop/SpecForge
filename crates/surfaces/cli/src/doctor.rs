@@ -168,7 +168,7 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     );
     let mut binaries = report.about(Part::Binary).peekable();
     if binaries.peek().is_none() {
-        line!("  All installed binaries healthy.");
+        line!("  Every binary matches the hash its lock entry pins.");
     }
     for finding in binaries {
         let About::Binary { issue } = &finding.about else {

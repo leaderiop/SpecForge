@@ -19,7 +19,8 @@ pub enum Health {
 
 impl Installed {
     /// Every lock entry checked: its module present and the one the lock pins. Healthy entries are
-    /// absent. Peers are the compile's (ADR 0041).
+    /// absent. What a module declares (E070, ADR 0217) needs it loaded and is the load's to report;
+    /// peers are the compile's (ADR 0041).
     pub fn health(&self) -> Vec<Health> {
         self.lock()
             .entries()
@@ -28,8 +29,8 @@ impl Installed {
             .collect()
     }
 
-    /// What is wrong with `entry`'s module, if anything: the check the
-    /// load makes, so the two cannot disagree.
+    /// What is wrong with `entry`'s module, if anything: the load's first check (the module
+    /// present, its hash the one the lock pins), so the two cannot disagree.
     fn module_health(&self, entry: &LockFileEntry) -> Option<Health> {
         let name = entry.name.to_string();
         match self.check_module(entry, &PlainDisk) {
