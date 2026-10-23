@@ -69,6 +69,21 @@ measurement: no gate reads it
 property tests run 256 cases per run; the deep run is `PROPTEST_CASES=20000 cargo test -p specforge-parser -p
 specforge-formatter --test tests` (about 4 minutes; nextest's 60 s timeout is too short for it).
 
+## Releasing
+
+The user's checklist; no agent runs it.
+
+1. Set `[workspace.package] version` in `Cargo.toml` and the three `version =` requirements on the SDK's and
+   macros' path dependencies (the build refuses a mismatch). Update the docs lines
+   `crates/runtime/extension-sdk/tests/docs.rs` names. Then run `cargo run -p xtask --bin revendor` (the
+   version is a blob input).
+2. From the commit you will tag, publish the three guest crates (a crates.io login is needed; cargo publishes
+   them in dependency order):
+   `cargo publish -p specforge-protocol-types -p specforge-extension-sdk-macros -p specforge-extension-sdk`
+3. `git tag v<version> && git push origin v<version>`. `release.yml` checks the tag against the version, builds
+   the binaries, builds a fresh scaffold against crates.io (no Release without it), then creates the GitHub
+   Release and the Homebrew formula.
+
 ## Where things are
 
 The repository tracks what ships and what builds, tests or documents it, and nothing else
