@@ -175,21 +175,6 @@
     },
     {
       "check": "field_value_constraint",
-      "code": "I053",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "target_date",
-      "message_template": "milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD",
-      "severity": "info",
-      "target_kind": "milestone",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
       "code": "I061",
       "constraint": {
         "kind": "matches",
@@ -351,36 +336,6 @@
       "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
       "severity": "info",
       "target_kind": "release",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "I086",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "release_date",
-      "message_template": "release '{id}' has release_date '{value}' — expected YYYY-MM-DD",
-      "severity": "info",
-      "target_kind": "release",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "I087",
-      "constraint": {
-        "kind": "matches",
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-        "values": []
-      },
-      "edge_type": null,
-      "field": "start_date",
-      "message_template": "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD",
-      "severity": "info",
-      "target_kind": "milestone",
       "wasm_function": null
     },
     {

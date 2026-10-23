@@ -1,6 +1,6 @@
 {
   "artifact": "docref.wasm",
-  "artifact_sha256": "d992aa6d306655aa99ebaa976fc7f40bbc498221f58c57d23a075af3f1871b69",
+  "artifact_sha256": "1cb2df8020d454e14553e5a1d8e3fd87d1d00b51fba96449b80daa57ce0148b8",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "52364f99354a8a7632b04447fb28097422e9be69bf8730e400b1d3cf5f87c7cc",
@@ -8,8 +8,8 @@
     "crates/leaf/protocol-types/src/calls.rs": "f89f21d2b55ebba843d01fb76850fd524d20e9b0abc398f17b51ff9ed65f35b0",
     "crates/leaf/protocol-types/src/command_args.rs": "dfb15939e9da35bf8e321a7bb23c95e8bd3602ded60b392d3a1ac2f043c041a9",
     "crates/leaf/protocol-types/src/declaration.rs": "efbb1fe12cb0a26b393113206ecc96daefa0abf8869e58ea72d06fe5a0d8455c",
-    "crates/leaf/protocol-types/src/lib.rs": "2d2e1ae6433a6125f5636a40d804838681a6cc21886e11ebe464158b0cf3ebe4",
-    "crates/leaf/protocol-types/src/vocabulary.rs": "a9f436e4fe11a724bfddd0eeeae0a2db8c1cac8e8f49e0f1cf89e74a8e8b224b",
+    "crates/leaf/protocol-types/src/lib.rs": "85ad4657ccec84fb991a156a6e310cc589aa093bd29d74a263bd723f0dfb2e58",
+    "crates/leaf/protocol-types/src/vocabulary.rs": "d090601151c77802f2f88c9fcb9d20f9fa80cec768425bfe82b0459d1449fec1",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2ee3957dcae159e2fd154f756b770f008d7e64a383e41a0070816eba1b2f9646",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "fa1ef55571099126dce501ac314f06c97f16ada2c1dd36554c74ac0c4a022264",
