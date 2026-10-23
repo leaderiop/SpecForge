@@ -706,3 +706,30 @@ fn a_removal_writes_nothing_outside_its_project_whatever_bound_its_caller_lends(
         r#"{"extensions": ["@acme/x"]}"#
     );
 }
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "removing a builtin no entry enables says it is not enabled, never that it is not installed"
+)]
+#[ignore = "flipped by T6"]
+fn a_builtin_no_entry_enables_is_not_enabled_rather_than_not_installed() {
+    let fixture = Assembled::new();
+    write_config(&fixture, r#"{"extensions": []}"#);
+    let refused = remove(&fixture.view(), &removing("@specforge/software")).unwrap_err();
+    assert_eq!(refused.error.code, NOT_FOUND);
+    assert_eq!(refused.subject, Some(RemoveField::Name));
+    assert_eq!(
+        refused.error.message,
+        "extension '@specforge/software' is not enabled: it is a builtin, and no specforge.json entry names it"
+    );
+    assert_eq!(
+        text(fixture.root().join("specforge.json")),
+        r#"{"extensions": []}"#
+    );
+    // A name that is no builtin keeps its answer.
+    let other = remove(&fixture.view(), &removing("@acme/x")).unwrap_err();
+    assert_eq!(
+        other.error.message,
+        "extension '@acme/x' is not installed (no lock file found)"
+    );
+}

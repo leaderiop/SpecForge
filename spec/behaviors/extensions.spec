@@ -494,6 +494,7 @@ behavior remove_extension "Remove Extension" {
   verify integration "remove --format json lists the files it wrote in files_written"
   verify unit "the remove document names the extension's source and version whatever its origin"
   verify unit "specforge remove with no lock file reports error"
+  verify unit "removing a builtin no entry enables says it is not enabled, never that it is not installed"
   verify unit "a removal that fails changes nothing"
   verify integration "removing an installed extension drops its specforge.json entry"
   verify integration "removing an extension another installed extension requires fails with E027 unless --force"
