@@ -80,7 +80,6 @@ fn the_docs_name_no_attribute_the_sdk_lacks() {
 /// Every `specforge-*` dependency line an author is shown names a crate on crates.io (the SDK, its macros, the
 /// guest wire) at the SDK's own version, or a path inside this repository (ADR 0238 D4).
 #[test]
-#[ignore = "flipped by T7"]
 fn the_docs_give_an_author_only_the_published_sdk_at_its_version() {
     const PUBLISHED: &[&str] = &[
         "specforge-extension-sdk",

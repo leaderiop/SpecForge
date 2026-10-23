@@ -67,7 +67,14 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "1.0.0"
+specforge-extension-sdk = "0.2.0"
+```
+
+That is an outside author's crate, and what `specforge extension init` writes. A builtin in
+`extensions/` names the SDK by path instead:
+
+```toml
+specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
 ```
 
 ### Compile Target
@@ -573,11 +580,13 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
 
 ```toml
 [dev-dependencies]
-specforge-extension-sdk = { version = "0.1", features = ["testing"] }   # MockHost, call_every_command
-specforge-wasm = { version = "0.1", features = ["testing"] }
-specforge-protocol-types = "0.1"
-specforge-test = "0.1"   # to link a test to the obligation it proves
+specforge-extension-sdk = { version = "0.2.0", features = ["testing"] }   # MockHost, call_every_command
 ```
+
+`specforge-wasm`'s `InProcessRuntime` and `specforge-test` are not published: the builtins in this
+repository take them by path (`extensions/product/Cargo.toml`); an extension outside it tests its
+declaration with `MockHost` and `call_every_command`, and its commands through
+`specforge extension build` and `validate`. The in-repository harness looks like this:
 
 ```rust
 use specforge_protocol_types::{CommandEvidence, CommandFormat, CommandInput, RawGraph};
