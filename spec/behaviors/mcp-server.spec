@@ -303,6 +303,8 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
   verify unit "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
   verify unit "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
   verify unit "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
+  verify unit "an extension command given its own project's path, or a null one, runs as it does without one, and another project's path is the target's refusal"
+  verify unit "an explicit extension tool's export and its schema check are never handed the call target's path"
   verify unit "a prompt reads its arguments by the same rule its listing states"
   verify unit "an agent plan is read as the AgentPlan type, from an object or a string holding its JSON"
   verify unit "an operation's refusal of a core tool's call names the argument it is about"

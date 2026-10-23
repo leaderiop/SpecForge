@@ -63,6 +63,7 @@ mod suggested_commands;
 mod support;
 mod surface_call;
 mod surface_wiring;
+mod target_arguments;
 mod tool_arguments;
 mod tool_dispatch;
 mod tool_errors;
