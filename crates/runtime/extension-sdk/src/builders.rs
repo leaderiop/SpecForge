@@ -149,7 +149,8 @@ impl FieldBuilder {
         self
     }
     /// The field states what the entity promises (a contract, a
-    /// guarantee) rather than prose, so token-optimized exports keep it.
+    /// guarantee) rather than prose: the review document quotes it whole,
+    /// and with `headline` it is the entity's statement (ADR 0236).
     pub fn normative(&mut self) -> &mut Self {
         self.0.normative = true;
         self

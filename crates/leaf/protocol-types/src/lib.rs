@@ -310,7 +310,8 @@ pub struct FieldDescriptor {
     #[serde(default)]
     pub inverse_of: Option<String>,
     /// The field states what the entity promises (a contract, a guarantee)
-    /// rather than prose; token-optimized exports keep it.
+    /// rather than prose: the review document quotes it whole, and with
+    /// `headline` it is the entity's statement (ADR 0236).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub normative: bool,
     /// Set on an entity (`true`, or a non-empty value), the entity owes no
