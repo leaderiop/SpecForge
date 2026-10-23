@@ -8,7 +8,8 @@ use specforge_parser::FieldValue;
 use super::text::{field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
-    EdgeCounts, EntityRecord, Exemption, FieldRecord, MethodRecord, ObligationRecord, ParamRecord,
+    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ObligationRecord,
+    ParamRecord,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
 
@@ -63,6 +64,15 @@ pub(super) fn record(
             .map(|e| edge_type_of(kind_of, registries, id, e.label.as_str()))
             .collect(),
     );
+    // The fields it gives their link, typed like its edges (ADR 0232).
+    let fields = graph.linked_fields(registries.field_forms(), node);
+    let linked = Linked {
+        any: !fields.is_empty(),
+        by_type: fields
+            .iter()
+            .filter_map(|field| edge_type_of(kind_of, registries, id, field.as_str()))
+            .collect(),
+    };
     let entries = node.fields.entries();
     let mut seen = HashSet::new();
     let referenced: Vec<String> = entries
@@ -110,6 +120,7 @@ pub(super) fn record(
             .collect(),
         incoming,
         outgoing,
+        linked,
         exemption: exemption(node, registries.kinds(), registries.fields()),
         methods: node
             .methods

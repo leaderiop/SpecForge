@@ -26,7 +26,6 @@ const EDGE_RULES: [&str; 8] = [
     behavior = "execute_validation_pattern",
     verify = "one mistyped id is E003 alone: no builtin edge rule reports the entity whose field writes it"
 )]
-#[ignore = "flipped by T4"]
 fn one_mistyped_id_is_e003_alone() {
     let compiled = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/product"])

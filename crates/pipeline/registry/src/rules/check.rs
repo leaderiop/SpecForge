@@ -16,6 +16,8 @@ use crate::entity::{Direction, EntityRecord, RuleInput};
 #[derive(Debug, Clone)]
 pub(crate) enum Check {
     NoIncomingEdges(EdgeScope),
+    /// The entity gives no field (of the scope's edge type) its link (ADR 0232): a
+    /// reference that does not resolve is E003, reported alone.
     NoOutgoingEdges(EdgeScope),
     NoEdges,
     /// `missing_field_when_flag_set` and `missing_required_field`; a
@@ -53,7 +55,7 @@ pub(crate) enum Check {
     },
 }
 
-/// Which edges an edge rule counts.
+/// Which edges an incoming edge rule counts, and which fields' links an outgoing one reads.
 #[derive(Debug, Clone)]
 pub(crate) enum EdgeScope {
     /// Every edge (the rule names no edge type).
@@ -187,13 +189,10 @@ fn evaluate(
         Check::NoIncomingEdges(scope) => {
             violated(record.edges(Direction::Incoming, scope.edge_type()) == 0)
         }
-        Check::NoOutgoingEdges(scope) => {
-            violated(record.edges(Direction::Outgoing, scope.edge_type()) == 0)
+        Check::NoOutgoingEdges(scope) => violated(!record.links(scope.edge_type())),
+        Check::NoEdges => {
+            violated(record.edges(Direction::Incoming, None) == 0 && !record.links(None))
         }
-        Check::NoEdges => violated(
-            record.edges(Direction::Incoming, None) == 0
-                && record.edges(Direction::Outgoing, None) == 0,
-        ),
         Check::MissingField { field } => violated(!record.writes(field)),
         Check::FieldValue { field, constraint } => violated(
             // A field that is not written breaks no constraint.

@@ -101,7 +101,6 @@ const UNRESOLVED: &str = "behavior typo \"Typo\" {\n  features [nope_feature]\n}
     behavior = "execute_validation_pattern",
     verify = "an edge rule reports no entity whose field of its edge type writes a reference that does not resolve: that is E003 alone"
 )]
-#[ignore = "flipped by T4"]
 fn an_edge_rule_reports_no_cascade_of_an_unresolved_reference() {
     // Each reference that does not resolve is the linker's E003.
     let built = implementing(rule("W900", "no_outgoing_edges"), true);

@@ -322,7 +322,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 | `CheckKind` | Reads |
 |---|---|
-| `NoIncomingEdges`, `NoOutgoingEdges`, `NoEdges` | the entity's edges (optionally only `edge_type` edges) |
+| `NoIncomingEdges`, `NoOutgoingEdges`, `NoEdges` | the entity's edges (optionally only `edge_type` edges); the outgoing ones also read a written reference that does not resolve as a link (ADR 0232) |
 | `MissingFieldWhenFlagSet`, `MissingRequiredField` | `field` (required) |
 | `FieldValueConstraint` | `field` and a `constraint`: `NonEmpty`, `OneOf` with `values`, or `Matches` with a `pattern` |
 | `CycleDetection` | `edge_type` (required) |

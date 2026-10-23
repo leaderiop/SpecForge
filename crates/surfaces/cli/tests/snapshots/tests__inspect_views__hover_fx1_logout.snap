@@ -6,7 +6,7 @@ expression: markdown
 
 behavior 'logout' does not implement any feature
 
-A `behavior` entity has no outgoing edge to any `feature`, meaning it doesn't implement anything declared. Add an `implements` reference to a feature, or remove the behavior if it's unused.
+A `behavior` names no feature in `features` (no field, or an empty list), so it implements nothing declared. A feature it names that does not exist is E003 alone, never W001 too. List the features it implements in `features`, or remove the behavior if it's unused.
 
 [Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w001)
 

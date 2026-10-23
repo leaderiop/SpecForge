@@ -13,19 +13,20 @@ behavior se_validate_unreferenced_behaviors "W001: Unreferenced Behaviors" {
   category   query
   invariants [se_edge_consistency]
   contract   """
-    Detect behavior entities with no incoming Implements edges.
+    Detect behavior entities that implement no feature: no `features` field or an
+    empty list. A feature that does not exist is E003, reported alone (ADR 0232).
   """
   requires {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    unreferenced_detected "behavior with no incoming Implements edge produces W001 warning"
-    referenced_passes     "behavior with incoming Implements edge produces no diagnostic"
+    unreferenced_detected "behavior that names no feature produces W001 warning"
+    referenced_passes     "behavior that names a feature, resolved or not, produces no W001"
     correct_severity      "W001 severity is warning"
-    correct_template      "message template is: behavior '{id}' is not referenced by any feature"
+    correct_template      "message template is: behavior '{id}' does not implement any feature"
   }
-  verify unit "behavior with no incoming Implements edge produces W001"
-  verify unit "behavior with incoming Implements edge passes"
+  verify unit "behavior that names no feature produces W001"
+  verify unit "behavior that names a feature passes"
   verify unit "W001 severity is warning"
 }
 

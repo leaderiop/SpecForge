@@ -40,7 +40,7 @@ pub use surface::{
 
 // --- What the checks after the graph build read about an entity (ADR 0019) ---
 pub use entity::{
-    Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, MethodRecord,
+    Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord,
     ObligationRecord, ParamRecord, RuleInput,
 };
 

@@ -1168,9 +1168,9 @@ Level: info
 ```
 I010: Unreferenced term
 
-A `term` entity has no edges at all, meaning nothing links to or from it via
-`see_also` or similar references. Link the term from a relevant entity, or
-remove it if it's unused.
+A `term` has no edges and names nothing: no entity links to it, and it names no
+term in `see_also` and no `module` (a name it writes that does not exist is E003
+alone). Link the term from a relevant entity, or remove it if it's unused.
 
 Owner: @specforge/product
 Level: info
@@ -1358,8 +1358,8 @@ Level: info
 ```
 I055: Journey without channels
 
-A `journey` has no edge to a `channel`: no `channels` field, an empty list, or
-only references that don't resolve. List the channels the journey happens
+A `journey` names no channel: no `channels` field or an empty list (a channel it
+names that does not exist is E003 alone). List the channels the journey happens
 through in `channels`.
 
 Owner: @specforge/product
@@ -1488,9 +1488,9 @@ Level: info
 ```
 I067: Module without features
 
-A `module` has no edge to a `feature`: no `features` field, an empty list, or
-only references that don't resolve. A module that implements no features is
-likely incomplete. List the features it implements in `features`.
+A `module` names no feature: no `features` field or an empty list (a feature it
+names that does not exist is E003 alone). A module that implements no features
+is likely incomplete. List the features it implements in `features`.
 
 Owner: @specforge/product
 Level: info
@@ -1579,9 +1579,9 @@ Level: info
 ```
 I082: Release without deliverables
 
-A `release` has no edge to a `deliverable`: no `deliverables` field, an empty
-list, or only references that don't resolve. List the deliverables it ships in
-`deliverables`.
+A `release` names no deliverable: no `deliverables` field or an empty list (a
+deliverable it names that does not exist is E003 alone). List the deliverables
+it ships in `deliverables`.
 
 Owner: @specforge/product
 Level: info
@@ -1592,9 +1592,9 @@ Level: info
 ```
 I083: Release without milestones
 
-A `release` has no edge to a `milestone`: no `milestones` field, an empty list,
-or only references that don't resolve. List the milestones it completes in
-`milestones`.
+A `release` names no milestone: no `milestones` field or an empty list (a
+milestone it names that does not exist is E003 alone). List the milestones it
+completes in `milestones`.
 
 Owner: @specforge/product
 Level: info
@@ -2185,9 +2185,10 @@ Level: error
 ```
 W001: Behavior implements no feature
 
-A `behavior` entity has no outgoing edge to any `feature`, meaning it doesn't
-implement anything declared. Add an `implements` reference to a feature, or
-remove the behavior if it's unused.
+A `behavior` names no feature in `features` (no field, or an empty list), so it
+implements nothing declared. A feature it names that does not exist is E003
+alone, never W001 too. List the features it implements in `features`, or remove
+the behavior if it's unused.
 
 Owner: @specforge/software
 Level: warning
@@ -2582,9 +2583,9 @@ Level: warning
 ```
 W043: Deliverable without journeys
 
-A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list,
-or only references that don't resolve. Nothing says which user journeys it
-supports. List the journeys it serves in `journeys`.
+A `deliverable` names no journey: no `journeys` field or an empty list (a
+journey it names that does not exist is E003 alone). Nothing says which user
+journeys it supports. List the journeys it serves in `journeys`.
 
 Owner: @specforge/product
 Level: warning
@@ -2620,9 +2621,9 @@ Level: warning
 ```
 W046: Deliverable without modules
 
-A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or
-only references that don't resolve, so it has no structural decomposition. List
-the modules it ships in `modules`.
+A `deliverable` names no module: no `modules` field or an empty list (a module
+it names that does not exist is E003 alone), so it has no structural
+decomposition. List the modules it ships in `modules`.
 
 Owner: @specforge/product
 Level: warning

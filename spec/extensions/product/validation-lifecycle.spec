@@ -402,8 +402,8 @@ behavior detect_journeys_without_channels "Detect Journeys without Channels" {
   contract """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on journeys scoped to the JourneyUsesChannel edge. A journey with no
-    edge to a channel (no channels field, an empty list, or only references
-    that don't resolve) MUST produce an I055 info diagnostic: "journey
+    edge to a channel (no channels field or an empty list; a channel it
+    names that does not exist is E003, reported alone) MUST produce an I055 info diagnostic: "journey
     '{id}' uses no channels". A journey without channels has no defined
     interaction medium, weakening traceability. Info-level respects
     incremental adoption — journeys may be authored before channels are
@@ -691,8 +691,8 @@ behavior detect_release_without_deliverables "Detect Release Without Deliverable
   contract    """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on releases scoped to the ReleaseIncludesDeliverable edge. A release
-    with no edge to a deliverable (no deliverables field, an empty list, or
-    only references that don't resolve) SHOULD produce an I082 info
+    with no edge to a deliverable (no deliverables field or an empty list; a
+    deliverable it names that does not exist is E003, reported alone) SHOULD produce an I082 info
     diagnostic: "release '{id}' includes no deliverables".
   """
   diagnostic  I082
@@ -709,8 +709,8 @@ behavior detect_release_without_milestones "Detect Release Without Milestones" {
   contract    """
     The @specforge/product extension MUST declare a no_outgoing_edges rule
     on releases scoped to the ReleaseCompletesMilestone edge. A release
-    with no edge to a milestone (no milestones field, an empty list, or
-    only references that don't resolve) SHOULD produce an I083 info
+    with no edge to a milestone (no milestones field or an empty list; a
+    milestone it names that does not exist is E003, reported alone) SHOULD produce an I083 info
     diagnostic: "release '{id}' completes no milestones".
   """
   diagnostic  I083

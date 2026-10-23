@@ -297,7 +297,7 @@ catalog! {
         "`specforge analyze`'s `event_graph_analyze` pass found no unmitigated cycle in the event flow graph: no cycle through two or more behaviors (E034) and no behavior re-producing an event it consumes (W032), unless a member declares `sync`. Reported once, when behaviors produce or consume events. The analysis is structural; cycles that depend on runtime conditions are not analyzed. Nothing to do.";
     I010: Info product,
         "Unreferenced term",
-        "A `term` entity has no edges at all, meaning nothing links to or from it via `see_also` or similar references. Link the term from a relevant entity, or remove it if it's unused.";
+        "A `term` has no edges and names nothing: no entity links to it, and it names no term in `see_also` and no `module` (a name it writes that does not exist is E003 alone). Link the term from a relevant entity, or remove it if it's unused.";
     I011: Info formal,
         "Ensures without requires",
         "`specforge analyze`'s `condition_check` pass found a `behavior` that declares an `ensures` clause but no `requires` clause, so it guarantees its postconditions for every input. Add a `requires` clause naming what callers must establish first, or leave it out if the behavior accepts every input.";
@@ -336,7 +336,7 @@ catalog! {
         "A `journey` has no `persona` field, so it names no user role. Set `persona` to the persona who takes the journey.";
     I055: Info product,
         "Journey without channels",
-        "A `journey` has no edge to a `channel`: no `channels` field, an empty list, or only references that don't resolve. List the channels the journey happens through in `channels`.";
+        "A `journey` names no channel: no `channels` field or an empty list (a channel it names that does not exist is E003 alone). List the channels the journey happens through in `channels`.";
     I057: Info product,
         "Blocked milestone without dependencies",
         "A `milestone` has `status: blocked` but no `depends_on` entries, so nothing in the plan says what it waits for; the status may be stale. Add the milestones it depends on to `depends_on`, or update the status.";
@@ -366,7 +366,7 @@ catalog! {
         "A `deliverable` has `status: deprecated` but no `reason` field explaining why. Add a `reason` field documenting why it was deprecated.";
     I067: Info product,
         "Module without features",
-        "A `module` has no edge to a `feature`: no `features` field, an empty list, or only references that don't resolve. A module that implements no features is likely incomplete. List the features it implements in `features`.";
+        "A `module` names no feature: no `features` field or an empty list (a feature it names that does not exist is E003 alone). A module that implements no features is likely incomplete. List the features it implements in `features`.";
     I068: Info product,
         "Tag not lowercase-hyphenated",
         "An entity of a product kind has a `tags` entry that isn't lowercase-hyphenated: 2 to 50 characters of a-z, 0-9 and `-`, not starting or ending with `-` (for example `Core`, `my_tag`, `a` or a tag with spaces). Empty entries are ignored. Rewrite the tag, e.g. `My Tag` as `my-tag`.";
@@ -387,10 +387,10 @@ catalog! {
         "A `feature` has no `effort` field. Set `effort` to one of xs, s, m, l, xl.";
     I082: Info product,
         "Release without deliverables",
-        "A `release` has no edge to a `deliverable`: no `deliverables` field, an empty list, or only references that don't resolve. List the deliverables it ships in `deliverables`.";
+        "A `release` names no deliverable: no `deliverables` field or an empty list (a deliverable it names that does not exist is E003 alone). List the deliverables it ships in `deliverables`.";
     I083: Info product,
         "Release without milestones",
-        "A `release` has no edge to a `milestone`: no `milestones` field, an empty list, or only references that don't resolve. List the milestones it completes in `milestones`.";
+        "A `release` names no milestone: no `milestones` field or an empty list (a milestone it names that does not exist is E003 alone). List the milestones it completes in `milestones`.";
     I086: Info product,
         "Release date not YYYY-MM-DD",
         "A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June 2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.";
@@ -519,7 +519,7 @@ catalog! {
         "The registry serves the version of a package that `specforge.lock` pins, but not the binary the lock pins: its SHA-256 is another. A published version never changes (R007), so the registry, or the address `specforge.json` sends the package to, now serves something else under that version. Nothing was downloaded or installed, no publisher key was pinned or asked about, and the lock is left as it was; `specforge add --dry-run` reports it too. Check the registry. If you trust the bytes it now serves, remove the extension (`specforge remove <name>`) and add it again, which pins them.";
     W001: Warning software,
         "Behavior implements no feature",
-        "A `behavior` entity has no outgoing edge to any `feature`, meaning it doesn't implement anything declared. Add an `implements` reference to a feature, or remove the behavior if it's unused.";
+        "A `behavior` names no feature in `features` (no field, or an empty list), so it implements nothing declared. A feature it names that does not exist is E003 alone, never W001 too. List the features it implements in `features`, or remove the behavior if it's unused.";
     W002: Warning software,
         "Unreferenced type",
         "A `type` entity has no incoming references from any `behavior`, `port`, or other `type`. Reference the type where it's used, or remove it if it's dead.";
@@ -606,7 +606,7 @@ catalog! {
         "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.";
     W043: Warning product,
         "Deliverable without journeys",
-        "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
+        "A `deliverable` names no journey: no `journeys` field or an empty list (a journey it names that does not exist is E003 alone). Nothing says which user journeys it supports. List the journeys it serves in `journeys`.";
     W044: Warning product,
         "Unreferenced module",
         "A `module` entity has no incoming edges, meaning no `deliverable` or `milestone` references it. Reference the module from a deliverable or milestone, or remove it if it is unused.";
@@ -615,7 +615,7 @@ catalog! {
         "Two or more `feature` entities form a cycle through their `depends_on` edges. Break the cycle by removing or restructuring one of the `depends_on` references.";
     W046: Warning product,
         "Deliverable without modules",
-        "A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or only references that don't resolve, so it has no structural decomposition. List the modules it ships in `modules`.";
+        "A `deliverable` names no module: no `modules` field or an empty list (a module it names that does not exist is E003 alone), so it has no structural decomposition. List the modules it ships in `modules`.";
     W049: Warning product,
         "Milestone without features",
         "A `milestone` entity has no `features` field, so it may be empty. Modules listed in `modules` don't count: the check reads only `features`. List the features the milestone delivers, or remove the milestone.";

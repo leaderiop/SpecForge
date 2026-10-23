@@ -301,8 +301,8 @@ check leaves it as written.
 | Check | Fires when | Requires (W112 when missing) | Reads | W147 when set |
 |-------|------------|------------------------------|-------|---------------|
 | `no_incoming_edges` | no edge points at the entity (only edges of `edge_type`, from its source kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
-| `no_outgoing_edges` | the entity points at nothing (only edges of `edge_type`, to its target kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
-| `no_edges` | the entity has no edges in either direction | — | — | `edge_type`, `constraint`, `wasm_function` |
+| `no_outgoing_edges` | the entity points at nothing: no field writes a reference (resolved or not; one that does not resolve is E003, reported alone) and no edge leaves it (only `edge_type`'s fields and edges, to its target kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
+| `no_edges` | no edge points at the entity and it points at nothing (as `no_outgoing_edges`) | — | — | `edge_type`, `constraint`, `wasm_function` |
 | `missing_field_when_flag_set` | `field` is absent (when `field` is `verify`, the entity's `verify` statements; an entity owing none is exempt) | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `missing_required_field` | `field` is absent | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `file_exists` | a path `field` names (its text, or each item of a list; a block or an expression names none) does not exist, relative to the spec root; the diagnostic suggests a close sibling | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |

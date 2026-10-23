@@ -17,7 +17,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, FieldConstraintDescriptor, ValidationRuleDescriptor, ValidationSeverity,
 };
 use specforge_registry::RegistryBuild;
-use specforge_registry::entity::{EdgeRecord, EntityRecord, RuleInput};
+use specforge_registry::entity::{Direction, EdgeRecord, EntityRecord, RuleInput};
 use specforge_registry::rules::{NoVerdicts, Rules};
 
 use crate::support::{NoDisk, build, declare};
@@ -133,10 +133,9 @@ pub fn span() -> SourceSpan {
 
 /// A record of `kind` `id` with `incoming` and `outgoing` edges in total.
 pub fn entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> EntityRecord {
-    let mut entity = EntityRecord::new(kind, id, &span());
-    entity.incoming.total = incoming;
-    entity.outgoing.total = outgoing;
-    entity
+    EntityRecord::new(kind, id, &span())
+        .with_edges(Direction::Incoming, None, incoming)
+        .with_edges(Direction::Outgoing, None, outgoing)
 }
 
 /// The rules' input over `entities`, with no edges and no spec root.

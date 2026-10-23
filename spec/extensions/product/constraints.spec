@@ -128,7 +128,7 @@ constraint product_unreferenced_detection_correctness "Product Unreferenced Dete
     Unreferenced detection for features (W041), journeys (W042), modules (W044),
     personas (I046) and channels (I047) MUST fire if and only if the entity
     has no incoming edge of any type. Unreferenced-term detection (I010)
-    MUST fire if and only if the term has no incoming and no outgoing edge.
+    MUST fire if and only if the term has no incoming edge and names nothing.
     Zero false positives when entities have valid references. Zero false
     negatives when entities are truly unreferenced.
   """

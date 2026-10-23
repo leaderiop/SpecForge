@@ -50,9 +50,9 @@ behavior detect_unreferenced_terms "Detect Unreferenced Terms" {
   category validation
   contract """
     The @specforge/product extension MUST declare a no_edges validation
-    pattern on terms. A term with no incoming and no outgoing edge (no
-    see_also or module of its own, and no term's see_also naming it) MUST
-    produce an I010 info diagnostic.
+    pattern on terms. A term with no incoming edge that names nothing (no
+    see_also or module of its own that it writes, resolved or not, and no
+    term's see_also naming it) MUST produce an I010 info diagnostic.
   """
   ensures {
     fires_when_isolated  "term with no incoming and no outgoing edges produces I010"
@@ -177,8 +177,8 @@ behavior detect_deliverables_with_no_journeys "Detect Deliverables with No Journ
   contract """
     The @specforge/product extension MUST declare a no_outgoing_edges
     validation rule on deliverables scoped to the DeliverableSupportsJourney
-    edge. A deliverable with no edge to a journey (no journeys field, an
-    empty list, or only references that don't resolve) MUST produce a W043
+    edge. A deliverable with no edge to a journey (no journeys field or an
+    empty list; a journey it names that does not exist is E003, reported alone) MUST produce a W043
     warning: "deliverable '{id}' supports no journeys".
   """
   ensures {
@@ -195,8 +195,8 @@ behavior detect_deliverables_with_no_modules "Detect Deliverables with No Module
   contract """
     The @specforge/product extension MUST declare a no_outgoing_edges
     validation rule on deliverables scoped to the DeliverableContainsModule
-    edge. A deliverable with no edge to a module (no modules field, an
-    empty list, or only references that don't resolve) MUST produce a W046
+    edge. A deliverable with no edge to a module (no modules field or an
+    empty list; a module it names that does not exist is E003, reported alone) MUST produce a W046
     warning: "deliverable '{id}' contains no modules". A deliverable
     without modules has no structural decomposition.
   """
@@ -281,8 +281,8 @@ behavior detect_modules_with_no_features "Detect Modules With No Features" {
   contract """
     The @specforge/product extension MUST declare a no_outgoing_edges
     validation rule on modules scoped to the ModuleContainsFeature edge. A
-    module with no edge to a feature (no features field, an empty list, or
-    only references that don't resolve) MUST produce an I067 info
+    module with no edge to a feature (no features field or an empty list;
+    a feature it names that does not exist is E003, reported alone) MUST produce an I067 info
     diagnostic: "module '{id}' contains no features". A module that exists
     structurally but implements no features is likely incomplete.
     Info-level respects incremental adoption — modules may be declared

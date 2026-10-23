@@ -83,7 +83,11 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     The declarative validation engine MUST execute each registered pattern
     against the compiled graph. no_incoming_edges MUST check that every
     entity of the target kind has at least one incoming edge. no_outgoing_edges
-    MUST check outgoing edges. An edge rule with an edge type counts only
+    MUST report an entity that points at nothing: no field writes a reference,
+    resolved or not, and no edge leaves it (with an edge type, only that edge
+    type's fields and edges). A reference that does not resolve is E003,
+    reported alone: no edge rule reports its cascade. no_edges MUST report an
+    entity no edge points at that points at nothing. An edge rule with an edge type counts only
     the edges of that type: an edge is of the type its field writes from
     the kind of the entity it starts at (registry_build_edges). The rule is
     inert when no loaded field can write such an edge at its target kind.
