@@ -76,3 +76,40 @@ fn the_docs_name_no_attribute_the_sdk_lacks() {
         }
     }
 }
+
+/// Every `specforge-*` dependency line an author is shown names a crate on crates.io (the SDK, its macros, the
+/// guest wire) at the SDK's own version, or a path inside this repository (ADR 0238 D4).
+#[test]
+#[ignore = "flipped by T7"]
+fn the_docs_give_an_author_only_the_published_sdk_at_its_version() {
+    const PUBLISHED: &[&str] = &[
+        "specforge-extension-sdk",
+        "specforge-extension-sdk-macros",
+        "specforge-protocol-types",
+    ];
+    let version = env!("CARGO_PKG_VERSION");
+    for file in [
+        "docs/extension-sdk.md",
+        "docs/guides/extending-specforge.md",
+        "crates/runtime/extension-sdk/README.md",
+    ] {
+        let text = std::fs::read_to_string(specforge_repo_root::repo_root().join(file)).unwrap();
+        for line in text.lines() {
+            let Some((name, requirement)) = line.trim_start().split_once(" = ") else {
+                continue;
+            };
+            if !name.starts_with("specforge-") || requirement.contains("path = ") {
+                continue;
+            }
+            assert!(
+                PUBLISHED.contains(&name),
+                "{file}: {name} is not on crates.io: {line}"
+            );
+            assert!(
+                requirement.starts_with(&format!("\"{version}\""))
+                    || requirement.contains(&format!("version = \"{version}\"")),
+                "{file}: {line} does not name the SDK's version {version}"
+            );
+        }
+    }
+}
