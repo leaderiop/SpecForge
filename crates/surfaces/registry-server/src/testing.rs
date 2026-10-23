@@ -161,9 +161,19 @@ impl LocalRegistry {
             signature: metadata.signature.clone(),
             manifest: metadata.manifest.clone(),
         };
-        let name = PackageName::from_url_segment(&row.name).expect("a package name");
-        let version = Version::parse(&row.version).expect("a version");
-        self.state.stored().seed(&name, &version, &row, wasm);
+        match (
+            PackageName::from_url_segment(&row.name),
+            Version::parse(&row.version),
+        ) {
+            (Ok(name), Ok(version)) => self.state.stored().seed(&name, &version, &row, wasm),
+            // A row whose name or version the policy refuses (a database from before ADR 0036) has no
+            // blob to stage: its row alone is what a search reads.
+            _ => self
+                .state
+                .database
+                .insert_package(&row)
+                .expect("a row inserted"),
+        }
     }
 
     /// Every request served so far, oldest first: `"GET /v1/packages/@acme%2Ftool"`.

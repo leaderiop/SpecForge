@@ -817,6 +817,9 @@ behavior search_registry "Search Registry" {
   verify integration "search's document writes its diagnostics as check does and carries no null"
   verify unit "deduplicates results across registries"
   verify unit "output is deterministic"
+  verify unit "a search reply holding a hit that is no package name or no SemVer version is that registry's failure, R009"
+  verify unit "a registry serves no stored package whose name is no package name"
+  verify unit "a hit's description is listed printable, each control character as its escape"
   verify unit "error from one registry does not abort search of others"
   verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, category_filtered, failures_reported_once, search_completed_emitted, partial_failure_resilience"
 }
@@ -1034,6 +1037,7 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "add of the version specforge.lock pins, served as its bytes, installs them and leaves the lock as it was"
   verify integration "a fetch of the version specforge.lock pins served as other bytes is refused before its download"
   verify integration "a package published with a legacy manifest is refused with a re-publish suggestion"
+  verify unit "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {

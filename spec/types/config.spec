@@ -106,6 +106,7 @@ type SearchHit "Search Hit" {
   version     string
   description string @optional
   verify unit "SearchHit is the JSON of one search hit"
+  verify unit "a search hit whose name is no package name or whose version is no SemVer version does not read"
 }
 
 // GET {root}/v1/search's query (specforge_registry_wire::SearchQuery): what to
