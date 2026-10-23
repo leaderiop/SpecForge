@@ -2028,7 +2028,7 @@ decision pe_deterministic_time_queries "Deterministic Time-Dependent Queries" {
 
 decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queries" {
   status       superseded
-  date         "2026-03-13"
+  date         2026-03-13
   deciders     ["specforge-core"]
   context      """
     Matrix queries (persona-coverage-matrix, module-coupling, channel-coverage-matrix,

@@ -24,7 +24,7 @@ use "features/auth"
 milestone mvp "Phase 1: Core" {
   status        in_progress
   features      [user_management, password_authentication]
-  target_date   "2026-06-30"
+  target_date   2026-06-30
   exit_criteria [
     "All exit criteria met",
     "specforge check --strict passes",
@@ -133,7 +133,7 @@ milestone search_analytics "Search & Analytics" {
   status        planned
   depends_on    [mvp]
   features      [full_text_search, analytics_dashboard]
-  target_date   "2026-09-30"
+  target_date   2026-09-30
 
   exit_criteria [
     "Full-text search returns results in < 200ms",

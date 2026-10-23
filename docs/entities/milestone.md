@@ -31,7 +31,7 @@ milestone mvp_phase "Phase 1: Core" {
     "All scheduled features implemented",
     "specforge check --strict passes",
   ]
-  target_date   "2026-06-30"
+  target_date   2026-06-30
 }
 ```
 
@@ -170,7 +170,7 @@ milestone search_analytics "Search & Analytics" {
   status        planned
   depends_on    [mvp_phase]
   features      [full_text_search, analytics_dashboard]
-  target_date   "2026-09-30"
+  target_date   2026-09-30
 
   exit_criteria [
     "Full-text search returns results in < 200ms",

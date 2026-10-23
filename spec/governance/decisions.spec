@@ -775,7 +775,7 @@ decision progressive_dbc_adoption "Progressive Design-by-Contract Adoption" {
 
 decision migration_as_core_infrastructure "Migration as Core Infrastructure" {
   status       accepted
-  date         "2026-03-07"
+  date         2026-03-07
   invariants   [migration_idempotency, migration_semantic_preservation]
   context      """
     The spec audit flagged migration features (features/migration.spec) as
@@ -854,7 +854,7 @@ decision graph_protocol_version_management "Graph Protocol Version Management" {
 
 decision adr_surface_contribution_model "Surface Contribution Model" {
   status       accepted
-  date         "2026-03-07"
+  date         2026-03-07
   context      """
     Extensions can extend the compilation pipeline (entities, validators,
     renderers, providers, collectors, grammars, body_parsers) but cannot
