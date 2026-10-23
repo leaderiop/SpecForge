@@ -747,6 +747,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "a lock file that cannot be read is an error finding naming E033"
   verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
   verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
+  verify integration "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
