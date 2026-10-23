@@ -269,7 +269,6 @@ fn a_raw_category_and_a_loaded_one_parse_alike() {
     behavior = "auto_promote_commands_to_mcp_tools",
     verify = "the SDK refuses to build an explicit MCP tool whose input schema declares path, as a property or a required name"
 )]
-#[ignore = "flipped by T2"]
 fn a_tool_declaring_the_targets_path_panics_when_built() {
     let declare = |schema: serde_json::Value| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/files", "1.0.0"));

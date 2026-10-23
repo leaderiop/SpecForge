@@ -134,8 +134,12 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     required lists the required args that are not flags, since a flag is
     false unless set; no undeclared property is accepted.
     If an explicit MCP tool contribution already exists with the same
-    name, the explicit tool MUST win and I017 MUST be emitted. Auto-
-    promoted tools appear in list_mcp_tools alongside explicit tools.
+    name, the explicit tool MUST win and I017 MUST be emitted.
+    The SDK MUST refuse to build an extension whose explicit MCP tool declares
+    path in its input_schema, as a property or a required name, by the one rule
+    the host also reads (specforge_protocol_types::tool_input), as it refuses a
+    command arg named path. Auto-promoted tools appear in list_mcp_tools
+    alongside explicit tools.
   """
   verify unit "CLI command auto-promoted to MCP tool"
   verify unit "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"

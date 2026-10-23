@@ -396,6 +396,11 @@ arg named `path`, `format` or `help`, two args spelling one option such as `all_
 a flag or required arg with a default, a default its type refuses) and on a required flag or an empty
 `one_of`, so the extension's first test finds it.
 
+An MCP tool's `input_schema` may not declare `path`, as a property or a required name: `path` names
+the project, the host's call target reads it from every MCP call and takes it out before the tool's
+export sees it (`specforge_protocol_types::tool_input`, ADR 0239). The builder panics on such a tool,
+as on a command arg named `path`, so the extension's first test finds it.
+
 ### Collectors
 
 A test-runner extension declares a collector with `c.collector(name, ...)`

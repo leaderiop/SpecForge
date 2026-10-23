@@ -48,6 +48,7 @@ use crate::{
 };
 use serde_json::Value;
 use specforge_protocol_types::command_args::{self, normalize_args};
+use specforge_protocol_types::tool_input;
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, McpResourceDescriptor,
     McpToolDescriptor, SurfaceDescriptor,
@@ -258,6 +259,9 @@ impl Surfaces {
         let Some(handler) = b.handler else {
             panic!("MCP tool '{name}' declares no handler");
         };
+        if let Some(refused) = tool_input::refusal(&b.descriptor.input_schema) {
+            panic!("MCP tool '{name}' is refused by the host: {refused}");
+        }
         self.assert_free(&b.descriptor.export, &format!("MCP tool '{name}'"));
         self.tools.push(Tool {
             descriptor: b.descriptor,
@@ -535,6 +539,8 @@ impl McpToolBuilder {
         self
     }
     /// The JSON Schema of the tool's arguments (default `{"type": "object"}`).
+    /// It may not declare `path`, the host's call target
+    /// ([`tool_input::refusal`]): the tool is then refused when the extension is built.
     pub fn input_schema(&mut self, schema: Value) -> &mut Self {
         self.descriptor.input_schema = schema;
         self

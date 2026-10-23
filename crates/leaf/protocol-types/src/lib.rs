@@ -18,8 +18,9 @@
 //!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
 //!   ([`MigrationInput`]).
 //!
-//! And one rule both sides run: [`command_args`], what a command's declared
-//! args admit and what its export receives (ADR 0017).
+//! And two rules both sides run: [`command_args`], what a command's declared
+//! args admit and what its export receives (ADR 0017), and [`tool_input`],
+//! what an explicit MCP tool's input schema may not declare (ADR 0239).
 //!
 //! What sits here is what both sides compile: every builtin blob is built from this crate, so an
 //! item only the host reads lives host-side (the package names and the peer rule are
@@ -32,6 +33,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod calls;
 pub mod command_args;
 mod declaration;
+pub mod tool_input;
 mod vocabulary;
 pub use calls::*;
 pub use declaration::{

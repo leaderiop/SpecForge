@@ -295,7 +295,9 @@ impl ContributionsBuilder {
     }
 
     /// Contribute an explicit MCP tool, answered by its handler at the
-    /// export `mcp__<name>` (`.` and `-` as `_`).
+    /// export `mcp__<name>` (`.` and `-` as `_`). Panics on a tool the host
+    /// refuses ([`specforge_protocol_types::tool_input::refusal`]) or without a
+    /// handler.
     pub fn mcp_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) -> &mut Self {
         self.surfaces.add_tool(name, f);
         self.assert_surfaces_free();
