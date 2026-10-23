@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
+import { fileUri } from "./paths";
 import * as cp from "child_process";
-import * as path from "path";
 import { getGraphLayout, isGraphAutoUpdate } from "./config";
 import { findCliBinary } from "./find-binary";
 
@@ -164,9 +164,7 @@ export class GraphWebviewPanel {
       }
       case "openEntity": {
         if (message.file) {
-          const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          const filePath = path.isAbsolute(message.file) ? message.file : (wsRoot ? path.join(wsRoot, message.file) : message.file);
-          const uri = vscode.Uri.file(filePath);
+          const uri = fileUri(message.file);
           const doc = await vscode.workspace.openTextDocument(uri);
           const editor = await vscode.window.showTextDocument(
             doc,
