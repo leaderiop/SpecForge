@@ -1188,6 +1188,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "context format keeps an entity's methods and the annotations of the fields it keeps"
   verify unit "context format lifts a headline field as its field text, whatever its written shape"
   verify integration "export --format context keeps an invariant's guarantee"
+  verify integration "the context export and the context prompt carry the same members of every entity"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
