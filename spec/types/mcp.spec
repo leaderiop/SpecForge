@@ -612,7 +612,7 @@ type McpTraceLink "Mcp Trace Link" {
   verify unit "McpTraceLink schema is valid"
 }
 
-type McpMissingLink "An edge the registries lead an entity to have, which the graph does not instantiate" {
+type McpMissingLink "An expected reference field an entity writes no reference in and no edge of carries" {
   from          string @readonly
   from_kind     string @readonly
   /// The field that would declare the edge.

@@ -163,7 +163,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   }
   ensures {
     full_chain_traversed         "Trace covers both upstream and downstream connections from the target entity"
-    missing_links_flagged        "Expected edges from extension manifests that are not instantiated are flagged with missing status"
+    missing_links_flagged        "Expected reference fields an entity writes no reference in, and no edge of carries, are flagged with missing status"
     trace_chain_computed_emitted "trace_chain_computed event is emitted after successful traversal"
   }
   contract   """
@@ -172,10 +172,12 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     following all registered edge types. The trace MUST show the full
     chain of connected entities regardless of their kind. Missing links
     in expected edges (as declared by extension manifests) MUST be flagged.
-    A TraceLink with status "missing" indicates an edge type registered
-    in an extension manifest that is NOT instantiated between the two
-    entities in the current graph. This distinguishes from broken
-    references (E003), which are caught during resolution.
+    A TraceLink with status "missing" is an expected reference field
+    (registered in an extension manifest) the entity writes no
+    reference in and no edge of carries (a derived field's edges count).
+    A field that writes a reference has its link, resolved or not: a
+    reference that does not resolve is a broken reference (E003),
+    reported by check, never a missing link.
     A relation is written on its owning field only (ADR 0150): its other
     side is the target's upstream, under the owning field's label.
     The JSON trace output MUST carry the Graph Protocol schema_version.

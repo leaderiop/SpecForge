@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 mod degree;
 mod link;
+mod linked;
 mod reach;
 mod select;
 pub use degree::Degree;

@@ -3,8 +3,9 @@
 //! falls short ([`Gap`]: a missing link, or a plan gap).
 
 use serde::Serialize;
+use specforge_common::Sym;
 use specforge_common::shape::Shape;
-use specforge_graph::{Direction, Graph, Node};
+use specforge_graph::{Direction, FieldForms, Graph, Node};
 use specforge_registry::RegistryBuild;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -22,7 +23,7 @@ pub struct TraceChain {
     pub entity_kind: String,
     pub upstream: Vec<TraceLink>,
     pub downstream: Vec<TraceLink>,
-    /// Expected edges the traced entity does not have. Only the traced
+    /// Expected links the traced entity lacks. Only the traced
     /// entity's: each entity's own trace reports its gaps, so a trace of
     /// every entity lists each gap once, and a trace of one entity is not
     /// buried under the gaps of everything below it.
@@ -59,8 +60,9 @@ pub struct TraceLink {
     pub status: TraceLinkStatus,
 }
 
-/// An edge the registries lead an entity of the chain to have, which the
-/// graph does not instantiate. Always has status `missing`.
+/// An expected link an entity of the chain lacks: a reference field the registries lead its
+/// kind to have, which it writes no reference in and no edge of carries (ADR 0232). Always has
+/// status `missing`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct MissingLink {
     /// The entity that lacks the edge.
@@ -234,9 +236,10 @@ pub fn chain(
 ) -> Result<Noticed<ChainDocument<TraceChain>>, Refusal<EntityField>> {
     let expectations = TraceExpectations::of(view.registries());
     let graph = view.graph();
+    let forms = view.registries().field_forms();
     let versioned = view.versioned_schema();
     let node = view.entity(entity_id, EntityField::EntityId)?.node;
-    let chain = traced(graph, node, &expectations);
+    let chain = traced(graph, forms, node, &expectations);
     Ok(Noticed::new(
         ChainDocument {
             schema_version: versioned.version().to_string(),
@@ -250,11 +253,12 @@ pub fn chain(
 pub fn every(view: &ProjectView) -> Noticed<Traces> {
     let expectations = TraceExpectations::of(view.registries());
     let graph = view.graph();
+    let forms = view.registries().field_forms();
     let versioned = view.versioned_schema();
     let mut traces: Vec<TraceChain> = graph
         .nodes()
         .iter()
-        .map(|node| traced(graph, node, &expectations))
+        .map(|node| traced(graph, forms, node, &expectations))
         .collect();
     traces.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
     Noticed::new(
@@ -288,13 +292,14 @@ pub fn affected<'s>(
 ) -> Result<Affected, OpError> {
     let expectations = TraceExpectations::of(view.registries());
     let graph = view.graph();
+    let forms = view.registries().field_forms();
     let mut entities = BTreeSet::new();
     for seed in seeds {
         let node = view
             .entity(seed, EntityField::EntityId)
             .map_err(|refusal| refusal.error)?
             .node;
-        let chain = traced(graph, node, &expectations);
+        let chain = traced(graph, forms, node, &expectations);
         entities.extend(chain.reached().map(str::to_string));
     }
     let coverage = view.coverage()?;
@@ -309,16 +314,21 @@ pub fn affected<'s>(
     })
 }
 
-/// The chain of `entity_id` both ways, with every expected edge it lacks
+/// The chain of `entity_id` both ways, with every expected link it lacks
 /// flagged as missing.
-fn traced(graph: &Graph, root: &Node, expectations: &TraceExpectations) -> TraceChain {
+fn traced(
+    graph: &Graph,
+    forms: &FieldForms,
+    root: &Node,
+    expectations: &TraceExpectations,
+) -> TraceChain {
     let entity_id = root.id.raw.as_str();
     TraceChain {
         entity_id: entity_id.to_string(),
         entity_kind: root.kind.raw.to_string(),
         upstream: links(graph, entity_id, Direction::Incoming),
         downstream: links(graph, entity_id, Direction::Outgoing),
-        missing: missing_links(graph, entity_id, expectations),
+        missing: missing_links(graph, forms, root, expectations),
     }
 }
 
@@ -326,8 +336,8 @@ fn traced(graph: &Graph, root: &Node, expectations: &TraceExpectations) -> Trace
 /// the trace prompt lists: a missing link, an expected edge a traced entity
 /// lacks (`source_entity` the entity, `target_entity` the kind it would point
 /// at, `missing_link_type` "missing_link"); or a plan gap, how an agent plan
-/// falls short of the graph (its own fields). An edge to an entity that does
-/// not exist is neither: it is E003, `check`'s business.
+/// falls short of the graph (its own fields). A written reference to an entity that does not
+/// exist is neither: it is E003, `check`'s business (ADR 0232).
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct Gap {
     source_entity: String,
@@ -375,23 +385,22 @@ impl From<&PlanGap> for Gap {
     }
 }
 
-/// The expected edges `entity_id` does not have, one hop from it. An edge
-/// with the expected label counts even when its target is undeclared: that
-/// is a broken reference (E003), not a missing link.
+/// The expected links `node` lacks, one hop from it: each expected field
+/// it does not give its link ([`Graph::linked_fields`], ADR 0232). A
+/// reference that does not resolve is written, so it is E003, `check`'s,
+/// never a missing link.
 fn missing_links(
     graph: &Graph,
-    entity_id: &str,
+    forms: &FieldForms,
+    node: &Node,
     expectations: &TraceExpectations,
 ) -> Vec<MissingLink> {
-    let Some(node) = graph.node(entity_id) else {
-        return Vec::new();
-    };
-    let kind = node.kind.raw.as_str();
-    let outgoing = graph.edges_from(entity_id);
+    let (entity_id, kind) = (node.id.raw.as_str(), node.kind.raw.as_str());
+    let linked = graph.linked_fields(forms, node);
     expectations
         .for_kind(kind)
         .iter()
-        .filter(|expected| !outgoing.iter().any(|e| e.label == *expected.label))
+        .filter(|expected| !linked.contains(&Sym::new(&expected.label)))
         .map(|expected| MissingLink {
             from: entity_id.to_string(),
             from_kind: kind.to_string(),

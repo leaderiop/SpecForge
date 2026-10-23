@@ -721,7 +721,6 @@ behavior beta "B" { contract "first" features [alpha] }
         behavior = "compute_traceability_chain",
         verify = "a field that writes a reference has its link, resolved or not: an unresolved one is E003, never a missing link"
     )]
-    #[ignore = "flipped by T2"]
     fn a_field_that_writes_an_unresolved_reference_has_no_missing_link() {
         let project = TestProject::new()
             .enabling(&["@specforge/software", "@specforge/product"])
