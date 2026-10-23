@@ -258,6 +258,8 @@ behavior find_all_references "Find All References" {
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
+  verify unit "find-refs include a use binding's imported name"
+  verify unit "the written tokens of a file include a use binding's imported name, never its alias"
 }
 
 behavior hover_information "Hover Information" {
@@ -430,6 +432,7 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename from a document the project does not build answers that rename is not available"
   verify unit "prepare rename from a document opened since the compile waits for it"
   verify contract "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
+  verify unit "prepare rename answers on a use binding's imported name"
 }
 
 behavior rename_entity_id "Rename Entity ID" {
@@ -503,6 +506,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename edits a quoted reference inside its quotes"
   verify unit "a rename is refused while a source that spells the new ID does not parse"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
+  verify unit "rename edits a use binding's imported name, never its alias"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {

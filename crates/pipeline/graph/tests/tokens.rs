@@ -380,3 +380,23 @@ fn a_quoted_reference_is_a_token_at_its_id() {
         ]
     );
 }
+
+#[ignore = "flipped by T5"]
+#[specforge_test(
+    behavior = "find_all_references",
+    verify = "the written tokens of a file include a use binding's imported name, never its alias"
+)]
+fn a_use_bindings_imported_name_is_a_token_held_by_no_block() {
+    let (_, tokens) = find(
+        "use { Repo as Store, Gone } from \"a.spec\"\n",
+        defaults_inputs,
+    );
+    assert_eq!(
+        show(&tokens),
+        [
+            "Repo use a.spec Binding 1:7-1:11",
+            "Gone use a.spec Binding 1:22-1:26"
+        ]
+    );
+    assert!(tokens.iter().all(|t| t.held_by.is_empty()), "{tokens:?}");
+}

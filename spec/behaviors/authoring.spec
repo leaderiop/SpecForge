@@ -190,6 +190,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references removes a reference list written as one value"
   verify unit "delete with unlink_references refuses a reference no typed edit writes"
   verify unit "delete with unlink_references refuses a type name a derived field reads"
+  verify unit "delete with unlink_references removes a use binding that imports it"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
