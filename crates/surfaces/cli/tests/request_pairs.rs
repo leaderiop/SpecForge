@@ -238,7 +238,7 @@ const PAIRS: &[Pair] = &[
             "epsilon",
             "Epsilon",
             "--in",
-            "main.spec",
+            "spec/main.spec",
             "--contract",
             "The system MUST do epsilon",
             "--invariants",
@@ -253,7 +253,7 @@ const PAIRS: &[Pair] = &[
         tool: "specforge.edit",
         arguments: || {
             json!({"dry_run": true, "edits": [{"op": "create", "kind": "behavior", "id": "epsilon",
-                "title": "Epsilon", "file": "main.spec",
+                "title": "Epsilon", "file": "spec/main.spec",
                 "fields": {"contract": "The system MUST do epsilon", "invariants": ["rule_one"]}}]})
         },
     },

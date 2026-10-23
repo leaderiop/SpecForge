@@ -42,7 +42,7 @@ pub const CAPTURED: &str = "name_captured";
 pub struct RenamePlan {
     pub old_id: String,
     pub new_id: String,
-    /// One per occurrence: the token's span as navigation found it, relative to the spec root; its
+    /// One per occurrence: the token's span as navigation found it, relative to the project root; its
     /// text becomes the new ID.
     edits: Vec<TextEdit>,
     /// The texts the edits make, planned with them (ADR 0184).
@@ -267,7 +267,7 @@ pub fn run(
 pub struct RenameDocument {
     pub old_name: String,
     pub new_name: String,
-    /// The files the edits touch, relative to the spec root, sorted.
+    /// The files the edits touch, relative to the project root, sorted.
     pub affected_files: Vec<String>,
     /// The rename was only planned: nothing was written.
     pub dry_run: bool,

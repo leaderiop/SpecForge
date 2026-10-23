@@ -36,8 +36,8 @@ enum Named<'s> {
 /// unreadable source names it and reports nothing more, and a re-export
 /// from one reports no W027: what it exports is unknown.
 ///
-/// `spec_dir` is the spec root as a prefix of the keys (`SourceRoot::prefix`, `""` when keys are named from the
-/// spec root): an import path is read from the spec root, and the key it names carries the prefix. It is a lexical
+/// `spec_dir` is the spec root as a prefix of the keys (`SourceRoot::prefix`, `""` when the spec root is the project
+/// root): an import path is read from the spec root, and the key it names carries the prefix. It is a lexical
 /// value: the resolver still reads, lists and stats nothing.
 #[must_use]
 pub fn resolve_imports(
@@ -225,7 +225,7 @@ fn name<'s>(
         .map_or(Named::Nothing, Named::Source)
 }
 
-/// `key` without the spec dir it is under (as it is when the keys are named from the spec root).
+/// `key` without the spec dir it is under (a key is named from the project root, the spec root being its prefix).
 fn under<'a>(spec_dir: &Path, key: &'a str) -> &'a str {
     Path::new(key)
         .strip_prefix(spec_dir)

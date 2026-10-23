@@ -13,7 +13,6 @@ fn behavior(id: &str, extra: &str) -> String {
     behavior = "classify_project_changes",
     verify = "a discovered .spec file is a source keyed from the project root"
 )]
-#[ignore = "flipped by T7"]
 fn a_source_is_keyed_from_the_project_root() {
     let a = format!(
         "use \"sub/b\"\n\n{}",

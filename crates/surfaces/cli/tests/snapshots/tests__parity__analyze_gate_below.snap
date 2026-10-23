@@ -35,7 +35,7 @@ expression: snapshot
             {
               "code": "A001",
               "column": 1,
-              "file": "a.spec",
+              "file": "spec/a.spec",
               "line": 5,
               "message": "invariant 'soft' declares no verify obligations",
               "origin": "@specforge/testing",
@@ -43,7 +43,7 @@ expression: snapshot
               "span": {
                 "end_col": 2,
                 "end_line": 8,
-                "file": "a.spec",
+                "file": "spec/a.spec",
                 "start_col": 1,
                 "start_line": 5
               },
@@ -53,7 +53,7 @@ expression: snapshot
             {
               "code": "A002",
               "column": 1,
-              "file": "a.spec",
+              "file": "spec/a.spec",
               "line": 5,
               "message": "invariant 'soft' declares no verify obligations",
               "origin": "@specforge/testing",
@@ -61,7 +61,7 @@ expression: snapshot
               "span": {
                 "end_col": 2,
                 "end_line": 8,
-                "file": "a.spec",
+                "file": "spec/a.spec",
                 "start_col": 1,
                 "start_line": 5
               },
@@ -71,7 +71,7 @@ expression: snapshot
             {
               "code": "A015",
               "column": 1,
-              "file": "a.spec",
+              "file": "spec/a.spec",
               "line": 1,
               "message": "type 'widget' has 1 obligation(s) no passing test proves: \"widget valid\"",
               "origin": "@specforge/testing",
@@ -79,7 +79,7 @@ expression: snapshot
               "span": {
                 "end_col": 2,
                 "end_line": 4,
-                "file": "a.spec",
+                "file": "spec/a.spec",
                 "start_col": 1,
                 "start_line": 1
               },

@@ -706,13 +706,13 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
     let resp = call_tool(
         &mut server,
         "specforge.outline",
-        json!({"file": "main.spec"}),
+        json!({"file": "spec/main.spec"}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let resp = call_tool(
         &mut server,
         "specforge.outline",
-        json!({"file": "empty.spec"}),
+        json!({"file": "spec/empty.spec"}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     assert_eq!(tool_json(&resp), json!({"entries": []}));
@@ -720,7 +720,7 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
     let resp = call_tool(
         &mut server,
         "specforge.outline",
-        json!({"file": "gone.spec"}),
+        json!({"file": "spec/gone.spec"}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "file_not_found", "{error}");

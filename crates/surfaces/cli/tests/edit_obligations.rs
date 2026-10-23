@@ -51,7 +51,7 @@ fn a_verify_prefix_is_a_kind_only_when_the_entitys_kind_accepts_it() {
             "archive_task",
             "Archive a Task",
             "--in",
-            "behaviors/task.spec",
+            "spec/behaviors/task.spec",
             "--category",
             "command",
             "--types",

@@ -33,7 +33,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Shape)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Edit {
-    /// A new entity in `file` (relative to the spec root; created when missing).
+    /// A new entity in `file` (relative to the project root; created when missing).
     Create {
         kind: String,
         id: String,
@@ -233,9 +233,9 @@ pub struct EditReport {
     /// The entities whose block the edits, taken together, create, change or delete, sorted
     /// (`PlannedChange::entities`).
     pub entities: Vec<String>,
-    /// The files the edits change, relative to the spec root, sorted.
+    /// The files the edits change, relative to the project root, sorted.
     pub affected_files: Vec<String>,
-    /// A unified diff of every affected file (spec-root-relative headers), in file order. Empty when nothing changes.
+    /// A unified diff of every affected file (project-root-relative headers), in file order. Empty when nothing changes.
     pub diff: String,
     /// The warnings and infos the edited project reports that the project did not, in report order.
     pub added: DiagnosticList,
@@ -277,7 +277,7 @@ struct Located {
 }
 
 impl<'v> Planner<'v> {
-    /// The format configuration of the file `key` names (relative to the spec root).
+    /// The format configuration of the file `key` names (relative to the project root).
     fn config_of(&mut self, key: &str) -> FormatConfig {
         let path = self.view.env().sources().path(key);
         self.configs.layout(Place::File(&path))

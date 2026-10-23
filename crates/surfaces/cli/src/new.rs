@@ -52,7 +52,7 @@ fn options() -> Command {
             Arg::new(IN)
                 .long(IN)
                 .value_name("FILE")
-                .help("The file, relative to the spec root; created when missing"),
+                .help("The file, relative to the project root; created when missing"),
         )
         .arg(
             Arg::new(VERIFY)
@@ -278,7 +278,7 @@ fn edit(
         OpError::new(
             OpErrorKind::InvalidInput,
             "invalid_edit",
-            "new needs --in <file>, relative to the spec root",
+            "new needs --in <file>, relative to the project root",
         )
     })?;
     let verify = matches

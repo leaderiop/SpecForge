@@ -20,7 +20,7 @@ expression: "normalized(&result, root)"
           "signin"
         ]
       },
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "id": "login",
       "kind": "behavior",
       "line": 1,
@@ -38,7 +38,7 @@ expression: "normalized(&result, root)"
         "problem": "Users cannot reach their data",
         "solution": "Let them log in"
       },
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "id": "signin",
       "kind": "feature",
       "line": 23,

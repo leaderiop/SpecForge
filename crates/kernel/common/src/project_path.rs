@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
 /// A file of a project as a document names it: relative to the project root with `/` between components, or, for a
-/// file outside the root (only the CLI can name one, ADR 0092 D6), absolute and canonical as far as it exists.
+/// file outside the root (only the CLI can name one, ADR 0092 D6), or a source outside it, absolute and canonical as far as it exists.
 /// It serializes as that string.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, crate::shape::Shape)]
 pub struct ProjectPath(String);

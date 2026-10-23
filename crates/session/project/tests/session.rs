@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::testing::{TestProject, disk_changed};
+use specforge_project::testing::{TestProject, disk_changed, disk_changed_under};
 use specforge_project::{Buffer, CheckMode, ProjectSession, UpdateKind};
 use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
@@ -494,7 +494,7 @@ fn excluded_files_stay_out_of_the_compile_and_the_session() {
     let compiled = dir.compile_in(runtime.clone());
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
-    assert_eq!(files, ["main.spec"]);
+    assert_eq!(files, ["spec/main.spec"]);
     assert!(
         !compiled.diagnostics().iter().any(|d| d.code == "E002"),
         "{:?}",
@@ -1483,7 +1483,7 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
                     assert!(session.release(&[spec.join(path)]).is_none());
                     Some(update)
                 }
-                None => disk_changed(&mut session, &touched),
+                None => disk_changed_under(&mut session, "spec", &touched),
             };
             let context = format!("seed {seed:#x} step {step}");
             if let Some(update) = &update {
@@ -1697,7 +1697,7 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
                     let text = fs::read_to_string(spec.join(from)).unwrap();
                     fs::remove_file(spec.join(from)).unwrap();
                     write(&spec, to, &text);
-                    disk_changed(&mut session, &[from, to])
+                    disk_changed_under(&mut session, "spec", &[from, to])
                 }
                 1 => {
                     let path = rng.pick(PATHS);
@@ -1705,7 +1705,7 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
                         continue;
                     }
                     fs::remove_file(spec.join(path)).unwrap();
-                    disk_changed(&mut session, &[path])
+                    disk_changed_under(&mut session, "spec", &[path])
                 }
                 // One editor buffer, saved so the fresh compile sees it.
                 2 => {
@@ -2663,7 +2663,7 @@ fn a_spec_root_named_like_a_skipped_directory_is_compiled() {
     let compiled = dir.compile_bare();
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
-    assert_eq!(files, ["main.spec"]);
+    assert_eq!(files, ["build/main.spec"]);
 }
 
 /// A session keeps the root it was opened at: a reload does not locate the

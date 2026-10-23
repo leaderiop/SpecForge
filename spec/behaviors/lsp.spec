@@ -130,7 +130,7 @@ behavior document_open_close "Document Open/Close" {
     both spellings MUST name one open document, one list of published
     diagnostics and one staleness. Every answer and publish about the file
     MUST name it by the URI the client opened it with. An environment load
-    that moves the spec root keeps every open document.
+    that moves the spec root keeps every open document and its key.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"

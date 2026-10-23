@@ -3007,7 +3007,7 @@ expression: listing
       "additionalProperties": false,
       "properties": {
         "file": {
-          "description": "Spec file, relative to the project's spec root",
+          "description": "Spec file, relative to the project root",
           "type": "string"
         }
       },
@@ -3145,7 +3145,7 @@ expression: listing
           "type": "string"
         },
         "file_path": {
-          "description": "Only diagnostics in this spec file, relative to the spec root",
+          "description": "Only diagnostics in this spec file, relative to the project root",
           "type": "string"
         }
       },

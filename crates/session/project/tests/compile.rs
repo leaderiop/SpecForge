@@ -69,7 +69,7 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     assert_eq!(compiled.environment().spec_root(), dir.root().join("spec"));
     let mut files: Vec<String> = compiled.source_texts().into_keys().collect();
     files.sort();
-    assert_eq!(files, ["a.spec"]);
+    assert_eq!(files, ["spec/a.spec"]);
 }
 
 /// A directory with no `specforge.json` at or above it is a loose root: the

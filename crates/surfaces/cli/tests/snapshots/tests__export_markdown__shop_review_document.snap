@@ -8,7 +8,7 @@ expression: run.stdout
 
 ## behavior `add_item` — Add an item to the cart
 
-`cart.spec:12`
+`spec/cart.spec:12`
 
 **contract**
 
@@ -37,7 +37,7 @@ expression: run.stdout
 
 ## invariant `no_duplicate_items` — An item is in the cart at most once
 
-`cart.spec:22`
+`spec/cart.spec:22`
 
 **guarantee**
 
@@ -57,7 +57,7 @@ expression: run.stdout
 
 ## spec `shop` — shop
 
-`cart.spec:3`
+`spec/cart.spec:3`
 
 **Fields**
 
@@ -67,7 +67,7 @@ expression: run.stdout
 
 ## type `cart` — Shopping cart
 
-`cart.spec:7`
+`spec/cart.spec:7`
 
 **Fields**
 

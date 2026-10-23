@@ -135,7 +135,7 @@ impl CompiledProject {
         }
     }
 
-    /// This project as if `texts` (by source key, relative to the spec root) were the text of their sources:
+    /// This project as if `texts` (by source key, relative to the project root) were the text of their sources:
     /// a key no compiled source has when the environment's [`SourceRoot::holds_key`] admits it, then
     /// every check. What `specforge check` reports once those texts are written. Reads no source: every
     /// other source is what this project holds (the text it read, or the E025 it recorded for one it could
@@ -184,8 +184,8 @@ impl CompiledProject {
         self.on_disk.then_some(self.env.root())
     }
 
-    /// The keys of the sources it holds (each `.spec` file's path relative to
-    /// the spec root): those in its graph and those that could not be read.
+    /// The keys of the sources it holds (each `.spec` file's path from
+    /// the project root): those in its graph and those that could not be read.
     /// What a `use` path may name (ADR 0055).
     pub fn source_keys(&self) -> BTreeSet<&str> {
         self.sources.keys()
@@ -223,7 +223,7 @@ impl CompiledProject {
         }))
     }
 
-    /// The text the graph's spans for `path` (relative to the spec root)
+    /// The text the graph's spans for `path` (relative to the project root)
     /// are positions in: the file as read, or the buffer as given, at the
     /// last change of that file. `None` for a file it does not hold.
     pub fn source_text(&self, path: &str) -> Option<Arc<str>> {

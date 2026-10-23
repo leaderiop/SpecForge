@@ -31,14 +31,14 @@ expression: snapshot
             {
               "code": "A010",
               "column": 1,
-              "file": "main.spec",
+              "file": "spec/main.spec",
               "line": 1,
               "message": "behavior 'alpha' declares no contract obligations",
               "severity": "Info",
               "span": {
                 "end_col": 2,
                 "end_line": 4,
-                "file": "main.spec",
+                "file": "spec/main.spec",
                 "start_col": 1,
                 "start_line": 1
               },

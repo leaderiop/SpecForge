@@ -18,7 +18,7 @@ const OTHER_SIDE: &str = "other_side";
 /// The entity an edit changes, and where it is.
 pub struct Site<'a> {
     pub view: &'a ProjectView<'a>,
-    /// The file, relative to the spec root.
+    /// The file, relative to the project root.
     pub key: &'a str,
     pub id: &'a str,
     pub kind: &'a str,

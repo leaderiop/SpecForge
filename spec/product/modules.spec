@@ -150,7 +150,7 @@ module specforge_registry "specforge-registry" {
 
 module specforge_resolver "specforge-resolver" {
   family      core
-  description "Import resolution over a compile's sources: an import names a source by its key, its path relative to the spec root; nothing here reads a file (ADR 0055)"
+  description "Import resolution over a compile's sources: an import path is read from the spec root and names a source by its key, its path from the project root; nothing here reads a file (ADR 0055, ADR 0242)"
   features    [reference_resolution, graph_construction]
   depends_on  [specforge_common, specforge_cycles, specforge_parser]
   tags        ["resolver", "pipeline"]

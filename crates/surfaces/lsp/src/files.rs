@@ -263,7 +263,7 @@ impl Files {
 
     // ---- environment loads -------------------------------------------------------------
 
-    /// Key every file anew under `sources` (an environment load moved their base): each keeps
+    /// Key every file anew under `sources` (an environment load moved the project root): each keeps
     /// its URI, its path, its document and its parts. Nothing moves when the base is the same.
     pub(crate) fn rekey(&mut self, sources: &SourceRoot) {
         let moved = self.sources.base() != sources.base();
@@ -358,27 +358,28 @@ mod tests {
         }
     }
 
-    fn sources(spec_root: &str) -> SourceRoot {
-        let dir = PathBuf::from(spec_root);
-        SourceRoot::new(dir.clone(), dir, specforge_common::Exclude::default())
+    fn sources(root: &str) -> SourceRoot {
+        let root = PathBuf::from(root);
+        let dir = root.join("spec");
+        SourceRoot::new(root, dir, specforge_common::Exclude::default())
     }
 
-    fn rooted(spec_root: &str) -> Files {
+    fn rooted(root: &str) -> Files {
         let mut files = Files::default();
-        files.rekey(&sources(spec_root));
+        files.rekey(&sources(root));
         files
     }
 
     #[test]
     fn key_of_reads_a_uri_percent_decoded() {
-        let files = rooted("/proj/spec");
+        let files = rooted("/proj");
         for spelling in [
             "file:///proj/spec/@acme/a+b=c/x%20y.spec",
             "file:///proj/spec/%40acme/a%2Bb%3Dc/x%20y.spec",
         ] {
-            assert_eq!(files.key_of(&url(spelling)), "@acme/a+b=c/x y.spec");
+            assert_eq!(files.key_of(&url(spelling)), "spec/@acme/a+b=c/x y.spec");
         }
-        // Outside the spec root the key is the path itself; a buffer with no file, its URI.
+        // Outside the project root the key is the path itself; a buffer with no file, its URI.
         assert_eq!(
             files.key_of(&url("file:///elsewhere/a.spec")),
             "/elsewhere/a.spec"
@@ -400,16 +401,18 @@ mod tests {
             Some("/proj/spec/@acme/a.spec"),
         ));
 
-        // The environment loads: the files are keyed under the spec root.
-        files.rekey(&sources("/proj/spec"));
-        assert_eq!(files.key_of(&uri), "@acme/a.spec");
-        let document = files.document("@acme/a.spec").expect("the document moved");
+        // The environment loads: the files are keyed from the project root.
+        files.rekey(&sources("/proj"));
+        assert_eq!(files.key_of(&uri), "spec/@acme/a.spec");
+        let document = files
+            .document("spec/@acme/a.spec")
+            .expect("the document moved");
         assert_eq!((document.text(), document.version()), ("text", Some(3)));
-        assert_eq!(files.uri("@acme/a.spec"), uri);
-        assert_eq!(files.compile_diagnostics("@acme/a.spec").len(), 1);
-        assert_eq!(files.anchor(), Some("@acme/a.spec"));
+        assert_eq!(files.uri("spec/@acme/a.spec"), uri);
+        assert_eq!(files.compile_diagnostics("spec/@acme/a.spec").len(), 1);
+        assert_eq!(files.anchor(), Some("spec/@acme/a.spec"));
         assert_eq!(
-            files.path("@acme/a.spec"),
+            files.path("spec/@acme/a.spec"),
             Some(Path::new("/proj/spec/@acme/a.spec"))
         );
 

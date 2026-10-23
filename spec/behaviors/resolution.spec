@@ -21,17 +21,17 @@ behavior resolve_use_imports "Resolve Use Imports" {
   consumes   [registries_populated]
   requires {
     registries_populated_fired "registries_populated event has fired, confirming KindRegistry and FieldRegistry are ready"
-    sources_held               "The compile holds its sources: the path relative to the spec root of every .spec file discovery kept, parsed or unreadable, and of every editor buffer of one"
+    sources_held               "The compile holds its sources: the path from the project root of every .spec file discovery kept, parsed or unreadable, and of every editor buffer of one"
   }
   ensures {
-    imports_resolved        "All use directives are resolved to the project sources they name, relative to the spec root"
+    imports_resolved        "All use directives are resolved to the project sources they name, an import path read from the spec root"
     missing_files_diagnosed "An import that names no project source produces E025"
     dependency_graph_built  "File dependency graph is constructed from resolved imports"
   }
   contract   """
     The resolver MUST resolve a use directive against the project's
-    sources, the .spec files the compile holds, by their paths relative
-    to the spec root, and MUST NOT read, list or stat any file. A
+    sources, the .spec files the compile holds, by their paths from
+    the project root, and MUST NOT read, list or stat any file. A
     relative path (./ or ../) is read from the importing file's
     directory, any other path from the spec root. The .spec extension
     MUST be appended implicitly, and a dotted name keeps its dots

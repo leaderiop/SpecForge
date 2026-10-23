@@ -9,7 +9,7 @@ expression: "normalized(result, root)"
     {
       "code": "W002",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 16,
       "message": "type 'Status' is not referenced by any behavior, port, or type",
       "origin": "@specforge/software",
@@ -17,7 +17,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 41,
         "end_line": 16,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 16
       },
@@ -40,7 +40,7 @@ expression: "normalized(result, root)"
   "source_span": {
     "end_col": 41,
     "end_line": 16,
-    "file": "main.spec",
+    "file": "spec/main.spec",
     "start_col": 1,
     "start_line": 16
   },

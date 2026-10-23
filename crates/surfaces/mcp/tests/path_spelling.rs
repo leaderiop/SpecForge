@@ -117,9 +117,9 @@ fn edit_reads_two_spellings_of_one_new_file_as_one_file() {
     let reply = tool(
         &mut server,
         "specforge.edit",
-        json!({"edits": [create("alpha", "./n.spec"), create("beta", "n.spec")]}),
+        json!({"edits": [create("alpha", "./spec/n.spec"), create("beta", "spec/n.spec")]}),
     );
-    assert_eq!(reply["affected_files"], json!(["n.spec"]), "{reply}");
+    assert_eq!(reply["affected_files"], json!(["spec/n.spec"]), "{reply}");
     let written = std::fs::read_to_string(server.root().join("spec/n.spec")).unwrap();
     assert!(
         written.contains("type alpha") && written.contains("type beta"),
@@ -129,28 +129,24 @@ fn edit_reads_two_spellings_of_one_new_file_as_one_file() {
 
 #[specforge_test_macros::test(
     behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit refuses a new file named from the project root, naming its spec-root spelling"
+    verify = "specforge.edit refuses a new file outside the spec root, with no suggestion"
 )]
-fn edit_refuses_a_new_file_named_from_the_project_root() {
+fn edit_refuses_a_new_file_named_from_the_spec_root() {
     let mut server = named_files();
     let reply = call_tool(
         &mut server,
         "specforge.edit",
-        json!({"edits": [{"op": "create", "kind": "type", "id": "alpha", "title": "alpha", "file": "spec/n.spec"}]}),
+        json!({"edits": [{"op": "create", "kind": "type", "id": "alpha", "title": "alpha", "file": "n.spec"}]}),
     );
     let error = crate::tool_errors::mcp_error(&reply);
-    assert_eq!(error["file"], "spec/n.spec", "{error}");
-    assert_eq!(
-        error["data"]["suggestion"],
-        "did you mean 'n.spec'? a spec file is named from the spec root",
-        "{error}"
-    );
-    assert!(!server.root().join("spec/spec").exists());
+    assert_eq!(error["file"], "n.spec", "{error}");
+    assert!(error["data"].get("suggestion").is_none(), "{error}");
+    assert!(!server.root().join("n.spec").exists());
 }
 
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
-    verify = "outline reads every spelling of a source under the spec root as that source"
+    verify = "outline reads every spelling of a source under the project root as that source"
 )]
 fn outline_reads_an_absolute_spelling_of_a_source() {
     let mut server = named_files();
@@ -158,7 +154,7 @@ fn outline_reads_an_absolute_spelling_of_a_source() {
     let by_key = tool(
         &mut server,
         "specforge.outline",
-        json!({"file": "login.spec"}),
+        json!({"file": "spec/login.spec"}),
     );
     let by_path = tool(
         &mut server,
@@ -182,33 +178,29 @@ fn suggest_fixes_reads_a_spelling_of_its_file() {
             json!({"file_path": file}),
         )
     };
-    let by_key = fixes(&mut server, "login.spec");
+    let by_key = fixes(&mut server, "spec/login.spec");
     assert_eq!(by_key["fixes"].as_array().unwrap().len(), 2, "{by_key}");
-    assert_eq!(fixes(&mut server, "./login.spec"), by_key);
+    assert_eq!(fixes(&mut server, "./spec/login.spec"), by_key);
     assert_eq!(fixes(&mut server, absolute.to_str().unwrap()), by_key);
 }
 
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
-    verify = "outline refuses a project-root spelling of a source naming its spec-root spelling"
+    verify = "outline refuses a spec-root spelling of a source, with no suggestion"
 )]
-fn outline_refuses_a_project_root_spelling_as_the_view_does() {
+fn outline_refuses_a_spec_root_spelling_as_the_view_does() {
     let mut server = named_files();
     let refused = |server: &mut Served, tool: &str, argument: &str| {
         let mut arguments = json!({});
-        arguments[argument] = json!("spec/login.spec");
+        arguments[argument] = json!("login.spec");
         crate::tool_errors::mcp_error(&call_tool(server, tool, arguments))
     };
     let outline = refused(&mut server, "specforge.outline", "file");
     let fixes = refused(&mut server, "specforge.suggest_fixes", "file_path");
     assert_eq!(outline["code"], "file_not_found", "{outline}");
     assert_eq!(outline["argument"], "file", "{outline}");
-    assert_eq!(outline["file"], "spec/login.spec", "{outline}");
-    assert_eq!(
-        outline["data"]["suggestion"],
-        "did you mean 'login.spec'? a spec file is named from the spec root",
-        "{outline}"
-    );
+    assert_eq!(outline["file"], "login.spec", "{outline}");
+    assert!(outline["data"].get("suggestion").is_none(), "{outline}");
     // One refusal, one wording: the view's.
     assert_eq!(outline["message"], fixes["message"], "{outline} / {fixes}");
 }
@@ -219,7 +211,7 @@ fn outline_refuses_a_project_root_spelling_as_the_view_does() {
 )]
 fn suggest_fixes_names_the_file_it_refuses() {
     let mut server = named_files();
-    for file in ["nope.spec", "spec/login.spec", "../x.spec"] {
+    for file in ["nope.spec", "login.spec", "../x.spec"] {
         let reply = call_tool(
             &mut server,
             "specforge.suggest_fixes",
@@ -279,7 +271,6 @@ fn format_refuses_a_path_that_names_nothing_about_paths() {
     invariant = "document_project_paths",
     verify = "a rename reply names each file it edits and writes with one spelling"
 )]
-#[ignore = "flipped by T7"]
 fn a_reply_names_each_file_once() {
     let mut server = named_files();
     let reply = tool(

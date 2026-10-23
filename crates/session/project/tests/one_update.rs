@@ -100,7 +100,7 @@ fn a_current_source_and_a_changed_check_input_run_the_checks() {
     touch(&a);
     let guide = created_guide(&dir);
     let changes = session.changes([a.as_path(), guide.as_path()]);
-    assert_eq!(changes.sources(), ["a.spec"]);
+    assert_eq!(changes.sources(), ["spec/a.spec"]);
     assert!(!changes.check_inputs().is_empty());
     let before = check_runs(&rt);
 
@@ -166,7 +166,7 @@ fn a_changed_source_and_a_changed_check_input_run_the_checks_once() {
         .expect("a source changed");
 
     assert_eq!(update.kind, UpdateKind::Sources);
-    assert_eq!(update.rebuilt_files, ["a.spec"]);
+    assert_eq!(update.rebuilt_files, ["spec/a.spec"]);
     assert_eq!(check_runs(&rt) - before, 1);
     assert_eq!(f001(&session), 0);
     assert!(session.stale().is_empty());

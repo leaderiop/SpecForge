@@ -459,26 +459,23 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
   ports      [CompilerApi]
   contract   """
     A spec file a request names (a typed create's file, outline's file, the
-    fixes' file_path) MUST be read into its source key, the path relative to
-    the spec root that the compile and the editor name it by: every spelling
-    of one file is that file (a leading or inner ., a doubled separator, its
-    absolute path under the spec root). A spelling that leaves the spec root
-    (a .. or an absolute path elsewhere) MUST be refused as not_a_source. A
-    read of a file that is none of the compiled sources MUST be
-    file_not_found; a create MUST be refused as not_a_source unless the file
-    is one discovery would keep. A spelling from the project root of an
-    existing source, and of a new file whose spec-root spelling repeats the spec
-    root as a directory no source is in, MUST be refused naming its spec-root
-    spelling. A refusal
-    MUST name the file as the request spelled it.
+    fixes' file_path) MUST be read into its source key, the path from the
+    project root that the compile and the editor name it by (ADR 0242): every
+    spelling of one file is that file (a leading or inner ., a doubled
+    separator, its absolute path under the project root). A spelling that
+    leaves the project root (a .. or an absolute path elsewhere) MUST be
+    refused as not_a_source. A read of a file that is none of the compiled
+    sources, the spec root's own spelling of one included, MUST be
+    file_not_found with no suggestion; a create MUST be refused as
+    not_a_source unless the file is one discovery would keep. A refusal MUST
+    name the file as the request spelled it.
   """
-  verify unit "every spelling of a spec file under the spec root reads as its source key"
-  verify unit "a spelling that leaves the spec root is not_a_source"
+  verify unit "every spelling of a spec file under the project root reads as its source key"
+  verify unit "a spelling that leaves the project root is not_a_source"
   verify unit "a read of a file that is no compiled source is file_not_found"
-  verify unit "a spec file named from the project root is refused naming its spec-root spelling"
   verify unit "a refusal of a named spec file names the file as the request spelled it"
   verify unit "a spec file is named from the project root, as every document names it"
-  verify unit "a new spec file named from the project root is refused naming its spec-root spelling"
+  verify unit "a new spec file under the spec root is a place, whatever directory it repeats"
 }
 
 // Inspect (specforge_ops::read::inspect): one entity's facts. specforge.inspect,

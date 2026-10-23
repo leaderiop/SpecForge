@@ -10,7 +10,7 @@ expression: "normalized(result, root)"
     {
       "code": "W001",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 7,
       "message": "behavior 'logout' does not implement any feature",
       "origin": "@specforge/software",
@@ -18,7 +18,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 9,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 7
       },
@@ -28,7 +28,7 @@ expression: "normalized(result, root)"
     {
       "code": "W004",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 7,
       "message": "behavior 'logout' is testable but declares no verify obligations",
       "origin": "@specforge/testing",
@@ -36,7 +36,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 9,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 7
       },
@@ -46,7 +46,7 @@ expression: "normalized(result, root)"
     {
       "code": "W006",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 7,
       "message": "behavior 'logout' has no category — agents use category for task routing",
       "origin": "@specforge/software",
@@ -54,7 +54,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 9,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 7
       },
@@ -74,7 +74,7 @@ expression: "normalized(result, root)"
   "source_span": {
     "end_col": 2,
     "end_line": 9,
-    "file": "main.spec",
+    "file": "spec/main.spec",
     "start_col": 1,
     "start_line": 7
   },

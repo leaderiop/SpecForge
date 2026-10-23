@@ -8,7 +8,6 @@ use std::fs;
     invariant = "document_project_paths",
     verify = "check, format and export name one file with one spelling"
 )]
-#[ignore = "flipped by T7"]
 fn check_names_a_file_as_format_does() {
     let fixtures =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/coverage/fx1");

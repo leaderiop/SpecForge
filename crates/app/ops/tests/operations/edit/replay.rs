@@ -123,9 +123,9 @@ fn the_todo_app_replays_through_typed_edits() {
         .collect();
     let plan = edit::plan(&ProjectView::of(&original), &removal).unwrap();
     plan.change().apply(caller()).unwrap();
-    let spec_root = original.environment().spec_root().to_path_buf();
+    let root = original.environment().sources().base().to_path_buf();
     for (file, block) in &kept {
-        let path = spec_root.join(file);
+        let path = root.join(file);
         let text = std::fs::read_to_string(&path).unwrap();
         std::fs::write(&path, format!("{}\n\n{block}\n", text.trim_end())).unwrap();
     }

@@ -10,7 +10,7 @@ expression: "normalized(result, root)"
     {
       "code": "W006",
       "column": 1,
-      "file": "main.spec",
+      "file": "spec/main.spec",
       "line": 1,
       "message": "behavior 'login' has no category — agents use category for task routing",
       "origin": "@specforge/software",
@@ -18,7 +18,7 @@ expression: "normalized(result, root)"
       "span": {
         "end_col": 2,
         "end_line": 5,
-        "file": "main.spec",
+        "file": "spec/main.spec",
         "start_col": 1,
         "start_line": 1
       },
@@ -43,7 +43,7 @@ expression: "normalized(result, root)"
   "source_span": {
     "end_col": 2,
     "end_line": 5,
-    "file": "main.spec",
+    "file": "spec/main.spec",
     "start_col": 1,
     "start_line": 1
   },

@@ -140,7 +140,7 @@ pub struct SourceRoot {
 impl SourceRoot {
     /// The sources under `dir` (a spec root) of the project at `root` that `exclude` does not leave out.
     pub fn new(root: PathBuf, dir: PathBuf, exclude: Exclude) -> Self {
-        let prefix = Self::prefix_of(&dir, &dir);
+        let prefix = Self::prefix_of(&root, &dir);
         SourceRoot {
             root,
             dir,

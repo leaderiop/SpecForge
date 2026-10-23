@@ -427,3 +427,16 @@ pub fn disk_changed(session: &mut ProjectSession, keys: &[impl AsRef<str>]) -> O
     let changes = session.changes(paths.iter().map(PathBuf::as_path));
     session.apply(&changes)
 }
+
+/// [`disk_changed`] of `names`, each a key under the directory `dir` of the project (a `spec_root`).
+pub fn disk_changed_under(
+    session: &mut ProjectSession,
+    dir: &str,
+    names: &[impl AsRef<str>],
+) -> Option<Update> {
+    let keys: Vec<String> = names
+        .iter()
+        .map(|n| format!("{dir}/{}", n.as_ref()))
+        .collect();
+    disk_changed(session, &keys)
+}

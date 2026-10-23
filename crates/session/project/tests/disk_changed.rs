@@ -22,13 +22,13 @@ fn an_untouched_source_is_no_update() {
 }
 
 #[test]
-fn keys_are_relative_to_the_spec_root() {
+fn keys_are_relative_to_the_project_root() {
     let dir = TestProject::new()
         .raw_config(r#"{"name":"t","version":"0.1.0","extensions":[],"spec_root":"spec"}"#)
         .files(&[("spec/a.spec", A)]);
     let mut session = dir.session_bare();
     dir.write("spec/a.spec", "term a \"B\" {\n}\n");
-    assert!(disk_changed(&mut session, &["a.spec"]).is_some());
+    assert!(disk_changed(&mut session, &["spec/a.spec"]).is_some());
 }
 
 #[test]

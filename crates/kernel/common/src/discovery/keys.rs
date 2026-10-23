@@ -7,9 +7,9 @@ use crate::ProjectPath;
 use std::path::{Path, PathBuf};
 
 impl SourceRoot {
-    /// The directory every key of this project is relative to.
+    /// The directory every key of this project is relative to: the project root.
     pub fn base(&self) -> &Path {
-        &self.dir
+        &self.root
     }
 
     /// The key of the source at `path` ([`ProjectPath::key`] under [`Self::base`]): what the ledger stamps, the
@@ -20,10 +20,15 @@ impl SourceRoot {
         ProjectPath::key(self.base(), path)
     }
 
-    /// The file `key` names: [`Self::base`] joined with it (an absolute key is its own path). The inverse of
+    /// The file `key` names: [`Self::base`] joined with it (an absolute key is its own path, a spec root outside the
+    /// project opened as [`Self::dir`] spells it). The inverse of
     /// [`Self::key`] on every key it returns.
     pub fn path(&self, key: &str) -> PathBuf {
-        self.base().join(key)
+        // A spec root outside the project is keyed by its canonical absolute path; open it as the walk spells it.
+        match Path::new(key).strip_prefix(&self.prefix) {
+            Ok(rest) if self.prefix.is_absolute() => self.dir.join(rest),
+            _ => self.base().join(key),
+        }
     }
 
     /// The spec root as a key prefix: [`Self::dir`] relative to [`Self::base`], `""` when they are one directory,

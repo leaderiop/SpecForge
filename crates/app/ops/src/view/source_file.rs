@@ -1,5 +1,5 @@
 //! A spec file a request names (a typed create's `file`, outline's `file`, the fixes' `file_path`): read into its
-//! source key, the path relative to the spec root that the compile and the editor name it by, or refused once
+//! source key, the path from the project root that the compile and the editor name it by, or refused once
 //! (ADR 0195). Every spelling of one file is that file; the key is what the ledger, the LSP and a span's `file` say.
 //! A refusal names the file as the request spelled it. A new file's project-root spelling is refused like an existing
 //! one's, when it repeats the spec root as a directory no source is in.
@@ -16,11 +16,11 @@ pub const NOT_A_SOURCE: &str = "not_a_source";
 
 pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
-/// `named`'s source key in `sources`, with `.` and doubled separators gone; `None` when it leaves the spec root
+/// `named`'s source key in `sources`, with `.` and doubled separators gone; `None` when it leaves the project root
 /// (a `..`, or an absolute path elsewhere). A project with no spec root (one assembled in memory) keys its sources
 /// by whatever path they were given, so an absolute path is a key there.
 fn key_of(sources: &SourceRoot, named: &str) -> Option<String> {
-    // A `..` anywhere leaves the spec root's reading of the name, whatever it lands on.
+    // A `..` anywhere leaves the project root's reading of the name, whatever it lands on.
     if Path::new(named)
         .components()
         .any(|c| c == Component::ParentDir)
@@ -46,7 +46,7 @@ fn outside(named: &str) -> OpError {
     OpError::new(
         OpErrorKind::InvalidInput,
         NOT_A_SOURCE,
-        format!("'{named}' is outside the spec root: a spec file is named from the spec root"),
+        format!("'{named}' leaves the project root: a spec file is named from the project root"),
     )
     .with_file(named)
 }

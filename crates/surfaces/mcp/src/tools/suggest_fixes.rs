@@ -15,7 +15,7 @@ use specforge_ops::view::ProjectView;
 pub struct Args {
     /// Entity ID (optional, all if omitted)
     entity_id: Option<String>,
-    /// Only diagnostics in this spec file, relative to the spec root
+    /// Only diagnostics in this spec file, relative to the project root
     file_path: Option<String>,
     /// Only diagnostics with this code, e.g. W001
     diagnostic_code: Option<String>,

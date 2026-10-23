@@ -9,7 +9,7 @@ use specforge_common::{SourceRoot, Sym};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-/// Per file under the spec root: the text it was planned on (`None`: the file is new) and the text it will hold. A
+/// Per file of the project: the text it was planned on (`None`: the file is new) and the text it will hold. A
 /// file whose after text is its planned-on text is not in it; a new file reads as empty, so one left empty is not in
 /// it either.
 ///
@@ -24,7 +24,7 @@ pub struct PlannedChange {
 }
 
 impl PlannedChange {
-    /// `files`: (path relative to the spec root, planned-on text, after text); an unchanged one is dropped, and a new
+    /// `files`: (path relative to the project root, planned-on text, after text); an unchanged one is dropped, and a new
     /// one whose after text is empty is unchanged.
     pub(crate) fn new(
         sources: SourceRoot,
@@ -48,12 +48,12 @@ impl PlannedChange {
         self.files.is_empty()
     }
 
-    /// The files the change writes, relative to the spec root, in key order.
+    /// The files the change writes, relative to the project root, in key order.
     pub fn affected_files(&self) -> impl Iterator<Item = &str> {
         self.files.keys().map(String::as_str)
     }
 
-    /// Each file the change writes and the text it will hold, by path relative to the spec root.
+    /// Each file the change writes and the text it will hold, by path relative to the project root.
     pub fn after(&self) -> BTreeMap<String, String> {
         self.files
             .iter()
@@ -98,7 +98,7 @@ impl PlannedChange {
             .collect()
     }
 
-    /// A unified diff of every file, spec-root-relative headers, in key order. Empty when nothing changes.
+    /// A unified diff of every file, project-root-relative headers, in key order. Empty when nothing changes.
     pub fn diff(&self) -> String {
         self.files
             .iter()

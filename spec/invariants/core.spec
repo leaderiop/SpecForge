@@ -234,8 +234,8 @@ invariant document_project_paths "Document Project Paths" {
     that root (only the CLI can name one) is absolute and canonical. A
     document's anchor directory (init's project_root, watch's spec_root) is
     absolute. A location the graph declares (a span, a navigation result,
-    an export node, rename's plan) is named by its source key, relative to
-    the spec root. The CLI and MCP print the same bytes for one run,
+    an export node, rename's plan) is named by its source key, which is its
+    project path. The CLI and MCP print the same bytes for one run,
     whatever the working directory or the spelling of the root.
   """
   risk      medium
