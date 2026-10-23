@@ -378,7 +378,6 @@ fn a_quoted_reference_is_a_token_at_its_id() {
     );
 }
 
-#[ignore = "flipped by T5"]
 #[specforge_test(
     behavior = "find_all_references",
     verify = "the written tokens of a file include a use binding's imported name, never its alias"

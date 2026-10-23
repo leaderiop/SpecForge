@@ -144,7 +144,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     references across all spec files. The edits are exactly every token that
     names the entity: its declaration's name (where the parse read it, on any
     line of the header) and each reference, a reference
-    written in a defaults block that no block takes included, as the editor's
+    written in a defaults block that no block takes and a use binding's
+    imported name (never its alias) included, as the editor's
     find-references returns them;
     text in strings, comments and verify statements that mentions the ID
     is not a reference and is not edited; a quoted reference is a reference,

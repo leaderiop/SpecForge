@@ -241,7 +241,8 @@ behavior find_all_references "Find All References" {
     When a user triggers find-references on an entity ID, the LSP MUST
     return every location across all .spec files where that entity's ID is
     written as a reference: another entity's field, or a file's defaults
-    block whether or not a block takes it; the identifier token as written, one
+    block whether or not a block takes it, or a use binding's imported name
+    (never its alias); the identifier token as written, one
     location per occurrence. What the entity itself references is not a reference
     to it. The entity's own declaration (its name token) MUST be included
     when the request asks for it (includeDeclaration) and MUST NOT be
@@ -411,7 +412,8 @@ behavior prepare_rename "Prepare Rename" {
     textDocument/prepareRename to validate that the cursor is on a
     renameable token (entity ID in a declaration or reference; every token a
     rename edits is renameable, a reference in a defaults block that no block
-    takes and one in a duplicate declaration included). The
+    takes, one in a duplicate declaration and a use binding's imported name
+    included). The
     response MUST include the range of the token to be renamed. If
     the cursor is not on a renameable token, the response MUST indicate
     that rename is not available at that position. While the document is
@@ -464,11 +466,12 @@ behavior rename_entity_id "Rename Entity ID" {
     or none are. The new ID follows the same rule as the MCP rename tool's:
     a name that is not a legal entity ID, that is a reserved word (a structural
     keyword or a declared kind's keyword, E013), that is taken, or that the project
-    already writes for no entity (a type name, a reference that does not resolve: the
+    already writes for no entity (a type name, a reference that does not resolve, a use binding naming nothing: the
     rename would make it name the renamed entity), MUST be refused with an error
     saying why, naming each place. The edits are exactly every token that names the
     entity: its declaration's name and each reference, a reference written in
-    a defaults block that no block takes included, as the editor's
+    a defaults block that no block takes and a use binding's imported name
+    (never its alias) included, as the editor's
     find-references returns them;
     text in strings, comments and verify statements that mentions the ID
     is not a reference and is not edited; a quoted reference is a reference,

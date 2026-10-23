@@ -5,6 +5,7 @@ use crate::edit::{is_canonical, plan, project};
 use crate::navigate::{SOFTWARE, at, compile};
 use specforge_ops::authoring::edit::Edit;
 use specforge_ops::authoring::rename;
+use specforge_ops::read::navigate::{Direction, ReferenceQuery};
 use specforge_test_macros::test as specforge_test;
 
 const RULES: &str = "invariant inv_a \"A\" {\n  guarantee \"g\"\n}\n\ninvariant inv_b \"B\" {\n  guarantee \"g\"\n}\n";
@@ -19,7 +20,6 @@ fn delete(id: &str, unlink_references: bool) -> Edit {
     }
 }
 
-#[ignore = "flipped by T5"]
 #[specforge_test(
     behavior = "rename_entity_id",
     verify = "rename edits a use binding's imported name, never its alias"
@@ -78,4 +78,49 @@ fn delete_with_unlink_references_removes_a_use_binding() {
     assert_eq!(after["alias.spec"], "");
     assert_eq!(after["last.spec"], "use { inv_b } from \"rules.spec\"\n");
     assert!(is_canonical(&c, &after["b.spec"]));
+}
+
+#[test]
+fn a_rename_onto_a_use_binding_naming_nothing_is_refused() {
+    let p = compile(
+        SOFTWARE,
+        &[
+            ("rules.spec", RULES),
+            ("c.spec", "use { inv_z } from \"rules.spec\"\n"),
+        ],
+    );
+    let refusal = rename::plan(&p.navigator(), "inv_a", "inv_z").unwrap_err();
+    assert_eq!(refusal.error.code.to_string(), rename::CAPTURED);
+    assert!(
+        refusal.error.message.contains("c.spec:1 (use, rules.spec)"),
+        "{}",
+        refusal.error.message
+    );
+}
+
+#[test]
+fn the_editors_tokens_hold_a_use_binding_and_find_references_no_holder() {
+    let p = compile(SOFTWARE, &[("rules.spec", RULES), ("b.spec", BOUND)]);
+    let nav = p.navigator();
+    let found: Vec<String> = nav
+        .tokens("inv_a", false)
+        .unwrap()
+        .iter()
+        .map(|t| at(&t.span))
+        .collect();
+    assert!(found.contains(&"b.spec 1:7-1:12".to_string()), "{found:?}");
+    let refs = nav
+        .references(
+            "inv_a",
+            ReferenceQuery {
+                direction: Direction::Incoming,
+                include_declaration: false,
+            },
+        )
+        .unwrap();
+    assert!(
+        refs.iter()
+            .all(|o| !(o.span.file == "b.spec" && o.span.start_line == 1)),
+        "{refs:?}"
+    );
 }

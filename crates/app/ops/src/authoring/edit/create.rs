@@ -165,6 +165,8 @@ impl Planner<'_> {
                         }
                         continue;
                     }
+                    // A use binding names no field; T6 decides what a delete does with it.
+                    (Holder::Use, _) => continue,
                     (Holder::Block(_) | Holder::Defaults(_), _) => {}
                 }
                 let at = token.place();

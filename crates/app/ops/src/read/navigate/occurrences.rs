@@ -185,8 +185,8 @@ impl Navigator<'_> {
     }
 
     /// The occurrences of `id`, sorted by (file, line, column): each token the graph's finder reads, once per block
-    /// that holds it (`held_by`: an inherited reference once per block that takes it; a default no block takes not at
-    /// all), and the declaration when asked. A token the compiled text does not spell (a reference whose value has no
+    /// that holds it (`held_by`: an inherited reference once per block that takes it; a default no block takes and a `use`
+    /// binding not at all), and the declaration when asked. A token the compiled text does not spell (a reference whose value has no
     /// bytes that spell its ID, ADR 0218, among them) is its holder's block with [`Precision::Entity`].
     ///
     /// shortcut: this walks every compiled file per call; add a per-project token index if a project of ~20k
@@ -232,7 +232,7 @@ impl Navigator<'_> {
 
     /// Every written token that names `id`, once each, sorted by (file, line, column): each reference the graph's
     /// finder reads in the compiled parses (`specforge_graph::written_tokens`, ADR 0163), a `defaults` entry no block
-    /// takes included, and its declaration's name when `include_declaration`. What a rename edits and an editor
+    /// takes and a `use` binding's imported name included, and its declaration's name when `include_declaration`. What a rename edits and an editor
     /// shows; who holds each reference is [`Self::references`]' answer.
     pub fn tokens(
         &self,
@@ -308,7 +308,7 @@ impl Navigator<'_> {
 
     /// The token (declaration or reference) whose span holds the byte position (1-based `line` and `col` of `file`;
     /// the position just past a token's end counts): each declaration of a node of the file, then each token the
-    /// graph's finder reads in the file's compiled parse (a default no block takes and a duplicate declaration's
+    /// graph's finder reads in the file's compiled parse (a default no block takes, a `use` binding's imported name and a duplicate declaration's
     /// references included). What prepareRename and a precise "go to" read. Only tokens as written answer.
     pub fn occurrence_at(&self, file: &str, line: usize, col: usize) -> Option<Token> {
         let at = SourceSpan {

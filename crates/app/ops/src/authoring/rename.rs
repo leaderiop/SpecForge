@@ -3,7 +3,7 @@
 //! runs it ([`run`]: planned, then written as one project change unless the
 //! request previews, as one planned change, ADR 0184) and recompiles; the LSP hands the plan's edits to the
 //! editor. The edits are exactly the tokens the graph's finder reads (ADR 0163: the
-//! declaration's name and each reference's token): text in strings,
+//! declaration's name, each reference's token and each `use` binding's imported name, ADR 0233): text in strings,
 //! comments and verify statements that mentions the ID is not a reference,
 //! and is left alone (ADR 0016). A rename changes the graph by a substitution only: a name written for no entity that
 //! its new ID would capture refuses it (`name_captured`, ADR 0198).

@@ -53,7 +53,6 @@ fn edited(edit: WorkspaceEdit) -> Vec<String> {
     out
 }
 
-#[ignore = "flipped by T5"]
 #[spec(
     behavior = "find_all_references",
     verify = "find-refs include a use binding's imported name"
@@ -72,7 +71,6 @@ fn references_show_a_use_binding() {
     );
 }
 
-#[ignore = "flipped by T5"]
 #[spec(
     behavior = "prepare_rename",
     verify = "prepare rename answers on a use binding's imported name"
