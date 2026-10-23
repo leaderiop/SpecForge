@@ -34,6 +34,7 @@ behavior create_entity "Create an Entity" {
   verify unit "new writes the block in the canonical form after the last block of its kind"
   verify unit "new creates a missing source file"
   verify unit "new refuses a blank title"
+  verify unit "new's help names a date field's value as YYYY-MM-DD"
   verify unit "new refuses a file that is not a project source"
   verify unit "new reads every spelling of a file under the spec root as that file"
   verify unit "two spellings of one new file in one list are one file"

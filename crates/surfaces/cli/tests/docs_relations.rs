@@ -63,7 +63,7 @@ const END: &str = "<!-- relations:end -->";
 /// One field of a builtin kind, as its pinned declaration says it.
 struct Field {
     name: String,
-    /// `identifier`, `enum: a, b` or `None` for the types the lists leave bare.
+    /// `identifier`, `date`, `enum: a, b` or `None` for the types the lists leave bare.
     note: Option<String>,
     required: bool,
     target: Option<String>,
@@ -97,6 +97,7 @@ fn field(value: &serde_json::Value, enhanced_by: Option<&str>) -> Field {
     let text = |key: &str| value[key].as_str().map(str::to_string);
     let note = match value["field_type"].as_str() {
         Some("identifier") => Some("identifier".to_string()),
+        Some("date") => Some("date".to_string()),
         Some("enum") => Some(format!(
             "enum: {}",
             value["enum_values"]

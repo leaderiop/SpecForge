@@ -244,3 +244,17 @@ fn a_date_field_holds_one_calendar_day_written_bare() {
         std::fs::read_to_string(dir.root().join("spec/d.spec")).unwrap()
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "create_entity",
+    verify = "new's help names a date field's value as YYYY-MM-DD"
+)]
+fn new_names_a_date_fields_value_as_a_calendar_day() {
+    let dir = governed("spec/g.spec", "");
+    let help = Cli::on(&dir).run(&["new", "decision", "--help"]).exits(0);
+    assert!(
+        help.stdout.contains("--date <YYYY-MM-DD>"),
+        "{}",
+        help.stdout
+    );
+}

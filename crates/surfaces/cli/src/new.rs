@@ -147,6 +147,7 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
         arg = match field.field_type {
             FieldType::ReferenceList => arg.value_name("ID,…"),
             FieldType::Block => arg.value_name("NAME=TEXT"),
+            FieldType::Date => arg.value_name("YYYY-MM-DD"),
             _ => arg.value_name("VALUE"),
         };
         cmd = cmd.arg(arg);
