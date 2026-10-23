@@ -9,15 +9,19 @@ Paste this block at the top of each brief you send.
   `CARGO_INCREMENTAL=0`; never the repository's `target/`. In a **serial round** (`architecture-rounds.md` step 3) the
   opposite holds: build in the repository's own `target/` with `CARGO_TARGET_DIR` and `CARGO_PROFILE_*` unset, and name
   the same `-p` crate set in every cargo call of the round: another set re-resolves features and rebuilds wasmtime
-  (round 25 filled the disk to 178 MB that way). `df -h .` before a heavy build.
+  (round 25 filled the disk to 178 MB that way).
 - First command: merge the integration tip into your branch. Last action before the final reply: merge it again and
   re-run clippy and nextest for the crates you touched.
 - No backward compatibility: SpecForge is pre-release; delete the old name and update every caller.
 - Untracked files in the checkout (`git status --short | grep '^??'`) are the user's: not yours to add, edit or delete.
 - Disk low (`df -h .` under 10 GB, or "No space left on device" in a log): `cargo run -p xtask --bin clean-target`, then re-run.
   A failure with that text is the disk's, not the code's.
-- macOS has BSD `sed` (`sed -i ''`, or the Edit tool) and zsh errors on an unquoted glob that matches nothing: quote
-  `--include='*.rs'`.
+- macOS has BSD `sed` (`sed -i ''`, or the Edit tool) and the shell is zsh: an unquoted glob that matches nothing is an
+  error (quote `--include='*.rs'`), `[ a == b ]` fails (use `=`), and `rm` takes a literal path (a variable target is refused).
+- A run over 10 minutes (workspace `nextest`, `cargo gate full`) goes in `run_in_background`; its exit notifies you, so
+  do other work or end the turn. A `sleep` or `until … sleep` poll is blocked.
+- Accept a changed snapshot with `INSTA_UPDATE=always cargo nextest run -p <crate> -E 'test(<filter>)'` (cargo-insta is
+  not installed), then read `git diff` and delete any `*.snap.new` left behind.
 - A Bash call that reads stdin never returns (the harness keeps stdin open), and the agent hangs for hours. Never leave
   a file argument empty (an unset variable as a file name), never run a bare `cat`, `sed`, `grep`, `head` or `python3 -`
   without a file or a heredoc that feeds it, append `</dev/null` to any command that might read stdin, wrap long
