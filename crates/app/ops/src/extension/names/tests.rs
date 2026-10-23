@@ -326,7 +326,6 @@ fn a_local_file_outside_the_containment_is_refused_at_the_read() {
     behavior = "parse_extension_specifier",
     verify = "E054's suggestion names only the forms add installs, and E064 suggests them"
 )]
-#[ignore = "flipped by T4"]
 fn e054_suggests_only_the_forms_add_installs() {
     for refused in [
         parse("").unwrap_err(),

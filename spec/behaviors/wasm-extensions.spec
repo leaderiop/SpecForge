@@ -780,7 +780,10 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
     PackageName and the requirement a VersionRequirement (latest when
     absent), or else a local path (a .wasm file or an extension's crate
     directory, with or without ./). A package reference that is not one
-    MUST be refused with E054 before any registry is asked; a path that
+    MUST be refused with E054 before any registry is asked; its suggestion
+    names only the forms add installs (a builtin's name, a local path,
+    @scope/name[@version]), never a git+ URL, which is refused with E064 and
+    suggests those forms; a path that
     names nothing is refused when it is read (resolve_extension_source); a requirement that is not one MUST be refused with
     R-RES-003 before any registry is asked. No other code may split
     name@requirement. Each string a change names (an add argument, an

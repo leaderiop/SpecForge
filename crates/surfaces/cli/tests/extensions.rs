@@ -1048,17 +1048,17 @@ fn add_rejects_invalid_specifier() {
     }
 
     // The human diagnostic states the expected format.
-    Cli::on(&dir).command(&["add", "not-valid"])
+    Cli::on(&dir)
+        .command(&["add", "not-valid"])
         .assert()
         .code(1)
         .stderr(
-            predicates::str::is_match(r"error\[E040\]: no extension binary at .*not-valid").unwrap(),
+            predicates::str::is_match(r"error\[E040\]: no extension binary.*not-valid").unwrap(),
         )
         .stderr(predicates::str::contains(
-            "use a builtin's name, './local/path.wasm', 'git+https://...', or '@scope/name[@version]'",
+            "use a builtin's name, './local/path.wasm', or '@scope/name[@version]'",
         ));
 
-    // Nothing was installed.
     assert_eq!(
         fs::read_to_string(dir.root().join("specforge.json")).unwrap(),
         config

@@ -70,7 +70,7 @@ pub(crate) fn parse(specifier: &str) -> Result<Source, OpError> {
 
 /// What an `add` argument may be, as the suggestion of E054.
 pub(crate) const SPECIFIER_FORMS: &str =
-    "use a builtin's name, './local/path.wasm', 'git+https://...', or '@scope/name[@version]'";
+    "use a builtin's name, './local/path.wasm', or '@scope/name[@version]'";
 
 /// E054 for a package reference that is not one, R-RES-003 for a
 /// requirement that is none.
@@ -151,6 +151,7 @@ pub(crate) fn git_not_supported(url: &str) -> OpError {
         codes::E064,
         format!("git source '{url}' not yet supported"),
     )
+    .with_suggestion(SPECIFIER_FORMS)
 }
 
 /// E054: an add with nothing to add.
