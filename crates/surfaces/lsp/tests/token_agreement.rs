@@ -47,6 +47,29 @@ fn tokens_agree_with_the_grammar() {
     }
 }
 
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "classification agrees with the grammar on the forms the repository's spec does not write"
+)]
+#[ignore = "flipped by T4b"]
+fn tokens_agree_with_the_grammar_on_the_forms_the_corpus_does_not_write() {
+    let root = specforge_repo_root::repo_root();
+    let project = specforge_project::testing::compile_at(
+        root,
+        Some(specforge_project::testing::component_runtime()),
+    );
+    let view = ProjectView::of(&project);
+    let declared: Vec<&str> = view
+        .registries()
+        .kinds()
+        .iter()
+        .filter_map(|(_, entry)| entry.declared.semantic_token.as_deref())
+        .collect();
+    let fixture = root.join("crates/kernel/parser/tests/fixtures/lexemes.spec");
+    let text = std::fs::read_to_string(&fixture).unwrap();
+    agrees(&fixture, &text, &view, &declared);
+}
+
 /// Every token of `text` (read from `path`) agrees with the grammar's node it sits on.
 fn agrees(path: &Path, text: &str, view: &ProjectView, declared: &[&str]) {
     let doc = Document::new(text.to_string());
@@ -103,12 +126,50 @@ fn agrees(path: &Path, text: &str, view: &ProjectView, declared: &[&str]) {
             }
             kind::FIELD => {
                 let key = node.child_by_field_name(field::KEY).unwrap();
+                // A verify line being typed (`verify string`, `verify true`) reads as the
+                // statement it is becoming (ADR 0241 D3).
+                let typed = &text[key.byte_range()] == "verify"
+                    && !within(node, &[kind::NESTED_BLOCK])
+                    && node
+                        .child_by_field_name(field::VALUE)
+                        .is_some_and(|v| matches!(v.kind(), kind::IDENTIFIER | kind::BOOLEAN))
+                    && node.named_child_count() == 2;
                 assert_eq!(
                     token_at(key).map(|t| t.0),
-                    Some("property"),
+                    Some(if typed { "keyword" } else { "property" }),
                     "{}",
                     where_(key)
                 );
+            }
+            kind::VERIFY_STATEMENT => {
+                let first = node.child(0).unwrap();
+                assert_eq!(
+                    token_at(first).map(|t| t.0),
+                    Some("keyword"),
+                    "{}",
+                    where_(first)
+                );
+                if let Some(kind) = node.child_by_field_name(field::KIND) {
+                    assert_eq!(
+                        token_at(kind).map(|t| t.0),
+                        Some("enumMember"),
+                        "{}",
+                        where_(kind)
+                    );
+                }
+            }
+            kind::METHOD_STATEMENT => {
+                let first = node.child(0).unwrap();
+                assert_eq!(
+                    token_at(first).map(|t| t.0),
+                    Some("keyword"),
+                    "{}",
+                    where_(first)
+                );
+                let name = node.child_by_field_name(field::NAME).unwrap();
+                let token = token_at(name).unwrap_or_else(|| panic!("{}", where_(name)));
+                assert_eq!(token.0, "method", "{}", where_(name));
+                assert_ne!(token.1 & MOD_DECLARATION, 0, "{}", where_(name));
             }
             kind::STRING | kind::TRIPLE_QUOTED_STRING | kind::COMMENT => {
                 let expected = if node.kind() == kind::COMMENT {

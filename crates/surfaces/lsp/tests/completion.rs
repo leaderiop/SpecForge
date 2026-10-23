@@ -420,6 +420,18 @@ fn verify_suggests_the_kinds_the_entity_allows() {
     assert!(complete(text, 5, 9, &fixture.view()).1.is_empty());
 }
 
+#[spec(
+    behavior = "complete_keywords",
+    verify = "nothing is suggested after the kind of a verify statement being typed"
+)]
+fn nothing_is_suggested_after_a_verify_kind_being_typed() {
+    let fixture = Fixture::new();
+    let text = "task t \"T\" {\n  verify unit \n}\n";
+    let (site, found) = complete(text, 1, 14, &fixture.view());
+    assert_eq!(site, "Nothing");
+    assert!(found.is_empty());
+}
+
 #[test]
 fn a_single_reference_value_completes_its_target_kinds_ids() {
     let fixture = Fixture::new();

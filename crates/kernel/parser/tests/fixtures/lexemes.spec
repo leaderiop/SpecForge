@@ -1,5 +1,6 @@
 // Forms of the language the repository's spec does not write, read by
-// lexer_agrees_with_the_grammar. It must parse without an error.
+// lexer_agrees_with_the_grammar, the form-start tests, body_statements_are_the_grammars
+// and the LSP's token agreement test. It must parse without an error.
 use "./other.spec"
 
 behavior multi "Strings spanning lines" {
@@ -13,3 +14,30 @@ behavior multi "Strings spanning lines" {
 ref web.page:https://example.org/a//b "A page"
 
 type state = "open" | "closed" | -1 | 2 | ready
+
+type verify_typed "A field named verify typed by a name" {
+  verify string
+}
+
+type verify_triple "A field named verify holding a triple-quoted string" {
+  verify """not a description"""
+}
+
+type verify_bool "A field named verify holding a boolean" {
+  verify true
+}
+
+type verify_number "A field named verify holding a number" {
+  verify 42
+}
+
+type nested_members "Nested block members named verify and method" {
+  meta {
+    verify string
+    method string
+  }
+  verify unit "a statement with a kind"
+  verify "a statement with no kind"
+  method get(id: string) -> string
+  method put(id: string)
+}
