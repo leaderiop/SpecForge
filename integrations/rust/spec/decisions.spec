@@ -16,13 +16,10 @@ decision drop_over_catch_unwind "Drop Guard Over catch_unwind" {
     tests (#[rstest]), and does not require AssertUnwindSafe wrappers.
     The guard does not interfere with panic propagation.
   """
-  consequences """
-    Positive: works with all major test frameworks, simpler expansion,
-    no interaction with await points.
-    Negative: #[should_panic] tests are incompatible — the guard records
-    fail because panicking() is true during expected panics. Documented
-    as unsupported; use Result-based error testing instead.
-  """
+  consequences [
+    "Positive: works with all major test frameworks, simpler expansion, no interaction with await points.",
+    "Negative: #[should_panic] tests are incompatible — the guard records fail because panicking() is true during expected panics. Documented as unsupported; use Result-based error testing instead.",
+  ]
   invariants   [drop_guard_correctness]
 }
 
@@ -42,12 +39,10 @@ decision build_rs_over_manual_export "build.rs Over Manual Export" {
     If specforge is not installed, build.rs emits a cargo::warning and
     continues. This makes the graph always fresh without manual steps.
   """
-  consequences  """
-    Positive: zero staleness, zero manual steps, spec changes trigger
-    rebuild, standard Rust pattern (like protoc for prost).
-    Negative: adds ~1 second to builds when spec changes. Requires
-    specforge on PATH for full functionality.
-  """
+  consequences  [
+    "Positive: zero staleness, zero manual steps, spec changes trigger rebuild, standard Rust pattern (like protoc for prost).",
+    "Negative: adds ~1 second to builds when spec changes. Requires specforge on PATH for full functionality.",
+  ]
 }
 
 decision records_not_scores "The Crate Records, Collect Scores" {
@@ -67,11 +62,10 @@ decision records_not_scores "The Crate Records, Collect Scores" {
     `specforge analyze coverage` (ADR 0068). No build script exports
     the graph.
   """
-  consequences """
-    Positive: one obligation rule; a .spec edit rebuilds no Rust crate;
-    the crate reads nothing at exit.
-    Negative: `cargo test` alone shows no coverage; run specforge collect.
-  """
+  consequences [
+    "Positive: one obligation rule; a .spec edit rebuilds no Rust crate; the crate reads nothing at exit.",
+    "Negative: `cargo test` alone shows no coverage; run specforge collect.",
+  ]
   invariants   [atexit_write_once]
 }
 
@@ -87,12 +81,10 @@ decision separate_workspace "Separate Workspace from Compiler" {
     The crate has zero dependency on compiler crates — only the JSON
     schema is shared.
   """
-  consequences """
-    Positive: independent versioning, can publish to crates.io on its
-    own cadence, no compiler rebuild when crate changes.
-    Negative: schema changes require manual synchronization. Mitigated
-    by versioned schema (specforge: "1.0" field in report).
-  """
+  consequences [
+    "Positive: independent versioning, can publish to crates.io on its own cadence, no compiler rebuild when crate changes.",
+    "Negative: schema changes require manual synchronization. Mitigated by versioned schema (specforge: \"1.0\" field in report).",
+  ]
   invariants   [zero_compiler_dependency]
 }
 
@@ -108,12 +100,10 @@ decision atexit_over_custom_harness "atexit Over Custom Test Harness" {
     TestGuard creation. Each test binary writes its own report file.
     No nightly Rust required. No custom test framework needed.
   """
-  consequences """
-    Positive: works on stable Rust, no test harness interference,
-    handles multi-binary workspaces naturally.
-    Negative: atexit is POSIX — Windows needs a different mechanism
-    (std::process::exit handler or similar). Deferred to Phase 2.
-  """
+  consequences [
+    "Positive: works on stable Rust, no test harness interference, handles multi-binary workspaces naturally.",
+    "Negative: atexit is POSIX — Windows needs a different mechanism (std::process::exit handler or similar). Deferred to Phase 2.",
+  ]
   invariants   [atexit_write_once]
 }
 
@@ -131,11 +121,9 @@ decision convention_as_fallback "Convention Mapping as Fallback" {
     cases and zero-dependency adoption. `specforge collect` applies them
     to the plain tests @specforge/cargo-test reads in libtest's output.
   """
-  consequences """
-    Positive: zero-dependency path exists, works with proptest decl macros.
-    Negative: convention is fragile — renames break it. Mitigated by the
-    attribute: a test that names its obligation's text is checked by
-    `specforge analyze` (A016).
-  """
+  consequences [
+    "Positive: zero-dependency path exists, works with proptest decl macros.",
+    "Negative: convention is fragile — renames break it. Mitigated by the attribute: a test that names its obligation's text is checked by `specforge analyze` (A016).",
+  ]
   invariants   [convention_separator_unambiguous]
 }

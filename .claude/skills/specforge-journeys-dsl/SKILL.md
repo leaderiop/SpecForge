@@ -28,14 +28,14 @@ journey create_new_user "Create a New User" {
   channels [web, cli, api]
   features [user_management]
 
-  flow """
-    1. Admin opens user management page
-    2. Clicks "New User"
-    3. Fills form (name, email, role)
-    4. Submits -- system validates uniqueness
-    5. Success: user appears in list
-    6. Failure: inline error on email field
-  """
+  flow [
+    "Admin opens user management page",
+    "Clicks \"New User\"",
+    "Fills form (name, email, role)",
+    "Submits -- system validates uniqueness",
+    "Success: user appears in list",
+    "Failure: inline error on email field",
+  ]
 }
 ```
 
@@ -48,7 +48,7 @@ journey create_new_user "Create a New User" {
 | `title` | string | Human-readable name (string after the entity ID). Phrased as a user action. |
 | `persona` | EntityId @optional | The user type performing this action (e.g., `admin`, `developer`, `patient`, `student`, `volunteer`). Omission emits I054. |
 | `features` | reference list | Features this journey delivers. |
-| `flow` | string / triple-string | Step-by-step interaction flow (user actions + system responses). Omission emits I050. |
+| `flow` | string list | One item per step, in order (user actions + system responses). Omission emits I050. |
 
 ### Optional
 
@@ -80,7 +80,7 @@ journey create_new_user "Create a New User" {
 ## Writing Rules
 
 1. **Name as user actions** -- "Create a New User" not "User Creation".
-2. **Numbered flow steps** -- alternate between user actions and system responses.
+2. **One item per step, in order** -- alternate between user actions and system responses.
 3. **Include success and failure paths** -- both in the flow.
 4. **Persona must resolve** -- `persona` must match an existing `persona` entity (E008).
 5. **Channels must resolve** -- every `channels` entry must match an existing `channel` entity (E009).
@@ -110,15 +110,15 @@ journey create_new_user "Create a New User" {
   channels [web]
   features [user_management]
 
-  flow """
-    1. Admin navigates to Settings > Users
-    2. Clicks "Add User" button
-    3. Modal opens with form: name, email, role dropdown
-    4. Admin fills fields and clicks "Create"
-    5. System validates email uniqueness
-    6. Success: modal closes, user appears in table, toast notification
-    7. Failure: inline error below email field
-  """
+  flow [
+    "Admin navigates to Settings > Users",
+    "Clicks \"Add User\" button",
+    "Modal opens with form: name, email, role dropdown",
+    "Admin fills fields and clicks \"Create\"",
+    "System validates email uniqueness",
+    "Success: modal closes, user appears in table, toast notification",
+    "Failure: inline error below email field",
+  ]
 
   refs [figma.frame:user-create-modal]
 }
@@ -132,14 +132,14 @@ journey create_user_via_api "Create User via API" {
   channels [api]
   features [user_management]
 
-  flow """
-    1. Consumer sends POST /api/v1/users with JSON body
-    2. System validates request body schema
-    3. System validates email uniqueness
-    4. Success: 201 Created with user object
-    5. Validation failure: 422 Unprocessable Entity
-    6. Duplicate email: 409 Conflict
-  """
+  flow [
+    "Consumer sends POST /api/v1/users with JSON body",
+    "System validates request body schema",
+    "System validates email uniqueness",
+    "Success: 201 Created with user object",
+    "Validation failure: 422 Unprocessable Entity",
+    "Duplicate email: 409 Conflict",
+  ]
 }
 ```
 
@@ -152,15 +152,15 @@ journey purchase_and_track_order "Purchase and Track Order" {
   features [order_checkout, order_tracking]
   priority high
 
-  flow """
-    1. User reviews cart and clicks "Checkout"
-    2. System validates inventory for all items
-    3. User confirms shipping address and payment method
-    4. System processes payment and creates order
-    5. Success: confirmation page with order number and ETA
-    6. User can track order status on "My Orders" page
-    7. Payment failure: error page with retry option
-  """
+  flow [
+    "User reviews cart and clicks \"Checkout\"",
+    "System validates inventory for all items",
+    "User confirms shipping address and payment method",
+    "System processes payment and creates order",
+    "Success: confirmation page with order number and ETA",
+    "User can track order status on \"My Orders\" page",
+    "Payment failure: error page with retry option",
+  ]
 }
 ```
 
@@ -172,14 +172,14 @@ journey schedule_appointment "Schedule a Doctor Appointment" {
   channels [clinic, phone, web]
   features [appointment_scheduling]
 
-  flow """
-    1. Patient calls clinic or opens web portal
-    2. Selects preferred doctor and available time slot
-    3. System checks doctor availability
-    4. Patient confirms appointment details
-    5. Success: confirmation sent via SMS and email
-    6. Conflict: alternative slots suggested
-  """
+  flow [
+    "Patient calls clinic or opens web portal",
+    "Selects preferred doctor and available time slot",
+    "System checks doctor availability",
+    "Patient confirms appointment details",
+    "Success: confirmation sent via SMS and email",
+    "Conflict: alternative slots suggested",
+  ]
 }
 ```
 
@@ -191,14 +191,14 @@ journey enroll_in_course "Enroll in a Course" {
   channels [web, in_person]
   features [course_enrollment]
 
-  flow """
-    1. Student browses course catalog
-    2. Selects course and reviews prerequisites
-    3. System checks prerequisite completion
-    4. Student submits enrollment request
-    5. Success: enrollment confirmed, added to roster
-    6. Prerequisite missing: directed to prerequisite courses
-  """
+  flow [
+    "Student browses course catalog",
+    "Selects course and reviews prerequisites",
+    "System checks prerequisite completion",
+    "Student submits enrollment request",
+    "Success: enrollment confirmed, added to roster",
+    "Prerequisite missing: directed to prerequisite courses",
+  ]
 }
 ```
 

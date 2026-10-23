@@ -940,14 +940,11 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     when a committed blob drifts from its sources, and `--verify` rebuilds
     every blob and fails when one differs.
   """
-  consequences """
-    Positive: one execution path, typed entry point, warm single engine
-    across extensions, sandbox posture unchanged. Negative: guests need
-    the wasm32-wasip2 rustup target and wit-bindgen; the old
-    wasm32-unknown-unknown blobs are gone. Neutral: HostApi host functions
-    were removed with the extism runtime; a typed component host-import
-    surface is future work.
-  """
+  consequences [
+    "Positive: one execution path, typed entry point, warm single engine across extensions, sandbox posture unchanged.",
+    "Negative: guests need the wasm32-wasip2 rustup target and wit-bindgen; the old wasm32-unknown-unknown blobs are gone.",
+    "Neutral: HostApi host functions were removed with the extism runtime; a typed component host-import surface is future work.",
+  ]
 }
 
 decision test_runner_extensions "Tests Belong to @specforge/testing and One Extension per Runner" {
@@ -973,11 +970,8 @@ decision test_runner_extensions "Tests Belong to @specforge/testing and One Exte
     annotation in the runner's own idiom; the spec-side `tests` field is
     retired.
   """
-  consequences """
-    Positive: core and kind-owning extensions carry no test vocabulary;
-    several runners coexist without field conflicts; `collect` runs the
-    project's real runner. Negative: projects using verify must enable
-    @specforge/testing (init does it alongside @specforge/software);
-    supersedes "SpecForge never executes tests" in README and vision.
-  """
+  consequences [
+    "Positive: core and kind-owning extensions carry no test vocabulary; several runners coexist without field conflicts; `collect` runs the project's real runner.",
+    "Negative: projects using verify must enable @specforge/testing (init does it alongside @specforge/software); supersedes \"SpecForge never executes tests\" in README and vision.",
+  ]
 }
