@@ -17,6 +17,7 @@ mod present;
 mod project;
 mod project_path;
 mod project_root;
+pub mod remedy;
 pub mod shape;
 mod slug;
 mod span;
