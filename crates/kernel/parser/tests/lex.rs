@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use tree_sitter_specforge::kind;
 
 /// The `.spec` files under `dir`, recursively.
-fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
+pub(crate) fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };

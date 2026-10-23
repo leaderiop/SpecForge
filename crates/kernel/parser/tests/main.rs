@@ -4,6 +4,7 @@
 )]
 
 mod body_shape;
+mod body_statements;
 mod contracts;
 mod corpus_syntax;
 mod doc_spans;
