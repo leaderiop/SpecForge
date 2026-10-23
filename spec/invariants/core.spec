@@ -240,6 +240,8 @@ invariant document_project_paths "Document Project Paths" {
   """
   risk      medium
   verify integration "the CLI and MCP documents of one run are byte-equal, whatever the working directory or root spelling"
+  verify integration "check, format and export name one file with one spelling"
+  verify integration "a rename reply names each file it edits and writes with one spelling"
 }
 
 invariant source_span_completeness "Source Span Completeness" {

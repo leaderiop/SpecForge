@@ -255,3 +255,60 @@ fn a_named_file_with_nothing_served_is_no_projects_file() {
         assert_eq!(error["file"], "spec/a.spec", "{tool}: {error}");
     }
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a path that names nothing refuses the call about paths, naming it"
+)]
+#[ignore = "flipped by T2"]
+fn format_refuses_a_path_that_names_nothing_about_paths() {
+    let mut server = named_files();
+    let reply = call_tool(
+        &mut server,
+        "specforge.format",
+        json!({"paths": ["login.spec"], "check": true}),
+    );
+    let error = crate::tool_errors::mcp_error(&reply);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    assert_eq!(error["argument"], "paths", "{error}");
+    assert_eq!(error["file"], "login.spec", "{error}");
+    assert!(error["data"].get("suggestion").is_none(), "{error}");
+    assert!(error["data"].get("failures").is_none(), "{error}");
+}
+
+#[specforge_test(
+    invariant = "document_project_paths",
+    verify = "a rename reply names each file it edits and writes with one spelling"
+)]
+#[ignore = "flipped by T7"]
+fn a_reply_names_each_file_once() {
+    let mut server = named_files();
+    let reply = tool(
+        &mut server,
+        "specforge.rename",
+        json!({"entity_id": "logout", "new_name": "signout"}),
+    );
+    assert_eq!(
+        reply["affected_files"],
+        json!(["spec/login.spec"]),
+        "{reply}"
+    );
+    assert_eq!(reply["files_written"], reply["affected_files"], "{reply}");
+    for edit in reply["edits"].as_array().unwrap() {
+        assert_eq!(edit["file_path"], "spec/login.spec", "{reply}");
+        assert_eq!(edit["range"]["file"], "spec/login.spec", "{reply}");
+    }
+    let outline = tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "spec/login.spec"}),
+    );
+    assert!(outline.is_object(), "{outline}");
+    let error = crate::tool_errors::mcp_error(&call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "login.spec"}),
+    ));
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    assert!(error["data"].get("suggestion").is_none(), "{error}");
+}

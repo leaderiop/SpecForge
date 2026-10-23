@@ -98,6 +98,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "a file that cannot be written does not stop the others, and the failed call names it"
   verify unit "a file that cannot be read fails the call, is named, and does not stop the others"
   verify unit "a file that does not exist fails the call as file_not_found, naming it"
+  verify unit "a path that names nothing refuses the call about paths, naming it"
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify unit "the format tool advertises no default for write, and check or diff without write writes nothing"

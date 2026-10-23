@@ -128,6 +128,7 @@ behavior classify_project_changes "Classify Project Changes" {
     watchers in its place) and the session still catches up.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
+  verify unit "a discovered .spec file is a source keyed from the project root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
   verify unit "a .wasm file no extension loads changes nothing"
   verify unit "specforge-cache.json re-runs the checks without re-parsing"

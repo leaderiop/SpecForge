@@ -33,6 +33,7 @@ mod one_update;
 mod placement;
 mod policy;
 mod product_rules;
+mod project_root_keys;
 mod providers;
 mod registered_fields;
 mod registry_build_snapshot;

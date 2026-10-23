@@ -306,3 +306,26 @@ fn a_refusal_of_a_named_file_names_it() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "read_a_named_spec_file",
+    verify = "a spec file is named from the project root, as every document names it"
+)]
+#[ignore = "flipped by T7"]
+fn the_view_reads_a_spec_file_from_the_project_root() {
+    let (_dir, project) = spec_dir_project();
+    let view = ProjectView::of(&project);
+    for named in ["spec/a.spec", "./spec//a.spec"] {
+        assert_eq!(view.source(named).unwrap(), "spec/a.spec", "{named}");
+    }
+    let missing = view.source("a.spec").unwrap_err();
+    assert_eq!(
+        kind_and_code(&missing),
+        (specforge_ops::OpErrorKind::FileNotFound, "file_not_found")
+    );
+    assert_eq!(missing.suggestion, None);
+    assert_eq!(view.source_place("spec/new.spec").unwrap(), "spec/new.spec");
+    let outside = view.source_place("new.spec").unwrap_err();
+    assert_eq!(outside.code, "not_a_source");
+    assert_eq!(outside.suggestion, None);
+}

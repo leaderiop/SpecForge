@@ -65,6 +65,7 @@ behavior format_spec_files "Format Spec Files" {
   verify unit "a value is written in its field's form, read from the project's declarations"
   verify unit "check, format and set agree on a quoted number, a quoted date and a whole value on a list field"
   verify unit "changed files are printed to stdout"
+  verify unit "with no path typed, the human output names each file it found from the project root"
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
   verify integration "a file whose write fails part-way is left whole and is not in files_written"
@@ -236,6 +237,7 @@ behavior format_from_stdin "Format from Standard Input" {
   verify unit "--stdin refuses --format json with the error document"
   verify unit "stdin with a region left unformatted prints the formatted text and exits 1"
   verify unit "stdin mode does not read or write files"
+  verify unit "--stdin refuses a path, --check and --diff as a usage error"
   verify property "stdin formatting is idempotent"
   verify property "stdin formatting converges to canonical form"
   verify contract "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
@@ -658,5 +660,7 @@ behavior discover_format_targets "Discover Format Targets" {
   verify contract "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
   verify unit "a specforge.json that does not say which files are the project's sources refuses the run, and nothing is written"
   verify unit "a named file is formatted whatever specforge.json says"
+  verify unit "a named path that names nothing refuses the run about paths before any file is read"
+  verify unit "format refuses a path that names nothing and exits 1, so a mistyped directory fails a check"
   verify unit "a project's sources end at a nested project, which a run from the project does not format"
 }
