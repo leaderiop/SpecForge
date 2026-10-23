@@ -74,6 +74,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
     migration_backup_safety,
     migration_atomicity,
     migration_semantic_preservation,
+    migration_canonical_form,
     zero_domain_knowledge_core,
     document_project_paths,
   ]
@@ -186,7 +187,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
 }
 
 behavior add_missing_titles "Add Missing Titles" {
-  invariants [migration_idempotency, migration_semantic_preservation]
+  invariants [migration_idempotency, migration_semantic_preservation, migration_canonical_form]
   category   mutation
   ports      [FileSystem]
   contract   """
@@ -228,7 +229,7 @@ behavior add_missing_titles "Add Missing Titles" {
 }
 
 behavior hoist_file_defaults "Hoist File Defaults" {
-  invariants [migration_idempotency, migration_semantic_preservation]
+  invariants [migration_idempotency, migration_semantic_preservation, migration_canonical_form]
   category   mutation
   ports      [FileSystem]
   contract   """
@@ -266,6 +267,7 @@ behavior hoist_file_defaults "Hoist File Defaults" {
   verify unit "a field or a kind the field forms do not declare is never hoisted"
   verify unit "a field its kind does not declare is never hoisted, and the other steps are written"
   verify unit "the block goes above the file's first block when an import follows it"
+  verify unit "a hoisted block and the blocks it shortened are laid out with the file's format configuration"
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
