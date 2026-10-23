@@ -542,16 +542,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   are read, never written; any other name is W019. What a field's type takes, how a written value is
   stored as it, the JSON every output writes for it and that JSON's schema are its field form
   (ADR 0064).
+- **Date field**: a field of type `date`: one calendar day, written bare `YYYY-MM-DD`; E061 otherwise (ADR 0234).
 - **Value form**: how a field's value is written: bare for an `enum`, `identifier`, `reference` and each
-  `reference_list` item, quoted for a `string` and each `string_list` item (ADR 0147). `specforge format` writes it;
+  `reference_list` item, quoted for a `string` and each `string_list` item; an integer, true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
   W159 reports a value written otherwise. Spelled by one module, `specforge_graph::field_form::spell` (the escape
-  table, the bare rule and each declared type's one-line spelling); `FieldForms::rewrite` reads its bare rule, and
+  table, the bare rule and each declared type's one-line spelling); `spell::form` is the one table, which `FieldForms::rewrite` and `spell::value` read, and
   `format`, W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
   ADR 0226); `spell::escaped` is the inside of a quote. A `defaults` body's values are written in the forms of its
   body kind (ADR 0224).
 - **Stored value**: a field value as the graph build stores it: coerced by its field form (`FieldForms::stored`,
   ADR 0182), so a list written as one value is a one-item list and `"100"` on an integer field is `100`. Every reader
-  of references, derived names and inherited values reads it; what a file *writes* (W159, W161, the formatter) reads
+  of references, derived names and inherited values reads it; what a file *writes* (W159 through `written_fields`, W161, the formatter) reads
   the written value.
 - **Field vocabulary**: the closed set of values an enum field takes, in their order, and the value an absent one
   counts as (its declared `default_value`), declared once by the extension that declares the field, as a `const`
