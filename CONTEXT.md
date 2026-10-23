@@ -899,6 +899,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing. Where each is written is the parse's
   (`Entity::obligation_spans`), never the graph's; an entry named `verify` inside a block field is a field, not an
   obligation (ADR 0187, amended).
+- **Verify kind**: the word a `verify` statement names before its text (`verify unit "..."`). The ones a kind accepts are
+  its kind's (`KindRegistryEntry::allowed_verify_kinds`: declared, or an enhancement's; the testing extension's for
+  software and governance kinds); W009 reports another. The CLI's `--verify kind:text` takes the prefix as the kind
+  only when it is one of them, and names the obligation an entity already writes in either reading (ADR 0237).
 - **Unverified**: an entity that counts toward coverage and is not proven
   (its standing counts and its verdict is not proven; `ProjectCoverage::is_unverified`). Stats reports no "verified" count; its proof figure is `proof_pct`.
 - **Delivery evidence**: what the recorded test report proves of a feature, beside the `status`
