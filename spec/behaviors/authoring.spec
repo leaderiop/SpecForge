@@ -91,7 +91,9 @@ behavior edit_entity_field "Edit an Entity Field" {
     replaces the header title where the parse read it, or writes one after
     the name when the header has none; a union's string variant is never its
     title; a spec block's title is its name, and a retitle of it is
-    refused not_editable. A field the kind does not declare is refused. A field that is the other
+    refused not_editable. A field the kind does not declare is refused. A spec
+    block's fields are declared by no kind: a set, unset, link or unlink of one is refused not_editable, naming the
+    file to edit, as its retitle is. A field that is the other
     side of a relation another kind owns is refused naming the owning field (ADR 0157).
     A set, unset, link or unlink of a field the block writes twice first removes its later entries, which the
     graph does not hold (E081, ADR 0215). A union (`kind name = a | b`) holds only its variants: a set,

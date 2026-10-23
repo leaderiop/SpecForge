@@ -130,7 +130,6 @@ fn retitling_a_spec_block_is_refused_as_not_editable() {
     behavior = "edit_entity_field",
     verify = "a set or unset of a spec block's field is refused not_editable: no kind declares its fields"
 )]
-#[ignore = "flipped by T12"]
 fn a_field_edit_of_a_spec_block_is_refused_as_not_editable() {
     let c = project(&[
         ("tasks.spec", TASKS),
