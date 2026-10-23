@@ -110,7 +110,6 @@ const PATHS: [(&str, &str, &str); 8] = [
     behavior = "load_wasm_module",
     verify = "the command an E028, E070 or W149 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
 )]
-#[ignore = "flipped by T4"]
 fn a_reinstall_command_names_the_recorded_path_as_one_shell_word() {
     for (recorded, argument, _) in PATHS {
         let dir = TempDir::new().unwrap();
@@ -146,7 +145,6 @@ fn a_reinstall_command_names_the_recorded_path_as_one_shell_word() {
 
 #[cfg(unix)]
 #[test]
-#[ignore = "flipped by T4"]
 fn a_reinstall_command_reads_back_through_sh_as_the_recorded_path() {
     for (recorded, _, printed) in PATHS {
         let dir = TempDir::new().unwrap();

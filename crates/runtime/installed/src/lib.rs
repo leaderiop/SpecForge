@@ -114,7 +114,8 @@ impl Installed {
     }
 
     /// The command that reinstalls `name` as its lock entry records it:
-    /// `specforge add <path>` for a local install, `specforge add
+    /// `specforge add <path>` for a local install (a relative path written `./<path>`, and the
+    /// whole argument quoted as one shell word when it needs it), `specforge add
     /// <name>@<version>` for a registry one (the name alone when the
     /// version is not semver).
     pub fn reinstall(&self, name: &str) -> String {
@@ -133,13 +134,13 @@ impl Installed {
         let entry = self.lock.entries().iter().find(|e| e.name.as_str() == name);
         let specifier = match entry {
             Some(e) => match e.source.local_path() {
-                Some(path) => path.as_str().to_string(),
+                Some(path) => path.add_argument(),
                 None if semver::Version::parse(version).is_ok() => format!("{name}@{version}"),
                 None => name.to_string(),
             },
             None => name.to_string(),
         };
-        format!("specforge add {specifier}")
+        specforge_common::remedy::command("specforge add {}", &[&specifier])
     }
 
     /// The lock's entry for `name`'s registry install; `None` when the lock holds no registry
@@ -237,6 +238,8 @@ mod tests {
         let lock = LockFile {
             entries: vec![
                 entry("@a/local", "1.0.0", "local:ext/a.wasm"),
+                entry("@a/spaced", "1.0.0", "local:My Ext/a.wasm"),
+                entry("@a/dashed", "1.0.0", "local:-a.wasm"),
                 entry("@a/registry", "2.1.0", "registry"),
                 entry("@a/loose", "latest", "registry"),
             ],
@@ -244,7 +247,15 @@ mod tests {
         };
         let installed = Installed::with_lock(Path::new("/p"), LockState::Read(lock));
 
-        assert_eq!(installed.reinstall("@a/local"), "specforge add ext/a.wasm");
+        assert_eq!(
+            installed.reinstall("@a/local"),
+            "specforge add ./ext/a.wasm"
+        );
+        assert_eq!(
+            installed.reinstall("@a/spaced"),
+            "specforge add './My Ext/a.wasm'"
+        );
+        assert_eq!(installed.reinstall("@a/dashed"), "specforge add ./-a.wasm");
         assert_eq!(
             installed.reinstall("@a/registry"),
             "specforge add @a/registry@2.1.0"

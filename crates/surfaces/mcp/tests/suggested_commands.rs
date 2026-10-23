@@ -10,7 +10,6 @@ use crate::support::{TestProject, call, call_tool, z3_ready};
     behavior = "provide_mcp_validate_tool",
     verify = "validate and the diagnostics resource suggest the reinstall command a lock entry's recorded path calls for, as one shell word"
 )]
-#[ignore = "flipped by T4"]
 fn validate_and_the_diagnostics_resource_name_a_lock_sources_path_as_one_shell_word() {
     let lock = json!({
         "lockfile_version": 1,

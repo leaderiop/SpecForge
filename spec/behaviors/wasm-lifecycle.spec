@@ -41,6 +41,9 @@ behavior load_wasm_module "Load Wasm Module" {
     W149), and load those same bytes into the Wasm runtime. A loaded
     binary that declares another extension, another version or other
     peers than its lock entry records MUST be refused with E070.
+    The command an E028, E070 or W149 suggestion names MUST reinstall the
+    entry as its lock entry records it, its recorded path written ./<path>
+    when relative and quoted as one shell word.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.

@@ -2142,7 +2142,7 @@ fn contract_doctor() {
     let local = local.strip_prefix(&dir).unwrap().display();
     assert_eq!(
         finding["remediation"],
-        format!("run `specforge add {local}` to reinstall it")
+        format!("run `specforge add ./{local}` to reinstall it")
     );
     assert_eq!(tool(&mut server, "specforge.doctor", json!({})), report);
 

@@ -701,7 +701,7 @@ behavior run_doctor_check "Run Doctor Check" {
     one source diagnostic doctor reports is E013, an entity id that is a
     keyword, as a shadowing finding. A missing or changed installed binary
     is one binary finding, whose remediation is the command that reinstalls
-    it as its lock entry records it, and an unreadable lock one lock finding;
+    it as its lock entry records it, each value one shell word, and an unreadable lock one lock finding;
     the load diagnostics they cause are not listed again. So doctor fails
     whenever check fails on a diagnostic of the project's setup. The report
     MUST carry its verdict (no

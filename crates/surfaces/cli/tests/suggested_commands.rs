@@ -23,7 +23,6 @@ fn locked(source: &str) -> TestProject {
     behavior = "run_doctor_check",
     verify = "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
 )]
-#[ignore = "flipped by T4"]
 fn check_and_doctor_name_a_reinstall_command_the_lock_cannot_turn_into_shell_syntax() {
     let project = locked(&format!("local:{EVIL}"));
     let command = format!("specforge add './{EVIL}'");
@@ -55,7 +54,6 @@ fn check_and_doctor_name_a_reinstall_command_the_lock_cannot_turn_into_shell_syn
     behavior = "run_doctor_check",
     verify = "the reinstall command a local install's check suggests runs as written and reinstalls it"
 )]
-#[ignore = "flipped by T4"]
 fn a_local_install_from_a_directory_with_a_space_is_reinstalled_by_its_own_suggestion() {
     let project = TestProject::new()
         .config(|c| c["extensions"] = json!([]))
