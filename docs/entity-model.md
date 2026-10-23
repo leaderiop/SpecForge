@@ -289,8 +289,9 @@ become typed graph edges), `required` (E006 enforcement), and
 `file_reference=true` (path values validated to exist, e.g. `gherkin`), and
 `normative=true` when the field states what the entity promises rather than
 prose (a behavior's `contract`, an invariant's `guarantee`, a decision's
-`decision`): `specforge export --format context` keeps normative fields and
-drops the rest, without core knowing any field by name. `headline=true`
+`decision`): the review document (`specforge export --format markdown`) quotes
+it whole, and with `headline=true` it is the entity's statement (MCP `inspect`'s
+`contract`), without core knowing any field by name. `headline=true`
 lifts the field, as its field text, to the context node's top level (a behavior's `contract`, a
 feature's `status`), and `exempts_obligations=true` makes an entity that sets
 it owe no `verify` obligations (formal's `abstract true`; W004, coverage and

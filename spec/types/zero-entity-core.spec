@@ -172,7 +172,7 @@ type FieldDescriptor "Field Descriptor" {
   // The field on the target kind that holds the inverse reference
   inverse_of          string                 @optional
   /// The field states what the entity promises (a behavior's contract, an
-  /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
+  /// invariant's guarantee), as opposed to prose; the review document quotes it whole, and with headline it is the entity's statement.
   normative           boolean                @optional
   /// Set on an entity (true, or a non-empty value), the entity owes no
   /// obligations of its own: W004, coverage and stats leave it out.

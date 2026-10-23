@@ -11,7 +11,7 @@ pub struct ContextResource;
 impl CoreResource for ContextResource {
     const URI: &'static str = "specforge://context";
     const NAME: &'static str = "context";
-    const DESCRIPTION: &'static str = "Context-optimized graph (contract, status, verify fields)";
+    const DESCRIPTION: &'static str = "Context-optimized graph: every entity's members and obligations, its headline on top, without source locations";
     const CHANGES_WITH: Watched = Watched::Content;
 
     fn read(view: ProjectView<'_>, uri: &Matched<'_>) -> ReadOutcome {

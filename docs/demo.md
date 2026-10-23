@@ -50,8 +50,8 @@ $ specforge export --format context
 {"schema_version":"1.0.0","nodes":[{"id":"add_item","kind":"behavior","title":"Add an item to the cart","contract":"Adding a named item puts it in the cart once","verify":[...]}, ...],"edges":[...]}
 ```
 
-About 800 bytes for the whole project: the contracts, the obligations and
-the links, instead of an agent reading files to reconstruct them.
+About 1,000 bytes for the whole project: every entity's statements, members,
+obligations and links, instead of an agent reading files to reconstruct them.
 
 A person who signs the specification reads a document, not JSON.
 `specforge export --format markdown` writes one section per entity, with its

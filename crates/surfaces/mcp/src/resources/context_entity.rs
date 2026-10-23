@@ -12,8 +12,7 @@ pub struct ContextEntityResource;
 impl CoreResource for ContextEntityResource {
     const URI: &'static str = "specforge://context/{entity_id}";
     const NAME: &'static str = "context_entity";
-    const DESCRIPTION: &'static str =
-        "Context-optimized subgraph of everything an entity reaches (a depth query narrows it)";
+    const DESCRIPTION: &'static str = "Context-optimized subgraph of everything an entity reaches, each entity whole (a depth query narrows it)";
     const CHANGES_WITH: Watched = Watched::Content;
 
     fn read(view: ProjectView<'_>, uri: &Matched<'_>) -> ReadOutcome {

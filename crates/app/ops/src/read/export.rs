@@ -63,7 +63,7 @@ const GRAPH: Choice<Format> = Choice {
 const CONTEXT: Choice<Format> = Choice {
     name: "context",
     aliases: &[],
-    help: "headline and normative fields and verify, for an agent",
+    help: "every entity's fields, annotations, methods and verify, its headline on top, without file and line, for an agent",
     value: Format::Context,
 };
 const BRIEF: Choice<Format> = Choice {
