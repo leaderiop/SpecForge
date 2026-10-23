@@ -157,10 +157,13 @@ vocabulary! {
         /// edge type's source kind, when set; an edge type no loaded
         /// extension declares makes the rule inert).
         NoIncomingEdges = "no_incoming_edges",
-        /// The entity points at nothing (only `edge_type` edges, to the edge
-        /// type's target kind, when set).
+        /// The entity points at nothing: no field writes a reference
+        /// (resolved or not: one that does not resolve is E003, reported
+        /// alone) and no edge leaves it (only `edge_type`'s fields and
+        /// edges, to the edge type's target kind, when set).
         NoOutgoingEdges = "no_outgoing_edges",
-        /// The entity has no edges in either direction.
+        /// No edge points at the entity, and it points at nothing (as
+        /// `no_outgoing_edges`).
         NoEdges = "no_edges",
         /// The entity lacks `field` (required); an entity that owes no
         /// `verify` statements is exempt when `field` is `verify`.
