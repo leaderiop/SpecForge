@@ -58,7 +58,7 @@ fn options() -> Command {
                 .long(VERIFY)
                 .action(ArgAction::Append)
                 .value_name("KIND:TEXT")
-                .help("A `verify` obligation, as `kind:text` (or just `text`); repeat for several"),
+                .help("A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several"),
         )
         .arg(
             Arg::new(DRY_RUN)
@@ -253,7 +253,7 @@ impl Args {
             .get_one::<OutputFormat>(OutputArg::NAME)
             .copied()
             .unwrap_or(format);
-        match edit(kind, &fields, &matches) {
+        match edit(kind, &fields, edit::verify_kinds_of(&view, kind), &matches) {
             Ok(edit) => execute_on(
                 &compiled,
                 vec![edit],
@@ -267,7 +267,12 @@ impl Args {
 }
 
 /// The edit `matches`, the second reading of the line, asks for.
-fn edit(kind: &str, fields: &[FieldInfo], matches: &ArgMatches) -> Result<Edit, OpError> {
+fn edit(
+    kind: &str,
+    fields: &[FieldInfo],
+    verify_kinds: &[String],
+    matches: &ArgMatches,
+) -> Result<Edit, OpError> {
     let file = matches.get_one::<String>(IN).cloned().ok_or_else(|| {
         OpError::new(
             OpErrorKind::InvalidInput,
@@ -279,7 +284,7 @@ fn edit(kind: &str, fields: &[FieldInfo], matches: &ArgMatches) -> Result<Edit, 
         .get_many::<String>(VERIFY)
         .into_iter()
         .flatten()
-        .map(|text| Obligation::parse(text))
+        .map(|text| Obligation::parse(text, verify_kinds))
         .collect();
     Ok(Edit::Create {
         kind: kind.to_string(),

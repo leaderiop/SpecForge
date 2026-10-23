@@ -203,7 +203,7 @@ pub(crate) struct LinkArgs {
     #[arg(conflicts_with = "verify")]
     target: Option<String>,
 
-    /// A `verify` obligation, as `kind:text` (or just `text`)
+    /// A `verify` obligation: `kind:text` when the kind is one of the entity's verify kinds, else the whole text
     #[arg(long, value_name = "KIND:TEXT", required_unless_present = "field")]
     verify: Option<String>,
 
@@ -223,8 +223,16 @@ impl LinkArgs {
         let entity_id = self.entity.clone();
         let edit = match (&self.verify, &self.field, &self.target) {
             (Some(verify), _, _) => {
-                let Obligation { kind, text } = Obligation::parse(verify);
-                if add {
+                // The reading of the text needs the entity's kind, so the project is read first (ADR 0237).
+                let compiled = match self.project.compile() {
+                    Ok(compiled) => compiled,
+                    Err(error) => {
+                        return Refusal::of(self.output.format).report(terminal, &error);
+                    }
+                };
+                let Obligation { kind, text } =
+                    Obligation::on(&ProjectView::of(&compiled), &entity_id, verify);
+                let edit = if add {
                     Edit::AddVerify {
                         entity_id,
                         kind,
@@ -236,7 +244,14 @@ impl LinkArgs {
                         kind,
                         text,
                     }
-                }
+                };
+                return execute_on(
+                    &compiled,
+                    vec![edit],
+                    self.dry_run,
+                    self.output.format,
+                    terminal,
+                );
             }
             (None, Some(field), Some(target)) if add => Edit::Link {
                 entity_id,

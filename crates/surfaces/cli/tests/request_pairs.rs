@@ -733,7 +733,6 @@ fn every_edit_verb_is_one_request_on_both_surfaces() {
     assert_eq!(pair("edit_delete_referenced").0, Outcome::Refused);
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_obligation",
     verify = "specforge link --verify and specforge.edit add_verify write one obligation from one text"

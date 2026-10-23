@@ -24,7 +24,7 @@ Options:
           The file, relative to the spec root; created when missing
 
       --verify <KIND:TEXT>
-          A `verify` obligation, as `kind:text` (or just `text`); repeat for several
+          A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several
 
       --dry-run
           Print the diff and write nothing

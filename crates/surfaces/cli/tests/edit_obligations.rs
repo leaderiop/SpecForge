@@ -13,7 +13,6 @@ fn sf(project: &TestProject, args: &[&str]) -> Run {
     Cli::on(project).run(args)
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_obligation",
     verify = "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
@@ -85,7 +84,6 @@ fn a_verify_prefix_is_a_kind_only_when_the_entitys_kind_accepts_it() {
     );
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_obligation",
     verify = "--verify names the obligation the entity writes in either reading of its prefix"

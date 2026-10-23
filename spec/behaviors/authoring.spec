@@ -21,7 +21,7 @@ behavior create_entity "Create an Entity" {
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused
     invalid_title before the project is read; ADR 0225), and the file MUST be a project source.
     Each field is written as a set of it writes it, so a field that holds what its file's default holds, as the graph stores both,
-    is not written, and each verify obligation as an add-verify writes it, so an equal one given twice is written
+    is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
     once. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
     and one given twice is refused, --help with a kind is that kind's help and an unknown kind is refused as unknown_kind,
@@ -158,7 +158,12 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
     or before the closing brace. A remove-verify edit removes the statement
     with that kind and text. Where each statement is written is read from the
     block's parse: an entry named verify inside a block field is a field, never
-    a statement (ADR 0187, amended). An equal line is not added twice.
+    a statement (ADR 0187, amended). An equal line is not added twice. The
+    CLI's --verify kind:text names its kind only when the part before the first
+    colon is one of the verify kinds the entity's kind accepts (declared, or an
+    enhancement's), else the whole text is the obligation's text; it names the
+    obligation the entity already writes in either reading of the prefix
+    (ADR 0237). An MCP edit names its kind and is never split.
   """
   verify unit "a verify line is added after the last one"
   verify unit "a verify line is removed by kind and text"
@@ -166,6 +171,8 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "add-verify writes after the last statement, never inside a block field"
   verify unit "add-verify on a union is refused as not_editable, a union has no verify statements"
   verify unit "add-verify on a braced block writes the statement whatever its members are named"
+  verify unit "a prefix is an obligation's kind only when it is one of the verify kinds its entity's kind accepts"
+  verify unit "an obligation the entity writes in either reading of a prefix is the one its text names"
   verify unit "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
   verify unit "--verify names the obligation the entity writes in either reading of its prefix"
   verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
