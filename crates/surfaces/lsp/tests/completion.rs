@@ -52,9 +52,8 @@ pub fn complete_at<'v>(
 ) -> (String, Vec<CompletionItem>) {
     let doc = Document::new(text.into());
     let cursor = doc.at(Position::new(line, character)).expect("a position");
-    let site = cursor.completion();
-    let found = items(&site, &cursor.word_edit(), false, view, place);
-    (format!("{site:?}"), found)
+    let found = items(&cursor, false, view, place);
+    (format!("{:?}", cursor.completion()), found)
 }
 
 /// The items at a position of `text`, in a project made of `text` alone.
@@ -584,7 +583,6 @@ fn a_kind_keyword_is_documented_by_its_guide() {
     behavior = "complete_field_names",
     verify = "a field the block already writes is not suggested, but the one under the cursor is"
 )]
-#[ignore = "flipped by T8"]
 fn a_field_the_block_writes_is_not_suggested_again() {
     let text = "behavior login \"Login\" {\n  category command\n  \n}\n";
     let names = labels(&complete_in_project(text, 2, 2))

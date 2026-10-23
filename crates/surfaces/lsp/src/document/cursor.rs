@@ -277,6 +277,24 @@ impl<'d> Cursor<'d> {
         site.unwrap_or(CompletionSite::Nothing)
     }
 
+    /// The fields the entity body around the cursor writes, as written, but the word under the cursor
+    /// (completing over a written key rewrites it): what field completion leaves out, since writing one
+    /// again is E081 (E078 in a defaults block).
+    pub fn written_fields(&self) -> Vec<&'d str> {
+        let Some(frame) = self.context().1 else {
+            return Vec::new();
+        };
+        let word = self.word_index();
+        (0..self.syntax.lexemes.len())
+            .filter(|&i| {
+                self.syntax.roles[i] == Role::Key
+                    && self.syntax.frame_of[i] == Some(frame)
+                    && Some(i) != word
+            })
+            .map(|i| self.syntax.text(self.text, i as u32))
+            .collect()
+    }
+
     /// Whether the cursor is in code, a string or a comment.
     pub fn place(&self) -> Place {
         let Some(last) = self.last_started() else {

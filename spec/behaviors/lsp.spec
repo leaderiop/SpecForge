@@ -850,6 +850,9 @@ behavior complete_field_names "Complete Field Names" {
     the FieldRegistry for valid field names for the current entity kind
     and suggest them as completions. Suggestions MUST be filtered to
     fields registered for the entity kind by its extension manifest.
+    A field the body already writes MUST NOT be suggested (writing it
+    again is E081, E078 in a defaults block), except the one under the
+    cursor, which completing rewrites.
     A field's snippet MUST be the member a set of it writes, in the form
     its field's type decides, laid out relative to its line (the client
     adjusts the lead). The cursor is

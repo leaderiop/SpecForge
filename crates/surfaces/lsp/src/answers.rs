@@ -182,13 +182,8 @@ pub fn completion(state: &LspState, uri: &Url, position: Position) -> Option<Com
     let place = file
         .as_deref()
         .map_or(format::Place::Detached, format::Place::File);
-    let items = crate::completion::items(
-        &cursor.completion(),
-        &cursor.word_edit(),
-        state.client().insert_replace,
-        &state.view(),
-        place,
-    );
+    let items =
+        crate::completion::items(&cursor, state.client().insert_replace, &state.view(), place);
     Some(CompletionResponse::Array(items))
 }
 

@@ -15,30 +15,32 @@ use tower_lsp::lsp_types::{
     InsertTextFormat, InsertTextMode, MarkupContent, MarkupKind, TextEdit,
 };
 
-use crate::document::{CompletionSite, WordEdit};
+use crate::document::{CompletionSite, Cursor};
 
-/// The completion items of `site`. Each carries an edit over the word
-/// under the cursor (`edit`): an insert-and-replace edit when the client
+/// The completion items at `cursor`. Each carries an edit over the word
+/// under the cursor: an insert-and-replace edit when the client
 /// supports one (`insert_replace`), else a plain edit over the word's start
 /// to the cursor; its `filterText` is its label. A keyword's and a field's snippet is the skeleton the typed create
 /// gives it in the file at `place` (ADR 0191).
 pub fn items(
-    site: &CompletionSite,
-    edit: &WordEdit,
+    cursor: &Cursor<'_>,
     insert_replace: bool,
     view: &ProjectView,
     place: Place<'_>,
 ) -> Vec<CompletionItem> {
     let registries = view.registries();
-    let mut items = match *site {
+    let edit = cursor.word_edit();
+    let mut items = match cursor.completion() {
         CompletionSite::Keywords { prefix } => keywords(prefix, view, &Skeletons::at(view, place)),
         CompletionSite::Fields { kind, prefix } => {
             let skeletons = Skeletons::at(view, place);
+            let written = cursor.written_fields();
             let mut fields = registries.fields().fields_for_kind(kind);
             fields.sort_by(|a, b| a.declared().name.cmp(&b.declared().name));
             fields
                 .into_iter()
                 .filter(|field| starts_with(&field.declared().name, prefix))
+                .filter(|field| !written.contains(&field.declared().name.as_str()))
                 .map(|field| {
                     let name = &field.declared().name;
                     let insert_text = skeletons.member(kind, name).map(|s| snippet(&s));
