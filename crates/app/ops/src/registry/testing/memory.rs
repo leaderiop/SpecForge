@@ -433,8 +433,8 @@ impl Registry for MemoryRegistry {
             found: listed
                 .into_iter()
                 .map(|p| Found {
-                    name: p.name().to_string(),
-                    version: p.version().to_string(),
+                    name: p.name().clone(),
+                    version: p.version().clone(),
                     description: p
                         .declaration
                         .handshake

@@ -153,8 +153,16 @@ pub fn assert_client_contract(
         .search(&SearchQuery::new("contract"), registry, None)
         .expect("K8: search");
     assert_eq!(hits.len(), 1, "K8: one hit for \"contract\": {hits:?}");
-    assert_eq!(hits[0].name, "@contract/tool", "K8: the hit's name");
-    assert_eq!(hits[0].version, "1.1.0", "K8: the latest version");
+    assert_eq!(
+        hits[0].name.as_str(),
+        "@contract/tool",
+        "K8: the hit's name"
+    );
+    assert_eq!(
+        hits[0].version.to_string(),
+        "1.1.0",
+        "K8: the latest version"
+    );
     assert_eq!(hits[0].description, "Contract tool", "K8: the description");
     // A query is text: case is ignored, `_` and `%` are no wildcards.
     let found = |q: &str| {

@@ -19,6 +19,7 @@ pub use code::ErrorCode;
 pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex};
 
 use serde::{Deserialize, Serialize};
+use specforge_package::{PackageName, Version};
 
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,10 +116,13 @@ pub struct SearchResults {
     pub results: Vec<SearchHit>,
 }
 
+/// One package a search lists: its name, the version `latest` picks among its stored versions, and its
+/// declaration's description. A hit whose name is no package name, or whose version is no SemVer version,
+/// does not read: the whole reply is then not this call's wire type (R009, ADR 0044 D2 as amended).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SearchHit {
-    pub name: String,
-    pub version: String,
+    pub name: PackageName,
+    pub version: Version,
     #[serde(default)]
     pub description: String,
 }
@@ -335,8 +339,8 @@ mod tests {
         is_this_json(
             &SearchResults {
                 results: vec![SearchHit {
-                    name: "@acme/tool".into(),
-                    version: "1.0.0".into(),
+                    name: PackageName::parse("@acme/tool").unwrap(),
+                    version: Version::new(1, 0, 0),
                     description: "A tool".into(),
                 }],
             },
@@ -351,8 +355,8 @@ mod tests {
     fn a_search_hit_is_this_json() {
         is_this_json(
             &SearchHit {
-                name: "@acme/tool".into(),
-                version: "1.0.0".into(),
+                name: PackageName::parse("@acme/tool").unwrap(),
+                version: Version::new(1, 0, 0),
                 description: String::new(),
             },
             json!({"name": "@acme/tool", "version": "1.0.0", "description": ""}),
@@ -363,7 +367,6 @@ mod tests {
         assert_eq!(bare.description, "");
     }
 
-    #[ignore = "flipped by T4"]
     #[specforge_test_macros::test(
         type = "SearchHit",
         verify = "a search hit whose name is no package name or whose version is no SemVer version does not read"

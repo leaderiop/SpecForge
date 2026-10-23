@@ -2,14 +2,15 @@
 
 use specforge_common::{Diagnostic, DiagnosticList, codes};
 use specforge_ops::registry::{Found, Searched};
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::DeclaredCategory;
 use specforge_test_macros::test as specforge_test;
 
 fn searched() -> Searched {
     Searched {
         found: vec![Found {
-            name: "@acme/x".into(),
-            version: "1.0.0".into(),
+            name: PackageName::parse("@acme/x").unwrap(),
+            version: Version::new(1, 0, 0),
             description: "d".into(),
             registry: "local".into(),
         }],

@@ -364,7 +364,6 @@ mod tests {
             .map_err(|failure| error_of(failure, None, "http://r/x", subject, NOW))
     }
 
-    #[ignore = "flipped by T4"]
     #[specforge_test_macros::test(
         behavior = "search_registry",
         verify = "a search reply holding a hit that is no package name or no SemVer version is that registry's failure, R009"

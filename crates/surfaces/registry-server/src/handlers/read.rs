@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
+use specforge_package::{PackageName, Version};
 use specforge_registry_wire::address::Call;
 use specforge_registry_wire::{
     ErrorCode, PackageMetadata, SearchHit, SearchQuery, SearchResults, VersionList,
@@ -146,10 +147,13 @@ pub(super) async fn search_packages(
 
     let results = results
         .into_iter()
-        .map(|p| SearchHit {
-            name: p.name,
-            version: p.version,
-            description: p.description,
+        // A stored row no client could read is not served (ADR 0036).
+        .filter_map(|p| {
+            Some(SearchHit {
+                name: PackageName::parse(&p.name).ok()?,
+                version: Version::parse(&p.version).ok()?,
+                description: p.description,
+            })
         })
         .collect();
 

@@ -788,7 +788,11 @@ behavior search_registry "Search Registry" {
     name + version — when the same name + version appears from multiple
     registries, the first registry in specforge.json declaration order
     wins, and each result names that registry. Output MUST be
-    deterministic — sorted by name, then version. Each registry that
+    deterministic — sorted by name, then version (by SemVer precedence).
+    A hit that is no package name or no SemVer version makes that
+    registry's reply unreadable (R009): that registry failed, and the others
+    are still asked. A registry serves no stored package whose name is no
+    package name (ADR 0036). Each registry that
     fails MUST be reported once, with its code (on stderr under human
     output, in the document's diagnostics under --format json, each in the shape
     every command writes a diagnostic); the document names --contributes only

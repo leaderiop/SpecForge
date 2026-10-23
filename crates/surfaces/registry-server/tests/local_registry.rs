@@ -113,7 +113,6 @@ fn a_stored_signature_reads_back_typed() {
     assert_eq!(metadata.signature, Some(signature));
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test_macros::test(
     behavior = "search_registry",
     verify = "a registry serves no stored package whose name is no package name"

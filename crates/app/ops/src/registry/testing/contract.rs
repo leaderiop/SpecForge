@@ -494,14 +494,14 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     let searched = registry
         .search("contract/base", None)
         .unwrap_or_else(|e| panic!("R-S2: search fails: {e:?}"));
-    let listed: Vec<(&str, &str)> = searched
+    let listed: Vec<(&str, String)> = searched
         .found
         .iter()
-        .map(|f| (f.name.as_str(), f.version.as_str()))
+        .map(|f| (f.name.as_str(), f.version.to_string()))
         .collect();
     assert_eq!(
         listed,
-        [("@contract/base", "1.1.0")],
+        [("@contract/base", "1.1.0".to_string())],
         "R-S2: a package is listed once, at the version `add` installs (the highest release), not 2.0.0-beta.1"
     );
 }

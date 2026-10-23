@@ -314,8 +314,10 @@ pub struct Published {
 /// One package a search found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct Found {
-    pub name: String,
-    pub version: String,
+    #[shape(as = String)]
+    pub name: PackageName,
+    #[shape(as = String)]
+    pub version: Version,
     pub description: String,
     /// The alias of the registry it was found in: the first in `specforge.json` order that lists it.
     pub registry: String,

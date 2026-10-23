@@ -101,8 +101,10 @@ type PackageSignature "Package Signature" {
   verify unit "PackageSignature is the JSON of a publisher signature, and only a well-formed one reads"
 }
 
+// A hit whose name is no package name or whose version is no SemVer version
+// does not read (R009 for the whole reply).
 type SearchHit "Search Hit" {
-  name        string
+  name        PackageName
   version     string
   description string @optional
   verify unit "SearchHit is the JSON of one search hit"

