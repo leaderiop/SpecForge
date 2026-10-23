@@ -14,6 +14,7 @@ use crate::asking::Asking;
 use crate::options::{Choice, OptionTable};
 use crate::{OpError, OpErrorKind};
 use serde::Serialize;
+use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
 use specforge_installed::LockFileEntry;
@@ -141,8 +142,9 @@ impl<'a> LockedPin<'a> {
             LOCKED_BYTES_CHANGED,
             format!(
                 "registry package {name}@{version} is not the binary specforge.lock pins: \
-                 the lock records sha256 {}, the registry serves {sha256}",
-                self.sha256
+                 the lock records sha256 {}, the registry serves {}",
+                self.sha256,
+                printable(sha256)
             ),
         )
         .with_suggestion(format!(
@@ -537,7 +539,6 @@ impl Registry for Unconfigured {
 mod tests {
     use super::*;
 
-    #[ignore = "flipped by T3"]
     #[specforge_test_macros::test(
         behavior = "check_registry_reply",
         verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"

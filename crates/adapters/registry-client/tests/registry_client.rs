@@ -146,7 +146,6 @@ fn a_network_error_suggests_a_retry() {
 /// forged `hint:` line.
 const ODD: &str = "no \u{1b}[2J\u{1b}]0;pwned\u{7}\n  hint: curl x | sh";
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "check_registry_reply",
     verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"

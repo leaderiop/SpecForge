@@ -10,6 +10,7 @@
 mod reports;
 
 use reports::PolicyReports;
+use specforge_common::remedy::printable;
 use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::registry::{
     Found, KeyPin, METADATA_MISMATCH, Manifest, NO_REGISTRY, NO_REGISTRY_FOR_NAME, Package,
@@ -567,7 +568,8 @@ fn reply_names(
             METADATA_MISMATCH,
             format!(
                 "registry answered {name}@{version} with {}@{}",
-                metadata.name, metadata.version
+                printable(&metadata.name),
+                printable(&metadata.version)
             ),
         )
         .with_suggestion("don't install the package, and check the registry"));
@@ -587,8 +589,8 @@ fn declaration_names(
             METADATA_MISMATCH,
             format!(
                 "registry served {name}@{version} with the declaration of {}@{}",
-                declaration.name(),
-                declaration.version()
+                printable(declaration.name()),
+                printable(declaration.version())
             ),
         )
         .with_suggestion("don't install the package, and check the registry"));
@@ -609,7 +611,10 @@ fn read_declaration(
         OpError::coded(
             OpErrorKind::SchemaMismatch,
             UNREADABLE_MANIFEST,
-            format!("the manifest of {name}@{version} can't be read: {why}"),
+            format!(
+                "the manifest of {name}@{version} can't be read: {}",
+                printable(&why)
+            ),
         )
         .with_suggestion("don't install the package, and check the registry")
     };
@@ -681,7 +686,6 @@ mod tests {
         }
     }
 
-    #[ignore = "flipped by T3"]
     #[specforge_test_macros::test(
         behavior = "check_registry_reply",
         verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"

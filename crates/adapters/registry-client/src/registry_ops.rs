@@ -1,3 +1,4 @@
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 
 use super::registry_client::{RegistryClient, RegistryError};
@@ -91,7 +92,10 @@ pub fn verify_registry_integrity(data: &[u8], expected_sha256: &str) -> Result<(
     } else {
         Err(Diagnostic::new(
             codes::R_OPS_002,
-            format!("SHA256 integrity check failed. Expected '{expected_sha256}', got '{actual}'."),
+            format!(
+                "SHA256 integrity check failed. Expected '{}', got '{actual}'.",
+                printable(expected_sha256)
+            ),
         )
         .with_suggestion(
             "The downloaded package may be corrupted or tampered with. Try downloading again."

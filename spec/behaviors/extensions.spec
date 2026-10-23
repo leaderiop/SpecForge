@@ -1023,6 +1023,10 @@ behavior check_registry_reply "Check Registry Reply" {
     accepts it, and the lock is left as it was. A lock entry that pins no
     hash pins no bytes.
     A refused reply pins no key and installs nothing.
+    Text the registry supplies (an error's message, a reply's or a served
+    manifest's name and version, a digest) MUST be written in a diagnostic
+    printable: each control character and bidirectional control as its
+    \u{..} escape.
   """
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
