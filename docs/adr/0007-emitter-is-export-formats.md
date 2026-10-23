@@ -1,6 +1,6 @@
 # The emitter is export formats; domain names come from manifests
 
-**Status:** accepted (2026-10-02); amended by [ADR 0190](0190-a-read-selection-decides-what-the-read-covers.md) (`emit` exports the entities a read selection covers, `EmitOptions::selected`; it resolves no scope). Amended by [ADR 0216](0216-a-coverage-status-says-whether-its-entity-counts.md) (`EmitOptions::coverage` carries each entity's coverage status).
+**Status:** accepted (2026-10-02); reopened by [ADR 0236](0236-an-entitys-agent-context-is-everything-it-holds.md) (the context export writes every member; the paragraph on context is about lifting only); amended by [ADR 0190](0190-a-read-selection-decides-what-the-read-covers.md) (`emit` exports the entities a read selection covers, `EmitOptions::selected`; it resolves no scope). Amended by [ADR 0216](0216-a-coverage-status-says-whether-its-entity-counts.md) (`EmitOptions::coverage` carries each entity's coverage status).
 
 `specforge-emitter` held the compile's glue (graph checks, extension loading, Wasm custom rules),
 the analysis passes, the host's coverage view, traces, plan validation, stats, source scanning,

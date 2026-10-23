@@ -922,6 +922,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   from the entity carries its label (`Graph::linked_fields`, ADR 0232). A missing link is an expected field that
   is not linked; an outgoing edge rule (`no_outgoing_edges`, the outgoing half of `no_edges`) reports an entity
   with no linked field of its edge type, so a reference that does not resolve is E003 alone.
+- **Agent context**: what an agent reader gets about one entity: its title, its obligations and its **Members**,
+  whole ([ADR 0236](docs/adr/0236-an-entitys-agent-context-is-everything-it-holds.md)). The context export (and `specforge://context`, `specforge://context/{id}`, `query --format
+  context`) lifts each headline field to the top level as its field text; the context prompt adds `contract_text` and
+  the entity's references. They carry the same members.
 - **Agent plan**: what an agent intends to do, entity by entity, in the order it will do it
   (`specforge_ops::read::plan::AgentPlan`, spec type `AgentPlan`: a `plan_id` and entries of `entity_id` and `action`).
   Its entry order is its dependency order; the graph's edges are the dependencies, and entities on one cycle come

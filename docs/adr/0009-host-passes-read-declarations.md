@@ -1,6 +1,6 @@
 # Prove, coverage grading, the build cache and the context schema read declarations
 
-**Status:** accepted (2026-10-03)
+**Status:** accepted (2026-10-03); D amended by [ADR 0236](0236-an-entitys-agent-context-is-everything-it-holds.md) (the context export's `fields` holds every field not lifted)
 
 ADR 0007 left four places where the host still names a domain (principle 2), listed as its known
 gaps, plus one it introduced: the prove pass reads `constraint`'s `metric` and any entity's
