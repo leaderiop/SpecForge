@@ -192,8 +192,8 @@ fn ambiguous(name: &str, entries: &[&EnabledExtension]) -> OpError {
 
 /// The refusal for an argument the project has nothing under: a file no
 /// entry names; E072 for a name that could never be installed; while the lock can't be read, the lock plan's
-/// refusal of it (whether a lock entry holds the name is not known); else `extension_not_found`, saying when
-/// there is no lock file.
+/// refusal of it (whether a lock entry holds the name is not known); a builtin, not enabled (a builtin is never
+/// installed); else `extension_not_found`, saying when there is no lock file.
 fn nothing_named(name: &str, installed: &Installed) -> OpError {
     if ExtensionEntry::parse(name).file(Path::new("")).is_some() {
         return OpError::new(
@@ -212,6 +212,17 @@ fn nothing_named(name: &str, installed: &Installed) -> OpError {
     }
     if let Err(refused) = writable_lock(installed) {
         return refused;
+    }
+    if let Some(builtin) = super::builtin_name(name) {
+        return OpError::new(
+            OpErrorKind::ExtensionNotFound,
+            NOT_FOUND,
+            format!(
+                "extension '{builtin}' is not enabled: it is a builtin, and no specforge.json entry names it"
+            ),
+        )
+        .with_suggestion("`specforge extensions` lists what the project enables")
+        .with_data(serde_json::json!({ "extension": name }));
     }
     not_installed(
         name,

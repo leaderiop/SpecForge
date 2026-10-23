@@ -711,7 +711,6 @@ fn a_removal_writes_nothing_outside_its_project_whatever_bound_its_caller_lends(
     behavior = "remove_extension",
     verify = "removing a builtin no entry enables says it is not enabled, never that it is not installed"
 )]
-#[ignore = "flipped by T6"]
 fn a_builtin_no_entry_enables_is_not_enabled_rather_than_not_installed() {
     let fixture = Assembled::new();
     write_config(&fixture, r#"{"extensions": []}"#);

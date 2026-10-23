@@ -1389,10 +1389,10 @@ fn remove_installed_extension_drops_its_config_entry() {
 fn remove_no_lock_file() {
     let dir = TestProject::new().without_config();
     Cli::on(&dir)
-        .command(&["remove", "@specforge/software"])
+        .command(&["remove", "@acme/tool"])
         .assert()
         .failure()
-        .stderr(predicates::str::contains("not installed"));
+        .stderr(predicates::str::contains("no lock file found"));
 }
 
 #[specforge_test(
@@ -1585,7 +1585,7 @@ fn remove_builtin_disables_it() {
         .command(&["remove", "@specforge/product"])
         .assert()
         .code(1)
-        .stderr(predicates::str::contains("not installed"));
+        .stderr(predicates::str::contains("is not enabled"));
 }
 
 #[specforge_test(
