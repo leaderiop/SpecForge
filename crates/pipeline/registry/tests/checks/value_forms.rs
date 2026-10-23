@@ -48,8 +48,8 @@ fn a_value_in_the_other_form_is_w159_at_the_value() {
             "field 'priority' of ticket 't1' is a word: write it bare, as priority low",
             "field 'label' of ticket 't1' is a word: write it bare, as label ab",
             "field 'summary' of ticket 't1' is text: quote it, as summary \"text\"",
-            "field 'watchers' of ticket 't1' is a word: write it bare, as watchers t1",
-            "field 'labels' of ticket 't1' is text: quote it, as labels \"one\"",
+            "an item of field 'watchers' of ticket 't1' is a word: write it bare, as watchers [t1, t1]",
+            "an item of field 'labels' of ticket 't1' is text: quote it, as labels [\"one\", \"two\"]",
         ]
     );
     // At the value, quotes included: `  priority "low"` starts at column 12 (1-based).
@@ -91,7 +91,7 @@ fn a_defaults_value_in_the_other_form_is_w159_once_at_the_default() {
                 12
             ),
             (
-                "field 'labels' of defaults ticket is text: quote it, as labels \"one\""
+                "an item of field 'labels' of defaults ticket is text: quote it, as labels [\"one\"]"
                     .to_string(),
                 3,
                 13
@@ -129,7 +129,6 @@ fn a_defaults_block_below_a_block_is_still_reported_once_at_the_default() {
     behavior = "check_field_value_types",
     verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
 )]
-#[ignore = "flipped by T9"]
 fn a_number_a_boolean_a_literal_or_a_whole_value_on_a_list_field_is_w159() {
     let found = w159(
         "ticket t1 \"T\" {\n  points   \"3\"\n  urgent   \"true\"\n  labels   \"one\"\n  \
@@ -153,7 +152,6 @@ fn a_number_a_boolean_a_literal_or_a_whole_value_on_a_list_field_is_w159() {
     behavior = "check_field_value_types",
     verify = "a list item's W159 writes the whole list in its field's form"
 )]
-#[ignore = "flipped by T9"]
 fn a_list_items_w159_writes_the_whole_list() {
     let found = w159("ticket t1 \"T\" {\n  watchers [\"t1\", t1]\n}\n");
     let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
@@ -169,7 +167,6 @@ fn a_list_items_w159_writes_the_whole_list() {
     behavior = "check_field_value_types",
     verify = "a multi-line text on a list field is W159, naming each line as an item"
 )]
-#[ignore = "flipped by T9"]
 fn a_multi_line_text_on_a_list_field_is_w159_naming_its_lines() {
     let found = w159("ticket t1 \"T\" {\n  labels \"\"\"\n    one\n    two\n  \"\"\"\n}\n");
     let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
@@ -179,4 +176,18 @@ fn a_multi_line_text_on_a_list_field_is_w159_naming_its_lines() {
             "field 'labels' of ticket 't1' is a list written as one text: write each line as its own item, as labels [\"one\", \"two\"]"
         ]
     );
+}
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a quoted calendar day on a date field is W159, written bare"
+)]
+fn a_quoted_calendar_day_on_a_date_field_is_w159() {
+    let found = w159("ticket t1 \"T\" {\n  due \"2026-03-01\"\n}\n");
+    let messages: Vec<&str> = found.iter().map(|(m, ..)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        ["field 'due' of ticket 't1' is a date: write it bare, as due 2026-03-01"]
+    );
+    assert!(w159("ticket t1 \"T\" {\n  due \"March\"\n}\n").is_empty());
 }

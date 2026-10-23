@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use specforge_graph::field_form::{FieldForm, FieldForms, ValueShape};
+use specforge_graph::field_form::{FieldForm, FieldForms, Place, Respell, ValueShape};
 use specforge_graph::{FieldValue, Written};
 use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
@@ -46,6 +46,8 @@ fn forms() -> FieldForms {
         ("text", FieldType::String),
         ("texts", FieldType::StringList),
         ("num", FieldType::Integer),
+        ("due", FieldType::Date),
+        ("flag", FieldType::Bool),
     ] {
         declared.insert(
             ("k".to_string(), name.to_string()),
@@ -65,7 +67,11 @@ fn forms() -> FieldForms {
 )]
 fn a_field_type_writes_its_values_in_one_form() {
     let forms = forms();
-    let rewrite = |field, written, text| forms.rewrite("k", field, written, text);
+    let rewrite = |field, written, text| {
+        forms
+            .rewrite("k", field, written, text, Place::Item)
+            .map(|r| r.to)
+    };
 
     for field in ["id_", "ref_", "refs"] {
         assert_eq!(
@@ -83,7 +89,58 @@ fn a_field_type_writes_its_values_in_one_form() {
         );
         assert_eq!(rewrite(field, Written::Quoted, "a"), None, "{field}");
     }
-    assert_eq!(rewrite("num", Written::Quoted, "7"), None);
+    assert_eq!(rewrite("num", Written::Quoted, "7"), Some(Written::Literal));
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+)]
+fn a_value_is_rewritten_at_its_place_to_its_types_one_form() {
+    let forms = forms();
+    let at = |field, written, text, place| forms.rewrite("k", field, written, text, place);
+    let respell = |to, listed| Some(Respell { to, listed });
+    use Place::{Item, Whole};
+    assert_eq!(
+        at("num", Written::Quoted, "100", Whole),
+        respell(Written::Literal, false)
+    );
+    assert_eq!(at("num", Written::Literal, "100", Whole), None);
+    // E061 reports a text that is no number.
+    assert_eq!(at("num", Written::Quoted, "abc", Whole), None);
+    assert_eq!(at("num", Written::Bare, "abc", Whole), None);
+    assert_eq!(
+        at("due", Written::Quoted, "2026-03-01", Whole),
+        respell(Written::Literal, false)
+    );
+    assert_eq!(at("due", Written::Literal, "2026-03-01", Whole), None);
+    assert_eq!(at("due", Written::Literal, "2026-02-30", Whole), None);
+    assert_eq!(
+        at("flag", Written::Quoted, "true", Whole),
+        respell(Written::Literal, false)
+    );
+    assert_eq!(
+        at("text", Written::Literal, "100", Whole),
+        respell(Written::Quoted, false)
+    );
+    assert_eq!(
+        at("text", Written::Literal, "2026-01-01", Whole),
+        respell(Written::Quoted, false)
+    );
+    assert_eq!(
+        at("refs", Written::Bare, "f1", Whole),
+        respell(Written::Bare, true)
+    );
+    assert_eq!(
+        at("refs", Written::Quoted, "f1", Whole),
+        respell(Written::Bare, true)
+    );
+    assert_eq!(at("refs", Written::Bare, "f1", Item), None);
+    assert_eq!(
+        at("texts", Written::Quoted, "gh.issue:1", Whole),
+        respell(Written::Quoted, true)
+    );
+    assert_eq!(at("texts", Written::Quoted, "gh.issue:1", Item), None);
 }
 
 #[specforge_test(
@@ -93,36 +150,47 @@ fn a_field_type_writes_its_values_in_one_form() {
 fn rewrite_leaves_what_it_cannot_write() {
     let forms = forms();
     // A path, or true/false, cannot be a bare word.
-    assert_eq!(forms.rewrite("k", "ref_", Written::Quoted, "api/lsp"), None);
-    assert_eq!(forms.rewrite("k", "id_", Written::Quoted, "true"), None);
+    assert_eq!(
+        forms.rewrite("k", "ref_", Written::Quoted, "api/lsp", Place::Item),
+        None
+    );
+    assert_eq!(
+        forms.rewrite("k", "id_", Written::Quoted, "true", Place::Item),
+        None
+    );
     // A scheme ref id is a reference list item's bare form (ADR 0153); a scalar reference takes a word only,
     // and an identifier too, as a scheme ref id does not parse bare outside a list.
+    let item = |field, written, text| {
+        forms
+            .rewrite("k", field, written, text, Place::Item)
+            .map(|r| r.to)
+    };
     assert_eq!(
-        forms.rewrite("k", "refs", Written::Quoted, "gh.issue:1"),
+        item("refs", Written::Quoted, "gh.issue:1"),
         Some(Written::Bare)
     );
+    assert_eq!(item("ref_", Written::Quoted, "gh.issue:1"), None);
+    assert_eq!(item("id_", Written::Quoted, "gh.issue:1"), None);
+    // A scheme ref on a string list is in form; a literal on a text field is quoted.
+    assert_eq!(item("texts", Written::SchemeRef, "gh.issue:1"), None);
     assert_eq!(
-        forms.rewrite("k", "ref_", Written::Quoted, "gh.issue:1"),
-        None
-    );
-    assert_eq!(
-        forms.rewrite("k", "id_", Written::Quoted, "gh.issue:1"),
-        None
-    );
-    // A scheme ref or a literal is neither form.
-    assert_eq!(
-        forms.rewrite("k", "texts", Written::SchemeRef, "gh.issue:1"),
-        None
-    );
-    assert_eq!(
-        forms.rewrite("k", "text", Written::Literal, "2026-01-01"),
-        None
+        item("text", Written::Literal, "2026-01-01"),
+        Some(Written::Quoted)
     );
     // A bare word on a members kind may be a member's type.
-    assert_eq!(forms.rewrite("m", "text", Written::Bare, "string"), None);
+    assert_eq!(
+        forms.rewrite("m", "text", Written::Bare, "string", Place::Item),
+        None
+    );
     // An undeclared field or kind has no form.
-    assert_eq!(forms.rewrite("k", "nope", Written::Bare, "a"), None);
-    assert_eq!(forms.rewrite("zzz", "text", Written::Bare, "a"), None);
+    assert_eq!(
+        forms.rewrite("k", "nope", Written::Bare, "a", Place::Item),
+        None
+    );
+    assert_eq!(
+        forms.rewrite("zzz", "text", Written::Bare, "a", Place::Item),
+        None
+    );
 }
 
 #[specforge_test(

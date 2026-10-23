@@ -23,10 +23,13 @@ fn project_enabling(extensions: &[&str], spec: &str) -> (TestProject, CompiledPr
     (project, compiled)
 }
 
-/// `specforge check --format=json`: whether it passes (exit 0) and the diagnostics.
+/// `specforge check --format=json`: whether it passes (exit 0) and the diagnostics, less W159: these tests write
+/// values in the forms the build coerces, which W159 reports as written (ADR 0234).
 fn check(compiled: &CompiledProject) -> (bool, Vec<Value>) {
     let ok = checked(compiled, CheckOptions::default()).ok();
-    (ok, check_document(compiled, CheckOptions::default()))
+    let mut found = check_document(compiled, CheckOptions::default());
+    found.retain(|d| d["code"] != "W159");
+    (ok, found)
 }
 
 /// The exported fields of entity `id`.

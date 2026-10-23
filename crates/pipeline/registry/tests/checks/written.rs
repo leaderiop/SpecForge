@@ -15,14 +15,29 @@ fn a_value_reaches_the_checks_as_the_build_stored_it() {
         .map(|d| (d.code.as_str(), d.message.as_str(), d.suggestion.as_deref()))
         .collect();
     // The bare integer on an enum field is stored as a string, so E061 quotes it; the quoted
-    // integer and the quoted boolean are coerced, so admitted.
+    // integer and the quoted boolean are coerced, so admitted; W159 reads them as written (quoted).
+    let fix = Some(
+        "run specforge format (or format the document) to write every value in its field's form",
+    );
     assert_eq!(
         found,
-        [(
-            "E061",
-            "field 'priority' of ticket 't1' is declared enum (low, medium, high), but was given \"3\"",
-            Some("use one of: low, medium, high")
-        )]
+        [
+            (
+                "E061",
+                "field 'priority' of ticket 't1' is declared enum (low, medium, high), but was given \"3\"",
+                Some("use one of: low, medium, high")
+            ),
+            (
+                "W159",
+                "field 'points' of ticket 't1' is a number: write it bare, as points 8",
+                fix
+            ),
+            (
+                "W159",
+                "field 'urgent' of ticket 't1' is true or false: write it bare, as urgent true",
+                fix
+            ),
+        ]
     );
 }
 

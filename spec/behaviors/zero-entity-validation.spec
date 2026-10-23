@@ -461,10 +461,12 @@ behavior check_field_value_types "Check Field Value Types" {
     naming the defaults block, however many blocks take it), naming the
     field and the form (ADR 0147): bare for an enum, identifier or reference
     value and each item of a reference list, quoted for text and each item of
-    a string list. The check runs right after E061, only on a value E061
+    a string list; an integer, true or false and a calendar day bare; a list
+    field's whole value in brackets, one item per value (a multi-line text
+    on a list field is one item: split it, format cannot). The check runs right after E061, only on a value E061
     admits, and agrees with `specforge format`: a value is W159 exactly when
     format rewrites it (both ask FieldForms::rewrite), except a default no block
-    takes, which is W161. A bare word on a kind
+    takes, which is W161, and a multi-line text on a list field, which format cannot split. A bare word on a kind
     that takes members is not W159: it may be a member's type; nor is a
     quoted value that is not a word, or true or false, on a bare field.
   """
@@ -486,6 +488,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
   verify unit "a list item's W159 writes the whole list in its field's form"
   verify unit "a multi-line text on a list field is W159, naming each line as an item"
+  verify unit "a quoted calendar day on a date field is W159, written bare"
   verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
   verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"

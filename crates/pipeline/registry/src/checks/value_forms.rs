@@ -5,8 +5,9 @@
 use std::collections::HashSet;
 
 use specforge_common::{Diagnostic, SourceSpan, codes};
-use specforge_graph::field_form::spell;
+use specforge_graph::FieldForm;
 use specforge_parser::Written;
+use specforge_protocol_types::FieldType;
 
 use crate::entity::EntityRecord;
 use crate::{FieldRegistry, KindRegistry};
@@ -43,22 +44,37 @@ pub(super) fn off_form(
                 } else {
                     format!("{} '{}'", record.kind, record.id)
                 };
-                let (what, fix) = match rewrite.to {
-                    Written::Bare => ("a word", "write it bare"),
+                let one_text = rewrite.listed && rewrite.text.contains('\n');
+                let (what, fix) = match (rewrite.listed, rewrite.to) {
+                    (true, _) if one_text => (
+                        "a list written as one text",
+                        "write each line as its own item",
+                    ),
+                    (true, _) => ("a list", "write it in brackets"),
+                    (_, Written::Bare) => ("a word", "write it bare"),
+                    (_, Written::Literal) => (literal_what(declared.form()), "write it bare"),
                     _ => ("text", "quote it"),
                 };
-                let as_written = spell::spelled(&rewrite.text, rewrite.to);
+                let item = if !rewrite.listed && field.shape.is_list() {
+                    "an item of field"
+                } else {
+                    "field"
+                };
                 let mut diagnostic = Diagnostic::new(
                     codes::W159,
                     format!(
-                        "field '{}' of {holder} is {what}: {fix}, as {} {as_written}",
-                        field.key, field.key
+                        "{item} '{}' of {holder} is {what}: {fix}, as {} {}",
+                        field.key, field.key, rewrite.value
                     ),
                 )
                 .with_span(rewrite.span.clone());
                 diagnostic.suggestion = Some(
-                    "run specforge format (or format the document) to write every value in its field's form"
-                        .to_string(),
+                    if one_text {
+                        "split the text into one item per step; format cannot tell where an item ends"
+                    } else {
+                        "run specforge format (or format the document) to write every value in its field's form"
+                    }
+                    .to_string(),
                 );
                 diagnostics.push(diagnostic);
             }
@@ -72,4 +88,13 @@ fn inherited(block: &SourceSpan, value: &SourceSpan) -> bool {
     value.file != block.file
         || (value.start_line, value.start_col) < (block.start_line, block.start_col)
         || (value.end_line, value.end_col) > (block.end_line, block.end_col)
+}
+
+/// What a field written bare as a literal holds, for W159's wording.
+fn literal_what(form: &FieldForm) -> &'static str {
+    match form.field_type() {
+        FieldType::Bool => "true or false",
+        FieldType::Date => "a date",
+        _ => "a number",
+    }
 }

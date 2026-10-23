@@ -133,7 +133,6 @@ fn governed(file: &str, source: &str) -> TestProject {
     behavior = "format_spec_files",
     verify = "check, format and set agree on a quoted number, a quoted date and a whole value on a list field"
 )]
-#[ignore = "flipped by T9"]
 fn check_format_and_set_agree_on_a_quoted_number_a_quoted_date_and_a_whole_value_on_a_list() {
     let dir = governed(
         "spec/g.spec",

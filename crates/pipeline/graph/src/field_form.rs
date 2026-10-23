@@ -18,7 +18,7 @@ use specforge_protocol_types::FieldType;
 use crate::Graph;
 
 pub mod spell;
-pub use spell::Rewrite;
+pub use spell::{Place, Respell, Rewrite};
 
 /// What a field's value was written as, after the graph build coerced it:
 /// one variant per parsed value form, so a check tells `"1"` from `1`, a

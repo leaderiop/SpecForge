@@ -3282,12 +3282,14 @@ W159: Value not written in its field's form
 
 A field's declared type decides how its value is written (ADR 0147): bare for an
 enum, identifier or reference value and each item of a reference list; quoted
-for text and each item of a string list. This value is written the other way. It
-reads the same, so the graph is unchanged; run specforge format (or format the
-document in the editor) to rewrite every value in its form. A bare word on a
-kind that takes members (type, port) is left alone: it may be a member's type. A
-value a `defaults <kind>` block writes is reported once, at the default, however
-many blocks take it.
+for text and each item of a string list; an integer, true or false and a
+calendar day bare; a list field's value in brackets, one item per value. A
+multi-line text on a list field is one item: split it, format cannot. This value
+is written the other way. It reads the same, so the graph is unchanged; run
+specforge format (or format the document in the editor) to rewrite every value
+in its form. A bare word on a kind that takes members (type, port) is left
+alone: it may be a member's type. A value a `defaults <kind>` block writes is
+reported once, at the default, however many blocks take it.
 
 Owner: core
 Level: warning

@@ -142,48 +142,72 @@ pub fn value(form: &FieldForm, text: &str) -> String {
     }
 }
 
-/// A value written in the other form than its field's: where it is (quotes included), its text, and the form it
-/// takes.
+/// Where a value stands in its field: the field's whole value, or an item of a list written `[…]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Place {
+    Whole,
+    Item,
+}
+
+/// What a value written other than its field's form becomes: the form its text takes ([`form`]) and, for a whole
+/// value on a `string_list` / `reference_list` field, that it becomes the one-item list `[…]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Respell {
+    pub to: Written,
+    pub listed: bool,
+}
+
+/// A value written in other than its field's form: where it is (quotes included), its text, the form it takes, and
+/// the whole entry's value as the field writes it on one line (what W159's message prints).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rewrite {
     pub span: SourceSpan,
     pub text: String,
     pub to: Written,
+    pub listed: bool,
+    pub value: String,
 }
 
 impl FieldForms {
-    /// The form `kind`'s field `field` writes a value in, when `written`/`text`
-    /// is not it (ADR 0147); `None` leaves the value as written: the field
-    /// has no declared form, the value is already in it or is neither bare
-    /// nor quoted, a bare form cannot hold `text` ([`holds_bare`]: not
-    /// a word (on a `reference_list` not an entity id), or `true` / `false`, which would read back as a
-    /// boolean), or a bare word sits on
-    /// a kind that takes members (it may be a member's type).
+    /// How `kind.field` writes `text`, written `written` at `place`, when that is not how it is written (ADR 0147,
+    /// ADR 0234); `None` leaves it as written: the field has no declared form or is a `block`; the value is already
+    /// in its form (quoted exactly when the form is quoted, and listed or not as the type says); a number, boolean
+    /// or date field holds a text that is none (E061 reports it); a quoted scheme ref id on a `string_list`
+    /// (unquoted it would name an entity, ADR 0093); a bare word on a kind that takes members, when its form is
+    /// quoted (it may be a member's type).
     pub fn rewrite(
         &self,
         kind: &str,
         field: &str,
         written: Written,
         text: &str,
-    ) -> Option<Written> {
+        place: Place,
+    ) -> Option<Respell> {
         let Reading::Declared(form) = self.reading(kind, field) else {
             return None;
         };
-        if matches!(
-            form.field_type(),
-            FieldType::Integer | FieldType::Bool | FieldType::Date | FieldType::Block
-        ) {
+        let field_type = form.field_type();
+        if field_type == FieldType::Block {
             return None;
         }
-        // A quoted scheme ref id on a string list is text; unquoted it would name an entity (ADR 0093).
+        let listed = place == Place::Whole
+            && matches!(field_type, FieldType::StringList | FieldType::ReferenceList);
         let to = match self::form(form, text) {
-            Written::SchemeRef => Written::Quoted,
+            Written::SchemeRef if written == Written::Quoted => Written::Quoted,
             to => to,
         };
-        if written == to || !matches!(written, Written::Bare | Written::Quoted) {
+        let refused = matches!(
+            field_type,
+            FieldType::Integer | FieldType::Bool | FieldType::Date
+        ) && to == Written::Quoted;
+        let same = (written == Written::Quoted) == (to == Written::Quoted);
+        if refused || (same && !listed) {
             return None;
         }
-        (to == Written::Bare || !self.member_kinds.contains(kind)).then_some(to)
+        if written == Written::Bare && to == Written::Quoted && self.member_kinds.contains(kind) {
+            return None;
+        }
+        Some(Respell { to, listed })
     }
 
     /// Every value of `entry` (a scalar, or each list item) that
@@ -191,21 +215,71 @@ impl FieldForms {
     /// without a value span is reported at `fallback`.
     pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
         let field = entry.key.as_str();
-        let one = |written, text: &str, span: &SourceSpan| {
-            self.rewrite(kind, field, written, text).map(|to| Rewrite {
+        let span = entry.value_span.as_ref().unwrap_or(fallback);
+        let scalar = |written, text: String| {
+            let respell = self.rewrite(kind, field, written, &text, Place::Whole)?;
+            let one = spelled(&text, respell.to);
+            let value = match (respell.listed, text.contains('\n')) {
+                (false, _) => one,
+                (true, false) => format!("[{one}]"),
+                (true, true) => {
+                    let lines: Vec<String> = text
+                        .lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(quoted)
+                        .collect();
+                    format!("[{}]", lines.join(", "))
+                }
+            };
+            Some(Rewrite {
                 span: span.clone(),
-                text: text.to_string(),
-                to,
+                text,
+                to: respell.to,
+                listed: respell.listed,
+                value,
             })
         };
-        let span = entry.value_span.as_ref().unwrap_or(fallback);
         match &entry.value {
-            FieldValue::String(text) => one(Written::Quoted, text, span).into_iter().collect(),
-            FieldValue::Identifier(text) => one(Written::Bare, text, span).into_iter().collect(),
-            FieldValue::List(items) => items
-                .iter()
-                .filter_map(|item| one(item.written, &item.text, &item.span))
+            FieldValue::String(text) => scalar(Written::Quoted, text.clone()).into_iter().collect(),
+            FieldValue::Identifier(text) => {
+                scalar(Written::Bare, text.clone()).into_iter().collect()
+            }
+            FieldValue::Integer(n) => scalar(Written::Literal, n.to_string())
+                .into_iter()
                 .collect(),
+            FieldValue::Boolean(b) => scalar(Written::Literal, b.to_string())
+                .into_iter()
+                .collect(),
+            FieldValue::Date(text) => scalar(Written::Literal, text.clone()).into_iter().collect(),
+            FieldValue::List(items) => {
+                let respelled: Vec<Option<Respell>> = items
+                    .iter()
+                    .map(|i| self.rewrite(kind, field, i.written, &i.text, Place::Item))
+                    .collect();
+                let value = format!(
+                    "[{}]",
+                    items
+                        .iter()
+                        .zip(&respelled)
+                        .map(|(i, r)| spelled(&i.text, r.map_or(i.written, |r| r.to)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                items
+                    .iter()
+                    .zip(respelled)
+                    .filter_map(|(i, r)| {
+                        r.map(|r| Rewrite {
+                            span: i.span.clone(),
+                            text: i.text.clone(),
+                            to: r.to,
+                            listed: false,
+                            value: value.clone(),
+                        })
+                    })
+                    .collect()
+            }
             _ => Vec::new(),
         }
     }
