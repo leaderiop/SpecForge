@@ -45,6 +45,7 @@ pub(crate) struct Args {
 /// `new`'s own options, each declared once: `--path` and `--format` as every command declares them.
 fn options() -> Command {
     Command::new("new")
+        .bin_name("specforge new")
         .about(ABOUT)
         .disable_help_flag(true)
         .arg(

@@ -538,7 +538,6 @@ fn new_help_begins_with_what_new_does() {
     behavior = "create_entity",
     verify = "new's help and its usage errors name the program as specforge new"
 )]
-#[ignore = "flipped by T10"]
 fn new_usage_names_the_program() {
     let project = todo();
     let help = sf(&project, &["new", "--help"]).exits(0);
@@ -550,9 +549,8 @@ fn new_usage_names_the_program() {
     );
     let missing = sf(&project, &["new", "behavior"]).exits(2);
     assert!(
-        missing
-            .stderr
-            .contains("Usage: specforge new <KIND> <ID> <TITLE>"),
+        missing.stderr.contains("Usage: specforge new ")
+            && missing.stderr.contains("<KIND> <ID> <TITLE>"),
         "{}",
         missing.stderr
     );

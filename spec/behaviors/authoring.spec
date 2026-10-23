@@ -24,7 +24,7 @@ behavior create_entity "Create an Entity" {
     is not written, and each verify obligation as an add-verify writes it, its --verify prefix read by the kind's verify kinds, so an equal one given twice is written
     once. The field flags of `specforge new` are the kind's fields in the project
     the command acts on. Its command line is one command read once with the kind's fields: an option may stand anywhere
-    and one given twice is refused, --help with a kind is that kind's help and an unknown kind is refused as unknown_kind,
+    and one given twice is refused, --help with a kind is that kind's help, its help and its usage errors name the program as specforge new, and an unknown kind is refused as unknown_kind,
     and a line whose --path a field's value spells is refused; a field named like one of its options is no flag of it, and
     the kind's help says to set it with specforge set. A create takes whole fields; a `field.entry` path is refused.
     The skeleton of a new block of a kind is what a create of it writes with no values, with a slot where each value
