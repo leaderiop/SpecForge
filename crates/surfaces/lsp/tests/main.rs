@@ -41,6 +41,7 @@ mod session;
 mod snippets;
 mod stale;
 mod state;
+mod token_agreement;
 mod union_title;
 mod use_bindings;
 
