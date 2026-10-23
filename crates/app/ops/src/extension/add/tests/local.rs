@@ -468,3 +468,40 @@ fn an_add_whose_installs_are_all_present_writes_no_lock_and_is_not_bounded_by_it
         path.ends_with("specforge.json") || files_before.get(path) == Some(bytes)
     }));
 }
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an add of a local file whose path holds a control character is refused (E054) before anything is written"
+)]
+#[ignore = "flipped by T3"]
+fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
+    use crate::config::testing::files_under;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+    )
+    .unwrap();
+    let files = tempfile::tempdir().unwrap();
+    let greet = files.path().join("a\nb.wasm");
+    std::fs::write(&greet, GREET).unwrap();
+    let before = files_under(dir.path());
+
+    for dry_run in [false, true] {
+        let request = AddRequest {
+            root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
+            extensions: vec![Source::Local(greet.clone()).into()],
+            base: None,
+            allow_unsigned: false,
+            dry_run,
+            caller: crate::testing::caller(),
+        };
+
+        let error = add(&request, &crate::registry::Unconfigured("add"), &runtime()).unwrap_err();
+
+        assert_eq!(error.error.code, "E054", "dry run {dry_run}: {error:?}");
+        assert_eq!(files_under(dir.path()), before, "dry run {dry_run}");
+    }
+}

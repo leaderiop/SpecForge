@@ -122,6 +122,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "severity_filter restricts returned diagnostics"
   verify unit "strict mode promotes warnings to errors"
   verify integration "validate with lint profiles reports what specforge check reports with the same profiles"
+  verify integration "validate and the diagnostics resource suggest the reinstall command a lock entry's recorded path calls for, as one shell word"
   verify unit "validate reports files changed on disk since the last call"
   verify unit "an unknown severity_filter or lint profile is invalid input"
   verify unit "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"

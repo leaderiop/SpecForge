@@ -59,6 +59,7 @@ mod source_links;
 mod stateless;
 mod stdio;
 mod subscriptions;
+mod suggested_commands;
 mod support;
 mod surface_call;
 mod surface_wiring;

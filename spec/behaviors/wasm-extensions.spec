@@ -745,6 +745,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor lists the extensions the extensions listing lists, each with its version, source and status"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify unit "a lock file that cannot be read is an error finding naming E033"
+  verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
+  verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
@@ -894,6 +896,9 @@ behavior read_lock_file "Read Lock File" {
   verify unit "a lock file that can't be read names one remedy, whatever made it unreadable"
   verify unit "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
   verify unit "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
+  verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
+  verify unit "a lock entry's source is registry or local:<path>; any other source is E033"
+  verify integration "check prints no control character a lock entry's source holds"
   verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 

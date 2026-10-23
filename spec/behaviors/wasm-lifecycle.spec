@@ -50,6 +50,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "tampered installed binary refused via E070 lockfile pin"
   verify integration "a lock entry whose binary declares another version or other peers is refused with E070 through check, and add of its file rewrites it"
   verify unit "legacy lockfile entry without hash loads with W149"
+  verify unit "the command an E028, E070 or W149 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
   verify unit "the hash is checked over the bytes the runtime compiles"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
@@ -158,6 +159,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "an add of a registry install whose lock entry pins no hash fetches it and pins its bytes"
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
+  verify unit "an add of a local file whose path holds a control character is refused (E054) before anything is written"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

@@ -67,6 +67,7 @@ mod request_pairs;
 mod schema_cache;
 mod schema_notices;
 mod stats;
+mod suggested_commands;
 mod support;
 mod surface_parity;
 mod toolchain;
