@@ -862,6 +862,7 @@ behavior complete_field_names "Complete Field Names" {
   """
   verify unit "field name completion uses FieldRegistry for entity kind"
   verify unit "suggestions are filtered by entity kind"
+  verify unit "a field the block already writes is not suggested, but the one under the cursor is"
   verify unit "no field name suggestions outside entity blocks"
   verify unit "a bracket inside a string opens no reference list"
   verify unit "nothing is suggested inside a string, a comment or a nested block"

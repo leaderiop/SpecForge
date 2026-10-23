@@ -579,3 +579,23 @@ fn a_kind_keyword_is_documented_by_its_guide() {
     let use_keyword = found.iter().find(|i| i.label == "use").unwrap();
     assert!(use_keyword.documentation.is_none());
 }
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "a field the block already writes is not suggested, but the one under the cursor is"
+)]
+#[ignore = "flipped by T8"]
+fn a_field_the_block_writes_is_not_suggested_again() {
+    let text = "behavior login \"Login\" {\n  category command\n  \n}\n";
+    let names = labels(&complete_in_project(text, 2, 2))
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
+    assert!(!names.contains(&"category".to_string()), "{names:?}");
+    assert!(names.contains(&"contract".to_string()), "{names:?}");
+    // On the written key itself, completing rewrites it: it is offered.
+    assert_eq!(labels(&complete_in_project(text, 1, 5)), ["category"]);
+    // A defaults block's body too (a repeat there is E078).
+    let defaults = "defaults behavior {\n  category command\n  \n}\n";
+    assert!(!labels(&complete_in_project(defaults, 2, 2)).contains(&"category"));
+}
