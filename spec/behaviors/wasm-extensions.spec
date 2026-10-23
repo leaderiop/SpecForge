@@ -793,6 +793,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
   verify unit "each add argument reads as one extension source"
+  verify unit "E054's suggestion names only the forms add installs, and E064 suggests them"
   verify unit "a string holding commas is one extension specifier, for add and init alike"
   verify unit "a specifier that is no builtin's name, git+ URL or @scope/name reference is a local path, a bare crate directory included"
   verify unit "a package name is @scope/name or a local name, and always a relative path inside its directory"
