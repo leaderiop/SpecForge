@@ -257,7 +257,10 @@ fn loaded_from_a_file(name: &str, path: &str) -> OpError {
         "extension_conflict",
         format!("'{name}' is loaded from the .wasm file entry '{path}' in specforge.json"),
     )
-    .with_suggestion(format!("remove that entry first: specforge remove {path}"))
+    .with_suggestion(format!(
+        "remove that entry first: {}",
+        specforge_common::remedy::command("specforge remove {}", &[path])
+    ))
     .with_data(serde_json::json!({ "extension": name, "file": path }))
 }
 

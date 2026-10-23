@@ -109,7 +109,6 @@ fn check_prints_no_control_character_a_lock_holds() {
 }
 
 #[test]
-#[ignore = "flipped by T6"]
 fn the_next_steps_name_a_directory_with_a_space_as_one_shell_word() {
     let dir = TestProject::new().without_config();
     let parent = dir.root().join("my ext");
