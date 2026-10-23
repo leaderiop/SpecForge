@@ -531,8 +531,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and every read view that asks what a field says (search, the headline; ADR 0019, ADR 0228): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; a
   block's keys by `", "`. An entity's `verify` statements are not a field and have no field text (ADR 0094). An empty value is `""`. Every written field has one, and none is null. It differs from the written value (`field_form::write`) only for an expression group, which every output writes one conjunct per line (ADR 0064, ADR 0115).
-- **Field type**: how the host reads a field's value, one of nine names an extension declares:
-  `string`, `integer`, `bool`, `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
+- **Field type**: how the host reads a field's value, one of ten names an extension declares:
+  `string`, `integer`, `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
   vocabulary; an enum without values, or a default outside them, is W021), `identifier` (one word from an open set,
   written bare; ADR 0147), `string_list`,
   `reference`, `reference_list`, `block` (`specforge_protocol_types::FieldType`). The registry build

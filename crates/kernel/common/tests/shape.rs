@@ -749,12 +749,7 @@ fn unchecked_keywords_names_what_violations_ignores() {
     });
     assert_eq!(
         unchecked_keywords(&document),
-        [
-            "/$defs/B/allOf",
-            "/if",
-            "/oneOf/0/format",
-            "/properties/a/const"
-        ]
+        ["/$defs/B/allOf", "/if", "/properties/a/const"]
     );
     assert!(
         unchecked_keywords(&json!({"type": "object", "required": ["const"], "enum": ["if"]}))

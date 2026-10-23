@@ -64,9 +64,15 @@ fn older_spellings_are_accepted() {
 
 #[test]
 fn unknown_names_are_rejected() {
-    assert_eq!(FieldType::parse("date"), None);
+    assert_eq!(FieldType::parse("datetime"), None);
     assert_eq!(CheckKind::parse("nope"), None);
     // The greet fixture once declared this; no host ever read it.
     assert_eq!(ConstraintKind::parse("field-constraint"), None);
     assert!(serde_json::from_str::<CheckKind>("\"nope\"").is_err());
+}
+
+#[test]
+fn date_is_a_field_type_with_no_older_spelling() {
+    assert_eq!(FieldType::parse("date"), Some(FieldType::Date));
+    assert_eq!(FieldType::parse("date_type"), None);
 }

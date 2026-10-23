@@ -204,6 +204,7 @@ fn dbml_type(ft: FieldType) -> &'static str {
         FieldType::String | FieldType::Reference | FieldType::Identifier => "varchar",
         FieldType::Integer => "integer",
         FieldType::Bool => "boolean",
+        FieldType::Date => "date",
         FieldType::StringList | FieldType::ReferenceList => "text",
         FieldType::Block => "json",
         // Enum fields render as the custom `Enum {entity}_{field}` type instead.
@@ -243,4 +244,14 @@ fn primary_key_columns(model: &ModelIntermediate) -> HashMap<&str, &str> {
 /// `text` on one line, for a `//` comment.
 fn one_line(text: &str) -> String {
     text.replace(['\n', '\r'], " ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_date_column_is_a_dbml_date() {
+        assert_eq!(dbml_type(FieldType::Date), "date");
+    }
 }

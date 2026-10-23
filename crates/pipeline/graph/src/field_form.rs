@@ -141,7 +141,7 @@ impl FieldForm {
             | FieldType::Reference
             | FieldType::ReferenceList => Some(Written::Bare),
             FieldType::String | FieldType::StringList => Some(Written::Quoted),
-            FieldType::Integer | FieldType::Bool | FieldType::Block => None,
+            FieldType::Integer | FieldType::Bool | FieldType::Date | FieldType::Block => None,
         }
     }
 
@@ -160,6 +160,7 @@ impl FieldForm {
     ///   list `field [value]` parses to.
     /// - `integer`: a quoted integer becomes the integer.
     /// - `bool`: a quoted or bare `true` / `false` becomes the boolean.
+    /// - `date`: a quoted calendar day becomes the date.
     /// - `string`, `enum`: an integer or boolean becomes its text.
     /// - `reference`, `block`: stored as written.
     pub fn coerce(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
@@ -174,6 +175,9 @@ impl FieldForm {
                     "false" => Some(FieldValue::Boolean(false)),
                     _ => None,
                 }
+            }
+            (FieldType::Date, FieldValue::String(s)) if spell::is_date(s) => {
+                Some(FieldValue::Date(s.clone()))
             }
             (
                 FieldType::String | FieldType::Enum | FieldType::Identifier,
@@ -197,6 +201,7 @@ impl FieldForm {
     /// | `identifier` | one word (letters, digits and `_`, starting with a letter or `_`), bare or quoted |
     /// | `integer` | an integer |
     /// | `bool` | `true` or `false` |
+    /// | `date` | one calendar day, `YYYY-MM-DD`, that exists |
     /// | `reference` | a bare word or a string |
     /// | `string_list`, `reference_list` | a list, however its items were written |
     /// | `block` | a block |
@@ -210,6 +215,14 @@ impl FieldForm {
             FieldType::Bool => match shape {
                 ValueShape::Boolean => Ok(()),
                 _ => Err(Refusal::with("use true or false")),
+            },
+            FieldType::Date => match shape {
+                ValueShape::Date if spell::is_date(text) => Ok(()),
+                ValueShape::Date => Err(Refusal::with(
+                    "there is no such day: write a calendar day, YYYY-MM-DD",
+                )),
+                s if s.is_list() => Err(single_value()),
+                _ => Err(Refusal::with("write a calendar day, YYYY-MM-DD")),
             },
             FieldType::Enum if !self.enum_values.is_empty() => {
                 let values = &self.enum_values;
@@ -264,7 +277,7 @@ impl FieldForm {
     /// The JSON Schema of what [`write`] writes for every value
     /// [`Self::admit`] takes: `{"type":"string"}` for `string`, `reference`
     /// and a valueless `enum`; `{"type":"string","enum":[…]}` for an `enum`;
-    /// `{"type":"integer"}`; `{"type":"boolean"}`;
+    /// `{"type":"integer"}`; `{"type":"boolean"}`; `{"type":"string","format":"date"}` for a `date`;
     /// `{"type":"array","items":{"type":"string"}}` for both lists;
     /// `{"type":"object","additionalProperties":<FieldJson>}` for a `block`
     /// (its entries are undeclared values), `FieldJson` defined in `defs`.
@@ -278,6 +291,7 @@ impl FieldForm {
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
             FieldType::Integer => json!({"type": "integer"}),
             FieldType::Bool => json!({"type": "boolean"}),
+            FieldType::Date => json!({"type": "string", "format": "date"}),
             FieldType::StringList | FieldType::ReferenceList => {
                 json!({"type": "array", "items": {"type": "string"}})
             }

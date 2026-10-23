@@ -162,10 +162,12 @@ pub fn written(
             | FieldType::Enum
             | FieldType::Integer
             | FieldType::Bool
+            | FieldType::Date
             | FieldType::Reference => {
                 let what = match form.field_type() {
                     FieldType::Integer => "integer",
                     FieldType::Bool => "boolean",
+                    FieldType::Date => "date",
                     FieldType::Reference => "id",
                     _ => "word",
                 };

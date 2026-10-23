@@ -75,12 +75,40 @@ pub fn holds_bare(field_type: FieldType, text: &str) -> bool {
         }
 }
 
+/// Whether `text` is one calendar day written `YYYY-MM-DD` (ISO 8601, the proleptic Gregorian calendar): the one
+/// text a `date` field holds and a date literal stands bare as (ADR 0234). `2026-02-29` is none; `2024-02-29` is one.
+pub fn is_date(text: &str) -> bool {
+    let b = text.as_bytes();
+    let digits = |r: std::ops::Range<usize>| b[r].iter().all(u8::is_ascii_digit);
+    if b.len() != 10
+        || b[4] != b'-'
+        || b[7] != b'-'
+        || !digits(0..4)
+        || !digits(5..7)
+        || !digits(8..10)
+    {
+        return false;
+    }
+    let number = |r: std::ops::Range<usize>| text[r].parse::<u32>().unwrap_or(0);
+    let (year, month, day) = (number(0..4), number(5..7), number(8..10));
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let last = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    (1..=last).contains(&day)
+}
+
 /// How `text`, one value of a field of `form` or one item of its list, is written on one line:
 ///
 /// | declared | written |
 /// |---|---|
 /// | `integer` | the integer, when `text` is one; else quoted (E061 reports it) |
 /// | `bool` | `true` / `false`; anything else quoted (E061) |
+/// | `date` | a calendar day, bare ([`is_date`]); anything else quoted (E061) |
 /// | `string_list` item | a scheme ref id bare (it then names an entity, ADR 0093); else quoted |
 /// | `reference_list` item | an entity id bare (a word or a scheme ref id), never `true` / `false`; else quoted |
 /// | `reference`, `enum`, `identifier` | bare when [`holds_bare`] (a word); else quoted |
@@ -93,6 +121,7 @@ pub fn value(form: &FieldForm, text: &str) -> String {
             .parse::<i64>()
             .map_or_else(|_| quoted(text), |n| n.to_string()),
         FieldType::Bool if matches!(text, "true" | "false") => text.to_string(),
+        FieldType::Date if is_date(text) => text.to_string(),
         FieldType::StringList if text.contains(':') && is_entity_id(text) => text.to_string(),
         _ => match form.written() {
             Some(Written::Bare) if holds_bare(field_type, text) => text.to_string(),

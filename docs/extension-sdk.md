@@ -289,7 +289,9 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `String` | a quoted string |
 | `Integer` | a whole number |
 | `Bool` | `true` or `false` |
+| `Date` | one calendar day, `YYYY-MM-DD`, written bare |
 | `Enum` | one of its vocabulary's values (declared with `vocabulary`) |
+| `Identifier` | one word from an open set, written bare |
 | `StringList` | a list of quoted strings |
 | `Reference` | one entity id; creates an edge |
 | `ReferenceList` | a list of entity ids; creates one edge per id |

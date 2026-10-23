@@ -109,6 +109,7 @@ fn a_spelled_value_reads_back_and_is_left_by_rewrite() {
         FieldType::Enum,
         FieldType::Integer,
         FieldType::Bool,
+        FieldType::Date,
         FieldType::Reference,
         FieldType::ReferenceList,
         FieldType::StringList,
@@ -133,6 +134,8 @@ fn a_spelled_value_reads_back_and_is_left_by_rewrite() {
             "a\"b",
             "",
             "42",
+            "2026-03-01",
+            "2026-02-30",
             "x-y",
             "é",
         ] {
@@ -159,7 +162,9 @@ fn a_spelled_value_reads_back_and_is_left_by_rewrite() {
                 .coerce(&entry.value, None)
                 .unwrap_or(entry.value.clone());
             let read = match &stored {
-                FieldValue::String(s) | FieldValue::Identifier(s) => s.clone(),
+                FieldValue::String(s) | FieldValue::Identifier(s) | FieldValue::Date(s) => {
+                    s.clone()
+                }
                 FieldValue::Integer(n) => n.to_string(),
                 FieldValue::Boolean(b) => b.to_string(),
                 FieldValue::List(items) => {
@@ -221,5 +226,22 @@ fn id_span_is_the_id_inside_its_quotes() {
             (got.start_line, got.end_line),
             (span.start_line, span.end_line)
         );
+    }
+}
+
+#[test]
+fn is_date_holds_only_calendar_days() {
+    for (text, expected) in [
+        ("1900-02-29", false),
+        ("2000-02-29", true),
+        ("2026-12-31", true),
+        ("2026-1-01", false),
+        ("2026-03-01 ", false),
+        ("2026-04-31", false),
+        ("2026-13-01", false),
+        ("0000-00-00", false),
+        ("2024-02-29", true),
+    ] {
+        assert_eq!(spell::is_date(text), expected, "{text}");
     }
 }

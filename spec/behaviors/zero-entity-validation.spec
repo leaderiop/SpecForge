@@ -438,7 +438,7 @@ behavior check_field_value_types "Check Field Value Types" {
     become a one-item list (a bare word the one-item reference list
     `field [value]` parses to), and a list mixing strings, integers and
     booleans the list of its items' text. A quoted integer or boolean on an
-    integer or bool field MUST become that integer or boolean, and an
+    integer or bool field MUST become that integer or boolean, a quoted calendar day on a date field MUST become that date, and an
     integer or boolean on a string or enum field MUST become its text.
     Coercion MUST NOT produce a diagnostic.
 
@@ -447,7 +447,7 @@ behavior check_field_value_types "Check Field Value Types" {
     and the value given. A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
     (suggesting the closest); an integer field an integer; a bool field
-    true or false; an identifier field one word (letters, digits and `_`,
+    true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no
     extension registers keep their parsed value (W020 reports them). The
@@ -486,6 +486,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
   verify unit "a list item's W159 writes the whole list in its field's form"
   verify unit "a multi-line text on a list field is W159, naming each line as an item"
+  verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
   verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }

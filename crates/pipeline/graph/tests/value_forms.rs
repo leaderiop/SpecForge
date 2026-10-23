@@ -2,8 +2,8 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use specforge_graph::Written;
 use specforge_graph::field_form::{FieldForm, FieldForms, ValueShape};
+use specforge_graph::{FieldValue, Written};
 use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 
@@ -123,4 +123,48 @@ fn rewrite_leaves_what_it_cannot_write() {
     // An undeclared field or kind has no form.
     assert_eq!(forms.rewrite("k", "nope", Written::Bare, "a"), None);
     assert_eq!(forms.rewrite("zzz", "text", Written::Bare, "a"), None);
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a date field takes one calendar day, bare or quoted; any other value is E061"
+)]
+fn a_date_field_takes_one_calendar_day() {
+    let form = FieldForm::new(FieldType::Date, Vec::new());
+    for day in ["2026-03-01", "2024-02-29"] {
+        assert!(form.admit(ValueShape::Date, day).is_ok(), "{day}");
+    }
+    for day in ["2026-02-29", "2026-13-01", "2026-04-31", "0000-00-00"] {
+        let refusal = form.admit(ValueShape::Date, day).unwrap_err();
+        assert_eq!(
+            refusal.suggestion.as_deref(),
+            Some("there is no such day: write a calendar day, YYYY-MM-DD"),
+            "{day}"
+        );
+    }
+    let refusal = form.admit(ValueShape::String, "March 2026").unwrap_err();
+    assert_eq!(
+        refusal.suggestion.as_deref(),
+        Some("write a calendar day, YYYY-MM-DD")
+    );
+    let list = form.admit(ValueShape::List, "").unwrap_err();
+    assert_eq!(
+        list.suggestion.as_deref(),
+        Some("give a single value, not a list")
+    );
+
+    assert_eq!(
+        form.coerce(&FieldValue::String("2026-03-01".into()), None),
+        Some(FieldValue::Date("2026-03-01".into()))
+    );
+    assert_eq!(form.coerce(&FieldValue::String("March".into()), None), None);
+    assert_eq!(
+        form.coerce(&FieldValue::Date("2026-03-01".into()), None),
+        None
+    );
+    let mut defs = Default::default();
+    assert_eq!(
+        form.json_schema(&mut defs),
+        serde_json::json!({"type": "string", "format": "date"})
+    );
 }

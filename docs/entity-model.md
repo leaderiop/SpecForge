@@ -268,7 +268,7 @@ When the target kind's extension is not installed, the compiler emits `I004` ins
 
 ## Field Type Vocabulary (C2-08)
 
-Extensions declare fields with one of eight typed vocabularies
+Extensions declare fields with one of ten typed vocabularies
 (`specforge_protocol_types::FieldType`; every output names a type as below, ADR 0034). Author-facing meaning:
 
 | Type | Value shape | Reference semantics |
@@ -276,7 +276,9 @@ Extensions declare fields with one of eight typed vocabularies
 | `string` | free text | none |
 | `integer` | whole number | none |
 | `bool` | true/false | none |
+| `date` | one calendar day, `YYYY-MM-DD`, written bare | none |
 | `enum` | one of the declared enum values | none |
+| `identifier` | one word from an open set, written bare | none |
 | `string_list` | list of strings | none |
 | `reference` | a single entity id | MUST resolve to a declared entity (E003) |
 | `reference_list` | list of entity ids | each MUST resolve (E003) |

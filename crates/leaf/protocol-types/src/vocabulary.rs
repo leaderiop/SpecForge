@@ -88,6 +88,9 @@ vocabulary! {
         Integer = "integer",
         /// `true` or `false`.
         Bool = "bool",
+        /// One calendar day, `YYYY-MM-DD` (ISO 8601), written bare (ADR 0234); a quoted
+        /// day is read as the day; any other value is E061.
+        Date = "date",
         /// One of the field's `enum_values`.
         Enum = "enum",
         /// One word from an open set (a tag): written bare (ADR 0147); a

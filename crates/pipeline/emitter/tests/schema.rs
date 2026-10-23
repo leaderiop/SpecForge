@@ -1273,18 +1273,8 @@ fn the_published_schema_lists_the_field_types_the_host_reads() {
         ["properties"]["fields"]["items"]["properties"]["field_type"]["enum"];
     let names: Vec<&str> = FieldType::ALL.iter().map(|t| t.as_str()).collect();
     assert_eq!(
-        names,
-        [
-            "string",
-            "integer",
-            "bool",
-            "enum",
-            "identifier",
-            "string_list",
-            "reference",
-            "reference_list",
-            "block"
-        ]
+        names.join(" "),
+        "string integer bool date enum identifier string_list reference reference_list block"
     );
     assert_eq!(listed, &serde_json::json!(names));
 }

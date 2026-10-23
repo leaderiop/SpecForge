@@ -122,6 +122,7 @@ fn example_value(field: &FieldRegistryEntry) -> String {
         FieldType::String => "\"...\"".into(),
         FieldType::Integer => "0".into(),
         FieldType::Bool => "true".into(),
+        FieldType::Date => "2026-01-01".into(),
         FieldType::Enum => field
             .declared()
             .default_value
