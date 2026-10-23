@@ -753,7 +753,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   }
   ensures {
     tokens_classified            "all tokens in .spec files are classified according to their semantic role"
-    structural_keywords_enforced "use, define, and verify are always classified as keyword regardless of extensions"
+    structural_keywords_enforced "use and define are always classified as keyword, and verify and method wherever they start a statement, regardless of extensions"
     extension_delegation_applied "entity ID declaration classification follows provide_extension_entity_semantic_tokens"
   }
   contract   """
@@ -766,7 +766,9 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     as "function" otherwise; it MUST carry the declaration modifier.
     provide_extension_entity_semantic_tokens (behaviors/zero-entity-lsp.spec)
     states this rule from the extension's side. Structural keywords (use,
-    define, verify) MUST always be classified as "keyword". Triple-quoted
+    define) MUST always be classified as "keyword", and verify and method
+    wherever they start a statement as the grammar reads one (lex_spec_text):
+    a field named verify is a property like any field. Triple-quoted
     strings MUST be classified as strings. Enhanced fields from entity
     enhancements MUST be classified as property. For entity kinds with
     registered grammar contributions, semantic token classification MAY
@@ -904,8 +906,10 @@ behavior complete_keywords "Complete Keywords" {
     inference guide (compute_inference_guide), as markdown; use has no
     documentation.
     After verify in an entity's body, the verify kinds the entity's kind
-    allows (its allowed_verify_kinds) MUST be suggested, and nothing when
-    the kind takes no verify statements. The registered kinds come from the
+    allows (its allowed_verify_kinds) MUST be suggested, on a verify statement
+    and, on the cursor's line, on a verify line being typed (lex_spec_text),
+    nothing after the kind, and nothing when the kind takes no verify
+    statements. The registered kinds come from the
     environment (CONTEXT: Environment), which is loaded before any .spec
     file is read, so keyword completion MUST name them as soon as the
     environment is loaded, while the workspace is still being indexed.

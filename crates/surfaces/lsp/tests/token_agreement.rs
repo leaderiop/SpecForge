@@ -51,7 +51,6 @@ fn tokens_agree_with_the_grammar() {
     behavior = "provide_semantic_tokens",
     verify = "classification agrees with the grammar on the forms the repository's spec does not write"
 )]
-#[ignore = "flipped by T4b"]
 fn tokens_agree_with_the_grammar_on_the_forms_the_corpus_does_not_write() {
     let root = specforge_repo_root::repo_root();
     let project = specforge_project::testing::compile_at(
@@ -126,17 +125,9 @@ fn agrees(path: &Path, text: &str, view: &ProjectView, declared: &[&str]) {
             }
             kind::FIELD => {
                 let key = node.child_by_field_name(field::KEY).unwrap();
-                // A verify line being typed (`verify string`, `verify true`) reads as the
-                // statement it is becoming (ADR 0241 D3).
-                let typed = &text[key.byte_range()] == "verify"
-                    && !within(node, &[kind::NESTED_BLOCK])
-                    && node
-                        .child_by_field_name(field::VALUE)
-                        .is_some_and(|v| matches!(v.kind(), kind::IDENTIFIER | kind::BOOLEAN))
-                    && node.named_child_count() == 2;
                 assert_eq!(
                     token_at(key).map(|t| t.0),
-                    Some(if typed { "keyword" } else { "property" }),
+                    Some("property"),
                     "{}",
                     where_(key)
                 );

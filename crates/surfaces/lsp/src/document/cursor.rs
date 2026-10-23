@@ -3,7 +3,7 @@
 use specforge_common::Sym;
 use specforge_ops::read::navigate::{Navigator, Token};
 use specforge_ops::view::ProjectView;
-use specforge_parser::lex::LexemeKind;
+use specforge_parser::lex::{self, BodyStatement, LexemeKind};
 use tower_lsp::lsp_types::{Position, Range};
 
 use super::LineIndex;
@@ -233,7 +233,21 @@ impl<'d> Cursor<'d> {
             let kind = syntax.kind_of_key(self.text, key)?;
             Some((kind, syntax.text(self.text, key)))
         };
+        // A verify line being typed is a field to the grammar and to the
+        // document; at the cursor it is the statement it is becoming (ADR 0241 D3).
+        let typed_verify = |key: Option<u32>| {
+            key.is_some_and(|key| {
+                syntax.text(self.text, key) == "verify"
+                    && lex::body_statement_at(self.text, &syntax.lexemes, key as usize)
+                        == BodyStatement::VerifyTyped
+            })
+        };
         let site = match state {
+            Expect::Value(ctx) if typed_verify(ctx.key) => {
+                kind_of(top).map(|kind| CompletionSite::VerifyKind { kind, prefix })
+            }
+            // After the kind being typed comes its description: nothing completes.
+            Expect::AfterValue(ctx) if typed_verify(ctx.key) => None,
             Expect::Top => Some(CompletionSite::Keywords { prefix }),
             Expect::Body | Expect::AfterValue(_) => {
                 kind_of(top).map(|kind| CompletionSite::Fields { kind, prefix })
