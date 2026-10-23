@@ -29,7 +29,9 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   contract """
     When specforge extension init is invoked, the system MUST scaffold a
     new extension crate written with specforge-extension-sdk: a Cargo.toml
-    depending on the SDK, a src/lib.rs whose #[extension(name, version,
+    depending on specforge-extension-sdk at the version of the specforge that
+    scaffolds it (the SDK shares that version), which builds, unedited, into a
+    component the host loads, a src/lib.rs whose #[extension(name, version,
     short, description)] declares the extension and whose
     component_guest! generates every export, and a cargo configuration
     building a wasm32-wasip2 component. No manifest file is written: the

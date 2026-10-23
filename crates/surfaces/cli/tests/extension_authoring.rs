@@ -356,9 +356,10 @@ fn without_coverage_environment(command: &mut assert_cmd::Command) {
     }
 }
 
-/// `init`, then `build`, then `validate`: the scaffold builds, as is, into
+/// `init`, then `build`, then `validate`: the scaffold's files, unedited, build into
 /// a component that declares a valid extension. Needs the wasm32-wasip2
-/// target (CI installs it); without it, the build is skipped.
+/// target (CI installs it); without it, the build is skipped. The SDK comes from a cargo
+/// configuration beside the crate, offline.
 #[specforge_test(
     behavior = "build_wasm_extension",
     verify = "build produces .wasm binary"
@@ -369,14 +370,26 @@ fn a_scaffolded_extension_builds_and_validates() {
         return;
     }
     let (dir, ext) = init("round-trip");
-    // Build against this repository's SDK, from the local cargo cache.
-    let mut cargo = fs::read_to_string(ext.join("Cargo.toml")).unwrap();
-    let sdk = repo_root().join("crates/runtime/extension-sdk");
-    cargo.push_str(&format!(
-        "\n[patch.crates-io]\nspecforge-extension-sdk = {{ path = {:?} }}\n",
-        sdk.canonicalize().unwrap()
-    ));
-    fs::write(ext.join("Cargo.toml"), cargo).unwrap();
+    // The scaffold's files build as written. The SDK this build compiles is not on crates.io (and the build is
+    // offline): a cargo configuration beside the crate supplies it. The patch applies only when its version is
+    // the one the scaffold names, so a scaffold naming another SDK fails to resolve.
+    let scaffolded = || -> Vec<Vec<u8>> {
+        ["Cargo.toml", ".cargo/config.toml", "src/lib.rs"]
+            .iter()
+            .map(|f| fs::read(ext.join(f)).unwrap())
+            .collect()
+    };
+    let written = scaffolded();
+    let sdk = repo_root()
+        .join("crates/runtime/extension-sdk")
+        .canonicalize()
+        .unwrap();
+    fs::create_dir_all(dir.root().join(".cargo")).unwrap();
+    fs::write(
+        dir.root().join(".cargo/config.toml"),
+        format!("[patch.crates-io]\nspecforge-extension-sdk = {{ path = {sdk:?} }}\n"),
+    )
+    .unwrap();
 
     // A target directory configured elsewhere doesn't move the component
     // out of the crate, where `validate` and `publish` look.
@@ -400,6 +413,11 @@ fn a_scaffolded_extension_builds_and_validates() {
     let component = PathBuf::from(json["component"].as_str().unwrap());
     assert!(component.ends_with("target/wasm32-wasip2/release/round_trip.wasm"));
     assert!(component.exists());
+    assert_eq!(
+        scaffolded(),
+        written,
+        "the scaffold was edited before it was built"
+    );
 
     let output = Cli::on(&dir)
         .bare_command(&["extension", "validate", "--format", "json", "--dir"])
