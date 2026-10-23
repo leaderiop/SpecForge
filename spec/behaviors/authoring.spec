@@ -166,6 +166,9 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "add-verify writes after the last statement, never inside a block field"
   verify unit "add-verify on a union is refused as not_editable, a union has no verify statements"
   verify unit "add-verify on a braced block writes the statement whatever its members are named"
+  verify unit "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
+  verify unit "--verify names the obligation the entity writes in either reading of its prefix"
+  verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
 }
 
 behavior delete_entity "Delete an Entity" {
