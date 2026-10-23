@@ -1,10 +1,11 @@
 //! File defaults (ADR 0149): a `defaults <kind> { … }` block gives each of its fields to every block of that kind in
 //! its file that does not write the field. The graph build resolves them here, so a node holds the value it means.
 
+use crate::build::is_define_block;
 use crate::field_form::{self, FieldForms, Reading};
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes, structural};
 use specforge_parser::{Entity, FieldEntry, FieldMap, SpecFile};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// What a block's field holds (ADR 0149 D3, ADR 0182 D2): its own entry (and the default it replaces, if its file
 /// states one), else the default it takes, else nothing. Entries are as written, spans included: an inherited one's
@@ -316,4 +317,23 @@ impl<'f> FileDefaults<'f> {
         }
         fields
     }
+}
+
+/// Each block's fields as `files` write them, keyed by the block's span: its own entries (the first of each key) and
+/// each default it takes, in the order the build gave its node ([`FileDefaults::resolve`]), before the build stored
+/// them (ADR 0234 D3). A `defaults` or `define` block has none: it is no node. What W159 reads.
+pub fn written_fields<'f>(
+    files: impl Iterator<Item = &'f SpecFile>,
+    forms: &FieldForms,
+) -> HashMap<SourceSpan, FieldMap> {
+    let mut written = HashMap::new();
+    for file in files {
+        let (defaults, _) = FileDefaults::of(file, forms);
+        for entity in &file.entities {
+            if !is_defaults_block(entity) && !is_define_block(entity) {
+                written.insert(entity.span.clone(), defaults.resolve(entity));
+            }
+        }
+    }
+    written
 }

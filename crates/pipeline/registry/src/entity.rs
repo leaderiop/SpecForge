@@ -61,7 +61,7 @@ pub struct FieldRecord {
     /// the wire.
     pub value_span: Option<SourceSpan>,
     /// Each value written in the other form than its field's declared type
-    /// gives it (ADR 0147), in source order. Host-internal: never on the
+    /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
     pub rewrites: Vec<Rewrite>,
 }

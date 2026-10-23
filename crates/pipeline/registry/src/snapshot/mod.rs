@@ -13,7 +13,7 @@ mod wire;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use specforge_graph::GraphBuild;
+use specforge_graph::{GraphBuild, written_fields};
 
 use crate::compilation::RegistryBuild;
 use crate::disk::Disk;
@@ -56,9 +56,22 @@ impl EntitySnapshot {
             .iter()
             .map(|n| (n.id.raw.as_str(), n.kind.raw.as_str()))
             .collect();
+        // What W159 reads: each value as its file wrote it, before the build stored it (ADR 0234 D3).
+        let written = written_fields(
+            build.files().map(|(_, file)| file),
+            &build.inputs().field_forms,
+        );
         let (records, references): (Vec<EntityRecord>, Vec<Vec<String>>) = nodes
             .iter()
-            .map(|node| record::record(graph, &kind_of, node, registries))
+            .map(|node| {
+                record::record(
+                    graph,
+                    &kind_of,
+                    node,
+                    written.get(&node.source_span),
+                    registries,
+                )
+            })
             .unzip();
         let standings = records
             .iter()
