@@ -40,6 +40,6 @@ to debug a guest, rebuild its crate with a plain `cargo build --release`.
 ## Review
 
 Declaration snapshots should change only when the change meant to change a declaration; a snapshot diff nobody
-intended is a bug. The vocabulary changes only when a builtin's kinds or enhancement fields change. The doctor and MCP snapshots (`cargo insta review`) follow the declarations.
+intended is a bug. The vocabulary changes only when a builtin's kinds or enhancement fields change. The doctor and MCP snapshots (accept with `INSTA_UPDATE=always`, see `briefs/_shared.md`) follow the declarations.
 
 Run it once per round or change set, after the last input changed, then `cargo gate full`.

@@ -55,6 +55,11 @@ and a new one over the cap (the branch moved it), `cargo gate baseline --only fi
 (`-f -f` only when the agent's final reply is in; a finished agent's worktree stays locked). Done when every plan is
 on the integration branch.
 
+## Review per plan
+
+After each plan lands, `/code-review <plan's first commit>^..<its last>` with the plan file as the spec, before the next
+plan starts: one review of the whole branch reads only the surface of 90 commits (round 26).
+
 ## 5. Re-vendor
 
 Once, after the last input changed: `cargo run -p xtask --bin revendor` (see `docs/agents/revendor.md`), review the
