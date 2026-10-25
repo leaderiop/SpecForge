@@ -504,3 +504,66 @@ fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
         assert_eq!(files_under(dir.path()), before, "dry run {dry_run}");
     }
 }
+
+/// `add` of a local file whose bytes spell `version` and `peers`, dry run or not: E072, nothing written.
+fn refused_before_anything_is_written(
+    version: &str,
+    peers: &[specforge_protocol_types::PeerDependency],
+) {
+    use crate::config::testing::files_under;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name": "p", "version": "0.1.0", "extensions": []}"#,
+    )
+    .unwrap();
+    let files = tempfile::tempdir().unwrap();
+    let wasm = files.path().join("greet.wasm");
+    std::fs::write(
+        &wasm,
+        specforge_wasm::testing::spelled_module("@sdk/greet", version, peers),
+    )
+    .unwrap();
+    let before = files_under(dir.path());
+
+    for dry_run in [false, true] {
+        let request = AddRequest {
+            root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
+            extensions: vec![Source::Local(wasm.clone()).into()],
+            base: None,
+            allow_unsigned: false,
+            dry_run,
+            caller: crate::testing::caller(),
+        };
+
+        let error = add(&request, &crate::registry::Unconfigured("add"), &runtime()).unwrap_err();
+
+        assert_eq!(error.error.code, "E072", "dry run {dry_run}: {error:?}");
+        assert_eq!(files_under(dir.path()), before, "dry run {dry_run}");
+    }
+}
+
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an add of a local file declaring a version that is not SemVer is refused (E072) before anything is written"
+)]
+#[ignore = "flipped by T4"]
+fn a_local_file_declaring_a_version_that_is_no_semver_version_is_refused_before_anything_is_written()
+ {
+    refused_before_anything_is_written("0.1.x", &[]);
+}
+
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "an add of a local file declaring a peer specforge.lock cannot record is refused (E072) before anything is written"
+)]
+#[ignore = "flipped by T6"]
+fn a_local_file_declaring_a_peer_the_lock_cannot_record_is_refused_before_anything_is_written() {
+    let peer = specforge_protocol_types::PeerDependency {
+        name: "@x/y\u{1b}[2J".to_string(),
+        version: "^1".to_string(),
+        optional: false,
+    };
+    refused_before_anything_is_written("0.1.0", &[peer]);
+}

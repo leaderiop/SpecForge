@@ -165,6 +165,9 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "an extension is installed under the extensions directory of its project, by its package name"
   verify unit "add, init and publish read a candidate's declaration in the runtime their surface passes"
   verify unit "an add of a local file whose path holds a control character is refused (E054) before anything is written"
+  verify unit "an add of a local file declaring a version that is not SemVer is refused (E072) before anything is written"
+  verify unit "an add of a local file declaring a peer specforge.lock cannot record is refused (E072) before anything is written"
+  verify integration "an add over a lock entry whose key id holds a control character is refused with E033, written escaped"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 }

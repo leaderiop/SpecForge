@@ -755,6 +755,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
+  verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 
@@ -911,6 +912,11 @@ behavior read_lock_file "Read Lock File" {
   verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
   verify unit "a lock entry's source is registry or local:<path>; any other source is E033"
   verify integration "check prints no control character a lock entry's source holds"
+  verify unit "a lock entry whose version is no SemVer version is E033, and the message shows no control character"
+  verify unit "a lock entry whose hash is no SHA-256 in lowercase hex is E033, an empty one included"
+  verify unit "a lock entry whose key id is no publisher key id is E033"
+  verify unit "a lock entry whose recorded peer or local source holds a character a terminal acts on is E033"
+  verify integration "check, extensions and doctor write no control character a lock entry's version, hash or peers hold"
   verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 
