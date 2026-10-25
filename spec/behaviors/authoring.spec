@@ -62,6 +62,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new --help of a kind the project does not declare is refused as unknown_kind"
   verify integration "new --help after a field flag prints the kind's help"
   verify integration "new refuses a command line whose --path a field's value spells"
+  verify unit "new writes into a spec root outside the project by the file check names"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {

@@ -107,4 +107,53 @@ mod tests {
         assert!(!sources.holds_key("sub/a.txt"));
         assert!(!sources.holds_key("/abs/a.spec"));
     }
+
+    /// Every key a spec root mints starts with its prefix, whichever way the spec root is spelled (ADR 0246).
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "flipped by T2"]
+    fn a_spec_roots_prefix_holds_every_key_it_mints() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let t = std::fs::canonicalize(dir.path()).unwrap();
+        for file in [
+            "real/a.spec",
+            "real/sub/b.spec",
+            "proj/real2/c.spec",
+            "proj/x.spec",
+        ] {
+            let file = t.join(file);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, "").unwrap();
+        }
+        std::os::unix::fs::symlink(t.join("real"), t.join("link")).unwrap();
+        std::os::unix::fs::symlink(t.join("proj/real2"), t.join("proj/link2")).unwrap();
+        let proj = t.join("proj");
+        for spec_root in [
+            proj.join("../link"),
+            proj.join("../real"),
+            proj.join("../proj/link2"),
+            proj.join("link2"),
+            proj.clone(),
+        ] {
+            let sources = SourceRoot::new(proj.clone(), spec_root.clone(), Exclude::default());
+            assert!(!sources.files().is_empty(), "{spec_root:?}");
+            for file in sources.files() {
+                let key = sources.key(&file);
+                assert!(
+                    Path::new(key.as_str()).starts_with(sources.prefix()),
+                    "{key} / {:?}",
+                    sources.prefix()
+                );
+                assert!(sources.holds_key(key.as_str()), "{key}");
+                assert_eq!(
+                    sources.files_at(&sources.path(key.as_str())),
+                    std::slice::from_ref(&file)
+                );
+            }
+        }
+        let outside = SourceRoot::new(proj.clone(), proj.join("../link"), Exclude::default());
+        assert_eq!(outside.prefix(), t.join("real"));
+        let inside = SourceRoot::new(proj.clone(), proj.join("../proj/link2"), Exclude::default());
+        assert_eq!(inside.prefix(), Path::new("real2"));
+    }
 }

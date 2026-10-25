@@ -165,6 +165,7 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a directory link on the way to a source's hop pointed elsewhere is that source's change"
   verify unit "a directory link on the way to an input outside the root is watched by its own directory"
   verify unit "a directory link on the way to an environment or check input pointed elsewhere is that input's change"
+  verify unit "a change under a spec root outside the project, through a link too, is that source's change"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {

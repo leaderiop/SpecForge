@@ -290,3 +290,84 @@ fn the_view_reads_a_spec_file_from_the_project_root() {
     assert_eq!(outside.code, "not_a_source");
     assert_eq!(outside.suggestion, None);
 }
+
+/// A tempdir holding `proj/` whose spec root is `../shared` (or `../link`, a link to `shared`, when `link`), and
+/// `shared/a.spec`, compiled.
+fn outside_project(link: bool) -> (tempfile::TempDir, specforge_project::CompiledProject) {
+    let dir = tempfile::tempdir().unwrap();
+    let t = std::fs::canonicalize(dir.path()).unwrap();
+    std::fs::create_dir_all(t.join("proj")).unwrap();
+    std::fs::create_dir_all(t.join("shared")).unwrap();
+    std::fs::write(t.join("shared/a.spec"), A).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(t.join("shared"), t.join("link")).unwrap();
+    let spec_root = if link { "../link" } else { "../shared" };
+    std::fs::write(
+        t.join("proj/specforge.json"),
+        serde_json::json!({"name": "n", "spec_root": spec_root, "extensions": ["@specforge/software"]})
+            .to_string(),
+    )
+    .unwrap();
+    let project = compile_at(
+        &t.join("proj"),
+        Some(specforge_project::testing::component_runtime()),
+    );
+    (dir, project)
+}
+
+#[cfg(unix)]
+#[specforge_test_macros::test(
+    behavior = "read_a_named_spec_file",
+    verify = "a source under a spec root outside the project reads by its key and every spelling of it from the project root"
+)]
+#[ignore = "flipped by T3"]
+fn the_view_reads_a_source_under_an_outside_spec_root_by_every_spelling() {
+    for link in [false, true] {
+        let (dir, project) = outside_project(link);
+        let view = ProjectView::of(&project);
+        let t = std::fs::canonicalize(dir.path()).unwrap();
+        let key = t.join("shared/a.spec").to_str().unwrap().to_owned();
+        assert_eq!(
+            project.source_keys().into_iter().collect::<Vec<_>>(),
+            [key.as_str()]
+        );
+        let mut spellings = vec![
+            key.clone(),
+            "../shared/a.spec".to_owned(),
+            "./../shared//a.spec".to_owned(),
+        ];
+        if link {
+            spellings.push("../link/a.spec".to_owned());
+        }
+        for named in &spellings {
+            assert_eq!(view.source(named).unwrap(), key, "{named}");
+            assert_eq!(view.source_place(named).unwrap(), key, "{named}");
+        }
+        assert_eq!(
+            view.source_place("../shared/new.spec").unwrap(),
+            t.join("shared/new.spec").to_str().unwrap()
+        );
+        let error = view.source("../other/x.spec").unwrap_err();
+        assert_eq!(
+            kind_and_code(&error),
+            (specforge_ops::OpErrorKind::InvalidInput, "not_a_source")
+        );
+        let error = view.source("a.spec").unwrap_err();
+        assert_eq!(error.code, "file_not_found");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_a_named_spec_file",
+    verify = "a spelling with a .. reads as the file it lands on"
+)]
+#[ignore = "flipped by T3"]
+fn a_dotdot_that_stays_inside_reads_as_its_key() {
+    let (_dir, project) = spec_dir_project();
+    assert_eq!(
+        ProjectView::of(&project)
+            .source("spec/sub/../a.spec")
+            .unwrap(),
+        "spec/a.spec"
+    );
+}

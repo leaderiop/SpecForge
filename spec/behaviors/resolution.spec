@@ -109,6 +109,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit "exclude entries are glob patterns matched against a file and its directories"
   verify unit "an exclude entry that can match no source is E069 and ignored"
   verify unit "a selective use of a name its target does not export is W027"
+  verify unit "an import under a spec root outside the project, through a link too, names its source"
 }
 
 // No consumes — called inline during use import resolution
