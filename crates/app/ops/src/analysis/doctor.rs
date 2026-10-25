@@ -166,7 +166,7 @@ pub enum About {
     /// An installed binary does not match the lock.
     Binary { issue: BinaryIssue },
     /// One `extensions` entry: why it did not load (not a binary problem),
-    /// or what it reported though it loaded (W149, W153, W138).
+    /// or what it reported though it loaded (W153, W138).
     Load,
     /// No extension loaded (I002).
     StructuralOnly,

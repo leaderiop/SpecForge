@@ -35,7 +35,6 @@ fn acts(text: &str) -> bool {
     behavior = "run_doctor_check",
     verify = "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
 )]
-#[ignore = "flipped by T3"]
 fn doctor_reports_a_lock_hash_that_is_not_ascii_as_unreadable() {
     let project = locked("wasm_hash", json!("aaaaaaaé"));
 

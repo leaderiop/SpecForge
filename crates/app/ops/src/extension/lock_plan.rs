@@ -23,7 +23,7 @@
 use crate::view::ProjectView;
 use serde_json::Value;
 use specforge_common::ExtensionEntry;
-use specforge_installed::{Installed, LockFile, LockFileEntry, LockState, Module, Pin};
+use specforge_installed::{Installed, LockFile, LockFileEntry, LockState, Module, Pin, Sha256};
 use specforge_package::PackageName;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::PlainDisk;
@@ -126,7 +126,7 @@ pub(crate) struct Fetching<'a> {
 pub(crate) struct Install<'a> {
     module: Option<Module>,
     /// The SHA-256 the lock pins: the module's, or for a preview the one its registry publishes.
-    sha256: String,
+    sha256: Sha256,
     pin: Pin,
     from: From<'a>,
 }
@@ -159,7 +159,7 @@ struct Staged<'a> {
     module: Option<Module>,
     pin: Pin,
     /// The SHA-256 its lock entry pins: the module's, or for a preview the one its registry publishes.
-    sha256: String,
+    sha256: Sha256,
     from: From<'a>,
 }
 

@@ -432,16 +432,19 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed (a lock
-entry's source must be `registry` or `local:<path>`, the path not empty and
-holding no control character); `specforge update` also reports it when there is
-no lock file to update (run `specforge add` first). A lock that is there and
-can't be read loads no installed extension (each entry that needs it is E028),
-and every change whose answer it would decide is refused with this code before
-anything is read or written: an `add` or `init` that installs, any `update`, a
-`remove` of an extension whose origin only the lock could tell. Enabling or
-disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock,
-or delete it and install the extensions again with `specforge add`.
+`specforge.lock` couldn't be serialized, written, read, or parsed (every field
+of a lock entry is read where the lock is read: its version a SemVer version,
+its wasm_hash a SHA-256 in lowercase hex, its key_id a publisher key id, its
+recorded peers and source holding no character a terminal acts on; a source is
+`registry` or `local:<path>`, the path not empty); `specforge update` also
+reports it when there is no lock file to update (run `specforge add` first). A
+lock that is there and can't be read loads no installed extension (each entry
+that needs it is E028), and every change whose answer it would decide is refused
+with this code before anything is read or written: an `add` or `init` that
+installs, any `update`, a `remove` of an extension whose origin only the lock
+could tell. Enabling or disabling a builtin, or a `.wasm` file entry, still
+works. Fix specforge.lock, or delete it and install the extensions again with
+`specforge add`.
 
 Owner: core
 Level: error
@@ -3143,19 +3146,6 @@ Owner: core
 Level: warning
 ```
 
-## W149
-
-```
-W149: Installed extension is not pinned
-
-A `specforge.lock` entry records no hash (it was written before installs were
-pinned), so its binary loads without being checked. Reinstall the extension with
-the command the suggestion names to pin it.
-
-Owner: core
-Level: warning
-```
-
 ## W150
 
 ```
@@ -3382,3 +3372,4 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W122 | (nothing) |
 | W125 | [E061](#e061) |
 | W146 | (nothing) |
+| W149 | [E033](#e033) |

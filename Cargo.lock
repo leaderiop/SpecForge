@@ -3140,6 +3140,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-common",
+ "specforge-installed",
  "specforge-ops",
  "specforge-package",
  "specforge-project",

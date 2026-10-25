@@ -62,7 +62,7 @@ fn the_registry_manifest_is_what_a_dry_run_judges() {
 
     assert_eq!(manifest.name, published.name());
     assert_eq!(manifest.version, published.version());
-    assert_eq!(manifest.sha256, hex_sha256(b"\0asm tool"));
+    assert_eq!(manifest.sha256, hex_sha256(b"\0asm tool").as_str());
     assert_eq!(manifest.declaration, published.declaration);
     assert_eq!(manifest.publisher, Publisher::Unsigned);
     assert_eq!(
@@ -88,7 +88,7 @@ fn a_fetched_package_carries_its_name_digest_declaration_and_signer() {
         .unwrap();
     assert_eq!(package.name, published.name());
     assert_eq!(package.version, published.version());
-    assert_eq!(package.sha256, hex_sha256(b"\0asm tool"));
+    assert_eq!(package.sha256, hex_sha256(b"\0asm tool").as_str());
     assert_eq!(package.declaration, published.declaration);
     assert_eq!(package.publisher.key_id(), Some("key-1"));
 }

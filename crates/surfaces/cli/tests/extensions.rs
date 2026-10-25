@@ -1339,7 +1339,7 @@ fn project_with_installed(dir: &std::path::Path, installed: &[(&str, &[&str])]) 
             .collect();
         entries.push(serde_json::json!({
             "name": name, "version": "1.0.0", "source": "registry",
-            "wasm_hash": "", "peer_dependencies": peers,
+            "wasm_hash": specforge_installed::hex_sha256(b"fake"), "peer_dependencies": peers,
         }));
     }
     fs::write(

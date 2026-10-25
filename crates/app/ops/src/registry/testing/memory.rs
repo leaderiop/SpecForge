@@ -244,7 +244,7 @@ impl MemoryRegistry {
         else {
             return Err(not_found(name, version));
         };
-        policy.admits(name, version, &hex_sha256(&published.wasm))?;
+        policy.admits(name, version, hex_sha256(&published.wasm).as_str())?;
         let pins = self.pins.lock().unwrap();
         let is = |keys: &[String]| {
             published
@@ -313,7 +313,7 @@ impl Registry for MemoryRegistry {
         Ok(Manifest {
             name: name.clone(),
             version: version.clone(),
-            sha256: hex_sha256(&published.wasm),
+            sha256: hex_sha256(&published.wasm).to_string(),
             declaration: published.declaration,
             publisher,
         })
@@ -333,7 +333,7 @@ impl Registry for MemoryRegistry {
         Ok(Package {
             name: name.clone(),
             version: version.clone(),
-            sha256: hex_sha256(&published.wasm),
+            sha256: hex_sha256(&published.wasm).to_string(),
             wasm: published.wasm,
             declaration: published.declaration,
             publisher,

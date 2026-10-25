@@ -52,16 +52,16 @@ impl Installed {
 mod tests {
     use super::*;
     use crate::lock::{LockFile, LockState};
-    use crate::module::hex_sha256;
+    use crate::module::{Sha256, hex_sha256};
     use specforge_package::PackageName;
     use tempfile::TempDir;
 
-    fn entry(name: &str, hash: &str) -> LockFileEntry {
+    fn entry(name: &str, hash: Sha256) -> LockFileEntry {
         LockFileEntry {
             name: specforge_package::PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: crate::LockSource::Registry,
-            wasm_hash: hash.to_string(),
+            wasm_hash: hash,
             key_id: None,
             peer_dependencies: Vec::new(),
         }
@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_missing_binary() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("missing-ext", "abc")]);
+        let installed = installed(&dir, vec![entry("missing-ext", hex_sha256(b"abc"))]);
 
         assert_eq!(
             installed.health(),
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_doctor_detects_stale_hash() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("my-ext", "expected_hash")]);
+        let installed = installed(&dir, vec![entry("my-ext", hex_sha256(b"expected_hash"))]);
         put_module(&installed, "my-ext", b"wasm content");
 
         let problems = installed.health();
@@ -111,8 +111,8 @@ mod tests {
             problems,
             [Health::Changed {
                 name: "my-ext".to_string(),
-                locked: "expected_hash".to_string(),
-                actual: hex_sha256(b"wasm content"),
+                locked: hex_sha256(b"expected_hash").to_string(),
+                actual: hex_sha256(b"wasm content").to_string(),
             }]
         );
     }
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_doctor_reports_healthy() {
         let dir = TempDir::new().unwrap();
-        let installed = installed(&dir, vec![entry("good-ext", &hex_sha256(b"wasm"))]);
+        let installed = installed(&dir, vec![entry("good-ext", hex_sha256(b"wasm"))]);
         put_module(&installed, "good-ext", b"wasm");
 
         assert_eq!(installed.health(), []);

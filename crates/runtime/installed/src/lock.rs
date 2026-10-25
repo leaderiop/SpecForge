@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::layout::lock_path;
 use crate::load::{LoadProblem, Recorded};
+use crate::module::Sha256;
 use crate::resolve::Declared;
 
 /// The lock file format for extension resolution.
@@ -24,7 +25,7 @@ pub struct LockFileEntry {
     pub name: PackageName,
     pub version: String,
     pub source: LockSource,
-    pub wasm_hash: String,
+    pub wasm_hash: Sha256,
     /// The publisher key id the registry install was signed by: the
     /// project's pin for the name, which a fetch expects when the user has
     /// none of their own (ADR 0059). `None` for a local install, an unsigned
@@ -333,6 +334,7 @@ impl LockState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hex_sha256;
     use specforge_registry::PlainDisk;
     use tempfile::TempDir;
 
@@ -347,7 +349,7 @@ mod tests {
             name: PackageName::parse("@acme/a").unwrap(),
             version: "1.0.0".to_string(),
             source: LockSource::Registry,
-            wasm_hash: String::new(),
+            wasm_hash: hex_sha256(b""),
             key_id: None,
             peer_dependencies: vec![peer("^1.0", false)],
         };
@@ -407,7 +409,7 @@ mod tests {
                 name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
                 version: "1.0.0".to_string(),
                 source: crate::LockSource::Registry,
-                wasm_hash: "abc123".to_string(),
+                wasm_hash: hex_sha256(b"abc123"),
                 key_id: None,
                 peer_dependencies: Vec::new(),
             }],
@@ -418,7 +420,7 @@ mod tests {
 
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("@specforge/software"));
-        assert!(content.contains("abc123"));
+        assert!(content.contains(hex_sha256(b"abc123").as_str()));
     }
 
     #[test]
@@ -449,7 +451,7 @@ mod tests {
                     name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
                     version: "1.0.0".to_string(),
                     source: crate::LockSource::Registry,
-                    wasm_hash: "abc123".to_string(),
+                    wasm_hash: hex_sha256(b"abc123"),
                     key_id: None,
                     peer_dependencies: Vec::new(),
                 },
@@ -457,7 +459,7 @@ mod tests {
                     name: specforge_package::PackageName::parse("@specforge/governance").unwrap(),
                     version: "1.0.0".to_string(),
                     source: crate::LockSource::Registry,
-                    wasm_hash: "def456".to_string(),
+                    wasm_hash: hex_sha256(b"def456"),
                     key_id: None,
                     peer_dependencies: Vec::new(),
                 },
@@ -531,7 +533,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let entry = |name: &str| {
             format!(
-                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}}"#
+                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}}"#
             )
         };
         for name in ["../../../outside1", "@acme/..", "Bad Name", ""] {
@@ -567,7 +569,7 @@ mod tests {
     )]
     fn a_lock_that_cannot_be_read_names_one_remedy() {
         let dir = TempDir::new().unwrap();
-        let bad_name = r#"{"lockfile_version": 1, "entries": [{"name": "Bad Name", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}]}"#;
+        let bad_name = r#"{"lockfile_version": 1, "entries": [{"name": "Bad Name", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]}"#;
         for cause in [Some("not valid json {{{"), None, Some(bad_name)] {
             let path = lock_path(dir.path());
             match cause {
@@ -640,13 +642,13 @@ mod tests {
       "name": "@acme/tool",
       "version": "1.0.0",
       "source": "local:ext/tool.wasm",
-      "wasm_hash": "abc"
+      "wasm_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     {
       "name": "@acme/other",
       "version": "2.0.0",
       "source": "registry",
-      "wasm_hash": "def",
+      "wasm_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "key_id": "k"
     }
   ]

@@ -16,6 +16,7 @@ specforge-registry-client = { path = "../registry-client" }
 specforge-registry-wire = { path = "../registry-wire" }
 
 [dev-dependencies]
+specforge-installed = { path = "../../runtime/installed" }
 specforge-project = { workspace = true, features = ["testing"] }
 specforge-ops = { workspace = true, features = ["testing"] }
 hex = "0.4.3"

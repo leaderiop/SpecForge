@@ -1027,8 +1027,8 @@ fn an_unreadable_source_is_e025_naming_it() {
 }
 
 /// `@sdk/greet` installed by hand under `root`: its module, and a lock
-/// entry pinning `hash` (the module's own when `None`).
-fn install_greet(root: &Path, hash: Option<&str>) {
+/// entry pinning the module's own hash.
+fn install_greet(root: &Path) {
     let blob = specforge_component::committed::GREET.path();
     let bytes = fs::read(blob).unwrap();
     let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
@@ -1040,7 +1040,7 @@ fn install_greet(root: &Path, hash: Option<&str>) {
             name: specforge_package::PackageName::parse("@sdk/greet").unwrap(),
             version: "0.1.0".into(),
             source: specforge_installed::LockSource::Registry,
-            wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
+            wasm_hash: specforge_installed::hex_sha256(&bytes),
             key_id: None,
             peer_dependencies: Vec::new(),
         }],
@@ -1087,7 +1087,7 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
         serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
         &[],
     );
-    install_greet(dir.root(), None);
+    install_greet(dir.root());
     fs::write(
         specforge_installed::lock_path(dir.root()),
         "not valid json {{{",
@@ -1114,39 +1114,6 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
     assert!(unloaded[0].contains("specforge.lock can't be read"));
     let at = |code: &str| diagnostics.iter().position(|d| d.code == code).unwrap();
     assert!(at("E033") < at("E028"), "the lock comes first");
-}
-
-/// A lock entry that pins no hash loads its extension, with W149.
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "legacy lockfile entry without hash loads with W149"
-)]
-fn an_unpinned_lock_entry_loads_with_w149() {
-    let dir = project(
-        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
-        &[],
-    );
-    install_greet(dir.root(), Some(""));
-    let runtime = dir.runtime();
-
-    let env = specforge_project::Environment::load(
-        &specforge_common::ProjectRoot::of(dir.root()).unwrap(),
-        Some(runtime.clone()),
-    );
-
-    let named: Vec<(&str, specforge_common::Severity)> = env
-        .diagnostics()
-        .filter(|d| d.message.contains("@sdk/greet"))
-        .map(|d| (d.code.as_str(), d.severity))
-        .collect();
-    assert_eq!(named, [("W149", specforge_common::Severity::Warning)]);
-    assert!(
-        env.registries()
-            .declarations()
-            .iter()
-            .any(|d| d.name() == "@sdk/greet"),
-        "its declaration loaded"
-    );
 }
 
 /// `name`, declaring the kind `widget`, with a required peer on `peer` when given.

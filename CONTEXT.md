@@ -328,8 +328,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.specforge/extensions/<name>/extension.wasm` and pinned by its `specforge.lock` entry (version,
   source `registry` or `local:<path>`, the SHA-256 of the binary and, for a signed registry package, its
   publisher key id). It loads only while its binary is
-  the one its entry pins and declares the name, version and peers the entry records (E070 otherwise; W149 when the entry
-  pins no hash). A project's installed
+  the one its entry pins and declares the name, version and peers the entry records (E070 otherwise). A project's installed
   extensions are one value, its lock read once (`specforge_installed::Installed`); installing,
   updating and removing them is one **change** (`Installed::change`), written all at once or not at
   all, its last step the operation's project change (ADR 0128) and the directories it created (ADR 0028);
@@ -347,7 +346,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension by its text (`ExtensionEntry::names`), a `.wasm` file entry only by what its component declares, once
   admitted (ADR 0160; never under a builtin's name, ADR 0214). Its declarations come in entry order; the registry
   build puts them in load order. What does not load is a typed `LoadFailure` on its
-  entry with one diagnostic and leaves nothing loaded, and what an entry reports though it loaded (W149, W153, W138) is on the
+  entry with one diagnostic and leaves nothing loaded, and what an entry reports though it loaded (W153, W138) is on the
   entry too; the runtime keeps none, and `Installed::load_diagnostics` orders them, entry by entry. Without a runtime nothing loads, and each entry
   enables what it names (`Installed::unloaded`); each entry records where the load takes it from, its **origin** (`Origin`: `builtin`, the lock entry's source, `file:<path>`, `unknown`; `Resolution::origin`, a repeated entry the one it repeats'), and whether it loaded, with or without a runtime; what an environment is assembled from says which
   (`specforge_project::ExtensionLoad`: `NoRuntime`, or what was loaded `In` a runtime).
@@ -662,8 +661,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Locked pin**: what a project's `specforge.lock` entry records for a registry install, which every fetch of the name
   is held to: its publisher key at any version (the **key pin** when the user has none) and its SHA-256 at its own
   version. A registry serving that version as other bytes is refused (R014) before the download, any key question or any
-  pin, and a dry run refuses it from the published manifest; an entry that pins no hash (W149) holds no bytes and is
-  pinned by its next add (`specforge_ops::registry::LockedPin`, ADR 0201).
+  pin, and a dry run refuses it from the published manifest; its version and SHA-256 are held together
+  (`specforge_ops::registry::LockedPin`, ADR 0201).
 - **Package signature**: a publisher's Ed25519 signature over a package's signed content (its name and version as
   declared, and the SHA-256 of the exact binary and manifest uploaded), with the public key and the time that verify it
   offline (`specforge_registry_wire::PackageSignature`, JSON `{sig, public_key, signed_at}`). Its key id is the first

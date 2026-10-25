@@ -61,7 +61,6 @@ fn a_lock_entry_whose_version_is_no_semver_version_is_unreadable() {
     behavior = "read_lock_file",
     verify = "a lock entry whose hash is no SHA-256 in lowercase hex is E033, an empty one included"
 )]
-#[ignore = "flipped by T3"]
 fn a_lock_entry_whose_hash_is_no_lowercase_sha256_is_unreadable() {
     let dir = TempDir::new().unwrap();
     let upper = "ACC6D3776A303907FA229BCB80A8520406800A0DE2AA807B89DBAF5A3BE09F60";

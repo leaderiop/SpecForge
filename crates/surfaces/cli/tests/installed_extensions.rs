@@ -836,7 +836,7 @@ fn removing_a_wasm_file_entry_a_disabled_lock_entry_requires_is_accepted() {
     enable(&dir, json!(["@specforge/software", "greet.wasm"]));
     let lock = json!({"lockfile_version": 1,
         "entries": [{"name": "@acme/uses-greet", "version": "1.0.0", "source": "registry",
-                     "wasm_hash": "",
+                     "wasm_hash": specforge_installed::hex_sha256(b""),
                      "peer_dependencies": [{"name": "@sdk/greet", "version": "^0.1.0"}]}],
     });
     std::fs::write(dir.root().join("specforge.lock"), lock.to_string()).unwrap();

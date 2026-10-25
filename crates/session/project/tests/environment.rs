@@ -244,14 +244,14 @@ fn an_entrys_load_diagnostics_come_together_in_entry_order() {
     );
     let rt: SharedRuntime = served.clone();
     specforge_installed::testing::install(root, &*served, &["@acme/a", "@acme/b"]);
-    // `@acme/b`'s lock entry pins no hash: it loads with W149.
+    // `@acme/b`'s lock entry pins another hash than its module's: E070.
     let mut lock = match Installed::at(root).lock().clone() {
         specforge_installed::LockState::Read(lock) => lock,
         other => panic!("{other:?}"),
     };
     for entry in &mut lock.entries {
         if entry.name.as_str() == "@acme/b" {
-            entry.wasm_hash = String::new();
+            entry.wasm_hash = specforge_installed::hex_sha256(b"swapped");
         }
     }
     specforge_installed::write_lock_file(&lock, &root.join("specforge.lock")).unwrap();
@@ -259,8 +259,8 @@ fn an_entrys_load_diagnostics_come_together_in_entry_order() {
 
     // Each entry's diagnostics come right after the entry.
     assert_eq!(
-        codes_among(&env, &["W153", "E028", "W149"]),
-        ["W153", "E028", "W149"],
+        codes_among(&env, &["W153", "E028", "E070"]),
+        ["W153", "E028", "E070"],
         "{:#?}",
         env.diagnostics().collect::<Vec<_>>()
     );
@@ -268,14 +268,14 @@ fn an_entrys_load_diagnostics_come_together_in_entry_order() {
         .setup_diagnostics()
         .into_iter()
         .map(|s| (s.part, s.diagnostic.code.as_str()))
-        .filter(|(_, code)| ["W153", "E028", "W149"].contains(code))
+        .filter(|(_, code)| ["W153", "E028", "E070"].contains(code))
         .collect();
     assert_eq!(
         parts,
         [
             (SetupPart::Entry(0), "W153"),
             (SetupPart::Entry(1), "E028"),
-            (SetupPart::Entry(2), "W149"),
+            (SetupPart::Entry(2), "E070"),
         ]
     );
 }

@@ -1032,7 +1032,7 @@ fn a_kept_migration_records_what_a_rollback_undoes() {
     let migrated = std::fs::read_to_string(root.join("old.spec")).unwrap();
     assert_eq!(
         record.files[0].sha256,
-        specforge_installed::hex_sha256(migrated.as_bytes())
+        specforge_installed::hex_sha256(migrated.as_bytes()).as_str()
     );
     assert!(
         outcome

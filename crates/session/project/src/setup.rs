@@ -24,7 +24,7 @@ pub enum SetupPart {
     Lock,
     /// The `extensions` entry at this index of [`Environment::enabled`]: why
     /// it did not load (E028, E070, E072), or what it reported though it
-    /// loaded (W149, W153, W138).
+    /// loaded (W153, W138).
     Entry(usize),
     /// No extension loaded, so the compile checks structure only (I002).
     StructuralOnly,

@@ -230,6 +230,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W122", None),
     ("W125", Some("E061")),
     ("W146", None),
+    ("W149", Some("E033")),
 ];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.

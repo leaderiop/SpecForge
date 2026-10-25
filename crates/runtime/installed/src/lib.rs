@@ -30,7 +30,7 @@ pub use load::{
 pub use lock::{
     LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file,
 };
-pub use module::{Module, hex_sha256};
+pub use module::{Module, Sha256, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};
 
 /// A project's installed extensions: its root and what `specforge.lock`
@@ -187,7 +187,7 @@ mod tests {
             name: PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
+            wasm_hash: crate::hex_sha256(b"hash"),
             key_id: key.map(str::to_string),
             peer_dependencies: Vec::new(),
         };
@@ -231,7 +231,7 @@ mod tests {
             name: specforge_package::PackageName::parse(name).unwrap(),
             version: version.to_string(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
+            wasm_hash: crate::hex_sha256(b"hash"),
             key_id: None,
             peer_dependencies: Vec::new(),
         };

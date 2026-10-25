@@ -112,7 +112,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
     missing specforge.json is the default config and produces no E069.
     Before any source, the environment MUST report its own diagnostics —
     E069, the extension load's entry by entry (an entry's failure, or what
-    it reported though it loaded: W149, W153, W138; the lock's E033 once,
+    it reported though it loaded: W153, W138; the lock's E033 once,
     before the first entry it left unloaded), provider registration (W118,
     E057), then I002 — and then the registry build's, in the build's one
     order (build_registries_from_declarations). Each MUST say the part of

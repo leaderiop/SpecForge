@@ -9,13 +9,13 @@ use tempfile::TempDir;
 
 use crate::load::{entries, load_with, reported, runtime};
 
-/// Rewrite the source (and clear the hash) of the one entry of the lock installed at `root`.
+/// Rewrite the source (and pin another hash) of the one entry of the lock installed at `root`.
 fn record_source(root: &Path, source: &str) {
     let path = root.join("specforge.lock");
     let mut lock: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     lock["entries"][0]["source"] = source.into();
-    lock["entries"][0]["wasm_hash"] = "".into();
+    lock["entries"][0]["wasm_hash"] = "0".repeat(64).into();
     std::fs::write(path, lock.to_string()).unwrap();
 }
 
@@ -23,7 +23,7 @@ fn record_source(root: &Path, source: &str) {
 fn write_lock(root: &Path, name: &str, source: &str) {
     let lock = serde_json::json!({
         "lockfile_version": 1,
-        "entries": [{"name": name, "version": "1.0.0", "source": source, "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
+        "entries": [{"name": name, "version": "1.0.0", "source": source, "wasm_hash": "0".repeat(64)}]
     });
     std::fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
 }
@@ -108,7 +108,7 @@ const PATHS: [(&str, &str, &str); 8] = [
 
 #[specforge_test_macros::test(
     behavior = "load_wasm_module",
-    verify = "the command an E028, E070 or W149 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
+    verify = "the command an E028 or E070 suggestion names reinstalls the recorded path as one shell word, whatever the path holds"
 )]
 fn a_reinstall_command_names_the_recorded_path_as_one_shell_word() {
     for (recorded, argument, _) in PATHS {
@@ -118,12 +118,14 @@ fn a_reinstall_command_names_the_recorded_path_as_one_shell_word() {
         let command = format!("specforge add {argument}");
 
         let loaded = load_with(dir.path(), &entries(&["@acme/a"]), &runtime());
-        let w149 = reported(dir.path(), &loaded);
-        assert_eq!(w149[0].code, "W149", "{recorded:?}: {w149:?}");
-        assert_eq!(
-            w149[0].suggestion.as_deref(),
-            Some(format!("pin it by installing it again: {command}").as_str()),
-            "{recorded:?}"
+        let e070 = reported(dir.path(), &loaded);
+        assert_eq!(e070[0].code, "E070", "{recorded:?}: {e070:?}");
+        assert!(
+            e070[0]
+                .suggestion
+                .as_deref()
+                .is_some_and(|s| s.ends_with(format!("re-install it: {command}").as_str())),
+            "{recorded:?}: {e070:?}"
         );
 
         std::fs::remove_file(

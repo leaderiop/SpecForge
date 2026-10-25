@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{LockSource, Module, Pin};
+use specforge_installed::{LockSource, Module, Pin, Sha256};
 use specforge_package::{PackageName, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
@@ -30,7 +30,7 @@ impl<'a> Install<'a> {
         };
         let module = local.binary.into_module();
         Ok(Install {
-            sha256: module.digest().to_string(),
+            sha256: module.digest().clone(),
             module: Some(module),
             pin,
             from: From::File,
@@ -47,7 +47,7 @@ impl<'a> Install<'a> {
     }
 
     /// The module's SHA-256: what the lock pins.
-    pub(crate) fn sha256(&self) -> &str {
+    pub(crate) fn sha256(&self) -> &Sha256 {
         &self.sha256
     }
 
@@ -134,17 +134,16 @@ impl<'a> LockPlan<'a> {
     /// registry`. Its binary is not loaded: [`Self::check`] loads it after the gate. Nothing is
     /// pinned for the user: the publisher the fetch decided is pinned when the plan commits. For a
     /// preview, its [`Manifest`], its publisher decided as the fetch decides it: nothing is downloaded. E063
-    /// when the plan fetches from no registry. A registry entry that pins no hash is fetched again,
-    /// which pins it (W149).
+    /// when the plan fetches from no registry. A preview whose published digest is no SHA-256 is
+    /// R-OPS-002, as its download would be.
     pub(crate) fn fetch(
         &self,
         name: &PackageName,
         version: &Version,
     ) -> Result<Install<'a>, OpError> {
-        // What the project already has is answered before any registry call (ADR 0138); an entry
-        // that pins no hash is installed again, which pins it (W149).
+        // What the project already has is answered before any registry call (ADR 0138).
         if let Some(entry) = self.unchanged(name, |e| {
-            e.source.is_registry() && e.version == version.to_string() && !e.wasm_hash.is_empty()
+            e.source.is_registry() && e.version == version.to_string()
         }) {
             return Ok(Install {
                 module: None,
@@ -167,6 +166,18 @@ impl<'a> LockPlan<'a> {
         if self.purpose == Purpose::Preview {
             // Decided as the fetch decides it, downloading nothing (ADR 0213).
             let manifest = fetching.registry.published(name, version, policy)?;
+            let sha256 = Sha256::parse(&manifest.sha256).map_err(|why| {
+                OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::R_OPS_002,
+                    format!(
+                        "registry package {}@{} publishes a digest no download can match: {}",
+                        manifest.name,
+                        manifest.version,
+                        specforge_common::remedy::printable(&why),
+                    ),
+                )
+            })?;
             let pin = Pin {
                 name: manifest.name,
                 version: manifest.version.to_string(),
@@ -176,7 +187,7 @@ impl<'a> LockPlan<'a> {
             };
             return Ok(Install {
                 module: None,
-                sha256: manifest.sha256,
+                sha256,
                 pin,
                 from: From::Published {
                     registry: fetching.registry,
@@ -200,7 +211,7 @@ impl<'a> LockPlan<'a> {
                 publisher: package.publisher,
                 bytes: module.clone(),
             },
-            sha256: module.digest().to_string(),
+            sha256: module.digest().clone(),
             module: Some(module),
             pin,
         })

@@ -363,7 +363,7 @@ mod tests {
             name: PackageName::parse(name).unwrap(),
             version: "1.0.0".to_string(),
             source: LockSource::Registry,
-            wasm_hash: "hash".to_string(),
+            wasm_hash: crate::hex_sha256(b"hash"),
             key_id: None,
             peer_dependencies: Vec::new(),
         }

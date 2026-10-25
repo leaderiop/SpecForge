@@ -900,7 +900,8 @@ behavior read_lock_file "Read Lock File" {
     change the lock does not decide (enabling or disabling a builtin or a .wasm file entry) still runs.
     A lock entry's source MUST be registry or local:<path>, the path not empty and holding no control
     character; any other source makes the lock unreadable (E033), and the message names it escaped, so no
-    diagnostic carries a control character the lock holds.
+    diagnostic carries a control character the lock holds. A lock entry's wasm_hash MUST be a SHA-256 in
+    lowercase hex (64 characters), never empty: any other makes the lock unreadable (E033).
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"

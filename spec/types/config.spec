@@ -221,14 +221,14 @@ type TrustPolicy "Trust Policy" {
 
 // What specforge.lock records for a name's registry install
 // (specforge_ops::registry::LockedPin): every fetch of the name is held to its
-// key at any version and to its bytes at its own version. An empty sha256 pins
-// no bytes.
+// key at any version and to its bytes at its own version. A pin of a key alone
+// has no version and no sha256, so it pins no bytes.
 type LockedPin "Locked Pin" {
-  version string
-  sha256  string
+  version string @optional
+  sha256  string @optional
   key_id  string @optional
   verify unit "LockedPin is what specforge.lock records for a name's registry install"
-  verify unit "a locked pin admits other bytes only at another version, or when it pins no hash"
+  verify unit "a locked pin admits other bytes only at another version"
 }
 
 // A publisher key a committed lock plan pins for a package name

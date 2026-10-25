@@ -297,7 +297,7 @@ mod tests {
             name: PackageName::parse(name).unwrap(),
             version: version.to_string(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
+            wasm_hash: specforge_installed::hex_sha256(b"hash"),
             key_id: None,
             peer_dependencies: Vec::new(),
         }

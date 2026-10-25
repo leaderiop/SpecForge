@@ -7,9 +7,7 @@ use std::sync::Mutex;
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_installed::testing::install;
-use specforge_installed::{
-    Builtins, Installed, LoadProblem, LoadSubject, LockState, hex_sha256, write_lock_file,
-};
+use specforge_installed::{Builtins, Installed, LoadProblem, LoadSubject, LockState, hex_sha256};
 use specforge_package::PackageName;
 use specforge_registry::PlainDisk;
 use specforge_wasm::testing::{InProcessRuntime, spelled_module};
@@ -103,8 +101,8 @@ fn a_changed_module_is_refused_and_not_loaded() {
     assert_eq!(
         failure.problem,
         LoadProblem::Changed {
-            locked: hex_sha256(&spelled_module("@acme/a", "1.0.0", &[])),
-            actual: hex_sha256(b"\0asm swapped after install"),
+            locked: hex_sha256(&spelled_module("@acme/a", "1.0.0", &[])).to_string(),
+            actual: hex_sha256(b"\0asm swapped after install").to_string(),
         }
     );
     assert!(failure.problem.is_module_health());
@@ -444,40 +442,6 @@ fn declarations_come_in_entry_order_once_per_extension() {
     );
     assert_eq!(loaded.enabled.len(), 4);
     assert!(loaded.enabled.iter().all(|e| e.failure.is_none()));
-}
-
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "legacy lockfile entry without hash loads with W149"
-)]
-fn an_unpinned_entry_loads_with_w149() {
-    let dir = TempDir::new().unwrap();
-    install(dir.path(), &runtime(), &["@acme/a"]);
-    let mut lock = match Installed::at(dir.path()).lock().clone() {
-        LockState::Read(lock) => lock,
-        other => panic!("{other:?}"),
-    };
-    lock.entries[0].wasm_hash = String::new();
-    write_lock_file(&lock, &dir.path().join("specforge.lock")).unwrap();
-
-    let loaded = load_with(dir.path(), &entries(&["@acme/a"]), &runtime());
-
-    assert_eq!(
-        loaded.declarations.len(),
-        1,
-        "{:?}",
-        reported(dir.path(), &loaded)
-    );
-    assert_eq!(codes(dir.path(), &loaded), ["W149"]);
-    assert!(reported(dir.path(), &loaded)[0].message.contains("@acme/a"));
-    assert!(
-        reported(dir.path(), &loaded)[0]
-            .suggestion
-            .as_deref()
-            .unwrap()
-            .contains("specforge add @acme/a@1.0.0")
-    );
-    assert!(loaded.enabled[0].failure.is_none(), "it loaded");
 }
 
 #[specforge_test_macros::test(
