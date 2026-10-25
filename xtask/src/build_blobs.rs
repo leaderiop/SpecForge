@@ -477,7 +477,7 @@ fn install(root: &Path, committed: &CommittedBlob, built: &Path) -> bool {
         std::fs::write(vendor_dir.join(artifact), &bytes).map_err(|e| e.to_string())?;
         BlobRecord {
             artifact: artifact.to_string(),
-            artifact_sha256: hex_sha256(&bytes),
+            artifact_sha256: hex_sha256(&bytes).to_string(),
             built_with: rustc_version(),
             inputs,
         }
@@ -510,7 +510,7 @@ fn check(root: &Path, committed: &CommittedBlob) -> bool {
 
     let mut problems = Vec::new();
     match std::fs::read(vendor_dir.join(artifact)) {
-        Ok(bytes) if record.artifact_sha256 == hex_sha256(&bytes) => {}
+        Ok(bytes) if hex_sha256(&bytes) == record.artifact_sha256.as_str() => {}
         Ok(_) => problems.push(format!(
             "{artifact} differs from the blob --install recorded"
         )),
@@ -585,11 +585,9 @@ fn input_hash(root: &Path, key: &str) -> std::io::Result<String> {
     let path = root.join(blob_inputs::path_of(key));
     if key == WORKSPACE_INHERITED {
         let manifest = std::fs::read_to_string(path)?;
-        return Ok(hex_sha256(
-            blob_inputs::inherited_tables(&manifest).as_bytes(),
-        ));
+        return Ok(hex_sha256(blob_inputs::inherited_tables(&manifest).as_bytes()).to_string());
     }
-    Ok(hex_sha256(&std::fs::read(path)?))
+    Ok(hex_sha256(&std::fs::read(path)?).to_string())
 }
 
 fn owning_manifest(root: &Path, file: &Path) -> Option<String> {
