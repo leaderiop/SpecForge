@@ -133,7 +133,8 @@ pub trait RegistryClient: Send + Sync {
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError>;
 
-    /// What `registry` stores for `name@version`, its `wasm_url` absolute. `NotFound` when the registry
+    /// What `registry` stores for `name@version`, its `wasm_url` absolute, as its URL's
+    /// serialization. `NotFound` when the registry
     /// answers that it has none (its 404 with `NOT_FOUND`); an answer no registry gives is `InvalidReply`.
     fn metadata(
         &self,

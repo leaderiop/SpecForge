@@ -290,7 +290,6 @@ fn serving_download_address(wasm_url: fn(u16) -> String, enveloped: bool) -> Reg
     }
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "check_registry_reply",
     verify = "a download address a registry sends reaches R006 and R009 printable"

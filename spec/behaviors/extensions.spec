@@ -1006,7 +1006,9 @@ behavior check_registry_reply "Check Registry Reply" {
     NOT_FOUND error; a 404 without it (an address no registry serves, such as
     a url that isn't the registry's root) MUST be refused with R009, not
     reported as a missing package. A wasm_url MUST be an http or https URL or
-    a path at the registry's root.
+    a path at the registry's root, and the client keeps it as that URL's
+    serialization, the address it requests: no control or bidirectional
+    character is kept.
     Before a registry package's signature is checked or its key pinned,
     the system MUST refuse the reply when it describes another package or
     version than the one requested, or when its manifest does: the

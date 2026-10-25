@@ -50,7 +50,7 @@ pub struct PackageMetadata {
     pub published_at: String,
     /// Where the binary downloads from: an `http`/`https` URL, or a path at the registry's root. The server
     /// answers [`address::Call::Download`]'s path (`/v1/packages/…/download`); a client resolves it with
-    /// [`RegistryRoot::download_address`] and hands it on absolute.
+    /// [`RegistryRoot::download_address`] and hands it on absolute, as that URL's serialization.
     pub wasm_url: String,
     /// The publisher signature; absent when unsigned (a registry that refuses unsigned uploads serves none such).
     /// Only a well-formed one reads: a reply carrying another is not this body.

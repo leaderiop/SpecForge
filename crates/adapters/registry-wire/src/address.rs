@@ -154,16 +154,20 @@ impl RegistryRoot {
         format!("{}{}", self.0, call.path())
     }
 
-    /// Where a metadata answer's `wasm_url` downloads from: an `http` or `https` URL as it is (a CDN may serve the
-    /// binary), or a path (`/v1/packages/…/download`, as the server answers) at this root. Anything else, a
-    /// network-path reference (`//host/x`) and other schemes (`file:`) included, is not the protocol's: `Err` says
-    /// why, and a client refuses the answer (R009).
+    /// Where a metadata answer's `wasm_url` downloads from, as the URL a request is sent to: an `http` or `https`
+    /// URL (a CDN may serve the binary), or a path (`/v1/packages/…/download`, as the server answers) at this root,
+    /// written as that URL's serialization (percent-encoded: no control or bidirectional character is kept, ADR
+    /// 0245). Anything else, a network-path reference (`//host/x`) and other schemes (`file:`) included, is not the
+    /// protocol's: `Err` says why, and a client refuses the answer (R009).
     pub fn download_address(&self, wasm_url: &str) -> Result<String, String> {
-        if wasm_url.starts_with('/') && !wasm_url.starts_with("//") {
-            return Ok(format!("{}{wasm_url}", self.0));
-        }
-        match url::Url::parse(wasm_url) {
-            Ok(url) if matches!(url.scheme(), "http" | "https") => Ok(wasm_url.to_string()),
+        let at_root = wasm_url.starts_with('/') && !wasm_url.starts_with("//");
+        let text = if at_root {
+            format!("{}{wasm_url}", self.0)
+        } else {
+            wasm_url.to_string()
+        };
+        match url::Url::parse(&text) {
+            Ok(url) if matches!(url.scheme(), "http" | "https") => Ok(url.into()),
             _ => Err(format!(
                 "its wasm_url '{wasm_url}' is neither an http or https URL nor a path at the registry's root"
             )),
@@ -413,7 +417,6 @@ mod tests {
         }
     }
 
-    #[ignore = "flipped by T3"]
     #[specforge_test_macros::test(
         behavior = "check_registry_reply",
         verify = "a download address is its URL's serialization: no control or bidirectional character is kept"

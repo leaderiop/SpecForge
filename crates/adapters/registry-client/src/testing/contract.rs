@@ -98,9 +98,12 @@ pub fn assert_client_contract(
         "K4: the signature is the publisher key's"
     );
     assert!(!metadata.wasm_url.is_empty(), "K4: wasm_url");
-    assert!(
-        reqwest::Url::parse(&metadata.wasm_url).is_ok(),
-        "K4: wasm_url is absolute"
+    assert_eq!(
+        reqwest::Url::parse(&metadata.wasm_url)
+            .map(String::from)
+            .as_deref(),
+        Ok(metadata.wasm_url.as_str()),
+        "K4: wasm_url is absolute, its URL's serialization"
     );
 
     // K5
