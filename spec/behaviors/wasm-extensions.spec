@@ -863,8 +863,7 @@ behavior write_lock_file "Write Lock File" {
     After resolving all extensions, the system MUST write a specforge.lock
     file containing the exact resolved version and SHA256 wasm_hash for
     each installed extension. The lock file format MUST be deterministic —
-    same inputs always produce byte-identical output. The resolved_at
-    timestamp is metadata excluded from the determinism guarantee. The
+    same inputs always produce byte-identical output. The
     lock file MUST be written atomically to prevent corruption.
   """
   produces   [lock_file_written]

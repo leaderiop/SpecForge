@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-07)
 
+**Extended by [ADR 0243](0243-a-lock-entry-is-read-whole.md) (round 27):** D1: a lock entry's version is read where the lock is read; A2 superseded: no lock version is unreadable.
+
 **Extended by [ADR 0231](0231-a-search-hit-is-a-package-name-at-the-wire.md) (round 26):** D1: a registry's search reply is read where it enters: a hit's name is a package name and its version a SemVer version.
 
 **Extended by [ADR 0230](0230-a-lock-source-is-checked-once-and-a-remedys-command-quotes-its-values.md) (round 26):** D1: a lock entry's source is read where the lock is read (E033), as its name is.

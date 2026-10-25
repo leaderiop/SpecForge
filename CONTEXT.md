@@ -335,8 +335,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `add`, `update`, `init` and `remove` change them through the **lock plan**.
 - **Lock entry**: what `specforge.lock` records for one installed extension: name, version, source, the module's SHA-256, its
   publisher key id and peers. The version and peers are its module's, and the load holds the entry to them
-  (`LockFileEntry::declares`, E070, ADR 0217). Its source is `registry` or `local:<path>`, the path not empty and
-  holding no control character, checked where the lock is read (E033, ADR 0230).
+  (`LockFileEntry::declares`, E070, ADR 0217). Every field is read where the lock is read (E033, ADR 0230, 0243):
+  the version a SemVer version, the hash a SHA-256 in lowercase hex, the key id 16 lowercase hex characters, the
+  source `registry` or `local:<path>` (the path not empty) and the recorded peers holding no character a terminal
+  acts on; `add` never records what that read refuses.
 - **Extension load**: turning a project's `extensions` entries into loaded extensions and their
   declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
   builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file

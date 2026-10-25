@@ -63,13 +63,15 @@ type WasmTrapInfo "Wasm Trap Info" {
 
 // ── Lock File Types ──────────────────────────────────────────
 
+// Read whole where the lock is read (ADR 0243): version SemVer, source "registry" or
+// "local:<path>", wasm_hash 64 lowercase hex, key_id 16 lowercase hex.
 type LockFileEntry "Lock File Entry" {
-  extension_name string @readonly
-  version        string @readonly
-  source         ExtensionSource
-  wasm_hash      string @readonly
-  resolved_at    string
-  key_id         string @optional
+  name              string           @readonly
+  version           string           @readonly
+  source            string           @readonly
+  wasm_hash         string           @readonly
+  key_id            string           @optional
+  peer_dependencies PeerDependency[] @optional
   verify unit "LockFileEntry schema is valid"
 }
 

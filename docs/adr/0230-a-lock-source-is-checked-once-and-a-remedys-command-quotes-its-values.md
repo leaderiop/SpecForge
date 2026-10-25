@@ -2,6 +2,7 @@
 
 **Status:** accepted (2026-10-23, architecture round 26, plan 01). Extends [ADR 0036](0036-one-package-name.md) D1 and
 [ADR 0135](0135-a-remedy-names-a-command-or-the-requests-words-never-a-flag.md) D1-D2.
+**Extended by [ADR 0243](0243-a-lock-entry-is-read-whole.md) (round 27):** D1 to every field of the entry; a source's path holds no bidirectional control either.
 
 ## Context
 
