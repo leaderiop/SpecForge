@@ -1051,6 +1051,9 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
   verify unit "a download URL is an http or https URL or a path at the registry's root, else R009"
+  verify unit "a download larger than the size its reply declares is refused with R009 before it is read whole"
+  verify unit "a download whose reply declares no size is held to 64 MiB, the largest package a registry accepts"
+  verify unit "a registry answer larger than 64 MiB is refused with R009"
   verify integration "a reply for another package is refused and pins nothing"
   verify integration "a manifest that cannot be read is refused and pins nothing"
   verify integration "the peers the served manifest declares reach the package"
@@ -1356,6 +1359,7 @@ behavior retry_registry_request "Retry Registry Request" {
   produces   [registry_request_retry_exhausted]
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
+  verify unit "a registry answer still arriving after the client's timeout is R004"
   verify unit "max retries exceeded produces final error"
   verify unit "a Retry-After longer than the longest backoff is not waited for"
   verify integration "a rate-limited publish is sent again once the registry's wait has passed"
