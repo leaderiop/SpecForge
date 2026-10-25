@@ -1050,6 +1050,9 @@ behavior check_registry_reply "Check Registry Reply" {
   verify integration "a fetch of the version specforge.lock pins served as other bytes is refused before its download"
   verify integration "a package published with a legacy manifest is refused with a re-publish suggestion"
   verify unit "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+  verify unit "a download address is its URL's serialization: no control or bidirectional character is kept"
+  verify unit "every text a registry error carries is written in its diagnostic printable, whatever the variant"
+  verify integration "a download address a registry sends reaches R006 and R009 printable"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {

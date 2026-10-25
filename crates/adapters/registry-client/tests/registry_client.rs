@@ -184,3 +184,158 @@ fn a_registry_diagnostic_writes_the_registrys_text_printable() {
         assert!(message.contains("\\n  hint:"), "{message:?}");
     }
 }
+
+#[ignore = "flipped by T4"]
+#[specforge_test_macros::test(
+    behavior = "check_registry_reply",
+    verify = "every text a registry error carries is written in its diagnostic printable, whatever the variant"
+)]
+fn every_text_a_registry_error_carries_is_written_printable() {
+    use specforge_common::remedy::printable;
+    use specforge_registry_wire::ErrorCode;
+    let odd = || format!("{ODD}\u{202e}");
+    let errors = [
+        RegistryError::Unauthorized { guidance: odd() },
+        RegistryError::Forbidden { guidance: odd() },
+        RegistryError::RateLimited { retry_after_ms: 1 },
+        RegistryError::Timeout { url: odd() },
+        RegistryError::NetworkError { message: odd() },
+        RegistryError::NotFound { specifier: odd() },
+        RegistryError::DuplicateVersion {
+            name: odd(),
+            version: odd(),
+        },
+        RegistryError::Refused {
+            code: ErrorCode::BadRequest,
+            message: odd(),
+        },
+        RegistryError::InvalidReply {
+            subject: odd(),
+            message: odd(),
+        },
+    ];
+    for error in errors {
+        // A new variant does not compile until it is listed above with hostile text in every field.
+        match &error {
+            RegistryError::Unauthorized { .. }
+            | RegistryError::Forbidden { .. }
+            | RegistryError::RateLimited { .. }
+            | RegistryError::Timeout { .. }
+            | RegistryError::NetworkError { .. }
+            | RegistryError::NotFound { .. }
+            | RegistryError::DuplicateVersion { .. }
+            | RegistryError::Refused { .. }
+            | RegistryError::InvalidReply { .. } => {}
+        }
+        let diagnostic = error.to_diagnostic();
+        assert_eq!(
+            printable(&diagnostic.message),
+            diagnostic.message,
+            "{error:?}"
+        );
+        assert!(
+            diagnostic
+                .suggestion
+                .as_deref()
+                .is_none_or(|s| printable(s) == s),
+            "{error:?}"
+        );
+    }
+}
+
+/// A terminal title write, a bell and a screen clear: what a hostile registry writes in a download address.
+const HOSTILE: &str = "\u{1b}]0;PWNED\u{7}\u{1b}[2J";
+
+/// A registry on a free local port answering `@acme/greet@1.0.0`'s metadata with the `wasm_url` that
+/// `wasm_url(port)` writes, and every other address 404: with the protocol's NOT_FOUND error when `enveloped`,
+/// bare otherwise. One request per connection.
+fn serving_download_address(wasm_url: fn(u16) -> String, enveloped: bool) -> RegistryConfig {
+    use std::io::{Read as _, Write as _};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let metadata = serde_json::json!({
+        "name": "@acme/greet", "version": "1.0.0", "sha256": "0".repeat(64), "wasm_url": wasm_url(port),
+    })
+    .to_string();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
+            let mut head = Vec::new();
+            let mut byte = [0u8; 1];
+            while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
+                head.push(byte[0]);
+            }
+            let (status, body) = if head.starts_with(b"GET /v1/packages/@acme%2Fgreet/1.0.0 ") {
+                ("200 OK", metadata.clone())
+            } else if enveloped {
+                (
+                    "404 Not Found",
+                    r#"{"error":{"code":"NOT_FOUND","message":"gone"}}"#.to_string(),
+                )
+            } else {
+                ("404 Not Found", String::new())
+            };
+            let _ = write!(
+                stream,
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+        }
+    });
+    RegistryConfig {
+        alias: "evil".into(),
+        url: RegistryRoot::parse(&format!("http://127.0.0.1:{port}")).unwrap(),
+        scope_filter: None,
+        default_registry: true,
+    }
+}
+
+#[ignore = "flipped by T3"]
+#[specforge_test_macros::test(
+    behavior = "check_registry_reply",
+    verify = "a download address a registry sends reaches R006 and R009 printable"
+)]
+fn a_download_address_a_registry_sends_reaches_its_diagnostic_printable() {
+    use specforge_common::remedy::printable;
+    use specforge_package::{PackageName, Version};
+    use specforge_registry_client::HttpRegistryClient;
+    let (name, version) = (
+        PackageName::parse("@acme/greet").unwrap(),
+        Version::parse("1.0.0").unwrap(),
+    );
+    type Case = (fn(u16) -> String, bool, &'static str);
+    let cases: [Case; 4] = [
+        (
+            |port| format!("http://127.0.0.1:{port}/dl/{HOSTILE}"),
+            true,
+            "R006",
+        ),
+        (|_| format!("/dl/{HOSTILE}"), true, "R006"),
+        (
+            |port| format!("http://127.0.0.1:{port}/dl/{HOSTILE}"),
+            false,
+            "R009",
+        ),
+        (
+            |port| format!("http://127.0.0.1:{port}/dl/abc\u{202e}exe.txt"),
+            true,
+            "R006",
+        ),
+    ];
+    let client = HttpRegistryClient::new();
+    for (wasm_url, enveloped, code) in cases {
+        let registry = serving_download_address(wasm_url, enveloped);
+        let metadata = client.metadata(&name, &version, &registry, None).unwrap();
+        let error = client
+            .download(&metadata.wasm_url, &registry, None)
+            .unwrap_err();
+        let diagnostic = error.to_diagnostic();
+        assert_eq!(diagnostic.code, code, "{diagnostic:?}");
+        assert_eq!(
+            printable(&diagnostic.message),
+            diagnostic.message,
+            "{diagnostic:?}"
+        );
+        assert!(diagnostic.message.contains("/dl/"), "{diagnostic:?}");
+    }
+}

@@ -413,6 +413,33 @@ mod tests {
         }
     }
 
+    #[ignore = "flipped by T3"]
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "a download address is its URL's serialization: no control or bidirectional character is kept"
+    )]
+    fn a_download_address_is_its_urls_serialization() {
+        let root = root("https://h/registry");
+        for (wasm_url, expected) in [
+            (
+                "https://cdn.example/dl/\u{1b}]0;T\u{7}\u{1b}[2J",
+                "https://cdn.example/dl/%1B]0;T%07%1B[2J",
+            ),
+            ("/dl/\u{1b}[31mRED", "https://h/registry/dl/%1B[31mRED"),
+            (
+                "https://cdn.example/abc\u{202e}exe",
+                "https://cdn.example/abc%E2%80%AEexe",
+            ),
+            ("HTTPS://CDN.Example:443/x", "https://cdn.example/x"),
+        ] {
+            assert_eq!(
+                root.download_address(wasm_url).unwrap(),
+                expected,
+                "{wasm_url:?}"
+            );
+        }
+    }
+
     #[specforge_test_macros::test(
         behavior = "support_private_registries",
         verify = "a download from another origin carries no credential"
