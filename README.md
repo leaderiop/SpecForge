@@ -149,7 +149,7 @@ Four problems a human reviewer would probably miss:
 | `W007` | An event that nothing produces | The same typo, seen from the other side |
 | `E006` | A rule with a name but no guarantee | "Refunds never exceed the captured amount" isn't checkable until it says *what* never exceeds *what* |
 
-Errors always fail the check. Warnings fail it too with `specforge check --strict`, which is what you run in CI.
+Errors always fail the check. Warnings fail it too with `specforge check --strict`, which gates spec consistency in CI. To gate test evidence too, run `specforge collect --yes` followed by `specforge analyze coverage --strict`; see the [Rust CI example](docs/guides/rust-test-tracing.md#5-gate-test-evidence-in-ci).
 
 The agent fixes all four and runs the check again: `0 errors, 0 warnings, 0 infos`. The spec is now consistent, but nothing is *proven* yet. That's the tests' job: each test names the promise it proves, `specforge collect` runs them, and `specforge review` shows what's covered and what's still open.
 

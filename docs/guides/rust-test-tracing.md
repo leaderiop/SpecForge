@@ -35,6 +35,7 @@ specforge add @specforge/cargo-test   # also enables @specforge/testing
 
 ```spec
 behavior create_user "Create User" {
+  category users
   contract "..."
   verify unit "rejects a duplicate email"
   verify unit "stores a hashed password"
@@ -140,7 +141,8 @@ usually a typo or a reworded statement, is A016.
 
 - **Generated files:** `specforge-report.json` and `.specforge/` are
   generated. `specforge init` adds them to `.gitignore`.
-- **CI:** there's no terminal to ask, so pass `--yes`, or run `cargo test`
+- **CI:** see the [complete example below](#5-gate-test-evidence-in-ci).
+  There's no terminal to ask, so pass `--yes`, or run `cargo test`
   yourself and then `specforge collect --no-run` to record the report it wrote.
   To keep tests linked by name, save the output where `collect` keeps it:
   `cargo test --workspace --no-fail-fast | tee target/specforge/cargo-test.stdout.txt`
@@ -159,6 +161,71 @@ usually a typo or a reworded statement, is A016.
   its own report, and a run replaces the previous run's reports. Linking by
   name reads `cargo test`'s output format, so it doesn't apply to nextest
   runs.
+
+## 5. Gate test evidence in CI
+
+`specforge check --strict` checks spec consistency, not whether tests passed.
+`specforge collect --yes` runs the tests and writes `specforge-report.json`;
+it can exit 0 even when a test fails. **`specforge analyze coverage --strict`
+is the test-evidence gate:** it reads that report, prints the findings, and
+exits 1 for errors or warnings.
+
+To see the difference, use the `create_user` behavior from step 2 and add
+this intentionally failing test to `tests/spec_evidence.rs`. It uses the
+name-based linking from step 3, so no test attribute or dev-dependency is needed:
+
+```rust
+#[test]
+#[allow(non_snake_case)]
+fn create_user__rejects_a_duplicate_email() {
+    panic!("intentional failure to exercise the CI gate");
+}
+```
+
+Leave `stores a hashed password` without a test. In a Rust project with the
+extensions enabled as above, save this as `.github/workflows/spec-evidence.yml`:
+
+```yaml
+name: Spec evidence
+on: [push, pull_request]
+
+jobs:
+  spec-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install SpecForge
+        run: cargo install --git https://github.com/leaderiop/SpecForge --locked specforge-cli
+      - name: Check spec consistency
+        run: specforge check --strict
+      - name: Run tests and generate the report
+        run: specforge collect --yes
+      - name: Gate test evidence
+        run: specforge analyze coverage --strict
+```
+
+Assuming the spec has no other diagnostics and collection succeeds:
+
+| Step | Result with the intentionally failing test |
+|---|---|
+| `check --strict` | Exit 0: the spec is consistent. |
+| `collect --yes` | Exit 0: the failed test is recorded in `specforge-report.json`. |
+| `analyze coverage --strict` | Exit 1: A014 reports the failed linked test; A015 lists both obligations because neither has a passing test. This step fails the job. |
+
+Now replace the `panic!` with a passing assertion and collect again. A014
+disappears, but A015 still lists `stores a hashed password`. Without
+`--strict`, that warning alone exits 0; with `--strict`, it exits 1. Add a
+passing `create_user__stores_a_hashed_password` test and collect again to
+clear both findings. Replace these demonstration tests with real assertions
+about the behavior before using this as evidence of correctness.
+
+The gate prints its findings before exiting, so a failed job still shows
+what is unproven. Collection errors (for example, tests that do not compile
+and produce no report) fail the collection step instead. Keep your normal
+`cargo test` CI gate too: a failing test that is not linked to a spec entity
+is not an A014 finding. This example gates linked evidence, not every test
+in the workspace.
 
 ## Troubleshooting
 
