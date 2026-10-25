@@ -1200,7 +1200,8 @@ behavior configure_registries "Configure Registries" {
   contract   """
     At startup, the compiler MUST parse the registries array from
     specforge.json into RegistryConfig entries. Each entry MUST have an
-    alias (unique identifier) and a url naming the registry's root (an http
+    alias (unique identifier, holding no control or bidirectional character:
+    one that does is E067) and a url naming the registry's root (an http
     or https URL with no query, fragment or user info; the client adds the
     protocol's version prefix /v1, and a url ending in it is refused with
     E067 naming the root), and MAY have a scope_filter, which MUST be a
@@ -1230,6 +1231,8 @@ behavior configure_registries "Configure Registries" {
     exact version already installed asks none and shows none; a dry run of
     a registry package asks its registry for the package's manifest and
     shows them.
+    An entry's text is quoted printable in every diagnostic about the
+    configuration.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "a registry operation opens its registry once: the configuration and the credential store are read before any request, and their refusal is the operation's"

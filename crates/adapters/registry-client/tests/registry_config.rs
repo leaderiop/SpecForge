@@ -239,7 +239,6 @@ fn a_scope_filter_that_is_no_scope_is_e067_naming_the_scope_to_write() {
     }
 }
 
-#[ignore = "flipped by T5"]
 #[specforge_test_macros::test(
     behavior = "configure_registries",
     verify = "an entry whose alias holds a control character is E067, and an entry's text is quoted printable"

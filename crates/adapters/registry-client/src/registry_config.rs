@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_package::Scope;
 use specforge_registry_wire::RegistryRoot;
@@ -58,10 +59,19 @@ impl std::fmt::Debug for RegistryCredential {
 /// Returns a tuple of (parsed registries, diagnostics).
 /// Produces an I003 info diagnostic when no default registry is configured.
 /// Produces a W-level diagnostic for duplicate aliases.
-/// An entry that can't be read (its `url` isn't a registry root, its `scope_filter` isn't a scope) is E067
-/// and is left out;
+/// An entry that can't be read (its `url` isn't a registry root, its `scope_filter` isn't a scope, its `alias`
+/// holds a control character) is E067 and is left out;
 /// the caller refuses the configuration (`specforge_ops_registry::configured`).
+/// An entry's text is quoted printable in every diagnostic (ADR 0245).
 pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, Vec<Diagnostic>) {
+    let (registries, mut diagnostics) = read_registries(config_json);
+    for diagnostic in &mut diagnostics {
+        diagnostic.message = printable(&diagnostic.message).into_owned();
+    }
+    (registries, diagnostics)
+}
+
+fn read_registries(config_json: &str) -> (Vec<RegistryConfig>, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
 
     let parsed: serde_json::Value = match serde_json::from_str(config_json) {
@@ -108,6 +118,15 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
 
     for (i, entry) in registries_array.iter().enumerate() {
         match serde_json::from_value::<RegistryConfig>(entry.clone()) {
+            Ok(reg) if printable(&reg.alias) != reg.alias.as_str() => {
+                diagnostics.push(Diagnostic::new(
+                    codes::E067,
+                    format!(
+                        "Failed to parse registry entry at index {i}: its alias '{}' holds a control character",
+                        reg.alias
+                    ),
+                ));
+            }
             Ok(reg) => {
                 if !seen_aliases.insert(reg.alias.clone()) {
                     diagnostics.push(
