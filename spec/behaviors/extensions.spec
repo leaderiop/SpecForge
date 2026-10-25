@@ -1242,6 +1242,7 @@ behavior configure_registries "Configure Registries" {
   verify unit "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
   verify unit "a registries entry that can't be read refuses every registry operation with E067 before any request"
   verify unit "a scope_filter that is not a scope refuses every registry operation with E067 naming the scope to write"
+  verify unit "an entry whose alias holds a control character is E067, and an entry's text is quoted printable"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted, root_urls, unreadable_entry_refused"
 }
 

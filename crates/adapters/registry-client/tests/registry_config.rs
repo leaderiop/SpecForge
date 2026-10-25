@@ -238,3 +238,31 @@ fn a_scope_filter_that_is_no_scope_is_e067_naming_the_scope_to_write() {
         }
     }
 }
+
+#[ignore = "flipped by T5"]
+#[specforge_test_macros::test(
+    behavior = "configure_registries",
+    verify = "an entry whose alias holds a control character is E067, and an entry's text is quoted printable"
+)]
+fn a_registries_entry_is_quoted_printable_and_an_alias_with_a_control_character_is_e067() {
+    use specforge_common::remedy::printable;
+    let alias = r#"{"registries": [{"alias": "ev\u001b]0;T\u0007il", "url": "https://r.example", "default_registry": true}]}"#;
+    let (registries, diagnostics) = parse_registries_from_config(alias);
+    assert!(registries.is_empty(), "{registries:?}");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.code == "E067" && d.message.contains("alias")),
+        "{diagnostics:?}"
+    );
+
+    let url = r#"{"registries": [{"alias": "a", "url": "http://h\u001b]0;T\u0007/x", "default_registry": true}]}"#;
+    let (_, diagnostics) = parse_registries_from_config(url);
+    assert!(
+        diagnostics.iter().any(|d| d.code == "E067"),
+        "{diagnostics:?}"
+    );
+    for d in diagnostics {
+        assert_eq!(printable(&d.message), d.message, "{d:?}");
+    }
+}
