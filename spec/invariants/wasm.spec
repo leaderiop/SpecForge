@@ -11,6 +11,7 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
   risk      high
   verify property "no extension can read or write outside its sandbox boundaries"
   verify unit "sandbox violation traps the extension and emits a diagnostic"
+  verify integration "no text an extension supplies reaches the terminal as a control sequence"
 }
 
 invariant extension_load_order_determinism "Extension Load Order Determinism" {

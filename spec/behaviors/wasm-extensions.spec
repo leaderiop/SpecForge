@@ -190,6 +190,9 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
   verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+  verify unit "a pass's diagnostics and summary and a validator's verdict are read printable"
+  verify unit "a call failure's text from the guest is written printable in E028"
+  verify unit "a command's output and an MCP tool's answer are read as the extension answered them"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
 }
 

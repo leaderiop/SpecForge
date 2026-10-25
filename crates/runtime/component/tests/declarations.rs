@@ -171,6 +171,48 @@ fn every_sdk_declaration_round_trips_through_the_typed_declaration() {
     }
 }
 
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "every committed blob's declaration loads unchanged by the printable read"
+)]
+fn every_committed_blob_loads_unchanged_by_the_printable_read() {
+    let runtime = ComponentRuntime::new();
+    for blob in sdk_blobs() {
+        let Guest::Sdk { legacy_keys } = blob.guest else {
+            unreachable!("sdk_blobs lists SDK blobs");
+        };
+        runtime
+            .load(blob.name, &blob.read())
+            .unwrap_or_else(|e| panic!("{}: {e}", blob.name));
+        let answers = wire_answers(&runtime, blob).unwrap();
+        let text = |file: &str| -> String {
+            let answer = answers.iter().find(|a| a.file == file).unwrap();
+            String::from_utf8(answer.bytes.clone()).unwrap()
+        };
+        let loaded = specforge_wasm::protocol::load_declaration(&runtime, blob.name)
+            .unwrap_or_else(|e| panic!("{}: {e}", blob.name))
+            .declaration;
+        assert_eq!(
+            loaded.handshake_json(),
+            text("handshake.json"),
+            "{}: handshake",
+            blob.name
+        );
+        for category in DeclaredCategory::ALL {
+            let name = category.name();
+            if legacy_keys.iter().any(|(held, _)| *held == name) {
+                continue;
+            }
+            assert_eq!(
+                loaded.describe_json(category),
+                text(&format!("describe_{name}.json")),
+                "{}: describe {name}",
+                blob.name
+            );
+        }
+    }
+}
+
 fn handshake_protocol(runtime: &ComponentRuntime, name: &str) -> String {
     let request = serde_json::to_vec(&HandshakeRequest {
         host_version: PROTOCOL_VERSION.to_string(),

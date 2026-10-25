@@ -202,6 +202,9 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an unsupported protocol major version fails the load"
   verify unit "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
   verify unit "the SDK's raw category and the host's load parse a category's items through one function"
+  verify unit "every text a declaration holds is read printable, a starter template keeping its newlines and tabs"
+  verify unit "a key a load warning quotes is printable"
+  verify integration "every committed blob's declaration loads unchanged by the printable read"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
@@ -1057,6 +1060,7 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "a download address is its URL's serialization: no control or bidirectional character is kept"
   verify unit "every text a registry error carries is written in its diagnostic printable, whatever the variant"
   verify integration "a download address a registry sends reaches R006 and R009 printable"
+  verify unit "a manifest's declaration is read printable, as a loaded binary's is"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {

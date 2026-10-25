@@ -715,6 +715,25 @@ mod tests {
         }
     }
 
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "a manifest's declaration is read printable, as a loaded binary's is"
+    )]
+    #[ignore = "flipped by T4"]
+    fn a_manifest_is_read_printable() {
+        let manifest = serde_json::json!({
+            "handshake": {"protocol_version": "1.0.0", "name": "@sdk/greet", "version": "1.0.0",
+                "peer_dependencies": [{"name": "@a/b\u{1b}", "version": "1.0.0"}],
+                "sandbox_policy": null, "description": "d\u{1b}]52;c;cm0gLXJmIH4=\u{7}"}
+        });
+        let name = PackageName::parse("@sdk/greet").unwrap();
+        let declaration =
+            read_declaration(&name, &Version::new(1, 0, 0), &manifest.to_string()).unwrap();
+        assert_eq!(declaration.peers()[0].name, "@a/b\\u{1b}");
+        let description = declaration.handshake.description.unwrap();
+        assert!(!description.contains(char::is_control), "{description:?}");
+    }
+
     #[test]
     fn an_unconfigured_project_fails_each_call_with_e063_before_any_request() {
         let dir = tempfile::tempdir().unwrap();

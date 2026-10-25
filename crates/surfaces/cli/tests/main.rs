@@ -32,6 +32,7 @@ mod export_version;
 mod extension_authoring;
 mod extension_origins;
 mod extension_surfaces;
+mod extension_text;
 mod extensions;
 mod file_entry_names;
 mod format;
