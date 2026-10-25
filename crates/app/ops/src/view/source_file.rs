@@ -1,9 +1,10 @@
 //! A spec file a request names (a typed create's `file`, outline's `file`, the fixes' `file_path`): read into its
 //! source key, the path from the project root that the compile and the editor name it by, or refused once
 //! (ADR 0195). Every spelling of one file is that file; the key is what the ledger, the LSP and a span's `file` say.
-//! A refusal names the file as the request spelled it.
+//! A source under a spec root outside the project is named by its absolute key or any spelling of it from the
+//! project root (ADR 0246). A refusal names the file as the request spelled it.
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path};
 
 use specforge_common::SourceRoot;
 
@@ -15,43 +16,35 @@ pub const NOT_A_SOURCE: &str = "not_a_source";
 
 pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
-/// `named`'s source key in `sources`, with `.` and doubled separators gone; `None` when it leaves the project root
-/// (a `..`, or an absolute path elsewhere). A project with no spec root (one assembled in memory) keys its sources
-/// by whatever path they were given, so an absolute path is a key there.
+/// `named`, read from the project root, as the key [`SourceRoot::key`] mints for it: a `.`, a doubled separator and
+/// a `..` applied where they stand, a link keeping its own name (ADR 0246). `None` when that key lies outside both
+/// the project root and the spec root. A project with no root (one assembled in memory) keys its sources by the
+/// absolute path they were given.
 fn key_of(sources: &SourceRoot, named: &str) -> Option<String> {
-    // A `..` anywhere leaves the project root's reading of the name, whatever it lands on.
-    if Path::new(named)
-        .components()
-        .any(|c| c == Component::ParentDir)
-    {
-        return None;
-    }
     let key = sources.key(&sources.base().join(named)).into_string();
-    let mut rebuilt = PathBuf::new();
-    for component in Path::new(&key).components() {
-        match component {
-            Component::Normal(name) => rebuilt.push(name),
-            Component::CurDir => {}
-            Component::RootDir | Component::Prefix(_) if sources.base().as_os_str().is_empty() => {
-                rebuilt.push(component.as_os_str());
-            }
-            _ => return None,
-        }
-    }
-    Some(rebuilt.to_string_lossy().into_owned())
+    let path = Path::new(&key);
+    let inside = if path.is_absolute() {
+        sources.base().as_os_str().is_empty()
+            || (sources.prefix().is_absolute() && path.starts_with(sources.prefix()))
+    } else {
+        !path.components().any(|c| c == Component::ParentDir)
+    };
+    inside.then_some(key)
 }
 
 fn outside(named: &str) -> OpError {
     OpError::new(
         OpErrorKind::InvalidInput,
         NOT_A_SOURCE,
-        format!("'{named}' leaves the project root: a spec file is named from the project root"),
+        format!(
+            "'{named}' lies outside the project root and the spec root: a spec file is named from the project root"
+        ),
     )
     .with_file(named)
 }
 
 impl ProjectView<'_> {
-    /// The source key of the compiled source `named` names. A spelling that leaves the spec root is `not_a_source`
+    /// The source key of the compiled source `named` names. A spelling whose key lies outside the project root and the spec root is `not_a_source`
     /// (kind `InvalidInput`); any other that is none of the compile's sources (missing, a directory, not a `.spec`
     /// file, excluded) is `file_not_found`. Reads no file.
     pub fn source(&self, named: &str) -> Result<String, OpError> {

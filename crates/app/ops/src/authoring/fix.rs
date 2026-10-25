@@ -139,7 +139,7 @@ impl Offer {
 /// `query.entity` the graph lacks is [`crate::view::not_found`] (E003),
 /// refused before any stub is planned. A `query.file` is read into its source key by
 /// [`ProjectView::source`](crate::view::ProjectView::source) (ADR 0195): every spelling of a source is that
-/// source, and one that is no source is refused (`file_not_found`, or `not_a_source` outside the spec root).
+/// source, and one that is no source is refused (`file_not_found`, or `not_a_source` when its key lies outside the project root and the spec root).
 pub fn fixes(
     navigator: &Navigator<'_>,
     diagnostics: &[Diagnostic],

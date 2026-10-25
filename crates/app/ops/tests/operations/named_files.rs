@@ -191,12 +191,12 @@ fn the_view_reads_every_spelling_into_its_source_key() {
 
 #[specforge_test_macros::test(
     behavior = "read_a_named_spec_file",
-    verify = "a spelling that leaves the project root is not_a_source"
+    verify = "a spelling whose key lies outside the project root and the spec root is not_a_source"
 )]
-fn the_view_refuses_a_spelling_outside_the_project_root() {
+fn the_view_refuses_a_spelling_outside_both_roots() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);
-    for named in ["../x.spec", "spec/sub/../a.spec", "/elsewhere/x.spec"] {
+    for named in ["../x.spec", "/elsewhere/x.spec"] {
         for refused in [view.source(named), view.source_place(named)] {
             let error = refused.unwrap_err();
             assert_eq!(
@@ -320,7 +320,6 @@ fn outside_project(link: bool) -> (tempfile::TempDir, specforge_project::Compile
     behavior = "read_a_named_spec_file",
     verify = "a source under a spec root outside the project reads by its key and every spelling of it from the project root"
 )]
-#[ignore = "flipped by T3"]
 fn the_view_reads_a_source_under_an_outside_spec_root_by_every_spelling() {
     for link in [false, true] {
         let (dir, project) = outside_project(link);
@@ -361,7 +360,6 @@ fn the_view_reads_a_source_under_an_outside_spec_root_by_every_spelling() {
     behavior = "read_a_named_spec_file",
     verify = "a spelling with a .. reads as the file it lands on"
 )]
-#[ignore = "flipped by T3"]
 fn a_dotdot_that_stays_inside_reads_as_its_key() {
     let (_dir, project) = spec_dir_project();
     assert_eq!(

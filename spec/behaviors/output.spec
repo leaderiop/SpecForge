@@ -462,16 +462,18 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
     fixes' file_path) MUST be read into its source key, the path from the
     project root that the compile and the editor name it by (ADR 0242): every
     spelling of one file is that file (a leading or inner ., a doubled
-    separator, its absolute path under the project root). A spelling that
-    leaves the project root (a .. or an absolute path elsewhere) MUST be
-    refused as not_a_source. A read of a file that is none of the compiled
+    separator, its absolute path under the project root). A spelling is
+    read from the project root into the key the source root mints for it (a ..
+    applied where it stands); one whose key lies outside both the project root
+    and the spec root MUST be refused as not_a_source; a source under a spec root
+    outside the project is named by its absolute key or any spelling of it. A read of a file that is none of the compiled
     sources, the spec root's own spelling of one included, MUST be
     file_not_found with no suggestion; a create MUST be refused as
     not_a_source unless the file is one discovery would keep. A refusal MUST
     name the file as the request spelled it.
   """
   verify unit "every spelling of a spec file under the project root reads as its source key"
-  verify unit "a spelling that leaves the project root is not_a_source"
+  verify unit "a spelling whose key lies outside the project root and the spec root is not_a_source"
   verify unit "a read of a file that is no compiled source is file_not_found"
   verify unit "a refusal of a named spec file names the file as the request spelled it"
   verify unit "a spec file is named from the project root, as every document names it"

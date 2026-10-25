@@ -83,7 +83,7 @@ pub struct OutlineMethod {
 /// `file` is read into its source key by [`ProjectView::source`](crate::view::ProjectView::source)
 /// (ADR 0195): `./a.spec` is `a.spec`. A refusal when `file` names none of the compile's sources (a file
 /// that does not exist, a directory, `specforge.json` or any non-`.spec` file, one `exclude` leaves out:
-/// `file_not_found`) or leaves the spec root (`not_a_source`). A source with no entity, or one that could
+/// `file_not_found`) or its key lies outside the project root and the spec root (`not_a_source`). A source with no entity, or one that could
 /// not be read (E025), has an empty outline (ADR 0116).
 pub fn outline(nav: &Navigator<'_>, file: &str) -> Result<Vec<OutlineEntry>, OpError> {
     let key = nav.view.source(file)?;

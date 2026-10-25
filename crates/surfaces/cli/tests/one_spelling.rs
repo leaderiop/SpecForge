@@ -53,7 +53,6 @@ fn check_names_a_file_as_format_does() {
     behavior = "create_entity",
     verify = "new writes into a spec root outside the project by the file check names"
 )]
-#[ignore = "flipped by T3"]
 fn new_writes_into_an_outside_spec_root_by_the_file_check_names() {
     let outside = tempfile::TempDir::new().unwrap();
     let outside_root = fs::canonicalize(outside.path()).unwrap();
