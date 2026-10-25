@@ -2072,11 +2072,14 @@ The registry's answer isn't one the registry protocol defines for that request:
 a body that isn't the request's JSON (such as a publisher signature that isn't
 an Ed25519 signature object, or a publish receipt that describes another upload
 than the one sent), a 404 without the protocol's NOT_FOUND error (no registry
-serves that address: the configured `url` isn't a SpecForge registry's root), or
-a download URL that is neither an `http`/`https` URL nor a path at the
-registry's root. The registry is broken, or the URL isn't a SpecForge registry's
-root. Nothing is installed and no key is pinned, and `--allow-unsigned` doesn't
-accept such a package. Check the registry and its `url` in `specforge.json`.
+serves that address: the configured `url` isn't a SpecForge registry's root), a
+download URL that is neither an `http`/`https` URL nor a path at the registry's
+root, or an answer longer than the request admits (a download longer than the
+`size_bytes` its reply declares, or any answer over 64 MiB, the largest package
+a registry accepts; it is refused before more of it is read). The registry is
+broken, or the URL isn't a SpecForge registry's root. Nothing is installed and
+no key is pinned, and `--allow-unsigned` doesn't accept such a package. Check
+the registry and its `url` in `specforge.json`.
 
 Owner: core
 Level: error

@@ -51,7 +51,8 @@ binary is downloaded**, and `specforge add --dry-run` runs them too:
    `specforge.lock` records for it. With neither, the first verified key is
    trusted on first use. The key is pinned in both places when the install is
    written; an install that is refused or fails pins nothing.
-3. **Integrity** — the downloaded wasm bytes must match the `sha256` the
+3. **Integrity** — the downloaded wasm bytes, no more than the `size_bytes` the
+   registry declares (64 MiB at most, R009), must match the `sha256` the
    registry reports, which the signature covered, so it covers the bytes.
 4. **Declaration** — once loaded, the binary's own declaration must equal the
    served one, field for field; the peers the served one declares are what the
@@ -73,6 +74,7 @@ it can only replay previously signed packages (see [residual risks](#residual-ri
 | Package unsigned, but a key is pinned or locked for its name | **Always refused** ([R-TRUST-007](diagnostics.md#r-trust-007)) before the download; `--dry-run` reports it; neither `--allow-unsigned` nor `--yes` accepts it |
 | Signature doesn't verify (other digests or a swapped manifest) | **Always refused** ([R-TRUST-002](diagnostics.md#r-trust-002)) before the download; `--dry-run` reports it: `--allow-unsigned` does not bypass a broken signature |
 | Registry answer isn't the protocol's (e.g. a signature that isn't one, or a 404 without the protocol's NOT_FOUND error: the url isn't a registry's root) | **Always refused** ([R009](diagnostics.md#r009)), before any key is pinned |
+| Download longer than its reply declares, or any registry answer over 64 MiB | **Always refused** ([R009](diagnostics.md#r009)) before more of it is read |
 | The version `specforge.lock` pins, served as other bytes | **Always refused** ([R014](diagnostics.md#r014)) before the download and before any key question; `--yes` does not accept it; `--dry-run` reports it. Remove the extension and add it again to take the new bytes |
 | Key differs from the pinned key | Refused with both key ids before the download; `--dry-run` reports it; interactive re-pin offered (`y/N`); `--yes` accepts non-interactively for CI |
 | Key differs from the key `specforge.lock` records (no pin of yours) | Refused like a pinned key change, naming `specforge.lock`; `--yes` or a yes at the prompt accepts it |
