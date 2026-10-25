@@ -621,7 +621,7 @@ fn read_declaration(
     if manifest.trim().is_empty() {
         return Err(unreadable("the registry served none".to_string()));
     }
-    let value: serde_json::Value =
+    let mut value: serde_json::Value =
         serde_json::from_str(manifest).map_err(|e| unreadable(e.to_string()))?;
     if value.get("manifestVersion").is_some() {
         return Err(unreadable(
@@ -632,6 +632,8 @@ fn read_declaration(
              the declaration it reads from the binary"
         )));
     }
+    // As a loaded binary's declaration is read (ADR 0244): its peers go into the lock.
+    specforge_common::remedy::hold_printable(&mut value, specforge_common::remedy::DECLARED_LINES);
     serde_json::from_value(value).map_err(|e| unreadable(e.to_string()))
 }
 
@@ -719,7 +721,6 @@ mod tests {
         behavior = "check_registry_reply",
         verify = "a manifest's declaration is read printable, as a loaded binary's is"
     )]
-    #[ignore = "flipped by T4"]
     fn a_manifest_is_read_printable() {
         let manifest = serde_json::json!({
             "handshake": {"protocol_version": "1.0.0", "name": "@sdk/greet", "version": "1.0.0",

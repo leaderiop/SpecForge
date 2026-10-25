@@ -1039,7 +1039,8 @@ behavior check_registry_reply "Check Registry Reply" {
     run MUST refuse it from the published manifest; no flag or consent
     accepts it, and the lock is left as it was. A lock entry that pins no
     hash pins no bytes.
-    A refused reply pins no key and installs nothing.
+    A refused reply pins no key and installs nothing. A served manifest is
+    read as a declaration printable, as the binary's is (ADR 0244).
     Text the registry supplies (an error's message, a reply's or a served
     manifest's name and version, a digest, a download address) MUST be
     written in a diagnostic printable: each control character and
