@@ -5,8 +5,8 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use specforge_package::{PackageName, Version};
-use specforge_registry_wire::TokenVerified;
 use specforge_registry_wire::address::{Endpoint, HEALTH};
+use specforge_registry_wire::{MAX_PACKAGE_BYTES, TokenVerified};
 use std::sync::Arc;
 
 use crate::state::AppState;
@@ -27,7 +27,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(&version, get(read::get_package_version))
         .route(
             &version,
-            put(write::publish_package).layer(DefaultBodyLimit::max(64 * 1024 * 1024)),
+            put(write::publish_package).layer(DefaultBodyLimit::max(MAX_PACKAGE_BYTES as usize)),
         )
         .route(&version, delete(write::yank_package))
         .route(&Endpoint::Download.route(), get(read::download_package))

@@ -40,7 +40,7 @@ pub enum RegistryError {
         message: String,
     },
     /// The registry answered with a body that isn't the wire type of the call: a malformed publisher signature
-    /// among them (R009).
+    /// among them, or a body longer than the call admits (ADR 0250) (R009).
     InvalidReply {
         subject: String,
         message: String,
@@ -111,7 +111,7 @@ impl RegistryError {
             RegistryError::InvalidReply { subject, message } => Diagnostic::new(
                 codes::R009,
                 format!(
-                    "the registry's answer for {subject} is not the registry protocol's JSON: {message}"
+                    "the registry's answer for {subject} is not an answer the registry protocol defines: {message}"
                 ),
             )
             .with_suggestion(

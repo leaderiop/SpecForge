@@ -135,6 +135,14 @@ fn the_package() -> (PackageName, Version) {
     )
 }
 
+/// The error of `answer`; its Ok is never printed (it may be 64 MiB).
+fn refused<T>(answer: Result<T, RegistryError>) -> RegistryError {
+    match answer {
+        Err(error) => error,
+        Ok(_) => panic!("the answer was read, not refused"),
+    }
+}
+
 fn r009(error: RegistryError) -> String {
     let diagnostic = error.to_diagnostic();
     assert_eq!(diagnostic.code, "R009", "{diagnostic:?}");
@@ -154,10 +162,7 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = client
-        .download(&metadata.wasm_url, &registry, None)
-        .err()
-        .expect("a refusal");
+    let error = refused(client.download(&metadata.wasm_url, &registry, None));
     let message = r009(error);
     assert!(
         message.contains("10 bytes") && message.contains("size_bytes"),
@@ -178,10 +183,7 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = client
-        .download(&metadata.wasm_url, &registry, None)
-        .err()
-        .expect("a refusal");
+    let error = refused(client.download(&metadata.wasm_url, &registry, None));
     let message = r009(error);
     assert!(
         message.contains("10 bytes") && message.contains("size_bytes"),
@@ -193,7 +195,6 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     behavior = "check_registry_reply",
     verify = "a download whose reply declares no size is held to 64 MiB, the largest package a registry accepts"
 )]
-#[ignore = "flipped by T2"]
 fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     let registry = serve(
         Body::Length(metadata_json(None).into_bytes()),
@@ -202,10 +203,7 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = client
-        .download(&metadata.wasm_url, &registry, None)
-        .err()
-        .expect("a refusal");
+    let error = refused(client.download(&metadata.wasm_url, &registry, None));
     let message = r009(error);
     assert!(message.contains("64 MiB"), "{message}");
 }
@@ -214,7 +212,6 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     behavior = "check_registry_reply",
     verify = "a registry answer larger than 64 MiB is refused with R009"
 )]
-#[ignore = "flipped by T2"]
 fn a_registry_answer_larger_than_64_mib_is_refused() {
     let head = metadata_json(None);
     let head = head.strip_suffix('}').unwrap();
@@ -228,10 +225,7 @@ fn a_registry_answer_larger_than_64_mib_is_refused() {
         Body::zeros(0),
     );
     let (name, version) = the_package();
-    let error = HttpRegistryClient::new()
-        .metadata(&name, &version, &registry, None)
-        .err()
-        .expect("a refusal");
+    let error = refused(HttpRegistryClient::new().metadata(&name, &version, &registry, None));
     let message = r009(error);
     assert!(message.contains("64 MiB"), "{message}");
 }
@@ -240,7 +234,6 @@ fn a_registry_answer_larger_than_64_mib_is_refused() {
     behavior = "retry_registry_request",
     verify = "a registry answer still arriving after the client's timeout is R004"
 )]
-#[ignore = "flipped by T2"]
 fn a_body_still_arriving_after_the_timeout_is_r004() {
     let registry = serve(
         Body::Length(metadata_json(None).into_bytes()),
@@ -255,10 +248,7 @@ fn a_body_still_arriving_after_the_timeout_is_r004() {
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let started = Instant::now();
-    let error = client
-        .download(&metadata.wasm_url, &registry, None)
-        .err()
-        .expect("a refusal");
+    let error = refused(client.download(&metadata.wasm_url, &registry, None));
     assert_eq!(error.to_diagnostic().code, "R004", "{error:?}");
     assert!(started.elapsed() < Duration::from_secs(3));
 }

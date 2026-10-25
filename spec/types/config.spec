@@ -71,7 +71,8 @@ type VersionList "Version List" {
 // that isn't a PackageSignature makes the reply unreadable (R009). wasm_url
 // is an http or https URL or a path at the registry's root
 // (/v1/packages/{name}/{version}/download, what the reference server answers);
-// anything else makes the reply unreadable (R009).
+// anything else makes the reply unreadable (R009). size_bytes is the binary's
+// length: a download is held to it, and to 64 MiB.
 type PackageMetadata "Package Metadata" {
   name         string
   version      string

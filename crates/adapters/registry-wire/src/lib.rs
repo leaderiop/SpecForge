@@ -21,6 +21,10 @@ pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex}
 use serde::{Deserialize, Serialize};
 use specforge_package::{PackageName, Version};
 
+/// The largest package binary a registry stores, and the most bytes any registry answer may be: the reference
+/// server's upload limit (ADR 0250). A client reads no more of an answer than this.
+pub const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024;
+
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VersionList {
@@ -35,6 +39,7 @@ pub struct PackageMetadata {
     pub version: String,
     /// SHA-256 of the binary, lowercase hex.
     pub sha256: String,
+    /// The binary's length; a download is held to it, and to [`MAX_PACKAGE_BYTES`] (ADR 0250).
     #[serde(default)]
     pub size_bytes: u64,
     /// From the declaration's handshake.
@@ -233,6 +238,11 @@ impl ErrorBody {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn the_package_ceiling_is_the_servers_upload_limit() {
+        assert_eq!(MAX_PACKAGE_BYTES, 64 * 1024 * 1024);
+    }
 
     /// `value` serializes to `expected` and `expected` reads back as `value`.
     fn is_this_json<T>(value: &T, expected: serde_json::Value)

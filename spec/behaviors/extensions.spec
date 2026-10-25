@@ -1004,6 +1004,7 @@ behavior check_registry_reply "Check Registry Reply" {
     declaration_matches    "A binary whose declaration differs from the served one is refused with R-TRUST-004 naming the first differing category"
     locked_bytes_held      "A reply for the version specforge.lock pins whose SHA-256 is not the one the lock pins is refused with R014 before the binary is downloaded, its signature checked or a key change asked; a dry run refuses it from the published manifest"
     answer_from_registry   "A 404 without the protocol's NOT_FOUND error, and a wasm_url that is neither an http or https URL nor a path at the registry's root, are refused with R009: no registry gave that answer"
+    answer_within_size     "A registry answer longer than 64 MiB is refused with R009 as soon as its Content-Length or its bytes say so, and no more of it is read; an answer still arriving after the client's timeout is R004"
   }
   contract   """
     A reply that isn't the registry protocol's JSON for the request (a
@@ -1047,6 +1048,9 @@ behavior check_registry_reply "Check Registry Reply" {
     bidirectional control as its \u{..} escape. A registry error's
     diagnostic is printable whole: every text it carries, whatever the
     variant.
+    No registry answer is held whole past 64 MiB, the most a registry
+    stores: the client reads one answer through one bounded reader (ADR
+    0250).
   """
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
