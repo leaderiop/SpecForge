@@ -169,6 +169,8 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
   verify unit "mark computes SHA-256 content hash"
   verify unit "mark records the path root-relative with / separators"
   verify unit "mark refuses a file outside the project root"
+  verify unit "mark reads an absolute path under the project root as its key"
+  verify unit "mark refuses a directory as invalid input on source_file"
 }
 
 behavior discover_inference_sources "Discover Inference Sources" {

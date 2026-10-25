@@ -635,6 +635,7 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
   """
   verify unit "the tightest match wins: exact, else under the directory, else ending with the path"
   verify unit "each entity carries its kind when the graph declares it"
+  verify unit "a file_path outside the project root is refused as invalid_input on file_path"
 }
 
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {

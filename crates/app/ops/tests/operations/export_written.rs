@@ -248,6 +248,18 @@ fn a_directory_that_is_a_file_is_invalid_input() {
     );
 }
 
+#[ignore = "flipped by T5"]
+#[test]
+fn a_refused_directory_is_named_as_the_call_spelled_it() {
+    let project = project();
+    let refusal = refused(write(&project, Format::Brief, "../x"));
+    assert!(
+        refusal.error.message.starts_with("'../x' resolves to "),
+        "{}",
+        refusal.error.message
+    );
+}
+
 #[test]
 fn a_view_with_no_root_is_refused_about_the_directory() {
     let project = project();

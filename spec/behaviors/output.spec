@@ -482,6 +482,31 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
   verify unit "a spelling with a .. reads as the file it lands on"
 }
 
+// A source-code path a request names (specforge_ops::view::ProjectView::source_path and source_root, ADR 0253).
+behavior read_a_named_source_path "Read a Source-Code Path a Request Names" {
+  features   [mcp_core_tools]
+  invariants [diagnostic_determinism, mcp_served_project_consistency]
+  category   query
+  contract   """
+    A source-code path a request names (infer_session's source_file and
+    source_roots, find_spec_for_source's file_path, the infer prompt's file
+    scope) MUST be read from the project root into its key by the source path
+    rule: every spelling of one path is that path (a leading or inner ., a
+    doubled separator, a backslash, its absolute path under the project root).
+    It is read as a spec file a request names is (a .. applied where it
+    stands); one whose key lies outside the project root MUST be refused as
+    invalid input on its argument, in the sentence a spec file's is refused
+    in, naming the project root; one that names nothing MUST be refused too.
+    The reader opens no file: a name whose file lands outside the project
+    through a link is refused where it is opened, saying where it lands and
+    what bounds the request.
+  """
+  verify unit "every spelling of a source-code path under the project root reads as its key"
+  verify unit "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
+  verify unit "a source-code path that names nothing is refused"
+  verify unit "infer_session, find_spec_for_source and the infer file scope read one table of spellings alike"
+}
+
 // Inspect (specforge_ops::read::inspect): one entity's facts. specforge.inspect,
 // the context prompt and the LSP hover render them.
 behavior inspect_entity_facts "Inspect an Entity's Facts" {

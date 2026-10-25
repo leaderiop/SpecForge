@@ -66,6 +66,7 @@ mod migrate_titles;
 mod model;
 mod multi_entity;
 mod named_files;
+mod named_source_paths;
 mod navigate;
 mod obligations_member;
 mod options;
