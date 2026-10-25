@@ -1034,9 +1034,11 @@ behavior check_registry_reply "Check Registry Reply" {
     hash pins no bytes.
     A refused reply pins no key and installs nothing.
     Text the registry supplies (an error's message, a reply's or a served
-    manifest's name and version, a digest) MUST be written in a diagnostic
-    printable: each control character and bidirectional control as its
-    \u{..} escape.
+    manifest's name and version, a digest, a download address) MUST be
+    written in a diagnostic printable: each control character and
+    bidirectional control as its \u{..} escape. A registry error's
+    diagnostic is printable whole: every text it carries, whatever the
+    variant.
   """
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"

@@ -48,19 +48,31 @@ pub enum RegistryError {
 }
 
 impl RegistryError {
-    /// Convert this error into a `Diagnostic`.
+    /// This error as a diagnostic: its variant's sentence, then its whole message and suggestion written
+    /// printable (`remedy::printable`, ADR 0245), so every field of every variant reaches each surface as
+    /// harmless text.
     pub fn to_diagnostic(&self) -> Diagnostic {
+        let mut diagnostic = self.worded();
+        diagnostic.message = printable(&diagnostic.message).into_owned();
+        diagnostic.suggestion = diagnostic
+            .suggestion
+            .map(|suggestion| printable(&suggestion).into_owned());
+        diagnostic
+    }
+
+    /// The variant's code and sentence with its fields as they are; only `to_diagnostic` hands it out.
+    fn worded(&self) -> Diagnostic {
         match self {
             RegistryError::Unauthorized { guidance } => Diagnostic::new(
                 codes::R001,
-                format!("Registry authentication failed: {}", printable(guidance)),
+                format!("Registry authentication failed: {guidance}"),
             )
             .with_suggestion(
                 "Log in: `specforge login --registry <alias> --token <TOKEN>`.".to_string(),
             ),
             RegistryError::Forbidden { guidance } => Diagnostic::new(
                 codes::R002,
-                format!("Registry access forbidden: {}", printable(guidance)),
+                format!("Registry access forbidden: {guidance}"),
             )
             .with_suggestion(
                 "Check your permissions for this registry or package scope.".to_string(),
@@ -76,7 +88,7 @@ impl RegistryError {
                     )
             }
             RegistryError::NetworkError { message } => {
-                Diagnostic::new(codes::R005, format!("Registry network error: {}", printable(message)))
+                Diagnostic::new(codes::R005, format!("Registry network error: {message}"))
                     .with_suggestion("Check your network connection, then retry.".to_string())
             }
             RegistryError::NotFound { specifier } => {
@@ -90,7 +102,7 @@ impl RegistryError {
             .with_suggestion("Bump the version number before publishing.".to_string()),
             RegistryError::Refused { code, message } => Diagnostic::new(
                 codes::R008,
-                format!("the registry refused the request ({code}): {}", printable(message)),
+                format!("the registry refused the request ({code}): {message}"),
             )
             .with_suggestion(
                 "fix what the registry names and try again; sending the same request again is refused the same way"
@@ -99,8 +111,7 @@ impl RegistryError {
             RegistryError::InvalidReply { subject, message } => Diagnostic::new(
                 codes::R009,
                 format!(
-                    "the registry's answer for {subject} is not the registry protocol's JSON: {}",
-                    printable(message)
+                    "the registry's answer for {subject} is not the registry protocol's JSON: {message}"
                 ),
             )
             .with_suggestion(

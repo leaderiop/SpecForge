@@ -185,7 +185,6 @@ fn a_registry_diagnostic_writes_the_registrys_text_printable() {
     }
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test_macros::test(
     behavior = "check_registry_reply",
     verify = "every text a registry error carries is written in its diagnostic printable, whatever the variant"
