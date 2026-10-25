@@ -134,7 +134,7 @@ impl<'a> LockedPin<'a> {
         let Some((locked, pinned)) = self.bytes else {
             return Ok(());
         };
-        if pinned.as_str() == sha256 || locked != version {
+        if pinned.as_str().eq_ignore_ascii_case(sha256) || locked != version {
             return Ok(());
         }
         Err(OpError::coded(
@@ -664,6 +664,12 @@ mod tests {
 
         assert!(admits(pin(&a), "1.0.0", &a).is_ok(), "its bytes");
         assert!(admits(pin(&a), "2.0.0", &b).is_ok(), "another version");
+        assert!(
+            pin(&a)
+                .admits(&name, &v("1.0.0"), &a.as_str().to_uppercase())
+                .is_ok(),
+            "its bytes, described in uppercase"
+        );
         let error = admits(pin(&a), "1.0.0", &b).unwrap_err();
         assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
         assert_eq!(

@@ -167,9 +167,15 @@ impl RegistryRoot {
             wasm_url.to_string()
         };
         match url::Url::parse(&text) {
-            Ok(url) if matches!(url.scheme(), "http" | "https") => Ok(url.into()),
+            Ok(url)
+                if matches!(url.scheme(), "http" | "https")
+                    && url.username().is_empty()
+                    && url.password().is_none() =>
+            {
+                Ok(url.into())
+            }
             _ => Err(format!(
-                "its wasm_url '{wasm_url}' is neither an http or https URL nor a path at the registry's root"
+                "its wasm_url '{wasm_url}' is neither an http or https URL nor a path at the registry's root (a URL carries no credentials)"
             )),
         }
     }
@@ -408,7 +414,14 @@ mod tests {
             root.download_address("https://cdn.example/x").unwrap(),
             "https://cdn.example/x"
         );
-        for wasm_url in ["download", "//cdn/x", "file:///etc/passwd", "ftp://h/x", ""] {
+        for wasm_url in [
+            "download",
+            "//cdn/x",
+            "file:///etc/passwd",
+            "ftp://h/x",
+            "",
+            "https://u:p@cdn/x",
+        ] {
             let why = root.download_address(wasm_url).unwrap_err();
             assert!(
                 why.contains("is neither an http or https URL nor a path at the registry's root"),

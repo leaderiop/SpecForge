@@ -505,8 +505,9 @@ fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
     }
 }
 
-/// `add` of a local file whose bytes spell `version` and `peers`, dry run or not: E072, nothing written.
+/// `add` of a local file whose bytes spell `version` and `peers`, dry run or not: `code`, nothing written.
 fn refused_before_anything_is_written(
+    code: &str,
     version: &str,
     peers: &[specforge_protocol_types::PeerDependency],
 ) {
@@ -539,7 +540,7 @@ fn refused_before_anything_is_written(
 
         let error = add(&request, &crate::registry::Unconfigured("add"), &runtime()).unwrap_err();
 
-        assert_eq!(error.error.code, "E072", "dry run {dry_run}: {error:?}");
+        assert_eq!(error.error.code, code, "dry run {dry_run}: {error:?}");
         assert_eq!(files_under(dir.path()), before, "dry run {dry_run}");
     }
 }
@@ -550,18 +551,18 @@ fn refused_before_anything_is_written(
 )]
 fn a_local_file_declaring_a_version_that_is_no_semver_version_is_refused_before_anything_is_written()
  {
-    refused_before_anything_is_written("0.1.x", &[]);
+    refused_before_anything_is_written("E072", "0.1.x", &[]);
 }
 
 #[specforge_test(
     behavior = "install_wasm_extension",
-    verify = "an add of a local file declaring a peer specforge.lock cannot record is refused (E072) before anything is written"
+    verify = "an add of a local file declaring a peer whose name holds a control character is refused (E027) before anything is written, the peer named escaped"
 )]
-fn a_local_file_declaring_a_peer_the_lock_cannot_record_is_refused_before_anything_is_written() {
+fn a_local_file_declaring_a_peer_with_a_control_character_is_refused_before_anything_is_written() {
     let peer = specforge_protocol_types::PeerDependency {
         name: "@x/y\u{1b}[2J".to_string(),
         version: "^1".to_string(),
         optional: false,
     };
-    refused_before_anything_is_written("0.1.0", &[peer]);
+    refused_before_anything_is_written("E027", "0.1.0", &[peer]);
 }
