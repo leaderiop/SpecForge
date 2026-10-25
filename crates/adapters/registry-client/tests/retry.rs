@@ -133,9 +133,7 @@ fn every_call_is_retried_alike() {
     assert_eq!(count(&client, CallKind::Metadata), 2);
 
     rate_limited(&client, CallKind::Download, 1, 0);
-    retrying
-        .download(&metadata.wasm_url, &registry, None)
-        .unwrap();
+    retrying.download(&metadata, &registry, None).unwrap();
     assert_eq!(count(&client, CallKind::Download), 2);
 
     rate_limited(&client, CallKind::Search, 1, 0);

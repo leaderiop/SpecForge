@@ -324,9 +324,7 @@ fn a_download_address_a_registry_sends_reaches_its_diagnostic_printable() {
     for (wasm_url, enveloped, code) in cases {
         let registry = serving_download_address(wasm_url, enveloped);
         let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-        let error = client
-            .download(&metadata.wasm_url, &registry, None)
-            .unwrap_err();
+        let error = client.download(&metadata, &registry, None).unwrap_err();
         let diagnostic = error.to_diagnostic();
         assert_eq!(diagnostic.code, code, "{diagnostic:?}");
         assert_eq!(

@@ -191,7 +191,8 @@ pub fn configured(
 ///    key the project's lock records, else any: trust on first use) (R-TRUST-001..006), for a signed and an
 ///    unsigned package alike: the store is read whatever the signer (R-TRUST-006). The decision is
 ///    the package's publisher; [`Registry::pin`] writes it once the install is;
-/// 5. the binary hashes to the reply's SHA-256 (R-OPS-002), so the signature covers it.
+/// 5. the binary, no longer than the reply declares (R009), hashes to the reply's SHA-256 (R-OPS-002), so the
+///    signature covers it.
 ///
 /// Steps 1 to 4 are `published` (a dry run); a fetch then downloads for 5. A refused package is never
 /// downloaded (ADR 0213). A fetch writes nothing. The policy runs over any [`RegistryClient`]: HTTP unless
@@ -365,7 +366,7 @@ impl Registry for ConfiguredRegistry {
         } = described;
         let wasm = self
             .client
-            .download(&metadata.wasm_url, registry, credential.as_ref())
+            .download(&metadata, registry, credential.as_ref())
             .map_err(failure)?;
         verify_registry_integrity(&wasm, &metadata.sha256)
             .map_err(|why| OpError::of(OpErrorKind::SchemaMismatch, why))?; // 5: the signature covered this SHA-256

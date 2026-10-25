@@ -151,7 +151,8 @@ invariant registry_integrity "Registry Integrity" {
     produce a hard error diagnostic and abort installation. The hash and,
     for a signed package, its publisher key id MUST be recorded in
     specforge.lock. At the version specforge.lock pins, the bytes installed
-    MUST be the ones it pins.
+    MUST be the ones it pins. A download MUST be no longer than the size
+    the registry declares for it (64 MiB at most).
   """
   risk      high
   verify unit "SHA256 match passes verification"

@@ -188,9 +188,7 @@ fn a_signature_the_client_would_refuse_is_refused_and_the_version_stays_publisha
     let name = PackageName::parse("@test/signed-ext").unwrap();
     let version = Version::parse("1.0.0").unwrap();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let bytes = client
-        .download(&metadata.wasm_url, &registry, None)
-        .unwrap();
+    let bytes = client.download(&metadata, &registry, None).unwrap();
     assert_eq!(&bytes, wasm, "the published bytes");
     assert!(matches!(
         specforge_registry_client::verify_package_signature(&metadata),

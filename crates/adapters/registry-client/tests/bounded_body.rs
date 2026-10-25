@@ -153,7 +153,6 @@ fn r009(error: RegistryError) -> String {
     behavior = "check_registry_reply",
     verify = "a download larger than the size its reply declares is refused with R009 before it is read whole"
 )]
-#[ignore = "flipped by T3"]
 fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     let registry = serve(
         Body::Length(metadata_json(Some(10)).into_bytes()),
@@ -162,7 +161,7 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = refused(client.download(&metadata.wasm_url, &registry, None));
+    let error = refused(client.download(&metadata, &registry, None));
     let message = r009(error);
     assert!(
         message.contains("10 bytes") && message.contains("size_bytes"),
@@ -174,7 +173,6 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
     behavior = "check_registry_reply",
     verify = "a download larger than the size its reply declares is refused with R009 before it is read whole"
 )]
-#[ignore = "flipped by T3"]
 fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     let registry = serve(
         Body::Length(metadata_json(Some(10)).into_bytes()),
@@ -183,7 +181,7 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = refused(client.download(&metadata.wasm_url, &registry, None));
+    let error = refused(client.download(&metadata, &registry, None));
     let message = r009(error);
     assert!(
         message.contains("10 bytes") && message.contains("size_bytes"),
@@ -203,7 +201,7 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
     let client = HttpRegistryClient::new();
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
-    let error = refused(client.download(&metadata.wasm_url, &registry, None));
+    let error = refused(client.download(&metadata, &registry, None));
     let message = r009(error);
     assert!(message.contains("64 MiB"), "{message}");
 }
@@ -248,7 +246,7 @@ fn a_body_still_arriving_after_the_timeout_is_r004() {
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let started = Instant::now();
-    let error = refused(client.download(&metadata.wasm_url, &registry, None));
+    let error = refused(client.download(&metadata, &registry, None));
     assert_eq!(error.to_diagnostic().code, "R004", "{error:?}");
     assert!(started.elapsed() < Duration::from_secs(3));
 }

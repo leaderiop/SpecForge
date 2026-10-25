@@ -155,12 +155,13 @@ pub trait RegistryClient: Send + Sync {
         credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError>;
 
-    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's). `credential` is sent only when
-    /// `wasm_url` has `registry.url`'s origin (scheme, host and port): a download served elsewhere (a CDN)
-    /// never sees the registry's token.
+    /// The binary `metadata` (a [`RegistryClient::metadata`] answer) describes, from its `wasm_url`, at most
+    /// [`PackageMetadata::download_limit`] bytes: a longer one is `InvalidReply` (R009) and is never held whole
+    /// (ADR 0250). `credential` is sent only when `wasm_url` has `registry.url`'s origin (scheme, host and
+    /// port): a download served elsewhere (a CDN) never sees the registry's token.
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError>;

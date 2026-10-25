@@ -111,21 +111,21 @@ impl RegistryClient for HttpRegistryClient {
 
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError> {
+        let wasm_url = metadata.wasm_url.as_str();
         // The registry's token goes to the registry, not to wherever it points a download.
         let credential =
             credential.filter(|c| c.is_for(registry) && registry.url.same_origin(wasm_url));
         let resp = self.send(authorized(self.client.get(wasm_url), credential), wasm_url)?;
         match resp.status() {
-            StatusCode::OK => body_of(resp, MAX_PACKAGE_BYTES, self.timeout).map_err(|why| {
-                unread(why, wasm_url, wasm_url, || {
-                    "the download is larger than 64 MiB (67108864 bytes), the largest package a registry accepts"
-                        .into()
+            StatusCode::OK => {
+                body_of(resp, metadata.download_limit(), self.timeout).map_err(|why| {
+                    unread(why, wasm_url, &subject_of(metadata), || over_text(metadata))
                 })
-            }),
+            }
             _ => Err(failure_of(resp, wasm_url, wasm_url, self.timeout)),
         }
     }
@@ -245,6 +245,32 @@ fn body_of(resp: Response, limit: u64, timeout: Duration) -> Result<Vec<u8>, Unr
         if Instant::now() >= deadline {
             return Err(Unread::Late);
         }
+    }
+}
+
+/// The download of `metadata`'s binary, longer than [`PackageMetadata::download_limit`] allows (ADR 0250): the
+/// error both adapters give, so their text is one.
+pub(crate) fn oversized(metadata: &PackageMetadata) -> RegistryError {
+    unread(
+        Unread::Over,
+        &metadata.wasm_url,
+        &subject_of(metadata),
+        || over_text(metadata),
+    )
+}
+
+fn subject_of(metadata: &PackageMetadata) -> String {
+    format!("{}@{}", metadata.name, metadata.version)
+}
+
+/// What a download over its limit exceeded: the size its reply declares, else the ceiling.
+fn over_text(metadata: &PackageMetadata) -> String {
+    let limit = metadata.download_limit();
+    if metadata.size_bytes == limit {
+        format!("the download is larger than the {limit} bytes its reply declares (size_bytes)")
+    } else {
+        "the download is larger than 64 MiB (67108864 bytes), the largest package a registry accepts"
+            .into()
     }
 }
 

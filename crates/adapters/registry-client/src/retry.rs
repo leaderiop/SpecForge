@@ -128,11 +128,11 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
 
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError> {
-        self.sent(|| self.inner.download(wasm_url, registry, credential))
+        self.sent(|| self.inner.download(metadata, registry, credential))
     }
 
     fn search(

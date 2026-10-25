@@ -292,10 +292,11 @@ impl RegistryClient for MemoryClient {
 
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError> {
+        let wasm_url = metadata.wasm_url.as_str();
         self.read(
             CallKind::Download,
             registry,
@@ -303,13 +304,17 @@ impl RegistryClient for MemoryClient {
             credential,
         )?;
         let state = self.state.lock().unwrap();
-        state
+        let wasm = state
             .binaries
             .get(wasm_url)
             .cloned()
             .ok_or(RegistryError::NotFound {
                 specifier: wasm_url.to_string(),
-            })
+            })?;
+        if wasm.len() as u64 > metadata.download_limit() {
+            return Err(crate::http_client::oversized(metadata));
+        }
+        Ok(wasm)
     }
 
     fn search(

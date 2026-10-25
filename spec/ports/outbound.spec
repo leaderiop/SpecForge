@@ -79,10 +79,11 @@ port RegistryClient "Registry Client" {
   // package or version (NAME_MISMATCH), and the in-memory client refuses
   // them the same way. A registry refuses a publish into a scope another
   // account owns (Forbidden), and the in-memory client refuses it the same
-  // way.
+  // way. A download is held to the size_bytes its reply declares, at most
+  // 64 MiB.
   method versions(name: PackageName, registry: RegistryConfig, credential: RegistryCredential) -> Result<string[], RegistryError>
   method metadata(name: PackageName, version: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<PackageMetadata, RegistryError>
-  method download(wasmUrl: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
+  method download(metadata: PackageMetadata, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
   method search(query: SearchQuery, registry: RegistryConfig, credential: RegistryCredential) -> Result<SearchHit[], RegistryError>
   method publish(package: DeclaredPackage, wasm: u8[], manifest: string, signature: PackageSignature, registry: RegistryConfig, credential: RegistryCredential) -> Result<PublishReceipt, RegistryError>
   method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>

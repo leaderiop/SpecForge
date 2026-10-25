@@ -67,6 +67,17 @@ pub struct PackageMetadata {
     pub manifest: String,
 }
 
+impl PackageMetadata {
+    /// The most bytes its binary may download as (ADR 0250): the `size_bytes` it declares, at most
+    /// [`MAX_PACKAGE_BYTES`]; that ceiling when it declares none (an absent one reads as `0`).
+    pub fn download_limit(&self) -> u64 {
+        match self.size_bytes {
+            0 => MAX_PACKAGE_BYTES,
+            declared => declared.min(MAX_PACKAGE_BYTES),
+        }
+    }
+}
+
 /// How many hits a search asks for when it names no limit.
 pub const DEFAULT_SEARCH_LIMIT: u32 = 50;
 
@@ -238,6 +249,20 @@ impl ErrorBody {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_download_is_limited_to_its_declared_size_at_most_the_ceiling() {
+        let limit = |size_bytes| {
+            PackageMetadata {
+                size_bytes,
+                ..Default::default()
+            }
+            .download_limit()
+        };
+        assert_eq!(limit(0), MAX_PACKAGE_BYTES);
+        assert_eq!(limit(10), 10);
+        assert_eq!(limit(MAX_PACKAGE_BYTES + 1), MAX_PACKAGE_BYTES);
+    }
 
     #[test]
     fn the_package_ceiling_is_the_servers_upload_limit() {
