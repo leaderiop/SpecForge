@@ -29,7 +29,7 @@ pub use load::{
 };
 pub use lock::{
     KeyId, LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file,
-    write_lock_file,
+    recordable_peers, write_lock_file,
 };
 pub use module::{Module, Sha256, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};

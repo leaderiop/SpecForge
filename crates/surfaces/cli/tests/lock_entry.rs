@@ -90,7 +90,6 @@ fn add_names_no_control_character_a_lock_key_holds() {
     behavior = "read_lock_file",
     verify = "check, extensions and doctor write no control character a lock entry's version, hash or peers hold"
 )]
-#[ignore = "flipped by T6"]
 fn check_extensions_and_doctor_write_no_control_character_a_lock_entry_holds() {
     for (field, value) in [
         ("version", json!(format!("0.1.0{ESC}"))),

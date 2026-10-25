@@ -132,9 +132,9 @@ behavior install_wasm_extension "Install Wasm Extension" {
     the previous lock, the previous specforge.json — so no partial install
     remains. A specforge.lock that is there and can't be read MUST refuse
     the install (E033) before anything is written or downloaded. An add MUST
-    refuse a local file whose path holds a control character (E054) before
-    anything is written, so it never records a source the lock read refuses, and a local file declaring a
-    version that is not SemVer (E072) likewise. The lock
+    refuse a local file whose path holds a control or bidirectional control character (E054), a local
+    file declaring a version that is not SemVer or a peer holding such a character (E072), before
+    anything is written, so it never records what the lock read refuses. The lock
     is written, and resolved within the project, only by a change that
     installs or uninstalls a module: an add whose installs are all already
     present writes specforge.json alone. An

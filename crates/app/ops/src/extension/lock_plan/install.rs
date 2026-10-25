@@ -4,9 +4,9 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256};
+use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256, recordable_peers};
 use specforge_package::{NotAPackage, PackageName, Version};
-use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PeerDependency};
 
 use super::super::candidate::{Installable, LocalFile};
 use super::From;
@@ -22,6 +22,7 @@ impl<'a> Install<'a> {
         let name = super::super::candidate::package(declared)?;
         let version = Version::parse(declared.version())
             .map_err(|why| not_semver(declared.version(), &why))?;
+        recordable_peers(declared.peers()).map_err(|why| unrecordable_peers(&name, &why))?;
         let pin = Pin {
             name,
             version,
@@ -181,6 +182,11 @@ impl<'a> LockPlan<'a> {
                 )
             })?;
             let key_id = lockable_key(&manifest.name, &manifest.version, &manifest.publisher)?;
+            lockable_peers(
+                &manifest.name,
+                &manifest.version,
+                manifest.declaration.peers(),
+            )?;
             let pin = Pin {
                 name: manifest.name,
                 version: manifest.version.clone(),
@@ -200,6 +206,7 @@ impl<'a> LockPlan<'a> {
         let mut package = fetching.registry.fetch(name, version, policy)?;
         let module = Module::new(std::mem::take(&mut package.wasm));
         let key_id = lockable_key(&package.name, &package.version, &package.publisher)?;
+        lockable_peers(&package.name, &package.version, package.declaration.peers())?;
         let pin = Pin {
             name: package.name.clone(),
             version: package.version.clone(),
@@ -246,6 +253,25 @@ fn lockable_key(
         .transpose()
 }
 
+/// E028 before the pin is staged when a registry package declares a peer `specforge.lock` cannot
+/// record (ADR 0243).
+fn lockable_peers(
+    name: &PackageName,
+    version: &Version,
+    peers: &[PeerDependency],
+) -> Result<(), OpError> {
+    recordable_peers(peers).map_err(|why| {
+        OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            codes::E028,
+            format!(
+                "registry package {name}@{version} declares a peer specforge.lock cannot record: {}",
+                specforge_common::remedy::printable(&why)
+            ),
+        )
+    })
+}
+
 /// A failure of reading a fetched binary: the caller gave no such value, the registry served a
 /// binary that is not what it published (`schema_mismatch`, as `METADATA_MISMATCH` beside it).
 fn published_wrongly(mut error: OpError) -> OpError {
@@ -284,6 +310,18 @@ fn not_semver(text: &str, why: &dyn std::fmt::Display) -> OpError {
     .with_suggestion(
         "fix the extension's declared version (its SDK `version`) and rebuild, or enable the file \
          as a `.wasm` file entry in specforge.json, which records nothing in specforge.lock",
+    )
+}
+
+/// An `add` of a local file declaring a peer `specforge.lock` cannot record: E072, before anything is
+/// staged (ADR 0243).
+fn unrecordable_peers(name: &PackageName, why: &str) -> OpError {
+    OpError::of(
+        OpErrorKind::InvalidInput,
+        specforge_common::package::invalid(&format!(
+            "extension '{name}' declares a peer specforge.lock cannot record: {}",
+            specforge_common::remedy::printable(why)
+        )),
     )
 }
 

@@ -101,7 +101,6 @@ fn a_lock_entry_whose_key_is_no_publisher_key_id_is_unreadable() {
     behavior = "read_lock_file",
     verify = "a lock entry whose recorded peer or local source holds a character a terminal acts on is E033"
 )]
-#[ignore = "flipped by T6"]
 fn a_lock_entry_whose_peer_or_local_source_holds_an_unprintable_character_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for peer in [

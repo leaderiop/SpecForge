@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_package::{PackageName, Version};
 use specforge_registry::Disk;
@@ -11,7 +12,7 @@ use crate::resolve::Declared;
 
 mod values;
 
-pub use values::KeyId;
+pub use values::{KeyId, recordable_peers};
 
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -41,7 +42,11 @@ pub struct LockFileEntry {
     /// The peers its module declares, recorded at install; the load refuses an entry whose module
     /// declares others (E070, ADR 0217). Defaults on deserialize for lock files written before
     /// this existed.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "values::peers"
+    )]
     pub peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
 }
 
@@ -112,9 +117,9 @@ impl LocalPath {
     pub fn new(path: String) -> Result<LocalPath, String> {
         if path.is_empty() {
             Err("a local source names no path".to_string())
-        } else if path.contains(char::is_control) {
+        } else if printable(&path) != path.as_str() {
             Err(format!(
-                "a local source holds a control character: {path:?}"
+                "a local source holds a character a terminal acts on: {path:?}"
             ))
         } else {
             Ok(LocalPath(path))
@@ -625,6 +630,7 @@ mod tests {
             "local:",
             "local",
             "local:a\nb.wasm",
+            "local:a\u{202e}b.wasm",
             "local:\u{1b}[8m",
             "git+https://h/r",
             "Registry",

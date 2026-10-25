@@ -3,7 +3,9 @@
 //! (ADR 0243).
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use specforge_common::remedy::printable;
 use specforge_package::Version;
+use specforge_protocol_types::PeerDependency;
 
 /// `version` as the lock reads it: a SemVer version, the error naming the field.
 pub(super) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Version, D::Error> {
@@ -11,6 +13,32 @@ pub(super) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vers
     Version::parse(&text).map_err(|why| {
         serde::de::Error::custom(format!("version {text:?} is not a SemVer version: {why}"))
     })
+}
+
+/// Whether `specforge.lock` can record `peers`: each name and range holds no character a terminal acts
+/// on. The reason, naming the peer, when not. The grammar of a name or a range is the peer rule's to
+/// report (ADR 0041), not the lock's.
+pub fn recordable_peers(peers: &[PeerDependency]) -> Result<(), String> {
+    for peer in peers {
+        for (what, text) in [("name", &peer.name), ("range", &peer.version)] {
+            if printable(text) != text.as_str() {
+                return Err(format!(
+                    "peer {:?} has a {what} holding a character a terminal acts on",
+                    peer.name
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `peer_dependencies` as the lock reads them: each peer's name and range printable.
+pub(super) fn peers<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<PeerDependency>, D::Error> {
+    let peers = Vec::<PeerDependency>::deserialize(deserializer)?;
+    recordable_peers(&peers).map_err(serde::de::Error::custom)?;
+    Ok(peers)
 }
 
 /// A publisher key id as `specforge.lock` records it: 16 lowercase hex characters, the first 16 of
@@ -118,5 +146,25 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(why.starts_with("key_id "), "{why}");
+    }
+
+    #[test]
+    fn a_recorded_peer_is_printable_text() {
+        let peer = |name: &str, version: &str| PeerDependency {
+            name: name.to_string(),
+            version: version.to_string(),
+            optional: false,
+        };
+
+        assert!(recordable_peers(&[peer("@x/y", "^1.0"), peer("z", ">=2")]).is_ok());
+        for refused in [
+            peer("@x/y\u{1b}[2J", "^1"),
+            peer("@x/y", "^1\u{7}"),
+            peer("@x/y\u{2066}", "^1"),
+            peer("@x/y", "^1\u{202e}"),
+        ] {
+            let why = recordable_peers(&[refused]).unwrap_err();
+            assert!(why.contains("a character a terminal acts on"), "{why}");
+        }
     }
 }

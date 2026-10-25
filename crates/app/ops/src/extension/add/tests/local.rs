@@ -557,7 +557,6 @@ fn a_local_file_declaring_a_version_that_is_no_semver_version_is_refused_before_
     behavior = "install_wasm_extension",
     verify = "an add of a local file declaring a peer specforge.lock cannot record is refused (E072) before anything is written"
 )]
-#[ignore = "flipped by T6"]
 fn a_local_file_declaring_a_peer_the_lock_cannot_record_is_refused_before_anything_is_written() {
     let peer = specforge_protocol_types::PeerDependency {
         name: "@x/y\u{1b}[2J".to_string(),
