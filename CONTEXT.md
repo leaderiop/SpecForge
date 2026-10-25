@@ -56,11 +56,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   declaration's location is one too (its **source key**, ADR 0242). The CLI's human output names files as typed.
 - **Named spec file**: a spec file a request names (a typed create's `file`, `new --in`, outline's `file`, the fixes'
   `file_path`): read from the project root by the project view into its source key, every spelling of one file
-  being that file, or refused once (`not_a_source` outside the project root or where no source can be, `file_not_found`
+  being that file, or refused once (`not_a_source` when its key lies outside the project root and the spec root, or where no source can be, `file_not_found`
   for a read of no source); the refusal names the file as the request spelled it (`OpError::file`, MCP's
   `McpError.file`) (`ProjectView::source`, ADR 0195).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
-  text a span, a diagnostic, an export node and every plan name it by (ADR 0242).
+  text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
+- **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
 - **Format version**: the `.spec` file format a file was written against, `MAJOR.MINOR`, declared by
   the `// specforge-format:` header on its first non-blank line; a file with no header is at the
   current version and reports nothing (migration steps still run on it). The parser reads it with the file
