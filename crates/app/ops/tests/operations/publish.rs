@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_ops::asking::Asking;
 use specforge_ops::extension::{PublishReport, publish, validate};
-use specforge_ops::registry::testing::{Asked, MemoryRegistry};
+use specforge_ops::registry::testing::{Asked, IN_MEMORY_REGISTRY, MemoryRegistry};
 use specforge_ops::registry::{Registry, TrustPolicy, Unconfigured};
 use specforge_ops::testing::declaring;
 use specforge_package::{PackageName, Version};
@@ -251,7 +251,7 @@ fn a_publish_uploads_the_binary_and_the_declaration_read_from_it() {
     assert_eq!(document.extension, "@acme/x");
     assert_eq!(document.version, "1.0.0");
     assert_eq!(document.size_bytes, wasm.len());
-    assert_eq!(document.registry, "in-memory");
+    assert_eq!(document.registry, IN_MEMORY_REGISTRY);
 
     let held = registry
         .fetch(&name, &version, TrustPolicy::new(false, Asking::Nobody))

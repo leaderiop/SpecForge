@@ -6,8 +6,8 @@ use specforge_test_macros::test as specforge_test;
 
 /// Two registry installs: a per-package report prints two rows.
 const TWO_LOCKED: &str = r#"{"lockfile_version":1,"entries":[
-    {"name":"@acme/a","version":"1.0.0","source":"registry","wasm_hash":"00"},
-    {"name":"@acme/b","version":"1.0.0","source":"registry","wasm_hash":"01"}]}"#;
+    {"name":"@acme/a","version":"1.0.0","source":"registry","wasm_hash":"0000000000000000000000000000000000000000000000000000000000000000"},
+    {"name":"@acme/b","version":"1.0.0","source":"registry","wasm_hash":"0000000000000000000000000000000000000000000000000000000000000001"}]}"#;
 
 /// A trailing comma: the store exists and does not parse (R012).
 const BROKEN_STORE: &str = r#"{"registries": {"main": {"token_env": "P10_TOKEN"},}}"#;

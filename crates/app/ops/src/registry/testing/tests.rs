@@ -124,7 +124,7 @@ fn a_published_version_is_listed_served_and_recorded() {
     let receipt = registry
         .publish(&DeclaredPackage::of(&declaration).unwrap(), b"\0asm")
         .unwrap();
-    assert_eq!(receipt.registry, IN_MEMORY_KEY);
+    assert_eq!(receipt.registry, IN_MEMORY_REGISTRY);
     assert_eq!(receipt.url, "memory://@acme/tool/1.0.0");
     assert!(!receipt.key_created);
     assert_eq!(registry.versions(&name).unwrap(), vec![version.clone()]);
@@ -144,7 +144,7 @@ fn a_search_answers_what_was_found_what_failed_and_how_many_were_asked() {
     ));
     let searched = registry.search("tool", None).unwrap();
     assert_eq!(searched.found.len(), 1);
-    assert_eq!(searched.found[0].registry, IN_MEMORY_KEY);
+    assert_eq!(searched.found[0].registry, IN_MEMORY_REGISTRY);
     assert!(searched.failures.is_empty());
     assert_eq!(searched.asked, 1);
     assert!(!searched.failed());

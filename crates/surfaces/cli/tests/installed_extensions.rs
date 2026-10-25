@@ -299,8 +299,8 @@ fn a_bulk_update_reports_batch_update_completed() {
     let lock = json!({
         "lockfile_version": 1,
         "entries": [
-            {"name": "@sdk/greet", "version": "0.0.9", "source": "registry", "wasm_hash": "00"},
-            {"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "00"},
+            {"name": "@sdk/greet", "version": "0.0.9", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
+            {"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
         ],
     });
     dir.write("specforge.lock", lock.to_string());
@@ -334,7 +334,7 @@ fn update_json(second: Value) -> (bool, Value, TestProject) {
     let lock = json!({
         "lockfile_version": 1,
         "entries": [
-            {"name": "@sdk/greet", "version": "0.0.9", "source": "registry", "wasm_hash": "00"},
+            {"name": "@sdk/greet", "version": "0.0.9", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
             second,
         ],
     });
@@ -376,7 +376,7 @@ fn redact_hashes(text: &str) -> String {
     verify = "update --format json prints every locked extension's status and the batch_update_completed payload"
 )]
 fn update_json_lists_every_locked_extension() {
-    let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "00"});
+    let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, dir) = update_json(local);
     assert!(ok, "{document}");
     assert_eq!(lock_entry(dir.root(), "@sdk/greet")["version"], "0.1.0");
@@ -399,7 +399,7 @@ fn update_json_lists_every_locked_extension() {
     verify = "emits extension_upgrade_completed with correct previousVersion and newVersion"
 )]
 fn an_applied_upgrade_reports_extension_upgrade_completed() {
-    let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "00"});
+    let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, _dir) = update_json(local);
     assert!(ok, "{document}");
     // One payload per extension the update moved; the local build it left
@@ -415,8 +415,7 @@ fn an_applied_upgrade_reports_extension_upgrade_completed() {
     );
 
     // An update that failed moved nothing, so nothing completed.
-    let gone =
-        json!({"name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "00"});
+    let gone = json!({"name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, _dir) = update_json(gone);
     assert!(!ok, "{document}");
     assert_eq!(
@@ -428,8 +427,7 @@ fn an_applied_upgrade_reports_extension_upgrade_completed() {
 
 #[test]
 fn a_failed_update_prints_its_document() {
-    let gone =
-        json!({"name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "00"});
+    let gone = json!({"name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, dir) = update_json(gone);
     assert!(!ok, "{document}");
     assert_eq!(lock_entry(dir.root(), "@sdk/greet")["version"], "0.0.9");
@@ -475,7 +473,7 @@ fn update_major_on_a_pre_release_lock_installs_nothing_lower() {
     let lock = json!({
         "lockfile_version": 1,
         "entries": [
-            {"name": "@sdk/greet", "version": "0.2.0-beta.1", "source": "registry", "wasm_hash": "00"},
+            {"name": "@sdk/greet", "version": "0.2.0-beta.1", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
         ],
     });
     dir.write("specforge.lock", lock.to_string());

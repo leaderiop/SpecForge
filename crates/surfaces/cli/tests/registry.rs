@@ -261,7 +261,7 @@ fn update_without_registry_makes_no_network_call() {
     dir.write(
         "specforge.lock",
         r#"{"lockfile_version":1,"entries":[
-            {"name":"@acme/widget","version":"1.0.0","source":"registry","wasm_hash":"00"}]}"#,
+            {"name":"@acme/widget","version":"1.0.0","source":"registry","wasm_hash":"0000000000000000000000000000000000000000000000000000000000000000"}]}"#,
     );
     let output = spy
         .on(&dir)

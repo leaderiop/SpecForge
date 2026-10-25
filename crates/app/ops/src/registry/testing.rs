@@ -11,4 +11,6 @@ mod memory;
 mod tests;
 
 pub use contract::{assert_registry_contract, contract_packages};
-pub use memory::{Asked, IN_MEMORY_KEY, MemoryRegistry, Published, declaration};
+pub use memory::{
+    Asked, IN_MEMORY_KEY, IN_MEMORY_REGISTRY, MemoryRegistry, Published, declaration,
+};

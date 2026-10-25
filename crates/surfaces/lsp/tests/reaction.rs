@@ -697,7 +697,7 @@ fn a_lock_change_reloads_the_environment() {
         "specforge.lock",
         &serde_json::json!({
             "lockfile_version": 1,
-            "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+            "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
         })
         .to_string(),
     );

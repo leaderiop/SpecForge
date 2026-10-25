@@ -35,7 +35,7 @@ fn project() -> Assembled {
         std::fs::write(
             root.join("specforge.lock"),
             serde_json::json!({"lockfile_version": 1, "entries": [
-                {"name": "@acme/locked", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}
+                {"name": "@acme/locked", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}
             ]})
             .to_string(),
         )

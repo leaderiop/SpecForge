@@ -1,6 +1,9 @@
 use super::*;
 use crate::extension::lock_plan::Asked as Answer;
 
+/// A publisher key id as a registry computes one: 16 lowercase hex characters (ADR 0243).
+const K1: &str = "1111111111111111";
+
 /// `@acme/app` 1.0.0 (needs base `^1.0`), published signed by `signer` (unsigned when `None`).
 pub(super) fn app_registry(signer: Option<&str>) -> MemoryRegistry {
     let app = Published::new(
@@ -56,7 +59,7 @@ fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
             APP_NEEDS_BASE_2.to_vec(),
             declaration("@acme/app", "1.0.0", &[("@acme/base", "^2.0")]),
         )
-        .signed_by("k1"),
+        .signed_by(K1),
     );
     let mut plan = plan_from(&installed, &runtime, &refused_app, Verb::Install);
     stage_fetched(&mut plan, &app(), Version::new(1, 0, 0));
@@ -66,7 +69,7 @@ fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
     // Checked but not committed: nothing is pinned either.
     let dir = base_project();
     let installed = Installed::at(dir.path());
-    let registry = app_registry(Some("k1"));
+    let registry = app_registry(Some(K1));
     let checked = stage_app(&registry, &runtime, &installed).check().unwrap();
     assert!(registry.pins().is_empty(), "a check pins nothing");
     drop(checked);
@@ -75,7 +78,7 @@ fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
     // Committed: pinned.
     let checked = stage_app(&registry, &runtime, &installed).check().unwrap();
     checked.finish().unwrap();
-    assert_eq!(registry.pins(), [(app(), "k1".to_string())].into());
+    assert_eq!(registry.pins(), [(app(), K1.to_string())].into());
 }
 
 #[specforge_test(
@@ -83,7 +86,7 @@ fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
     verify = "the hash and the key id are recorded in the lock file"
 )]
 fn a_committed_registry_install_locks_its_hash_and_key_id() {
-    let (runtime, registry) = (runtime(), app_registry(Some("k1")));
+    let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let dir = base_project();
     let installed = Installed::at(dir.path());
 
@@ -104,7 +107,7 @@ fn a_committed_registry_install_locks_its_hash_and_key_id() {
         locked.wasm_hash,
         specforge_installed::hex_sha256(APP_NEEDS_BASE_1)
     );
-    assert_eq!(locked.key_id.as_deref(), Some("k1"));
+    assert_eq!(locked.key_id.as_deref(), Some(K1));
 }
 
 #[specforge_test(
@@ -112,7 +115,7 @@ fn a_committed_registry_install_locks_its_hash_and_key_id() {
     verify = "a pin that cannot be saved puts back everything the install wrote"
 )]
 fn a_pin_that_cannot_be_saved_puts_back_everything_the_install_wrote() {
-    let (runtime, registry) = (runtime(), app_registry(Some("k1")));
+    let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let registry = registry.refusing_pins();
     let dir = base_project();
     let installed = Installed::at(dir.path());
@@ -144,13 +147,13 @@ fn an_already_pinned_or_unsigned_install_pins_nothing() {
     let installed = Installed::at(dir.path());
 
     // The user already pinned this key.
-    let registry = app_registry(Some("k1")).pinning("@acme/app", "k1");
+    let registry = app_registry(Some(K1)).pinning("@acme/app", K1);
     stage_app(&registry, &runtime, &installed)
         .check()
         .unwrap()
         .finish()
         .unwrap();
-    assert_eq!(registry.pins(), [(app(), "k1".to_string())].into());
+    assert_eq!(registry.pins(), [(app(), K1.to_string())].into());
 
     // Unsigned, accepted with allow_unsigned.
     let dir = base_project();
@@ -217,7 +220,7 @@ fn each_ask_is_answered_with_the_builtins_its_extension_required() {
 #[cfg(unix)]
 #[test]
 fn a_pin_failure_whose_rollback_cannot_put_the_config_back_names_it() {
-    let (runtime, registry) = (runtime(), app_registry(Some("k1")));
+    let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let dir = base_project();
     let config = dir.path().join("specforge.json");
     let probe = dir.path().join("probe");
@@ -325,7 +328,7 @@ fn an_entries_only_plan_accepts_an_unreadable_lock_and_puts_the_config_back() {
     verify = "a failed change puts back every project file it wrote and removes the directories it created"
 )]
 fn a_failed_change_puts_back_every_project_file_and_the_directories_it_made() {
-    let (runtime, registry) = (runtime(), app_registry(Some("k1")).refusing_pins());
+    let (runtime, registry) = (runtime(), app_registry(Some(K1)).refusing_pins());
     let dir = base_project();
     let gitignore = dir.path().join(".gitignore");
     std::fs::write(&gitignore, "target\n").unwrap();
@@ -369,7 +372,7 @@ fn a_failed_change_puts_back_every_project_file_and_the_directories_it_made() {
     verify = "an add over a specforge.json changed since it was read writes nothing"
 )]
 fn an_add_over_a_config_changed_since_it_was_read_writes_nothing() {
-    let (runtime, registry) = (runtime(), app_registry(Some("k1")));
+    let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let dir = base_project();
     let installed = Installed::at(dir.path());
     let lock_file = specforge_installed::lock_path(dir.path());

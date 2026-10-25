@@ -23,7 +23,7 @@ fn record_source(root: &Path, source: &str) {
 fn write_lock(root: &Path, name: &str, source: &str) {
     let lock = serde_json::json!({
         "lockfile_version": 1,
-        "entries": [{"name": name, "version": "1.0.0", "source": source, "wasm_hash": "h"}]
+        "entries": [{"name": name, "version": "1.0.0", "source": source, "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
     });
     std::fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
 }

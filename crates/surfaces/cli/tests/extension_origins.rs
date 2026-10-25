@@ -49,8 +49,8 @@ fn row(name: &str, source: &str, status: &str) -> (String, String, String) {
 )]
 fn each_source_is_where_the_load_took_the_extension() {
     let stale_lock = json!({"lockfile_version": 1, "entries": [
-        {"name": "@specforge/product", "version": "9.9.9", "source": "registry", "wasm_hash": "h"},
-        {"name": "@acme/stale", "version": "3.0.0", "source": "local:/x/stale.wasm", "wasm_hash": "h"},
+        {"name": "@specforge/product", "version": "9.9.9", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
+        {"name": "@acme/stale", "version": "3.0.0", "source": "local:/x/stale.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
     ]});
     let cases = [
         // A file declaring a builtin's name is refused.

@@ -135,7 +135,7 @@ pub fn write_lock(root: &Path, entries: &[(&str, &str, &str)]) -> LockFile {
                 version: version.to_string(),
                 source: crate::lock::LockSource::parse(source)
                     .unwrap_or_else(|why| panic!("'{source}' cannot be locked in a test: {why}")),
-                wasm_hash: format!("hash-{name}"),
+                wasm_hash: hex_sha256(name.as_bytes()),
                 key_id: None,
                 peer_dependencies: Vec::new(),
             })
