@@ -26,7 +26,8 @@ pub fn command(template: &str, values: &[&str]) -> String {
 }
 
 /// `text` with each control character (`char::is_control`: C0, DEL, C1) and each bidirectional
-/// control (U+200E, U+200F, U+202A-U+202E, U+2066-U+2069) written as its escape (`\n`, `\u{1b}`);
+/// control or line separator (U+061C, U+200E, U+200F, U+2028, U+2029, U+202A-U+202E,
+/// U+2066-U+2069) written as its escape (`\n`, `\u{1b}`);
 /// the text itself when it holds none. The form of any text another program supplies (a lock, a
 /// registry's reply or error) in a message or a listing: it cannot move a terminal's cursor, set its
 /// title, write a line of its own or reorder what is shown (ADR 0230, 0231).
@@ -34,9 +35,9 @@ pub fn printable(text: &str) -> Cow<'_, str> {
     escaped(text, false)
 }
 
-/// [`printable`], a newline and a tab kept when `keep_lines` (a file's text).
+/// [`printable`], a newline, a return and a tab kept when `keep_lines` (a file's text).
 fn escaped(text: &str, keep_lines: bool) -> Cow<'_, str> {
-    let escape = |c: char| is_unprintable(c) && !(keep_lines && matches!(c, '\n' | '\t'));
+    let escape = |c: char| is_unprintable(c) && !(keep_lines && matches!(c, '\n' | '\r' | '\t'));
     if !text.contains(escape) {
         return Cow::Borrowed(text);
     }
@@ -98,7 +99,7 @@ fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str]) {
 /// ("Trojan Source").
 fn is_unprintable(c: char) -> bool {
     c.is_control()
-        || matches!(c, '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+        || matches!(c, '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{2028}' | '\u{2029}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 
 fn word(value: &str) -> String {
@@ -181,14 +182,14 @@ mod tests {
     #[test]
     fn every_string_and_key_is_held_printable() {
         let mut value = serde_json::json!({
-            "a\u{1b}": ["x\u{7}", {"n": 1, "b": true, "k\u{202e}": "y\u{9b}"}],
+            "a\u{1b}": ["x\u{7}", {"n": 1, "b": true, "k\u{202e}": "y\u{9b}\u{61c}\u{2028}"}],
             "plain": "ok",
         });
         hold_printable(&mut value, &[]);
         assert_eq!(
             value,
             serde_json::json!({
-                "a\\u{1b}": ["x\\u{7}", {"n": 1, "b": true, "k\\u{202e}": "y\\u{9b}"}],
+                "a\\u{1b}": ["x\\u{7}", {"n": 1, "b": true, "k\\u{202e}": "y\\u{9b}\\u{61c}\\u{2028}"}],
                 "plain": "ok",
             })
         );
@@ -196,11 +197,11 @@ mod tests {
 
     #[test]
     fn a_lines_key_keeps_its_newlines_and_tabs() {
-        let mut value = serde_json::json!({"starter_template": "a\n\tb\r\u{1b}", "other": "a\n"});
+        let mut value = serde_json::json!({"starter_template": "a\r\n\tb\u{1b}", "other": "a\n"});
         hold_printable(&mut value, DECLARED_LINES);
         assert_eq!(
             value,
-            serde_json::json!({"starter_template": "a\n\tb\\r\\u{1b}", "other": "a\\n"})
+            serde_json::json!({"starter_template": "a\r\n\tb\\u{1b}", "other": "a\\n"})
         );
     }
 
