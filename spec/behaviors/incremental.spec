@@ -83,8 +83,7 @@ behavior classify_project_changes "Classify Project Changes" {
     the spec root reaches the sources at or under it: for a directory,
     every source discovery finds in it now and every source the session
     read from it; for a file, itself. The spec root, or a directory above
-    it, reaches every source. A source is keyed by its path relative to
-    the spec root, a symlink by its own name; each hop a symlinked source's read followed
+    it, reaches every source. A source is keyed by its path from the project root (absolute and canonical under a spec root outside it), a symlink by its own name; each hop a symlinked source's read followed
     (its target included), or a directory above one, reaches that source. specforge.json,
     specforge.lock and every module the extension load read (an
     installed extension's extension.wasm, a local .wasm entry) are

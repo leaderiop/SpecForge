@@ -232,7 +232,7 @@ fn opening_a_project_in_place_of_a_session_keeps_its_buffers() {
     );
     assert_eq!(check_runs(&rt) - before, 1);
     assert!(has(&session, "omega") && !has(&session, "alpha"));
-    // Re-keyed relative to the spec root.
+    // Re-keyed from the project root.
     assert_eq!(session.buffer("a.spec").unwrap().version, Some(4));
 }
 

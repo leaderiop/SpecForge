@@ -116,7 +116,7 @@ fn content_hash(path: &Path, disk: &dyn Disk) -> u64 {
 /// What a session last built from, as it was when read.
 #[derive(Debug, Default, Clone)]
 pub(super) struct Stamps {
-    /// Every source read, by key relative to the spec root: `None` when the
+    /// Every source read, by key: `None` when the
     /// read found nothing there (a dangling link, ADR 0141). A key absent was
     /// never read.
     sources: BTreeMap<String, Option<Entry>>,

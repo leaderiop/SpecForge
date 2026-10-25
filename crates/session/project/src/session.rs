@@ -512,7 +512,7 @@ impl ProjectSession {
     /// Apply `changes` this session made ([`Self::changes`], [`Self::stale`]) as one update (ADR
     /// 0159). A changed environment input reloads the environment, which reads every source and
     /// runs every check, so it covers the rest of `changes`. Otherwise the named sources are read
-    /// again, by path relative to the spec root: a file that is gone was deleted; one that is there
+    /// again, by key: a file that is gone was deleted; one that is there
     /// and cannot be read is E025 and leaves the graph; a changed path that is no source (an
     /// `exclude` entry, a skipped directory, not `.spec`, inside a nested project) changes nothing,
     /// unless the project holds it: then it leaves the graph. A source that reads as the session

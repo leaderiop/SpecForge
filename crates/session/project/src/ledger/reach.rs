@@ -14,8 +14,8 @@ use super::recorded::Class;
 /// ([`SessionInputs::reach`]).
 #[derive(Debug, Default)]
 pub(crate) struct Reach {
-    /// Keys relative to the spec root whose sources (read, or found now) are
-    /// compared; "" is every source. Sorted; none lies under another.
+    /// Keys whose sources (read, or found now) are
+    /// compared; the spec root's prefix is every source. Sorted; none lies under another.
     pub(crate) regions: Vec<String>,
     /// Each batch path that reached a recorded input, with the inputs it
     /// reached, as recorded.
