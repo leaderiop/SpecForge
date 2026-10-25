@@ -305,7 +305,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012). What it contributes is what it declares (`ExtensionDeclaration::declares`
   over the ten describe categories); its handshake's `providers` says it implements configured providers
-  (ADR 0050).
+  (ADR 0050). Its text is read printable by the host (ADR 0244).
 - **Guest wire**: what the host and an extension's guest both compile (`specforge-protocol-types`): the
   extension declaration, the operation payloads, the extension vocabulary and the command-arg rule. Every
   builtin blob is built from it, so it holds nothing only the host reads: the host's reading of package names,
@@ -708,10 +708,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   stored versions, its declaration's description (printable) and, once merged, the registry it was found in
   (`specforge_registry_wire::SearchHit`, `specforge_ops::registry::Found`, ADR 0231). A reply holding a hit that is
   neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
-- **Printable text**: text another program supplies (a registry's reply or error), as SpecForge writes it into a
-  message or a listing: each control character and bidirectional control as its `\u{..}` escape
+- **Printable text**: text another program supplies (a registry's reply or error, an extension's answer), as SpecForge
+  writes it into a message or a listing: each control character and bidirectional control as its `\u{..}` escape
   (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
-  whole (ADR 0245), so every surface carries the same.
+  whole (ADR 0245), so every surface carries the same; JSON another program sends is held once where it is read
+  (`remedy::hold_printable`, ADR 0244).
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment

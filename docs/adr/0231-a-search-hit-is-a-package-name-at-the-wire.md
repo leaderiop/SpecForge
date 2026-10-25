@@ -1,6 +1,6 @@
 # A search hit is a package name at the wire, and a registry's text is printable
 
-**Status:** accepted (2026-10-23, architecture round 26, plan 02). **Amended by [ADR 0245](0245-a-registry-error-is-written-printable-whole.md) (architecture round 27, plan 03):** D4: `RegistryError::to_diagnostic` writes its whole message and suggestion printable, not field by field. Extends [ADR 0036](0036-one-package-name.md) D1 and
+**Status:** accepted (2026-10-23, architecture round 26, plan 02). **Extended by [ADR 0244](0244-an-extensions-text-is-read-printable-where-the-host-reads-it.md):** an extension's text, at its entry points. **Amended by [ADR 0245](0245-a-registry-error-is-written-printable-whole.md) (architecture round 27, plan 03):** D4: `RegistryError::to_diagnostic` writes its whole message and suggestion printable, not field by field. Extends [ADR 0036](0036-one-package-name.md) D1 and
 [ADR 0044](0044-the-package-registry-contract-is-one-crate.md) D2 and D4.
 
 ## Context
