@@ -11,6 +11,8 @@ use crate::resolve::Declared;
 
 mod values;
 
+pub use values::KeyId;
+
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LockFile {
@@ -35,7 +37,7 @@ pub struct LockFileEntry {
     /// none of their own (ADR 0059). `None` for a local install, an unsigned
     /// one, or a lock written before signing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
+    pub key_id: Option<KeyId>,
     /// The peers its module declares, recorded at install; the load refuses an entry whose module
     /// declares others (E070, ADR 0217). Defaults on deserialize for lock files written before
     /// this existed.
@@ -653,7 +655,7 @@ mod tests {
       "version": "2.0.0",
       "source": "registry",
       "wasm_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-      "key_id": "k"
+      "key_id": "6b6b6b6b6b6b6b6b"
     }
   ]
 }"#;

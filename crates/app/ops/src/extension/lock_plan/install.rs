@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{LockSource, Module, Pin, Sha256};
+use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256};
 use specforge_package::{NotAPackage, PackageName, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
@@ -180,11 +180,12 @@ impl<'a> LockPlan<'a> {
                     ),
                 )
             })?;
+            let key_id = lockable_key(&manifest.name, &manifest.version, &manifest.publisher)?;
             let pin = Pin {
                 name: manifest.name,
                 version: manifest.version.clone(),
                 source: LockSource::Registry,
-                key_id: manifest.publisher.key_id().map(str::to_string),
+                key_id,
                 peers: manifest.declaration.peers().to_vec(),
             };
             return Ok(Install {
@@ -198,11 +199,12 @@ impl<'a> LockPlan<'a> {
         }
         let mut package = fetching.registry.fetch(name, version, policy)?;
         let module = Module::new(std::mem::take(&mut package.wasm));
+        let key_id = lockable_key(&package.name, &package.version, &package.publisher)?;
         let pin = Pin {
             name: package.name.clone(),
             version: package.version.clone(),
             source: LockSource::Registry,
-            key_id: package.publisher.key_id().map(str::to_string),
+            key_id,
             peers: package.declaration.peers().to_vec(),
         };
         Ok(Install {
@@ -218,6 +220,30 @@ impl<'a> LockPlan<'a> {
             pin,
         })
     }
+}
+
+/// The key id `specforge.lock` records for a package signed by `publisher`: E028 before the pin is
+/// staged when the key is no publisher key id (the lock's own read would refuse it, ADR 0243).
+fn lockable_key(
+    name: &PackageName,
+    version: &Version,
+    publisher: &Publisher,
+) -> Result<Option<KeyId>, OpError> {
+    publisher
+        .key_id()
+        .map(|key| {
+            KeyId::parse(key).map_err(|why| {
+                OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::E028,
+                    format!(
+                        "registry package {name}@{version} is signed by a key that is no publisher key id: {}",
+                        specforge_common::remedy::printable(&why)
+                    ),
+                )
+            })
+        })
+        .transpose()
 }
 
 /// A failure of reading a fetched binary: the caller gave no such value, the registry served a

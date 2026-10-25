@@ -2,7 +2,7 @@ use super::*;
 use crate::extension::lock_plan::Asked as Answer;
 
 /// A publisher key id as a registry computes one: 16 lowercase hex characters (ADR 0243).
-const K1: &str = "1111111111111111";
+pub(super) const K1: &str = "1111111111111111";
 
 /// `@acme/app` 1.0.0 (needs base `^1.0`), published signed by `signer` (unsigned when `None`).
 pub(super) fn app_registry(signer: Option<&str>) -> MemoryRegistry {
@@ -107,7 +107,29 @@ fn a_committed_registry_install_locks_its_hash_and_key_id() {
         locked.wasm_hash,
         specforge_installed::hex_sha256(APP_NEEDS_BASE_1)
     );
-    assert_eq!(locked.key_id.as_deref(), Some(K1));
+    assert_eq!(locked.key_id.as_ref().map(|k| k.as_str()), Some(K1));
+}
+
+#[specforge_test(
+    behavior = "install_wasm_extension",
+    verify = "a registry package signed by a key that is no publisher key id is refused (E028) before anything is written"
+)]
+fn a_registry_key_that_is_no_key_id_is_refused_before_anything_is_written() {
+    let (runtime, registry) = (runtime(), app_registry(Some("k1")));
+    let dir = base_project();
+    let installed = Installed::at(dir.path());
+    let lock_before = std::fs::read(specforge_installed::lock_path(dir.path())).unwrap();
+    let plan = plan_from(&installed, &runtime, &registry, Verb::Install);
+
+    let error = plan.fetch(&app(), &Version::new(1, 0, 0)).err().unwrap();
+
+    assert!(error.is(codes::E028), "{error:?}");
+    assert!(error.message.contains("no publisher key id"), "{error:?}");
+    assert!(!installed.module_path(&app()).exists());
+    assert_eq!(
+        std::fs::read(specforge_installed::lock_path(dir.path())).unwrap(),
+        lock_before
+    );
 }
 
 #[specforge_test(

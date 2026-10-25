@@ -1285,7 +1285,7 @@ fn trusting(setup: TrustingSetup) -> Trusting {
         version: "0.1.0".parse().unwrap(),
         source: specforge_installed::LockSource::Registry,
         wasm_hash: specforge_installed::hex_sha256(&greet_wasm()),
-        key_id: Some(k1.key_id()),
+        key_id: Some(k1.key_id().parse().unwrap()),
         peer_dependencies: Vec::new(),
     }];
     if setup.lock_app {
@@ -1295,7 +1295,7 @@ fn trusting(setup: TrustingSetup) -> Trusting {
             version: "1.0.0".parse().unwrap(),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: specforge_installed::hex_sha256(b"\0asm x/a"),
-            key_id: Some(k1.key_id()),
+            key_id: Some(k1.key_id().parse().unwrap()),
             peer_dependencies: vec![specforge_protocol_types::PeerDependency {
                 name: "@sdk/greet".into(),
                 version: "^0.1".into(),
@@ -1346,7 +1346,7 @@ impl Trusting {
             .entries
             .into_iter()
             .find(|e| e.name.as_str() == name)
-            .and_then(|e| e.key_id)
+            .and_then(|e| e.key_id.map(|k| k.to_string()))
     }
 }
 

@@ -1,6 +1,6 @@
 //! A lock plan bounds its own writes to its project, whatever bound its caller lends (ADR 0137).
 
-use super::commit::{app, app_registry, base_project, staging};
+use super::commit::{K1, app, app_registry, base_project, staging};
 use super::*;
 use crate::config::testing::files_under;
 use crate::{Containment, OUTSIDE_ROOT};
@@ -39,7 +39,7 @@ fn every_write_of_a_lock_plan_lands_inside_its_project_whatever_bound_its_caller
     let wide = wide();
     for linked in ["lock", "config", "modules", "also"] {
         let (registry, dir, outside) = (
-            app_registry(Some("k1")),
+            app_registry(Some(K1)),
             base_project(),
             tempfile::tempdir().unwrap(),
         );
@@ -91,7 +91,7 @@ fn every_write_of_a_lock_plan_lands_inside_its_project_whatever_bound_its_caller
 #[cfg(unix)]
 #[test]
 fn an_unbounded_caller_is_not_refused_for_its_own_link() {
-    let (runtime, registry, dir) = (runtime(), app_registry(Some("k1")), base_project());
+    let (runtime, registry, dir) = (runtime(), app_registry(Some(K1)), base_project());
     let outside = tempfile::tempdir().unwrap();
     let lock = specforge_installed::lock_path(dir.path());
     let target = outside.path().join("specforge.lock");
@@ -119,7 +119,7 @@ fn an_unbounded_caller_is_not_refused_for_its_own_link() {
 
 #[test]
 fn a_bound_that_does_not_hold_the_project_is_refused_not_widened() {
-    let (runtime, registry, dir) = (runtime(), app_registry(Some("k1")), base_project());
+    let (runtime, registry, dir) = (runtime(), app_registry(Some(K1)), base_project());
     std::fs::create_dir(dir.path().join("spec")).unwrap();
     let narrow = Containment::within(&dir.path().join("spec"));
     let before = files_under(dir.path());
@@ -145,7 +145,7 @@ fn a_bound_that_does_not_hold_the_project_is_refused_not_widened() {
 #[cfg(unix)]
 #[test]
 fn a_preview_is_bounded_like_a_commit() {
-    let (runtime, registry, dir) = (runtime(), app_registry(Some("k1")), base_project());
+    let (runtime, registry, dir) = (runtime(), app_registry(Some(K1)), base_project());
     let outside = tempfile::tempdir().unwrap();
     let lock = specforge_installed::lock_path(dir.path());
     let target = outside.path().join("specforge.lock");

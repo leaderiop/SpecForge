@@ -81,7 +81,6 @@ fn a_lock_entry_whose_hash_is_no_lowercase_sha256_is_unreadable() {
     behavior = "read_lock_file",
     verify = "a lock entry whose key id is no publisher key id is E033"
 )]
-#[ignore = "flipped by T5"]
 fn a_lock_entry_whose_key_is_no_publisher_key_id_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for key in [

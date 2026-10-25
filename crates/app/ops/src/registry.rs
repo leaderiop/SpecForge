@@ -17,7 +17,7 @@ use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
-use specforge_installed::{LockFileEntry, Sha256};
+use specforge_installed::{KeyId, LockFileEntry, Sha256};
 use specforge_package::{DeclaredPackage, PackageName, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
@@ -109,7 +109,7 @@ impl<'a> LockedPin<'a> {
     pub(crate) fn of(entry: &'a LockFileEntry) -> LockedPin<'a> {
         LockedPin {
             bytes: Some((&entry.version, &entry.wasm_hash)),
-            key_id: entry.key_id.as_deref(),
+            key_id: entry.key_id.as_ref().map(KeyId::as_str),
         }
     }
 
@@ -632,7 +632,7 @@ mod tests {
             version: Version::new(1, 2, 0),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: Sha256::of(b"hash"),
-            key_id: Some("k".into()),
+            key_id: Some(KeyId::parse("1111111111111111").unwrap()),
             peer_dependencies: Vec::new(),
         };
 
@@ -642,7 +642,7 @@ mod tests {
             pin.bytes,
             Some((&Version::new(1, 2, 0), &Sha256::of(b"hash")))
         );
-        assert_eq!(pin.key_id, Some("k"));
+        assert_eq!(pin.key_id, Some("1111111111111111"));
     }
 
     #[specforge_test_macros::test(

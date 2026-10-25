@@ -28,7 +28,8 @@ pub use load::{
     Builtins, EnabledExtension, LoadFailure, LoadProblem, LoadSubject, Loaded, Recorded,
 };
 pub use lock::{
-    LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file,
+    KeyId, LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file,
+    write_lock_file,
 };
 pub use module::{Module, Sha256, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};
@@ -181,6 +182,9 @@ mod tests {
         );
     }
 
+    const K1: &str = "1111111111111111";
+    const K2: &str = "2222222222222222";
+
     #[test]
     fn the_lock_answers_the_entry_of_a_registry_install_only() {
         let entry = |name: &str, source: &str, key: Option<&str>| LockFileEntry {
@@ -188,14 +192,14 @@ mod tests {
             version: "1.0.0".parse().unwrap(),
             source: LockSource::parse(source).unwrap(),
             wasm_hash: crate::hex_sha256(b"hash"),
-            key_id: key.map(str::to_string),
+            key_id: key.map(|k| k.parse().unwrap()),
             peer_dependencies: Vec::new(),
         };
         let lock = LockFile {
             entries: vec![
-                entry("@a/signed", "registry", Some("k1")),
+                entry("@a/signed", "registry", Some(K1)),
                 entry("@a/unsigned", "registry", None),
-                entry("@a/local", "local:a.wasm", Some("k2")),
+                entry("@a/local", "local:a.wasm", Some(K2)),
             ],
             ..Default::default()
         };
@@ -203,10 +207,10 @@ mod tests {
         let key = |name: &str| {
             installed
                 .locked(&PackageName::parse(name).unwrap())
-                .map(|e| e.key_id.as_deref())
+                .map(|e| e.key_id.as_ref().map(KeyId::as_str))
         };
 
-        assert_eq!(key("@a/signed"), Some(Some("k1")));
+        assert_eq!(key("@a/signed"), Some(Some(K1)));
         assert_eq!(key("@a/unsigned"), Some(None));
         assert_eq!(key("@a/local"), None, "a local install has no publisher");
         assert_eq!(key("@a/absent"), None);

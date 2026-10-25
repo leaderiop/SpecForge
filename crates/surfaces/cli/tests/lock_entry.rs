@@ -26,9 +26,10 @@ fn locked(field: &str, value: Value) -> TestProject {
     project
 }
 
-/// Whether `text` holds a character a terminal acts on.
+/// Whether `text` holds a character a terminal acts on, its own line ends aside.
 fn acts(text: &str) -> bool {
-    text != specforge_common::remedy::printable(text)
+    let text = text.replace('\n', "");
+    text != specforge_common::remedy::printable(&text)
 }
 
 #[specforge_test(
@@ -54,7 +55,6 @@ fn doctor_reports_a_lock_hash_that_is_not_ascii_as_unreadable() {
     behavior = "install_wasm_extension",
     verify = "an add over a lock entry whose key id holds a control character is refused with E033, written escaped"
 )]
-#[ignore = "flipped by T5"]
 fn add_names_no_control_character_a_lock_key_holds() {
     let registry = serve(vec![Package::new(
         "@sdk/greet",

@@ -19,7 +19,7 @@ use specforge_protocol_types::PeerDependency;
 
 use crate::Installed;
 use crate::layout::{MODULE_FILE, STAGING};
-use crate::lock::{LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
+use crate::lock::{KeyId, LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
 use crate::module::{Module, Sha256};
 
 /// What a lock entry records about an install, its hash aside (the module's
@@ -29,7 +29,7 @@ pub struct Pin {
     pub name: PackageName,
     pub version: Version,
     pub source: LockSource,
-    pub key_id: Option<String>,
+    pub key_id: Option<KeyId>,
     pub peers: Vec<PeerDependency>,
 }
 
