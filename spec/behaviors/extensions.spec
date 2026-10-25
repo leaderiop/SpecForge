@@ -173,7 +173,11 @@ behavior load_extension_declaration "Load Extension Declaration" {
     analyzers, passes, feature_flags), the only ones the protocol defines.
     A category that does not parse MUST fail the extension's load (E028)
     naming the category. A describe item key the protocol does not define
-    MUST produce W138. The declaration is read once per environment load;
+    MUST produce W138. Every text the declaration holds MUST be read
+    printable (each control and bidirectional character as its \u{..}
+    escape; a starter template keeps its newlines and tabs) before
+    anything quotes it, a load warning included. The declaration is read
+    once per environment load;
     nothing describes a category again outside it. A handshake whose
     protocol major version differs from the host's MUST fail the
     extension's load (E028), and none of its categories are read. The

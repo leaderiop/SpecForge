@@ -70,7 +70,6 @@ fn assert_printable(value: &Value) {
     behavior = "load_extension_declaration",
     verify = "every text a declaration holds is read printable, a starter template keeping its newlines and tabs"
 )]
-#[ignore = "flipped by T3"]
 fn a_declarations_text_is_read_printable() {
     let runtime = InProcessRuntime::new().with(hostile);
     let declaration = load_declaration(&runtime, EXT).unwrap().declaration;
@@ -94,7 +93,6 @@ fn a_declarations_text_is_read_printable() {
     behavior = "load_extension_declaration",
     verify = "a key a load warning quotes is printable"
 )]
-#[ignore = "flipped by T3"]
 fn a_load_warning_quotes_a_declared_key_printable() {
     let mut handshake = serde_json::to_value(hostile().declaration().handshake).unwrap();
     handshake["sandbox_policy"] = json!({ "x\u{1b}]0;k\u{7}": true });
@@ -120,7 +118,6 @@ fn a_load_warning_quotes_a_declared_key_printable() {
     behavior = "call_extension_exports",
     verify = "a pass's diagnostics and summary and a validator's verdict are read printable"
 )]
-#[ignore = "flipped by T3"]
 fn a_pass_answers_text_is_read_printable() {
     let answer = json!({
         "diagnostics": [{
@@ -149,7 +146,6 @@ fn a_pass_answers_text_is_read_printable() {
     behavior = "call_extension_exports",
     verify = "a pass's diagnostics and summary and a validator's verdict are read printable"
 )]
-#[ignore = "flipped by T3"]
 fn a_verdicts_text_is_read_printable() {
     let verdict = json!({ "verdict": "fail", "field": "f\u{1b}", "value": "v\u{7}" });
     let runtime =
@@ -172,7 +168,6 @@ fn a_verdicts_text_is_read_printable() {
     behavior = "call_extension_exports",
     verify = "a call failure's text from the guest is written printable in E028"
 )]
-#[ignore = "flipped by T3"]
 fn a_call_failures_text_is_written_printable() {
     let trap = WasmCallResult::Trap(WasmTrapInfo {
         kind: "guest_error".into(),

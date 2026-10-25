@@ -6,7 +6,9 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
     access the host filesystem, network, environment, or memory outside its
     linear memory region; no sandbox policy permits it, since a policy
     declares limits only (ADR 0037). Any call that crosses a limit of its
-    sandbox MUST trap the extension and emit a diagnostic (E028).
+    sandbox MUST trap the extension and emit a diagnostic (E028). No text
+    an extension supplies reaches a user's terminal as a control sequence:
+    the host reads it printable where it reads the answer (ADR 0244).
   """
   risk      high
   verify property "no extension can read or write outside its sandbox boundaries"

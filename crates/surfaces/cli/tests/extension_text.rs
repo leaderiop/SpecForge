@@ -8,7 +8,6 @@ use specforge_test_macros::test as specforge_test;
     invariant = "wasm_sandbox_integrity",
     verify = "no text an extension supplies reaches the terminal as a control sequence"
 )]
-#[ignore = "flipped by T3"]
 fn an_extensions_text_reaches_the_terminal_printable() {
     // Same-length patches of greet's help text and of its rule and pass message text.
     let project = TestProject::new()

@@ -90,6 +90,8 @@ After the handshake, the host calls `__describe(category)` once for each categor
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
+The host reads every string and object key of a handshake or describe answer printable (ADR 0244): each control and bidirectional character is written as its escape (`\u{1b}`), never stripped, so no declared title, description, template or key acts on a terminal. Two answers are read as sent: a command's `stdout`/`stderr` and an MCP tool's or resource's answer, which are the extension's own output. The `starter_template` keeps its newlines and tabs.
+
 **Export:** `__describe`
 
 **Input:**
@@ -658,7 +660,10 @@ A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a
 An extension runs with no capability: its component's WASI context preopens no directory, passes
 no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
 lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
-command the graph). No declaration grants more (ADR 0037).
+command the graph). No declaration grants more (ADR 0037). No text an extension supplies acts on
+the user's terminal either: the host reads a handshake, describe, pass or validator answer, and a
+call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
+or resource's answer are the extension's own and are written as answered.
 
 The handshake's `sandbox_policy` declares limits, which the host enforces on every call:
 

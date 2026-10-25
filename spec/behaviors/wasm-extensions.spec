@@ -141,6 +141,7 @@ behavior call_extension_exports "Call Extension Exports" {
     one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
     no_silent_failure  "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
     runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer, a collector's and a scanner's are read as answered"
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
@@ -159,7 +160,10 @@ behavior call_extension_exports "Call Extension Exports" {
     pass's is a compile diagnostic, an analyze pass's a finding of that
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
-    migration hook's answer is not read.
+    migration hook's answer is not read. The text of a handshake, describe,
+    pass or validator answer, and of a call's failure, MUST be read
+    printable (ADR 0244); a command's output, an MCP tool's or resource's
+    answer, a collector's and a scanner's are read as answered.
     A component guest builds its declaration once per instance and answers
     the handshake and every describe from it.
 
