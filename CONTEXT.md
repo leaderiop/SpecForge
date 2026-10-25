@@ -694,6 +694,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   under a path) (`specforge_registry_wire::RegistryRoot`). Every call goes to the root, then `/v1`, then the call's
   path (`RegistryRoot::address`); the server mounts the same routes (`Endpoint::route`). A url ending in `/v1`, or
   one that isn't an http(s) URL, is E067 (ADR 0075).
+- **Download address**: where a metadata answer's `wasm_url` downloads from, as the client requests it: an http(s) URL
+  or a path at the registry root, held as that URL's serialization (`RegistryRoot::download_address`, ADR 0075 D5,
+  ADR 0245). A CDN's address never receives the registry's credential.
 - **Registry for a package**: the one configured registry that serves a package name: the first
   `registries` entry whose `scope_filter` covers the name, else the first marked
   `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
@@ -707,7 +710,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
 - **Printable text**: text another program supplies (a registry's reply or error), as SpecForge writes it into a
   message or a listing: each control character and bidirectional control as its `\u{..}` escape
-  (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, so every surface carries the same.
+  (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
+  whole (ADR 0245), so every surface carries the same.
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment

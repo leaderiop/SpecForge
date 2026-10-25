@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-13, architecture round 9, plan 05). Amends ADR 0044 (D1, D2, D5) and ADR 0045 (D1). Amended by [ADR 0178](0178-a-registry-credential-belongs-to-its-registry-root.md) (architecture round 20, plan 01): the root also keys the user's credential.
 
+**Extended by [ADR 0245](0245-a-registry-error-is-written-printable-whole.md) (architecture round 27, plan 03):** D5: the download address is the parsed URL's serialization; D6: an alias holding a control character is an entry that can't be read.
+
 **Extended by [ADR 0200](0200-a-package-scope-is-one-type-read-where-it-enters.md) (architecture round 22, plan 01), D6:** a `scope_filter` that is not a scope is an entry that can't be read.
 
 A `registries` entry named a registry by its "base URL", which by convention ended in the protocol's version prefix
