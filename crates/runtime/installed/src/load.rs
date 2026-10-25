@@ -698,9 +698,8 @@ impl Installed {
         }
     }
 
-    /// `entry`'s module when the one on disk is the one it pins (any module, for an entry that
-    /// pins no hash): the check the extension load makes ([`Self::check_module`]), and the bytes it
-    /// read, without loading them.
+    /// `entry`'s module when the one on disk is the one it pins: the check the extension load makes
+    /// ([`Self::check_module`]), and the bytes it read, without loading them.
     pub fn pinned_module(&self, entry: &LockFileEntry, disk: &dyn Disk) -> Option<Module> {
         self.check_module(entry, disk).ok()
     }
