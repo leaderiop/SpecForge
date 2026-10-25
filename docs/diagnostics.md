@@ -903,15 +903,16 @@ SemVer version is not one. A package name is `@scope/name` (what a registry
 holds) or `name` alone (a local module); each part is lowercase letters, digits,
 `.`, `_` or `-`, and starts with a letter or digit, so it is always a directory
 inside `.specforge/extensions`. It is checked where a name does not come from
-the `add` argument (that is E054): the name a local module declares when
-`specforge add` installs it, a peer a declaration names, a `specforge.json`
-`extensions` entry (the entry is not loaded), the name a `.wasm` file entry's
-component declares (the entry is not loaded), the name `specforge extension
-validate` reads, the name `specforge remove` is given when no `specforge.json`
-entry or lock entry has it, and the name and version of the declaration
-`specforge publish` uploads (which must also be scoped and a full version).
-Nothing is written or deleted. Fix the extension's declared name or version (its
-SDK `name`/`version`) and rebuild, or fix the `specforge.json` entry.
+the `add` argument (that is E054): the name and version a local module declares
+when `specforge add` installs it (a version `specforge.lock` records must be
+SemVer), a peer a declaration names, a `specforge.json` `extensions` entry (the
+entry is not loaded), the name a `.wasm` file entry's component declares (the
+entry is not loaded), the name `specforge extension validate` reads, the name
+`specforge remove` is given when no `specforge.json` entry or lock entry has it,
+and the name and version of the declaration `specforge publish` uploads (which
+must also be scoped and a full version). Nothing is written or deleted. Fix the
+extension's declared name or version (its SDK `name`/`version`) and rebuild, or
+fix the `specforge.json` entry.
 
 Owner: core
 Level: error

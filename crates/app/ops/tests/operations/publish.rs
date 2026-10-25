@@ -344,7 +344,7 @@ fn what_publish_uploads_is_what_add_installs() {
     assert_eq!(std::fs::read(installed.module_path(&name)).unwrap(), wasm);
     let lock = read_lock_file(&installed.lock_path()).unwrap();
     assert_eq!(lock.entries.len(), 1);
-    assert_eq!(lock.entries[0].version, "1.0.0");
+    assert_eq!(lock.entries[0].version.to_string(), "1.0.0");
     let uploaded = registry
         .fetch(
             &name,

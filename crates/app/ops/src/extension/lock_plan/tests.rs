@@ -185,7 +185,7 @@ fn modules_of(installed: &Installed) -> &'static MemoryDisk {
                 installed.module_path(&entry.name),
                 &crate::extension::fixtures::module_of(
                     entry.name.as_str(),
-                    &entry.version,
+                    &entry.version.to_string(),
                     &entry.peer_dependencies,
                 ),
             )

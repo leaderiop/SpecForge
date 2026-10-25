@@ -813,20 +813,21 @@ mod passes_of_the_declaration {
         );
     }
 
-    fn no_version() -> ContributionsBuilder {
-        ContributionsBuilder::new(ExtensionMeta::new("@acme/noversion", ""))
+    fn bad_short() -> ContributionsBuilder {
+        let mut meta = ExtensionMeta::new("@a/b", "1.0.0");
+        meta.short = Some("Not Kebab".into()); // E030: no kebab case
+        ContributionsBuilder::new(meta)
     }
 
-    /// The runtime's load failures (E028) come before the declarations'
-    /// own diagnostics (E030), whatever the load order (ADR 0012): they
-    /// used to interleave extension by extension.
+    /// The runtime's load failures (E028) come before the declarations' own diagnostics (E030),
+    /// whatever the load order (ADR 0012): they used to interleave extension by extension.
     #[test]
     fn load_failures_come_before_declaration_diagnostics() {
-        let runtime = Arc::new(InProcessRuntime::new().with(no_version));
+        let runtime = Arc::new(InProcessRuntime::new().with(bad_short));
         let dir = project(
             serde_json::json!({
                 "name": "p", "version": "0.1.0",
-                "extensions": ["@acme/noversion", "@acme/missing"]
+                "extensions": ["@a/b", "@acme/missing"]
             }),
             &[],
         );
@@ -1026,8 +1027,7 @@ fn an_unreadable_source_is_e025_naming_it() {
     assert_eq!(compiled.source_texts().len(), 1);
 }
 
-/// `@sdk/greet` installed by hand under `root`: its module, and a lock
-/// entry pinning the module's own hash.
+/// `@sdk/greet` installed by hand under `root`, its lock entry pinning its module.
 fn install_greet(root: &Path) {
     let blob = specforge_component::committed::GREET.path();
     let bytes = fs::read(blob).unwrap();
@@ -1038,7 +1038,7 @@ fn install_greet(root: &Path) {
         lockfile_version: 1,
         entries: vec![specforge_installed::LockFileEntry {
             name: specforge_package::PackageName::parse("@sdk/greet").unwrap(),
-            version: "0.1.0".into(),
+            version: "0.1.0".parse().unwrap(),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: specforge_installed::hex_sha256(&bytes),
             key_id: None,

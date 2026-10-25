@@ -67,7 +67,7 @@ pub fn list(view: &ProjectView) -> ExtensionsDocument {
             let entity_count = super::entities_of(view.graph(), kinds, extension.name).count();
             ExtensionInfo {
                 name: extension.name.to_string(),
-                version: extension.version().map(str::to_string),
+                version: extension.version(),
                 source: extension.origin.source(),
                 status: extension.status,
                 entity_kinds,
@@ -88,7 +88,7 @@ pub fn list(view: &ProjectView) -> ExtensionsDocument {
             .iter()
             .map(|e| LockedExtension {
                 name: e.name.to_string(),
-                version: e.version.clone(),
+                version: e.version.to_string(),
             })
             .collect(),
         entity_kinds_in_graph: view

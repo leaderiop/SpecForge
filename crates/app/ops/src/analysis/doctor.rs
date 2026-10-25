@@ -351,7 +351,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
         .iter()
         .map(|extension| ExtensionHealth {
             name: extension.name.to_string(),
-            version: extension.version().map(str::to_string),
+            version: extension.version(),
             source: extension.origin.source(),
             status: extension.status,
             enhancement_count: extension.declaration.map_or(0, |d| d.enhancements.len()),

@@ -36,7 +36,7 @@ fn name(text: &str) -> PackageName {
 fn pin(text: &str) -> Pin {
     Pin {
         name: name(text),
-        version: "1.0.0".to_string(),
+        version: "1.0.0".parse().unwrap(),
         source: specforge_installed::LockSource::Registry,
         key_id: None,
         peers: Vec::new(),

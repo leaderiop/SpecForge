@@ -901,7 +901,8 @@ behavior read_lock_file "Read Lock File" {
     A lock entry's source MUST be registry or local:<path>, the path not empty and holding no control
     character; any other source makes the lock unreadable (E033), and the message names it escaped, so no
     diagnostic carries a control character the lock holds. A lock entry's wasm_hash MUST be a SHA-256 in
-    lowercase hex (64 characters), never empty: any other makes the lock unreadable (E033).
+    lowercase hex (64 characters), never empty: any other makes the lock unreadable (E033). A lock entry's
+    version MUST be a SemVer version: any other makes the lock unreadable (E033).
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
@@ -956,8 +957,7 @@ behavior update_all_extensions "Update All Extensions" {
     and a release never moves to a pre-release. An update MUST NOT move an
     extension to its locked version or below: an extension with nothing
     newer is up_to_date, also when its locked version is no longer
-    published. A lock entry whose version is not SemVer moves to the
-    version specforge add <name> installs. After upgrading, the system
+    published. After upgrading, the system
     MUST refresh the lock file with the new binary hashes. An extension is
     reported updated only when its new binary is written: one served with
     the bytes the lock already pins under another version is refused as add

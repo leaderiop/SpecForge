@@ -100,7 +100,7 @@ pub struct Manifest {
 pub struct LockedPin<'a> {
     /// The version and SHA-256 it pins, held together: the bytes of that version and no other.
     /// `None` for a pin of a publisher key alone.
-    pub bytes: Option<(&'a str, &'a Sha256)>,
+    pub bytes: Option<(&'a Version, &'a Sha256)>,
     pub key_id: Option<&'a str>,
 }
 
@@ -134,7 +134,7 @@ impl<'a> LockedPin<'a> {
         let Some((locked, pinned)) = self.bytes else {
             return Ok(());
         };
-        if pinned.as_str() == sha256 || locked != version.to_string() {
+        if pinned.as_str() == sha256 || locked != version {
             return Ok(());
         }
         Err(OpError::coded(
@@ -560,7 +560,7 @@ mod tests {
     fn a_locked_pin_quotes_the_served_digest_printable() {
         let pinned = Sha256::of(b"A");
         let pin = LockedPin {
-            bytes: Some(("1.0.0", &pinned)),
+            bytes: Some((&Version::new(1, 0, 0), &pinned)),
             key_id: None,
         };
         let name = PackageName::parse("@a/x").unwrap();
@@ -629,7 +629,7 @@ mod tests {
     fn a_locked_pin_is_what_a_registry_lock_entry_records() {
         let entry = LockFileEntry {
             name: PackageName::parse("@a/x").unwrap(),
-            version: "1.2.0".into(),
+            version: Version::new(1, 2, 0),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: Sha256::of(b"hash"),
             key_id: Some("k".into()),
@@ -638,7 +638,10 @@ mod tests {
 
         let pin = LockedPin::of(&entry);
 
-        assert_eq!(pin.bytes, Some(("1.2.0", &Sha256::of(b"hash"))));
+        assert_eq!(
+            pin.bytes,
+            Some((&Version::new(1, 2, 0), &Sha256::of(b"hash")))
+        );
         assert_eq!(pin.key_id, Some("k"));
     }
 
@@ -649,21 +652,19 @@ mod tests {
     fn a_locked_pin_admits_other_bytes_only_at_another_version() {
         let name = PackageName::parse("@a/x").unwrap();
         let (a, b) = (Sha256::of(b"a"), Sha256::of(b"b"));
-        let pin = |version, sha256| LockedPin {
-            bytes: Some((version, sha256)),
+        let v = |text: &str| Version::parse(text).unwrap();
+        let locked = v("1.0.0");
+        let pin = |sha256| LockedPin {
+            bytes: Some((&locked, sha256)),
             key_id: None,
         };
-        let v = |text: &str| Version::parse(text).unwrap();
         let admits = |pin: LockedPin, version: &str, served: &Sha256| {
             pin.admits(&name, &v(version), served.as_str())
         };
 
-        assert!(admits(pin("1.0.0", &a), "1.0.0", &a).is_ok(), "its bytes");
-        assert!(
-            admits(pin("1.0.0", &a), "2.0.0", &b).is_ok(),
-            "another version"
-        );
-        let error = admits(pin("1.0.0", &a), "1.0.0", &b).unwrap_err();
+        assert!(admits(pin(&a), "1.0.0", &a).is_ok(), "its bytes");
+        assert!(admits(pin(&a), "2.0.0", &b).is_ok(), "another version");
+        let error = admits(pin(&a), "1.0.0", &b).unwrap_err();
         assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
         assert_eq!(
             error.message,
@@ -674,7 +675,7 @@ mod tests {
         );
         let unpinned = TrustPolicy::new(true, Asking::Nobody);
         assert!(unpinned.admits(&name, &v("1.0.0"), "B").is_ok());
-        let pinned = unpinned.locked(Some(pin("1.0.0", &a)));
+        let pinned = unpinned.locked(Some(pin(&a)));
         assert!(pinned.admits(&name, &v("1.0.0"), "B").is_err());
     }
 

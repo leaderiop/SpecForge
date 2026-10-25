@@ -257,7 +257,7 @@ fn remove_named(
     )?;
     Ok(RemoveOutcome {
         name: extension.name.to_string(),
-        version: extension.version().map(str::to_string),
+        version: extension.version(),
         origin: extension.origin.clone(),
         stranded: stranded(req.graph, req.kinds, extension.name),
         dry_run: req.dry_run,
@@ -307,7 +307,7 @@ fn remove_file(
     let writes = change(req, None, Disabled::Entry(file.entry.clone()))?;
     Ok(RemoveOutcome {
         name: file.name.clone(),
-        version: extension.version().map(str::to_string),
+        version: extension.version(),
         origin: file.origin.clone(),
         stranded: stranded(req.graph, req.kinds, &file.name),
         dry_run: req.dry_run,

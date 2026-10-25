@@ -59,7 +59,7 @@ mod tests {
     fn entry(name: &str, hash: Sha256) -> LockFileEntry {
         LockFileEntry {
             name: specforge_package::PackageName::parse(name).unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: crate::LockSource::Registry,
             wasm_hash: hash,
             key_id: None,

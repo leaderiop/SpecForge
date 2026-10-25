@@ -1,12 +1,12 @@
 //! What `specforge update` moves a locked package to (ADR 0036 D3, as amended by round 7).
 //!
-//! [`VersionRequirement::pick`] chooses the version a requirement asks for; [`upgrade_target`] is the
+//! [`crate::VersionRequirement::pick`] chooses the version a requirement asks for; [`upgrade_target`] is the
 //! one rule that chooses the version an update moves a locked package to. It is `pick` over the range
 //! the update admits, so semver's pre-release rule reads it as it reads any range.
 
 use semver::{Comparator, Op, Version, VersionReq};
 
-use crate::{VersionRequirement, highest_matching};
+use crate::highest_matching;
 
 /// How far an update may move a locked version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,26 +15,6 @@ pub enum Reach {
     Compatible,
     /// To any newer version, a new major one included: `specforge update --major`.
     Major,
-}
-
-/// The version a lock entry records, read for an update.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LockedVersion {
-    /// A SemVer version.
-    SemVer(Version),
-    /// Text that is no SemVer version (only a lock edited by hand has one): nothing published is
-    /// known to be newer or older than it.
-    Unreadable(String),
-}
-
-impl LockedVersion {
-    /// Read a lock entry's version text.
-    pub fn read(text: &str) -> Self {
-        match Version::parse(text) {
-            Ok(version) => LockedVersion::SemVer(version),
-            Err(_) => LockedVersion::Unreadable(text.to_string()),
-        }
-    }
 }
 
 /// The version an update of a package locked at `locked` moves to among `published`; `None` when
@@ -47,19 +27,12 @@ impl LockedVersion {
 /// range): `2.0.0-beta.1` moves to `2.0.0-beta.2`, `2.0.0` and on, never to `3.0.0-alpha.1`, and a
 /// release never moves to a pre-release. Never to `locked` or below: a locked version no longer
 /// published, with nothing newer, is up to date.
-///
-/// From an unreadable version: what [`VersionRequirement::Latest`] picks, in either reach — the
-/// version `specforge add <name>` installs, which is the reinstall command the lock names for such
-/// an entry.
 pub fn upgrade_target<'a>(
-    locked: &LockedVersion,
+    locked: &Version,
     published: &'a [Version],
     reach: Reach,
 ) -> Option<&'a Version> {
-    match locked {
-        LockedVersion::Unreadable(_) => VersionRequirement::Latest.pick(published),
-        LockedVersion::SemVer(current) => highest_matching(published, &admitted(current, reach)),
-    }
+    highest_matching(published, &admitted(locked, reach))
 }
 
 /// What `reach` admits from `current`: `>current`, and `^current` as well unless `Major`. Each is its
@@ -118,37 +91,20 @@ mod tests {
             ("1.0.0+build.1", &["1.0.0+build.2", "1.0.1"], Compatible, Some("1.0.1")),
             ("0.1.0-alpha.1", &["0.1.0"], Compatible, Some("0.1.0")),
             ("1.0.0", &[], Major, None),
-            ("not-semver", &["1.4.0", "2.0.0-beta.1"], Compatible, Some("1.4.0")),
-            ("not-semver", &["2.0.0-beta.1"], Major, Some("2.0.0-beta.1")),
         ];
-        assert_eq!(table.len(), 27);
+        assert_eq!(table.len(), 25);
         for (row, (locked, published, reach, want)) in table.iter().enumerate() {
             let published: Vec<Version> = published
                 .iter()
                 .map(|v| Version::parse(v).unwrap())
                 .collect();
-            let target = upgrade_target(&LockedVersion::read(locked), &published, *reach)
+            let target = upgrade_target(&Version::parse(locked).unwrap(), &published, *reach)
                 .map(Version::to_string);
             assert_eq!(
                 target.as_deref(),
                 *want,
                 "row {}: locked {locked}, published {published:?}, {reach:?}",
                 row + 1
-            );
-        }
-    }
-
-    #[test]
-    fn a_locked_version_reads_as_semver_or_unreadable() {
-        assert_eq!(
-            LockedVersion::read("2.0.0-beta.1"),
-            LockedVersion::SemVer(Version::parse("2.0.0-beta.1").unwrap())
-        );
-        for text in ["latest", "", "1.0", "v1.0.0"] {
-            assert_eq!(
-                LockedVersion::read(text),
-                LockedVersion::Unreadable(text.to_string()),
-                "{text:?}"
             );
         }
     }

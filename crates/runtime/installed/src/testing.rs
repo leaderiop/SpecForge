@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::PeerDependency;
 use specforge_registry::PlainDisk;
 use specforge_wasm::WasmRuntime;
@@ -28,8 +28,8 @@ fn declared(
     runtime: &dyn WasmRuntime,
     name: &str,
     bytes: &[u8],
-) -> Option<(String, Vec<PeerDependency>)> {
-    match InProcessRuntime::of(runtime) {
+) -> Option<(Version, Vec<PeerDependency>)> {
+    let (version, peers) = match InProcessRuntime::of(runtime) {
         Some(runtime) => runtime.declared_by(name, bytes),
         None => declaration_of(bytes, runtime).ok().map(|loaded| {
             (
@@ -37,7 +37,10 @@ fn declared(
                 loaded.declaration.peers().to_vec(),
             )
         }),
-    }
+    }?;
+    let version = Version::parse(&version)
+        .unwrap_or_else(|why| panic!("'{name}' declares '{version}', no SemVer version: {why}"));
+    Some((version, peers))
 }
 
 /// Install each of `names` at `root` as `runtime` serves it: a module that spells what the runtime
@@ -53,7 +56,7 @@ pub fn install(root: &Path, runtime: &dyn WasmRuntime, names: &[&str]) {
     for name in names {
         let placeholder = placeholder_module(name);
         let bytes = match declared(runtime, name, &placeholder) {
-            Some((version, peers)) => spelled_module(name, &version, &peers),
+            Some((version, peers)) => spelled_module(name, &version.to_string(), &peers),
             None => placeholder,
         };
         install_module(root, runtime, name, &bytes);
@@ -78,8 +81,8 @@ pub fn install_module(root: &Path, runtime: &dyn WasmRuntime, name: &str, bytes:
     std::fs::create_dir_all(module.parent().expect("a module has a directory"))
         .expect("the extensions directory can be created");
     std::fs::write(&module, bytes).expect("the module can be written");
-    let (version, peer_dependencies) =
-        declared(runtime, name, bytes).unwrap_or_else(|| ("0.0.0-test".to_string(), Vec::new()));
+    let (version, peer_dependencies) = declared(runtime, name, bytes)
+        .unwrap_or_else(|| (Version::parse("0.0.0-test").expect("SemVer"), Vec::new()));
     lock.entries.retain(|entry| entry.name != package);
     lock.entries.push(LockFileEntry {
         name: package,
@@ -132,7 +135,8 @@ pub fn write_lock(root: &Path, entries: &[(&str, &str, &str)]) -> LockFile {
             .map(|(name, version, source)| LockFileEntry {
                 name: PackageName::parse(name)
                     .unwrap_or_else(|why| panic!("'{name}' cannot be locked in a test: {why}")),
-                version: version.to_string(),
+                version: Version::parse(version)
+                    .unwrap_or_else(|why| panic!("'{version}' is no SemVer version: {why}")),
                 source: crate::lock::LockSource::parse(source)
                     .unwrap_or_else(|why| panic!("'{source}' cannot be locked in a test: {why}")),
                 wasm_hash: hex_sha256(name.as_bytes()),
@@ -209,7 +213,7 @@ mod tests {
         let bytes = std::fs::read(installed.module_path(&package)).unwrap();
         assert_eq!(bytes, spelled_module("@acme/a", "1.2.3", &[]));
         assert_eq!(
-            installed.lock().entries()[1].version,
+            installed.lock().entries()[1].version.to_string(),
             "1.2.3",
             "the entry records the version the runtime serves"
         );

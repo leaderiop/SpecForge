@@ -224,7 +224,7 @@ fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
             &name("@acme/tool"),
             &Version::new(1, 0, 0),
             TrustPolicy::new(true, Asking::Nobody).locked(Some(LockedPin {
-                bytes: Some(("1.0.0", &other)),
+                bytes: Some((&Version::new(1, 0, 0), &other)),
                 key_id: None,
             })),
         )

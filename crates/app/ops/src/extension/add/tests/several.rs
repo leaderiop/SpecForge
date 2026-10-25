@@ -204,12 +204,12 @@ fn peers_are_judged_on_the_whole_set_whatever_the_order() {
         );
         let lock_path = dir.path().join("specforge.lock");
         let lock = specforge_installed::read_lock_file(&lock_path).unwrap();
-        let locked: Vec<(&str, &str)> = lock
+        let locked: Vec<String> = lock
             .entries
             .iter()
-            .map(|e| (e.name.as_str(), e.version.as_str()))
+            .map(|e| format!("{}@{}", e.name, e.version))
             .collect();
-        assert_eq!(locked, [("@x/b", "2.0.0"), ("@x/a", "2.0.0")], "{order:?}");
+        assert_eq!(locked, ["@x/b@2.0.0", "@x/a@2.0.0"], "{order:?}");
         locks.push(std::fs::read(&lock_path).unwrap());
     }
     assert_eq!(locks[0], locks[1], "the order decides nothing");

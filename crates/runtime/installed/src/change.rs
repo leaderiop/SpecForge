@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::PeerDependency;
 
 use crate::Installed;
@@ -27,7 +27,7 @@ use crate::module::{Module, Sha256};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pin {
     pub name: PackageName,
-    pub version: String,
+    pub version: Version,
     pub source: LockSource,
     pub key_id: Option<String>,
     pub peers: Vec<PeerDependency>,

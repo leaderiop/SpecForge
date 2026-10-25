@@ -1282,7 +1282,7 @@ fn trusting(setup: TrustingSetup) -> Trusting {
     let mut extensions = vec!["@specforge/software".to_string(), "@sdk/greet".to_string()];
     let mut entries = vec![specforge_installed::LockFileEntry {
         name: "@sdk/greet".parse().unwrap(),
-        version: "0.1.0".into(),
+        version: "0.1.0".parse().unwrap(),
         source: specforge_installed::LockSource::Registry,
         wasm_hash: specforge_installed::hex_sha256(&greet_wasm()),
         key_id: Some(k1.key_id()),
@@ -1292,7 +1292,7 @@ fn trusting(setup: TrustingSetup) -> Trusting {
         extensions.push("@x/a".to_string());
         entries.push(specforge_installed::LockFileEntry {
             name: "@x/a".parse().unwrap(),
-            version: "1.0.0".into(),
+            version: "1.0.0".parse().unwrap(),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: specforge_installed::hex_sha256(b"\0asm x/a"),
             key_id: Some(k1.key_id()),

@@ -78,7 +78,7 @@ fn an_update_installs_the_newer_binary_and_locks_its_hash() {
         }
     );
     let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
-    assert_eq!(lock.entries[0].version, "0.1.0");
+    assert_eq!(lock.entries[0].version.to_string(), "0.1.0");
     assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
     assert_eq!(lock.entries[0].source, LockSource::Registry);
     let installed = installed(dir.path(), "@sdk/greet");
@@ -308,12 +308,12 @@ fn an_update_is_judged_against_the_lock_it_leaves_in_any_lock_order() {
         .unwrap();
         assert!(outcome.applied(), "a first: {a_first}: {outcome:?}");
         let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
-        let locked: Vec<(&str, &str)> = lock
+        let locked: Vec<String> = lock
             .entries
             .iter()
-            .map(|e| (e.name.as_str(), e.version.as_str()))
+            .map(|e| format!("{}@{}", e.name, e.version))
             .collect();
-        let mut want = [("@x/a", "2.0.0"), ("@x/b", "2.0.0")];
+        let mut want = ["@x/a@2.0.0", "@x/b@2.0.0"];
         if !a_first {
             want.reverse();
         }

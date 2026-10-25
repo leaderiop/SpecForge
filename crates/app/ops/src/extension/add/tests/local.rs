@@ -548,7 +548,6 @@ fn refused_before_anything_is_written(
     behavior = "install_wasm_extension",
     verify = "an add of a local file declaring a version that is not SemVer is refused (E072) before anything is written"
 )]
-#[ignore = "flipped by T4"]
 fn a_local_file_declaring_a_version_that_is_no_semver_version_is_refused_before_anything_is_written()
  {
     refused_before_anything_is_written("0.1.x", &[]);

@@ -338,11 +338,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         key_id: None,
     };
     let error = registry
-        .fetch(
-            &plain,
-            &one,
-            refuse(false).locked(Some(pin("1.0.0", &other))),
-        )
+        .fetch(&plain, &one, refuse(false).locked(Some(pin(&one, &other))))
         .unwrap_err();
     assert!(
         error.is(codes::R014),
@@ -353,7 +349,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         .fetch(
             &app_name,
             &app_version,
-            TrustPolicy::new(false, Asking::Ask(&asker)).locked(Some(pin("1.0.0", &other))),
+            TrustPolicy::new(false, Asking::Ask(&asker)).locked(Some(pin(&one, &other))),
         )
         .unwrap_err();
     assert!(
@@ -362,9 +358,10 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     );
     assert!(asker.asked().is_empty(), "C12: nobody was asked");
     let plain_bytes = hex_sha256(&find("@contract/plain", "1.0.0").wasm);
+    let earlier = Version::new(0, 9, 0);
     for (version, sha256, why) in [
-        ("1.0.0", &plain_bytes, "its bytes at its version"),
-        ("0.9.0", &other, "other bytes at another version"),
+        (&one, &plain_bytes, "its bytes at its version"),
+        (&earlier, &other, "other bytes at another version"),
     ] {
         registry
             .fetch(

@@ -5,7 +5,7 @@ use std::path::Path;
 
 use specforge_common::codes;
 use specforge_installed::{LockSource, Module, Pin, Sha256};
-use specforge_package::{PackageName, Version};
+use specforge_package::{NotAPackage, PackageName, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
 use super::super::candidate::{Installable, LocalFile};
@@ -20,9 +20,11 @@ impl<'a> Install<'a> {
     pub(crate) fn local(root: &Path, local: LocalFile) -> Result<Install<'a>, OpError> {
         let declared = local.binary.declaration();
         let name = super::super::candidate::package(declared)?;
+        let version = Version::parse(declared.version())
+            .map_err(|why| not_semver(declared.version(), &why))?;
         let pin = Pin {
             name,
-            version: declared.version().to_string(),
+            version,
             source: LockSource::local(shown_path(root, &local.path))
                 .map_err(|why| unrecordable(&local.path, &why))?,
             key_id: None,
@@ -42,7 +44,7 @@ impl<'a> Install<'a> {
     }
 
     /// The version it locks: what its declaration declares.
-    pub(crate) fn version(&self) -> &str {
+    pub(crate) fn version(&self) -> &Version {
         &self.pin.version
     }
 
@@ -98,7 +100,7 @@ impl Staged<'_> {
         };
         let binary = Installable::read(*runtime, bytes.clone()).map_err(published_wrongly)?;
         let declared = binary.declaration();
-        if declared.name() != self.name.as_str() || declared.version() != self.version {
+        if declared.name() != self.name.as_str() || declared.version() != self.version.to_string() {
             return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 codes::E028,
@@ -142,9 +144,9 @@ impl<'a> LockPlan<'a> {
         version: &Version,
     ) -> Result<Install<'a>, OpError> {
         // What the project already has is answered before any registry call (ADR 0138).
-        if let Some(entry) = self.unchanged(name, |e| {
-            e.source.is_registry() && e.version == version.to_string()
-        }) {
+        if let Some(entry) =
+            self.unchanged(name, |e| e.source.is_registry() && e.version == *version)
+        {
             return Ok(Install {
                 module: None,
                 sha256: entry.wasm_hash.clone(),
@@ -180,7 +182,7 @@ impl<'a> LockPlan<'a> {
             })?;
             let pin = Pin {
                 name: manifest.name,
-                version: manifest.version.to_string(),
+                version: manifest.version.clone(),
                 source: LockSource::Registry,
                 key_id: manifest.publisher.key_id().map(str::to_string),
                 peers: manifest.declaration.peers().to_vec(),
@@ -198,7 +200,7 @@ impl<'a> LockPlan<'a> {
         let module = Module::new(std::mem::take(&mut package.wasm));
         let pin = Pin {
             name: package.name.clone(),
-            version: package.version.to_string(),
+            version: package.version.clone(),
             source: LockSource::Registry,
             key_id: package.publisher.key_id().map(str::to_string),
             peers: package.declaration.peers().to_vec(),
@@ -240,6 +242,23 @@ fn first_difference(
         .into_iter()
         .find(|category| served.describe_items(*category) != binary.describe_items(*category))
         .map(DeclaredCategory::name)
+}
+
+/// An `add` of a local file declaring a version that is no SemVer version: E072, before anything is staged,
+/// so the lock never holds a version its own read refuses (ADR 0243).
+fn not_semver(text: &str, why: &dyn std::fmt::Display) -> OpError {
+    let why = NotAPackage::Version {
+        text: text.to_string(),
+        why: why.to_string(),
+    };
+    OpError::of(
+        OpErrorKind::InvalidInput,
+        specforge_common::package::invalid(&specforge_common::remedy::printable(&why.to_string())),
+    )
+    .with_suggestion(
+        "fix the extension's declared version (its SDK `version`) and rebuild, or enable the file \
+         as a `.wasm` file entry in specforge.json, which records nothing in specforge.lock",
+    )
 }
 
 /// An `add` of a file whose path `specforge.lock` cannot record (ADR 0230): refused before anything is

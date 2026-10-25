@@ -42,7 +42,7 @@ pub(super) fn entry(
         .collect();
     LockFileEntry {
         name: PackageName::parse(name).unwrap(),
-        version: version.to_string(),
+        version: version.parse().unwrap(),
         source: LockSource::parse(source).unwrap(),
         wasm_hash: hex_sha256(&module_of(name, version, &peers)),
         key_id: None,
@@ -72,7 +72,11 @@ pub(super) fn project(entries: Vec<LockFileEntry>) -> tempfile::TempDir {
     for e in &entries {
         let path = installed(dir.path(), e.name.as_str());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        let module = module_of(e.name.as_str(), &e.version, &e.peer_dependencies);
+        let module = module_of(
+            e.name.as_str(),
+            &e.version.to_string(),
+            &e.peer_dependencies,
+        );
         std::fs::write(path, module).unwrap();
     }
     let lock = LockFile {

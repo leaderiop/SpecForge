@@ -33,7 +33,8 @@ fn a_new_major_version_needs_major() {
         specforge_installed::read_lock_file(&lock_path(dir.path()))
             .unwrap()
             .entries[0]
-            .version,
+            .version
+            .to_string(),
         "0.0.9"
     );
 }
@@ -160,44 +161,12 @@ fn a_vanished_lock_holds_back_no_other_upgrade() {
         }]
     );
     let lock = specforge_installed::read_lock_file(&lock_path(dir.path())).unwrap();
-    let locked: Vec<(&str, &str)> = lock
+    let locked: Vec<String> = lock
         .entries
         .iter()
-        .map(|e| (e.name.as_str(), e.version.as_str()))
+        .map(|e| format!("{}@{}", e.name, e.version))
         .collect();
-    assert_eq!(locked, [("@sdk/greet", "0.1.0"), ("@x/gone", "1.2.0")]);
-}
-
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "newer versions detected from registry"
-)]
-fn an_unreadable_locked_version_moves_to_what_add_installs() {
-    // A lock edited by hand to a version that is no SemVer: either reach moves it to what
-    // `latest` picks (the highest release), which is what `specforge add <name>` installs.
-    for reach in [Reach::Compatible, Reach::Major] {
-        let dir = enabled_project(vec![entry("@sdk/greet", "not-semver", "registry", &[])]);
-        let registry = MemoryRegistry::new()
-            .serving(greet_published())
-            .serving(old("@sdk/greet", "0.2.0-beta.1"));
-
-        let outcome = update(
-            &request(
-                &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
-                reach,
-            ),
-            &registry,
-            &runtime(),
-        )
-        .unwrap();
-
-        assert!(outcome.applied(), "{reach:?}: {outcome:?}");
-        assert_eq!(
-            outcome.updated().collect::<Vec<_>>(),
-            [("@sdk/greet", "not-semver", "0.1.0")],
-            "{reach:?}"
-        );
-    }
+    assert_eq!(locked, ["@sdk/greet@0.1.0", "@x/gone@1.2.0"]);
 }
 
 const T1_5: &[u8] = b"\0asm in-process @x/t 1.5.0";

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_registry::Disk;
 use std::path::Path;
 
@@ -8,6 +8,8 @@ use crate::layout::lock_path;
 use crate::load::{LoadProblem, Recorded};
 use crate::module::Sha256;
 use crate::resolve::Declared;
+
+mod values;
 
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -23,7 +25,9 @@ pub struct LockFileEntry {
     /// whole lock unreadable (E033), since no module could be installed
     /// under it (ADR 0036).
     pub name: PackageName,
-    pub version: String,
+    /// A SemVer version, else the whole lock is unreadable (E033, ADR 0243).
+    #[serde(deserialize_with = "values::version")]
+    pub version: Version,
     pub source: LockSource,
     pub wasm_hash: Sha256,
     /// The publisher key id the registry install was signed by: the
@@ -50,11 +54,11 @@ impl LockFileEntry {
                 declared: declared.name.clone(),
             });
         }
-        if self.version != declared.version {
+        if self.version.to_string() != declared.version {
             return Err(LoadProblem::NotWhatItsEntryRecords {
                 what: Recorded::Version,
                 declared: declared.version.clone(),
-                recorded: self.version.clone(),
+                recorded: self.version.to_string(),
             });
         }
         if self.peer_dependencies != declared.peers {
@@ -347,7 +351,7 @@ mod tests {
         };
         let entry = LockFileEntry {
             name: PackageName::parse("@acme/a").unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: LockSource::Registry,
             wasm_hash: hex_sha256(b""),
             key_id: None,
@@ -407,7 +411,7 @@ mod tests {
             lockfile_version: 1,
             entries: vec![LockFileEntry {
                 name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
-                version: "1.0.0".to_string(),
+                version: "1.0.0".parse().unwrap(),
                 source: crate::LockSource::Registry,
                 wasm_hash: hex_sha256(b"abc123"),
                 key_id: None,
@@ -449,7 +453,7 @@ mod tests {
             entries: vec![
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
-                    version: "1.0.0".to_string(),
+                    version: "1.0.0".parse().unwrap(),
                     source: crate::LockSource::Registry,
                     wasm_hash: hex_sha256(b"abc123"),
                     key_id: None,
@@ -457,7 +461,7 @@ mod tests {
                 },
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/governance").unwrap(),
-                    version: "1.0.0".to_string(),
+                    version: "1.0.0".parse().unwrap(),
                     source: crate::LockSource::Registry,
                     wasm_hash: hex_sha256(b"def456"),
                     key_id: None,

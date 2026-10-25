@@ -152,17 +152,18 @@ impl<'a> ProjectExtension<'a> {
     /// extension, the locked one; else, for an extension of unknown origin,
     /// the version a legacy `name@version` entry writes; else none (a
     /// builtin or a `.wasm` file that did not load).
-    pub fn version(&self) -> Option<&'a str> {
+    pub fn version(&self) -> Option<String> {
         if let Some(declaration) = self.declaration {
-            return Some(declaration.version());
+            return Some(declaration.version().to_string());
         }
         match &self.origin {
-            Origin::Installed { .. } => self.lock.map(|entry| entry.version.as_str()),
+            Origin::Installed { .. } => self.lock.map(|entry| entry.version.to_string()),
             // `@acme/x@1.2.0`, as older `specforge add`s wrote it.
             Origin::Unknown => self.entries.iter().find_map(|e| {
                 e.entry
                     .strip_prefix(self.name)
                     .and_then(|rest| rest.strip_prefix('@'))
+                    .map(str::to_string)
             }),
             Origin::Builtin | Origin::File { .. } => None,
         }
@@ -277,7 +278,7 @@ mod tests {
                 name: r.name.to_string(),
                 origin: r.origin.clone(),
                 status: r.status,
-                version: r.version().map(str::to_string),
+                version: r.version(),
                 entries: r.entries.len(),
                 declared: r.declaration.is_some(),
                 locked: r.lock.is_some(),

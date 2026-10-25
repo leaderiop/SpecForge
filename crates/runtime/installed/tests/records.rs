@@ -32,7 +32,7 @@ fn record(root: &std::path::Path, version: &str, peers: Vec<PeerDependency>) {
     let path = specforge_installed::lock_path(root);
     let mut lock = read_lock_file(&path).unwrap();
     for entry in &mut lock.entries {
-        entry.version = version.to_string();
+        entry.version = version.parse().unwrap();
         entry.peer_dependencies = peers.clone();
     }
     write_lock_file(&lock, &path).unwrap();

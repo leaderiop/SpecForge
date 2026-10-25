@@ -361,7 +361,7 @@ mod tests {
     fn locked(name: &str) -> LockFileEntry {
         LockFileEntry {
             name: PackageName::parse(name).unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: LockSource::Registry,
             wasm_hash: crate::hex_sha256(b"hash"),
             key_id: None,
@@ -471,7 +471,7 @@ mod tests {
     fn declared_as(name: &str) -> Declared {
         Declared {
             name: name.to_string(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             peers: Vec::new(),
         }
     }

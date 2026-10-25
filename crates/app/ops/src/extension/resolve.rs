@@ -6,7 +6,7 @@ use crate::OpError;
 use crate::registry::Registry;
 use specforge_common::codes;
 use specforge_package::{
-    LockedVersion, PackageName, PackageRef, Reach, Version, VersionRequirement, upgrade_target,
+    PackageName, PackageRef, Reach, Version, VersionRequirement, upgrade_target,
 };
 use specforge_wasm::WasmRuntime;
 
@@ -78,7 +78,7 @@ pub(crate) fn embedded(
 pub fn upgrade(
     registry: &dyn Registry,
     name: &PackageName,
-    locked: &LockedVersion,
+    locked: &Version,
     reach: Reach,
 ) -> Result<Option<Version>, OpError> {
     let published = published(registry, name)?;
@@ -179,7 +179,7 @@ mod tests {
     fn upgrade_lists_once_and_answers_none_when_up_to_date() {
         let registry = publishing(&["1.4.0", "2.0.0-beta.1"]);
         let name = PackageName::parse("@acme/tool").unwrap();
-        let locked = LockedVersion::SemVer(Version::parse("2.0.0-beta.1").unwrap());
+        let locked = Version::parse("2.0.0-beta.1").unwrap();
 
         let target = upgrade(&registry, &name, &locked, Reach::Major).unwrap();
 
@@ -192,13 +192,8 @@ mod tests {
         let registry = MemoryRegistry::new().listing_none("@acme/tool");
         let name = PackageName::parse("@acme/tool").unwrap();
 
-        let error = upgrade(
-            &registry,
-            &name,
-            &LockedVersion::read("1.0.0"),
-            Reach::Compatible,
-        )
-        .unwrap_err();
+        let error =
+            upgrade(&registry, &name, &Version::new(1, 0, 0), Reach::Compatible).unwrap_err();
 
         assert_eq!(error.code, "R-RES-002");
     }

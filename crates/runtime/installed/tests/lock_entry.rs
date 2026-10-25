@@ -41,7 +41,6 @@ fn refused(root: &Path, field: &str, shown: &Value) {
     behavior = "read_lock_file",
     verify = "a lock entry whose version is no SemVer version is E033, and the message shows no control character"
 )]
-#[ignore = "flipped by T4"]
 fn a_lock_entry_whose_version_is_no_semver_version_is_unreadable() {
     let dir = TempDir::new().unwrap();
     for version in [

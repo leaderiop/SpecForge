@@ -24,7 +24,7 @@ use crate::view::ProjectView;
 use serde_json::Value;
 use specforge_common::ExtensionEntry;
 use specforge_installed::{Installed, LockFile, LockFileEntry, LockState, Module, Pin, Sha256};
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::PlainDisk;
 use specforge_wasm::WasmRuntime;
@@ -155,7 +155,7 @@ enum From<'a> {
 struct Staged<'a> {
     ask: Ask,
     name: PackageName,
-    version: String,
+    version: Version,
     module: Option<Module>,
     pin: Pin,
     /// The SHA-256 its lock entry pins: the module's, or for a preview the one its registry publishes.
