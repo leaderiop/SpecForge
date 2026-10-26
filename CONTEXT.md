@@ -1380,7 +1380,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   its reply (ADR 0022 D7, ADR 0057). The CLI, the LSP and the operations keep no event.
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which the explain operation
-  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document),
+  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document; in a project it
+  also answers the codes the loaded extensions' rules declare, ADR 0278),
   diagnostics JSON titles, doctor and the LSP hover read and from which
   `docs/diagnostics.md` is generated, and a **code constant** for every core code.
 - **Code constant**: a core diagnostic code as a typed value, `specforge_diagnostics::codes::W112`
@@ -1395,6 +1396,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   a diagnostic (title, explanation, docs link: `CodeEntry::docs_href`) only for the host's own or for the code's owner
   (`specforge_diagnostics::describes`), so an extension's finding with a code it may not use (W150) is
   kept but never presented as that code's owner's.
+- **Declared code**: a diagnostic code the catalog does not have that a loaded extension's validation rule
+  declares and the host takes from that extension (no W150): a third-party extension's own, E900–E998,
+  W900–W998, I900–I998. `specforge explain` and `specforge.explain` answer it in the project from those rules
+  (`specforge_ops::read::explain::declared`, ADR 0278), with the rule's description when it has one.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's

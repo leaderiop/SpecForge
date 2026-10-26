@@ -1,6 +1,6 @@
 # Diagnostic codes are typed constants; extension codes are checked where they cross
 
-**Status:** accepted (2026-10-06)
+**Status:** accepted (2026-10-06) Extended by ADR 0278 (explain answers a third-party code from the loaded extensions' rules, under D4's acceptance).
 
 Every emit site chose a code and, separately, a severity: 120 `Diagnostic { code: "X".to_string(),
 severity: … }` literals, 26 `Diagnostic::error|warning|info("X", …)` calls and ~50 other code

@@ -1,6 +1,6 @@
 # One extension declaration
 
-**Status:** accepted (2026-10-05)
+**Status:** accepted (2026-10-05) Amended by ADR 0278 (a validation rule may carry a `description`).
 
 An extension's declaration (who it is, and the kinds, fields, edges, rules, enhancements,
 surfaces, collectors, analyzers, passes and feature flags it contributes) was written once, in
