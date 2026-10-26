@@ -251,6 +251,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "the stats document has no proof_pct without recorded test results"
   verify unit "stats reports no verified count: unverified is what counts toward coverage and is not proven"
   verify integration "stats reports the declared and proof percentages"
+  verify integration "with nothing testable, stats reports the declared and the proof percentages alike"
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 }
 
