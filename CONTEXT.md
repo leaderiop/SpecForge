@@ -649,12 +649,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Registry credential**: the token a request to one registry carries, kept per registry root in
   `~/.specforge/credentials.json`, never in `specforge.json`: a secret `specforge login --token` stored (a 0600 file under
   `~/.specforge/secrets/`), or a reference to an environment variable (`--token-env`) or a file
-  (`--token-file`), resolved before any request (`CredentialStore::credential`; R010, R011, and R-AUTH-021 for a lost secret). The client sends it only to the registry root it was kept for (ADR 0178). A `credentials.json` that cannot be read is R012 for every reader: login and logout refuse and leave it, doctor counts it unusable, update and search refuse it once, when they open their registry (ADR 0045 as amended). Every read carries
+  (`--token-file`), resolved before any request (`CredentialStore::credential`; R010, R011, and R-AUTH-021 for a lost secret); its expiry, when kept, is RFC 3339 (ADR 0265). The client sends it only to the registry root it was kept for (ADR 0178). A `credentials.json` that cannot be read is R012 for every reader: login and logout refuse and leave it, doctor counts it unusable, update and search refuse it once, when they open their registry (ADR 0045 as amended). Every read carries
   it; a publish takes `SPECFORGE_REGISTRY_TOKEN` first (ADR 0045 as amended).
 - **User's registry files**: the directory `specforge_ops_registry::User` reads and writes: `credentials.json` (keyed by
   registry root), `secrets/`, `signing-key.json` and `known-keys.json`, each written by **private replace**. `User::current()` is `~/.specforge`,
   `User::at(dir)` any other; nothing else reads them, and login, logout, doctor, fetch, search and publish ask it (ADR 0178).
-- **Fetch policy**: what a package passes before an operation sees it: the registry's reply reads as the protocol's JSON (R009 else;
+- **Registry reply**: what a registry answers a call with, read as values where it is read
+  (`specforge_registry_client::HttpRegistryClient` through `reply::read`): a package reply's name is a package name, its
+  version a SemVer version, its digest a SHA-256 in lowercase hex (the lock's spelling), a version list's versions SemVer
+  versions, a token check's expiry an RFC 3339 timestamp. A reply holding another is not the call's wire type (R009),
+  before anything is downloaded, asked or kept; fields no client reads (description, keywords, publisher, published_at)
+  stay text (ADR 0231, 0265).
+- **Fetch policy**: what a package passes before an operation sees it: the registry's reply reads as the protocol's JSON and its values (**registry reply**; R009 else;
   a malformed signature is that) and names the package and version asked for, the served manifest reads as that
   package's declaration (one from before ADR 0012 is refused), at the version the project's lock pins the bytes it pins
   (**locked pin**), the publisher signature verifies over what the reply describes and the publisher is decided (the

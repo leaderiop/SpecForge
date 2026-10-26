@@ -1,6 +1,6 @@
 # A lock entry is read whole
 
-**Status:** accepted (2026-10-25, architecture round 27, plan 01). Extends [ADR 0230](0230-a-lock-source-is-checked-once-and-a-remedys-command-quotes-its-values.md) D1 and [ADR 0036](0036-one-package-name.md) D1; supersedes [ADR 0201](0201-a-locked-package-is-fetched-to-the-pin-its-lock-entry-records.md) D4 and ADR 0036 A2; amends [ADR 0028](0028-installed-extensions-are-one-module.md) (W149).
+**Status:** accepted (2026-10-25, architecture round 27, plan 01). **D3 amended by [ADR 0265](0265-a-registry-reply-is-read-as-values-where-it-is-read.md) (round 28):** a preview whose published digest is no SHA-256 is the reply's R009, not R-OPS-002; `Sha256` lives in `specforge-package`. Extends [ADR 0230](0230-a-lock-source-is-checked-once-and-a-remedys-command-quotes-its-values.md) D1 and [ADR 0036](0036-one-package-name.md) D1; supersedes [ADR 0201](0201-a-locked-package-is-fetched-to-the-pin-its-lock-entry-records.md) D4 and ADR 0036 A2; amends [ADR 0028](0028-installed-extensions-are-one-module.md) (W149).
 
 ## Context
 
