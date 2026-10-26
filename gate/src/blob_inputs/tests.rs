@@ -62,11 +62,9 @@ fn a_test_only_sdk_file_feeds_no_blob() {
 fn blobs_lists_the_recorded_blobs() {
     let listed = blobs(repo_root()).unwrap();
     assert!(NINE.iter().all(|nine| listed.iter().any(|l| l == nine)));
-    assert!(
-        listed
-            .iter()
-            .all(|l| l.starts_with("extensions/") || l.starts_with("fixtures/"))
-    );
+    assert!(listed.iter().all(|l| l.starts_with("extensions/")
+        || l.starts_with("fixtures/")
+        || l.starts_with("examples/")));
 }
 
 #[test]

@@ -68,8 +68,41 @@ pub const PROJECTS: &[&str] = &[
     "examples/marketing",
 ];
 
-/// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`).
-pub const OUTSIDE_WORKSPACE: &[&str] = &["extensions/*/Cargo.toml", "fixtures/*/Cargo.toml"];
+/// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`): the guests, the
+/// fixtures and each example project's own extension.
+pub const OUTSIDE_WORKSPACE: &[&str] = &[
+    "extensions/*/Cargo.toml",
+    "fixtures/*/Cargo.toml",
+    "examples/*/extension/Cargo.toml",
+];
+
+/// `prefix/*/rest` expanded under `root`: `prefix/<entry>/rest` for each entry of `root/prefix` where that path
+/// exists, sorted. The one `*` is a whole segment; an unreadable `prefix` (or a pattern without `/*`) yields nothing.
+pub(crate) fn expand(root: &Path, pattern: &str) -> Vec<String> {
+    let (prefix, rest) = match pattern.split_once("/*/") {
+        Some((prefix, rest)) => (prefix, Some(rest)),
+        None => match pattern.strip_suffix("/*") {
+            Some(prefix) => (prefix, None),
+            None => return Vec::new(),
+        },
+    };
+    let Ok(entries) = std::fs::read_dir(root.join(prefix)) else {
+        return Vec::new();
+    };
+    let mut found: Vec<String> = entries
+        .flatten()
+        .map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            match rest {
+                Some(rest) => format!("{prefix}/{name}/{rest}"),
+                None => format!("{prefix}/{name}"),
+            }
+        })
+        .filter(|path| root.join(path).exists())
+        .collect();
+    found.sort();
+    found
+}
 
 /// A project the spec checks judge: its root (where `specforge.json` is) and the directory its `.spec` files are in.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -271,6 +304,21 @@ pub(crate) fn this_repo() -> Repo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pattern_keeps_what_follows_its_star() {
+        let root = tempfile::tempdir().unwrap();
+        for file in ["a/x/rest/Cargo.toml", "a/y/Cargo.toml"] {
+            let path = root.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "").unwrap();
+        }
+        assert_eq!(
+            expand(root.path(), "a/*/rest/Cargo.toml"),
+            ["a/x/rest/Cargo.toml"]
+        );
+        assert_eq!(expand(root.path(), "a/*/Cargo.toml"), ["a/y/Cargo.toml"]);
+    }
 
     #[test]
     fn the_longest_member_directory_holds_a_path() {

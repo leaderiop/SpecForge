@@ -107,12 +107,12 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "rustfmt",
-        proves: "the workspace, the nine guests and the four fixtures (the bridge component included) are rustfmt-clean",
+        proves: "the workspace, the nine guests, the four fixtures (the bridge component included) and each example's extension are rustfmt-clean",
         reach: Reach::Hook,
         trigger: Trigger::Paths(&["**/*.rs"]),
         compiles: false,
         after: &[],
-        fix: "cargo fmt --all; a guest or fixture: cargo fmt --manifest-path <its Cargo.toml>",
+        fix: "cargo fmt --all; a guest, fixture or example extension: cargo fmt --manifest-path <its Cargo.toml>",
         run: steps::rustfmt,
     },
     Check {

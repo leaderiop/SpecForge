@@ -128,29 +128,15 @@ fn an_unformatted_guest_is_judged_by_the_hook() {
     );
     let manifests = OUTSIDE_WORKSPACE
         .iter()
-        .flat_map(|pattern| manifests_matching(pattern))
+        .flat_map(|pattern| crate::repo::expand(&this_repo().root, pattern))
         .count();
-    assert_eq!(manifests, 13, "nine guests and four fixtures");
-}
-
-fn manifests_matching(pattern: &str) -> Vec<String> {
-    let root = this_repo().root;
-    let (parent, _) = pattern.split_once("/*/").unwrap();
-    let mut found = Vec::new();
-    for entry in std::fs::read_dir(root.join(parent)).unwrap().flatten() {
-        let relative = format!(
-            "{parent}/{}/Cargo.toml",
-            entry.file_name().to_string_lossy()
-        );
-        if root.join(&relative).is_file() {
-            found.push(relative);
-        }
-    }
-    found
+    assert_eq!(
+        manifests, 14,
+        "nine guests, four fixtures and the marketing example's extension"
+    );
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn an_examples_extension_is_format_checked() {
     assert!(
         crate::steps::outside_workspace(&this_repo())

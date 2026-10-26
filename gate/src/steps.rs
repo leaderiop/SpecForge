@@ -476,37 +476,16 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
     Ok(found)
 }
 
-/// The manifests outside the workspace (`OUTSIDE_WORKSPACE`): the guests and the fixtures.
+/// The manifests outside the workspace (`OUTSIDE_WORKSPACE`): the guests, the fixtures and the example
+/// projects' extensions.
 pub(crate) fn outside_workspace(repo: &Repo) -> Vec<String> {
     OUTSIDE_WORKSPACE
         .iter()
-        .flat_map(|pattern| manifests(&repo.root, pattern))
+        .flat_map(|pattern| crate::repo::expand(&repo.root, pattern))
         .collect()
 }
 
 /// The guests' manifests: `extensions/*/Cargo.toml`.
 fn guests_of(repo: &Repo) -> Vec<String> {
-    manifests(&repo.root, "extensions/*/Cargo.toml")
-}
-
-/// `dir/*/Cargo.toml` expanded, sorted.
-fn manifests(root: &Path, pattern: &str) -> Vec<String> {
-    let Some((parent, _)) = pattern.split_once("/*/") else {
-        return Vec::new();
-    };
-    let Ok(entries) = std::fs::read_dir(root.join(parent)) else {
-        return Vec::new();
-    };
-    let mut found: Vec<String> = entries
-        .flatten()
-        .map(|entry| {
-            format!(
-                "{parent}/{}/Cargo.toml",
-                entry.file_name().to_string_lossy()
-            )
-        })
-        .filter(|manifest| root.join(manifest).is_file())
-        .collect();
-    found.sort();
-    found
+    crate::repo::expand(&repo.root, "extensions/*/Cargo.toml")
 }
