@@ -470,12 +470,12 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
     it:
     1. Call specforge.infer_session with action=start
     2. Call specforge.infer_progress to get unanalyzed files
-    3. Read source files, write .spec files
+    3. Read source files, create their entities with specforge.edit (never write .spec text)
     4. Call specforge.validate to check errors, fix any errors
     5. Call specforge.infer_session with action=mark_analyzed
     6. Repeat steps 2-5 until satisfied
     7. Call specforge.infer_session with action=end
-    Include retry pattern: if validate fails, fix .spec -> re-validate
+    Include retry pattern: if validate fails, fix the entity with specforge.edit -> re-validate
     -> then mark. Never mark before validation passes. The payload lists
     the tools the protocol names and the declared kinds. It is tagged with
     its scope (workflow).

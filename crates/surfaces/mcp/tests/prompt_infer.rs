@@ -122,7 +122,7 @@ fn the_overview_renders_the_guide() {
         content["output_format"]
             .as_str()
             .unwrap()
-            .contains("Write .spec files in the ./ directory"),
+            .contains("a `file` under the ./ directory"),
         "{content}"
     );
     assert!(content["validation"].is_string(), "{content}");
@@ -277,7 +277,6 @@ fn workflow_scope_returns_protocol() {
     behavior = "provide_infer_workflow_scope",
     verify = "the infer prompt has the agent create entities with specforge.edit, never write .spec text"
 )]
-#[ignore = "flipped by T9"]
 fn the_infer_prompt_creates_entities_with_the_edit_tool() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     for arguments in [
@@ -323,6 +322,7 @@ fn workflow_scope_lists_tools_and_kinds() {
         json!([
             "specforge.infer_session",
             "specforge.infer_progress",
+            "specforge.edit",
             "specforge.validate",
             "specforge.query",
             "specforge.search",

@@ -3,7 +3,7 @@ pub(crate) mod analyze;
 mod collect;
 pub(crate) mod coverage;
 mod doctor;
-mod edit;
+pub(crate) mod edit;
 mod explain;
 mod export;
 mod extensions;

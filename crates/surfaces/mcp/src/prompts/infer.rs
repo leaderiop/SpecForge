@@ -11,14 +11,15 @@ use crate::prompt::{CorePrompt, Prompted};
 use crate::refusal::ArgumentOf;
 use crate::tool::CoreTool;
 use crate::tool::{ErrorCode, McpError};
-use crate::tools::{analyze, infer_progress, infer_session, query, schema, search, validate};
+use crate::tools::{analyze, edit, infer_progress, infer_session, query, schema, search, validate};
 use specforge_ops::read::infer::KindGuideField;
 use specforge_ops::view::ProjectView;
 
 /// The core tools the workflow protocol names, in the order it lists them.
-const WORKFLOW_TOOLS: [&str; 6] = [
+const WORKFLOW_TOOLS: [&str; 7] = [
     infer_session::Tool::NAME,
     infer_progress::Tool::NAME,
+    edit::Tool::NAME,
     validate::Tool::NAME,
     query::Tool::NAME,
     search::Tool::NAME,
@@ -63,7 +64,7 @@ impl CorePrompt for Prompt {
 pub struct Args {
     /// Scope: omit for every kind's guide (or 'overview'), 'kind:{name}' for one kind's guide, 'file:{path}' for what a source file already has, 'plan' for the inference plan, 'workflow' for the step-by-step protocol
     scope: Option<String>,
-    /// Directory where generated .spec files are written (scope "plan")
+    /// Directory under which the created entities' files go (scope "plan")
     target_spec_directory: Option<String>,
     /// Offset into the plan's unanalyzed/stale file lists for paging (scope "plan")
     #[arg(default = 0)]
@@ -200,7 +201,8 @@ fn get_overview(project: &ProjectView) -> Prompted<Payload> {
     let guide = infer::guide(project);
     let payload = Payload::Overview(Overview {
         output_format: format!(
-            "Write .spec files in the {} directory. Use `keyword entity_id \"Title\" {{ fields }}` syntax. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
+            "Create entities with {}, one `create` edit per entity (kind, id, title, a `file` under the {} directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
+            edit::Tool::NAME,
             guide.spec_directory
         ),
         validation: validation(),
@@ -210,9 +212,10 @@ fn get_overview(project: &ProjectView) -> Prompted<Payload> {
     let instruction = format!(
         "You are inferring spec entities from this codebase. \
          Use the inference guides below to identify entities in the code, \
-         write .spec files, and validate them with {}. \
+         create them with {}, and validate the project with {}. \
          Each kind has signals describing what to look for in code. \
          Do not duplicate entities that already exist.",
+        edit::Tool::NAME,
         validate::Tool::NAME
     );
 
@@ -235,11 +238,11 @@ fn get_kind_scoped(project: &ProjectView, kind_name: &str) -> Outcome {
     Ok(rendered(instruction, payload))
 }
 
-/// What the agent runs after writing `.spec` files, naming the tools as the
-/// tool table does.
+/// What the agent runs after each edit, naming the tools as the tool table does.
 fn validation() -> String {
     format!(
-        "After writing .spec files, call {} to check for errors (and {} for coverage/contract findings). Fix any errors before proceeding.",
+        "After each {} call, call {} to check for errors across files (and {} for coverage/contract findings). Fix any errors before proceeding.",
+        edit::Tool::NAME,
         validate::Tool::NAME,
         analyze::Tool::NAME,
     )
@@ -290,11 +293,12 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
 
     let instruction = format!(
         "Create a prioritized inference plan. There are {} unanalyzed files and {} stale files. \
-         Write .spec files to '{}'. Process files with the most entity signals first. \
+         Create entities with {} in files under '{}'. Process files with the most entity signals first. \
          Use {} to track progress (start → mark_analyzed per file → end). \
          After each file, call {} to check for errors.",
         plan.unanalyzed.total,
         plan.stale.total,
+        edit::Tool::NAME,
         plan.target_spec_directory,
         infer_session::Tool::NAME,
         validate::Tool::NAME,
@@ -315,6 +319,7 @@ fn get_workflow(project: &ProjectView) -> Prompted<Payload> {
     let [
         infer_session,
         infer_progress,
+        edit,
         validate,
         query,
         search,
@@ -339,7 +344,7 @@ Call `{infer_progress}` to see unanalyzed files and current project.
 ### Step 3: For Each Source File
 1. Read the source file
 2. Identify entities (behaviors, types, events, etc.) using entity kind guides
-3. Write a `.spec` file with the discovered entities
+3. Create the discovered entities with `{edit}` (one `create` edit per entity; never write `.spec` text by hand)
 4. Call `{validate}` to check for errors — fix any before proceeding
 5. Call `{infer_session}` with `action: \"mark_analyzed\"`, `source_file`, and `entities_produced`
 
@@ -353,7 +358,7 @@ Call `{infer_session}` with `action: \"end\"` and the `session_id` from Step 1.
 Use `status: \"completed\"` when done, or `status: \"paused\"` to resume later.
 
 ### Retry Pattern
-If validation fails, fix the .spec file and re-validate. Do not skip errors.
+If validation fails, fix the entity with `{edit}` (set, link, unlink ...) and re-validate. Do not skip errors.
 If a file has no identifiable entities, still mark it as analyzed with an empty `entities_produced`.
 ",
     );

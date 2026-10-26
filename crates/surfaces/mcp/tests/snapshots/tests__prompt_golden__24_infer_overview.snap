@@ -4,7 +4,7 @@ expression: "shape(&reply, dir.path())"
 ---
 {
   "description": "Get inference guidance for discovering spec entities from code",
-  "instruction": "You are inferring spec entities from this codebase. Use the inference guides below to identify entities in the code, write .spec files, and validate them with specforge.validate. Each kind has signals describing what to look for in code. Do not duplicate entities that already exist.",
+  "instruction": "You are inferring spec entities from this codebase. Use the inference guides below to identify entities in the code, create them with specforge.edit, and validate the project with specforge.validate. Each kind has signals describing what to look for in code. Do not duplicate entities that already exist.",
   "layout": "turns",
   "payload": {
     "existing_entities": {
@@ -257,11 +257,11 @@ expression: "shape(&reply, dir.path())"
         "kind": "port"
       }
     ],
-    "output_format": "Write .spec files in the spec/ directory. Use `keyword entity_id \"Title\" { fields }` syntax. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
+    "output_format": "Create entities with specforge.edit, one `create` edit per entity (kind, id, title, a `file` under the spec/ directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
     "project_conventions": "",
     "scope": "overview",
     "spec_directory": "spec/",
-    "validation": "After writing .spec files, call specforge.validate to check for errors (and specforge.analyze for coverage/contract findings). Fix any errors before proceeding."
+    "validation": "After each specforge.edit call, call specforge.validate to check for errors across files (and specforge.analyze for coverage/contract findings). Fix any errors before proceeding."
   },
   "roles": [
     "user",

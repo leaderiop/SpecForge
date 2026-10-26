@@ -81,7 +81,7 @@ expression: "reply[\"result\"]"
           "required": false
         },
         {
-          "description": "Directory where generated .spec files are written (scope \"plan\")",
+          "description": "Directory under which the created entities' files go (scope \"plan\")",
           "name": "target_spec_directory",
           "required": false
         },
