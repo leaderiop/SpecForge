@@ -149,7 +149,7 @@ pub fn entity(
     if !incoming.is_empty() {
         let mut by_kind_field: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
         for reference in incoming {
-            let kind = reference.peer_kind.map_or("unknown", |k| k.as_str());
+            let kind = reference.peer_kind.as_str();
             by_kind_field
                 .entry((kind, reference.field.as_str()))
                 .or_default()

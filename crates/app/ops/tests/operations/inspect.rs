@@ -278,7 +278,7 @@ fn facts_carry_the_node_kind_entry_headline_and_obligations() {
 fn reference(peer: &str, peer_kind: &str, field: &str) -> Reference {
     Reference {
         peer: Sym::new(peer),
-        peer_kind: Some(Sym::new(peer_kind)),
+        peer_kind: Sym::new(peer_kind),
         field: Sym::new(field),
     }
 }
