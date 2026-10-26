@@ -9,7 +9,6 @@ use specforge_test_macros::test as specforge_test;
     behavior = "provide_mcp_explain_tool",
     verify = "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
 )]
-#[ignore = "flipped by T5"]
 fn explain_explains_a_code_the_served_projects_extension_declares() {
     let mut server = TestProject::new().serve(&[TestExtension::named("@acme/launch")
         .kind("campaign", false)
