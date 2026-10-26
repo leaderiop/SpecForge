@@ -358,10 +358,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   share. `extension init` names it, and a release publishes the three guest crates at it before its tag (ADR 0238).
   Not the protocol version, which the handshake states and `extension validate` reports.
 - **Committed blob**: a wasm component the repository commits, at `<crate>/wasm/<artifact>` with the `inputs.json` its
-  build recorded: a builtin (`extensions/<name>`, embedded in the host) or a test fixture (`fixtures/<name>`). Listed
+  build recorded: a builtin (`extensions/<name>`, embedded in the host), a test fixture (`fixtures/<name>`) or an
+  example project's own extension (`examples/<name>/extension`). Listed
   once, `specforge_component::committed::COMMITTED`; git tracks exactly that list. An SDK blob answers the host's
   protocol and its wire answers are pinned; a bridge blob (the runtime's own test component) is written without the
-  SDK and declares the canned protocol it answers. `revendor` rebuilds every one (ADR 0070).
+  SDK and declares the canned protocol it answers. `revendor` rebuilds every one (ADR 0070, ADR 0281).
 - **Layer**: one of the eight folders under `crates/` that a workspace crate sits in, bottom to top `leaf kernel
   pipeline runtime session app adapters surfaces` (`crates/<layer>/<crate>/`). A crate's normal and build dependencies
   stay in its layer or go down; the gate's `layers` check holds it (ADR 0084). What each layer owns is in

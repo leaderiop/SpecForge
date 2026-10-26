@@ -1,5 +1,5 @@
-//! Builds every committed component (`specforge_component::committed::COMMITTED`: the builtins and the fixtures,
-//! wasm32-wasip2) and keeps the vendored copies under `<crate_dir>/wasm/` — for the builtins, the bytes
+//! Builds every committed component (`specforge_component::committed::COMMITTED`: the builtins, the fixtures and
+//! the example projects' extensions, wasm32-wasip2) and keeps the vendored copies under `<crate_dir>/wasm/` — for the builtins, the bytes
 //! `specforge-component` embeds — in step with their sources.
 //!
 //! ```text

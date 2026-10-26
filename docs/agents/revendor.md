@@ -21,7 +21,7 @@ Run it from the main checkout, or from a worktree outside the repository directo
 `rustup target add wasm32-wasip2`.
 
 It refreshes the lockfile of every committed blob's crate, rebuilds every committed blob
-(`specforge_component::committed::COMMITTED`: the nine builtins and the four fixtures) into `<crate>/wasm/` with its
+(`specforge_component::committed::COMMITTED`: the nine builtins, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its
 `inputs.json`, rewrites the declaration snapshots of every SDK blob in
 `crates/runtime/component/tests/declarations/` and the builtin vocabulary
 (`crates/runtime/component/data/builtin-vocabulary.json`, ADR 0122), runs `build-blobs --check` and the declarations test (with its
