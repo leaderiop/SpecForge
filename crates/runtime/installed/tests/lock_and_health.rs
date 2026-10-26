@@ -67,7 +67,7 @@ fn lock_file_missing_e033() {
 // B:run_doctor_check
 // ============================================================
 
-fn entry(name: &str, hash: specforge_installed::Sha256) -> LockFileEntry {
+fn entry(name: &str, hash: specforge_package::Sha256) -> LockFileEntry {
     LockFileEntry {
         name: specforge_package::PackageName::parse(name).unwrap(),
         version: "1.0.0".parse().unwrap(),

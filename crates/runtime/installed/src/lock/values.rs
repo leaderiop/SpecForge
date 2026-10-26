@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use specforge_common::remedy::printable;
-use specforge_package::Version;
+use specforge_package::{Sha256, Version};
 use specforge_protocol_types::PeerDependency;
 
 /// `version` as the lock reads it: a SemVer version, the error naming the field.
@@ -13,6 +13,12 @@ pub(super) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vers
     Version::parse(&text).map_err(|why| {
         serde::de::Error::custom(format!("version {text:?} is not a SemVer version: {why}"))
     })
+}
+
+/// `wasm_hash` as the lock reads it: a lowercase SHA-256, the error naming the field.
+pub(super) fn wasm_hash<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Sha256, D::Error> {
+    let text = String::deserialize(deserializer)?;
+    Sha256::parse(&text).map_err(|why| serde::de::Error::custom(format!("wasm_hash {why}")))
 }
 
 /// Whether `specforge.lock` can record `peers`: each name and range holds no character a terminal acts

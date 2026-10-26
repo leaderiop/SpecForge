@@ -23,8 +23,8 @@
 use crate::view::ProjectView;
 use serde_json::Value;
 use specforge_common::ExtensionEntry;
-use specforge_installed::{Installed, LockFile, LockFileEntry, LockState, Module, Pin, Sha256};
-use specforge_package::{PackageName, Version};
+use specforge_installed::{Installed, LockFile, LockFileEntry, LockState, Module, Pin};
+use specforge_package::{PackageName, Sha256, Version};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::PlainDisk;
 use specforge_wasm::WasmRuntime;

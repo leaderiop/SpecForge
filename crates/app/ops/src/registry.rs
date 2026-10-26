@@ -17,8 +17,8 @@ use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
-use specforge_installed::{KeyId, LockFileEntry, Sha256};
-use specforge_package::{DeclaredPackage, PackageName, Version};
+use specforge_installed::{KeyId, LockFileEntry};
+use specforge_package::{DeclaredPackage, PackageName, Sha256, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
 /// The diagnostic a registry operation reports when no registry is

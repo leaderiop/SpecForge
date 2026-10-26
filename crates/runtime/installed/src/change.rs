@@ -14,13 +14,13 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_package::{PackageName, Version};
+use specforge_package::{PackageName, Sha256, Version};
 use specforge_protocol_types::PeerDependency;
 
 use crate::Installed;
 use crate::layout::{MODULE_FILE, STAGING};
 use crate::lock::{KeyId, LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
-use crate::module::{Module, Sha256};
+use crate::module::Module;
 
 /// What a lock entry records about an install, its hash aside (the module's
 /// digest is).

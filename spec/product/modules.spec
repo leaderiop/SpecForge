@@ -37,7 +37,7 @@ module specforge_diagnostics "specforge-diagnostics" {
 
 module specforge_package "specforge-package" {
   family      core
-  description "The host's reading of what an extension package is called, which version is asked for and what its declared peers require (ADR 0036, 0041, 0050)"
+  description "The host's reading of what an extension package is called, which version is asked for, the SHA-256 that pins its bytes and what its declared peers require (ADR 0036, 0041, 0050, 0243)"
   depends_on  [specforge_protocol_types]
   tags        ["leaf"]
 }

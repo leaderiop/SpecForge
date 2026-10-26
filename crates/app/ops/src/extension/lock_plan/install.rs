@@ -4,8 +4,8 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256, recordable_peers};
-use specforge_package::{NotAPackage, PackageName, Version};
+use specforge_installed::{KeyId, LockSource, Module, Pin, recordable_peers};
+use specforge_package::{NotAPackage, PackageName, Sha256, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PeerDependency};
 
 use super::super::candidate::{Installable, LocalFile};

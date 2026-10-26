@@ -11,6 +11,7 @@
 //! (`specforge_common::package`: E072; `specforge_common::peers`: E073, E027).
 
 mod declared;
+mod digest;
 mod name;
 pub mod peers;
 mod scope;
@@ -18,6 +19,7 @@ pub mod search;
 pub mod upgrade;
 
 pub use declared::{DeclaredPackage, NotAPackage};
+pub use digest::Sha256;
 pub use name::{
     MAX_NAME_LEN, PackageName, PackageNameError, PackageRef, SpecifierError, VersionRequirement,
     VersionRequirementError, highest_matching, split_requirement,
