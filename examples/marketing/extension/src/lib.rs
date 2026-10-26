@@ -138,7 +138,8 @@ impl Contributions for Marketing {
                 .target_kind("campaign")
                 .edge_type("CampaignTargetsAudience")
                 .severity(ValidationSeverity::Error)
-                .message_template("campaign '{id}' targets no audience");
+                .message_template("campaign '{id}' targets no audience")
+                .description("A campaign that targets no audience: money spent on nobody. Give it `audiences`.");
         });
 
         // Copy that skipped the brand check.
@@ -147,7 +148,8 @@ impl Contributions for Marketing {
                 .target_kind("message")
                 .edge_type("MessageObeysBrandRule")
                 .severity(ValidationSeverity::Error)
-                .message_template("message '{id}' cites no brand rule");
+                .message_template("message '{id}' cites no brand rule")
+                .description("A message that cites no brand rule: copy that skipped the brand check. Name the rules it `obeys`.");
         });
 
         // A calendar typo: the campaign ends before it starts.
@@ -156,6 +158,7 @@ impl Contributions for Marketing {
                 .target_kind("campaign")
                 .severity(ValidationSeverity::Error)
                 .message_template("campaign '{id}' ends ({value}) before it starts")
+                .description("A campaign that ends before it starts: a calendar typo. Set `ends` on or after `starts`.")
                 .validate(ends_before_it_starts);
         });
 
@@ -165,7 +168,8 @@ impl Contributions for Marketing {
                 .target_kind("brand_rule")
                 .edge_type("MessageObeysBrandRule")
                 .severity(ValidationSeverity::Warning)
-                .message_template("brand rule '{id}' is obeyed by no message");
+                .message_template("brand rule '{id}' is obeyed by no message")
+                .description("A brand rule no message obeys: a rule nobody checks against. Cite it from a message, or remove it.");
         });
 
         c.command("calendar", |cmd| {

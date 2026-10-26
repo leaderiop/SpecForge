@@ -1,6 +1,6 @@
 {
   "artifact": "marketing.wasm",
-  "artifact_sha256": "90dfa44bdd08b7fe9cf92a33eed332df4147ffa15077b2c3c34d530d708105d3",
+  "artifact_sha256": "442f49dce656646b081d51e5ab8ebff5ab0b3bbea52f9fe093bd45f2576a8de8",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "c7f3d62bc5883894cde14340dcdc9562c35d0adaf9223b0246552ed27401a4fe",
@@ -23,6 +23,6 @@
     "crates/runtime/extension-sdk/src/vocabulary.rs": "93f85b5300e870259d78823b33cc19639aac0c30d966e934d9125e693fc94281",
     "examples/marketing/extension/Cargo.lock": "65c0f9cc034b0cb2a6acadfc4b16dabd6e44ea4544e907bafc408bbad1b7c9ac",
     "examples/marketing/extension/Cargo.toml": "ad7161098f820d6b20ee9da628092d710ad03bed7f9ce0fb88e4ad4cb5673e24",
-    "examples/marketing/extension/src/lib.rs": "b6f2b02ec01aec88f95709f95179f77f6a6eb4eb0f7c0d4340da349027f8531e"
+    "examples/marketing/extension/src/lib.rs": "347d03eb697a6ede48a199eacf1ff3597709feb87f6cfb9955385f60e61cfbe1"
   }
 }

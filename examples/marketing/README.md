@@ -42,7 +42,7 @@ without anyone searching a slide deck.
 | W901 | warning | A brand rule no message obeys: a rule nobody checks against |
 
 These codes are this extension's own (third-party extensions number theirs E900 to E998,
-W900 to W998), so `specforge explain` does not know them; this table is their documentation.
+W900 to W998); `specforge explain E903` run in this folder prints what the extension says of each.
 
 The plan in `spec/` passes all of them:
 
