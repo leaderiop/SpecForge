@@ -6,7 +6,7 @@
 use std::collections::{HashMap, HashSet};
 
 use specforge_common::{Diagnostic, Severity, codes};
-use specforge_diagnostics::{Level, check_extension_code};
+use specforge_diagnostics::{CodeMisuse, Level, check_extension_code};
 use specforge_protocol_types::{
     CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
 };
@@ -58,12 +58,8 @@ fn code_misuse(
     descriptor: &ValidationRuleDescriptor,
     reported: &mut HashSet<(String, Level)>,
 ) -> Option<Diagnostic> {
-    let level = match descriptor.severity {
-        ValidationSeverity::Error => Level::Error,
-        ValidationSeverity::Warning => Level::Warning,
-        ValidationSeverity::Info => Level::Info,
-    };
-    let misuse = check_extension_code(extension, &descriptor.code, level).err()?;
+    let misuse = declared_level(extension, descriptor).err()?;
+    let level = level_of(&descriptor.severity);
     if !reported.insert((descriptor.code.clone(), level)) {
         return None;
     }
@@ -80,6 +76,25 @@ fn code_misuse(
              catalogue the code",
         ),
     )
+}
+
+/// The level a declared rule reports at, when the host takes its code from `extension` (the
+/// verdict W150 reports otherwise, ADR 0026 D4): the one reading of a rule's severity.
+pub fn declared_level(
+    extension: &str,
+    rule: &ValidationRuleDescriptor,
+) -> Result<Level, CodeMisuse> {
+    let level = level_of(&rule.severity);
+    check_extension_code(extension, &rule.code, level).map(|()| level)
+}
+
+/// The diagnostic level a rule's declared severity is.
+fn level_of(severity: &ValidationSeverity) -> Level {
+    match severity {
+        ValidationSeverity::Error => Level::Error,
+        ValidationSeverity::Warning => Level::Warning,
+        ValidationSeverity::Info => Level::Info,
+    }
 }
 
 /// W112 for `extension`'s rule `code`: it cannot work as declared (`why`),
