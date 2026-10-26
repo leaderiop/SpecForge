@@ -209,8 +209,15 @@ impl FieldForms {
             field_type,
             FieldType::Integer | FieldType::Bool | FieldType::Date
         ) && to == Written::Quoted;
+        // A list on a number, boolean or date field is E061's: its items keep their text (a date literal is no
+        // list item, and `"+3"` respelled `3` would change what the item stores).
+        let unlistable = place == Place::Item
+            && matches!(
+                field_type,
+                FieldType::Integer | FieldType::Bool | FieldType::Date
+            );
         let same = (written == Written::Quoted) == (to == Written::Quoted);
-        if refused || (same && !listed) {
+        if refused || unlistable || (same && !listed) {
             return None;
         }
         if written == Written::Bare && to == Written::Quoted && self.member_kinds.contains(kind) {

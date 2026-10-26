@@ -264,7 +264,6 @@ fn new_names_a_date_fields_value_as_a_calendar_day() {
     behavior = "format_spec_files",
     verify = "format keeps a padded value, and check reports it after as before"
 )]
-#[ignore = "flipped by T4"]
 fn format_keeps_a_padded_value_and_check_reports_it_after_as_before() {
     let text = "event ev_one \"E1\" {\n}\n\nbehavior bh_one \"B\" {\n  status   \" draft\"\n  produces [\" ev_one \"]\n}\n";
     let dir = project("spec/hello.spec", text);

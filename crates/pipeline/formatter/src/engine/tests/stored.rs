@@ -66,17 +66,18 @@ fn stored_of(text: &str, forms: &FieldForms) -> Vec<String> {
     for e in &file.entities {
         for entry in e.fields.entries() {
             let kind = e.kind.raw.as_str();
-            let stored = forms.stored(kind, entry);
+            let mut stored = entry.clone();
+            stored.value = forms.stored(kind, entry).into_owned();
             let refs: Vec<&str> = forms
                 .reading(kind, entry.key.as_str())
-                .references(entry)
+                .references(&stored)
                 .iter()
                 .map(|r| r.id)
                 .collect();
             out.push(format!(
                 "{kind} {} {:?} {refs:?}",
                 entry.key,
-                write(&stored)
+                write(&stored.value)
             ));
         }
     }
@@ -107,7 +108,6 @@ fn clearable(text: &str, forms: &FieldForms) -> Vec<String> {
     behavior = "apply_format_rules",
     verify = "format writes a value in another form exactly where W159's rule names one"
 )]
-#[ignore = "flipped by T4"]
 fn formatting_keeps_every_stored_value_and_reference() {
     let forms = forms();
     let config = FormatConfig::default();

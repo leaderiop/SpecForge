@@ -169,7 +169,6 @@ fn a_multi_line_text_on_a_list_field_is_left_as_written() {
     behavior = "apply_format_rules",
     verify = "a padded value is kept as written, as check reads it"
 )]
-#[ignore = "flipped by T4"]
 fn a_padded_value_is_kept_as_written() {
     let text = "behavior b \"B\" {\n  category \" cart\"\n  due      \" 2026-03-01\"\n  types    [\" a \", b]\n}\n";
     assert_eq!(fmt_forms(text), text);
@@ -180,7 +179,6 @@ fn a_padded_value_is_kept_as_written() {
     behavior = "apply_format_rules",
     verify = "format writes a value in another form exactly where W159's rule names one"
 )]
-#[ignore = "flipped by T4"]
 fn a_multi_line_word_is_written_in_its_fields_form() {
     let once = fmt_forms(
         "behavior b \"B\" {\n  category \"\"\"\n    cart\n  \"\"\"\n  tags \"\"\"\n    x\n  \"\"\"\n}\n",
@@ -197,7 +195,6 @@ fn a_multi_line_word_is_written_in_its_fields_form() {
     behavior = "apply_format_rules",
     verify = "format writes a value in another form exactly where W159's rule names one"
 )]
-#[ignore = "flipped by T4"]
 fn a_bare_true_item_on_a_members_kind_is_quoted() {
     assert_eq!(
         fmt_forms("type T \"T\" {\n  types [true, b]\n}\n"),

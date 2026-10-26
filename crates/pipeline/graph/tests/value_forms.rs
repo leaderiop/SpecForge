@@ -89,7 +89,12 @@ fn a_field_type_writes_its_values_in_one_form() {
         );
         assert_eq!(rewrite(field, Written::Quoted, "a"), None, "{field}");
     }
-    assert_eq!(rewrite("num", Written::Quoted, "7"), Some(Written::Literal));
+    assert_eq!(
+        forms
+            .rewrite("k", "num", Written::Quoted, "7", Place::Whole)
+            .map(|r| r.to),
+        Some(Written::Literal)
+    );
 }
 
 #[specforge_test(
@@ -267,4 +272,19 @@ fn a_respelled_value_carries_its_spelling() {
         spelling("refs", Written::Quoted, "f1"),
         Some(("f1".to_string(), true))
     );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+)]
+fn a_list_on_a_number_a_boolean_or_a_date_field_keeps_its_items() {
+    let forms = forms();
+    for (field, text) in [("due", "2026-03-01"), ("num", "+3"), ("flag", "true")] {
+        assert_eq!(
+            forms.rewrite("k", field, Written::Quoted, text, Place::Item),
+            None,
+            "{field}"
+        );
+    }
 }

@@ -102,7 +102,6 @@ fn every_block_of_the_todo_app_is_retitled_and_given_a_verify_line_without_a_str
     behavior = "validate_typed_edit",
     verify = "a block holding a padded value takes a typed edit"
 )]
-#[ignore = "flipped by T4"]
 fn a_block_holding_a_padded_value_takes_a_typed_edit() {
     const PADDED: &str = "invariant done_stamped \"Done Stamped\" {\n  guarantee \"done tasks carry a time\"\n}\n\n\
         invariant extra_rule \"Extra Rule\" {\n  guarantee \"something else\"\n}\n\n\
