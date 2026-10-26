@@ -33,12 +33,7 @@ fn an_error_serializes_as_its_type() {
     let text = serde_json::to_value(&error).unwrap().to_string();
 
     // The isError result's text is the type, byte for byte.
-    let reply = envelope(
-        ToolOutcome::Refused(Box::new(error.clone())),
-        None,
-        false,
-        false,
-    );
+    let reply = envelope(ToolOutcome::Refused(Box::new(error.clone())), None, false);
     let content = reply.result.as_ref().unwrap()["content"][0]["text"].clone();
     assert_eq!(content.as_str(), Some(text.as_str()));
 

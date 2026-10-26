@@ -278,17 +278,11 @@ impl From<McpError> for ToolOutcome {
 
 /// The `tools/call` reply for `outcome`: the only place that builds
 /// `content`, `structuredContent`, `isError` and `_meta`. A failure is an
-/// `isError` result whose text is its `McpError`. With `structured` (a
-/// 2025-06-18 or later session), a JSON object payload is also sent as
-/// `structuredContent`, beside the text block holding its JSON; except a
-/// failure of a tool with an outputSchema (`typed`), which the schema does
-/// not describe.
-pub fn envelope(
-    outcome: ToolOutcome,
-    id: Option<Value>,
-    structured: bool,
-    typed: bool,
-) -> JsonRpcResponse {
+/// `isError` result whose text is its `McpError`, never `structuredContent`
+/// (ADR 0275). With `structured` (a 2025-06-18 or later session), a success's
+/// JSON object payload is also sent as `structuredContent`, beside the text
+/// block holding its JSON.
+pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
     let (payload, is_error, diagnostics, mut meta) = match outcome {
         ToolOutcome::Refused(error) => {
             let json = serde_json::to_value(&*error).expect("an McpError serializes");
@@ -315,7 +309,7 @@ pub fn envelope(
     let mut result = json!({ "content": content, "isError": is_error });
     if let Payload::Json(object @ Value::Object(_)) = payload
         && structured
-        && !(is_error && typed)
+        && !is_error
     {
         result["structuredContent"] = object;
     }

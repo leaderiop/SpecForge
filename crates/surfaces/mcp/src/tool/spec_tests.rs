@@ -103,7 +103,6 @@ fn a_core_tool_spec_is_derived_from_its_module() {
     assert_eq!(tool.annotations(), read_only_annotations());
     assert_eq!(tool.target(), TargetSpec::Unscoped);
     assert!(!tool.is_mutation());
-    assert!(tool.is_typed());
     assert_eq!(tool.spec_reply(), ReplySpec::Type("McpProbe"));
     assert_eq!(tool.reads(), vec!["name"]);
     let input = tool.input_schema();

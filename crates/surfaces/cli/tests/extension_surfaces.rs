@@ -182,7 +182,9 @@ fn one_mistake_is_one_message_in_each_surfaces_shape() {
         assert_eq!(output.status.code(), Some(2), "{argv:?}: {output:?}");
         let cli: Value = serde_json::from_slice(&output.stderr).unwrap();
         assert_eq!(cli["code"], "INVALID_INPUT", "{argv:?}: {cli}");
-        let mcp = &response["result"]["structuredContent"];
+        let mcp: Value =
+            serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())
+                .unwrap();
         assert_eq!(mcp["code"], "invalid_input", "{argv:?}: {response}");
         if cli["message"]
             .as_str()
@@ -303,8 +305,9 @@ fn a_command_is_told_the_project_root_on_each_surface() {
     );
     let response = find_response(&responses, 1).unwrap();
     // The probe exits 3: its output rides in the refusal's data (ADR 0252).
-    let stdout = response["result"]["structuredContent"]["data"]["stdout"].as_str();
-    let mcp: Value = serde_json::from_str(stdout.unwrap()).unwrap();
+    let error: Value =
+        serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let mcp: Value = serde_json::from_str(error["data"]["stdout"].as_str().unwrap()).unwrap();
     assert_eq!(mcp["cwd"], cli["cwd"], "{response}");
 }
 

@@ -208,7 +208,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     asking for json: a JSON object the command prints on success (with
     nothing on stderr) is the tool result's structured content too, and
     a failure that prints one JSON object on stderr and nothing on stdout
-    is an isError result carrying the McpError its code names
+    is an isError result carrying, as its text, the McpError its code names
     (INVALID_INPUT is invalid_input, ENTITY_NOT_FOUND is entity_not_found,
     any other code internal_error), its entity and suggestion kept; any other
     failed output is internal_error carrying its exit code, stdout and

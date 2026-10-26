@@ -2135,7 +2135,7 @@ fn mcp_validate_never_writes_the_build_cache() {
     }
     let refused = served.call_tool("specforge.validate", json!({"cache": true}));
     assert_eq!(refused["result"]["isError"], true, "{refused}");
-    assert_eq!(refused["result"]["structuredContent"]["argument"], "cache");
+    assert_eq!(crate::tool_errors::mcp_error(&refused)["argument"], "cache");
     assert!(!served.root().join(CACHE).exists());
 
     // An existing cache is read, never rewritten.

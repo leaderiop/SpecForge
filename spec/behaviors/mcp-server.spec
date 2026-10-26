@@ -753,8 +753,8 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     reference. A core tool's reply that its outputSchema
     refuses MUST be a schema_mismatch error naming each violation, never
     structured content.
-    A failed call of a tool with an outputSchema carries no
-    structuredContent: its McpError is in the text block. A 2025-03-26
+    A failed call of any tool carries no structuredContent: its McpError
+    is in the text block. A 2025-03-26
     session is listed no outputSchema.
   """
   verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"

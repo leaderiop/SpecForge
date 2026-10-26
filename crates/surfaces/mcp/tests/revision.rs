@@ -291,28 +291,6 @@ fn structured_results_conform_to_each_tool_output_schema() {
     behavior = "follow_negotiated_mcp_revision",
     verify = "a failed call of any tool carries no structuredContent: its McpError is the text block"
 )]
-fn a_failed_call_of_a_typed_tool_has_no_structured_content() {
-    let (mut server, _dir) = structured_server();
-    let resp = call(
-        &mut server,
-        "tools/call",
-        json!({"name": "specforge.inspect", "arguments": {"entity_id": "nope"}}),
-    );
-    assert_eq!(resp["result"]["isError"], true, "{resp}");
-    assert!(resp["result"].get("structuredContent").is_none(), "{resp}");
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let error: Value = serde_json::from_str(text).unwrap();
-    assert_eq!(
-        error["code"], "entity_not_found",
-        "the McpError is the text"
-    );
-}
-
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a failed call of any tool carries no structuredContent: its McpError is the text block"
-)]
-#[ignore = "flipped by T7"]
 fn a_failed_call_of_any_tool_has_no_structured_content() {
     let (mut server, _dir) = structured_server();
     for (tool, arguments, code) in [

@@ -107,5 +107,5 @@ fn over_mcp_a_commands_error_is_the_mcp_error_its_code_names() {
         "entity_id": "j2", "data": {"suggestion": "did you mean 'j1'?"},
         "tool": "specforge.product.journey_coverage"});
     assert_eq!(rpc::tool_json(&response), expected);
-    assert_eq!(result["structuredContent"], expected);
+    assert!(result.get("structuredContent").is_none(), "{response}");
 }

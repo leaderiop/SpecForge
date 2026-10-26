@@ -188,22 +188,15 @@ impl Surface for Tools {
 
     fn envelope(
         revision: Revision,
-        found: &Found<&'static dyn ToolSpec, ToolEntry>,
+        _: &Found<&'static dyn ToolSpec, ToolEntry>,
         invocation: &Invocation,
         outcome: ToolOutcome,
         id: Option<Value>,
     ) -> JsonRpcResponse {
-        // A tool with an outputSchema: a core one, or an extension's that
-        // declares one.
-        let typed = match found {
-            Found::Core(spec) => spec.is_typed(),
-            Found::Extension(entry) => entry.output_schema().is_some(),
-        };
         envelope(
             outcome.from_tool(&invocation.name),
             id,
             revision.sends_structured_content(),
-            typed,
         )
     }
 }

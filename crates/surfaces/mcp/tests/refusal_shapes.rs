@@ -106,7 +106,10 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
             suggestion,
             "{arguments}"
         );
-        assert_eq!(resp["result"]["structuredContent"], error, "{arguments}");
+        assert!(
+            resp["result"].get("structuredContent").is_none(),
+            "{arguments}: {resp}"
+        );
     }
     assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
     assert!(events(&server, "surface_command_dispatched").is_empty());
