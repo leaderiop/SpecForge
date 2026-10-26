@@ -1338,7 +1338,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   kept but never presented as that code's owner's.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
-  an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
+  an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
   suggest_fixes, and navigation's attribution of a diagnostic to the entities it is about) read it;
   none parses the message, which is presentation.
 - **Diagnostic placement**: where a diagnostic about entities with no span of its own sits: the block
