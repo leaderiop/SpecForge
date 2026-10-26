@@ -92,9 +92,9 @@ fn an_mcp_tool_call_returns_the_json_payload() {
 
 #[specforge_test(
     behavior = "surface_error_handling",
-    verify = "MCP tool errors are isError results carrying the error object"
+    verify = "MCP tool errors are isError results carrying the McpError the error object maps to"
 )]
-fn over_mcp_an_error_is_an_is_error_result_with_the_object() {
+fn over_mcp_a_commands_error_is_the_mcp_error_its_code_names() {
     let mut served = Served::rooted_at(product_project(), "2025-06-18");
 
     let response = served.call_tool(
@@ -103,8 +103,9 @@ fn over_mcp_an_error_is_an_is_error_result_with_the_object() {
     );
     let result = &response["result"];
     assert_eq!(result["isError"], true, "{response}");
-    let expected = json!({"code": "ENTITY_NOT_FOUND",
-        "message": "journey 'j2' not found", "entity_id": "j2", "suggestion": "j1"});
+    let expected = json!({"code": "entity_not_found", "message": "journey 'j2' not found",
+        "entity_id": "j2", "data": {"suggestion": "did you mean 'j1'?"},
+        "tool": "specforge.product.journey_coverage"});
     assert_eq!(rpc::tool_json(&response), expected);
     assert_eq!(result["structuredContent"], expected);
 }

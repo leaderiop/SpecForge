@@ -36,7 +36,8 @@ behavior surface_error_handling "Surface Error Handling" {
        is the line "error: <message>", then "did you mean '<id>'?" when
        there is a suggestion.
     4. Over MCP (which always asks for json) a non-zero exit is an isError
-       tool result carrying the same object.
+       tool result carrying the McpError the object maps to:
+       entity_not_found or invalid_input, its entity_id and suggestion kept.
     A command only ever runs over a built graph, so there is no
     graph-not-ready error.
   """
@@ -47,14 +48,14 @@ behavior surface_error_handling "Surface Error Handling" {
     cli_stderr            "error messages are written to stderr, not stdout"
     json_error_object     "under --format json the error is a ProductSurfaceError JSON object"
     human_error_line      "under --format human the error is one error: line, with the suggestion when there is one"
-    mcp_tool_is_error     "over MCP an error is an isError tool result carrying the same object"
+    mcp_tool_is_error     "over MCP an error is an isError tool result carrying the McpError the object maps to"
     no_panic              "no command panics on any input"
   }
   features [pe_surface_contributions]
   verify unit "entity-not-found returns ENTITY_NOT_FOUND code"
   verify unit "invalid filter value returns INVALID_INPUT code"
   verify unit "CLI errors go to stderr"
-  verify unit "MCP tool errors are isError results carrying the error object"
+  verify unit "MCP tool errors are isError results carrying the McpError the error object maps to"
   verify unit "fuzzy-match suggestion present when close match exists"
   verify unit "no surface panics on null, empty, or malformed input"
 }

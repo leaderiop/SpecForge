@@ -207,7 +207,9 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     asking for json: a JSON object the command prints on success (with
     nothing on stderr) is the tool result's structured content too, and
     a failure that prints one JSON object on stderr and nothing on stdout
-    is an isError result carrying that object; any other output (an
+    is an isError result carrying the McpError its code names
+    (INVALID_INPUT is invalid_input, ENTITY_NOT_FOUND is entity_not_found,
+    any other code internal_error), its entity and suggestion kept; any other output (an
     array, a scalar, prose) is text blocks, isError when the exit code
     is not zero. The extension renders both
     formats; the host knows no payload (ADR 0011). The export
@@ -264,7 +266,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify integration "the CLI and MCP send a command's export the same project root, absolute and canonical"
   verify integration "a trapped command is E028 on both surfaces: one error object on the CLI's stderr under json, a structured MCP error over MCP"
   verify integration "the CLI and MCP send a command the same evidence for the same recorded report"
-  verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
+  verify unit "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
   verify unit "the command line shows each declared arg by its shape, with its values, default and description, beside the host's --path and --format"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host, evidence_carried, one_operation"
 }

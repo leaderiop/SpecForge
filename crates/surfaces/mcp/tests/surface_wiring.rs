@@ -497,7 +497,7 @@ fn promoted_report(output: Value) -> (Value, Value) {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
+    verify = "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
 )]
 fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
     let ran = |exit_code: i32, stdout: &str, stderr: &str| {
@@ -541,13 +541,7 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
         json!({"content": text(&["{}", "warning: stale"]), "isError": false})
     );
 
-    // A failure's one error object on stderr is the isError result.
     let error = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found"});
-    let result = ran(1, "", &error.to_string());
-    assert_eq!(result["isError"], true, "{result}");
-    assert_eq!(result["structuredContent"], error);
-    assert_eq!(result["content"], text(&[&error.to_string()]));
-
     // A failure that wrote prose, or an array, is a failed text result.
     for stderr in ["error: no tests found", "[\"a\"]"] {
         let result = ran(2, "", stderr);

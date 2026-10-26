@@ -8,8 +8,8 @@
 
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
-use specforge_protocol_types::CommandOutput;
 use specforge_protocol_types::command_args::ArgError;
+use specforge_protocol_types::{CommandError, CommandOutput};
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::events::McpEvent;
@@ -223,11 +223,36 @@ fn resource_adapter(
     }
 }
 
+/// A command's own error object as the McpError its code names (ADR 0252 D3):
+/// `INVALID_INPUT` is `invalid_input`, `ENTITY_NOT_FOUND` is `entity_not_found`,
+/// any other code is `internal_error` keeping it in `data.code`; its entity is
+/// kept, its suggestion rides in `data.suggestion` as a core tool's does.
+fn own_error(error: CommandError) -> McpError {
+    let code = match error.code.as_str() {
+        "INVALID_INPUT" => ErrorCode::InvalidInput,
+        "ENTITY_NOT_FOUND" => ErrorCode::EntityNotFound,
+        _ => ErrorCode::InternalError,
+    };
+    let mut refused = McpError::new(code, error.message);
+    if code == ErrorCode::InternalError {
+        refused = refused.with_data_field("code", json!(error.code));
+    }
+    if let Some(entity) = error.entity_id {
+        refused = refused.with_entity(entity);
+    }
+    match error.suggestion {
+        Some(close) => {
+            refused.with_data_field("suggestion", json!(format!("did you mean '{close}'?")))
+        }
+        None => refused,
+    }
+}
+
 /// An auto-promoted command's output as a tool result. The command was
 /// asked for json (ADR 0011): a JSON object on stdout, and nothing on
-/// stderr, is the result's structured payload; a failure that wrote one JSON
-/// object on stderr, and nothing on stdout, is an `isError` result carrying
-/// it. Otherwise its stdout, then its stderr when it wrote any; a nonzero
+/// stderr, is the result's structured payload; a failure that wrote one
+/// error object on stderr, and nothing on stdout, is its [`own_error`].
+/// Otherwise its stdout, then its stderr when it wrote any; a nonzero
 /// exit code fails the call.
 fn output_result(output: CommandOutput) -> ToolOutcome {
     let object = |text: &str| match serde_json::from_str::<Value>(text) {
@@ -243,9 +268,9 @@ fn output_result(output: CommandOutput) -> ToolOutcome {
     }
     if failed
         && output.stdout.is_empty()
-        && let Some(error) = object(&output.stderr)
+        && let Ok(error) = serde_json::from_str::<CommandError>(&output.stderr)
     {
-        return ToolOutcome::failed(error);
+        return own_error(error).into();
     }
     let mut blocks = vec![output.stdout];
     if !output.stderr.is_empty() {

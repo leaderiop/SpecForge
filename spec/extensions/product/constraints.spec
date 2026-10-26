@@ -416,13 +416,14 @@ constraint product_surface_error_correctness "Product Surface Error Correctness"
     ENTITY_NOT_FOUND (exit 1) and INVALID_INPUT (exit 2). The error is
     written to stderr (the ProductSurfaceError object under --format json)
     with nothing on stdout. Over MCP a non-zero exit is an isError tool
-    result carrying the same object. No command may panic on any input
+    result carrying the McpError the object maps to (entity_not_found or
+    invalid_input, its entity_id and suggestion kept). No command may panic on any input
     including null, empty string, or malformed JSON.
   """
   constrains  [surface_error_handling]
   protects    [pe_surface_error_consistency]
   verify unit "CLI errors written to stderr: ENTITY_NOT_FOUND exits 1, INVALID_INPUT exits 2"
-  verify unit "MCP tool errors are isError results carrying the error object"
+  verify unit "MCP tool errors are isError results carrying the McpError the error object maps to"
   verify unit "no surface panics on malformed input"
 }
 

@@ -116,7 +116,6 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
     behavior = "dispatch_surface_command",
     verify = "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
 )]
-#[ignore = "flipped by T3"]
 fn a_commands_own_error_object_is_the_mcp_error_its_code_names() {
     let not_found = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
         "entity_id": "m2", "suggestion": "m1"});
