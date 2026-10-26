@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import * as cp from "child_process";
 import { getGraphLayout, isGraphAutoUpdate } from "./config";
-import { findCliBinary } from "./find-binary";
+import { cliOutput } from "./binary";
 
 export class GraphWebviewPanel {
   private static instance: GraphWebviewPanel | undefined;
@@ -122,33 +121,12 @@ export class GraphWebviewPanel {
   }
 
   private async getGraphData(): Promise<unknown> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      throw new Error("No workspace folder open.");
+    const stdout = await cliOutput(["export", "--format=graph"]);
+    try {
+      return JSON.parse(stdout);
+    } catch {
+      throw new Error("Failed to parse graph JSON output.");
     }
-
-    return new Promise((resolve, reject) => {
-      cp.execFile(
-        findCliBinary(),
-        ["export", "--format=graph"],
-        {
-          cwd: workspaceFolder.uri.fsPath,
-          timeout: 60_000,
-          maxBuffer: 50 * 1024 * 1024,
-        },
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(new Error(stderr || error.message));
-          } else {
-            try {
-              resolve(JSON.parse(stdout));
-            } catch {
-              reject(new Error("Failed to parse graph JSON output."));
-            }
-          }
-        }
-      );
-    });
   }
 
   private async handleMessage(message: {

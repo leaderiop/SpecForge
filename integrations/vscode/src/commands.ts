@@ -1,53 +1,14 @@
 import * as vscode from "vscode";
-import { fileUri } from "./paths";
-import * as cp from "child_process";
 import { restartClient } from "./lsp-client";
 import { GraphWebviewPanel } from "./graph-webview";
-import { findCliBinary } from "./find-binary";
-
-function runCliCommand(args: string[]): void {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    vscode.window.showErrorMessage("No workspace folder open.");
-    return;
-  }
-
-  const terminal = vscode.window.createTerminal({
-    name: "SpecForge",
-    cwd: workspaceFolder.uri.fsPath,
-  });
-  terminal.sendText(`${findCliBinary()} ${args.join(" ")}`);
-  terminal.show();
-}
-
-async function runCliCommandOutput(args: string[]): Promise<string> {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    throw new Error("No workspace folder open.");
-  }
-
-  return new Promise((resolve, reject) => {
-    cp.execFile(
-      findCliBinary(),
-      args,
-      { cwd: workspaceFolder.uri.fsPath, timeout: 30_000 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr || error.message));
-        } else {
-          resolve(stdout);
-        }
-      }
-    );
-  });
-}
+import { cliOutput, inTask } from "./binary";
 
 /**
  * One entity as JSON: `specforge query <id> --depth 0` returns a subgraph
  * holding just that node.
  */
 async function entityJson(id: string): Promise<string> {
-  const output = await runCliCommandOutput(["query", id, "--depth", "0"]);
+  const output = await cliOutput(["query", id, "--depth", "0"]);
   const node = (JSON.parse(output) as { nodes?: unknown[] }).nodes?.[0];
   if (!node) {
     throw new Error(`Entity "${id}" not found.`);
@@ -89,12 +50,16 @@ export function registerCommands(
       );
       if (!extensions) return;
 
-      const extArgs = extensions.flatMap((e) => ["--extension", e.label]);
-      runCliCommand(["init", ...extArgs]);
+      // An empty `--extensions` is refused (E054): pass the flag only for a pick.
+      if (!extensions.length) {
+        inTask(["init"]);
+        return;
+      }
+      inTask(["init", "--extensions", extensions.map((e) => e.label).join(",")]);
     }),
 
     vscode.commands.registerCommand("specforge.check", () => {
-      runCliCommand(["check"]);
+      inTask(["check"]);
     }),
 
     vscode.commands.registerCommand("specforge.export", async () => {
@@ -103,24 +68,24 @@ export function registerCommands(
         { placeHolder: "Export format" }
       );
       if (!format) return;
-      runCliCommand(["export", `--format=${format}`]);
+      inTask(["export", `--format=${format}`]);
     }),
 
     vscode.commands.registerCommand("specforge.showStats", async () => {
       try {
-        const output = await runCliCommandOutput(["stats", "--format=json"]);
+        const output = await cliOutput(["stats", "--format=json"]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "json",
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["stats"]);
+        inTask(["stats"]);
       }
     }),
 
     vscode.commands.registerCommand("specforge.doctor", () => {
-      runCliCommand(["doctor"]);
+      inTask(["doctor"]);
     }),
 
     vscode.commands.registerCommand("specforge.restartLsp", async () => {
@@ -130,47 +95,10 @@ export function registerCommands(
       );
     }),
 
-    vscode.commands.registerCommand("specforge.search", async () => {
-      const query = await vscode.window.showInputBox({
-        placeHolder: "Search entities...",
-        prompt: "Enter a search term to find entities",
-      });
-      if (!query) return;
-      try {
-        const output = await runCliCommandOutput([
-          "search",
-          query,
-          "--format=json",
-        ]);
-        const results = JSON.parse(output);
-        if (!results.length) {
-          vscode.window.showInformationMessage(
-            `No entities found for "${query}".`
-          );
-          return;
-        }
-        interface SearchItem extends vscode.QuickPickItem {
-          file?: string;
-        }
-        const items: SearchItem[] = results.map(
-          (r: { id: string; kind: string; title: string; file: string }) => ({
-            label: r.id,
-            description: r.kind,
-            detail: r.title,
-            file: r.file,
-          })
-        );
-        const picked = await vscode.window.showQuickPick(items, {
-          placeHolder: "Select an entity to navigate to",
-        });
-        if (picked?.file) {
-          const doc = await vscode.workspace.openTextDocument(fileUri(picked.file));
-          await vscode.window.showTextDocument(doc);
-        }
-      } catch {
-        runCliCommand(["search", query]);
-      }
-    }),
+    // The language server's workspace symbol search, in the editor's own picker.
+    vscode.commands.registerCommand("specforge.search", () =>
+      vscode.commands.executeCommand("workbench.action.quickOpen", "#")
+    ),
 
     vscode.commands.registerCommand("specforge.explainError", async () => {
       const code = await vscode.window.showInputBox({
@@ -179,7 +107,7 @@ export function registerCommands(
       });
       if (!code) return;
       try {
-        const output = await runCliCommandOutput(["explain", code]);
+        const output = await cliOutput(["explain", code]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "markdown",
@@ -197,7 +125,7 @@ export function registerCommands(
       );
       if (!format) return;
       try {
-        const output = await runCliCommandOutput([
+        const output = await cliOutput([
           "model",
           `--format=${format}`,
         ]);
@@ -215,17 +143,17 @@ export function registerCommands(
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["model", `--format=${format}`]);
+        inTask(["model", `--format=${format}`]);
       }
     }),
 
     vscode.commands.registerCommand("specforge.coverage", () => {
-      runCliCommand(["analyze", "coverage"]);
+      inTask(["analyze", "coverage"]);
     }),
 
     vscode.commands.registerCommand("specforge.outline", async () => {
       try {
-        const output = await runCliCommandOutput([
+        const output = await cliOutput([
           "outline",
           "--format=json",
         ]);
@@ -235,7 +163,7 @@ export function registerCommands(
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["outline"]);
+        inTask(["outline"]);
       }
     }),
 
@@ -250,7 +178,7 @@ export function registerCommands(
         { placeHolder: "Select extension to add" }
       );
       if (!ext) return;
-      runCliCommand(["add", ext]);
+      inTask(["add", ext]);
     }),
 
     vscode.commands.registerCommand("specforge.removeExtension", async () => {
@@ -259,7 +187,7 @@ export function registerCommands(
         prompt: "Extension to remove",
       });
       if (!ext) return;
-      runCliCommand(["remove", ext]);
+      inTask(["remove", ext]);
     }),
 
     vscode.commands.registerCommand("specforge.newFile", async () => {
@@ -271,16 +199,43 @@ export function registerCommands(
         prompt: "Name for the new spec file (without .spec extension)",
       });
       if (!name) return;
+      if (!/^[\w-]+$/.test(name)) {
+        vscode.window.showErrorMessage(
+          "A spec file name is letters, digits, _ and - only."
+        );
+        return;
+      }
 
-      const uri = vscode.Uri.joinPath(
-        workspaceFolder.uri,
-        "spec",
-        `${name}.spec`
-      );
-      await vscode.workspace.fs.writeFile(
-        uri,
-        Buffer.from(`// ${name}\n\n`)
-      );
+      // The spec root is the project's own setting (default: the folder itself).
+      let specRoot = ".";
+      try {
+        const raw = await vscode.workspace.fs.readFile(
+          vscode.Uri.joinPath(workspaceFolder.uri, "specforge.json")
+        );
+        const root = JSON.parse(Buffer.from(raw).toString("utf8")).spec_root;
+        if (typeof root === "string") specRoot = root;
+      } catch {
+        // no readable specforge.json: the folder itself
+      }
+      const uri = vscode.Uri.joinPath(workspaceFolder.uri, specRoot, `${name}.spec`);
+      // a cloned specforge.json must not aim the write outside the workspace
+      if (!uri.path.startsWith(workspaceFolder.uri.path.replace(/\/$/, "") + "/")) {
+        vscode.window.showErrorMessage(
+          `spec_root "${specRoot}" leaves the workspace folder.`
+        );
+        return;
+      }
+      try {
+        await vscode.workspace.fs.stat(uri);
+        vscode.window.showErrorMessage(`${name}.spec already exists.`);
+        return;
+      } catch (e) {
+        if (!(e instanceof vscode.FileSystemError && e.code === "FileNotFound")) {
+          vscode.window.showErrorMessage(`Cannot check ${name}.spec: ${e}`);
+          return;
+        }
+      }
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(`// ${name}\n\n`));
       const doc = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(doc);
     }),
@@ -324,10 +279,10 @@ export function registerCommands(
           });
       if (!word) return;
       try {
-        const output = await runCliCommandOutput(["trace", word]);
+        const output = await cliOutput(["trace", word]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
-          language: "markdown",
+          language: "json",
         });
         await vscode.window.showTextDocument(doc);
       } catch {
@@ -361,6 +316,17 @@ export function registerCommands(
         "workbench.view.extension.specforge-explorer"
       );
     }),
+
+    // The command the language server's references lens names (ADR 0249 D2).
+    vscode.commands.registerCommand(
+      "specforge.findReferences",
+      (uri: string, at: { line: number; character: number }) =>
+        vscode.commands.executeCommand(
+          "editor.action.findReferences",
+          vscode.Uri.parse(uri),
+          new vscode.Position(at.line, at.character)
+        )
+    ),
 
     vscode.commands.registerCommand("specforge.focusInGraph", (entityId?: string) => {
       const word = entityId ?? (() => {

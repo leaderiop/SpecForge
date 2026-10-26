@@ -306,5 +306,6 @@ expression: "parse_ok(source, \"test.spec\").entities"
             },
         ],
         doc_span: None,
+        body_comments: [],
     },
 ]

@@ -261,7 +261,7 @@ fn update_without_registry_makes_no_network_call() {
     dir.write(
         "specforge.lock",
         r#"{"lockfile_version":1,"entries":[
-            {"name":"@acme/widget","version":"1.0.0","source":"registry","wasm_hash":"00"}]}"#,
+            {"name":"@acme/widget","version":"1.0.0","source":"registry","wasm_hash":"0000000000000000000000000000000000000000000000000000000000000000"}]}"#,
     );
     let output = spy
         .on(&dir)
@@ -1282,20 +1282,20 @@ fn trusting(setup: TrustingSetup) -> Trusting {
     let mut extensions = vec!["@specforge/software".to_string(), "@sdk/greet".to_string()];
     let mut entries = vec![specforge_installed::LockFileEntry {
         name: "@sdk/greet".parse().unwrap(),
-        version: "0.1.0".into(),
+        version: "0.1.0".parse().unwrap(),
         source: specforge_installed::LockSource::Registry,
         wasm_hash: specforge_installed::hex_sha256(&greet_wasm()),
-        key_id: Some(k1.key_id()),
+        key_id: Some(k1.key_id().parse().unwrap()),
         peer_dependencies: Vec::new(),
     }];
     if setup.lock_app {
         extensions.push("@x/a".to_string());
         entries.push(specforge_installed::LockFileEntry {
             name: "@x/a".parse().unwrap(),
-            version: "1.0.0".into(),
+            version: "1.0.0".parse().unwrap(),
             source: specforge_installed::LockSource::Registry,
             wasm_hash: specforge_installed::hex_sha256(b"\0asm x/a"),
-            key_id: Some(k1.key_id()),
+            key_id: Some(k1.key_id().parse().unwrap()),
             peer_dependencies: vec![specforge_protocol_types::PeerDependency {
                 name: "@sdk/greet".into(),
                 version: "^0.1".into(),
@@ -1346,7 +1346,7 @@ impl Trusting {
             .entries
             .into_iter()
             .find(|e| e.name.as_str() == name)
-            .and_then(|e| e.key_id)
+            .and_then(|e| e.key_id.map(|k| k.to_string()))
     }
 }
 

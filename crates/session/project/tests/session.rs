@@ -1858,7 +1858,7 @@ fn every_update_kind_leaves_what_a_fresh_compile_builds() {
     // becomes "binary not found".
     let lock = serde_json::json!({
         "lockfile_version": 1,
-        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
     });
     fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
     bring_up_to_date(&mut session);
@@ -2029,7 +2029,7 @@ fn a_lock_change_reloads_the_environment() {
 
     let lock = serde_json::json!({
         "lockfile_version": 1,
-        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
     });
     fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
 

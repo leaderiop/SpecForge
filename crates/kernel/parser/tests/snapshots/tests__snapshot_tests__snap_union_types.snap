@@ -86,6 +86,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
         obligations: [],
         obligation_spans: [],
         doc_span: None,
+        body_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -170,6 +171,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
         obligations: [],
         obligation_spans: [],
         doc_span: None,
+        body_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -254,5 +256,6 @@ expression: "parse_ok(source, \"test.spec\").entities"
         obligations: [],
         obligation_spans: [],
         doc_span: None,
+        body_comments: [],
     },
 ]

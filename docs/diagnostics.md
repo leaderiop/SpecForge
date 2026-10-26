@@ -432,16 +432,19 @@ Level: error
 ```
 E033: Lock file error
 
-`specforge.lock` couldn't be serialized, written, read, or parsed (a lock
-entry's source must be `registry` or `local:<path>`, the path not empty and
-holding no control character); `specforge update` also reports it when there is
-no lock file to update (run `specforge add` first). A lock that is there and
-can't be read loads no installed extension (each entry that needs it is E028),
-and every change whose answer it would decide is refused with this code before
-anything is read or written: an `add` or `init` that installs, any `update`, a
-`remove` of an extension whose origin only the lock could tell. Enabling or
-disabling a builtin, or a `.wasm` file entry, still works. Fix specforge.lock,
-or delete it and install the extensions again with `specforge add`.
+`specforge.lock` couldn't be serialized, written, read, or parsed (every field
+of a lock entry is read where the lock is read: its version a SemVer version,
+its wasm_hash a SHA-256 in lowercase hex, its key_id a publisher key id, its
+recorded peers and source holding no character a terminal acts on; a source is
+`registry` or `local:<path>`, the path not empty); `specforge update` also
+reports it when there is no lock file to update (run `specforge add` first). A
+lock that is there and can't be read loads no installed extension (each entry
+that needs it is E028), and every change whose answer it would decide is refused
+with this code before anything is read or written: an `add` or `init` that
+installs, any `update`, a `remove` of an extension whose origin only the lock
+could tell. Enabling or disabling a builtin, or a `.wasm` file entry, still
+works. Fix specforge.lock, or delete it and install the extensions again with
+`specforge add`.
 
 Owner: core
 Level: error
@@ -600,8 +603,8 @@ package `@scope/name` with an optional `@version` or `@requirement`. A registry
 package name is lowercase letters, digits, `.`, `_` or `-` in two parts that
 each start with a letter or digit. A local path that names nothing, or no
 readable component, is E040; a local path `specforge.lock` cannot record (one
-holding a control character) is this code, and nothing is written. Nothing is
-asked of any registry.
+holding a control or bidirectional control character) is this code, and nothing
+is written. Nothing is asked of any registry.
 
 Owner: core
 Level: error
@@ -900,15 +903,17 @@ SemVer version is not one. A package name is `@scope/name` (what a registry
 holds) or `name` alone (a local module); each part is lowercase letters, digits,
 `.`, `_` or `-`, and starts with a letter or digit, so it is always a directory
 inside `.specforge/extensions`. It is checked where a name does not come from
-the `add` argument (that is E054): the name a local module declares when
-`specforge add` installs it, a peer a declaration names, a `specforge.json`
-`extensions` entry (the entry is not loaded), the name a `.wasm` file entry's
-component declares (the entry is not loaded), the name `specforge extension
-validate` reads, the name `specforge remove` is given when no `specforge.json`
-entry or lock entry has it, and the name and version of the declaration
-`specforge publish` uploads (which must also be scoped and a full version).
-Nothing is written or deleted. Fix the extension's declared name or version (its
-SDK `name`/`version`) and rebuild, or fix the `specforge.json` entry.
+the `add` argument (that is E054): the name and version a local module declares
+when `specforge add` installs it (a version `specforge.lock` records must be
+SemVer), a peer a declaration names (or one holding a character a terminal acts
+on, which `specforge.lock` cannot record), a `specforge.json` `extensions` entry
+(the entry is not loaded), the name a `.wasm` file entry's component declares
+(the entry is not loaded), the name `specforge extension validate` reads, the
+name `specforge remove` is given when no `specforge.json` entry or lock entry
+has it, and the name and version of the declaration `specforge publish` uploads
+(which must also be scoped and a full version). Nothing is written or deleted.
+Fix the extension's declared name or version (its SDK `name`/`version`) and
+rebuild, or fix the `specforge.json` entry.
 
 Owner: core
 Level: error
@@ -2067,11 +2072,14 @@ The registry's answer isn't one the registry protocol defines for that request:
 a body that isn't the request's JSON (such as a publisher signature that isn't
 an Ed25519 signature object, or a publish receipt that describes another upload
 than the one sent), a 404 without the protocol's NOT_FOUND error (no registry
-serves that address: the configured `url` isn't a SpecForge registry's root), or
-a download URL that is neither an `http`/`https` URL nor a path at the
-registry's root. The registry is broken, or the URL isn't a SpecForge registry's
-root. Nothing is installed and no key is pinned, and `--allow-unsigned` doesn't
-accept such a package. Check the registry and its `url` in `specforge.json`.
+serves that address: the configured `url` isn't a SpecForge registry's root), a
+download URL that is neither an `http`/`https` URL nor a path at the registry's
+root, or an answer longer than the request admits (a download longer than the
+`size_bytes` its reply declares, or any answer over 64 MiB, the largest package
+a registry accepts; it is refused before more of it is read). The registry is
+broken, or the URL isn't a SpecForge registry's root. Nothing is installed and
+no key is pinned, and `--allow-unsigned` doesn't accept such a package. Check
+the registry and its `url` in `specforge.json`.
 
 Owner: core
 Level: error
@@ -3143,19 +3151,6 @@ Owner: core
 Level: warning
 ```
 
-## W149
-
-```
-W149: Installed extension is not pinned
-
-A `specforge.lock` entry records no hash (it was written before installs were
-pinned), so its binary loads without being checked. Reinstall the extension with
-the command the suggestion names to pin it.
-
-Owner: core
-Level: warning
-```
-
 ## W150
 
 ```
@@ -3382,3 +3377,4 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W122 | (nothing) |
 | W125 | [E061](#e061) |
 | W146 | (nothing) |
+| W149 | [E033](#e033) |

@@ -12,10 +12,11 @@ use specforge_ops::read::navigate::{EntityQuery, MatchScope, Navigator, find_ent
 use specforge_project::RuntimeSource;
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
-    ClientCapabilities, CodeAction, CodeActionOrCommand, CodeActionResponse, CompletionResponse,
-    DocumentSymbolResponse, FormattingOptions, GotoDefinitionResponse, Hover, HoverContents,
-    Location, LocationLink, MarkupContent, MarkupKind, Position, PrepareRenameResponse, Range,
-    SemanticTokens, SemanticTokensResult, SymbolInformation, TextEdit, Url, WorkspaceEdit,
+    ClientCapabilities, CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command,
+    CompletionResponse, DocumentSymbolResponse, FormattingOptions, GotoDefinitionResponse, Hover,
+    HoverContents, Location, LocationLink, MarkupContent, MarkupKind, Position,
+    PrepareRenameResponse, Range, SemanticTokens, SemanticTokensResult, SymbolInformation,
+    TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::document::{LineIndex, Target};
@@ -45,6 +46,9 @@ pub struct ClientSupport {
     /// `workspace.semanticTokens.refreshSupport`: only then is the editor
     /// asked to refresh its semantic tokens.
     pub tokens_refresh: bool,
+    /// `workspace.codeLens.refreshSupport`: only then is the editor asked to refresh its code
+    /// lenses after a rebuild.
+    pub lens_refresh: bool,
     /// `workspace.didChangeWatchedFiles.relativePatternSupport`: the
     /// watchers are patterns relative to each input's directory, else
     /// absolute globs.
@@ -76,6 +80,10 @@ impl ClientSupport {
             tokens_refresh: workspace
                 .and_then(|w| w.semantic_tokens.as_ref())
                 .and_then(|t| t.refresh_support)
+                .unwrap_or(false),
+            lens_refresh: workspace
+                .and_then(|w| w.code_lens.as_ref())
+                .and_then(|l| l.refresh_support)
                 .unwrap_or(false),
             relative_patterns: workspace
                 .and_then(|w| w.did_change_watched_files.as_ref())
@@ -443,6 +451,59 @@ pub fn document_symbols(state: &LspState, uri: &Url) -> Option<DocumentSymbolRes
         entries,
         state.client().hierarchical_symbols,
     ))
+}
+
+/// The command a references lens runs: the client registers it (VS Code: `editor.action.findReferences`).
+pub const FIND_REFERENCES: &str = "specforge.findReferences";
+
+/// The code lenses of `uri`'s entities, in line order, each at its name (ADR 0249): its incoming
+/// references (the count `textDocument/references` answers without the declaration; a click runs
+/// [`FIND_REFERENCES`] with the URI and the name's start) and, when it declares any, its `verify`
+/// statements (no command). An entity whose file's editor text is not the compiled text gets none.
+pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
+    let compiled = Compiled::new(state);
+    let navigator = compiled.navigator();
+    let entries = outline(&navigator, &state.key_of(uri)).ok()?;
+    let plural = |n: usize, one: &str| format!("{n} {one}{}", if n == 1 { "" } else { "s" });
+    let written = navigator.tokens_by_target();
+    let mut lenses = Vec::new();
+    for entry in entries {
+        let Some(range) = compiled.range(&entry.name) else {
+            continue;
+        };
+        let id = entry.id.as_str();
+        let references = written
+            .get(id)
+            .map_or(&[][..], Vec::as_slice)
+            .iter()
+            .filter(|o| compiled.location(&o.span).is_some())
+            .count();
+        let lens = |title: String, command: &str, arguments| CodeLens {
+            range,
+            command: Some(Command {
+                title,
+                command: command.to_string(),
+                arguments,
+            }),
+            data: None,
+        };
+        lenses.push(if references == 0 {
+            lens(plural(0, "reference"), "", None)
+        } else {
+            let at =
+                serde_json::json!({"line": range.start.line, "character": range.start.character});
+            lens(
+                plural(references, "reference"),
+                FIND_REFERENCES,
+                Some(vec![serde_json::json!(uri), at]),
+            )
+        });
+        let obligations = state.graph().node(id).map_or(0, |n| n.obligations.len());
+        if obligations > 0 {
+            lenses.push(lens(plural(obligations, "verify statement"), "", None));
+        }
+    }
+    Some(lenses)
 }
 
 /// The entities whose names match `query`, by navigation's one ranking:

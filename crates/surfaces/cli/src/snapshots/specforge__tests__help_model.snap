@@ -47,7 +47,7 @@ Options:
           Filter to a single extension
 
       --kinds <KINDS>
-          Filter to specific entity kinds (comma-separated)
+          Filter to specific entity kinds (comma-separated, or the flag repeated)
 
       --root <ROOT>
           Root entity kind for depth-scoped output

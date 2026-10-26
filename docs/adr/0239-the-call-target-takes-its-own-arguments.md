@@ -37,7 +37,7 @@ AFTER   {"path": "."} -> target takes path -> every handler is handed {}
 
 - Each adapter subtracting `accepted()`: a fourth and fifth reader of the target's names.
 - `resolve` returning the handed arguments: the target would own a copy of the call.
-- Unifying the target's and the command's refusal shapes: reopens ADR 0017 D5.
+- Unifying the target's and the command's refusal shapes: reopens ADR 0017 D5. *(Taken up by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md).)*
 - Listing `path` on extension tools.
 - A compile-time check in `#[extension]`: the macro cannot see a schema built at run time.
 - A host-only rule, or a second list in the SDK: the two would drift.

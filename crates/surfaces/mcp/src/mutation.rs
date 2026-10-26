@@ -460,7 +460,6 @@ fn sent<R: Object + Serialize, A: AfterWrite>(
     };
     ToolOutcome::Done {
         payload: Payload::Json(serde_json::to_value(&payload).expect("a reply serializes")),
-        is_error: false,
         diagnostics,
         meta,
     }

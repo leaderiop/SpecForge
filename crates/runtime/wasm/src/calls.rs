@@ -12,6 +12,9 @@
 //! canonical order of a pass's diagnostics and the mapping of every failure
 //! live here, over the byte-level [`WasmRuntime`] port.
 //!
+//! The text of a handshake, describe, pass or validator answer, and of a call's failure, is read
+//! printable here (ADR 0244), so no control character reaches a message, a help or a listing.
+//!
 //! What a failure means stays the caller's: a check pass's is a compile
 //! diagnostic, an analyze pass's a finding of that pass, a command's its
 //! error, a scanner's a reported failure, a collector's the collect error.
@@ -22,6 +25,7 @@ use std::marker::PhantomData;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use specforge_common::remedy::{DECLARED_LINES, hold_printable, printable};
 use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, codes};
 use specforge_protocol_types::{
     CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
@@ -50,6 +54,17 @@ pub enum Operation {
 }
 
 impl Operation {
+    /// Whether the host writes its answer's text into its own messages, help and listings (the
+    /// declaration, a pass's diagnostics and summary, a validator's verdict), so the answer is read
+    /// printable (ADR 0244). A command's, an MCP tool's or resource's answer is the extension's own
+    /// output, and a collector's or scanner's is data matched against the project: read as answered.
+    pub const fn reads_text(self) -> bool {
+        matches!(
+            self,
+            Operation::Handshake | Operation::Describe | Operation::Pass | Operation::Validate
+        )
+    }
+
     /// Every operation.
     pub const ALL: [Operation; 10] = [
         Operation::Handshake,
@@ -225,11 +240,12 @@ impl<'r> ExtensionCalls<'r> {
         let operation = Operation::Handshake;
         let bytes = encode(operation, extension, export, &request)?;
         let answer = self.call_raw(operation, extension, export, &bytes)?;
-        let response: HandshakeResponse =
-            decode(operation, extension, export, &answer, "HandshakeResponse")?;
-        // The same bytes read as a value cannot fail once the typed decode
-        // succeeded: the sandbox reads the policy as sent.
-        let wire: Value = serde_json::from_slice(&answer).expect("a decoded handshake is JSON");
+        let expected = "HandshakeResponse";
+        let wire = held(operation, &answer)
+            .map_err(|e| malformed(operation, extension, export, expected, &e))?;
+        let response: HandshakeResponse = serde_json::from_value(wire.clone())
+            .map_err(|e| malformed(operation, extension, export, expected, &e))?;
+        // The sandbox reads the held policy: W153 quotes its keys.
         let sandbox = Sandbox::of(
             &response.name,
             wire.get("sandbox_policy")
@@ -423,7 +439,7 @@ impl<'r> ExtensionCalls<'r> {
                 } else {
                     CallFailure::Trapped {
                         kind: trap.kind,
-                        message: trap.message,
+                        message: printable(&trap.message).into_owned(),
                     }
                 };
                 Err(CallError::new(operation, extension, export, failure))
@@ -432,7 +448,8 @@ impl<'r> ExtensionCalls<'r> {
     }
 }
 
-/// Decode an export's `answer` as the protocol type `expected` names.
+/// Decode an export's `answer` as the protocol type `expected` names; a text-reading operation's
+/// answer is held printable first.
 fn decode<O: DeserializeOwned>(
     operation: Operation,
     extension: &str,
@@ -440,17 +457,40 @@ fn decode<O: DeserializeOwned>(
     answer: &[u8],
     expected: &'static str,
 ) -> Result<O, CallError> {
-    serde_json::from_slice(answer).map_err(|e| {
-        CallError::new(
-            operation,
-            extension,
-            export,
-            CallFailure::Malformed {
-                expected,
-                reason: e.to_string(),
-            },
-        )
-    })
+    let decoded = if operation.reads_text() {
+        held(operation, answer).and_then(serde_json::from_value)
+    } else {
+        serde_json::from_slice(answer)
+    };
+    decoded.map_err(|e| malformed(operation, extension, export, expected, &e))
+}
+
+/// `answer` as JSON with every string and key held printable (a starter template keeping its lines).
+fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error> {
+    let mut value: Value = serde_json::from_slice(answer)?;
+    let lines = if operation == Operation::Handshake {
+        DECLARED_LINES
+    } else {
+        &[]
+    };
+    hold_printable(&mut value, lines);
+    Ok(value)
+}
+
+fn malformed(
+    operation: Operation,
+    extension: &str,
+    export: &str,
+    expected: &'static str,
+    error: &serde_json::Error,
+) -> CallError {
+    let reason = printable(&error.to_string()).into_owned();
+    CallError::new(
+        operation,
+        extension,
+        export,
+        CallFailure::Malformed { expected, reason },
+    )
 }
 
 fn encode<T: Serialize>(

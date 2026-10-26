@@ -191,7 +191,8 @@ pub fn configured(
 ///    key the project's lock records, else any: trust on first use) (R-TRUST-001..006), for a signed and an
 ///    unsigned package alike: the store is read whatever the signer (R-TRUST-006). The decision is
 ///    the package's publisher; [`Registry::pin`] writes it once the install is;
-/// 5. the binary hashes to the reply's SHA-256 (R-OPS-002), so the signature covers it.
+/// 5. the binary, no longer than the reply declares (R009), hashes to the reply's SHA-256 (R-OPS-002), so the
+///    signature covers it.
 ///
 /// Steps 1 to 4 are `published` (a dry run); a fetch then downloads for 5. A refused package is never
 /// downloaded (ADR 0213). A fetch writes nothing. The policy runs over any [`RegistryClient`]: HTTP unless
@@ -365,7 +366,7 @@ impl Registry for ConfiguredRegistry {
         } = described;
         let wasm = self
             .client
-            .download(&metadata.wasm_url, registry, credential.as_ref())
+            .download(&metadata, registry, credential.as_ref())
             .map_err(failure)?;
         verify_registry_integrity(&wasm, &metadata.sha256)
             .map_err(|why| OpError::of(OpErrorKind::SchemaMismatch, why))?; // 5: the signature covered this SHA-256
@@ -621,7 +622,7 @@ fn read_declaration(
     if manifest.trim().is_empty() {
         return Err(unreadable("the registry served none".to_string()));
     }
-    let value: serde_json::Value =
+    let mut value: serde_json::Value =
         serde_json::from_str(manifest).map_err(|e| unreadable(e.to_string()))?;
     if value.get("manifestVersion").is_some() {
         return Err(unreadable(
@@ -632,6 +633,8 @@ fn read_declaration(
              the declaration it reads from the binary"
         )));
     }
+    // As a loaded binary's declaration is read (ADR 0244): its peers go into the lock.
+    specforge_common::remedy::hold_printable(&mut value, specforge_common::remedy::DECLARED_LINES);
     serde_json::from_value(value).map_err(|e| unreadable(e.to_string()))
 }
 
@@ -713,6 +716,24 @@ mod tests {
                 "{error:?}"
             );
         }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "a manifest's declaration is read printable, as a loaded binary's is"
+    )]
+    fn a_manifest_is_read_printable() {
+        let manifest = serde_json::json!({
+            "handshake": {"protocol_version": "1.0.0", "name": "@sdk/greet", "version": "1.0.0",
+                "peer_dependencies": [{"name": "@a/b\u{1b}", "version": "1.0.0"}],
+                "sandbox_policy": null, "description": "d\u{1b}]52;c;cm0gLXJmIH4=\u{7}"}
+        });
+        let name = PackageName::parse("@sdk/greet").unwrap();
+        let declaration =
+            read_declaration(&name, &Version::new(1, 0, 0), &manifest.to_string()).unwrap();
+        assert_eq!(declaration.peers()[0].name, "@a/b\\u{1b}");
+        let description = declaration.handshake.description.unwrap();
+        assert!(!description.contains(char::is_control), "{description:?}");
     }
 
     #[test]

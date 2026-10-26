@@ -1,6 +1,6 @@
 # One project, four surfaces: the migration's decisions
 
-**Status:** accepted (2026-09-30); amended the same day after the decision research. Amended by round 18 plan 08 (2026-10-19): D6-d's docs link is `CodeEntry::docs_href`, the entry's own. Amended by round 26 plan 11: D2-c's word reaches the coverage summary (`testable_declared`).
+**Status:** accepted (2026-09-30); amended the same day after the decision research. Amended by round 18 plan 08 (2026-10-19): D6-d's docs link is `CodeEntry::docs_href`, the entry's own. D4-a holds for extension commands again: [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md). Amended by round 26 plan 11: D2-c's word reaches the coverage summary (`testable_declared`).
 
 The architecture review in `.planning/architecture/` found that the CLI, `specforge watch`, the LSP
 and the MCP server each assemble the compiler on their own, and so drift apart. It plans six

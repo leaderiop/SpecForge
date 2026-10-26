@@ -135,8 +135,8 @@ fn extensions_lists_the_lock_entries_and_the_kinds_in_the_graph() {
     )
     .unwrap();
     let lock = json!({"lockfile_version": 1, "entries": [
-        {"name": "@acme/zeta", "version": "2.0.0", "source": "registry", "wasm_hash": "h1"},
-        {"name": "@acme/alpha", "version": "1.0.0", "source": "registry", "wasm_hash": "h2"},
+        {"name": "@acme/zeta", "version": "2.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
+        {"name": "@acme/alpha", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"},
     ]});
     std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
     let mut server = McpServer::new().with_solver(z3_ready());

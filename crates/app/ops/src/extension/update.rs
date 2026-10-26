@@ -18,7 +18,7 @@ use specforge_common::shape::Shape;
 use specforge_common::{Code, codes};
 use specforge_installed::Installed;
 use specforge_package::PackageName;
-use specforge_package::{LockedVersion, Reach};
+use specforge_package::{Reach, Version};
 use specforge_wasm::WasmRuntime;
 
 /// The code `update` reports when the project has no lock file, or one that can't be read.
@@ -347,11 +347,11 @@ pub fn update(
         } else {
             match newer(req.reach, registry, &plan, &entry.name, &entry.version) {
                 Ok(None) => UpdateStatus::UpToDate {
-                    version: entry.version.clone(),
+                    version: entry.version.to_string(),
                 },
                 Ok(Some(install)) => {
                     let status = UpdateStatus::Updated {
-                        from: entry.version.clone(),
+                        from: entry.version.to_string(),
                         to: install.version().to_string(),
                         sha256: install.sha256().to_string(),
                         publisher: install
@@ -416,9 +416,9 @@ fn newer<'a>(
     registry: &dyn Registry,
     plan: &LockPlan<'a>,
     name: &PackageName,
-    locked: &str,
+    locked: &Version,
 ) -> Result<Option<Install<'a>>, OpError> {
-    let Some(target) = super::upgrade(registry, name, &LockedVersion::read(locked), reach)? else {
+    let Some(target) = super::upgrade(registry, name, locked, reach)? else {
         return Ok(None);
     };
     plan.fetch(name, &target).map(Some)

@@ -31,7 +31,7 @@ Options:
           With --scope, how many hops from the scoped entity to include
 
       --kinds <KINDS>
-          Keep only entities of these kinds (comma-separated); the scoped entity always stays
+          Keep only entities of these kinds (comma-separated, or the flag repeated); the scoped entity always stays
 
       --no-schema
           Suppress schema embedding in `graph` exports (keeps format_version 1.0)

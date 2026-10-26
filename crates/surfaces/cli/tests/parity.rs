@@ -1144,7 +1144,7 @@ fn doctor_report_is_the_same_on_both_surfaces() {
     let mut lock: Value =
         serde_json::from_str(&std::fs::read_to_string(&lock_path).unwrap()).unwrap();
     lock["entries"].as_array_mut().unwrap().push(json!({
-        "name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "00"
+        "name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"
     }));
     std::fs::write(&lock_path, lock.to_string()).unwrap();
 

@@ -1,7 +1,7 @@
 //! Whether a block owes a title and has none: the one answer E076, the migration's titles step and its judge, and
 //! the typed create and retitle ask (ADR 0148, ADR 0225).
 
-use crate::build::is_define_block;
+use crate::build::{about, is_define_block};
 use crate::defaults::is_defaults_block;
 use specforge_common::{Diagnostic, codes, structural};
 use specforge_parser::Entity;
@@ -37,5 +37,6 @@ pub(crate) fn untitled_block_error(entity: &Entity) -> Diagnostic {
         format!("{} '{}' has no title", entity.kind.raw, entity.id.raw),
     )
     .with_span(entity.span.clone())
+    .with_data(about(entity))
     .with_suggestion(help)
 }

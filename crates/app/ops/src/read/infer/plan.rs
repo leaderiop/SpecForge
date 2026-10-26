@@ -15,7 +15,7 @@ pub const MAX_LISTED_FILES: usize = 50;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InferencePlanRequest<'a> {
-    /// Where the agent writes `.spec` files; the guide's spec directory
+    /// Where the agent's created entities' files go; the guide's spec directory
     /// when `None`.
     pub target_spec_directory: Option<&'a str>,
     /// Offset into the unanalyzed and stale file lists.

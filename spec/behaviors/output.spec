@@ -233,7 +233,9 @@ behavior compute_project_statistics "Compute Project Statistics" {
     it MUST be reported as 0%, not as a division error. When the project
     has recorded test results (specforge-report.json), stats also reports
     the proof percentage: the share of testable entities the coverage
-    rule proves, the analyze coverage --min gate's figure. Without
+    rule proves, the analyze coverage --min gate's figure, except that
+    it is 0% when testable_entity_count is zero, as the declared
+    percentage (the gate passes such a project). Without
     results it is absent; a report that exists but cannot be read is an
     error.
     specforge stats --format json prints the statistics document
@@ -251,6 +253,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "the stats document has no proof_pct without recorded test results"
   verify unit "stats reports no verified count: unverified is what counts toward coverage and is not proven"
   verify integration "stats reports the declared and proof percentages"
+  verify integration "with nothing testable, stats reports the declared and the proof percentages alike"
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 }
 
@@ -462,20 +465,51 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
     fixes' file_path) MUST be read into its source key, the path from the
     project root that the compile and the editor name it by (ADR 0242): every
     spelling of one file is that file (a leading or inner ., a doubled
-    separator, its absolute path under the project root). A spelling that
-    leaves the project root (a .. or an absolute path elsewhere) MUST be
-    refused as not_a_source. A read of a file that is none of the compiled
+    separator, its absolute path under the project root). A spelling is
+    read from the project root into the key the source root mints for it (a ..
+    applied where it stands); one whose key lies outside both the project root
+    and the spec root MUST be refused as not_a_source; a source under a spec root
+    outside the project is named by its absolute key or any spelling of it. A read of a file that is none of the compiled
     sources, the spec root's own spelling of one included, MUST be
     file_not_found with no suggestion; a create MUST be refused as
-    not_a_source unless the file is one discovery would keep. A refusal MUST
+    not_a_source unless the file is one discovery would keep, and when it
+    differs from a compiled source only in case, naming that source. A refusal MUST
     name the file as the request spelled it.
   """
   verify unit "every spelling of a spec file under the project root reads as its source key"
-  verify unit "a spelling that leaves the project root is not_a_source"
+  verify unit "a spelling whose key lies outside the project root and the spec root is not_a_source"
   verify unit "a read of a file that is no compiled source is file_not_found"
   verify unit "a refusal of a named spec file names the file as the request spelled it"
   verify unit "a spec file is named from the project root, as every document names it"
   verify unit "a new spec file under the spec root is a place, whatever directory it repeats"
+  verify unit "a create into a file that differs from a source only in case is not_a_source, naming the source"
+  verify unit "a source under a spec root outside the project reads by its key and every spelling of it from the project root"
+  verify unit "a spelling with a .. reads as the file it lands on"
+}
+
+// A source-code path a request names (specforge_ops::view::ProjectView::source_path and source_root, ADR 0253).
+behavior read_a_named_source_path "Read a Source-Code Path a Request Names" {
+  features   [mcp_core_tools]
+  invariants [diagnostic_determinism, mcp_served_project_consistency]
+  category   query
+  contract   """
+    A source-code path a request names (infer_session's source_file and
+    source_roots, find_spec_for_source's file_path, the infer prompt's file
+    scope) MUST be read from the project root into its key by the source path
+    rule: every spelling of one path is that path (a leading or inner ., a
+    doubled separator, a backslash, its absolute path under the project root).
+    It is read as a spec file a request names is (a .. applied where it
+    stands); one whose key lies outside the project root MUST be refused as
+    invalid input on its argument, in the sentence a spec file's is refused
+    in, naming the project root; one that names nothing MUST be refused too.
+    The reader opens no file: a name whose file lands outside the project
+    through a link is refused where it is opened, saying where it lands and
+    what bounds the request.
+  """
+  verify unit "every spelling of a source-code path under the project root reads as its key"
+  verify unit "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
+  verify unit "a source-code path that names nothing is refused"
+  verify unit "infer_session, find_spec_for_source and the infer file scope read one table of spellings alike"
 }
 
 // Inspect (specforge_ops::read::inspect): one entity's facts. specforge.inspect,
@@ -495,7 +529,8 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
     Inspect MUST answer one entity's facts: its node and kind entry, its
     headline statement (the field text of the field its extension declares
     headline and normative, whatever its written shape), its standing and obligations, its references in both
-    directions, and the diagnostics about it: those its data names it in,
+    directions, and the diagnostics about it: those its data names it in (a duplicate
+    declaration's included),
     else those inside its block, never one whose message merely quotes it or
     whose id contains its id. Its coverage is the coverage view's verdict and
     status for its row. An entity the graph lacks is E003, entity_not_found, naming the
@@ -508,6 +543,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "an unknown entity is E003, entity_not_found"
   verify unit "an entity's headline and its fields read the one entry of a field written twice"
   verify unit "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
+  verify unit "a duplicate declaration's diagnostics are about its entity"
 }
 
 // The exploration and the review: the explore and review prompts'

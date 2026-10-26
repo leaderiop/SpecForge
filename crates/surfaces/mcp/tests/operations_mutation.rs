@@ -568,8 +568,8 @@ fn rename_result_is_an_mcp_rename_result() {
     assert_eq!(edits.len(), 2, "{parsed}");
 }
 
-/// With `spec_root` set, spans are relative to the spec root, not the
-/// project root: rename must read and write the files there (plan 01, D8).
+/// With `spec_root` set, spans name a source by its key (its path from the project
+/// root): rename must read and write the files there (plan 01, D8).
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "specforge.rename renames entity and all references"

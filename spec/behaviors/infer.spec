@@ -159,8 +159,10 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     the path, hash, entities_produced list, and current timestamp. If an
     entry for this path already exists, overwrite it (re-analysis). Save
     the manifest. The path is recorded root-relative with / separators
-    (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
-    .. component is refused. The same rule applies to the source_roots a
+    (./src/a.rs and src\a.rs are src/a.rs). It is read from the project root
+    as a named spec file is (its absolute path under the root is that path, a
+    .. applied where it stands); one whose key lies outside the project root
+    is refused, as is a directory. The same rule applies to the source_roots a
     start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
@@ -169,6 +171,8 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
   verify unit "mark computes SHA-256 content hash"
   verify unit "mark records the path root-relative with / separators"
   verify unit "mark refuses a file outside the project root"
+  verify unit "mark reads an absolute path under the project root as its key"
+  verify unit "mark refuses a directory as invalid input on source_file"
 }
 
 behavior discover_inference_sources "Discover Inference Sources" {
@@ -277,6 +281,8 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
     - mark_analyzed: Call mark_source_file_analyzed with provided
       source_file path and entities_produced list.
     - end: Call end_inference_session with session_id and status.
+    An argument of another action MUST be refused as invalid_input on
+    that argument, before anything is read or written.
     All actions read and save the manifest through the call's project,
     atomically. On first write, creates
     specforge-infer.json if it does not exist.
@@ -286,6 +292,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   verify unit "end action completes session"
   verify unit "creates manifest on first write"
   verify unit "an unknown action or status is refused with the option table's wording"
+  verify unit "an argument of another action is refused on that argument"
 }
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
@@ -466,12 +473,12 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
     it:
     1. Call specforge.infer_session with action=start
     2. Call specforge.infer_progress to get unanalyzed files
-    3. Read source files, write .spec files
+    3. Read source files, create their entities with specforge.edit (never write .spec text)
     4. Call specforge.validate to check errors, fix any errors
     5. Call specforge.infer_session with action=mark_analyzed
     6. Repeat steps 2-5 until satisfied
     7. Call specforge.infer_session with action=end
-    Include retry pattern: if validate fails, fix .spec -> re-validate
+    Include retry pattern: if validate fails, fix the entity with specforge.edit -> re-validate
     -> then mark. Never mark before validation passes. The payload lists
     the tools the protocol names and the declared kinds. It is tagged with
     its scope (workflow).
@@ -479,6 +486,7 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   verify unit "workflow returns step-by-step protocol"
   verify unit "the workflow lists the tools it names, as the tool table names them"
   verify unit "workflow documents retry pattern"
+  verify unit "the infer prompt has the agent create entities with specforge.edit, never write .spec text"
 }
 
 behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
@@ -495,8 +503,9 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
     file rule MCP navigation and the LSP share, with each one's kind,
     line and symbol, and each kind's guide
     (compute_inference_guide). The list is the one
-    specforge.find_spec_for_source returns for the same path. With no
-    project served the file scope names a file of no project: it is the
+    specforge.find_spec_for_source returns for the same path; a file: path
+    whose key lies outside the project root is the same refusal, on scope.
+    With no project served the file scope names a file of no project: it is the
     no-project refusal (precondition_failed), as every core prompt read
     that names a file is. The payload is tagged with its scope (file).
   """

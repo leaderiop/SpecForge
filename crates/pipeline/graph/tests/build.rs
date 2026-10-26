@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use specforge_common::DiagnosticData;
 use specforge_graph::{FileChange, Graph, GraphBuild, GraphConfig, NodeChange};
 use specforge_parser::parse;
 use specforge_test_macros::test as specforge_test;
@@ -397,4 +398,69 @@ fn replacing_a_graph_lists_the_nodes_whose_place_changed() {
         ]
     );
     assert!(specforge_graph::moved_nodes(after.graph(), after.graph()).is_empty());
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a declaration's graph-build diagnostics name its entity in their data"
+)]
+fn a_declarations_diagnostics_name_its_entity_whether_or_not_it_is_placed() {
+    // a.spec places `alpha`; b.spec's `alpha` is dropped (E002), owes a title (E076) and writes a
+    // key twice (E081); c.spec's invariant `alpha` is W060; the second `ref gh.issue:42` is E002
+    // and both are I005; the define block (W143) declares nothing.
+    let a = "behavior alpha \"Alpha\" {\n  category command\n}\n";
+    let b = "behavior alpha {\n  category command\n  category query\n}\n";
+    let c = "invariant alpha \"Other\" {\n}\ndefine thing {\n}\n";
+    let d = "ref gh.issue:42 \"One\"\nref gh.issue:42 \"Two\"\n";
+    let config = GraphConfig {
+        known_provider_schemes: ["jira".to_string()].into_iter().collect(),
+        ..Default::default()
+    };
+    let files = [
+        file("a.spec", a),
+        file("b.spec", b),
+        file("c.spec", c),
+        file("d.spec", d),
+    ];
+    let mut build = GraphBuild::of(files, config);
+    let subject = |id: &str| Some(DiagnosticData::Subject { entity: id.into() });
+    let named = |build: &GraphBuild| -> Vec<(String, Option<DiagnosticData>)> {
+        let mut named: Vec<_> = build
+            .diagnostics()
+            .iter()
+            .filter(|d| ["E002", "E076", "E081", "W060", "I005", "W143"].contains(&d.code.as_str()))
+            .map(|d| (d.code.to_string(), d.data.as_deref().cloned()))
+            .collect();
+        named.sort_by(|x, y| x.0.cmp(&y.0));
+        named
+    };
+    let gh = "gh.issue:42";
+    let expected = [
+        ("E002", subject("alpha")),
+        ("E002", subject(gh)),
+        ("E076", subject("alpha")),
+        ("E081", subject("alpha")),
+        ("I005", subject(gh)),
+        ("I005", subject(gh)),
+        ("W060", subject("alpha")),
+        ("W143", None),
+    ]
+    .map(|(code, data)| (code.to_string(), data));
+    assert_eq!(named(&build), expected);
+    // The subject is the first declaration's id: a.spec's node.
+    assert_eq!(
+        build
+            .graph()
+            .node("alpha")
+            .unwrap()
+            .source_span
+            .file
+            .as_str(),
+        "a.spec"
+    );
+    // Cold and incremental agree on the data.
+    build.set_verify(true);
+    let applied = build.apply([parsed("b.spec", b)]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    assert_eq!(named(&build), expected);
 }

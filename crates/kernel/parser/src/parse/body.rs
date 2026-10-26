@@ -7,15 +7,22 @@ pub(super) struct Body {
     pub(super) obligations: Vec<VerifyStatement>,
     pub(super) obligation_spans: Vec<SourceSpan>,
     pub(super) methods: Vec<MethodDecl>,
+    /// The own-line comments of the body, nested block fields' included, in source order.
+    pub(super) comments: Vec<SourceSpan>,
 }
 
 impl<'a> ParseContext<'a> {
     pub(super) fn parse_block_body(&mut self, node: Node) -> Body {
         let mut body = Body::default();
         let mut cursor = node.walk();
+        // The row where the previous item ends: a comment on it trails that item.
+        let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
             match child.kind() {
                 _ if child.is_error() => self.push_error_node(child),
+                kind::COMMENT if own_line(child, trailed) => {
+                    self.body_comments.push(self.span(child));
+                }
                 kind::FIELD => {
                     if let Some(entry) = self.parse_field(child) {
                         body.fields.push_entry(entry);
@@ -30,8 +37,10 @@ impl<'a> ParseContext<'a> {
                 kind::METHOD_STATEMENT => body.methods.push(self.parse_method_statement(child)),
                 _ => {}
             }
+            trailed = Some(child.end_position().row);
         }
 
+        body.comments = std::mem::take(&mut self.body_comments);
         body
     }
 
@@ -103,8 +112,8 @@ impl<'a> ParseContext<'a> {
 
     fn parse_value(&mut self, node: Node) -> FieldValue {
         match node.kind() {
-            kind::STRING => FieldValue::String(self.unquote(node)),
-            kind::TRIPLE_QUOTED_STRING => FieldValue::String(self.parse_triple_quoted(node)),
+            kind::STRING => FieldValue::String(string_text(self.text(node))),
+            kind::TRIPLE_QUOTED_STRING => FieldValue::String(triple_text(self.text(node))),
             kind::INTEGER | kind::NEGATIVE_INTEGER => {
                 let text = self.text(node);
                 match text.parse::<i64>() {
@@ -133,12 +142,6 @@ impl<'a> ParseContext<'a> {
         }
     }
 
-    fn parse_triple_quoted(&self, node: Node) -> String {
-        let text = self.text(node);
-        let inner = &text[3..text.len() - 3];
-        dedent(inner)
-    }
-
     /// A list as written: every item with its text, token span and how it
     /// was written. Never judged here: what a list references, and whether
     /// its items suit the field, is the field's declared type's reading.
@@ -146,16 +149,8 @@ impl<'a> ParseContext<'a> {
         let mut items = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            let (text, written) = match child.kind() {
-                // `true` / `false` arrive as identifiers inside a list.
-                kind::IDENTIFIER => match self.text(child) {
-                    text @ ("true" | "false") => (text.to_string(), Written::Literal),
-                    text => (text.to_string(), Written::Bare),
-                },
-                kind::STRING => (self.unquote(child), Written::Quoted),
-                kind::SCHEME_REF_ID => (self.text(child).to_string(), Written::SchemeRef),
-                kind::INTEGER | kind::BOOLEAN => (self.text(child).to_string(), Written::Literal),
-                _ => continue,
+            let Some((written, text)) = value_token(child, self.source) else {
+                continue;
             };
             items.push(ListItem {
                 text,
@@ -169,12 +164,16 @@ impl<'a> ParseContext<'a> {
     fn parse_nested_block(&mut self, node: Node) -> FieldValue {
         let mut fields = FieldMap::new();
         let mut cursor = node.walk();
+        let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
-            if child.kind() == kind::FIELD
+            if child.kind() == kind::COMMENT && own_line(child, trailed) {
+                self.body_comments.push(self.span(child));
+            } else if child.kind() == kind::FIELD
                 && let Some(entry) = self.parse_field(child)
             {
                 fields.push_entry(entry);
             }
+            trailed = Some(child.end_position().row);
         }
         FieldValue::Block(fields)
     }
@@ -286,10 +285,9 @@ fn dedent(text: &str) -> String {
             }
         } else if line.trim().is_empty() {
             result.push("");
-        } else if line.len() >= min_indent {
-            result.push(&line[min_indent..]);
         } else {
-            result.push(line);
+            // `get`: another line's indentation may be a multi-byte space, and `min_indent` counts bytes
+            result.push(line.get(min_indent..).unwrap_or(line));
         }
     }
 
@@ -298,6 +296,39 @@ fn dedent(text: &str) -> String {
     }
 
     result.join("\n")
+}
+
+/// The text a `"""…"""` token reads to: its inside dedented (the first line trimmed, the common indentation of the
+/// others dropped, trailing blank lines dropped).
+pub(crate) fn triple_text(raw: &str) -> String {
+    let inner = raw
+        .strip_prefix("\"\"\"")
+        .and_then(|r| r.strip_suffix("\"\"\""))
+        .unwrap_or(raw);
+    dedent(inner)
+}
+
+/// A value token as the parse reads it (ADR 0247): how it is written and the text the parse stores for it. A `"…"`
+/// is [`string_text`], a `"""…"""` is [`triple_text`], a bare word, scheme ref id or literal is its text; nothing is
+/// otherwise trimmed. `true` / `false` arrive as identifiers inside a list and are literals. `None` for every other
+/// node: a list, a nested block, an expression group, a type union, an array type, a bracket, a comma, a comment.
+/// The parse's field values and list items are built from it; the formatter's rewrite reads it. `source` is the
+/// text the node's tree was parsed from.
+pub fn value_token(node: Node<'_>, source: &str) -> Option<(Written, String)> {
+    let text = source.get(node.byte_range())?;
+    Some(match node.kind() {
+        kind::STRING => (Written::Quoted, string_text(text)),
+        kind::TRIPLE_QUOTED_STRING => (Written::Quoted, triple_text(text)),
+        kind::IDENTIFIER if matches!(text, "true" | "false") => {
+            (Written::Literal, text.to_string())
+        }
+        kind::IDENTIFIER => (Written::Bare, text.to_string()),
+        kind::SCHEME_REF_ID => (Written::SchemeRef, text.to_string()),
+        kind::INTEGER | kind::NEGATIVE_INTEGER | kind::BOOLEAN | kind::DATE_LITERAL => {
+            (Written::Literal, text.to_string())
+        }
+        _ => return None,
+    })
 }
 
 /// Depth-first search for an ERROR or MISSING node produced by the
@@ -313,4 +344,12 @@ fn find_error_descendant<'a>(node: Node<'a>) -> Option<Node<'a>> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod dedent_tests {
+    #[test]
+    fn a_multi_byte_space_in_the_indentation_does_not_split_a_character() {
+        assert_eq!(super::dedent("a\n b\n\u{a0}c"), "a\nb\n\u{a0}c");
+    }
 }

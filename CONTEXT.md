@@ -56,11 +56,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   declaration's location is one too (its **source key**, ADR 0242). The CLI's human output names files as typed.
 - **Named spec file**: a spec file a request names (a typed create's `file`, `new --in`, outline's `file`, the fixes'
   `file_path`): read from the project root by the project view into its source key, every spelling of one file
-  being that file, or refused once (`not_a_source` outside the project root or where no source can be, `file_not_found`
+  being that file, or refused once (`not_a_source` when its key lies outside the project root and the spec root, or where no source can be, `file_not_found`
   for a read of no source); the refusal names the file as the request spelled it (`OpError::file`, MCP's
   `McpError.file`) (`ProjectView::source`, ADR 0195).
+- **Named source path**: a source-code file or directory a request names (infer_session's `source_file` and
+  `source_roots`, find_spec_for_source's `file_path`, the infer prompt's `file:` scope): read from the project root by
+  the project view into its key under the source path rule, an absolute path under the root being that path and a `..`
+  applied where it stands (the named spec file's mint), or refused once (`not_a_source_path`, in the named spec file's
+  sentence shape) when its key lies outside the project root or it names nothing; the reader opens no file
+  (`ProjectView::source_path`, ADR 0253).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
-  text a span, a diagnostic, an export node and every plan name it by (ADR 0242).
+  text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
+- **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
 - **Format version**: the `.spec` file format a file was written against, `MAJOR.MINOR`, declared by
   the `// specforge-format:` header on its first non-blank line; a file with no header is at the
   current version and reports nothing (migration steps still run on it). The parser reads it with the file
@@ -82,6 +89,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the parse's (`specforge_parser::Entity::doc_span`): a typed delete removes it with its block, `specforge migrate`'s
   titles step lifts it into a missing title, and the defaults hoist writes its block above it. It never reaches the
   graph (ADR 0148, ADR 0202).
+- **Member comment**: the whole-line `//` comments directly above a member of a block's body (a field, an entry of
+  a block field, a verify statement), no blank line between; a comment ending the line of the item above trails it,
+  and a `//` line inside a string is none. Where they are written is the parse's (`specforge_parser::Entity::comments_above`
+  over `Entity::body_comments`): a typed unset, an unlink that empties a field and a remove-verify remove them with
+  their member, a new member goes above them, and the defaults hoist leaves a field with one as written. Like a doc
+  comment, it never reaches the graph (ADR 0202, ADR 0248).
 - **Migration step**: a rewrite `specforge migrate` applies to every source it changes, whatever the file's format
   version, after the header rewrite (`specforge_migrate`'s `titles` and `defaults`).
   The plan reads the environment the judge compiles in: the defaults step hoists only what `FileDefaults` applies
@@ -196,6 +209,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `navigation::EditorText`) are all found by that key, so two spellings of one URI (VS Code writes `@` as `%40`) are one document. The
   URI the client opened it with is kept only to name the file back to the client (`specforge_lsp::files::Files`,
   ADR 0056). It is given to the project session as a held buffer.
+- **Editor client**: the VS Code extension (`integrations/vscode`): an adapter that shows what the language server answers (diagnostics, hover, lenses, symbols) and runs `specforge` for the graph views, both binaries from one directory (`specforge.binDir`, else PATH); it reads no `.spec` text itself (ADR 0249).
 - **Editor text**: what the editor's text of a session file (its open buffer, else the file on disk) is to the compile (`navigation::EditorText`): the compiled text, changed since, or a text the project does not build. A span of the compile is a range only of an editor text that is the compiled text (`Compiled::range`): a list leaves the item out, an edit is refused `ContentModified`; a diagnostics publish, labelled with the compiled version, places its diagnostics in the compiled text (ADR 0205, ADR 0023).
 - **Published diagnostics**: what the LSP last told the editor about one file, kept by session key in two parts,
   each labelled with the version of the buffer it is positions in: the compile's (what the project reports) and the
@@ -305,7 +319,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012). What it contributes is what it declares (`ExtensionDeclaration::declares`
   over the ten describe categories); its handshake's `providers` says it implements configured providers
-  (ADR 0050).
+  (ADR 0050). Its text is read printable by the host (ADR 0244).
 - **Guest wire**: what the host and an extension's guest both compile (`specforge-protocol-types`): the
   extension declaration, the operation payloads, the extension vocabulary and the command-arg rule. Every
   builtin blob is built from it, so it holds nothing only the host reads: the host's reading of package names,
@@ -328,16 +342,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.specforge/extensions/<name>/extension.wasm` and pinned by its `specforge.lock` entry (version,
   source `registry` or `local:<path>`, the SHA-256 of the binary and, for a signed registry package, its
   publisher key id). It loads only while its binary is
-  the one its entry pins and declares the name, version and peers the entry records (E070 otherwise; W149 when the entry
-  pins no hash). A project's installed
+  the one its entry pins and declares the name, version and peers the entry records (E070 otherwise). A project's installed
   extensions are one value, its lock read once (`specforge_installed::Installed`); installing,
   updating and removing them is one **change** (`Installed::change`), written all at once or not at
   all, its last step the operation's project change (ADR 0128) and the directories it created (ADR 0028);
   `add`, `update`, `init` and `remove` change them through the **lock plan**.
 - **Lock entry**: what `specforge.lock` records for one installed extension: name, version, source, the module's SHA-256, its
   publisher key id and peers. The version and peers are its module's, and the load holds the entry to them
-  (`LockFileEntry::declares`, E070, ADR 0217). Its source is `registry` or `local:<path>`, the path not empty and
-  holding no control character, checked where the lock is read (E033, ADR 0230).
+  (`LockFileEntry::declares`, E070, ADR 0217). Every field is read where the lock is read (E033, ADR 0230, 0243):
+  the version a SemVer version, the hash a SHA-256 in lowercase hex, the key id 16 lowercase hex characters, the
+  source `registry` or `local:<path>` (the path not empty) and the recorded peers holding no character a terminal
+  acts on; `add` never records what that read refuses.
 - **Extension load**: turning a project's `extensions` entries into loaded extensions and their
   declarations, once per environment load (`Installed::load`, over the `WasmRuntime` port): a
   builtin from its embedded binary, an installed extension from its pinned module, a `.wasm` file
@@ -347,7 +362,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension by its text (`ExtensionEntry::names`), a `.wasm` file entry only by what its component declares, once
   admitted (ADR 0160; never under a builtin's name, ADR 0214). Its declarations come in entry order; the registry
   build puts them in load order. What does not load is a typed `LoadFailure` on its
-  entry with one diagnostic and leaves nothing loaded, and what an entry reports though it loaded (W149, W153, W138) is on the
+  entry with one diagnostic and leaves nothing loaded, and what an entry reports though it loaded (W153, W138) is on the
   entry too; the runtime keeps none, and `Installed::load_diagnostics` orders them, entry by entry. Without a runtime nothing loads, and each entry
   enables what it names (`Installed::unloaded`); each entry records where the load takes it from, its **origin** (`Origin`: `builtin`, the lock entry's source, `file:<path>`, `unknown`; `Resolution::origin`, a repeated entry the one it repeats'), and whether it loaded, with or without a runtime; what an environment is assembled from says which
   (`specforge_project::ExtensionLoad`: `NoRuntime`, or what was loaded `In` a runtime).
@@ -555,13 +570,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `reference_list` item, quoted for a `string` and each `string_list` item; an integer, true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
   W159 reports a value written otherwise. Spelled by one module, `specforge_graph::field_form::spell` (the escape
   table, the bare rule and each declared type's one-line spelling); `spell::form` is the one table, which `FieldForms::rewrite` and `spell::value` read, and
-  `format`, W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
+  `format` (reading a value's text through `specforge_parser::value_token`), W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
   ADR 0226); `spell::escaped` is the inside of a quote. A `defaults` body's values are written in the forms of its
   body kind (ADR 0224).
 - **Stored value**: a field value as the graph build stores it: coerced by its field form (`FieldForms::stored`,
   ADR 0182), so a list written as one value is a one-item list and `"100"` on an integer field is `100`. Every reader
   of references, derived names and inherited values reads it; what a file *writes* (W159 through `written_fields`, W161, the formatter) reads
   the written value.
+- **Value token**: one written value of a field, or one item of its list, as the parse reads it: how it is written
+  (bare, quoted, a scheme ref, a literal) and its text, a `"..."` with its escapes read and a `"""..."""` dedented,
+  never otherwise trimmed (`specforge_parser::value_token`). The parse's field values and list items, W159 and
+  format's rewrite read it, so a padded `" draft"` is kept as written and E061 reports it (ADR 0247).
 - **Field vocabulary**: the closed set of values an enum field takes, in their order, and the value an absent one
   counts as (its declared `default_value`), declared once by the extension that declares the field, as a `const`
   (`specforge_extension_sdk::Vocabulary`, through `FieldBuilder::vocabulary`, the only way to declare an enum).
@@ -638,13 +657,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   a malformed signature is that) and names the package and version asked for, the served manifest reads as that
   package's declaration (one from before ADR 0012 is refused), at the version the project's lock pins the bytes it pins
   (**locked pin**), the publisher signature verifies over what the reply describes and the publisher is decided (the
-  **trust decision**), and only then is the binary downloaded and held to the served SHA-256, so the signature covers it
+  **trust decision**), and only then is the binary downloaded, held to the **download limit** and to the served SHA-256, so the signature covers it
   (`ConfiguredRegistry::published` and `fetch`; ADR 0010, 0012, 0044, 0059, 0213). The fetch decides and
   writes nothing: the decision is the package's `Publisher`, and the key is pinned when the lock plan that
   fetched it commits. Accepting an unsigned package (`--allow-unsigned`, the CLI only) is reported as W155 at
   fetch, a re-pin as W156 once it is saved. A known-keys store that can't be read refuses the fetch, signed or not
   (R-TRUST-006). The
   check writes nothing to the terminal: a key change is put to the policy's **Asking**.
+- **Download limit**: the most bytes a registry download may be: the `size_bytes` its reply declares, at most 64 MiB (`MAX_PACKAGE_BYTES`, the reference server's upload limit), and 64 MiB when it declares none; every other registry answer is held to 64 MiB. A longer answer is refused (R009) as soon as its `Content-Length` or its bytes say so, and an answer still arriving after the client's timeout is R004 (ADR 0250).
 - **Trust decision**: how a registry package's publisher is accepted, decided once from what the registry describes, before any
   download, for a dry run as for an install: the **expected key** first, for every package; unsigned with an expected key
   (R-TRUST-007), unsigned with none (R-TRUST-001 unless allowed), a denied key (R-TRUST-005, whatever the consent), the
@@ -662,8 +682,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Locked pin**: what a project's `specforge.lock` entry records for a registry install, which every fetch of the name
   is held to: its publisher key at any version (the **key pin** when the user has none) and its SHA-256 at its own
   version. A registry serving that version as other bytes is refused (R014) before the download, any key question or any
-  pin, and a dry run refuses it from the published manifest; an entry that pins no hash (W149) holds no bytes and is
-  pinned by its next add (`specforge_ops::registry::LockedPin`, ADR 0201).
+  pin, and a dry run refuses it from the published manifest; its version and SHA-256 are held together
+  (`specforge_ops::registry::LockedPin`, ADR 0201).
 - **Package signature**: a publisher's Ed25519 signature over a package's signed content (its name and version as
   declared, and the SHA-256 of the exact binary and manifest uploaded), with the public key and the time that verify it
   offline (`specforge_registry_wire::PackageSignature`, JSON `{sig, public_key, signed_at}`). Its key id is the first
@@ -693,6 +713,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   under a path) (`specforge_registry_wire::RegistryRoot`). Every call goes to the root, then `/v1`, then the call's
   path (`RegistryRoot::address`); the server mounts the same routes (`Endpoint::route`). A url ending in `/v1`, or
   one that isn't an http(s) URL, is E067 (ADR 0075).
+- **Download address**: where a metadata answer's `wasm_url` downloads from, as the client requests it: an http(s) URL
+  or a path at the registry root, held as that URL's serialization (`RegistryRoot::download_address`, ADR 0075 D5,
+  ADR 0245). A CDN's address never receives the registry's credential.
 - **Registry for a package**: the one configured registry that serves a package name: the first
   `registries` entry whose `scope_filter` covers the name, else the first marked
   `default_registry`; with neither, none does, and the operation refuses with R-OPS-001 before any
@@ -704,9 +727,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   stored versions, its declaration's description (printable) and, once merged, the registry it was found in
   (`specforge_registry_wire::SearchHit`, `specforge_ops::registry::Found`, ADR 0231). A reply holding a hit that is
   neither is that registry's failure (R009); a registry serves no stored package whose name is no package name.
-- **Printable text**: text another program supplies (a registry's reply or error), as SpecForge writes it into a
-  message or a listing: each control character and bidirectional control as its `\u{..}` escape
-  (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, so every surface carries the same.
+- **Printable text**: text another program supplies (a registry's reply or error, an extension's answer), as SpecForge
+  writes it into a message or a listing: each control character and bidirectional control as its `\u{..}` escape
+  (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
+  whole (ADR 0245), so every surface carries the same; JSON another program sends is held once where it is read
+  (`remedy::hold_printable`, ADR 0244).
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment
@@ -1250,6 +1275,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the invocation, resolve the call target, run the handler (which records its own events), record the
   completion, answer with the kind's envelope; every record goes through the server's event sink. Each kind is one adapter; a refusal without `isError` (resources, prompts) is a JSON-RPC
   error whose data is its McpError (`specforge_mcp::surface_call`, ADR 0024).
+- **Tool refusal**: how any MCP tool says it failed: an `isError` result carrying one McpError
+  (`ToolOutcome::Refused`, the only failure a tool outcome can be). A core tool's, the call target's, an
+  explicit extension tool's and an extension command's alike: a command's refused args are `invalid_input`
+  on the arg, its own error object the McpError its code names, any other failed run `internal_error` with
+  its output in `data` (`specforge_mcp`'s `extension_dispatch`). The CLI writes a command's error object
+  instead (ADR 0011, ADR 0252).
 - **Resource spec**: the single definition of a core MCP resource: one module under `specforge_mcp::resources`
   implementing `CoreResource` once (its URI or template, name, description, MIME type, what it changes with and its
   read of the project view); `CORE_RESOURCES` lists each once, seen as a `ResourceSpec` (ADR 0103). A graph view
@@ -1314,7 +1345,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   kept but never presented as that code's owner's.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
-  an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
+  an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
   suggest_fixes, and navigation's attribution of a diagnostic to the entities it is about) read it;
   none parses the message, which is presentation.
 - **Diagnostic placement**: where a diagnostic about entities with no span of its own sits: the block
@@ -1394,7 +1425,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   A list of them is planned over the texts the project was compiled from (each edit reading what the ones before
   it left), each value written in its field's form (a multi-line one laid out with the file's format configuration, and left out when it restates its file's default)
   and each touched block formatted; the plan is refused with E080
-  when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
+  when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). A block the edit would leave unreadable is refused `edit_unreadable`, the edit's defect; `block_unreadable` names a block unreadable before it (ADR 0248). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
   A delete with `unlink_references` removes every reference the graph build would link, found by the graph's finder
   in the planned texts (ADR 0163), and a `use` binding that imports it (ADR 0233); one written in a `defaults` block, an undeclared field or as a derived type name refuses it (`not_editable`, ADR 0156).
   A list value is taken by its field's type: a reference list's items split at commas however given, a string list's never (ADR 0157). The stub fixes are typed edits too (ADR 0161).

@@ -169,8 +169,8 @@ impl<W: Watchers> SessionWatch<W> {
     }
 
     /// How the changes of a batch are named in its event: a source by its
-    /// key under the spec root, any other input by its path under the
-    /// project root (absolute outside it).
+    /// key (its path from the project root, absolute under a spec root outside it), any other input by its path
+    /// under the project root (absolute outside it).
     fn labels(&self, changes: &Changes) -> Vec<String> {
         let root = std::fs::canonicalize(self.session.project().environment().root())
             .unwrap_or_else(|_| self.session.project().environment().root().to_path_buf());

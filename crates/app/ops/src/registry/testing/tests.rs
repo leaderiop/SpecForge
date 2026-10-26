@@ -62,7 +62,7 @@ fn the_registry_manifest_is_what_a_dry_run_judges() {
 
     assert_eq!(manifest.name, published.name());
     assert_eq!(manifest.version, published.version());
-    assert_eq!(manifest.sha256, hex_sha256(b"\0asm tool"));
+    assert_eq!(manifest.sha256, hex_sha256(b"\0asm tool").as_str());
     assert_eq!(manifest.declaration, published.declaration);
     assert_eq!(manifest.publisher, Publisher::Unsigned);
     assert_eq!(
@@ -88,7 +88,7 @@ fn a_fetched_package_carries_its_name_digest_declaration_and_signer() {
         .unwrap();
     assert_eq!(package.name, published.name());
     assert_eq!(package.version, published.version());
-    assert_eq!(package.sha256, hex_sha256(b"\0asm tool"));
+    assert_eq!(package.sha256, hex_sha256(b"\0asm tool").as_str());
     assert_eq!(package.declaration, published.declaration);
     assert_eq!(package.publisher.key_id(), Some("key-1"));
 }
@@ -124,7 +124,7 @@ fn a_published_version_is_listed_served_and_recorded() {
     let receipt = registry
         .publish(&DeclaredPackage::of(&declaration).unwrap(), b"\0asm")
         .unwrap();
-    assert_eq!(receipt.registry, IN_MEMORY_KEY);
+    assert_eq!(receipt.registry, IN_MEMORY_REGISTRY);
     assert_eq!(receipt.url, "memory://@acme/tool/1.0.0");
     assert!(!receipt.key_created);
     assert_eq!(registry.versions(&name).unwrap(), vec![version.clone()]);
@@ -144,7 +144,7 @@ fn a_search_answers_what_was_found_what_failed_and_how_many_were_asked() {
     ));
     let searched = registry.search("tool", None).unwrap();
     assert_eq!(searched.found.len(), 1);
-    assert_eq!(searched.found[0].registry, IN_MEMORY_KEY);
+    assert_eq!(searched.found[0].registry, IN_MEMORY_REGISTRY);
     assert!(searched.failures.is_empty());
     assert_eq!(searched.asked, 1);
     assert!(!searched.failed());

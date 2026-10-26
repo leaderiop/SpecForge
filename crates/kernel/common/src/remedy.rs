@@ -1,6 +1,7 @@
 //! The commands a remedy names (ADR 0135, ADR 0230): a `specforge` command whose values come from
 //! somewhere the host does not decide (a lock entry, a specforge.json entry, a declaration) is written
-//! so a POSIX shell reads each value back as one word, unchanged.
+//! so a POSIX shell reads each value back as one word, unchanged. The JSON another program sends
+//! is held printable once, where it is read ([`hold_printable`], ADR 0244).
 
 use std::borrow::Cow;
 
@@ -25,18 +26,25 @@ pub fn command(template: &str, values: &[&str]) -> String {
 }
 
 /// `text` with each control character (`char::is_control`: C0, DEL, C1) and each bidirectional
-/// control (U+200E, U+200F, U+202A-U+202E, U+2066-U+2069) written as its escape (`\n`, `\u{1b}`);
+/// control or line separator (U+061C, U+200E, U+200F, U+2028, U+2029, U+202A-U+202E,
+/// U+2066-U+2069) written as its escape (`\n`, `\u{1b}`);
 /// the text itself when it holds none. The form of any text another program supplies (a lock, a
 /// registry's reply or error) in a message or a listing: it cannot move a terminal's cursor, set its
 /// title, write a line of its own or reorder what is shown (ADR 0230, 0231).
 pub fn printable(text: &str) -> Cow<'_, str> {
-    if !text.contains(is_unprintable) {
+    escaped(text, false)
+}
+
+/// [`printable`], a newline, a return and a tab kept when `keep_lines` (a file's text).
+fn escaped(text: &str, keep_lines: bool) -> Cow<'_, str> {
+    let escape = |c: char| is_unprintable(c) && !(keep_lines && matches!(c, '\n' | '\r' | '\t'));
+    if !text.contains(escape) {
         return Cow::Borrowed(text);
     }
     Cow::Owned(
         text.chars()
             .map(|c| {
-                if is_unprintable(c) {
+                if escape(c) {
                     c.escape_default().to_string()
                 } else {
                     c.to_string()
@@ -46,11 +54,52 @@ pub fn printable(text: &str) -> Cow<'_, str> {
     )
 }
 
+/// The keys of a declaration whose text is a file's (a starter template): held printable but for
+/// their newlines and tabs (ADR 0244).
+pub const DECLARED_LINES: &[&str] = &["starter_template"];
+
+/// Every string of `value`, and every object key, held [`printable`]; a string under a key named in
+/// `lines` keeps its newlines and tabs, every other control and bidirectional character escaped.
+/// Text another program sends as JSON is held here once, where it is read (an extension's answer,
+/// a registry's manifest), so every surface that later prints it carries the same harmless text.
+/// Idempotent, as [`printable`] is.
+pub fn hold_printable(value: &mut serde_json::Value, lines: &[&str]) {
+    hold(value, false, lines);
+}
+
+fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str]) {
+    use serde_json::Value;
+    match value {
+        Value::String(text) => {
+            if let Cow::Owned(held) = escaped(text, keep_lines) {
+                *text = held;
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|item| hold(item, false, lines)),
+        Value::Object(map) => {
+            let renamed: Vec<String> = map
+                .keys()
+                .filter(|k| k.contains(is_unprintable))
+                .cloned()
+                .collect();
+            for key in renamed {
+                if let Some(item) = map.remove(&key) {
+                    map.insert(printable(&key).into_owned(), item);
+                }
+            }
+            for (key, item) in map.iter_mut() {
+                hold(item, lines.contains(&key.as_str()), lines);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// A character a terminal acts on, or one that reorders how the text around it is shown
 /// ("Trojan Source").
 fn is_unprintable(c: char) -> bool {
     c.is_control()
-        || matches!(c, '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+        || matches!(c, '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{2028}' | '\u{2029}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 
 fn word(value: &str) -> String {
@@ -128,6 +177,42 @@ mod tests {
     fn printable_is_idempotent() {
         let once = printable("nice \u{1b}[2J\u{1b}]0;pwned\u{7}\n\u{202e}");
         assert_eq!(printable(&once), once);
+    }
+
+    #[test]
+    fn every_string_and_key_is_held_printable() {
+        let mut value = serde_json::json!({
+            "a\u{1b}": ["x\u{7}", {"n": 1, "b": true, "k\u{202e}": "y\u{9b}\u{61c}\u{2028}"}],
+            "plain": "ok",
+        });
+        hold_printable(&mut value, &[]);
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "a\\u{1b}": ["x\\u{7}", {"n": 1, "b": true, "k\\u{202e}": "y\\u{9b}\\u{61c}\\u{2028}"}],
+                "plain": "ok",
+            })
+        );
+    }
+
+    #[test]
+    fn a_lines_key_keeps_its_newlines_and_tabs() {
+        let mut value = serde_json::json!({"starter_template": "a\r\n\tb\u{1b}", "other": "a\n"});
+        hold_printable(&mut value, DECLARED_LINES);
+        assert_eq!(
+            value,
+            serde_json::json!({"starter_template": "a\r\n\tb\\u{1b}", "other": "a\\n"})
+        );
+    }
+
+    #[test]
+    fn holding_is_idempotent() {
+        let mut once =
+            serde_json::json!({"k\u{1b}": ["\u{202e}\n", {"starter_template": "\n\u{7}"}]});
+        hold_printable(&mut once, DECLARED_LINES);
+        let mut twice = once.clone();
+        hold_printable(&mut twice, DECLARED_LINES);
+        assert_eq!(once, twice);
     }
 
     #[cfg(unix)]

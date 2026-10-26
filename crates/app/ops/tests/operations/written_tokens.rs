@@ -59,6 +59,15 @@ fn tokens_hold_a_default_no_block_takes() {
     assert!(nav.references("inv_a", INCOMING).unwrap().is_empty());
 }
 
+#[test]
+fn tokens_by_target_agrees_with_tokens_per_entity() {
+    let p = compile(SOFTWARE, &[("rules.spec", RULES), ("flows.spec", FLOWS)]);
+    let nav = p.navigator();
+    let by_target = nav.tokens_by_target();
+    assert_eq!(by_target["inv_a"], nav.tokens("inv_a", false).unwrap());
+    assert!(!by_target.contains_key("nothing"));
+}
+
 const MEMBER: &str =
     "type User \"A user\" {\n  name string\n}\n\ntype Order \"An order\" {\n  owner User\n}\n";
 const SIGNATURE: &str = "type User \"A user\" {\n  name string\n}\n\nport Users \"Users\" {\n  direction outbound\n  \

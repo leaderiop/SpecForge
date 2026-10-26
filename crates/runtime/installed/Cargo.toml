@@ -20,7 +20,7 @@ specforge-wasm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-semver = { workspace = true }
+semver = { workspace = true, features = ["serde"] }
 
 [features]
 # `specforge_installed::testing::install`: what a test that serves an

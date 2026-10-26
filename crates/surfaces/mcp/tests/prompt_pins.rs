@@ -142,7 +142,7 @@ fn infer_names_the_projects_spec_directory() {
         overview["output_format"]
             .as_str()
             .unwrap()
-            .contains("in the model/ directory"),
+            .contains("under the model/ directory"),
         "{overview}"
     );
     let plan = infer(&mut served, json!({"scope": "plan"}));

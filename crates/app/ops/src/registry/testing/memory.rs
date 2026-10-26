@@ -104,7 +104,7 @@ pub enum Asked {
 /// [`assert_registry_contract`](super::contract::assert_registry_contract)), and records what it was asked and what it accepted. It verifies no
 /// signature and reads no store: it holds the user's pins, trusted and denied keys as data and decides a
 /// publisher with [`TrustPolicy::decide`], as the configured registry does. It records pins only through
-/// [`Registry::pin`]. A publish is signed by the key id `"in-memory"`.
+/// [`Registry::pin`]. A publish is signed by the key id [`IN_MEMORY_KEY`].
 #[derive(Debug, Default)]
 pub struct MemoryRegistry {
     held: Mutex<Vec<Published>>,
@@ -125,8 +125,12 @@ pub struct MemoryRegistry {
     refusing_open: Option<OpError>,
 }
 
-/// The publisher key id a [`MemoryRegistry`] signs what it accepts with.
-pub const IN_MEMORY_KEY: &str = "in-memory";
+/// The registry name a [`MemoryRegistry`] answers with.
+pub const IN_MEMORY_REGISTRY: &str = "in-memory";
+
+/// The publisher key id a [`MemoryRegistry`] signs what it accepts with: 16 hex characters, as a
+/// registry computes one.
+pub const IN_MEMORY_KEY: &str = "6d656d6f72792d6b";
 
 impl MemoryRegistry {
     pub fn new() -> Self {
@@ -240,7 +244,7 @@ impl MemoryRegistry {
         else {
             return Err(not_found(name, version));
         };
-        policy.admits(name, version, &hex_sha256(&published.wasm))?;
+        policy.admits(name, version, hex_sha256(&published.wasm).as_str())?;
         let pins = self.pins.lock().unwrap();
         let is = |keys: &[String]| {
             published
@@ -309,7 +313,7 @@ impl Registry for MemoryRegistry {
         Ok(Manifest {
             name: name.clone(),
             version: version.clone(),
-            sha256: hex_sha256(&published.wasm),
+            sha256: hex_sha256(&published.wasm).to_string(),
             declaration: published.declaration,
             publisher,
         })
@@ -329,7 +333,7 @@ impl Registry for MemoryRegistry {
         Ok(Package {
             name: name.clone(),
             version: version.clone(),
-            sha256: hex_sha256(&published.wasm),
+            sha256: hex_sha256(&published.wasm).to_string(),
             wasm: published.wasm,
             declaration: published.declaration,
             publisher,
@@ -364,7 +368,7 @@ impl Registry for MemoryRegistry {
 
     /// Hold `package` as a version signed by [`IN_MEMORY_KEY`]. A version already held is R007
     /// "Version {version} already exists for package {name}." (suggestion "Bump the version number
-    /// before publishing."). The receipt names registry and key `"in-memory"` and the url
+    /// before publishing."). The receipt names registry `"in-memory"`, the key [`IN_MEMORY_KEY`] and the url
     /// `memory://{name}/{version}`; no key is created.
     fn publish(&self, package: &DeclaredPackage<'_>, wasm: &[u8]) -> Result<Receipt, OpError> {
         self.opened()?;
@@ -390,7 +394,7 @@ impl Registry for MemoryRegistry {
             .unwrap()
             .push((package.name().clone(), package.version().clone()));
         Ok(Receipt {
-            registry: IN_MEMORY_KEY.to_string(),
+            registry: IN_MEMORY_REGISTRY.to_string(),
             url: format!("memory://{}/{}", package.name(), package.version()),
             key_id: IN_MEMORY_KEY.to_string(),
             key_created: false,
@@ -399,7 +403,7 @@ impl Registry for MemoryRegistry {
 
     /// Each held package one of whose versions matches `query` in its name, description or keywords,
     /// at the version `latest` picks, kept when that version declares `contributes`, sorted by name;
-    /// every hit names the registry [`IN_MEMORY_KEY`].
+    /// every hit names the registry [`IN_MEMORY_REGISTRY`].
     fn search(
         &self,
         query: &str,
@@ -441,7 +445,7 @@ impl Registry for MemoryRegistry {
                             .description
                             .as_deref()
                             .unwrap_or_default(),
-                        IN_MEMORY_KEY.to_string(),
+                        IN_MEMORY_REGISTRY.to_string(),
                     )
                 })
                 .collect(),

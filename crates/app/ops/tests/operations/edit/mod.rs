@@ -1,6 +1,7 @@
 //! Typed edits (`specforge_ops::authoring::edit`) over projects compiled in a temp dir.
 
 mod apply;
+mod comments;
 mod create;
 mod declared;
 mod defaults;

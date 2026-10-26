@@ -31,6 +31,10 @@ pub trait Editor {
     /// Ask the editor to request semantic tokens again (`workspace/semanticTokens/refresh`),
     /// without waiting for its answer: a slow editor never stalls a reaction.
     fn refresh_tokens(&mut self);
+
+    /// Ask the editor to request its code lenses again (`workspace/codeLens/refresh`), without
+    /// waiting for its answer: a count in one file changes when another gains a reference.
+    fn refresh_lenses(&mut self);
 }
 
 /// A step of the workspace indexing, as the editor shows it.
@@ -158,6 +162,13 @@ impl Editor for ClientEditor {
         let client = self.client.clone();
         self.runtime.spawn(async move {
             let _ = client.semantic_tokens_refresh().await;
+        });
+    }
+
+    fn refresh_lenses(&mut self) {
+        let client = self.client.clone();
+        self.runtime.spawn(async move {
+            let _ = client.code_lens_refresh().await;
         });
     }
 }

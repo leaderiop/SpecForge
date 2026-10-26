@@ -14,33 +14,33 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_protocol_types::PeerDependency;
 
 use crate::Installed;
 use crate::layout::{MODULE_FILE, STAGING};
-use crate::lock::{LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
-use crate::module::Module;
+use crate::lock::{KeyId, LockFile, LockFileEntry, LockSource, LockState, write_lock_file};
+use crate::module::{Module, Sha256};
 
 /// What a lock entry records about an install, its hash aside (the module's
 /// digest is).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pin {
     pub name: PackageName,
-    pub version: String,
+    pub version: Version,
     pub source: LockSource,
-    pub key_id: Option<String>,
+    pub key_id: Option<KeyId>,
     pub peers: Vec<PeerDependency>,
 }
 
 impl Pin {
     /// The lock entry this pin records for a module whose SHA-256 is `sha256`.
-    pub fn entry(&self, sha256: &str) -> LockFileEntry {
+    pub fn entry(&self, sha256: &Sha256) -> LockFileEntry {
         LockFileEntry {
             name: self.name.clone(),
             version: self.version.clone(),
             source: self.source.clone(),
-            wasm_hash: sha256.to_string(),
+            wasm_hash: sha256.clone(),
             key_id: self.key_id.clone(),
             peer_dependencies: self.peers.clone(),
         }

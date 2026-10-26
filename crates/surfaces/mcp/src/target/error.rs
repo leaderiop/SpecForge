@@ -1,7 +1,6 @@
 use super::{CallTarget, NoProject, Serving, TargetArgument};
-use crate::containment;
 use crate::tool::{ErrorCode, McpError};
-use specforge_ops::Outside;
+use specforge_ops::{OpError, Outside};
 use std::path::PathBuf;
 
 /// Why a call's target could not be resolved: the call fails with it.
@@ -62,9 +61,7 @@ impl From<TargetError> for McpError {
                 ErrorCode::InvalidInput,
                 "this tool acts on the project the server serves; path cannot name another project",
             ),
-            TargetError::Outside(outside) => {
-                containment::refusal(&outside, TargetArgument::Path.name())
-            }
+            TargetError::Outside(outside) => McpError::from(OpError::from(outside)),
             TargetError::PathRequired => {
                 McpError::new(ErrorCode::InvalidInput, "Missing required parameter: path")
             }

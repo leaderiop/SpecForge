@@ -136,9 +136,15 @@ pub fn form(form: &FieldForm, text: &str) -> Written {
 /// `text`, one value of a field of `form` or one item of its list, written on one line in the form [`form`] says
 /// (an integer as the number it parses to).
 pub fn value(form: &FieldForm, text: &str) -> String {
-    match (form.field_type(), text.trim().parse::<i64>()) {
-        (FieldType::Integer, Ok(n)) => n.to_string(),
-        _ => spelled(text, self::form(form, text)),
+    spelled_in(form, text, self::form(form, text))
+}
+
+/// `text` written `to` on one line as a field of `form` writes it: an integer field's literal as the number its text
+/// reads to (`" 5"`, `"+5"`, `"007"` are `5`, `5`, `7`), every other value through [`spelled`].
+fn spelled_in(form: &FieldForm, text: &str, to: Written) -> String {
+    match (form.field_type(), to, text.trim().parse::<i64>()) {
+        (FieldType::Integer, Written::Literal, Ok(n)) => n.to_string(),
+        _ => spelled(text, to),
     }
 }
 
@@ -151,10 +157,13 @@ pub enum Place {
 
 /// What a value written other than its field's form becomes: the form its text takes ([`form`]) and, for a whole
 /// value on a `string_list` / `reference_list` field, that it becomes the one-item list `[…]`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Respell {
     pub to: Written,
     pub listed: bool,
+    /// The value written `to` on one line (without `[…]`): an integer as the number it reads to, else [`spelled`].
+    /// What format writes and W159's message prints; [`value`] writes the same.
+    pub spelling: String,
 }
 
 /// A value written in other than its field's form: where it is (quotes included), its text, the form it takes, and
@@ -200,14 +209,25 @@ impl FieldForms {
             field_type,
             FieldType::Integer | FieldType::Bool | FieldType::Date
         ) && to == Written::Quoted;
+        // A list on a number, boolean or date field is E061's: its items keep their text (a date literal is no
+        // list item, and `"+3"` respelled `3` would change what the item stores).
+        let unlistable = place == Place::Item
+            && matches!(
+                field_type,
+                FieldType::Integer | FieldType::Bool | FieldType::Date
+            );
         let same = (written == Written::Quoted) == (to == Written::Quoted);
-        if refused || (same && !listed) {
+        if refused || unlistable || (same && !listed) {
             return None;
         }
         if written == Written::Bare && to == Written::Quoted && self.member_kinds.contains(kind) {
             return None;
         }
-        Some(Respell { to, listed })
+        Some(Respell {
+            to,
+            listed,
+            spelling: spelled_in(form, text, to),
+        })
     }
 
     /// Every value of `entry` (a scalar, or each list item) that
@@ -218,7 +238,7 @@ impl FieldForms {
         let span = entry.value_span.as_ref().unwrap_or(fallback);
         let scalar = |written, text: String| {
             let respell = self.rewrite(kind, field, written, &text, Place::Whole)?;
-            let one = spelled(&text, respell.to);
+            let one = respell.spelling;
             let value = match (respell.listed, text.contains('\n')) {
                 (false, _) => one,
                 (true, false) => format!("[{one}]"),
@@ -262,7 +282,10 @@ impl FieldForms {
                     items
                         .iter()
                         .zip(&respelled)
-                        .map(|(i, r)| spelled(&i.text, r.map_or(i.written, |r| r.to)))
+                        .map(|(i, r)| match r {
+                            Some(r) => r.spelling.clone(),
+                            None => spelled(&i.text, i.written),
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 );

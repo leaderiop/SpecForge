@@ -46,7 +46,8 @@ fn of<'f>(site: &Site<'_>, file: &'f SpecFile) -> FileDefaults<'f> {
 ///   byte for byte when the block's canonical text did not change.
 /// - **Repeats.** The later entries of `field` (and of each key inside its first, a block field) go first: the graph
 ///   never held them (ADR 0215). A verb that answers `Unchanged` leaves the text as it was, repeats included.
-/// - **Refusals.** `block_unreadable`; whatever `verb` refuses; `not_editable` when a field of one value over a
+/// - **Refusals.** `block_unreadable`; `edit_unreadable` when the change leaves the block unreadable (a defect);
+///   whatever `verb` refuses; `not_editable` when a field of one value over a
 ///   default is emptied (it cannot say none).
 pub fn change(
     site: &Site<'_>,
@@ -57,7 +58,7 @@ pub fn change(
     let mut block = Block::open(site, text)?;
     let before = block.text();
     if block.drop_repeats(field) {
-        block = Block::open(site, &block.text())?; // spans read again: the field is now written once
+        block = Block::reopen(site, &block.text())?; // spans read again: the field is now written once
     }
     let copied = match of(site, block.file()).held(block.entity(), field) {
         Held::Inherited(default) => copy(site, &block, field, default),
@@ -65,7 +66,7 @@ pub fn change(
     };
     if let Some(copy) = copied {
         block.place(site, field, &copy, None);
-        block = Block::open(site, &block.text())?; // the copy is now the block's own field
+        block = Block::reopen(site, &block.text())?; // the copy is now the block's own field
     }
     let held = of(site, block.file()).held(block.entity(), field).cloned();
     let over_default = held.has_default();
@@ -146,7 +147,7 @@ fn remove_own(block: &mut Block, field: &str) {
 /// `text` with the own `field` of the entity removed when it holds what the file's default holds, as the graph stores
 /// both (ADR 0182 D4).
 fn without_repeat(site: &Site<'_>, text: &str, field: &str) -> Result<String, Refusal<EditField>> {
-    let mut block = Block::open(site, text)?;
+    let mut block = Block::reopen(site, text)?;
     let forms = site.view.registries().field_forms();
     let repeats = block
         .entry(field)

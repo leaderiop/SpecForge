@@ -2,7 +2,8 @@ use specforge_package::Version;
 use specforge_package::{DeclaredPackage, PackageName};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_wire::{
-    ErrorCode, PackageSignature, PublishReceipt, SearchQuery, SignedContent, address, sha256_hex,
+    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchQuery, SignedContent,
+    address, sha256_hex,
 };
 
 use crate::registry_client::{RegistryClient, RegistryError};
@@ -98,16 +99,50 @@ pub fn assert_client_contract(
         "K4: the signature is the publisher key's"
     );
     assert!(!metadata.wasm_url.is_empty(), "K4: wasm_url");
-    assert!(
-        reqwest::Url::parse(&metadata.wasm_url).is_ok(),
-        "K4: wasm_url is absolute"
+    assert_eq!(
+        reqwest::Url::parse(&metadata.wasm_url)
+            .map(String::from)
+            .as_deref(),
+        Ok(metadata.wasm_url.as_str()),
+        "K4: wasm_url is absolute, its URL's serialization"
     );
 
     // K5
     let bytes = client
-        .download(&metadata.wasm_url, registry, None)
+        .download(&metadata, registry, None)
         .expect("K5: download of the metadata's wasm_url");
     assert_eq!(&bytes, wasm, "K5: the published bytes");
+
+    // K14: a reply declaring fewer bytes than its binary is refused, naming size_bytes (ADR 0250).
+    let short = PackageMetadata {
+        size_bytes: wasm.len() as u64 - 1,
+        ..metadata.clone()
+    };
+    let error = client
+        .download(&short, registry, None)
+        .expect_err("K14: a download longer than its declared size");
+    let diagnostic = error.to_diagnostic();
+    assert!(
+        diagnostic.is(specforge_common::codes::R009),
+        "K14: {diagnostic:?}"
+    );
+    assert!(
+        diagnostic.message.contains("size_bytes"),
+        "K14: {diagnostic:?}"
+    );
+
+    // K15: a reply declaring no size is held to the ceiling only.
+    let unsized_reply = PackageMetadata {
+        size_bytes: 0,
+        ..metadata.clone()
+    };
+    assert_eq!(
+        &client
+            .download(&unsized_reply, registry, None)
+            .expect("K15: a reply declaring no size"),
+        wasm,
+        "K15: the published bytes"
+    );
     assert_eq!(
         crate::verify_package_signature(&metadata).expect("K5: the signature verifies"),
         TrustCheck::Verified {
@@ -405,9 +440,12 @@ pub fn assert_private_client_contract(
         "download",
         client
             .download(
-                &registry
-                    .url
-                    .address(&address::Call::Download(&tool, &Version::new(1, 0, 0))),
+                &PackageMetadata {
+                    wasm_url: registry
+                        .url
+                        .address(&address::Call::Download(&tool, &Version::new(1, 0, 0))),
+                    ..Default::default()
+                },
                 registry,
                 None,
             )
@@ -453,7 +491,7 @@ pub fn assert_private_client_contract(
         .metadata(&tool, &Version::new(1, 0, 0), registry, Some(credential))
         .expect("K-P3: metadata with the credential");
     let bytes = client
-        .download(&metadata.wasm_url, registry, Some(credential))
+        .download(&metadata, registry, Some(credential))
         .expect("K-P3: download with the credential");
     assert_eq!(bytes, wasm, "K-P3: the published bytes");
     unauthorized(
@@ -464,9 +502,7 @@ pub fn assert_private_client_contract(
     );
     unauthorized(
         "a published version's download",
-        client
-            .download(&metadata.wasm_url, registry, None)
-            .map(|_| ()),
+        client.download(&metadata, registry, None).map(|_| ()),
     );
 
     // K-P4

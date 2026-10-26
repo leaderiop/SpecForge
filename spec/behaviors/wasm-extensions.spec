@@ -141,6 +141,7 @@ behavior call_extension_exports "Call Extension Exports" {
     one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
     no_silent_failure  "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
     runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer, a collector's and a scanner's are read as answered"
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
@@ -159,7 +160,10 @@ behavior call_extension_exports "Call Extension Exports" {
     pass's is a compile diagnostic, an analyze pass's a finding of that
     pass, a command's its E028 error, a scanner's a reported failure that
     makes the gap report approximate, a collector's the collect error. A
-    migration hook's answer is not read.
+    migration hook's answer is not read. The text of a handshake, describe,
+    pass or validator answer, and of a call's failure, MUST be read
+    printable (ADR 0244); a command's output, an MCP tool's or resource's
+    answer, a collector's and a scanner's are read as answered.
     A component guest builds its declaration once per instance and answers
     the handshake and every describe from it.
 
@@ -190,6 +194,9 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
   verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+  verify unit "a pass's diagnostics and summary and a validator's verdict are read printable"
+  verify unit "a call failure's text from the guest is written printable in E028"
+  verify unit "a command's output and an MCP tool's answer are read as the extension answered them"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
 }
 
@@ -755,6 +762,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
+  verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 
@@ -862,8 +870,7 @@ behavior write_lock_file "Write Lock File" {
     After resolving all extensions, the system MUST write a specforge.lock
     file containing the exact resolved version and SHA256 wasm_hash for
     each installed extension. The lock file format MUST be deterministic —
-    same inputs always produce byte-identical output. The resolved_at
-    timestamp is metadata excluded from the determinism guarantee. The
+    same inputs always produce byte-identical output. The
     lock file MUST be written atomically to prevent corruption.
   """
   produces   [lock_file_written]
@@ -897,9 +904,13 @@ behavior read_lock_file "Read Lock File" {
     lock), and add, update and remove refuse to change what is installed
     with one refusal, that E033 and its remedy, until it is fixed or deleted, so it is never silently replaced; a
     change the lock does not decide (enabling or disabling a builtin or a .wasm file entry) still runs.
-    A lock entry's source MUST be registry or local:<path>, the path not empty and holding no control
-    character; any other source makes the lock unreadable (E033), and the message names it escaped, so no
-    diagnostic carries a control character the lock holds.
+    A lock entry's source MUST be registry or local:<path>, the path not empty and holding no character a
+    terminal acts on (a control or bidirectional control character); any other source makes the lock
+    unreadable (E033), and the message names it escaped, so no diagnostic carries a control character the
+    lock holds. The peers an entry records MUST hold no such character in a name or a range either. A lock entry's wasm_hash MUST be a SHA-256 in
+    lowercase hex (64 characters), never empty: any other makes the lock unreadable (E033). A lock entry's
+    version MUST be a SemVer version, and its key_id, when it has one, a publisher key id (16 lowercase hex
+    characters): any other makes the lock unreadable (E033).
   """
   produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
@@ -911,6 +922,11 @@ behavior read_lock_file "Read Lock File" {
   verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"
   verify unit "a lock entry's source is registry or local:<path>; any other source is E033"
   verify integration "check prints no control character a lock entry's source holds"
+  verify unit "a lock entry whose version is no SemVer version is E033, and the message shows no control character"
+  verify unit "a lock entry whose hash is no SHA-256 in lowercase hex is E033, an empty one included"
+  verify unit "a lock entry whose key id is no publisher key id is E033"
+  verify unit "a lock entry whose recorded peer or local source holds a character a terminal acts on is E033"
+  verify integration "check, extensions and doctor write no control character a lock entry's version, hash or peers hold"
   verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_reported"
 }
 
@@ -949,8 +965,7 @@ behavior update_all_extensions "Update All Extensions" {
     and a release never moves to a pre-release. An update MUST NOT move an
     extension to its locked version or below: an extension with nothing
     newer is up_to_date, also when its locked version is no longer
-    published. A lock entry whose version is not SemVer moves to the
-    version specforge add <name> installs. After upgrading, the system
+    published. After upgrading, the system
     MUST refresh the lock file with the new binary hashes. An extension is
     reported updated only when its new binary is written: one served with
     the bytes the lock already pins under another version is refused as add

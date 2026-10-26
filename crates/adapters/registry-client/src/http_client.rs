@@ -1,4 +1,5 @@
-use std::time::SystemTime;
+use std::io::Read as _;
+use std::time::{Duration, Instant, SystemTime};
 
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, RequestBuilder, Response};
@@ -6,8 +7,8 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use serde::de::DeserializeOwned;
 use specforge_registry_wire::reply::{self, Failure};
 use specforge_registry_wire::{
-    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
-    SearchResults, TokenVerified, VersionList, address::Call, form,
+    ErrorCode, MAX_PACKAGE_BYTES, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
+    SearchQuery, SearchResults, TokenVerified, VersionList, address::Call, form,
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
@@ -49,7 +50,7 @@ impl HttpRegistryClient {
         subject: &str,
     ) -> Result<T, RegistryError> {
         let resp = self.send(authorized(self.client.get(address), credential), address)?;
-        answer(resp, address, subject)
+        answer(resp, address, subject, self.timeout)
     }
 
     /// Send `request` to `url`: a timeout is `Timeout { url }`, any other transport failure `NetworkError`.
@@ -110,23 +111,22 @@ impl RegistryClient for HttpRegistryClient {
 
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError> {
+        let wasm_url = metadata.wasm_url.as_str();
         // The registry's token goes to the registry, not to wherever it points a download.
         let credential =
             credential.filter(|c| c.is_for(registry) && registry.url.same_origin(wasm_url));
         let resp = self.send(authorized(self.client.get(wasm_url), credential), wasm_url)?;
         match resp.status() {
             StatusCode::OK => {
-                resp.bytes()
-                    .map(|b| b.to_vec())
-                    .map_err(|e| RegistryError::NetworkError {
-                        message: format!("failed to read response bytes: {}", e),
-                    })
+                body_of(resp, metadata.download_limit(), self.timeout).map_err(|why| {
+                    unread(why, wasm_url, &subject_of(metadata), || over_text(metadata))
+                })
             }
-            _ => Err(failure_of(resp, wasm_url, wasm_url)),
+            _ => Err(failure_of(resp, wasm_url, wasm_url, self.timeout)),
         }
     }
 
@@ -183,7 +183,7 @@ impl RegistryClient for HttpRegistryClient {
                 version: version.to_string(),
             });
         }
-        answer(resp, &url, &format!("{name}@{version}"))
+        answer(resp, &url, &format!("{name}@{version}"), self.timeout)
     }
 
     fn authenticate(
@@ -199,18 +199,102 @@ impl RegistryClient for HttpRegistryClient {
             .header(CONTENT_TYPE, "application/json")
             .body("{}");
         let resp = self.send(request, &url)?;
-        let body: TokenVerified = answer(resp, &url, registry.url.as_str())?;
+        let body: TokenVerified = answer(resp, &url, registry.url.as_str(), self.timeout)?;
         Ok(body.expires_at)
     }
 }
 
-/// The body of `resp`; a transport failure while reading it is a `NetworkError`.
-fn bytes_of(resp: Response) -> Result<Vec<u8>, RegistryError> {
-    resp.bytes()
-        .map(|bytes| bytes.to_vec())
-        .map_err(|e| RegistryError::NetworkError {
+/// Why a body was not read to its end.
+enum Unread {
+    /// Longer than its limit: its `Content-Length` said so, or its `limit + 1`th byte arrived.
+    Over,
+    /// Still arriving when the client's timeout ran out.
+    Late,
+    /// The transport failed while reading it.
+    Broken(std::io::Error),
+}
+
+/// At most `limit` bytes of `resp`'s body, all of it within `timeout` of the first read (ADR 0250). No more than
+/// `limit + 1` bytes are ever held, and a `Content-Length` over `limit` is refused before any byte is read. The
+/// deadline is checked between reads; one read waits at most the client's own timeout.
+fn body_of(resp: Response, limit: u64, timeout: Duration) -> Result<Vec<u8>, Unread> {
+    let deadline = Instant::now() + timeout;
+    let length = resp.content_length();
+    if length.is_some_and(|n| n > limit) {
+        return Err(Unread::Over);
+    }
+    let mut body = Vec::with_capacity(length.unwrap_or(0) as usize); // at most limit: checked above
+    let mut reader = resp.take(limit + 1);
+    let mut chunk = [0u8; 64 * 1024];
+    loop {
+        let read = match reader.read(&mut chunk) {
+            Ok(read) => read,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::TimedOut || Instant::now() >= deadline => {
+                return Err(Unread::Late);
+            }
+            Err(e) => return Err(Unread::Broken(e)),
+        };
+        if read == 0 {
+            return Ok(body);
+        }
+        body.extend_from_slice(&chunk[..read]);
+        if body.len() as u64 > limit {
+            return Err(Unread::Over);
+        }
+        if Instant::now() >= deadline {
+            return Err(Unread::Late);
+        }
+    }
+}
+
+/// The download of `metadata`'s binary, longer than [`PackageMetadata::download_limit`] allows (ADR 0250): the
+/// error both adapters give, so their text is one.
+#[cfg(any(test, feature = "testing"))]
+pub(crate) fn oversized(metadata: &PackageMetadata) -> RegistryError {
+    unread(
+        Unread::Over,
+        &metadata.wasm_url,
+        &subject_of(metadata),
+        || over_text(metadata),
+    )
+}
+
+fn subject_of(metadata: &PackageMetadata) -> String {
+    format!("{}@{}", metadata.name, metadata.version)
+}
+
+/// What a download over its limit exceeded: the size its reply declares, else the ceiling.
+fn over_text(metadata: &PackageMetadata) -> String {
+    let limit = metadata.download_limit();
+    if metadata.size_bytes == limit {
+        format!("the download is larger than the {limit} bytes its reply declares (size_bytes)")
+    } else {
+        "the download is larger than 64 MiB (67108864 bytes), the largest package a registry accepts"
+            .into()
+    }
+}
+
+/// The error a body that was read as `why` is, for the answer at `address` about `subject`; `over` says what it
+/// exceeded.
+fn unread(
+    why: Unread,
+    address: &str,
+    subject: &str,
+    over: impl FnOnce() -> String,
+) -> RegistryError {
+    match why {
+        Unread::Over => RegistryError::InvalidReply {
+            subject: subject.to_string(),
+            message: format!("{address}: {}", over()),
+        },
+        Unread::Late => RegistryError::Timeout {
+            url: address.to_string(),
+        },
+        Unread::Broken(e) => RegistryError::NetworkError {
             message: format!("failed to read the response body: {e}"),
-        })
+        },
+    }
 }
 
 /// `resp`, the answer to the call sent to `address`, read the one way every call reads (ADR 0044 D2 as amended
@@ -219,10 +303,16 @@ fn answer<T: DeserializeOwned>(
     resp: Response,
     address: &str,
     subject: &str,
+    timeout: Duration,
 ) -> Result<T, RegistryError> {
     let status = resp.status().as_u16();
     let retry_after = retry_after_of(&resp);
-    let body = bytes_of(resp)?;
+    let body = body_of(resp, MAX_PACKAGE_BYTES, timeout).map_err(|why| {
+        unread(why, address, subject, || {
+            "the answer is larger than 64 MiB (67108864 bytes), more than any registry answer may be"
+                .into()
+        })
+    })?;
     reply::read(status, &body).map_err(|failure| {
         error_of(
             failure,
@@ -252,10 +342,11 @@ fn retry_after_of(resp: &Response) -> Option<String> {
 
 /// Read a failure answer to the call sent to `address`: its status, `Retry-After` and body, as [`error_of`] sees
 /// them.
-fn failure_of(resp: Response, address: &str, subject: &str) -> RegistryError {
+fn failure_of(resp: Response, address: &str, subject: &str, timeout: Duration) -> RegistryError {
     let status = resp.status().as_u16();
     let retry_after = retry_after_of(&resp);
-    let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
+    // An over-long or broken failure body is read as none: the status alone decides.
+    let body = body_of(resp, MAX_PACKAGE_BYTES, timeout).unwrap_or_default();
     error_of(
         reply::failure(status, &body),
         retry_after.as_deref(),

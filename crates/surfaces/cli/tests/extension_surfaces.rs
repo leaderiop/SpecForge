@@ -156,9 +156,9 @@ fn the_cli_and_mcp_answer_one_command_alike() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
+    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
 )]
-fn one_mistake_is_one_error_object_on_both_surfaces() {
+fn one_mistake_is_one_message_in_each_surfaces_shape() {
     let dir = setup_product_project();
     let mistakes = [
         (
@@ -182,8 +182,9 @@ fn one_mistake_is_one_error_object_on_both_surfaces() {
         assert_eq!(output.status.code(), Some(2), "{argv:?}: {output:?}");
         let cli: Value = serde_json::from_slice(&output.stderr).unwrap();
         assert_eq!(cli["code"], "INVALID_INPUT", "{argv:?}: {cli}");
-        assert_eq!(response["result"]["isError"], true, "{argv:?}: {response}");
-        assert_eq!(response["result"]["structuredContent"], cli, "{argv:?}");
+        let mcp = &response["result"]["structuredContent"];
+        assert_eq!(mcp["code"], "invalid_input", "{argv:?}: {response}");
+        assert_eq!(mcp["message"], cli["message"], "{argv:?}");
     }
 }
 
@@ -285,8 +286,9 @@ fn a_command_is_told_the_project_root_on_each_surface() {
         &[tool_call(1, "specforge.probe.probe", serde_json::json!({}))],
     );
     let response = find_response(&responses, 1).unwrap();
-    let mcp: Value =
-        serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    // The probe exits 3: its output rides in the refusal's data (ADR 0252).
+    let stdout = response["result"]["structuredContent"]["data"]["stdout"].as_str();
+    let mcp: Value = serde_json::from_str(stdout.unwrap()).unwrap();
     assert_eq!(mcp["cwd"], cli["cwd"], "{response}");
 }
 

@@ -43,8 +43,8 @@ behavior lsp_initialize "LSP Initialize" {
     standard LSP token type (it is sent before extensions load, so any
     standard type a KindRegistryEntry.semantic_token names is already in
     it), completion trigger characters, rename support, code action kinds,
-    and document sync kind (INCREMENTAL). The server MUST report support for workspace symbol search
-    and document symbol outline. The initialization response MUST NOT
+    and document sync kind (INCREMENTAL). The server MUST report support for workspace symbol search,
+    document symbol outline and code lenses. The initialization response MUST NOT
     hardcode any domain-specific capabilities — all capabilities beyond
     structural defaults MUST derive from loaded extensions. The workspace
     (rootUri, else the first workspace folder) MUST open the project it is
@@ -665,6 +665,27 @@ behavior outline_view "Outline View" {
   verify integration "the outline nests an entity's methods as the MCP outline does"
   verify unit "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
   verify contract "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
+}
+
+behavior entity_code_lens "Entity Code Lens" {
+  features   [go_to_definition_and_references]
+  category   query
+  invariants [zero_domain_knowledge_core, lsp_response_latency]
+  ports      [LspProtocol]
+  contract   """
+    The LSP MUST answer textDocument/codeLens for a .spec document with
+    one references lens per entity of its outline, at the entity's name:
+    the number of references find-references answers without the
+    declaration, a click running specforge.findReferences with the URI
+    and the name's start (no command when there are none); and, when the
+    entity declares verify statements, a lens with their number and no
+    command. The counts are the compile's: the outline's entities and
+    each node's obligations. An entity whose file was typed since the
+    compile gets no lens. After each rebuild a client that declared
+    workspace.codeLens.refreshSupport is asked to refresh its lenses.
+  """
+  verify integration "a lens counts an entity's references and verify statements as the compile reads them"
+  verify unit "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {

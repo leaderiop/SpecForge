@@ -417,11 +417,11 @@ fn a_source_root_outside_the_root_is_refused() {
         },
     )
     .unwrap_err();
-    assert_eq!(error.error.code, infer::SOURCE_ROOT_OUTSIDE_ROOT);
+    assert_eq!(error.error.code, specforge_ops::view::NOT_A_SOURCE_PATH);
     assert_eq!(error.error.kind, OpErrorKind::InvalidInput);
     assert_eq!(
         error.error.message,
-        "source_roots entry '../x' is not a path inside the project root"
+        "'../x' lies outside the project root: a source file is named from the project root"
     );
     assert!(error.error.data.is_none(), "{error:?}");
     assert!(!project.root().join("specforge-infer.json").exists());

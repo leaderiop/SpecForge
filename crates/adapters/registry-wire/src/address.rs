@@ -154,18 +154,28 @@ impl RegistryRoot {
         format!("{}{}", self.0, call.path())
     }
 
-    /// Where a metadata answer's `wasm_url` downloads from: an `http` or `https` URL as it is (a CDN may serve the
-    /// binary), or a path (`/v1/packages/…/download`, as the server answers) at this root. Anything else, a
-    /// network-path reference (`//host/x`) and other schemes (`file:`) included, is not the protocol's: `Err` says
-    /// why, and a client refuses the answer (R009).
+    /// Where a metadata answer's `wasm_url` downloads from, as the URL a request is sent to: an `http` or `https`
+    /// URL (a CDN may serve the binary), or a path (`/v1/packages/…/download`, as the server answers) at this root,
+    /// written as that URL's serialization (percent-encoded: no control or bidirectional character is kept, ADR
+    /// 0245). Anything else, a network-path reference (`//host/x`) and other schemes (`file:`) included, is not the
+    /// protocol's: `Err` says why, and a client refuses the answer (R009).
     pub fn download_address(&self, wasm_url: &str) -> Result<String, String> {
-        if wasm_url.starts_with('/') && !wasm_url.starts_with("//") {
-            return Ok(format!("{}{wasm_url}", self.0));
-        }
-        match url::Url::parse(wasm_url) {
-            Ok(url) if matches!(url.scheme(), "http" | "https") => Ok(wasm_url.to_string()),
+        let at_root = wasm_url.starts_with('/') && !wasm_url.starts_with("//");
+        let text = if at_root {
+            format!("{}{wasm_url}", self.0)
+        } else {
+            wasm_url.to_string()
+        };
+        match url::Url::parse(&text) {
+            Ok(url)
+                if matches!(url.scheme(), "http" | "https")
+                    && url.username().is_empty()
+                    && url.password().is_none() =>
+            {
+                Ok(url.into())
+            }
             _ => Err(format!(
-                "its wasm_url '{wasm_url}' is neither an http or https URL nor a path at the registry's root"
+                "its wasm_url '{wasm_url}' is neither an http or https URL nor a path at the registry's root (a URL carries no credentials)"
             )),
         }
     }
@@ -404,11 +414,44 @@ mod tests {
             root.download_address("https://cdn.example/x").unwrap(),
             "https://cdn.example/x"
         );
-        for wasm_url in ["download", "//cdn/x", "file:///etc/passwd", "ftp://h/x", ""] {
+        for wasm_url in [
+            "download",
+            "//cdn/x",
+            "file:///etc/passwd",
+            "ftp://h/x",
+            "",
+            "https://u:p@cdn/x",
+        ] {
             let why = root.download_address(wasm_url).unwrap_err();
             assert!(
                 why.contains("is neither an http or https URL nor a path at the registry's root"),
                 "{wasm_url}: {why}"
+            );
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "check_registry_reply",
+        verify = "a download address is its URL's serialization: no control or bidirectional character is kept"
+    )]
+    fn a_download_address_is_its_urls_serialization() {
+        let root = root("https://h/registry");
+        for (wasm_url, expected) in [
+            (
+                "https://cdn.example/dl/\u{1b}]0;T\u{7}\u{1b}[2J",
+                "https://cdn.example/dl/%1B]0;T%07%1B[2J",
+            ),
+            ("/dl/\u{1b}[31mRED", "https://h/registry/dl/%1B[31mRED"),
+            (
+                "https://cdn.example/abc\u{202e}exe",
+                "https://cdn.example/abc%E2%80%AEexe",
+            ),
+            ("HTTPS://CDN.Example:443/x", "https://cdn.example/x"),
+        ] {
+            assert_eq!(
+                root.download_address(wasm_url).unwrap(),
+                expected,
+                "{wasm_url:?}"
             );
         }
     }

@@ -8,7 +8,8 @@
 
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
-use specforge_protocol_types::CommandOutput;
+use specforge_protocol_types::command_args::ArgError;
+use specforge_protocol_types::{CommandError, CommandOutput};
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::events::McpEvent;
@@ -132,10 +133,10 @@ fn mcp_tool_adapter(
 /// A command's run as a tool result, and its dispatch event when its export
 /// returned (whatever its exit code). The run is `specforge <ext> <command>`
 /// over the call's project, always asked for json: the tool has no format
-/// argument (ADR 0011 A). Args the rule refuses are the command's own
-/// `INVALID_INPUT` object, the one the CLI writes; an export that did not
-/// answer is a structured MCP error carrying its E028 (ADR 0013 D4); no
-/// dispatch is recorded for either.
+/// argument (ADR 0011 A). Args the rule refuses are `invalid_input` on the arg
+/// ([`refused_args`], ADR 0252); an export that did not answer is a
+/// structured MCP error carrying its E028 (ADR 0013 D4); no dispatch is
+/// recorded for either.
 fn command_adapter(
     project: &ProjectRef<'_>,
     command: &ExtensionCommand,
@@ -156,11 +157,36 @@ fn command_adapter(
                 exit_code: output.exit_code,
                 duration_ms: elapsed_ms(started),
             };
-            (output_result(output), Some(event))
+            (output_result(command, output), Some(event))
         }
-        Err(RunError::Args(refused)) => (ToolOutcome::failed(refused.to_json()), None),
+        Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
         Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
         Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
+    }
+}
+
+/// The one arg rule's refusal as the McpError a core tool's own reading makes:
+/// `invalid_input` on the arg it names (the first missing one, for several),
+/// the rule's message (the CLI's), the close arg or value as
+/// `data.suggestion` (ADR 0252 D2).
+fn refused_args(error: &ArgError) -> McpError {
+    let argument = match error {
+        ArgError::Missing { names } => names.first(),
+        ArgError::NotOneOf { name, .. }
+        | ArgError::NotInteger { name, .. }
+        | ArgError::NotString { name, .. }
+        | ArgError::NotBool { name, .. }
+        | ArgError::Unknown { name, .. } => Some(name),
+    };
+    let mut refused = McpError::new(ErrorCode::InvalidInput, error.message());
+    if let Some(argument) = argument {
+        refused = refused.with_argument(argument);
+    }
+    match error.suggestion() {
+        Some(close) => {
+            refused.with_data_field("suggestion", json!(format!("did you mean '{close}'?")))
+        }
+        None => refused,
     }
 }
 
@@ -197,35 +223,76 @@ fn resource_adapter(
     }
 }
 
+/// A command's own error object as the McpError its code names (ADR 0252 D3):
+/// `INVALID_INPUT` is `invalid_input`, `ENTITY_NOT_FOUND` is `entity_not_found`,
+/// any other code is `internal_error` keeping it in `data.code`; its entity is
+/// kept, its suggestion rides in `data.suggestion` as a core tool's does.
+fn own_error(error: CommandError) -> McpError {
+    let code = match error.code.as_str() {
+        "INVALID_INPUT" => ErrorCode::InvalidInput,
+        "ENTITY_NOT_FOUND" => ErrorCode::EntityNotFound,
+        _ => ErrorCode::InternalError,
+    };
+    let mut refused = McpError::new(code, error.message);
+    if code == ErrorCode::InternalError {
+        refused = refused.with_data_field("code", json!(error.code));
+    }
+    if let Some(entity) = error.entity_id {
+        refused = refused.with_entity(entity);
+    }
+    match error.suggestion {
+        Some(close) => {
+            refused.with_data_field("suggestion", json!(format!("did you mean '{close}'?")))
+        }
+        None => refused,
+    }
+}
+
+/// A command's failed run as an McpError (ADR 0252 D3, D4): its one error
+/// object on stderr, nothing on stdout, is its [`own_error`]; any other output
+/// is `internal_error` "command <export>() of '<extension>' exited <n>[: <stderr>]"
+/// carrying `data.{exit_code, stdout, stderr}`.
+fn failed_run(command: &ExtensionCommand, output: CommandOutput) -> McpError {
+    if output.stdout.is_empty()
+        && let Ok(error) = serde_json::from_str::<CommandError>(&output.stderr)
+    {
+        return own_error(error);
+    }
+    let shown = output.stderr.trim();
+    let mut message = format!(
+        "command {}() of '{}' exited {}",
+        command.export(),
+        command.extension(),
+        output.exit_code
+    );
+    if !shown.is_empty() {
+        message = format!("{message}: {shown}");
+    }
+    McpError::new(ErrorCode::InternalError, message).with_data(json!({
+        "exit_code": output.exit_code,
+        "stdout": output.stdout,
+        "stderr": output.stderr,
+    }))
+}
+
 /// An auto-promoted command's output as a tool result. The command was
 /// asked for json (ADR 0011): a JSON object on stdout, and nothing on
-/// stderr, is the result's structured payload; a failure that wrote one JSON
-/// object on stderr, and nothing on stdout, is an `isError` result carrying
-/// it. Otherwise its stdout, then its stderr when it wrote any; a nonzero
-/// exit code fails the call.
-fn output_result(output: CommandOutput) -> ToolOutcome {
-    let object = |text: &str| match serde_json::from_str::<Value>(text) {
-        Ok(object @ Value::Object(_)) => Some(object),
-        _ => None,
-    };
-    let failed = output.exit_code != 0;
-    if !failed
-        && output.stderr.is_empty()
-        && let Some(payload) = object(&output.stdout)
+/// stderr, is the result's structured payload; a nonzero exit code is a
+/// [`failed_run`]. Otherwise its stdout, then its stderr when it wrote any.
+fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutcome {
+    if output.exit_code != 0 {
+        return failed_run(command, output).into();
+    }
+    if output.stderr.is_empty()
+        && let Ok(payload @ Value::Object(_)) = serde_json::from_str::<Value>(&output.stdout)
     {
         return ToolOutcome::ok(payload);
-    }
-    if failed
-        && output.stdout.is_empty()
-        && let Some(error) = object(&output.stderr)
-    {
-        return ToolOutcome::failed(error);
     }
     let mut blocks = vec![output.stdout];
     if !output.stderr.is_empty() {
         blocks.push(output.stderr);
     }
-    ToolOutcome::texts(blocks, failed)
+    ToolOutcome::texts(blocks)
 }
 
 /// A failed extension call as an MCP error: the diagnostic the runtime
@@ -238,3 +305,6 @@ fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
 fn elapsed_ms(started: std::time::Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
+
+#[cfg(test)]
+mod tests;

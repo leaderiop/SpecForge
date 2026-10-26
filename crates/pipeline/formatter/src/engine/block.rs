@@ -1,7 +1,6 @@
 use super::{as_written, comment_text, holds_comment, lines_keeping_strings, node_text, one_line};
 use crate::config::FormatConfig;
 use specforge_common::structural;
-use specforge_graph::field_form::spell;
 use specforge_graph::{FieldForms, Place};
 use specforge_parser::Written;
 use tree_sitter::Node;
@@ -369,38 +368,21 @@ fn list_value(
 }
 
 /// `node`, a value of one field (`Place::Whole`) or one item of its list, written in its field's form when the
-/// declared type writes it another way (`FieldForms::rewrite`, the rule `check` reports as W159); `None` leaves it
-/// as written. A multi-line text stays: on a list field format cannot tell where one item ends.
+/// declared type writes it another way: the parse's reading of the token (`specforge_parser::value_token`) asked of
+/// `FieldForms::rewrite`, the rule `check` reports as W159, and written as it spells it (ADR 0247). `None` leaves it
+/// as written, and so does a multi-line text on a list field: format cannot tell where one item ends.
 fn in_form(node: Node, source: &str, key: &str, forms: Forms, place: Place) -> Option<String> {
     let (kind, forms) = forms?;
-    let text = node_text(node, source);
-    let (written, word) = match node.kind() {
-        kind::STRING => (Written::Quoted, text.strip_prefix('"')?.strip_suffix('"')?),
-        kind::TRIPLE_QUOTED_STRING => (
-            Written::Quoted,
-            text.strip_prefix("\"\"\"")?.strip_suffix("\"\"\"")?,
-        ),
-        kind::IDENTIFIER => (Written::Bare, text),
-        kind::INTEGER | kind::NEGATIVE_INTEGER | kind::BOOLEAN | kind::DATE_LITERAL => {
-            (Written::Literal, text)
-        }
-        kind::SCHEME_REF_ID => (Written::SchemeRef, text),
-        _ => return None,
-    };
-    let triple = node.kind() == kind::TRIPLE_QUOTED_STRING;
-    if triple && word.contains('\n') {
+    let (written, text) = specforge_parser::value_token(node, source)?;
+    let respell = forms.rewrite(kind, key, written, &text, place)?;
+    if respell.listed && text.contains('\n') {
         return None;
     }
-    let respell = forms.rewrite(kind, key, written, word.trim(), place)?;
-    let item = if written == Written::Quoted && respell.to == Written::Quoted {
-        // Only `listed` changes: the text keeps its escapes.
-        if triple {
-            spell::quoted(word.trim())
-        } else {
-            text.to_string()
-        }
+    let item = if node.kind() == kind::STRING && respell.to == Written::Quoted {
+        // Only `listed` changes: a `"…"` keeps its escapes as written.
+        node_text(node, source).to_string()
     } else {
-        spell::spelled(word.trim(), respell.to)
+        respell.spelling
     };
     Some(if respell.listed {
         format!("[{item}]")

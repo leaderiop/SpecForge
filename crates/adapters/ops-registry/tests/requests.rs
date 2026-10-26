@@ -218,13 +218,13 @@ fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
     let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
         .as_user(User::at(dir.home(), None));
 
+    let other = specforge_installed::hex_sha256(b"other");
     let error = registry
         .fetch(
             &name("@acme/tool"),
             &Version::new(1, 0, 0),
             TrustPolicy::new(true, Asking::Nobody).locked(Some(LockedPin {
-                version: "1.0.0",
-                sha256: "other",
+                bytes: Some((&Version::new(1, 0, 0), &other)),
                 key_id: None,
             })),
         )

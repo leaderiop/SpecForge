@@ -185,6 +185,36 @@ fn diagnostics_are_those_about_the_entity() {
     assert_eq!(codes("task_id_uniqueness"), ["W003", "W102"]);
 }
 
+#[specforge_test(
+    behavior = "inspect_entity_facts",
+    verify = "a duplicate declaration's diagnostics are about its entity"
+)]
+fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
+    let p = compile(
+        &["@specforge/software"],
+        &[
+            (
+                "a.spec",
+                "behavior create_task \"Create\" {\n  category command\n  contract \"c\"\n}\n",
+            ),
+            (
+                "b.spec",
+                "behavior create_task {\n  category query\n  category command\n}\n\
+                 invariant create_task \"Other kind\" {\n  guarantee \"g\"\n}\n",
+            ),
+        ],
+    );
+    let view = ProjectView::of(&p.project);
+    let mut codes: Vec<String> = inspect(&view, "create_task")
+        .unwrap()
+        .diagnostics
+        .into_iter()
+        .map(|d| d.code)
+        .collect();
+    codes.sort();
+    assert_eq!(codes, ["E002", "E076", "E081", "W060"]);
+}
+
 #[test]
 fn facts_carry_the_node_kind_entry_headline_and_obligations() {
     let p = compile(

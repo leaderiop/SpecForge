@@ -397,7 +397,7 @@ An arg is a string unless its builder says otherwise:
 The host and the SDK read args by one rule (`specforge_protocol_types::command_args`, ADR 0017): both
 surfaces send the export the args normalized (declared defaults applied, an unset flag `false`, each
 value its declared type), and refuse a missing required arg, a value of another type or below its
-minimum, or an undeclared arg before the export runs, as one `INVALID_INPUT` object; `CommandCall`
+minimum, or an undeclared arg before the export runs, as one `INVALID_INPUT` object on the command line, `invalid_input` naming the arg over MCP; `CommandCall`
 runs the same rule on what it receives. The builder panics on a declaration the host would refuse (an
 arg named `path`, `format` or `help`, two args spelling one option such as `all_kinds` and `all-kinds`,
 a flag or required arg with a default, a default its type refuses) and on a required flag or an empty

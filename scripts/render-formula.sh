@@ -49,7 +49,7 @@ class Specforge < Formula
   end
 
   def install
-    bin.install "specforge"
+    bin.install "specforge", "specforge-lsp"
   end
 
   def caveats

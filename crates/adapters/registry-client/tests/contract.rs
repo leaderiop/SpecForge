@@ -197,7 +197,14 @@ fn an_address_no_registry_serves_is_not_a_registry() {
         (
             "download",
             client
-                .download(&format!("{root}/x"), &registry, None)
+                .download(
+                    &specforge_registry_wire::PackageMetadata {
+                        wasm_url: format!("{root}/x"),
+                        ..Default::default()
+                    },
+                    &registry,
+                    None,
+                )
                 .unwrap_err(),
         ),
     ];

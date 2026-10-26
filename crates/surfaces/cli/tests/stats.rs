@@ -118,3 +118,27 @@ fn stats_human_format_lists_all_kinds() {
         );
     }
 }
+
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "with nothing testable, stats reports the declared and the proof percentages alike"
+)]
+fn nothing_testable_is_0_percent_declared_and_proven() {
+    let dir = TestProject::new().without_config().files(&[
+        (
+            "specforge.json",
+            r#"{"name":"s1","version":"0.1.0","extensions":[]}"#,
+        ),
+        ("main.spec", "spec \"s1\" {\n  version \"0.1.0\"\n}\n"),
+        ("specforge-report.json", r#"{"results":{}}"#),
+    ]);
+
+    let json = Cli::on(&dir).run(&["stats", "--format=json"]);
+    let parsed: serde_json::Value = serde_json::from_str(&json.stdout).unwrap();
+    assert_eq!(parsed["testable_count"], 0, "{parsed}");
+    assert_eq!(parsed["declared_pct"], parsed["proof_pct"], "{parsed}");
+
+    let human = Cli::on(&dir).run(&["stats"]).stdout;
+    assert!(human.contains("Declared: 0% of 0 testable"), "{human}");
+    assert!(human.contains("Proven:   0% of 0 testable"), "{human}");
+}

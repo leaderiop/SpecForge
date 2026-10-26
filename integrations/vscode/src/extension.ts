@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { startClient, stopClient } from "./lsp-client";
 import { registerCommands } from "./commands";
-import { SpecForgeCodeLensProvider } from "./codelens";
 import { registerEntityTree } from "./entity-tree";
 import { registerOnboarding } from "./onboarding";
 import {
@@ -28,15 +27,6 @@ export async function activate(
   const commands = registerCommands(context);
   context.subscriptions.push(...commands);
 
-  const codeLensProvider = new SpecForgeCodeLensProvider();
-  context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider(
-      { language: "specforge" },
-      codeLensProvider
-    )
-  );
-  context.subscriptions.push(codeLensProvider);
-
   // Entity Explorer sidebar
   registerEntityTree(context);
 
@@ -46,22 +36,18 @@ export async function activate(
   setStarting();
 
   try {
-    const client = await startClient(context);
-    if (client) {
-      setIdle();
-      await vscode.commands.executeCommand(
-        "setContext",
-        "specforge:lspRunning",
-        true
-      );
-      await vscode.commands.executeCommand(
-        "setContext",
-        "specforge:hasEntities",
-        hasProject
-      );
-    } else {
-      setError("Language server not found");
-    }
+    await startClient(context);
+    setIdle();
+    await vscode.commands.executeCommand(
+      "setContext",
+      "specforge:lspRunning",
+      true
+    );
+    await vscode.commands.executeCommand(
+      "setContext",
+      "specforge:hasEntities",
+      hasProject
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     setError(message);

@@ -4,9 +4,9 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{LockSource, Module, Pin};
-use specforge_package::{PackageName, Version};
-use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
+use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256, recordable_peers};
+use specforge_package::{NotAPackage, PackageName, Version};
+use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PeerDependency};
 
 use super::super::candidate::{Installable, LocalFile};
 use super::From;
@@ -20,9 +20,12 @@ impl<'a> Install<'a> {
     pub(crate) fn local(root: &Path, local: LocalFile) -> Result<Install<'a>, OpError> {
         let declared = local.binary.declaration();
         let name = super::super::candidate::package(declared)?;
+        let version = Version::parse(declared.version())
+            .map_err(|why| not_semver(declared.version(), &why))?;
+        recordable_peers(declared.peers()).map_err(|why| unrecordable_peers(&name, &why))?;
         let pin = Pin {
             name,
-            version: declared.version().to_string(),
+            version,
             source: LockSource::local(shown_path(root, &local.path))
                 .map_err(|why| unrecordable(&local.path, &why))?,
             key_id: None,
@@ -30,7 +33,7 @@ impl<'a> Install<'a> {
         };
         let module = local.binary.into_module();
         Ok(Install {
-            sha256: module.digest().to_string(),
+            sha256: module.digest().clone(),
             module: Some(module),
             pin,
             from: From::File,
@@ -42,12 +45,12 @@ impl<'a> Install<'a> {
     }
 
     /// The version it locks: what its declaration declares.
-    pub(crate) fn version(&self) -> &str {
+    pub(crate) fn version(&self) -> &Version {
         &self.pin.version
     }
 
     /// The module's SHA-256: what the lock pins.
-    pub(crate) fn sha256(&self) -> &str {
+    pub(crate) fn sha256(&self) -> &Sha256 {
         &self.sha256
     }
 
@@ -98,7 +101,7 @@ impl Staged<'_> {
         };
         let binary = Installable::read(*runtime, bytes.clone()).map_err(published_wrongly)?;
         let declared = binary.declaration();
-        if declared.name() != self.name.as_str() || declared.version() != self.version {
+        if declared.name() != self.name.as_str() || declared.version() != self.version.to_string() {
             return Err(OpError::coded(
                 OpErrorKind::SchemaMismatch,
                 codes::E028,
@@ -134,18 +137,17 @@ impl<'a> LockPlan<'a> {
     /// registry`. Its binary is not loaded: [`Self::check`] loads it after the gate. Nothing is
     /// pinned for the user: the publisher the fetch decided is pinned when the plan commits. For a
     /// preview, its [`Manifest`], its publisher decided as the fetch decides it: nothing is downloaded. E063
-    /// when the plan fetches from no registry. A registry entry that pins no hash is fetched again,
-    /// which pins it (W149).
+    /// when the plan fetches from no registry. A preview whose published digest is no SHA-256 is
+    /// R-OPS-002, as its download would be.
     pub(crate) fn fetch(
         &self,
         name: &PackageName,
         version: &Version,
     ) -> Result<Install<'a>, OpError> {
-        // What the project already has is answered before any registry call (ADR 0138); an entry
-        // that pins no hash is installed again, which pins it (W149).
-        if let Some(entry) = self.unchanged(name, |e| {
-            e.source.is_registry() && e.version == version.to_string() && !e.wasm_hash.is_empty()
-        }) {
+        // What the project already has is answered before any registry call (ADR 0138).
+        if let Some(entry) =
+            self.unchanged(name, |e| e.source.is_registry() && e.version == *version)
+        {
             return Ok(Install {
                 module: None,
                 sha256: entry.wasm_hash.clone(),
@@ -167,16 +169,34 @@ impl<'a> LockPlan<'a> {
         if self.purpose == Purpose::Preview {
             // Decided as the fetch decides it, downloading nothing (ADR 0213).
             let manifest = fetching.registry.published(name, version, policy)?;
+            let sha256 = Sha256::parse(&manifest.sha256).map_err(|why| {
+                OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::R_OPS_002,
+                    format!(
+                        "registry package {}@{} publishes a digest no download can match: {}",
+                        manifest.name,
+                        manifest.version,
+                        specforge_common::remedy::printable(&why),
+                    ),
+                )
+            })?;
+            let key_id = lockable_key(&manifest.name, &manifest.version, &manifest.publisher)?;
+            lockable_peers(
+                &manifest.name,
+                &manifest.version,
+                manifest.declaration.peers(),
+            )?;
             let pin = Pin {
                 name: manifest.name,
-                version: manifest.version.to_string(),
+                version: manifest.version.clone(),
                 source: LockSource::Registry,
-                key_id: manifest.publisher.key_id().map(str::to_string),
+                key_id,
                 peers: manifest.declaration.peers().to_vec(),
             };
             return Ok(Install {
                 module: None,
-                sha256: manifest.sha256,
+                sha256,
                 pin,
                 from: From::Published {
                     registry: fetching.registry,
@@ -185,11 +205,13 @@ impl<'a> LockPlan<'a> {
         }
         let mut package = fetching.registry.fetch(name, version, policy)?;
         let module = Module::new(std::mem::take(&mut package.wasm));
+        let key_id = lockable_key(&package.name, &package.version, &package.publisher)?;
+        lockable_peers(&package.name, &package.version, package.declaration.peers())?;
         let pin = Pin {
             name: package.name.clone(),
-            version: package.version.to_string(),
+            version: package.version.clone(),
             source: LockSource::Registry,
-            key_id: package.publisher.key_id().map(str::to_string),
+            key_id,
             peers: package.declaration.peers().to_vec(),
         };
         Ok(Install {
@@ -200,11 +222,54 @@ impl<'a> LockPlan<'a> {
                 publisher: package.publisher,
                 bytes: module.clone(),
             },
-            sha256: module.digest().to_string(),
+            sha256: module.digest().clone(),
             module: Some(module),
             pin,
         })
     }
+}
+
+/// The key id `specforge.lock` records for a package signed by `publisher`: E028 before the pin is
+/// staged when the key is no publisher key id (the lock's own read would refuse it, ADR 0243).
+fn lockable_key(
+    name: &PackageName,
+    version: &Version,
+    publisher: &Publisher,
+) -> Result<Option<KeyId>, OpError> {
+    publisher
+        .key_id()
+        .map(|key| {
+            KeyId::parse(key).map_err(|why| {
+                OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::E028,
+                    format!(
+                        "registry package {name}@{version} is signed by a key that is no publisher key id: {}",
+                        specforge_common::remedy::printable(&why)
+                    ),
+                )
+            })
+        })
+        .transpose()
+}
+
+/// E028 before the pin is staged when a registry package declares a peer `specforge.lock` cannot
+/// record (ADR 0243).
+fn lockable_peers(
+    name: &PackageName,
+    version: &Version,
+    peers: &[PeerDependency],
+) -> Result<(), OpError> {
+    recordable_peers(peers).map_err(|why| {
+        OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            codes::E028,
+            format!(
+                "registry package {name}@{version} declares a peer specforge.lock cannot record: {}",
+                specforge_common::remedy::printable(&why)
+            ),
+        )
+    })
 }
 
 /// A failure of reading a fetched binary: the caller gave no such value, the registry served a
@@ -229,6 +294,35 @@ fn first_difference(
         .into_iter()
         .find(|category| served.describe_items(*category) != binary.describe_items(*category))
         .map(DeclaredCategory::name)
+}
+
+/// An `add` of a local file declaring a version that is no SemVer version: E072, before anything is staged,
+/// so the lock never holds a version its own read refuses (ADR 0243).
+fn not_semver(text: &str, why: &dyn std::fmt::Display) -> OpError {
+    let why = NotAPackage::Version {
+        text: text.to_string(),
+        why: why.to_string(),
+    };
+    OpError::of(
+        OpErrorKind::InvalidInput,
+        specforge_common::package::invalid(&specforge_common::remedy::printable(&why.to_string())),
+    )
+    .with_suggestion(
+        "fix the extension's declared version (its SDK `version`) and rebuild, or enable the file \
+         as a `.wasm` file entry in specforge.json, which records nothing in specforge.lock",
+    )
+}
+
+/// An `add` of a local file declaring a peer `specforge.lock` cannot record: E072, before anything is
+/// staged (ADR 0243).
+fn unrecordable_peers(name: &PackageName, why: &str) -> OpError {
+    OpError::of(
+        OpErrorKind::InvalidInput,
+        specforge_common::package::invalid(&format!(
+            "extension '{name}' declares a peer specforge.lock cannot record: {}",
+            specforge_common::remedy::printable(why)
+        )),
+    )
 }
 
 /// An `add` of a file whose path `specforge.lock` cannot record (ADR 0230): refused before anything is

@@ -467,19 +467,6 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     assert_eq!(input["args"], args);
     assert!(input["cwd"].is_string(), "{input}");
     assert!(input["graph"]["nodes"].is_array(), "{input}");
-
-    // A failing command is a failed tool result carrying its stderr.
-    let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});
-    let (mut server, _ext, _dir) =
-        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", failing));
-    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
-    assert_eq!(
-        resp["result"],
-        json!({"content": [
-            {"type": "text", "text": ""},
-            {"type": "text", "text": "no tests found"}
-        ], "isError": true})
-    );
 }
 
 /// The `tools/call` result of `specforge.cmds.report` when its export
@@ -497,7 +484,7 @@ fn promoted_report(output: Value) -> (Value, Value) {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
+    verify = "over MCP a command's JSON object output is the tool's structured content, and output that is not one object is text"
 )]
 fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
     let ran = |exit_code: i32, stdout: &str, stderr: &str| {
@@ -540,27 +527,6 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
         result,
         json!({"content": text(&["{}", "warning: stale"]), "isError": false})
     );
-
-    // A failure's one error object on stderr is the isError result.
-    let error = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found"});
-    let result = ran(1, "", &error.to_string());
-    assert_eq!(result["isError"], true, "{result}");
-    assert_eq!(result["structuredContent"], error);
-    assert_eq!(result["content"], text(&[&error.to_string()]));
-
-    // A failure that wrote prose, or an array, is a failed text result.
-    for stderr in ["error: no tests found", "[\"a\"]"] {
-        let result = ran(2, "", stderr);
-        assert_eq!(
-            result,
-            json!({"content": text(&["", stderr]), "isError": true}),
-            "{stderr}"
-        );
-    }
-    // A failure's object beside stdout is not the error object alone.
-    let result = ran(1, "partial", &error.to_string());
-    assert_eq!(result["isError"], true, "{result}");
-    assert!(result.get("structuredContent").is_none(), "{result}");
 }
 
 #[specforge_test(
@@ -1399,54 +1365,6 @@ fn mcp_sends_a_commands_export_the_args_its_derivation_normalizes() {
         report,
         [Some(json!({"style": "md", "limit": 3, "verbose": true}))]
     );
-}
-
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
-)]
-fn over_mcp_a_refused_argument_is_the_commands_invalid_input_object() {
-    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    for (arguments, error) in [
-        (
-            json!({}),
-            json!({"code": "INVALID_INPUT", "message": "missing required arg 'style'"}),
-        ),
-        (
-            json!({"style": "xml"}),
-            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'xml'"}),
-        ),
-        (
-            json!({"style": "jsno"}),
-            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'jsno'",
-                "suggestion": "json"}),
-        ),
-        (
-            json!({"style": "md", "limit": "x"}),
-            json!({"code": "INVALID_INPUT", "message": "limit must be an integer, got 'x'"}),
-        ),
-        (
-            json!({"style": "md", "bogus": 1}),
-            json!({"code": "INVALID_INPUT", "message": "unknown argument 'bogus'"}),
-        ),
-        (
-            json!({"style": "md", "verbos": true}),
-            json!({"code": "INVALID_INPUT", "message": "unknown argument 'verbos'",
-                "suggestion": "verbose"}),
-        ),
-    ] {
-        let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
-        let result = &resp["result"];
-        assert_eq!(result["isError"], true, "{arguments}: {resp}");
-        assert_eq!(result["structuredContent"], error, "{arguments}");
-        assert_eq!(
-            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap(),
-            error,
-            "{arguments}"
-        );
-    }
-    assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
-    assert!(events(&server, "surface_command_dispatched").is_empty());
 }
 
 #[specforge_test(

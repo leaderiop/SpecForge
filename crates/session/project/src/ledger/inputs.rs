@@ -334,7 +334,7 @@ impl SessionInputs {
     }
 
     /// The sources discovery finds at `key` now (a directory: all under it; a
-    /// source file: itself; else none), by key. "" is every source.
+    /// source file: itself; else none), by key. The spec root's prefix is every source.
     pub(crate) fn discover_at(&self, key: &str) -> Vec<String> {
         let Some(disk) = self.disk() else {
             return Vec::new();

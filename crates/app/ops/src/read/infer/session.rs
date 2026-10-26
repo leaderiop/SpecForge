@@ -9,10 +9,11 @@ use std::path::Path;
 use super::manifest::{
     InferenceManifest, InferenceSession, MANIFEST_FILENAME, SessionStatus, SourceFileEntry,
 };
-use super::sources::{ProjectFiles, SourceKey, SourceRead, content_hash};
+use super::sources::{ProjectFiles, SourceRead, content_hash};
 use crate::options::{Choice, OptionTable};
+use crate::source_key::SourceKey;
 use crate::view::ProjectView;
-use crate::{Caller, OpError, OpErrorKind, Refusal, Writes};
+use crate::{Caller, OpError, OpErrorKind, Outside, Refusal, Writes};
 
 /// A start while a session is active (`Conflict`).
 pub const SESSION_ACTIVE: &str = "session_active";
@@ -20,10 +21,6 @@ pub const SESSION_ACTIVE: &str = "session_active";
 pub const SESSION_NOT_ACTIVE: &str = "session_not_active";
 /// An end of a session the manifest does not record (`InvalidInput`).
 pub const UNKNOWN_SESSION: &str = "unknown_session";
-/// A source path outside the project root (`InvalidInput`).
-pub const SOURCE_OUTSIDE_ROOT: &str = "source_outside_root";
-/// A source root outside the project root (`InvalidInput`).
-pub const SOURCE_ROOT_OUTSIDE_ROOT: &str = "source_root_outside_root";
 /// A marked file that cannot be read (`OpErrorKind::of_io`: `FileNotFound`
 /// when missing).
 pub const SOURCE_UNREADABLE: &str = "source_unreadable";
@@ -157,16 +154,17 @@ pub struct SessionRequest<'a> {
 /// Record `request`'s step in the inference manifest at the view's root: one read,
 /// the step applied, one write, the writes returned (ADR 0022 D1). A
 /// refusal writes nothing. In order: `no_project` without a root; a path
-/// outside the root ([`SOURCE_OUTSIDE_ROOT`]); E071 for a manifest that
+/// whose key lies outside the project root ([`crate::view::NOT_A_SOURCE_PATH`]); E071 for a manifest that
 /// cannot be used; then the step's own refusal
 /// ([`SESSION_ACTIVE`], [`UNKNOWN_SESSION`], [`SESSION_NOT_ACTIVE`],
-/// [`SOURCE_UNREADABLE`]). Marking a file does not need an active session.
+/// [`SOURCE_UNREADABLE`], or [`crate::OUTSIDE_ROOT`] for a marked file whose link
+/// lands outside). Marking a file does not need an active session.
 pub fn session(
     view: &ProjectView<'_>,
     request: &SessionRequest<'_>,
 ) -> Result<SessionOutcome, Refusal<SessionField>> {
     let root = view.project_root()?;
-    let step = Normalized::of(request.step)?;
+    let step = Normalized::of(view, request.step)?;
     // The manifest is held once: what is read is what is replaced.
     let file = request
         .caller
@@ -210,8 +208,8 @@ enum Normalized<'a> {
 }
 
 impl<'a> Normalized<'a> {
-    /// `step`, or the refusal of a path outside the root.
-    fn of(step: SessionStep<'a>) -> Result<Self, Refusal<SessionField>> {
+    /// `step`, or the refusal of a path whose key lies outside the project root.
+    fn of(view: &ProjectView<'_>, step: SessionStep<'a>) -> Result<Self, Refusal<SessionField>> {
         Ok(match step {
             SessionStep::Start {
                 agent,
@@ -223,16 +221,9 @@ impl<'a> Normalized<'a> {
                         roots
                             .iter()
                             .map(|root| {
-                                SourceKey::root(root)
+                                view.source_root(root)
                                     .map(|key| key.as_str().to_string())
-                                    .map_err(|_| {
-                                        outside_root(
-                                            SOURCE_ROOT_OUTSIDE_ROOT,
-                                            "source_roots entry",
-                                            root,
-                                        )
-                                        .about(SessionField::SourceRoots)
-                                    })
+                                    .map_err(|error| error.about(SessionField::SourceRoots))
                             })
                             .collect::<Result<Vec<_>, _>>()
                     })
@@ -243,25 +234,14 @@ impl<'a> Normalized<'a> {
                 entities,
             } => Normalized::Mark {
                 given: source_file,
-                path: SourceKey::of(source_file).map_err(|_| {
-                    outside_root(SOURCE_OUTSIDE_ROOT, "source_file", source_file)
-                        .about(SessionField::SourceFile)
-                })?,
+                path: view
+                    .source_path(source_file)
+                    .map_err(|error| error.about(SessionField::SourceFile))?,
                 entities,
             },
             SessionStep::End { session_id, status } => Normalized::End { session_id, status },
         })
     }
-}
-
-/// The path `given`, which `what` names in the message, is not a path
-/// inside the project root: refused as `code`.
-fn outside_root(code: &'static str, what: &str, given: &str) -> OpError {
-    OpError::new(
-        OpErrorKind::InvalidInput,
-        code,
-        format!("{what} '{given}' is not a path inside the project root"),
-    )
 }
 
 /// A marked file that cannot be read: `source_unreadable`, of the kind of the failure.
@@ -317,12 +297,24 @@ fn apply(
         } => {
             // Held inside the project root (ADR 0092 D8): a symlink that leaves it is a path
             // outside it, and its target is not read. The error names the path as the agent
-            // gave it: the absolute path would leak where the server's project lives.
+            // gave it and says where it lands, as every landing refusal does.
             let bytes = match ProjectFiles::at(root).read(&path) {
                 SourceRead::Bytes(bytes) => bytes,
-                SourceRead::Outside => {
-                    return Err(outside_root(SOURCE_OUTSIDE_ROOT, "source_file", given)
-                        .about(SessionField::SourceFile));
+                SourceRead::Outside(outside) => {
+                    let named = Outside::new(
+                        Path::new(given),
+                        outside.landed().to_path_buf(),
+                        outside.root(),
+                    );
+                    return Err(OpError::from(named).about(SessionField::SourceFile));
+                }
+                SourceRead::Unreadable(e) if e.kind() == std::io::ErrorKind::IsADirectory => {
+                    return Err(OpError::new(
+                        OpErrorKind::InvalidInput,
+                        SOURCE_UNREADABLE,
+                        format!("'{given}' is a directory: mark names a source file"),
+                    )
+                    .about(SessionField::SourceFile));
                 }
                 SourceRead::Missing => {
                     return Err(unreadable(

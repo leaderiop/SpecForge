@@ -112,7 +112,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
     missing specforge.json is the default config and produces no E069.
     Before any source, the environment MUST report its own diagnostics —
     E069, the extension load's entry by entry (an entry's failure, or what
-    it reported though it loaded: W149, W153, W138; the lock's E033 once,
+    it reported though it loaded: W153, W138; the lock's E033 once,
     before the first entry it left unloaded), provider registration (W118,
     E057), then I002 — and then the registry build's, in the build's one
     order (build_registries_from_declarations). Each MUST say the part of
@@ -173,7 +173,11 @@ behavior load_extension_declaration "Load Extension Declaration" {
     analyzers, passes, feature_flags), the only ones the protocol defines.
     A category that does not parse MUST fail the extension's load (E028)
     naming the category. A describe item key the protocol does not define
-    MUST produce W138. The declaration is read once per environment load;
+    MUST produce W138. Every text the declaration holds MUST be read
+    printable (each control and bidirectional character as its \u{..}
+    escape; a starter template keeps its newlines and tabs) before
+    anything quotes it, a load warning included. The declaration is read
+    once per environment load;
     nothing describes a category again outside it. A handshake whose
     protocol major version differs from the host's MUST fail the
     extension's load (E028), and none of its categories are read. The
@@ -202,6 +206,9 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an unsupported protocol major version fails the load"
   verify unit "the loader applies the execution budget its handshake declares, and a handshake call alone applies none"
   verify unit "the SDK's raw category and the host's load parse a category's items through one function"
+  verify unit "every text a declaration holds is read printable, a starter template keeping its newlines and tabs"
+  verify unit "a key a load warning quotes is printable"
+  verify integration "every committed blob's declaration loads unchanged by the printable read"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
@@ -997,6 +1004,7 @@ behavior check_registry_reply "Check Registry Reply" {
     declaration_matches    "A binary whose declaration differs from the served one is refused with R-TRUST-004 naming the first differing category"
     locked_bytes_held      "A reply for the version specforge.lock pins whose SHA-256 is not the one the lock pins is refused with R014 before the binary is downloaded, its signature checked or a key change asked; a dry run refuses it from the published manifest"
     answer_from_registry   "A 404 without the protocol's NOT_FOUND error, and a wasm_url that is neither an http or https URL nor a path at the registry's root, are refused with R009: no registry gave that answer"
+    answer_within_size     "A registry answer longer than 64 MiB, or a download longer than the size_bytes its reply declares, is refused with R009 as soon as its Content-Length or its bytes say so, and no more of it is read; an answer still arriving after the client's timeout is R004"
   }
   contract   """
     A reply that isn't the registry protocol's JSON for the request (a
@@ -1006,7 +1014,9 @@ behavior check_registry_reply "Check Registry Reply" {
     NOT_FOUND error; a 404 without it (an address no registry serves, such as
     a url that isn't the registry's root) MUST be refused with R009, not
     reported as a missing package. A wasm_url MUST be an http or https URL or
-    a path at the registry's root.
+    a path at the registry's root, and the client keeps it as that URL's
+    serialization, the address it requests: no control or bidirectional
+    character is kept.
     Before a registry package's signature is checked or its key pinned,
     the system MUST refuse the reply when it describes another package or
     version than the one requested, or when its manifest does: the
@@ -1030,15 +1040,24 @@ behavior check_registry_reply "Check Registry Reply" {
     run MUST refuse it from the published manifest; no flag or consent
     accepts it, and the lock is left as it was. A lock entry that pins no
     hash pins no bytes.
-    A refused reply pins no key and installs nothing.
+    A refused reply pins no key and installs nothing. A served manifest is
+    read as a declaration printable, as the binary's is (ADR 0244).
     Text the registry supplies (an error's message, a reply's or a served
-    manifest's name and version, a digest) MUST be written in a diagnostic
-    printable: each control character and bidirectional control as its
-    \u{..} escape.
+    manifest's name and version, a digest, a download address) MUST be
+    written in a diagnostic printable: each control character and
+    bidirectional control as its \u{..} escape. A registry error's
+    diagnostic is printable whole: every text it carries, whatever the
+    variant.
+    No registry answer is held whole past 64 MiB, the most a registry
+    stores: the client reads one answer through one bounded reader (ADR
+    0250).
   """
   verify unit "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
   verify unit "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
   verify unit "a download URL is an http or https URL or a path at the registry's root, else R009"
+  verify unit "a download larger than the size its reply declares is refused with R009 before it is read whole"
+  verify unit "a download whose reply declares no size is held to 64 MiB, the largest package a registry accepts"
+  verify unit "a registry answer larger than 64 MiB is refused with R009"
   verify integration "a reply for another package is refused and pins nothing"
   verify integration "a manifest that cannot be read is refused and pins nothing"
   verify integration "the peers the served manifest declares reach the package"
@@ -1050,6 +1069,10 @@ behavior check_registry_reply "Check Registry Reply" {
   verify integration "a fetch of the version specforge.lock pins served as other bytes is refused before its download"
   verify integration "a package published with a legacy manifest is refused with a re-publish suggestion"
   verify unit "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
+  verify unit "a download address is its URL's serialization: no control or bidirectional character is kept"
+  verify unit "every text a registry error carries is written in its diagnostic printable, whatever the variant"
+  verify integration "a download address a registry sends reaches R006 and R009 printable"
+  verify unit "a manifest's declaration is read printable, as a loaded binary's is"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {
@@ -1193,7 +1216,8 @@ behavior configure_registries "Configure Registries" {
   contract   """
     At startup, the compiler MUST parse the registries array from
     specforge.json into RegistryConfig entries. Each entry MUST have an
-    alias (unique identifier) and a url naming the registry's root (an http
+    alias (unique identifier, holding no control or bidirectional character:
+    one that does is E067) and a url naming the registry's root (an http
     or https URL with no query, fragment or user info; the client adds the
     protocol's version prefix /v1, and a url ending in it is refused with
     E067 naming the root), and MAY have a scope_filter, which MUST be a
@@ -1223,6 +1247,8 @@ behavior configure_registries "Configure Registries" {
     exact version already installed asks none and shows none; a dry run of
     a registry package asks its registry for the package's manifest and
     shows them.
+    An entry's text is quoted printable in every diagnostic about the
+    configuration.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "a registry operation opens its registry once: the configuration and the credential store are read before any request, and their refusal is the operation's"
@@ -1239,6 +1265,7 @@ behavior configure_registries "Configure Registries" {
   verify unit "a registry url is the registry's root, and one ending in the protocol's version prefix is refused with E067 naming the root"
   verify unit "a registries entry that can't be read refuses every registry operation with E067 before any request"
   verify unit "a scope_filter that is not a scope refuses every registry operation with E067 naming the scope to write"
+  verify unit "an entry whose alias holds a control character is E067, and an entry's text is quoted printable"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted, root_urls, unreadable_entry_refused"
 }
 
@@ -1336,6 +1363,7 @@ behavior retry_registry_request "Retry Registry Request" {
   produces   [registry_request_retry_exhausted]
   verify unit "429 response retries with exponential backoff"
   verify unit "network timeout produces ExtensionError with retry guidance"
+  verify unit "a registry answer still arriving after the client's timeout is R004"
   verify unit "max retries exceeded produces final error"
   verify unit "a Retry-After longer than the longest backoff is not waited for"
   verify integration "a rate-limited publish is sent again once the registry's wait has passed"

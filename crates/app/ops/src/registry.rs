@@ -17,7 +17,7 @@ use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, codes};
-use specforge_installed::LockFileEntry;
+use specforge_installed::{KeyId, LockFileEntry, Sha256};
 use specforge_package::{DeclaredPackage, PackageName, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 
@@ -98,10 +98,9 @@ pub struct Manifest {
 /// bytes at its own version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LockedPin<'a> {
-    pub version: &'a str,
-    /// The SHA-256 it pins; empty for an entry written before installs were pinned (W149), which
-    /// pins no bytes.
-    pub sha256: &'a str,
+    /// The version and SHA-256 it pins, held together: the bytes of that version and no other.
+    /// `None` for a pin of a publisher key alone.
+    pub bytes: Option<(&'a Version, &'a Sha256)>,
     pub key_id: Option<&'a str>,
 }
 
@@ -109,9 +108,8 @@ impl<'a> LockedPin<'a> {
     /// The pin `entry` records.
     pub(crate) fn of(entry: &'a LockFileEntry) -> LockedPin<'a> {
         LockedPin {
-            version: &entry.version,
-            sha256: &entry.wasm_hash,
-            key_id: entry.key_id.as_deref(),
+            bytes: Some((&entry.version, &entry.wasm_hash)),
+            key_id: entry.key_id.as_ref().map(KeyId::as_str),
         }
     }
 
@@ -119,14 +117,13 @@ impl<'a> LockedPin<'a> {
     #[cfg(any(test, feature = "testing"))]
     pub const fn key(key_id: &'a str) -> LockedPin<'a> {
         LockedPin {
-            version: "",
-            sha256: "",
+            bytes: None,
             key_id: Some(key_id),
         }
     }
 
     /// `name@version` served as `sha256` is what this pin allows: any bytes at another version or
-    /// under an entry that pins none, only its own at its version. R014 otherwise (a published
+    /// under a pin of a key alone, only its own at its version. R014 otherwise (a published
     /// version never changes, R007).
     pub fn admits(
         &self,
@@ -134,7 +131,10 @@ impl<'a> LockedPin<'a> {
         version: &Version,
         sha256: &str,
     ) -> Result<(), OpError> {
-        if self.sha256.is_empty() || self.sha256 == sha256 || self.version != version.to_string() {
+        let Some((locked, pinned)) = self.bytes else {
+            return Ok(());
+        };
+        if pinned.as_str().eq_ignore_ascii_case(sha256) || locked != version {
             return Ok(());
         }
         Err(OpError::coded(
@@ -142,8 +142,7 @@ impl<'a> LockedPin<'a> {
             LOCKED_BYTES_CHANGED,
             format!(
                 "registry package {name}@{version} is not the binary specforge.lock pins: \
-                 the lock records sha256 {}, the registry serves {}",
-                self.sha256,
+                 the lock records sha256 {pinned}, the registry serves {}",
                 printable(sha256)
             ),
         )
@@ -559,9 +558,9 @@ mod tests {
         verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
     )]
     fn a_locked_pin_quotes_the_served_digest_printable() {
+        let pinned = Sha256::of(b"A");
         let pin = LockedPin {
-            version: "1.0.0",
-            sha256: "A",
+            bytes: Some((&Version::new(1, 0, 0), &pinned)),
             key_id: None,
         };
         let name = PackageName::parse("@a/x").unwrap();
@@ -630,53 +629,59 @@ mod tests {
     fn a_locked_pin_is_what_a_registry_lock_entry_records() {
         let entry = LockFileEntry {
             name: PackageName::parse("@a/x").unwrap(),
-            version: "1.2.0".into(),
+            version: Version::new(1, 2, 0),
             source: specforge_installed::LockSource::Registry,
-            wasm_hash: "hash".into(),
-            key_id: Some("k".into()),
+            wasm_hash: Sha256::of(b"hash"),
+            key_id: Some(KeyId::parse("1111111111111111").unwrap()),
             peer_dependencies: Vec::new(),
         };
 
         let pin = LockedPin::of(&entry);
 
-        assert_eq!(pin.version, "1.2.0");
-        assert_eq!(pin.sha256, "hash");
-        assert_eq!(pin.key_id, Some("k"));
+        assert_eq!(
+            pin.bytes,
+            Some((&Version::new(1, 2, 0), &Sha256::of(b"hash")))
+        );
+        assert_eq!(pin.key_id, Some("1111111111111111"));
     }
 
     #[specforge_test_macros::test(
         type = "LockedPin",
-        verify = "a locked pin admits other bytes only at another version, or when it pins no hash"
+        verify = "a locked pin admits other bytes only at another version"
     )]
     fn a_locked_pin_admits_other_bytes_only_at_another_version() {
         let name = PackageName::parse("@a/x").unwrap();
-        let pin = |version, sha256| LockedPin {
-            version,
-            sha256,
+        let (a, b) = (Sha256::of(b"a"), Sha256::of(b"b"));
+        let v = |text: &str| Version::parse(text).unwrap();
+        let locked = v("1.0.0");
+        let pin = |sha256| LockedPin {
+            bytes: Some((&locked, sha256)),
             key_id: None,
         };
-        let v = |text: &str| Version::parse(text).unwrap();
-        let admits = |pin: LockedPin, version: &str, served| pin.admits(&name, &v(version), served);
+        let admits = |pin: LockedPin, version: &str, served: &Sha256| {
+            pin.admits(&name, &v(version), served.as_str())
+        };
 
-        assert!(admits(pin("1.0.0", "A"), "1.0.0", "A").is_ok(), "its bytes");
+        assert!(admits(pin(&a), "1.0.0", &a).is_ok(), "its bytes");
+        assert!(admits(pin(&a), "2.0.0", &b).is_ok(), "another version");
         assert!(
-            admits(pin("1.0.0", "A"), "2.0.0", "B").is_ok(),
-            "another version"
+            pin(&a)
+                .admits(&name, &v("1.0.0"), &a.as_str().to_uppercase())
+                .is_ok(),
+            "its bytes, described in uppercase"
         );
-        assert!(
-            admits(pin("1.0.0", ""), "1.0.0", "B").is_ok(),
-            "no hash pinned"
-        );
-        let error = admits(pin("1.0.0", "A"), "1.0.0", "B").unwrap_err();
+        let error = admits(pin(&a), "1.0.0", &b).unwrap_err();
         assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
         assert_eq!(
             error.message,
-            "registry package @a/x@1.0.0 is not the binary specforge.lock pins: \
-             the lock records sha256 A, the registry serves B"
+            format!(
+                "registry package @a/x@1.0.0 is not the binary specforge.lock pins: \
+                 the lock records sha256 {a}, the registry serves {b}"
+            )
         );
         let unpinned = TrustPolicy::new(true, Asking::Nobody);
         assert!(unpinned.admits(&name, &v("1.0.0"), "B").is_ok());
-        let pinned = unpinned.locked(Some(pin("1.0.0", "A")));
+        let pinned = unpinned.locked(Some(pin(&a)));
         assert!(pinned.admits(&name, &v("1.0.0"), "B").is_err());
     }
 

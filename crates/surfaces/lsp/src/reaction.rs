@@ -148,6 +148,9 @@ impl<E: Editor> Reaction<E> {
             }
         }
         self.refresh_tokens_if_stale();
+        if applied.is_some() && self.state.blocking_read().client().lens_refresh {
+            self.editor.refresh_lenses();
+        }
         applied
     }
 

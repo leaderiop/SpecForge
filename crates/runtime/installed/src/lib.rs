@@ -28,9 +28,10 @@ pub use load::{
     Builtins, EnabledExtension, LoadFailure, LoadProblem, LoadSubject, Loaded, Recorded,
 };
 pub use lock::{
-    LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file, write_lock_file,
+    KeyId, LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file,
+    recordable_peers, write_lock_file,
 };
-pub use module::{Module, hex_sha256};
+pub use module::{Module, Sha256, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};
 
 /// A project's installed extensions: its root and what `specforge.lock`
@@ -124,8 +125,8 @@ impl Installed {
             .entries()
             .iter()
             .find(|e| e.name.as_str() == name)
-            .map_or("", |e| e.version.as_str());
-        self.reinstall_at(name, version)
+            .map_or_else(String::new, |e| e.version.to_string());
+        self.reinstall_at(name, &version)
     }
 
     /// [`Self::reinstall`] at `version`: the version its module declares when that is not the one
@@ -181,21 +182,24 @@ mod tests {
         );
     }
 
+    const K1: &str = "1111111111111111";
+    const K2: &str = "2222222222222222";
+
     #[test]
     fn the_lock_answers_the_entry_of_a_registry_install_only() {
         let entry = |name: &str, source: &str, key: Option<&str>| LockFileEntry {
             name: PackageName::parse(name).unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
-            key_id: key.map(str::to_string),
+            wasm_hash: crate::hex_sha256(b"hash"),
+            key_id: key.map(|k| k.parse().unwrap()),
             peer_dependencies: Vec::new(),
         };
         let lock = LockFile {
             entries: vec![
-                entry("@a/signed", "registry", Some("k1")),
+                entry("@a/signed", "registry", Some(K1)),
                 entry("@a/unsigned", "registry", None),
-                entry("@a/local", "local:a.wasm", Some("k2")),
+                entry("@a/local", "local:a.wasm", Some(K2)),
             ],
             ..Default::default()
         };
@@ -203,10 +207,10 @@ mod tests {
         let key = |name: &str| {
             installed
                 .locked(&PackageName::parse(name).unwrap())
-                .map(|e| e.key_id.as_deref())
+                .map(|e| e.key_id.as_ref().map(KeyId::as_str))
         };
 
-        assert_eq!(key("@a/signed"), Some(Some("k1")));
+        assert_eq!(key("@a/signed"), Some(Some(K1)));
         assert_eq!(key("@a/unsigned"), Some(None));
         assert_eq!(key("@a/local"), None, "a local install has no publisher");
         assert_eq!(key("@a/absent"), None);
@@ -229,9 +233,9 @@ mod tests {
     fn a_reinstall_command_is_the_one_the_lock_entry_calls_for() {
         let entry = |name: &str, version: &str, source: &str| LockFileEntry {
             name: specforge_package::PackageName::parse(name).unwrap(),
-            version: version.to_string(),
+            version: version.parse().unwrap(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
+            wasm_hash: crate::hex_sha256(b"hash"),
             key_id: None,
             peer_dependencies: Vec::new(),
         };
@@ -241,7 +245,6 @@ mod tests {
                 entry("@a/spaced", "1.0.0", "local:My Ext/a.wasm"),
                 entry("@a/dashed", "1.0.0", "local:-a.wasm"),
                 entry("@a/registry", "2.1.0", "registry"),
-                entry("@a/loose", "latest", "registry"),
             ],
             ..Default::default()
         };
@@ -260,7 +263,6 @@ mod tests {
             installed.reinstall("@a/registry"),
             "specforge add @a/registry@2.1.0"
         );
-        assert_eq!(installed.reinstall("@a/loose"), "specforge add @a/loose");
         assert_eq!(
             installed.reinstall("@a/unlocked"),
             "specforge add @a/unlocked"

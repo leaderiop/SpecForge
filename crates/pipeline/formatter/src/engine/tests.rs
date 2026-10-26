@@ -4,6 +4,7 @@ use crate::config::FormatConfig;
 mod idempotency;
 mod parse_errors;
 mod range;
+mod stored;
 mod value_forms;
 
 fn fmt(source: &str) -> String {

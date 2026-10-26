@@ -689,10 +689,6 @@ fn mark_analyzed_refuses_a_file_outside_the_root() {
         assert_eq!(error["code"], "invalid_input", "{spelling}: {error}");
         assert_eq!(error["argument"], "source_file", "{spelling}: {error}");
         assert_eq!(error["data"]["files_written"], json!([]), "{error}");
-        assert_eq!(
-            error["message"],
-            format!("source_file '{spelling}' is not a path inside the project root")
-        );
     }
     let after = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
     assert_eq!(before, after);

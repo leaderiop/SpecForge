@@ -1,13 +1,12 @@
 import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
 import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
   TransportKind,
 } from "vscode-languageclient/node";
-import { getLspPath, getLspTrace } from "./config";
+import { serverBinary, serverHint } from "./binary";
+import { getLspTrace } from "./config";
 
 let client: LanguageClient | undefined;
 
@@ -140,7 +139,8 @@ async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
   }
 
   const enhanced = new vscode.MarkdownString(md);
-  enhanced.isTrusted = true;
+  // Only the extension's own link may run: a spec title can hold a `command:` link.
+  enhanced.isTrusted = { enabledCommands: ["specforge.focusInGraph"] };
   enhanced.supportThemeIcons = true;
 
   const parts = [...contents];
@@ -148,85 +148,13 @@ async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
   return new vscode.Hover(parts, hover.range);
 }
 
-function resolveBinaryPath(): string | undefined {
-  // 1. User setting
-  const configPath = getLspPath();
-  if (configPath && fs.existsSync(configPath)) {
-    return configPath;
-  }
-
-  // 2. Bundled platform-specific binary
-  const platformMap: Record<string, string> = {
-    "darwin-arm64": "darwin-arm64",
-    "darwin-x64": "darwin-x64",
-    "linux-x64": "linux-x64",
-    "linux-arm64": "linux-arm64",
-    "win32-x64": "win32-x64",
-  };
-  const platformKey = `${process.platform}-${process.arch}`;
-  const platformDir = platformMap[platformKey];
-  const ext = process.platform === "win32" ? ".exe" : "";
-
-  if (platformDir) {
-    const bundledPath = path.join(
-      __dirname,
-      "..",
-      "bin",
-      platformDir,
-      `specforge-lsp${ext}`
-    );
-    if (fs.existsSync(bundledPath)) {
-      return bundledPath;
-    }
-  }
-
-  // 3. Cargo build output (dev mode — walk up from workspace to find target/)
-  const folders = vscode.workspace.workspaceFolders;
-  if (folders) {
-    for (const folder of folders) {
-      let dir = folder.uri.fsPath;
-      for (let i = 0; i < 10; i++) {
-        for (const profile of ["debug", "release"]) {
-          const candidate = path.join(dir, "target", profile, `specforge-lsp${ext}`);
-          if (fs.existsSync(candidate)) {
-            return candidate;
-          }
-        }
-        const parent = path.dirname(dir);
-        if (parent === dir) break;
-        dir = parent;
-      }
-    }
-  }
-
-  // 4. Fall back to PATH — will fail with ENOENT if not installed
-  return undefined;
-}
-
 export async function startClient(
   context: vscode.ExtensionContext
-): Promise<LanguageClient | undefined> {
-  const binaryPath = resolveBinaryPath();
-  if (!binaryPath) {
-    vscode.window.showErrorMessage(
-      "SpecForge language server not found. Install the CLI or set specforge.lsp.path."
-    );
-    return undefined;
-  }
-
+): Promise<LanguageClient> {
   const traceLevel = getLspTrace();
-  const args: string[] = [];
-  if (traceLevel === "verbose") {
-    args.push("--log-level=debug");
-  }
-
   const serverOptions: ServerOptions = {
-    run: { command: binaryPath, args, transport: TransportKind.stdio },
-    debug: {
-      command: binaryPath,
-      args: [...args, "--log-level=debug"],
-      transport: TransportKind.stdio,
-    },
+    command: serverBinary(),
+    transport: TransportKind.stdio,
   };
 
   const clientOptions: LanguageClientOptions = {
@@ -268,7 +196,13 @@ export async function startClient(
     clientOptions
   );
 
-  await client.start();
+  try {
+    await client.start();
+  } catch (err) {
+    client = undefined;
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`${reason}. ${serverHint()}`);
+  }
   return client;
 }
 
@@ -281,7 +215,7 @@ export async function stopClient(): Promise<void> {
 
 export async function restartClient(
   context: vscode.ExtensionContext
-): Promise<LanguageClient | undefined> {
+): Promise<LanguageClient> {
   await stopClient();
   return startClient(context);
 }

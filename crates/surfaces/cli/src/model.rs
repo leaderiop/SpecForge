@@ -39,7 +39,7 @@ pub(crate) struct Args {
     #[arg(long)]
     extension: Option<String>,
 
-    /// Filter to specific entity kinds (comma-separated)
+    /// Filter to specific entity kinds (comma-separated, or the flag repeated)
     #[arg(long)]
     kinds: Vec<String>,
 
@@ -90,5 +90,25 @@ impl Args {
             }
             Err(error) => Refusal::fixed().report(terminal, &error),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct Line {
+        #[command(flatten)]
+        args: Args,
+    }
+
+    #[test]
+    fn the_kinds_flag_is_a_kinds_list() {
+        let line =
+            Line::try_parse_from(["model", "--kinds", "type, event", "--kinds", "adr"]).unwrap();
+        let options = line.args.options().unwrap_or_else(|_| unreachable!());
+        assert_eq!(options.kinds, ["type", "event", "adr"]);
     }
 }

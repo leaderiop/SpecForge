@@ -108,8 +108,10 @@ pub enum DiagnosticData {
     /// W061: the entities of a reference cycle, in path order (the first
     /// one repeated last, closing the cycle).
     ReferenceCycle { path: Vec<String> },
-    /// A diagnostic an extension pass raised about `entity` (the pass named
-    /// it), whether or not the graph holds that entity.
+    /// A diagnostic about `entity` that its span cannot name: an extension
+    /// pass's (the pass named it), or one the graph build reports about a
+    /// declaration (E002, W060, E076, E081, I005), whether or not the graph
+    /// holds that block.
     Subject { entity: String },
     /// W148: the custom rule `rule`'s `function` failed on these entities
     /// during one check, so they were not checked: every failure, entities
@@ -133,7 +135,7 @@ pub struct CustomRuleFailure {
 impl DiagnosticData {
     /// The entities the payload says the diagnostic is about, each once,
     /// in the payload's order: an unresolved reference's holder, a cycle's
-    /// entities, a pass diagnostic's subject, the entities a custom rule
+    /// entities, a declaration's or a pass diagnostic's subject, the entities a custom rule
     /// could not check. None for the others.
     /// Navigation attributes a diagnostic from these, never its message.
     pub fn entities(&self) -> Vec<&str> {

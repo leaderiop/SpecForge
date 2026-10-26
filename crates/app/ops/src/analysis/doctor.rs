@@ -166,7 +166,7 @@ pub enum About {
     /// An installed binary does not match the lock.
     Binary { issue: BinaryIssue },
     /// One `extensions` entry: why it did not load (not a binary problem),
-    /// or what it reported though it loaded (W149, W153, W138).
+    /// or what it reported though it loaded (W153, W138).
     Load,
     /// No extension loaded (I002).
     StructuralOnly,
@@ -351,7 +351,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
         .iter()
         .map(|extension| ExtensionHealth {
             name: extension.name.to_string(),
-            version: extension.version().map(str::to_string),
+            version: extension.version(),
             source: extension.origin.source(),
             status: extension.status,
             enhancement_count: extension.declaration.map_or(0, |d| d.enhancements.len()),

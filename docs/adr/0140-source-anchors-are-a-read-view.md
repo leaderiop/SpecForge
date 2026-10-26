@@ -1,7 +1,7 @@
 # Source anchors are a read view
 
 **Status:** accepted (2026-10-17, architecture round 14, plan 08). Amends ADR 0016 D1 (navigation's interface),
-ADR 0015 M14 and P1 (what reads the anchors manifest), extends ADR 0052 D1's list of documents. Amended by [ADR 0199](0199-a-source-item-is-covered-by-the-anchor-that-names-it.md) (D1: the read view also answers which source items are covered; inference gaps read it).
+ADR 0015 M14 and P1 (what reads the anchors manifest), extends ADR 0052 D1's list of documents. Amended by [ADR 0199](0199-a-source-item-is-covered-by-the-anchor-that-names-it.md) (D1: the read view also answers which source items are covered; inference gaps read it). D1: `anchors_of_file` refuses a path outside the project, [ADR 0253](0253-a-source-code-path-a-request-names-has-one-reader.md).
 
 Ops offered the anchors manifest as two steps, `source_anchors` (read) and `anchors_of_file` /
 `anchors_of_entity` (filter), and MCP composed them three times: `specforge.find_spec_for_source`,

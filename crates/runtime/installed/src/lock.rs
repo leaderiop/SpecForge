@@ -1,12 +1,18 @@
 use serde::{Deserialize, Serialize};
+use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
-use specforge_package::PackageName;
+use specforge_package::{PackageName, Version};
 use specforge_registry::Disk;
 use std::path::Path;
 
 use crate::layout::lock_path;
 use crate::load::{LoadProblem, Recorded};
+use crate::module::Sha256;
 use crate::resolve::Declared;
+
+mod values;
+
+pub use values::{KeyId, recordable_peers};
 
 /// The lock file format for extension resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -22,19 +28,25 @@ pub struct LockFileEntry {
     /// whole lock unreadable (E033), since no module could be installed
     /// under it (ADR 0036).
     pub name: PackageName,
-    pub version: String,
+    /// A SemVer version, else the whole lock is unreadable (E033, ADR 0243).
+    #[serde(deserialize_with = "values::version")]
+    pub version: Version,
     pub source: LockSource,
-    pub wasm_hash: String,
+    pub wasm_hash: Sha256,
     /// The publisher key id the registry install was signed by: the
     /// project's pin for the name, which a fetch expects when the user has
     /// none of their own (ADR 0059). `None` for a local install, an unsigned
     /// one, or a lock written before signing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
+    pub key_id: Option<KeyId>,
     /// The peers its module declares, recorded at install; the load refuses an entry whose module
     /// declares others (E070, ADR 0217). Defaults on deserialize for lock files written before
     /// this existed.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "values::peers"
+    )]
     pub peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
 }
 
@@ -49,11 +61,11 @@ impl LockFileEntry {
                 declared: declared.name.clone(),
             });
         }
-        if self.version != declared.version {
+        if self.version.to_string() != declared.version {
             return Err(LoadProblem::NotWhatItsEntryRecords {
                 what: Recorded::Version,
                 declared: declared.version.clone(),
-                recorded: self.version.clone(),
+                recorded: self.version.to_string(),
             });
         }
         if self.peer_dependencies != declared.peers {
@@ -105,9 +117,9 @@ impl LocalPath {
     pub fn new(path: String) -> Result<LocalPath, String> {
         if path.is_empty() {
             Err("a local source names no path".to_string())
-        } else if path.contains(char::is_control) {
+        } else if printable(&path) != path.as_str() {
             Err(format!(
-                "a local source holds a control character: {path:?}"
+                "a local source holds a character a terminal acts on: {path:?}"
             ))
         } else {
             Ok(LocalPath(path))
@@ -333,6 +345,7 @@ impl LockState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hex_sha256;
     use specforge_registry::PlainDisk;
     use tempfile::TempDir;
 
@@ -345,9 +358,9 @@ mod tests {
         };
         let entry = LockFileEntry {
             name: PackageName::parse("@acme/a").unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: LockSource::Registry,
-            wasm_hash: String::new(),
+            wasm_hash: hex_sha256(b""),
             key_id: None,
             peer_dependencies: vec![peer("^1.0", false)],
         };
@@ -405,9 +418,9 @@ mod tests {
             lockfile_version: 1,
             entries: vec![LockFileEntry {
                 name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
-                version: "1.0.0".to_string(),
+                version: "1.0.0".parse().unwrap(),
                 source: crate::LockSource::Registry,
-                wasm_hash: "abc123".to_string(),
+                wasm_hash: hex_sha256(b"abc123"),
                 key_id: None,
                 peer_dependencies: Vec::new(),
             }],
@@ -418,7 +431,7 @@ mod tests {
 
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("@specforge/software"));
-        assert!(content.contains("abc123"));
+        assert!(content.contains(hex_sha256(b"abc123").as_str()));
     }
 
     #[test]
@@ -447,17 +460,17 @@ mod tests {
             entries: vec![
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/software").unwrap(),
-                    version: "1.0.0".to_string(),
+                    version: "1.0.0".parse().unwrap(),
                     source: crate::LockSource::Registry,
-                    wasm_hash: "abc123".to_string(),
+                    wasm_hash: hex_sha256(b"abc123"),
                     key_id: None,
                     peer_dependencies: Vec::new(),
                 },
                 LockFileEntry {
                     name: specforge_package::PackageName::parse("@specforge/governance").unwrap(),
-                    version: "1.0.0".to_string(),
+                    version: "1.0.0".parse().unwrap(),
                     source: crate::LockSource::Registry,
-                    wasm_hash: "def456".to_string(),
+                    wasm_hash: hex_sha256(b"def456"),
                     key_id: None,
                     peer_dependencies: Vec::new(),
                 },
@@ -531,7 +544,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let entry = |name: &str| {
             format!(
-                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}}"#
+                r#"{{"name": "{name}", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}}"#
             )
         };
         for name in ["../../../outside1", "@acme/..", "Bad Name", ""] {
@@ -567,7 +580,7 @@ mod tests {
     )]
     fn a_lock_that_cannot_be_read_names_one_remedy() {
         let dir = TempDir::new().unwrap();
-        let bad_name = r#"{"lockfile_version": 1, "entries": [{"name": "Bad Name", "version": "1.0.0", "source": "registry", "wasm_hash": "h"}]}"#;
+        let bad_name = r#"{"lockfile_version": 1, "entries": [{"name": "Bad Name", "version": "1.0.0", "source": "registry", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]}"#;
         for cause in [Some("not valid json {{{"), None, Some(bad_name)] {
             let path = lock_path(dir.path());
             match cause {
@@ -617,6 +630,7 @@ mod tests {
             "local:",
             "local",
             "local:a\nb.wasm",
+            "local:a\u{202e}b.wasm",
             "local:\u{1b}[8m",
             "git+https://h/r",
             "Registry",
@@ -640,14 +654,14 @@ mod tests {
       "name": "@acme/tool",
       "version": "1.0.0",
       "source": "local:ext/tool.wasm",
-      "wasm_hash": "abc"
+      "wasm_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     {
       "name": "@acme/other",
       "version": "2.0.0",
       "source": "registry",
-      "wasm_hash": "def",
-      "key_id": "k"
+      "wasm_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "key_id": "6b6b6b6b6b6b6b6b"
     }
   ]
 }"#;

@@ -272,6 +272,7 @@ impl<'p> Cli<'p> {
 }
 
 /// What one run did.
+#[derive(Debug)]
 pub struct Run {
     pub code: i32,
     pub stdout: String,

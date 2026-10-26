@@ -4,6 +4,7 @@
 )]
 
 mod calls;
+mod extension_text;
 mod handshake_conformance;
 mod load_declaration;
 mod protocol_host;

@@ -88,7 +88,11 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     assert_eq!(fetched.name, base, "C3: name");
     assert_eq!(fetched.version, one_one, "C3: version");
     assert_eq!(fetched.wasm, expected.wasm, "C3: the published bytes");
-    assert_eq!(fetched.sha256, hex_sha256(&fetched.wasm), "C3: sha256");
+    assert_eq!(
+        fetched.sha256,
+        hex_sha256(&fetched.wasm).as_str(),
+        "C3: sha256"
+    );
     assert_eq!(fetched.declaration, expected.declaration, "C3: declaration");
     let signer = expected.key_id.clone().expect("base is signed");
     let first_use = Publisher::Signed {
@@ -328,17 +332,13 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     );
 
     // C12: the lock's bytes hold the fetch, before the signature and before any question
+    let other = hex_sha256(b"other");
     let pin = |version, sha256| LockedPin {
-        version,
-        sha256,
+        bytes: Some((version, sha256)),
         key_id: None,
     };
     let error = registry
-        .fetch(
-            &plain,
-            &one,
-            refuse(false).locked(Some(pin("1.0.0", "other"))),
-        )
+        .fetch(&plain, &one, refuse(false).locked(Some(pin(&one, &other))))
         .unwrap_err();
     assert!(
         error.is(codes::R014),
@@ -349,7 +349,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         .fetch(
             &app_name,
             &app_version,
-            TrustPolicy::new(false, Asking::Ask(&asker)).locked(Some(pin("1.0.0", "other"))),
+            TrustPolicy::new(false, Asking::Ask(&asker)).locked(Some(pin(&one, &other))),
         )
         .unwrap_err();
     assert!(
@@ -358,10 +358,10 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     );
     assert!(asker.asked().is_empty(), "C12: nobody was asked");
     let plain_bytes = hex_sha256(&find("@contract/plain", "1.0.0").wasm);
+    let earlier = Version::new(0, 9, 0);
     for (version, sha256, why) in [
-        ("1.0.0", plain_bytes.as_str(), "its bytes at its version"),
-        ("0.9.0", "other", "other bytes at another version"),
-        ("1.0.0", "", "an entry that pins no hash"),
+        (&one, &plain_bytes, "its bytes at its version"),
+        (&earlier, &other, "other bytes at another version"),
     ] {
         registry
             .fetch(

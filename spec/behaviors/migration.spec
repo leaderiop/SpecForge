@@ -242,7 +242,7 @@ behavior hoist_file_defaults "Hoist File Defaults" {
     list a file's blocks repeat: for a kind with two or more blocks in the
     file and no defaults block of its own, a field is hoisted when every block
     of the kind writes it exactly once, as a one-line list of bare items with
-    no annotation and no comment on or directly above its line, at least two
+    no annotation and no comment on or directly above its line as the parse reads it, at least two
     blocks write the same list, and the graph's defaults rule applies the
     field under the field forms the project compiles with (E077: a field the
     kind declares, a kind a loaded extension declares). The most common list
@@ -264,6 +264,7 @@ behavior hoist_file_defaults "Hoist File Defaults" {
   verify unit "a kind where a block lacks the field is left as written"
   verify unit "an identifier, a quoted or a multi-line list is never hoisted"
   verify unit "a line with a comment on or above it is left as written"
+  verify unit "a // line inside a string above a list is no comment"
   verify unit "a kind that has defaults is left as written"
   verify unit "a hoist that saves no line is not written"
   verify unit "the block goes after the imports or before the first form"

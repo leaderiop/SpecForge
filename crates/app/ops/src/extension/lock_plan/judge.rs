@@ -339,7 +339,7 @@ fn refusal(
             (
                 verb.participle(),
                 install.name.to_string(),
-                install.version.clone(),
+                install.version.to_string(),
             )
         } else {
             let name = changing.names[owner].clone();

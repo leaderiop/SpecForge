@@ -24,4 +24,4 @@ pub use name::{
 };
 pub use scope::{Scope, ScopeError};
 pub use semver::{Version, VersionReq};
-pub use upgrade::{LockedVersion, Reach, upgrade_target};
+pub use upgrade::{Reach, upgrade_target};

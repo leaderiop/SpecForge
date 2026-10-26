@@ -99,7 +99,7 @@ impl ProjectPeers {
                         // `differing` compares are built from the same entries (ADR 0181).
                         Modules::OnDisk { .. } | Modules::Locked => Declared {
                             name: entry.name.to_string(),
-                            version: entry.version.clone(),
+                            version: entry.version.to_string(),
                             peers: entry.peer_dependencies.clone(),
                         },
                     },
@@ -295,9 +295,9 @@ mod tests {
     fn locked(name: &str, version: &str, source: &str) -> LockFileEntry {
         LockFileEntry {
             name: PackageName::parse(name).unwrap(),
-            version: version.to_string(),
+            version: version.parse().unwrap(),
             source: LockSource::parse(source).unwrap(),
-            wasm_hash: "hash".to_string(),
+            wasm_hash: specforge_installed::hex_sha256(b"hash"),
             key_id: None,
             peer_dependencies: Vec::new(),
         }
@@ -329,7 +329,7 @@ mod tests {
         let mut locked = specforge_installed::read_lock_file(&lock).unwrap();
         for entry in &mut locked.entries {
             if entry.name.as_str() == "@probe/lying" {
-                entry.version = "2.0.0".to_string();
+                entry.version = "2.0.0".parse().unwrap();
             }
         }
         specforge_installed::write_lock_file(&locked, &lock).unwrap();

@@ -77,8 +77,7 @@ pub struct EnabledExtension {
     /// Why it did not load. `None`: it loaded, it repeats another entry, or nothing was loaded
     /// ([`EnabledExtension::unloaded`]).
     pub failure: Option<LoadFailure>,
-    /// What it reported though it loaded: W149 (its lock entry pins no
-    /// hash), then W153 and W138 as its declaration was read. Empty when it
+    /// What it reported though it loaded: W153 and W138 as its declaration was read. Empty when it
     /// did not load or nothing was loaded.
     pub warnings: Vec<Diagnostic>,
 }
@@ -449,8 +448,6 @@ fn subject<'a>(resolved: &'a Resolved) -> Subject<'a> {
 /// What one entry that loaded brings.
 struct Done {
     declaration: ExtensionDeclaration,
-    /// What the entry itself reports although it loaded (W149).
-    notices: Vec<Diagnostic>,
     /// W153 and W138, in the order they were read.
     warnings: Vec<Diagnostic>,
 }
@@ -535,7 +532,7 @@ impl Installed {
         let mut declarations = Vec::new();
         for (i, slot) in slots.into_iter().enumerate() {
             if let Slot::Loaded(done) = slot {
-                enabled[i].warnings = done.notices.into_iter().chain(done.warnings).collect();
+                enabled[i].warnings = done.warnings;
                 declarations.push(done.declaration);
             }
         }
@@ -610,9 +607,9 @@ impl Installed {
         let module = self.read_module(disk, &self.module_path(&entry.name), |path| {
             LoadProblem::ModuleMissing { path }
         })?;
-        if !entry.wasm_hash.is_empty() && entry.wasm_hash != module.digest() {
+        if entry.wasm_hash != *module.digest() {
             return Err(LoadProblem::Changed {
-                locked: entry.wasm_hash.clone(),
+                locked: entry.wasm_hash.to_string(),
                 actual: module.digest().to_string(),
             });
         }
@@ -636,26 +633,11 @@ impl Installed {
     ) -> Result<(Declared, Done), LoadFailure> {
         let subject = subject(resolved);
         let fail = |problem: LoadProblem| self.failure(&subject, problem);
-        let mut notices = Vec::new();
         let module;
         let bytes: &[u8] = match resolved {
             Resolved::Builtin { bytes, .. } => bytes,
-            Resolved::Locked { name, entry } => {
+            Resolved::Locked { entry, .. } => {
                 module = self.check_module(entry, disk).map_err(fail)?;
-                if entry.wasm_hash.is_empty() {
-                    notices.push(
-                        Diagnostic::new(
-                            codes::W149,
-                            format!(
-                                "extension '{name}': its lock entry pins no hash, so its binary was loaded without being checked"
-                            ),
-                        )
-                        .with_suggestion(format!(
-                            "pin it by installing it again: {}",
-                            self.reinstall(name)
-                        )),
-                    );
-                }
                 module.bytes()
             }
             Resolved::Unloadable { problem, .. } => return Err(fail(problem.clone())),
@@ -681,7 +663,6 @@ impl Installed {
             Declared::of(&read.declaration),
             Done {
                 declaration: read.declaration,
-                notices,
                 warnings: read.warnings,
             },
         ))
@@ -717,9 +698,8 @@ impl Installed {
         }
     }
 
-    /// `entry`'s module when the one on disk is the one it pins (any module, for an entry that
-    /// pins no hash): the check the extension load makes ([`Self::check_module`]), and the bytes it
-    /// read, without loading them.
+    /// `entry`'s module when the one on disk is the one it pins: the check the extension load makes
+    /// ([`Self::check_module`]), and the bytes it read, without loading them.
     pub fn pinned_module(&self, entry: &LockFileEntry, disk: &dyn Disk) -> Option<Module> {
         self.check_module(entry, disk).ok()
     }

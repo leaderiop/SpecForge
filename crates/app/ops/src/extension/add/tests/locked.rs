@@ -3,12 +3,12 @@
 
 use super::*;
 use crate::config::testing::files_under;
-use specforge_installed::{hex_sha256, lock_path, read_lock_file};
+use specforge_installed::{Sha256, hex_sha256, lock_path};
 
 /// A project locking `@sdk/greet` 0.1.0 as `sha256`, enabled, its module `old` on disk.
-fn locked_greet(sha256: &str) -> tempfile::TempDir {
+fn locked_greet(sha256: &Sha256) -> tempfile::TempDir {
     add_project(vec![LockFileEntry {
-        wasm_hash: sha256.to_string(),
+        wasm_hash: sha256.clone(),
         ..entry("@sdk/greet", "0.1.0", "registry", &[])
     }])
 }
@@ -84,19 +84,4 @@ fn the_locked_version_served_as_its_bytes_installs_them_and_keeps_the_lock() {
         assert_eq!(std::fs::read(&module).unwrap(), greet());
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock);
     }
-}
-
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "an add of a registry install whose lock entry pins no hash fetches it and pins its bytes"
-)]
-fn an_entry_that_pins_no_hash_is_pinned_by_installing_it_again() {
-    let dir = locked_greet("");
-    let registry = serving_greet();
-
-    add_greet_at(dir.path(), &registry, false).unwrap();
-
-    assert!(!registry.asked().is_empty());
-    let lock = read_lock_file(&lock_path(dir.path())).unwrap();
-    assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
 }

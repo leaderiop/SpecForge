@@ -9,6 +9,7 @@ You need the stable Rust toolchain (pinned in `rust-toolchain.toml`).
 ```bash
 git clone https://github.com/leaderiop/SpecForge && cd SpecForge
 cargo install --path crates/surfaces/cli     # installs `specforge` into ~/.cargo/bin
+cargo install --path crates/surfaces/lsp     # installs `specforge-lsp` beside it, for the editor
 ```
 
 Building the CLI uses the committed builtin blobs, so it needs no wasm target. Re-vendoring the blobs after changing anything they compile from (an extension, the SDK, the protocol types) needs `rustup target add wasm32-wasip2`, then:

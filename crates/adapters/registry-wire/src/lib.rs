@@ -21,6 +21,10 @@ pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex}
 use serde::{Deserialize, Serialize};
 use specforge_package::{PackageName, Version};
 
+/// The largest package binary a registry stores, and the most bytes any registry answer may be: the reference
+/// server's upload limit (ADR 0250). A client reads no more of an answer than this.
+pub const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024;
+
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VersionList {
@@ -35,6 +39,7 @@ pub struct PackageMetadata {
     pub version: String,
     /// SHA-256 of the binary, lowercase hex.
     pub sha256: String,
+    /// The binary's length; a download is held to it, and to [`MAX_PACKAGE_BYTES`] (ADR 0250).
     #[serde(default)]
     pub size_bytes: u64,
     /// From the declaration's handshake.
@@ -50,7 +55,7 @@ pub struct PackageMetadata {
     pub published_at: String,
     /// Where the binary downloads from: an `http`/`https` URL, or a path at the registry's root. The server
     /// answers [`address::Call::Download`]'s path (`/v1/packages/…/download`); a client resolves it with
-    /// [`RegistryRoot::download_address`] and hands it on absolute.
+    /// [`RegistryRoot::download_address`] and hands it on absolute, as that URL's serialization.
     pub wasm_url: String,
     /// The publisher signature; absent when unsigned (a registry that refuses unsigned uploads serves none such).
     /// Only a well-formed one reads: a reply carrying another is not this body.
@@ -60,6 +65,17 @@ pub struct PackageMetadata {
     /// the signature covers these bytes.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub manifest: String,
+}
+
+impl PackageMetadata {
+    /// The most bytes its binary may download as (ADR 0250): the `size_bytes` it declares, at most
+    /// [`MAX_PACKAGE_BYTES`]; that ceiling when it declares none (an absent one reads as `0`).
+    pub fn download_limit(&self) -> u64 {
+        match self.size_bytes {
+            0 => MAX_PACKAGE_BYTES,
+            declared => declared.min(MAX_PACKAGE_BYTES),
+        }
+    }
 }
 
 /// How many hits a search asks for when it names no limit.
@@ -233,6 +249,25 @@ impl ErrorBody {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_download_is_limited_to_its_declared_size_at_most_the_ceiling() {
+        let limit = |size_bytes| {
+            PackageMetadata {
+                size_bytes,
+                ..Default::default()
+            }
+            .download_limit()
+        };
+        assert_eq!(limit(0), MAX_PACKAGE_BYTES);
+        assert_eq!(limit(10), 10);
+        assert_eq!(limit(MAX_PACKAGE_BYTES + 1), MAX_PACKAGE_BYTES);
+    }
+
+    #[test]
+    fn the_package_ceiling_is_the_servers_upload_limit() {
+        assert_eq!(MAX_PACKAGE_BYTES, 64 * 1024 * 1024);
+    }
 
     /// `value` serializes to `expected` and `expected` reads back as `value`.
     fn is_this_json<T>(value: &T, expected: serde_json::Value)

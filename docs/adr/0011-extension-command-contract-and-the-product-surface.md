@@ -1,6 +1,6 @@
 # One contract for extension commands; the product surface is its commands
 
-**Status:** accepted (2026-10-03)
+**Status:** accepted (2026-10-03). B's "over MCP … the same object" and O2's refused-args clause amended by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md).
 
 ADR 0008 made the `specforge product` queries `@specforge/product`'s commands, run over the graph
 the host passes. The product spec still describes a larger surface than that contract can carry:

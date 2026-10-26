@@ -40,7 +40,7 @@ pub enum RegistryError {
         message: String,
     },
     /// The registry answered with a body that isn't the wire type of the call: a malformed publisher signature
-    /// among them (R009).
+    /// among them, or a body longer than the call admits (ADR 0250) (R009).
     InvalidReply {
         subject: String,
         message: String,
@@ -48,19 +48,31 @@ pub enum RegistryError {
 }
 
 impl RegistryError {
-    /// Convert this error into a `Diagnostic`.
+    /// This error as a diagnostic: its variant's sentence, then its whole message and suggestion written
+    /// printable (`remedy::printable`, ADR 0245), so every field of every variant reaches each surface as
+    /// harmless text.
     pub fn to_diagnostic(&self) -> Diagnostic {
+        let mut diagnostic = self.worded();
+        diagnostic.message = printable(&diagnostic.message).into_owned();
+        diagnostic.suggestion = diagnostic
+            .suggestion
+            .map(|suggestion| printable(&suggestion).into_owned());
+        diagnostic
+    }
+
+    /// The variant's code and sentence with its fields as they are; only `to_diagnostic` hands it out.
+    fn worded(&self) -> Diagnostic {
         match self {
             RegistryError::Unauthorized { guidance } => Diagnostic::new(
                 codes::R001,
-                format!("Registry authentication failed: {}", printable(guidance)),
+                format!("Registry authentication failed: {guidance}"),
             )
             .with_suggestion(
                 "Log in: `specforge login --registry <alias> --token <TOKEN>`.".to_string(),
             ),
             RegistryError::Forbidden { guidance } => Diagnostic::new(
                 codes::R002,
-                format!("Registry access forbidden: {}", printable(guidance)),
+                format!("Registry access forbidden: {guidance}"),
             )
             .with_suggestion(
                 "Check your permissions for this registry or package scope.".to_string(),
@@ -76,7 +88,7 @@ impl RegistryError {
                     )
             }
             RegistryError::NetworkError { message } => {
-                Diagnostic::new(codes::R005, format!("Registry network error: {}", printable(message)))
+                Diagnostic::new(codes::R005, format!("Registry network error: {message}"))
                     .with_suggestion("Check your network connection, then retry.".to_string())
             }
             RegistryError::NotFound { specifier } => {
@@ -90,7 +102,7 @@ impl RegistryError {
             .with_suggestion("Bump the version number before publishing.".to_string()),
             RegistryError::Refused { code, message } => Diagnostic::new(
                 codes::R008,
-                format!("the registry refused the request ({code}): {}", printable(message)),
+                format!("the registry refused the request ({code}): {message}"),
             )
             .with_suggestion(
                 "fix what the registry names and try again; sending the same request again is refused the same way"
@@ -99,8 +111,7 @@ impl RegistryError {
             RegistryError::InvalidReply { subject, message } => Diagnostic::new(
                 codes::R009,
                 format!(
-                    "the registry's answer for {subject} is not the registry protocol's JSON: {}",
-                    printable(message)
+                    "the registry's answer for {subject} is not an answer the registry protocol defines: {message}"
                 ),
             )
             .with_suggestion(
@@ -133,7 +144,8 @@ pub trait RegistryClient: Send + Sync {
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<String>, RegistryError>;
 
-    /// What `registry` stores for `name@version`, its `wasm_url` absolute. `NotFound` when the registry
+    /// What `registry` stores for `name@version`, its `wasm_url` absolute, as its URL's
+    /// serialization. `NotFound` when the registry
     /// answers that it has none (its 404 with `NOT_FOUND`); an answer no registry gives is `InvalidReply`.
     fn metadata(
         &self,
@@ -143,12 +155,13 @@ pub trait RegistryClient: Send + Sync {
         credential: Option<&RegistryCredential>,
     ) -> Result<PackageMetadata, RegistryError>;
 
-    /// The bytes at `wasm_url` (a [`RegistryClient::metadata`] answer's). `credential` is sent only when
-    /// `wasm_url` has `registry.url`'s origin (scheme, host and port): a download served elsewhere (a CDN)
-    /// never sees the registry's token.
+    /// The binary `metadata` (a [`RegistryClient::metadata`] answer) describes, from its `wasm_url`, at most
+    /// [`PackageMetadata::download_limit`] bytes: a longer one is `InvalidReply` (R009) and is never held whole
+    /// (ADR 0250). `credential` is sent only when `wasm_url` has `registry.url`'s origin (scheme, host and
+    /// port): a download served elsewhere (a CDN) never sees the registry's token.
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError>;

@@ -193,12 +193,10 @@ pub enum Payload {
 /// What a tool call produced.
 #[derive(Debug, Clone)]
 pub enum ToolOutcome {
-    /// The tool ran. `is_error` marks a failed run (an `isError` result);
-    /// `diagnostics` ride in `_meta.diagnostics` and `meta`'s entries beside
+    /// The tool ran. `diagnostics` ride in `_meta.diagnostics` and `meta`'s entries beside
     /// them in `_meta`.
     Done {
         payload: Payload,
-        is_error: bool,
         diagnostics: Vec<Diagnostic>,
         meta: serde_json::Map<String, Value>,
     },
@@ -208,10 +206,9 @@ pub enum ToolOutcome {
 }
 
 impl ToolOutcome {
-    fn done(payload: Payload, is_error: bool) -> Self {
+    fn done(payload: Payload) -> Self {
         ToolOutcome::Done {
             payload,
-            is_error,
             diagnostics: Vec::new(),
             meta: serde_json::Map::new(),
         }
@@ -219,23 +216,17 @@ impl ToolOutcome {
 
     /// A successful structured result.
     pub fn ok(payload: Value) -> Self {
-        Self::done(Payload::Json(payload), false)
+        Self::done(Payload::Json(payload))
     }
 
     /// A successful plain-text result.
     pub fn text(text: impl Into<String>) -> Self {
-        Self::done(Payload::Text(vec![text.into()]), false)
+        Self::done(Payload::Text(vec![text.into()]))
     }
 
-    /// A failed run whose output is a JSON object: a command's error
-    /// object (ADR 0011).
-    pub fn failed(payload: Value) -> Self {
-        Self::done(Payload::Json(payload), true)
-    }
-
-    /// Plain-text blocks, failed or not: a command's output.
-    pub fn texts(blocks: Vec<String>, is_error: bool) -> Self {
-        Self::done(Payload::Text(blocks), is_error)
+    /// Plain-text blocks: a command's output.
+    pub fn texts(blocks: Vec<String>) -> Self {
+        Self::done(Payload::Text(blocks))
     }
 
     /// A failure with `code` and `message`.
@@ -275,13 +266,7 @@ impl ToolOutcome {
 
     /// Whether the tool ran without failing.
     pub fn succeeded(&self) -> bool {
-        matches!(
-            self,
-            ToolOutcome::Done {
-                is_error: false,
-                ..
-            }
-        )
+        matches!(self, ToolOutcome::Done { .. })
     }
 }
 
@@ -316,10 +301,9 @@ pub fn envelope(
         }
         ToolOutcome::Done {
             payload,
-            is_error,
             diagnostics,
             meta,
-        } => (payload, is_error, diagnostics, meta),
+        } => (payload, false, diagnostics, meta),
     };
     let content: Vec<Value> = match &payload {
         Payload::Json(value) => vec![json!({ "type": "text", "text": value.to_string() })],

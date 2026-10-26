@@ -13,8 +13,8 @@ behavior create_entity "Create an Entity" {
   invariants [typed_edit_canonical_form, typed_edit_atomicity]
   category   mutation
   contract   """
-    A create edit names a kind, an id, a title and a file relative to the project
-    root, inside the spec root; every spelling of the file under the project root is that file (its source key; ADR 0195, ADR 0242). The block is written in the canonical form, after the last block of
+    A create edit names a kind, an id, a title and a file named from the project
+    root, inside the spec root (wherever the spec root lies); every spelling of the file under the project root is that file (its source key; ADR 0195, ADR 0242). The block is written in the canonical form, after the last block of
     its kind in the file, or at the end of the file; a file that does not exist
     is created, unless the later edits of the list leave it empty: a file that does not
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
@@ -62,6 +62,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new --help of a kind the project does not declare is refused as unknown_kind"
   verify integration "new --help after a field flag prints the kind's help"
   verify integration "new refuses a command line whose --path a field's value spells"
+  verify unit "new writes into a spec root outside the project by the file check names"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -74,8 +75,8 @@ behavior edit_entity_field "Edit an Entity Field" {
     project's format configuration past its key, and inserts an absent field
     at its rank (one-line values, then
     block fields, then triple-quoted text, in the kind's declared order). An
-    unset edit leaves the field holding none: it removes the field and the comment lines directly above it, or, over
-    a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
+    unset edit leaves the field holding none: it removes the field and the comment lines directly above it, as the
+    parse reads them (a `//` line inside a string is none), or, over a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
     hold none and is refused. A second unset changes nothing. A
     dotted `field.entry` path edits one entry of a block field the kind
     declares; its field is refused as any field is, a field that is not a declared block field, or a path whose
@@ -122,6 +123,8 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "every member edit of a union is refused as one not_editable, before its field is read"
   verify unit "retitle and delete take a union"
   verify unit "retitle refuses a blank title before anything is planned, as create does"
+  verify unit "unset keeps a // line inside the string above the field"
+  verify unit "set of an absent field never writes inside the string above the first field"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -151,6 +154,7 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "link and unlink refuse a field.entry path as an entry of a block field"
   verify unit "unlink of an inherited single reference is refused as unset is"
   verify unit "a link and its unlink leave a block as it was"
+  verify unit "unlink of the last item keeps a // line inside the string above the list"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {
@@ -179,6 +183,7 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
   verify unit "--verify names the obligation the entity writes in either reading of its prefix"
   verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
+  verify unit "remove-verify keeps a // line inside the string above the statement"
 }
 
 behavior delete_entity "Delete an Entity" {
@@ -207,6 +212,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references refuses a reference no typed edit writes"
   verify unit "delete with unlink_references refuses a type name a derived field reads"
   verify unit "delete with unlink_references removes a use binding that imports it"
+  verify unit "delete with unlink_references keeps a // line inside a string above a reference"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
@@ -228,7 +234,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
     with unlink_references each referrer's field; an edge is declared by its
     source's declared field or by a created or deleted end. An edit whose
     edited graph changes anything else is refused as undeclared_change and
-    writes nothing; E080 is judged first. Warnings and infos it adds are written and reported. A preview
+    writes nothing; a block an edit leaves holding text the parser cannot read whole is refused edit_unreadable, also a
+    defect of the edit, and writes nothing; a block that holds such text before the edit is refused block_unreadable; E080 is judged first. Warnings and infos it adds are written and reported. A preview
     refuses exactly what the write would. The files are written as one project
     change: a file changed since the compile refuses the whole plan, and a
     failed write puts every file already written back. The report names the net
@@ -238,6 +245,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   """
   verify unit "a graph change no edit declares is beyond the declaration"
   verify unit "every verb's graph change is what it declares"
+  verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"
@@ -247,4 +255,5 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "an edit planned while the checks are skipped is compared with the checked report"
   verify unit "the report names what the edits change taken together"
   verify unit "a create links the names the project already writes for its ID"
+  verify unit "a block an edit leaves unreadable is refused edit_unreadable; one unreadable before it, block_unreadable"
 }

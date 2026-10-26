@@ -1,5 +1,10 @@
 use super::*;
 
+/// Publisher key ids as a registry computes them: 16 lowercase hex characters (ADR 0243).
+const K1: &str = "1111111111111111";
+const K2: &str = "2222222222222222";
+const K3: &str = "3333333333333333";
+
 #[specforge_test(
     behavior = "add_extension_to_existing_project",
     verify = "a dry run of an extension already present answers as the add would, whatever its source"
@@ -281,17 +286,17 @@ fn a_dry_run_refuses_what_the_trust_decision_refuses() {
                     b"\0asm tool".to_vec(),
                     declaration("@acme/tool", "1.0.0", &[]),
                 )
-                .signed_by("k2"),
+                .signed_by(K2),
             )
             .serving(
                 Published::new(
                     b"\0asm denied".to_vec(),
                     declaration("@acme/denied", "1.0.0", &[]),
                 )
-                .signed_by("k3"),
+                .signed_by(K3),
             )
-            .pinning("@acme/tool", "k1")
-            .denying("k3")
+            .pinning("@acme/tool", K1)
+            .denying(K3)
     };
     let dir = add_project(Vec::new());
     let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();

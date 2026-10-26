@@ -689,7 +689,7 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     names a directory inside the call's project: a relative one is read
     against its root, wherever the server runs, and one that leaves the
     project (by .., an absolute name or a symlink) MUST be refused as invalid
-    input on out_dir, as MUST any out_dir with no project served; and the file
+    input on out_dir, naming out_dir as the call spelled it, as MUST any out_dir with no project served; and the file
     it writes there is not written through a symlink that leaves the project
     (invalid input on out_dir). The file is replaced atomically where it
     lands: a link that stays inside the project is followed, and a file

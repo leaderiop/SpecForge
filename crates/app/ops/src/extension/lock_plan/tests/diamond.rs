@@ -63,35 +63,6 @@ fn an_impossible_diamond_is_refused_naming_each_requirer() {
 }
 
 #[test]
-fn a_locked_peer_at_a_version_that_is_not_semver_is_unified_like_one_out_of_range() {
-    let mut entries = base_and_other("^1.0");
-    entries[0].version = "local".to_string();
-    // The module the entry pins spells the version it records.
-    entries[0].wasm_hash = specforge_installed::hex_sha256(&crate::extension::fixtures::module_of(
-        "@acme/base",
-        "local",
-        &entries[0].peer_dependencies,
-    ));
-    let installed = nowhere(entries);
-    let registry = base_registry().serving(Published::new(
-        b"\0asm app".to_vec(),
-        declaration("@acme/app", "1.0.0", &[("@acme/base", ">=1.0.0")]),
-    ));
-    let runtime = runtime();
-    let mut plan = plan_from(&installed, &runtime, &registry, Verb::Install);
-    stage_fetched(
-        &mut plan,
-        &PackageName::parse("@acme/app").unwrap(),
-        Version::new(1, 0, 0),
-    );
-
-    let err = refused(plan);
-
-    assert_eq!(err.code, "R-RES-006", "{err:?}");
-    assert!(err.message.contains("@acme/base 1.4.0"), "{err:?}");
-}
-
-#[test]
 fn a_satisfied_plan_asks_the_registry_nothing_more() {
     let installed = nowhere(base_and_other("^1.0"));
     let runtime = runtime();

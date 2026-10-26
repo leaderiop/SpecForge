@@ -813,20 +813,21 @@ mod passes_of_the_declaration {
         );
     }
 
-    fn no_version() -> ContributionsBuilder {
-        ContributionsBuilder::new(ExtensionMeta::new("@acme/noversion", ""))
+    fn bad_short() -> ContributionsBuilder {
+        let mut meta = ExtensionMeta::new("@a/b", "1.0.0");
+        meta.short = Some("Not Kebab".into()); // E030: no kebab case
+        ContributionsBuilder::new(meta)
     }
 
-    /// The runtime's load failures (E028) come before the declarations'
-    /// own diagnostics (E030), whatever the load order (ADR 0012): they
-    /// used to interleave extension by extension.
+    /// The runtime's load failures (E028) come before the declarations' own diagnostics (E030),
+    /// whatever the load order (ADR 0012): they used to interleave extension by extension.
     #[test]
     fn load_failures_come_before_declaration_diagnostics() {
-        let runtime = Arc::new(InProcessRuntime::new().with(no_version));
+        let runtime = Arc::new(InProcessRuntime::new().with(bad_short));
         let dir = project(
             serde_json::json!({
                 "name": "p", "version": "0.1.0",
-                "extensions": ["@acme/noversion", "@acme/missing"]
+                "extensions": ["@a/b", "@acme/missing"]
             }),
             &[],
         );
@@ -1026,9 +1027,8 @@ fn an_unreadable_source_is_e025_naming_it() {
     assert_eq!(compiled.source_texts().len(), 1);
 }
 
-/// `@sdk/greet` installed by hand under `root`: its module, and a lock
-/// entry pinning `hash` (the module's own when `None`).
-fn install_greet(root: &Path, hash: Option<&str>) {
+/// `@sdk/greet` installed by hand under `root`, its lock entry pinning its module.
+fn install_greet(root: &Path) {
     let blob = specforge_component::committed::GREET.path();
     let bytes = fs::read(blob).unwrap();
     let module = root.join(".specforge/extensions/@sdk/greet/extension.wasm");
@@ -1038,9 +1038,9 @@ fn install_greet(root: &Path, hash: Option<&str>) {
         lockfile_version: 1,
         entries: vec![specforge_installed::LockFileEntry {
             name: specforge_package::PackageName::parse("@sdk/greet").unwrap(),
-            version: "0.1.0".into(),
+            version: "0.1.0".parse().unwrap(),
             source: specforge_installed::LockSource::Registry,
-            wasm_hash: hash.map_or_else(|| specforge_installed::hex_sha256(&bytes), str::to_string),
+            wasm_hash: specforge_installed::hex_sha256(&bytes),
             key_id: None,
             peer_dependencies: Vec::new(),
         }],
@@ -1087,7 +1087,7 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
         serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
         &[],
     );
-    install_greet(dir.root(), None);
+    install_greet(dir.root());
     fs::write(
         specforge_installed::lock_path(dir.root()),
         "not valid json {{{",
@@ -1114,39 +1114,6 @@ fn an_unreadable_lock_reports_e033_once_then_each_installed_extension() {
     assert!(unloaded[0].contains("specforge.lock can't be read"));
     let at = |code: &str| diagnostics.iter().position(|d| d.code == code).unwrap();
     assert!(at("E033") < at("E028"), "the lock comes first");
-}
-
-/// A lock entry that pins no hash loads its extension, with W149.
-#[specforge_test(
-    behavior = "load_wasm_module",
-    verify = "legacy lockfile entry without hash loads with W149"
-)]
-fn an_unpinned_lock_entry_loads_with_w149() {
-    let dir = project(
-        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": ["@sdk/greet"]}),
-        &[],
-    );
-    install_greet(dir.root(), Some(""));
-    let runtime = dir.runtime();
-
-    let env = specforge_project::Environment::load(
-        &specforge_common::ProjectRoot::of(dir.root()).unwrap(),
-        Some(runtime.clone()),
-    );
-
-    let named: Vec<(&str, specforge_common::Severity)> = env
-        .diagnostics()
-        .filter(|d| d.message.contains("@sdk/greet"))
-        .map(|d| (d.code.as_str(), d.severity))
-        .collect();
-    assert_eq!(named, [("W149", specforge_common::Severity::Warning)]);
-    assert!(
-        env.registries()
-            .declarations()
-            .iter()
-            .any(|d| d.name() == "@sdk/greet"),
-        "its declaration loaded"
-    );
 }
 
 /// `name`, declaring the kind `widget`, with a required peer on `peer` when given.

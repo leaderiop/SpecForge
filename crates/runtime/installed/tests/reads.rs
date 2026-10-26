@@ -20,7 +20,7 @@ fn lock_bytes() -> Vec<u8> {
         lockfile_version: 1,
         entries: vec![LockFileEntry {
             name: PackageName::parse("@acme/a").unwrap(),
-            version: "1.0.0".to_string(),
+            version: "1.0.0".parse().unwrap(),
             source: LockSource::Registry,
             wasm_hash: hex_sha256(b"module"),
             key_id: None,

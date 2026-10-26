@@ -53,7 +53,7 @@ use stamps::{Entry, Scope, Stamps};
 /// (ADR 0100 D5); a reader reads it through its accessors.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Changes {
-    /// Changed sources, by key relative to the spec root: sorted, deduplicated.
+    /// Changed sources, by key: sorted, deduplicated.
     pub(crate) sources: Vec<String>,
     /// The environment must load again. Each path of the batch that reached
     /// an environment input which changed, as the batch spelled it (for
@@ -71,7 +71,7 @@ impl Changes {
         self.sources.is_empty() && self.environment.is_empty() && self.check_inputs.is_empty()
     }
 
-    /// The changed sources, by key relative to the spec root: sorted, deduplicated.
+    /// The changed sources, by key: sorted, deduplicated.
     pub fn sources(&self) -> &[String] {
         &self.sources
     }

@@ -17,7 +17,7 @@ fn write_lock_file(dir: &std::path::Path, entries: &[(&str, &str, &str)]) {
                 "name": name,
                 "version": version,
                 "source": source,
-                "wasm_hash": format!("hash_{}", name.replace(['@', '/'], "_")),
+                "wasm_hash": "0".repeat(64),
             })
         })
         .collect();
@@ -1339,7 +1339,7 @@ fn project_with_installed(dir: &std::path::Path, installed: &[(&str, &[&str])]) 
             .collect();
         entries.push(serde_json::json!({
             "name": name, "version": "1.0.0", "source": "registry",
-            "wasm_hash": "", "peer_dependencies": peers,
+            "wasm_hash": specforge_installed::hex_sha256(b"fake"), "peer_dependencies": peers,
         }));
     }
     fs::write(
@@ -1693,7 +1693,7 @@ fn add_update_and_remove_refuse_an_unusable_config_alike() {
         // A lock, so `update` has something it could touch.
         fs::write(
             dir.root().join("specforge.lock"),
-            r#"{"lockfile_version":1,"entries":[{"name":"@acme/x","version":"1.0.0","source":"registry","wasm_hash":"h"}]}"#,
+            r#"{"lockfile_version":1,"entries":[{"name":"@acme/x","version":"1.0.0","source":"registry","wasm_hash":"0000000000000000000000000000000000000000000000000000000000000000"}]}"#,
         )
         .unwrap();
         let before = crate::support::written::files_under(dir.root());

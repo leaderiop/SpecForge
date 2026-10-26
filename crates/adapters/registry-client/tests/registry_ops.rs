@@ -375,11 +375,11 @@ impl RegistryClient for WrongReceipt {
 
     fn download(
         &self,
-        wasm_url: &str,
+        metadata: &PackageMetadata,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<Vec<u8>, RegistryError> {
-        self.0.download(wasm_url, registry, credential)
+        self.0.download(metadata, registry, credential)
     }
 
     fn search(

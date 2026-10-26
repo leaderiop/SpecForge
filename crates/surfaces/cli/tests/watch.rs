@@ -409,7 +409,7 @@ fn watch_reloads_on_a_lock_change() {
     settle(&rx);
     let lock = serde_json::json!({
         "lockfile_version": 1,
-        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"}]
     });
     project.write("specforge.lock", lock.to_string());
 

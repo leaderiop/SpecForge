@@ -6,11 +6,14 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
     access the host filesystem, network, environment, or memory outside its
     linear memory region; no sandbox policy permits it, since a policy
     declares limits only (ADR 0037). Any call that crosses a limit of its
-    sandbox MUST trap the extension and emit a diagnostic (E028).
+    sandbox MUST trap the extension and emit a diagnostic (E028). No text
+    an extension supplies reaches a user's terminal as a control sequence:
+    the host reads it printable where it reads the answer (ADR 0244).
   """
   risk      high
   verify property "no extension can read or write outside its sandbox boundaries"
   verify unit "sandbox violation traps the extension and emits a diagnostic"
+  verify integration "no text an extension supplies reaches the terminal as a control sequence"
 }
 
 invariant extension_load_order_determinism "Extension Load Order Determinism" {
@@ -148,7 +151,8 @@ invariant registry_integrity "Registry Integrity" {
     produce a hard error diagnostic and abort installation. The hash and,
     for a signed package, its publisher key id MUST be recorded in
     specforge.lock. At the version specforge.lock pins, the bytes installed
-    MUST be the ones it pins.
+    MUST be the ones it pins. A download MUST be no longer than the size
+    the registry declares for it (64 MiB at most).
   """
   risk      high
   verify unit "SHA256 match passes verification"

@@ -24,16 +24,17 @@ impl SourceRoot {
     /// project opened as [`Self::dir`] spells it). The inverse of
     /// [`Self::key`] on every key it returns.
     pub fn path(&self, key: &str) -> PathBuf {
-        // A spec root outside the project is keyed by its canonical absolute path; open it as the walk spells it.
+        // A key under the prefix is opened as the walk spells the spec root (it may lie outside the project, or be
+        // reached through a `..` or a link).
         match Path::new(key).strip_prefix(&self.prefix) {
-            Ok(rest) if self.prefix.is_absolute() => self.dir.join(rest),
+            Ok(rest) => self.dir.join(rest),
             _ => self.base().join(key),
         }
     }
 
-    /// The spec root as a key prefix: [`Self::dir`] relative to [`Self::base`], `""` when they are one directory,
-    /// absolute when the spec root lies outside it. Where an import path is read from, and the region "every
-    /// source".
+    /// The spec root as a key prefix: a prefix of every key [`Self::key`] mints for a file [`Self::files`] lists.
+    /// [`Self::dir`] relative to [`Self::base`], `""` when they are one directory, absolute and canonical when the
+    /// spec root lies outside it. Where an import path is read from, and the region "every source".
     pub fn prefix(&self) -> &Path {
         &self.prefix
     }
@@ -45,12 +46,16 @@ impl SourceRoot {
             .is_ok_and(|rest| self.holds(&rest.to_string_lossy()))
     }
 
-    /// [`Self::dir`] as a prefix of the keys under [`Self::base`].
+    /// [`Self::dir`] as a prefix of the keys under [`Self::base`]: the directory of the key a file directly in the
+    /// spec root gets, so the prefix and every key under it come from one rule ([`ProjectPath::key`]): as spelled
+    /// under the base, else (outside the base, or reached through a `..`) the spec root's canonical form.
     pub(super) fn prefix_of(base: &Path, dir: &Path) -> PathBuf {
-        match ProjectPath::key(base, dir).as_str() {
-            "." => PathBuf::new(),
-            named => PathBuf::from(named),
-        }
+        // Any name will do: a key keeps a file's own name and reads only its directory.
+        let key = ProjectPath::key(base, &dir.join("_.spec"));
+        Path::new(key.as_str())
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_default()
     }
 }
 
@@ -106,5 +111,53 @@ mod tests {
         assert!(sources.holds_key("sub/a.spec"));
         assert!(!sources.holds_key("sub/a.txt"));
         assert!(!sources.holds_key("/abs/a.spec"));
+    }
+
+    /// Every key a spec root mints starts with its prefix, whichever way the spec root is spelled (ADR 0246).
+    #[cfg(unix)]
+    #[test]
+    fn a_spec_roots_prefix_holds_every_key_it_mints() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let t = std::fs::canonicalize(dir.path()).unwrap();
+        for file in [
+            "real/a.spec",
+            "real/sub/b.spec",
+            "proj/real2/c.spec",
+            "proj/x.spec",
+        ] {
+            let file = t.join(file);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, "").unwrap();
+        }
+        std::os::unix::fs::symlink(t.join("real"), t.join("link")).unwrap();
+        std::os::unix::fs::symlink(t.join("proj/real2"), t.join("proj/link2")).unwrap();
+        let proj = t.join("proj");
+        for spec_root in [
+            proj.join("../link"),
+            proj.join("../real"),
+            proj.join("../proj/link2"),
+            proj.join("link2"),
+            proj.clone(),
+        ] {
+            let sources = SourceRoot::new(proj.clone(), spec_root.clone(), Exclude::default());
+            assert!(!sources.files().is_empty(), "{spec_root:?}");
+            for file in sources.files() {
+                let key = sources.key(&file);
+                assert!(
+                    Path::new(key.as_str()).starts_with(sources.prefix()),
+                    "{key} / {:?}",
+                    sources.prefix()
+                );
+                assert!(sources.holds_key(key.as_str()), "{key}");
+                assert_eq!(
+                    sources.files_at(&sources.path(key.as_str())),
+                    std::slice::from_ref(&file)
+                );
+            }
+        }
+        let outside = SourceRoot::new(proj.clone(), proj.join("../link"), Exclude::default());
+        assert_eq!(outside.prefix(), t.join("real"));
+        let inside = SourceRoot::new(proj.clone(), proj.join("../proj/link2"), Exclude::default());
+        assert_eq!(inside.prefix(), Path::new("real2"));
     }
 }

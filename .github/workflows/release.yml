@@ -48,7 +48,7 @@ jobs:
       # The builtin extension blobs are committed and embedded, so no wasm
       # target is needed to build the CLI.
       - name: Build
-        run: cargo build --release --locked -p specforge-cli --target ${{ matrix.target }}
+        run: cargo build --release --locked -p specforge-cli -p specforge-lsp --target ${{ matrix.target }}
 
       - name: Package
         shell: bash
@@ -56,7 +56,8 @@ jobs:
           name="specforge-${{ matrix.target }}"
           mkdir "$name"
           bin=specforge; [ "${{ matrix.ext }}" = zip ] && bin=specforge.exe
-          cp "target/${{ matrix.target }}/release/$bin" "$name/"
+          lsp=specforge-lsp; [ "${{ matrix.ext }}" = zip ] && lsp=specforge-lsp.exe
+          cp "target/${{ matrix.target }}/release/$bin" "target/${{ matrix.target }}/release/$lsp" "$name/"
           cp README.md "$name/"
           for f in LICENSE*; do [ -f "$f" ] && cp "$f" "$name/"; done || true
           if [ "${{ matrix.ext }}" = zip ]; then
@@ -73,6 +74,8 @@ jobs:
           name="specforge-${{ matrix.target }}"
           bin=specforge; [ "${{ matrix.ext }}" = zip ] && bin=specforge.exe
           "$name/$bin" --version
+          lsp=specforge-lsp; [ "${{ matrix.ext }}" = zip ] && lsp=specforge-lsp.exe
+          "$name/$lsp" </dev/null
           dir=$(mktemp -d); cd "$dir"
           "$GITHUB_WORKSPACE/$name/$bin" init --extensions @specforge/software
           "$GITHUB_WORKSPACE/$name/$bin" check

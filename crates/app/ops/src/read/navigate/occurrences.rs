@@ -256,17 +256,26 @@ impl Navigator<'_> {
                 precision: definition.precision,
             });
         }
-        tokens.sort_by_key(|t| {
-            (
-                t.span.file,
-                t.span.start_line,
-                t.span.start_col,
-                t.span.end_line,
-                t.span.end_col,
-            )
-        });
-        tokens.dedup();
+        sort_tokens(&mut tokens);
         Ok(tokens)
+    }
+
+    /// Every written token of the compile, grouped by the entity it names: one scan of the parsed files, each group
+    /// what [`Self::tokens`] answers for that entity without its declaration. For a caller that reads many entities.
+    pub fn tokens_by_target(&self) -> std::collections::HashMap<String, Vec<Token>> {
+        let mut groups: std::collections::HashMap<String, Vec<Token>> = Default::default();
+        for (_, file) in self.view.project().parsed() {
+            for t in self.found(file) {
+                groups
+                    .entry(t.target.as_str().to_string())
+                    .or_default()
+                    .push(self.token(&t));
+            }
+        }
+        for tokens in groups.values_mut() {
+            sort_tokens(tokens);
+        }
+        groups
     }
 
     /// The tokens the graph's finder reads in `file` (a compiled parse) that name an entity of the graph.
@@ -345,4 +354,18 @@ impl Navigator<'_> {
             .chain(references)
             .find(|t| t.precision == Precision::Token && contains(&t.span, &at))
     }
+}
+
+/// `tokens` sorted by (file, line, column) and deduplicated.
+fn sort_tokens(tokens: &mut Vec<Token>) {
+    tokens.sort_by_key(|t| {
+        (
+            t.span.file,
+            t.span.start_line,
+            t.span.start_col,
+            t.span.end_line,
+            t.span.end_col,
+        )
+    });
+    tokens.dedup();
 }

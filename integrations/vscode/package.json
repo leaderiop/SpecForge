@@ -55,10 +55,6 @@
         {
           "id": "specforge.entities",
           "name": "Entities"
-        },
-        {
-          "id": "specforge.extensions",
-          "name": "Extensions"
         }
       ]
     },
@@ -195,13 +191,18 @@
         "url": "./schemas/specforge.schema.json"
       }
     ],
+    "taskDefinitions": [
+      {
+        "type": "specforge"
+      }
+    ],
     "configuration": {
       "title": "SpecForge",
       "properties": {
-        "specforge.lsp.path": {
+        "specforge.binDir": {
           "type": "string",
           "default": "",
-          "description": "Path to specforge-lsp binary. If empty, uses bundled binary or $PATH.",
+          "description": "Directory holding the specforge and specforge-lsp binaries. If empty, both are found on PATH. Machine scope: a workspace cannot set it.",
           "scope": "machine"
         },
         "specforge.lsp.trace": {
@@ -213,11 +214,6 @@
           ],
           "default": "off",
           "description": "Trace LSP communication (for debugging)."
-        },
-        "specforge.codeLens.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show reference counts and verify status above entities."
         },
         "specforge.graph.defaultLayout": {
           "type": "string",
@@ -234,26 +230,6 @@
           "type": "boolean",
           "default": true,
           "description": "Update graph visualization on file save."
-        },
-        "specforge.format.onSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Auto-format .spec files on save."
-        },
-        "specforge.mcp.autoStart": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically start MCP server for AI agent integration."
-        },
-        "specforge.entityExplorer.groupBy": {
-          "type": "string",
-          "enum": [
-            "kind",
-            "extension",
-            "file"
-          ],
-          "default": "kind",
-          "description": "How to group entities in the explorer."
         }
       }
     },
@@ -384,12 +360,6 @@
         "command": "specforge.inspect",
         "key": "alt+i",
         "when": "editorLangId == specforge"
-      },
-      {
-        "command": "specforge.search",
-        "key": "ctrl+shift+s",
-        "mac": "cmd+shift+s",
-        "when": "specforge:projectDetected"
       }
     ],
     "menus": {
@@ -475,7 +445,6 @@
     "compile": "tsc -p ./tsconfig.json",
     "check": "tsc -p ./tsconfig.json --noEmit",
     "lint": "eslint src/",
-    "test": "node ./out/test/runTest.js",
     "package": "vsce package",
     "publish": "vsce publish"
   },
@@ -483,13 +452,10 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.95.0",
-    "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.24.0",
-    "mocha": "^10.8.0",
     "typescript": "^5.7.0"
   }
 }
