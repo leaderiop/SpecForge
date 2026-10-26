@@ -366,6 +366,42 @@ fn vscode_tree_and_graph_read_the_language_server() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+#[test]
+#[ignore = "flipped by T3"]
+fn vscode_graph_panel_reads_every_field_the_client_posts() {
+    let text =
+        std::fs::read_to_string(repo_root().join("integrations/vscode/src/graph-webview.ts"))
+            .expect("read graph-webview.ts");
+    let start = text
+        .find("<script nonce")
+        .expect("the panel's inline script");
+    let end = start + text[start..].find("</script>").expect("its end");
+    let (script, client) = (
+        &text[start..end],
+        format!("{}{}", &text[..start], &text[end..]),
+    );
+    let mut problems = Vec::new();
+    for (at, _) in client.match_indices("postMessage({") {
+        let body = &client[at + "postMessage({".len()..];
+        let body = &body[..body.find("})").expect("a closed object literal")];
+        let kind = body.split('"').nth(1).unwrap_or("?");
+        for piece in body
+            .lines()
+            .filter(|l| !l.trim().starts_with("//"))
+            .flat_map(|l| l.split(','))
+        {
+            let key = piece.split(':').next().unwrap_or("").trim();
+            let is_key = !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric());
+            if is_key && key != "type" && !script.contains(&format!("msg.{key}")) {
+                problems.push(format!(
+                    "{kind} posts {key}, which the panel never reads (msg.{key})"
+                ));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
 /// A kind's icon, colour and order come from its declared symbol kind
 /// (ADR 0268 D4): no source keeps a table keyed by three or more builtin kinds.
 #[test]
