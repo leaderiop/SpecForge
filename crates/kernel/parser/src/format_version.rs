@@ -9,6 +9,7 @@
 //! `check`, watch, the LSP and MCP show it as a compile diagnostic), and
 //! `specforge migrate` reads and rewrites files through the two.
 
+use crate::line_break::LineBreak;
 use std::fmt;
 use std::str::FromStr;
 
@@ -185,8 +186,8 @@ pub(crate) fn header_row(content: &str) -> Option<usize> {
 
 /// `content` declaring `version`: the header line [`header_line`] finds is
 /// replaced in place, its line ending kept; a file with none gets
-/// `// specforge-format: <version>` as its first line, ended like the file's
-/// first line (`\r\n` when that ends so, else `\n`). No other byte changes.
+/// `// specforge-format: <version>` as its first line, ended in the file's line
+/// break ([`LineBreak::of`], ADR 0266). No other byte changes.
 pub fn with_format_version(content: &str, version: &FormatVersion) -> String {
     let header = format!("{HEADER_PREFIX}{version}");
     match header_line(content) {
@@ -196,11 +197,7 @@ pub fn with_format_version(content: &str, version: &FormatVersion) -> String {
             &content[found.range.end..]
         ),
         None => {
-            let ending = match content.find('\n') {
-                Some(at) if content[..at].ends_with('\r') => "\r\n",
-                _ => "\n",
-            };
-            format!("{header}{ending}{content}")
+            format!("{header}{}{content}", LineBreak::of(content).as_str())
         }
     }
 }

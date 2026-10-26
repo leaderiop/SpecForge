@@ -128,7 +128,8 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
     call before anything is written.
 
     The header is rewritten where the parser reads it, the file's first
-    non-blank line; a file with none gets one as its first line. No other
+    non-blank line; a file with none gets one as its first line, ended in the
+    file's line break. No other
     line changes.
 
     The system MUST report the number of files migrated, failed, and

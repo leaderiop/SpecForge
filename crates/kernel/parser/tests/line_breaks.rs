@@ -107,3 +107,42 @@ fn a_backslash_before_a_cr_lf_leaves_the_string_unclosed() {
         ]
     );
 }
+
+#[test]
+fn a_text_is_crlf_when_every_line_break_is_cr_lf() {
+    use specforge_parser::LineBreak::{Crlf, Lf};
+    for (text, expected) in [
+        ("", Lf),
+        ("x", Lf),
+        ("a\nb", Lf),
+        ("a\r\nb\n", Lf),
+        ("a\r\nb", Crlf),
+        ("a\rb", Lf),
+    ] {
+        assert_eq!(specforge_parser::LineBreak::of(text), expected, "{text:?}");
+    }
+}
+
+#[test]
+fn a_crlf_text_is_written_back_from_its_lf_reading() {
+    use specforge_parser::LineBreak;
+    use std::borrow::Cow;
+    let roundtrip = |text: &str| {
+        let line_break = LineBreak::of(text);
+        assert_eq!(line_break, LineBreak::Crlf, "{text:?}");
+        let lf = line_break.lf(text);
+        assert_eq!(line_break.write(&lf), text, "{text:?}");
+        lf.into_owned()
+    };
+    assert_eq!(roundtrip("a\r\r\nb\r\n"), "a\r\nb\n");
+    for (path, text) in specforge_parser::testing::corpus() {
+        let crlf = text.replace('\n', "\r\n");
+        if crlf == *text {
+            continue;
+        }
+        assert!(!roundtrip(&crlf).contains("\r\n"), "{}", path.display());
+        assert_eq!(LineBreak::of(text), LineBreak::Lf, "{}", path.display());
+        assert!(matches!(LineBreak::Lf.lf(text), Cow::Borrowed(_)));
+        assert!(matches!(LineBreak::Lf.write(text), Cow::Borrowed(_)));
+    }
+}

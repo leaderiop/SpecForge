@@ -22,4 +22,5 @@ pub use format_version::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
     detect_format_version, with_format_version,
 };
+pub use line_break::LineBreak;
 pub use parse::{Previous, parse, parse_incremental, value_token};
