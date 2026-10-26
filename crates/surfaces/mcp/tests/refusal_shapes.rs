@@ -113,6 +113,36 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
 }
 
 #[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a missing required argument is refused in one sentence on every tool, a core tool's and an extension command's alike"
+)]
+#[ignore = "flipped by T3"]
+fn a_missing_argument_is_refused_in_one_sentence_on_every_tool() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
+        json!({"id": "pair", "title": "Pair", "description": "Two required args",
+            "export": "cmd__pair", "args": [
+                {"name": "a", "arg_type": "string", "required": true},
+                {"name": "b", "arg_type": "string", "required": true}]}),
+    ));
+    for (tool, argument) in [
+        ("specforge.inspect", "entity_id"),
+        (REPORT, "style"),
+        ("specforge.cmds.pair", "a"),
+    ] {
+        let error = mcp_error(&call_tool(&mut server, tool, json!({})));
+        assert_eq!(
+            (&error["code"], &error["argument"], &error["message"]),
+            (
+                &json!("invalid_input"),
+                &json!(argument),
+                &json!(format!("Missing required parameter: {argument}"))
+            ),
+            "{tool}: {error}"
+        );
+    }
+}
+
+#[specforge_test(
     behavior = "dispatch_surface_command",
     verify = "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
 )]
