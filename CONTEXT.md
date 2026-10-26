@@ -949,6 +949,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   ended as completed or paused; at most one is active (`SessionStatus`). Its steps (start, mark a
   source file analyzed, end) are one management operation, `specforge_ops::read::infer::session`; MCP's
   `specforge.infer_session` is its adapter.
+- **Invariant**: a rule that must always hold (`guarantee`, graded by `risk`), declared by `@specforge/governance`
+  beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
+  an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
+  extension to state one (ADR 0280).
 - **Inference sources**: the files inference covers: under the inference manifest's source roots (the project
   root when none), each file an enabled analyzer claims by its extension, keyed by the source path rule
   (root-relative, `/`-separated, no `..`), every recorded path read as a recorded source path. They are walked by the shared discovery policy
