@@ -108,7 +108,7 @@ catalog! {
         "A `.spec` file could not be parsed — invalid syntax such as a missing brace, unclosed string, or malformed field at the reported location; the same code also covers an internal reparse failure in the language server, and the formatter's parser producing no syntax tree at all. Fix the syntax at the reported span and re-save.";
     E002: Error core,
         "Duplicate entity ID",
-        "Two entities of the same kind declare the same ID; the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.";
+        "Two entities of the same kind declare the same ID, or a project writes a second `spec` block (a project has one, whatever its name); the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.";
     E003: Error core,
         "Unresolved reference",
         "A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. A `string_list` field's other items are strings, never references. Fix the typo or add the missing entity; a `did you mean` suggestion is included when a close match exists.";

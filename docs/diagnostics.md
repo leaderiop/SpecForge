@@ -135,9 +135,11 @@ Level: error
 ```
 E002: Duplicate entity ID
 
-Two entities of the same kind declare the same ID; the diagnostic points at the
-duplicate and its message names where the ID was first declared (file:line:col).
-Rename one of the entities so each ID is unique within its kind.
+Two entities of the same kind declare the same ID, or a project writes a second
+`spec` block (a project has one, whatever its name); the diagnostic points at
+the duplicate and its message names where the ID was first declared
+(file:line:col). Rename one of the entities so each ID is unique within its
+kind.
 
 Owner: core
 Level: error

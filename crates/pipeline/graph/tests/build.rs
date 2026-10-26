@@ -469,7 +469,6 @@ fn a_declarations_diagnostics_name_its_entity_whether_or_not_it_is_placed() {
     behavior = "link_entity_references",
     verify = "a second spec block is E002 whatever its name, and is not placed"
 )]
-#[ignore = "flipped by T5"]
 fn a_second_spec_block_is_e002_whatever_its_name() {
     let two_files = [
         file("a.spec", "spec \"two\" {\n}\n"),

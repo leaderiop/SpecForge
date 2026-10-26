@@ -62,6 +62,7 @@ where its runner's results are, and `specforge analyze coverage --min N` is the 
 
 | Code | Rule |
 |------|------|
+| E002 | A second `spec` block, whatever its name |
 | E014 | The spec name is shorter than 2 or longer than 60 characters |
 | E069 | `specforge.json` cannot be used as written |
 | I002 | No extensions configured: structural-only mode |

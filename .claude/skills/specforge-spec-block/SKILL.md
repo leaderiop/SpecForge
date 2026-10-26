@@ -58,6 +58,7 @@ them change how the project compiles.
 | Code | Owner | Rule |
 |------|-------|------|
 | E001 | core | Sub-blocks such as `persona admin "..."` or `coverage { ... }` inside `spec` do not parse. |
+| E002 | core | A second `spec` block, whatever its name. |
 | E014 | core | The spec name is shorter than 2 or longer than 60 characters. |
 | E069 | core | `specforge.json` is unusable. |
 | I002 | core | No extensions configured: structural-only mode (only `spec`, `ref`, `use`, `define`, `defaults`). |
