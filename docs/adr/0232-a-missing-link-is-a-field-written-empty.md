@@ -1,6 +1,6 @@
 # A missing link is a field written empty
 
-**Status:** accepted (2026-10-23, architecture round 26, plan 03). Follows [ADR 0117](0117-a-reference-is-decided-in-the-linker.md)
+**Status:** accepted (2026-10-23, architecture round 26, plan 03). Confirmed by [ADR 0270](0270-an-edge-from-an-entity-to-itself-counts-in-no-edge-count.md) (a written reference to itself has its link). Follows [ADR 0117](0117-a-reference-is-decided-in-the-linker.md)
 D2 and D5. Amends [ADR 0015](0015-read-views-are-operations-over-the-project-view.md) D5 (what a dangling edge was)
 and [ADR 0060](0060-edge-types-resolved-once.md) D4 (what an outgoing edge rule counts).
 

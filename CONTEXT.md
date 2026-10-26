@@ -557,8 +557,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
     strings or references, …) and span beside it for the host's own checks
     (`specforge_graph::ValueShape`);
   - its obligations and methods;
-  - its edge counts, in total and by edge type (each edge typed once, by the edge type its field writes from the
-    kind it starts at);
+  - its edge counts, in total and by edge type, of its edges to and from other entities (each edge typed once, by the
+    edge type its field writes from the kind it starts at; an edge to itself counts in neither, as the degree, ADR 0270);
   - what exempts it, if anything (a union body, an exempting flag, a kind that accepts no `verify`).
 
   The registry checks and the rules read the records (`specforge_registry::entity::EntityRecord`).
@@ -855,11 +855,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (E003 or I004 reports it), and an edge from an entity to itself links it to nothing else. Stats counts
   them, the exploration lists them and the review flags those that count toward coverage; the export's token
   budget ranks by the same degree. Not the same as unreferenced.
+- **Edge with another entity**: an edge that links an entity to a different one, one way
+  (`Graph::edges_with_others`, ADR 0270). The degree counts them, the entity snapshot types and counts them; an edge
+  from an entity to itself is none, and the graph keeps it for the cycle rules and W061.
 - **Reach** (of an entity): the entities a breadth-first walk from it reaches, nearest first: over edges both ways in
   (id, label) order (`Graph::reach`: the neighbourhood the exploration and the review read, a read selection's, `Graph::select`), or
   one way in written order (`Graph::reach_directed`: a trace's upstream and downstream, [ADR 0174](docs/adr/0174-the-graph-owns-directed-reach-and-degree.md)).
   Each reads only the edges of the entities it reaches. Not the entities a trace's chains reach (`trace::affected`).
-- **Unreferenced entity**: an entity no edge points at: W012 for a `ref`, an extension's
+- **Unreferenced entity**: an entity no edge from another entity points at: W012 for a `ref`, an extension's
   `no_incoming_edges` rule for its kinds, the coverage summary's `invariant_unreferenced`. No output calls one
   an orphan: the catalog titles, product `health`'s `unreferenced_counts` and the coverage summary's
   `invariant_unreferenced` all say unreferenced.
