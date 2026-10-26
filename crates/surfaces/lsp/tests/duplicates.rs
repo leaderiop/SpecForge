@@ -30,3 +30,16 @@ fn prepare_rename_on_a_reference_in_a_duplicate_declaration_has_a_rename_range()
             .is_none()
     );
 }
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover on an entity lists the diagnostics of its duplicate declarations"
+)]
+#[ignore = "flipped by T2"]
+fn hover_on_the_first_declaration_lists_its_duplicates_diagnostics() {
+    let served = served(DUPLICATE);
+    // `a` of the first declaration, line 0; the duplicate's E002 is at lines 4-6.
+    let text = served.hover("main.spec", 0, 9).expect("a hover");
+    assert!(text.contains("**Diagnostics** *(1)*"), "{text}");
+    assert!(text.contains("**E002**"), "{text}");
+}
