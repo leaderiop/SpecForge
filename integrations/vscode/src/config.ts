@@ -4,8 +4,8 @@ export function getConfig() {
   return vscode.workspace.getConfiguration("specforge");
 }
 
-export function getLspPath(): string {
-  return getConfig().get<string>("lsp.path", "");
+export function getBinDir(): string {
+  return getConfig().get<string>("binDir", "");
 }
 
 export function getLspTrace(): string {

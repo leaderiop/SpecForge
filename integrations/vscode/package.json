@@ -195,13 +195,18 @@
         "url": "./schemas/specforge.schema.json"
       }
     ],
+    "taskDefinitions": [
+      {
+        "type": "specforge"
+      }
+    ],
     "configuration": {
       "title": "SpecForge",
       "properties": {
-        "specforge.lsp.path": {
+        "specforge.binDir": {
           "type": "string",
           "default": "",
-          "description": "Path to specforge-lsp binary. If empty, uses bundled binary or $PATH.",
+          "description": "Directory holding the specforge and specforge-lsp binaries. If empty, both are found on PATH. Machine scope: a workspace cannot set it.",
           "scope": "machine"
         },
         "specforge.lsp.trace": {

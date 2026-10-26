@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import * as cp from "child_process";
-import { findCliBinary } from "./find-binary";
+import { cliOutput } from "./binary";
 
 // --- Types for CLI output ---
 
@@ -130,25 +129,6 @@ class DetailItem {
   ) {}
 }
 
-// --- CLI execution helper ---
-
-function execCli(args: string[], cwd: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    cp.execFile(
-      findCliBinary(),
-      args,
-      { cwd, timeout: 30_000 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr || error.message));
-        } else {
-          resolve(stdout);
-        }
-      }
-    );
-  });
-}
-
 function getWorkspaceCwd(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
@@ -206,14 +186,11 @@ export class EntityTreeProvider
     }
 
     try {
-      const output = await execCli(
-        ["export", "--format=graph", "--no-schema"],
-        cwd
-      );
+      const output = await cliOutput(["export", "--format=graph", "--no-schema"]);
       this.entities = (JSON.parse(output) as GraphJson).nodes ?? [];
       this.errorMessage = undefined;
-    } catch {
-      this.errorMessage = "Run specforge check first";
+    } catch (err) {
+      this.errorMessage = err instanceof Error ? err.message.split("\n")[0] : String(err);
       this.entities = [];
     }
 
@@ -260,7 +237,7 @@ export class EntityTreeProvider
 
     if (!inspected) {
       try {
-        const output = await execCli(["query", id, "--depth", "1"], cwd);
+        const output = await cliOutput(["query", id, "--depth", "1"]);
         const graph = JSON.parse(output) as GraphJson;
         const node = graph.nodes?.find((n) => n.id === id);
         if (!node) {

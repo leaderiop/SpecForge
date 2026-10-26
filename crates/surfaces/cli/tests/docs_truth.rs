@@ -85,15 +85,9 @@ struct VscodeCliCall {
 }
 
 /// Every argv the VS Code extension hands the `specforge` binary: the array
-/// literal passed to `runCliCommand`, `runCliCommandOutput`, `execCli`, or
-/// `cp.execFile(findCliBinary(), [...])`.
+/// literal passed to `inTask` (a terminal task) or `cliOutput` (stdout).
 fn vscode_cli_calls() -> Vec<VscodeCliCall> {
-    const CALLERS: [&str; 4] = [
-        "runCliCommand(",
-        "runCliCommandOutput(",
-        "execCli(",
-        "findCliBinary(),",
-    ];
+    const CALLERS: [&str; 2] = ["inTask(", "cliOutput("];
     let src = repo_root().join("integrations/vscode/src");
     let mut calls = Vec::new();
     for entry in std::fs::read_dir(&src).expect("integrations/vscode/src") {
@@ -194,7 +188,6 @@ fn vscode_extension_calls_only_the_commands_it_means() {
 /// alone names `specforge-lsp` or spawns a process; no source walks
 /// `target/` or types a command into a terminal; the spawn sets a buffer.
 #[test]
-#[ignore = "flipped by T6"]
 fn vscode_extension_runs_binaries_by_one_rule() {
     let sources = vscode_sources();
     let spawners: Vec<_> = sources

@@ -46,22 +46,18 @@ export async function activate(
   setStarting();
 
   try {
-    const client = await startClient(context);
-    if (client) {
-      setIdle();
-      await vscode.commands.executeCommand(
-        "setContext",
-        "specforge:lspRunning",
-        true
-      );
-      await vscode.commands.executeCommand(
-        "setContext",
-        "specforge:hasEntities",
-        hasProject
-      );
-    } else {
-      setError("Language server not found");
-    }
+    await startClient(context);
+    setIdle();
+    await vscode.commands.executeCommand(
+      "setContext",
+      "specforge:lspRunning",
+      true
+    );
+    await vscode.commands.executeCommand(
+      "setContext",
+      "specforge:hasEntities",
+      hasProject
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     setError(message);

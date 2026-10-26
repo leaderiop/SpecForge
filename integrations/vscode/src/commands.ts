@@ -1,53 +1,15 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import * as cp from "child_process";
 import { restartClient } from "./lsp-client";
 import { GraphWebviewPanel } from "./graph-webview";
-import { findCliBinary } from "./find-binary";
-
-function runCliCommand(args: string[]): void {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    vscode.window.showErrorMessage("No workspace folder open.");
-    return;
-  }
-
-  const terminal = vscode.window.createTerminal({
-    name: "SpecForge",
-    cwd: workspaceFolder.uri.fsPath,
-  });
-  terminal.sendText(`${findCliBinary()} ${args.join(" ")}`);
-  terminal.show();
-}
-
-async function runCliCommandOutput(args: string[]): Promise<string> {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    throw new Error("No workspace folder open.");
-  }
-
-  return new Promise((resolve, reject) => {
-    cp.execFile(
-      findCliBinary(),
-      args,
-      { cwd: workspaceFolder.uri.fsPath, timeout: 30_000 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr || error.message));
-        } else {
-          resolve(stdout);
-        }
-      }
-    );
-  });
-}
+import { cliOutput, inTask } from "./binary";
 
 /**
  * One entity as JSON: `specforge query <id> --depth 0` returns a subgraph
  * holding just that node.
  */
 async function entityJson(id: string): Promise<string> {
-  const output = await runCliCommandOutput(["query", id, "--depth", "0"]);
+  const output = await cliOutput(["query", id, "--depth", "0"]);
   const node = (JSON.parse(output) as { nodes?: unknown[] }).nodes?.[0];
   if (!node) {
     throw new Error(`Entity "${id}" not found.`);
@@ -90,11 +52,11 @@ export function registerCommands(
       if (!extensions) return;
 
       const extArgs = extensions.flatMap((e) => ["--extension", e.label]);
-      runCliCommand(["init", ...extArgs]);
+      inTask(["init", ...extArgs]);
     }),
 
     vscode.commands.registerCommand("specforge.check", () => {
-      runCliCommand(["check"]);
+      inTask(["check"]);
     }),
 
     vscode.commands.registerCommand("specforge.export", async () => {
@@ -103,24 +65,24 @@ export function registerCommands(
         { placeHolder: "Export format" }
       );
       if (!format) return;
-      runCliCommand(["export", `--format=${format}`]);
+      inTask(["export", `--format=${format}`]);
     }),
 
     vscode.commands.registerCommand("specforge.showStats", async () => {
       try {
-        const output = await runCliCommandOutput(["stats", "--format=json"]);
+        const output = await cliOutput(["stats", "--format=json"]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "json",
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["stats"]);
+        inTask(["stats"]);
       }
     }),
 
     vscode.commands.registerCommand("specforge.doctor", () => {
-      runCliCommand(["doctor"]);
+      inTask(["doctor"]);
     }),
 
     vscode.commands.registerCommand("specforge.restartLsp", async () => {
@@ -137,7 +99,7 @@ export function registerCommands(
       });
       if (!query) return;
       try {
-        const output = await runCliCommandOutput([
+        const output = await cliOutput([
           "search",
           query,
           "--format=json",
@@ -168,7 +130,7 @@ export function registerCommands(
           await vscode.window.showTextDocument(doc);
         }
       } catch {
-        runCliCommand(["search", query]);
+        inTask(["search", query]);
       }
     }),
 
@@ -179,7 +141,7 @@ export function registerCommands(
       });
       if (!code) return;
       try {
-        const output = await runCliCommandOutput(["explain", code]);
+        const output = await cliOutput(["explain", code]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "markdown",
@@ -197,7 +159,7 @@ export function registerCommands(
       );
       if (!format) return;
       try {
-        const output = await runCliCommandOutput([
+        const output = await cliOutput([
           "model",
           `--format=${format}`,
         ]);
@@ -215,17 +177,17 @@ export function registerCommands(
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["model", `--format=${format}`]);
+        inTask(["model", `--format=${format}`]);
       }
     }),
 
     vscode.commands.registerCommand("specforge.coverage", () => {
-      runCliCommand(["analyze", "coverage"]);
+      inTask(["analyze", "coverage"]);
     }),
 
     vscode.commands.registerCommand("specforge.outline", async () => {
       try {
-        const output = await runCliCommandOutput([
+        const output = await cliOutput([
           "outline",
           "--format=json",
         ]);
@@ -235,7 +197,7 @@ export function registerCommands(
         });
         await vscode.window.showTextDocument(doc);
       } catch {
-        runCliCommand(["outline"]);
+        inTask(["outline"]);
       }
     }),
 
@@ -250,7 +212,7 @@ export function registerCommands(
         { placeHolder: "Select extension to add" }
       );
       if (!ext) return;
-      runCliCommand(["add", ext]);
+      inTask(["add", ext]);
     }),
 
     vscode.commands.registerCommand("specforge.removeExtension", async () => {
@@ -259,7 +221,7 @@ export function registerCommands(
         prompt: "Extension to remove",
       });
       if (!ext) return;
-      runCliCommand(["remove", ext]);
+      inTask(["remove", ext]);
     }),
 
     vscode.commands.registerCommand("specforge.newFile", async () => {
@@ -324,7 +286,7 @@ export function registerCommands(
           });
       if (!word) return;
       try {
-        const output = await runCliCommandOutput(["trace", word]);
+        const output = await cliOutput(["trace", word]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "markdown",
