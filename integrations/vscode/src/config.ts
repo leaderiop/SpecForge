@@ -12,10 +12,6 @@ export function getLspTrace(): string {
   return getConfig().get<string>("lsp.trace", "off");
 }
 
-export function getGraphLayout(): string {
-  return getConfig().get<string>("graph.defaultLayout", "force");
-}
-
 export function isGraphAutoUpdate(): boolean {
   return getConfig().get<boolean>("graph.autoUpdate", true);
 }

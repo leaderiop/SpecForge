@@ -367,7 +367,6 @@ fn vscode_tree_and_graph_read_the_language_server() {
 }
 
 #[test]
-#[ignore = "flipped by T3"]
 fn vscode_graph_panel_reads_every_field_the_client_posts() {
     let text =
         std::fs::read_to_string(repo_root().join("integrations/vscode/src/graph-webview.ts"))

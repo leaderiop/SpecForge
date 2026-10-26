@@ -42,7 +42,7 @@ Open the walkthrough (**Help → Welcome → Get Started with SpecForge**), or r
 | Setting | Default | Meaning |
 |---|---|---|
 | `specforge.binDir` | empty (use `PATH`) | Directory holding `specforge` and `specforge-lsp`; machine scope only |
-| `specforge.graph.autoUpdate` | `true` | Redraw the graph on save |
+| `specforge.graph.autoUpdate` | `true` | Redraw the graph as the project changes, saved or not |
 | `specforge.lsp.trace` | `off` | Log LSP traffic, for debugging |
 
 ## Learn more
