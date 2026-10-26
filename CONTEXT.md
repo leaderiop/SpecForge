@@ -637,7 +637,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   It **declares** obligations when it has at least one (`Standing::declares_obligations`). It **owes** obligations when a rule applies and nothing exempts it. It **counts** toward coverage
   when testable and owing or declaring, and is **exempt** when testable and neither (its **Coverage status** says so): the coverage
   rule's one counting rule (`specforge_coverage::Counting`), read with the standing's facts
-  (`Standing::counting`). W004, stats, plan validation and the verify-stub fix read it. The pass
+  (`Standing::counting`). W004, stats, plan validation and the verify-stub fix read it, and every pass, through `specforge_coverage::Entity::from` (ADR 0269). The pass
   input's `owes_none` is not this word: it says the entity owes none, and such an entity still counts
   when it declares obligations.
 - **Opening a registry**: what an operation does once before it asks a registry anything it will ask: the adapter
@@ -1006,6 +1006,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   verdict proves it), `exempt` (testable, owing and declaring none) or `not_testable` (its kind is not testable): the
   coverage rule's `Counting::status`, asked through `Standing::status`. The coverage view, inspect, the hover and a
   query with coverage write it (ADR 0216).
+- **Coverage item**: formal's word (W035, I008) for an entity that counts toward coverage, read from the pass entity as the
+  host sent it (ADR 0269); no kind is one by kind alone.
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. What its request's values mean (a default, a value standing for another, arguments that
   exclude or need each other) is the operation's, read once in ops; a surface only spells the arguments (ADR 0101); an argument that names an entity, the request's subject or a filter, is refused by the operation when the graph lacks it, and a depth needs the entity it counts from; an argument a surface owns that picks which reader answers (the infer prompt's `scope`) refuses a value it does not know, never reading it as a default.

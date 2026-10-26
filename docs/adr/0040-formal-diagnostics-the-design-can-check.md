@@ -1,6 +1,6 @@
 # The formal diagnostics the design can check are built; the rest are trimmed
 
-**Status:** accepted (2026-10-07)
+**Status:** accepted (2026-10-07). Amended by [ADR 0269](0269-the-formal-pass-reads-the-hosts-coverage-verdict.md): a coverage item is an entity that counts toward coverage.
 
 The @specforge/formal specs named 27 diagnostic codes the catalog did not have, and two
 behaviors used codes the catalog gives to core with another meaning (E060, a dangling edge;

@@ -277,7 +277,8 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     coverage rule's one counting rule, read with the standing's facts.
     The rules, the pass input's `owes_none` (it owes none, and may still
     count by declaring some), stats and the verify-stub fix all read this
-    one standing.
+    one standing; every pass reads the pass entity's facts unaltered
+    (ADR 0269).
   """
   verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
   verify unit "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
