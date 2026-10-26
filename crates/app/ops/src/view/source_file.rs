@@ -97,23 +97,12 @@ impl ProjectView<'_> {
     /// spec file is: any spelling of one file is that file, its absolute path under the root included. A key outside
     /// the project root, or one that names nothing, is `not_a_source_path` (kind `InvalidInput`, no file). Reads no
     /// file: where a link lands is judged where the file is opened.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "called by the session in the next commit")
-    )]
     pub(crate) fn source_path(&self, named: &str) -> Result<SourceKey, OpError> {
         self.source_key(named, SourceKey::of)
     }
 
     /// [`Self::source_path`] for a directory (a source root, find_spec_for_source's `file_path`): `.` and the
     /// project root's own path are the project root.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "called by the session and the anchors in the next commits"
-        )
-    )]
     pub(crate) fn source_root(&self, named: &str) -> Result<SourceKey, OpError> {
         if named.is_empty() {
             return Err(names_no_file(named));

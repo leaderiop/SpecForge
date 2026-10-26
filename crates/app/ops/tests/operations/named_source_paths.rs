@@ -69,7 +69,6 @@ fn start(
 
 const LEAVES: &str = "a source file is named from the project root";
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "read_a_named_source_path",
     verify = "every spelling of a source-code path under the project root reads as its key"
@@ -89,7 +88,6 @@ fn an_absolute_source_path_under_the_root_is_its_key() {
     assert_eq!(manifest["source_roots"], json!(["src"]));
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "read_a_named_source_path",
     verify = "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
@@ -113,7 +111,6 @@ fn a_source_path_that_leaves_the_root_is_refused_in_one_sentence() {
     ));
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "mark_source_file_analyzed",
     verify = "mark refuses a directory as invalid input on source_file"
@@ -126,7 +123,6 @@ fn a_marked_directory_is_invalid_input_on_source_file() {
 }
 
 #[cfg(unix)]
-#[ignore = "flipped by T3"]
 #[test]
 fn a_marked_file_behind_a_link_that_leaves_is_refused_where_it_lands() {
     let project = project();

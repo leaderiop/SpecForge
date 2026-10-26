@@ -83,7 +83,8 @@ impl Analyzers {
 pub(crate) enum SourceRead {
     Bytes(Vec<u8>),
     Missing,
-    Outside,
+    /// The name lands outside the project root: where, and what bounds it.
+    Outside(crate::Outside),
     Unreadable(std::io::Error),
 }
 
@@ -105,7 +106,7 @@ impl ProjectFiles {
     pub(crate) fn read(&self, key: &SourceKey) -> SourceRead {
         match self.held.read(Path::new(key.as_str())) {
             Ok((_, bytes)) => SourceRead::Bytes(bytes),
-            Err(ReadFailure::Outside(_)) => SourceRead::Outside,
+            Err(ReadFailure::Outside(outside)) => SourceRead::Outside(outside),
             Err(ReadFailure::Io { error, .. }) if error.kind() == std::io::ErrorKind::NotFound => {
                 SourceRead::Missing
             }
@@ -144,7 +145,7 @@ impl ProjectFiles {
             .iter()
             .map(|entry| {
                 let state = match SourceKey::of(&entry.path).map(|key| self.read(&key)) {
-                    Err(OutsideRoot) | Ok(SourceRead::Missing | SourceRead::Outside) => {
+                    Err(OutsideRoot) | Ok(SourceRead::Missing | SourceRead::Outside(_)) => {
                         IndexState::Deleted
                     }
                     Ok(SourceRead::Unreadable(_)) => IndexState::Unreadable,

@@ -159,8 +159,10 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     the path, hash, entities_produced list, and current timestamp. If an
     entry for this path already exists, overwrite it (re-analysis). Save
     the manifest. The path is recorded root-relative with / separators
-    (./src/a.rs and src\a.rs are src/a.rs); an absolute path or one with a
-    .. component is refused. The same rule applies to the source_roots a
+    (./src/a.rs and src\a.rs are src/a.rs). It is read from the project root
+    as a named spec file is (its absolute path under the root is that path, a
+    .. applied where it stands); one whose key lies outside the project root
+    is refused, as is a directory. The same rule applies to the source_roots a
     start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
