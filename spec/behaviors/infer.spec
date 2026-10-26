@@ -290,6 +290,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   verify unit "end action completes session"
   verify unit "creates manifest on first write"
   verify unit "an unknown action or status is refused with the option table's wording"
+  verify unit "an argument of another action is refused on that argument"
 }
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
