@@ -69,7 +69,6 @@ fn project_health_scores_coverage_and_completeness() {
     behavior = "surface_health",
     verify = "health counts an entity only it references as unreferenced, and a milestone whose only reference is itself as one without references"
 )]
-#[ignore = "flipped by T4"]
 fn health_counts_an_entity_only_it_references_as_unreferenced() {
     let g = G::default()
         .n("f_self", "feature")

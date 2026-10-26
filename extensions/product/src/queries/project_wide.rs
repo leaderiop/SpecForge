@@ -98,7 +98,8 @@ pub fn project_health(graph: &CommandGraph) -> HealthPayload {
         let count = graph.nodes_of_kind(kind).count();
         let unreferenced = graph
             .nodes_of_kind(kind)
-            .filter(|n| graph.edges_to(&n.id).is_empty())
+            // An edge from an entity to itself links it to nothing else (ADR 0270), as term-density reads it.
+            .filter(|n| graph.edges_to(&n.id).iter().all(|e| e.source == n.id))
             .count();
         entity_counts.push(KindCount {
             kind: kind.to_string(),
@@ -135,7 +136,7 @@ pub fn project_health(graph: &CommandGraph) -> HealthPayload {
     let milestones_total = graph.nodes_of_kind("milestone").count();
     let milestones_with_features = graph
         .nodes_of_kind("milestone")
-        .filter(|n| !graph.edges_from(&n.id).is_empty())
+        .filter(|n| graph.edges_from(&n.id).iter().any(|e| e.target != n.id))
         .count();
     let completeness = if features_total + milestones_total > 0 {
         pct(

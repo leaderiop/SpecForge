@@ -910,11 +910,11 @@ behavior surface_health "Surface: Project Health" {
   types    [HealthPayload, ProductSurfaceError]
   contract """
     The specforge product health command MUST report a 0 to 100 project
-    health score, the mean of coverage (product entities something
-    references), connectivity (edge density) and completeness (features
-    with a status, milestones with references), with the entity counts per
-    product kind, the unreferenced counts per kind that has entities, and the
-    completeness counts. It takes no args.
+    health score, the mean of coverage (product entities another entity
+    references), connectivity (edge density) and completeness (features with
+    a status, milestones with references to other entities), with the entity
+    counts per product kind, the unreferenced counts per kind that has
+    entities, and the completeness counts. It takes no args.
     Wasm export: cmd__product_health.
     MCP tool: specforge.product.health.
   """
