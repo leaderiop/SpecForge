@@ -50,7 +50,7 @@ These ship inside the binary as examples of what an extension can declare. They 
 ## Use cases
 
 - **Software specification** -- the builtins above. Spec frameworks can be modelled as extension families: a GSD
-  family `@gsd/*` is planned (its model lives under `gsd/`, nothing built yet); BMAD, OpenSpec and SpecKit
+  family `@gsd/*` is being designed (its model lives under `gsd/`, nothing built yet); BMAD, OpenSpec and SpecKit
   extensions are not started.
 - **Product management and marketing** -- features, personas, channels, journeys, releases, milestones.
 - **Regulated industries** -- e.g. pharma/GxP: procedures, decisions, failure modes and an audit trace, with kinds a

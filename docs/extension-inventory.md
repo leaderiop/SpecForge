@@ -35,7 +35,7 @@ must be in the declared version range.
 
 | Family | State |
 |--------|-------|
-| `@gsd/*` (the GSD spec framework modelled as extensions) | In progress: at the design stage, no code yet |
+| `@gsd/*` (the GSD spec framework modelled as extensions) | Being designed; nothing built yet |
 | BMAD, OpenSpec, SpecKit | Not started |
 
 ## @specforge/product

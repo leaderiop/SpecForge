@@ -118,7 +118,7 @@ extension would declare, not extensions that ship:
 | Operations | `site`, `process`, `kpi`, `owner` | Every KPI has a target and an owner; no process without a site |
 | Software spec frameworks | the artefacts of GSD, BMAD, OpenSpec or SpecKit | Each framework's own rules, checked on every edit |
 
-A GSD extension family (`@gsd/*`) is **in progress**: it is at the design stage and has no code yet. BMAD,
+A GSD extension family (`@gsd/*`) is being designed; nothing is built yet. BMAD,
 OpenSpec and SpecKit extensions are not started.
 
 ## Writing your own
