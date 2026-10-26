@@ -9,7 +9,7 @@ use specforge_common::{ProjectRoot, walk_files};
 use specforge_protocol_types::ExtensionDeclaration;
 
 use super::manifest::{InferenceManifest, SourceFileEntry};
-use crate::source_key::{OutsideRoot, SourceKey};
+use crate::source_key::SourceKey;
 use crate::{Containment, ReadFailure};
 
 /// Directories inference skips beyond the shared walk's own list.
@@ -132,6 +132,8 @@ pub(crate) enum IndexState {
 #[derive(Debug)]
 pub(crate) struct Indexed<'m> {
     pub(crate) entry: &'m SourceFileEntry,
+    /// The key the entry's path is read into from the project root; `None` when it is no key.
+    pub(crate) key: Option<SourceKey>,
     pub(crate) state: IndexState,
 }
 
@@ -140,16 +142,18 @@ impl ProjectFiles {
     /// lands outside or is missing; `Unreadable` when it exists and cannot be read; else
     /// `Current` or `Changed` by its hash, with its line count when it is UTF-8.
     pub(crate) fn indexed<'m>(&self, manifest: &'m InferenceManifest) -> Vec<Indexed<'m>> {
+        let root = self.held.root();
         manifest
             .source_index
             .iter()
             .map(|entry| {
-                let state = match SourceKey::of(&entry.path).map(|key| self.read(&key)) {
-                    Err(OutsideRoot) | Ok(SourceRead::Missing | SourceRead::Outside(_)) => {
+                let key = root.and_then(|root| SourceKey::read(root, &entry.path).ok());
+                let state = match key.as_ref().map(|key| self.read(key)) {
+                    None | Some(SourceRead::Missing | SourceRead::Outside(_)) => {
                         IndexState::Deleted
                     }
-                    Ok(SourceRead::Unreadable(_)) => IndexState::Unreadable,
-                    Ok(SourceRead::Bytes(bytes)) => {
+                    Some(SourceRead::Unreadable(_)) => IndexState::Unreadable,
+                    Some(SourceRead::Bytes(bytes)) => {
                         let lines = std::str::from_utf8(&bytes)
                             .ok()
                             .map(|text| text.lines().count().max(1));
@@ -160,7 +164,7 @@ impl ProjectFiles {
                         }
                     }
                 };
-                Indexed { entry, state }
+                Indexed { entry, key, state }
             })
             .collect()
     }
@@ -218,7 +222,7 @@ impl InferenceSources {
             analyzers: Analyzers::of(declarations),
             keys: keys
                 .iter()
-                .map(|k| SourceKey::of(k.as_ref()).unwrap())
+                .map(|k| SourceKey::read(root, k.as_ref()).unwrap())
                 .collect(),
         }
     }
@@ -236,7 +240,7 @@ fn walk(files: &ProjectFiles, analyzers: &Analyzers, roots: &[String]) -> Vec<So
     };
     let mut keys: Vec<SourceKey> = Vec::new();
     for root in roots {
-        let Ok(root) = SourceKey::root(root) else {
+        let Ok(root) = SourceKey::read_root(project, root) else {
             continue;
         };
         let Ok(held) = files.held.resolve(Path::new(root.as_str())) else {
@@ -267,7 +271,7 @@ fn walk(files: &ProjectFiles, analyzers: &Analyzers, roots: &[String]) -> Vec<So
                 .components()
                 .map(|c| c.as_os_str().to_str())
                 .collect();
-            if let Some(key) = parts.and_then(|p| SourceKey::of(&p.join("/")).ok()) {
+            if let Some(key) = parts.and_then(|p| SourceKey::read(project, &p.join("/")).ok()) {
                 keys.push(key);
             }
         }

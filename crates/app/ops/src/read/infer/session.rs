@@ -325,12 +325,10 @@ fn apply(
                 SourceRead::Unreadable(e) => return Err(unreadable(&e, given)),
             };
             let content_hash = content_hash(&bytes);
-            manifest.upsert_source_entry(SourceFileEntry::new(
-                path.as_str(),
-                content_hash,
-                entities.to_vec(),
-                now,
-            ));
+            manifest.upsert_source_entry(
+                root,
+                SourceFileEntry::new(path.as_str(), content_hash, entities.to_vec(), now),
+            );
             Ok(Recorded::Marked {
                 source_file: path.as_str().to_string(),
                 entities: entities.to_vec(),

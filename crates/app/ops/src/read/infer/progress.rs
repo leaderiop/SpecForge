@@ -1,7 +1,7 @@
 //! Inference progress: the source files the enabled analyzers would scan
 //! against `specforge-infer.json`'s index.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 use serde::Serialize;
@@ -13,6 +13,7 @@ use super::gaps::directory_of;
 use super::manifest::{InferenceManifest, InferenceSession, InferenceSummary};
 use super::sources::{IndexState, InferenceSources};
 use crate::OpError;
+use crate::source_key::SourceKey;
 use crate::view::ProjectView;
 
 /// The unanalyzed files of one directory (`specforge infer-status --gaps`).
@@ -63,15 +64,17 @@ fn progress_under(
 ) -> Progress {
     let sources = InferenceSources::of(root, declarations, manifest);
     let files = sources.keys();
-    let indexed = manifest.indexed_paths();
+    let indexed = sources.files().indexed(manifest);
+    let recorded_keys: HashSet<&SourceKey> =
+        indexed.iter().filter_map(|i| i.key.as_ref()).collect();
     let unanalyzed = files
         .iter()
-        .filter(|key| !indexed.contains(key.as_str()))
+        .filter(|key| !recorded_keys.contains(key))
         .map(|key| key.as_str().to_string())
         .collect();
     let mut stale = Vec::new();
     let mut deleted = Vec::new();
-    for indexed in sources.files().indexed(manifest) {
+    for indexed in &indexed {
         match indexed.state {
             IndexState::Changed { .. } => stale.push(indexed.entry.path.clone()),
             IndexState::Deleted => deleted.push(indexed.entry.path.clone()),

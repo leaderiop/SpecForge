@@ -181,7 +181,6 @@ fn the_anchors_read_their_query_from_the_project_root() {
     behavior = "mark_source_file_analyzed",
     verify = "mark replaces the entry of its file whatever spelling recorded it"
 )]
-#[ignore = "flipped by T3"]
 fn marking_a_file_replaces_its_entry_recorded_absolute() {
     let project = project();
     let recorded = project.root().join("src/tiny.rs");

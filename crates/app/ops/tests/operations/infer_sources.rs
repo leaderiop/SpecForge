@@ -228,7 +228,6 @@ fn hidden_directories_are_not_walked() {
     behavior = "read_a_recorded_source_path",
     verify = "an index entry recorded by its absolute path under the project root is that file"
 )]
-#[ignore = "flipped by T3"]
 fn an_index_entry_recorded_absolute_under_the_root_is_its_file() {
     let project = project();
     write(project.root(), "src/net/wire.rs", "pub fn wire() {}\n");
@@ -258,7 +257,6 @@ fn an_index_entry_recorded_absolute_under_the_root_is_its_file() {
     behavior = "read_a_recorded_source_path",
     verify = "a source root recorded by its absolute path under the project root is walked"
 )]
-#[ignore = "flipped by T3"]
 fn a_source_root_recorded_absolute_under_the_root_is_walked() {
     let project = project();
     let root = project.root().join("src");

@@ -158,7 +158,8 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     Read the source file at the given path and compute its SHA-256 hash.
     Create or update a SourceFileEntry in the manifest's source_index with
     the path, hash, entities_produced list, and current timestamp. If an
-    entry for this path already exists, overwrite it (re-analysis). Save
+    entry for this file already exists, whatever spelling recorded it,
+    overwrite it (re-analysis). Save
     the manifest. The path is recorded root-relative with / separators
     (./src/a.rs and src\a.rs are src/a.rs). It is read from the project root
     as a named spec file is (its absolute path under the root is that path, a
@@ -200,9 +201,11 @@ behavior discover_inference_sources "Discover Inference Sources" {
     __pycache__, vendor), that an enabled analyzer's excluded_dirs names,
     or that holds specforge.json below a source root. Each source is keyed
     by the source path rule and listed once, whatever source roots reach
-    it. A source root, a file or an indexed path that lands outside the
-    project root, by .., an absolute name or a symlink, is not read: such
-    a root is not walked and such an indexed path is deleted.
+    it; every path the manifest records (a source root, an index entry) is
+    read as read_a_recorded_source_path reads it. A source root, a file or
+    an indexed path whose key lies outside the project root, by .. or an
+    absolute name, or that lands outside through a symlink, is not read:
+    such a root is not walked and such an indexed path is deleted.
   """
   verify unit "no symlinked directory is entered, so a symlink cycle adds no source"
   verify unit "an analyzer's excluded_dirs add to the default skipped directories"
@@ -250,7 +253,7 @@ behavior detect_stale_inference_entries "Detect Stale Inference Entries" {
     its current SHA-256 hash. If the hash differs from content_hash, the
     entry is stale. If the file no longer exists, the entry is deleted.
     Return both lists so the agent or user can decide to re-analyze.
-    An indexed path that is not a path inside the project root is deleted;
+    An indexed path whose key lies outside the project root is deleted;
     its file is never read.
   """
   verify unit "detects stale file when content changes"

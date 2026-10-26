@@ -61,7 +61,7 @@ fn compute_inference_diagnostics(
         );
     }
 
-    for Indexed { entry, state } in indexed {
+    for Indexed { entry, state, .. } in indexed {
         let (IndexState::Current {
             lines: Some(line_count),
         }
@@ -115,13 +115,16 @@ mod tests {
 
         let hash = content_hash(&fs::read(&file).unwrap());
         let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "main.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec!["app_main".to_string()],
-            analyzed_at: "t".to_string(),
-            unknown: Default::default(),
-        });
+        manifest.upsert_source_entry(
+            dir.path(),
+            SourceFileEntry {
+                path: "main.rs".to_string(),
+                content_hash: hash,
+                entities_produced: vec!["app_main".to_string()],
+                analyzed_at: "t".to_string(),
+                unknown: Default::default(),
+            },
+        );
 
         let diags =
             compute_inference_diagnostics(&ProjectFiles::at(dir.path()).indexed(&manifest), 0.05);
@@ -141,19 +144,22 @@ mod tests {
 
         let hash = content_hash(&fs::read(&file).unwrap());
         let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "tiny.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec![
-                "e1".into(),
-                "e2".into(),
-                "e3".into(),
-                "e4".into(),
-                "e5".into(),
-            ],
-            analyzed_at: "t".to_string(),
-            unknown: Default::default(),
-        });
+        manifest.upsert_source_entry(
+            dir.path(),
+            SourceFileEntry {
+                path: "tiny.rs".to_string(),
+                content_hash: hash,
+                entities_produced: vec![
+                    "e1".into(),
+                    "e2".into(),
+                    "e3".into(),
+                    "e4".into(),
+                    "e5".into(),
+                ],
+                analyzed_at: "t".to_string(),
+                unknown: Default::default(),
+            },
+        );
 
         let diags =
             compute_inference_diagnostics(&ProjectFiles::at(dir.path()).indexed(&manifest), 0.05);
@@ -171,13 +177,16 @@ mod tests {
 
         let hash = content_hash(&fs::read(&file).unwrap());
         let mut manifest = InferenceManifest::default();
-        manifest.upsert_source_entry(SourceFileEntry {
-            path: "big.rs".to_string(),
-            content_hash: hash,
-            entities_produced: vec!["one".into()],
-            analyzed_at: "t".to_string(),
-            unknown: Default::default(),
-        });
+        manifest.upsert_source_entry(
+            dir.path(),
+            SourceFileEntry {
+                path: "big.rs".to_string(),
+                content_hash: hash,
+                entities_produced: vec!["one".into()],
+                analyzed_at: "t".to_string(),
+                unknown: Default::default(),
+            },
+        );
 
         let diags =
             compute_inference_diagnostics(&ProjectFiles::at(dir.path()).indexed(&manifest), 0.05);

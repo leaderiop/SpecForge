@@ -47,7 +47,7 @@ impl SourceKey {
 
     /// [`Self::of`] for a source root: the project root itself (`.`) is a root, naming nothing
     /// at all is not.
-    pub(crate) fn root(given: &str) -> Result<SourceKey, OutsideRoot> {
+    fn root(given: &str) -> Result<SourceKey, OutsideRoot> {
         let parts = components(given)?;
         if parts.is_empty() {
             return if given.is_empty() {
@@ -126,13 +126,6 @@ fn components(query: &str) -> Result<Vec<&str>, OutsideRoot> {
     Ok(parts)
 }
 
-/// A recorded path as the rule spells it, leniently: an entry an older version recorded as the
-/// agent spelled it (`./src/a.rs`) compares as the path it names; one the rule refuses compares
-/// as spelled.
-pub(crate) fn normal_path(recorded: &str) -> String {
-    components(recorded).map_or_else(|_| recorded.to_string(), |parts| parts.join("/"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,5 +175,51 @@ mod tests {
             );
         }
         assert_eq!(SourceKey::read_root(root, ""), Err(Unkeyed::Nothing));
+    }
+
+    #[test]
+    fn the_source_path_rule_over_a_root() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        for (given, recorded) in [
+            ("a.rs", "a.rs"),
+            ("./a.rs", "a.rs"),
+            ("src\\a.rs", "src/a.rs"),
+            ("src//a.rs", "src/a.rs"),
+            ("src/./a.rs", "src/a.rs"),
+            ("src/", "src"),
+            ("a/../b", "b"),
+        ] {
+            assert_eq!(
+                SourceKey::read(root, given).map(|k| k.as_str().to_string()),
+                Ok(recorded.to_string()),
+                "{given}"
+            );
+        }
+        for outside in ["/x", "\\x", "C:\\x", "c:/x", "../x", "a/../../x"] {
+            assert_eq!(
+                SourceKey::read(root, outside),
+                Err(Unkeyed::Outside),
+                "{outside:?}"
+            );
+        }
+        for nothing in ["", ".", "./"] {
+            assert_eq!(
+                SourceKey::read(root, nothing),
+                Err(Unkeyed::Nothing),
+                "{nothing:?}"
+            );
+        }
+        // A source root may be the project root itself.
+        assert_eq!(SourceKey::read_root(root, ".").unwrap().as_str(), ".");
+        assert_eq!(SourceKey::read_root(root, "./src").unwrap().as_str(), "src");
+        assert_eq!(SourceKey::read_root(root, ""), Err(Unkeyed::Nothing));
+        for outside in ["/x", "../x"] {
+            assert_eq!(
+                SourceKey::read_root(root, outside),
+                Err(Unkeyed::Outside),
+                "{outside:?}"
+            );
+        }
     }
 }
