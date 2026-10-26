@@ -216,7 +216,8 @@ behavior delete_entity "Delete an Entity" {
     a derived field reads, refuses the delete as not_editable, naming where it
     is written.
     A use binding that imports the entity is removed, its statement with it
-    when it was the last (ADR 0233).
+    when it was the last, and with the statement its doc comment, as a deleted
+    block's goes; the format header stays (ADR 0233, ADR 0274).
     A referrer's list holding a comment inside it refuses the delete as not_editable, naming the referrer and its file.
   """
   verify unit "delete removes the block and the comment above it"
