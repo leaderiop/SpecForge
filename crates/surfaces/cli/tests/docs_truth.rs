@@ -289,11 +289,37 @@ fn lines_with(name: &str, text: &str, needle: &str) -> Vec<String> {
 /// The entity under the cursor is the language server's answer
 /// (`specforge/entity`, ADR 0268 D3), not the manifest's word pattern.
 #[test]
-#[ignore = "flipped by T6"]
 fn vscode_client_reads_no_word_under_the_cursor() {
     let problems: Vec<_> = vscode_sources()
         .iter()
         .flat_map(|(n, t)| lines_with(n, t, "getWordRangeAtPosition("))
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Every `"specforge/…"` method the client names is one the language server serves
+/// (the constants of `views.rs`, ADR 0268).
+#[test]
+fn vscode_client_asks_only_what_the_server_answers() {
+    let literals = |text: &str| -> Vec<String> {
+        text.split("\"specforge/")
+            .skip(1)
+            .map(|rest| format!("specforge/{}", rest.split('"').next().unwrap_or_default()))
+            .collect()
+    };
+    let views = std::fs::read_to_string(repo_root().join("crates/surfaces/lsp/src/views.rs"))
+        .expect("crates/surfaces/lsp/src/views.rs");
+    let served = literals(&views);
+    assert!(!served.is_empty(), "views.rs names no method");
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .flat_map(|(name, text)| {
+            literals(text)
+                .into_iter()
+                .filter(|method| !served.contains(method))
+                .map(|method| format!("{name}: `{method}` is no method views.rs serves"))
+                .collect::<Vec<_>>()
+        })
         .collect();
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }

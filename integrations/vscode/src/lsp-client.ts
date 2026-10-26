@@ -3,6 +3,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  SymbolKind as ProtocolSymbolKind,
   TransportKind,
 } from "vscode-languageclient/node";
 import { serverBinary, serverHint } from "./binary";
@@ -222,4 +223,61 @@ export async function restartClient(
 
 export function getClient(): LanguageClient | undefined {
   return client;
+}
+
+/** A node of the Graph Protocol document the language server answers. */
+export interface GraphNode {
+  id: string;
+  kind: string;
+  title?: string;
+  file?: string;
+  line?: number;
+  fields?: Record<string, unknown>;
+  verify?: unknown[];
+}
+
+/** What `specforge/graph` answers, with each kind's symbol kind in VS Code's numbering. */
+export interface SessionGraph {
+  graph: {
+    nodes: GraphNode[];
+    edges: { source: string; target: string; label: string }[];
+  };
+  kinds: Record<string, vscode.SymbolKind>;
+  /** Each node's edges to and from other entities (a self-edge counts for nothing). */
+  degrees: Record<string, number>;
+}
+
+function running(): LanguageClient {
+  if (!client) {
+    throw new Error("The SpecForge language server is not running.");
+  }
+  return client;
+}
+
+/** `specforge/graph`: the session's graph, open buffers included (ADR 0268 D1). */
+export async function sessionGraph(): Promise<SessionGraph> {
+  const c = running();
+  const reply = await c.sendRequest<
+    Omit<SessionGraph, "kinds"> & { kinds: Record<string, ProtocolSymbolKind> }
+  >("specforge/graph");
+  const kinds: Record<string, vscode.SymbolKind> = {};
+  for (const [kind, symbolKind] of Object.entries(reply.kinds)) {
+    kinds[kind] = c.protocol2CodeConverter.asSymbolKind(symbolKind);
+  }
+  return { ...reply, kinds };
+}
+
+/** `specforge/entity` at the editor's cursor: the entity it names, else undefined (ADR 0268 D3). */
+export async function entityAt(
+  editor: vscode.TextEditor
+): Promise<GraphNode | undefined> {
+  const c = running();
+  const node = await c.sendRequest<GraphNode | null>(
+    "specforge/entity",
+    c.code2ProtocolConverter.asTextDocumentPositionParams(
+      editor.document,
+      editor.selection.active
+    )
+  );
+  return node ?? undefined;
 }
