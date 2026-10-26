@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-16, architecture round 12, plan 02). Extends [ADR 0073](0073-a-batch-of-paths-narrows-the-stale-comparison.md)
 D5 and [ADR 0080](0080-a-projects-sources-end-at-a-nested-project.md) D1; amends
-[ADR 0104](0104-containment-is-applied-where-the-operation-opens-the-file.md) D2.
+[ADR 0104](0104-containment-is-applied-where-the-operation-opens-the-file.md) D2. D1/D5: a request's source path is read by `ProjectView::source_path`, [ADR 0253](0253-a-source-code-path-a-request-names-has-one-reader.md).
 
 "Which source files do the enabled analyzers cover, and what do they hold" was answered by a second, hand-written
 walker (`read/infer/discovery.rs`) and then four more reads that opened a file by `root.join(name)` (scan, the stale

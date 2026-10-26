@@ -59,6 +59,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   being that file, or refused once (`not_a_source` when its key lies outside the project root and the spec root, or where no source can be, `file_not_found`
   for a read of no source); the refusal names the file as the request spelled it (`OpError::file`, MCP's
   `McpError.file`) (`ProjectView::source`, ADR 0195).
+- **Named source path**: a source-code file or directory a request names (infer_session's `source_file` and
+  `source_roots`, find_spec_for_source's `file_path`, the infer prompt's `file:` scope): read from the project root by
+  the project view into its key under the source path rule, an absolute path under the root being that path and a `..`
+  applied where it stands (the named spec file's mint), or refused once (`not_a_source_path`, in the named spec file's
+  sentence shape) when its key lies outside the project root or it names nothing; the reader opens no file
+  (`ProjectView::source_path`, ADR 0253).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
   text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
 - **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
