@@ -1,5 +1,7 @@
 # A document names a project file from the project root **Amended by [ADR 0131](0131-an-export-is-written-into-the-project-by-the-export-operation.md):** D2: canonical applies `..` where it stands, so a name through a missing directory and back is named from the root.
 
+**Amended by [ADR 0272](0272-a-held-path-keeps-the-callers-spelling.md) (round 28):** D6's `Containment::spelled` is `Held::at`; a held file is named in a document by `Held::shown`.
+
 **Status:** accepted (2026-10-15, round 10, plan 11). Amends ADR 0022 D7 (what `files_written` holds) and ADR 0052
 (every file a document names follows one rule). Names ADR 0055 D1 (graph locations) and ADR 0092 D1 and D6 (input
 spellings) as its boundaries. Amended by [ADR 0242](0242-a-project-file-has-one-spelling-from-the-project-root.md): U2 reopened and answered (one base), U4 moot, the rule's location sentence, D4 for format's found files.

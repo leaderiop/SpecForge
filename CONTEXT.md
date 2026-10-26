@@ -248,9 +248,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   someone can answer; MCP lends the call's one containment (the view's; init: the request's bound) and nobody. Every request
   that opens a project file or can ask carries it as `caller`. The runtime, the registry, the solver and collect's
   machine are passed beside it, not in it. Not the **host** (the process that loads extensions).
-- **Project file**: a file of the project an operation reads or writes. It is opened only as a `Held`
-  (`specforge_ops::Containment::resolve`): at where its name landed (`real`), named as given (`spelled`), and replaced
+- **Project file**: a file of the project an operation reads or writes. It is opened only as a **held path**
+  (`specforge_ops::Containment::resolve`): at where its name landed (`real`), and replaced
   atomically through a temp created new beside it, keeping its permissions (ADR 0104, ADR 0112, ADR 0128), and read through the **regular read**.
+- **Held path**: a name a request's containment resolved (`specforge_ops::Held`, ADR 0272): as the caller wrote it
+  (`named`, what every message quotes), read against its base (`at`, links not followed: where an owned name is
+  written, what a runner is handed), and where it lands (`real`, what is opened). A document or record names it by
+  its project path (`Held::shown`), and a file under a held directory is its `entry`.
 - **Owned name**: a project file name only one operation writes (a migration's backup, `<source>.spec.bak`): staged
   in the project change as owned, never read, created new at the name (whatever is there, a link or a file, is
   unlinked first, never its target) with the permissions it is staged with, and removed when the change is put back

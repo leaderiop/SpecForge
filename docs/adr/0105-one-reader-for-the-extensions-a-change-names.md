@@ -1,5 +1,7 @@
 # One reader for the extensions a change names
 
+**Amended by [ADR 0272](0272-a-held-path-keeps-the-callers-spelling.md) (round 28):** D4 and its Rejected "always the root as the base" are reopened: add reads a relative local path from the project root on both surfaces.
+
 **Status:** accepted (2026-10-16, architecture round 11, plan 02). Amends ADR 0098 (D1 c narrowed: add and init share the
 naming step, not the Resolver) and ADR 0065 D4. Applies ADR 0101 D1 and D2. Builds on ADR 0104.
 
