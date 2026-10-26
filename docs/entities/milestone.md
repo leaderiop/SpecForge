@@ -1,194 +1,143 @@
 # milestone
 
-> **Module:** `@specforge/product`
+> **Declared by `@specforge/product`**, one of the builtin extensions. `milestone` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/product`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `milestone` declares a **planning phase** that schedules features and modules with exit criteria. Milestones provide the temporal dimension — when things ship — and connect planning to the compiler-validated traceability chain.
+A `milestone` is a planning phase: the features and modules it schedules, and the exit criteria that say when
+it is done. It answers: **"When does this ship, and what must be true before it does?"**
 
-It answers: **"When does this ship and what must be true before it ships?"**
-
-Milestones reference features and modules, making it possible to validate that a milestone is complete by checking if all features are implemented and all exit criteria are met.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `mvp_phase`, `search_analytics`, `foundation`
+Because a milestone names its features, its progress is read from the graph: `specforge product
+milestone-completion` counts the features that are `done`.
 
 ## Syntax
 
 ```spec
-use "features/user-management"
-use "features/auth"
-
 milestone mvp_phase "Phase 1: Core" {
   status        in_progress
   features      [user_management, password_auth]
+  target_date   2026-06-30
+  owner         "platform-team"
+
   exit_criteria [
     "All scheduled features implemented",
     "specforge check --strict passes",
   ]
-  target_date   2026-06-30
 }
 ```
 
 ## Fields
 
-All fields are optional at the type level. The compiler emits warnings and info diagnostics when key fields are absent or inconsistent.
+Every `milestone` has an id (the word after `milestone`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists and the extensions that enhance it add. A field no loaded extension declares is reported (W020).
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the entity ID). |
-| `status` | MilestoneStatus | Current phase status: `planned`, `in_progress`, `completed`, `blocked`. Absent: `planned`. Another value is E061. |
-| `features` | EntityId[] | Features scheduled for this phase. Creates `MilestoneDeliversFeature` edges. |
-| `modules` | EntityId[] | Modules included in this phase. Creates `MilestoneScopesModule` edges. |
-| `depends_on` | EntityId[] | Other milestones that must complete before this phase can start. Creates `MilestoneDependsOn` edges. Cycles detected by E015. |
-| `exit_criteria` | string[] | Exit criteria that must be satisfied before the phase is considered complete. Completed milestones without criteria emit W057. |
-| `target_date` | date | Target completion day, written bare (`2026-06-30`); another value is E061. |
-| `start_date` | date | The day work on the milestone began or is planned to begin, written bare; another value is E061. |
-| `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. |
-| `reason` | string | Rationale for current status. A `blocked` milestone without `blockers` emits I060. |
-| `tags` | string[] | Free-form tags for categorization. |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this milestone. |
-
-> **Note:** To schedule individual behaviors within a milestone, install `@specforge/software`. The `MilestoneIncludesBehavior` edge type is provided by that extension via entity_enhancement, not by `@specforge/product`.
+| `description` | string | Human-readable summary of the milestone. |
+| `status` | enum: planned, in_progress, completed, blocked | Lifecycle state; default `planned`. |
+| `features` | reference list → `feature` | Features that must be delivered to complete this milestone. |
+| `exit_criteria` | string list | Conditions that must be met to consider the milestone complete. |
+| `target_date` | date (`YYYY-MM-DD`) | Planned completion date for this milestone. |
+| `start_date` | date (`YYYY-MM-DD`) | Date when work on this milestone began or is planned to begin. |
+| `modules` | reference list → `module` | Modules scoped to this milestone. |
+| `depends_on` | reference list → `milestone` | Other milestones that must be completed before this one. |
+| `blockers` | string list | Outstanding issues preventing progress on this milestone. |
+| `priority` | enum: critical, high, medium, low | Importance level. |
+| `reason` | string | Justification for the current status or a status change. |
+| `owner` | string | Person or team responsible for this milestone. |
+| `contributors` | string list | Additional people or teams contributing to this milestone. |
+| `refs` | string list | External references such as issues, URLs, or documents. |
+| `behaviors` | reference list → `behavior` | Behaviors this milestone includes in its delivery scope (added by `@specforge/software`). |
+| `tags` | string list | Freeform labels for filtering and categorization (a shared field of `@specforge/product`). |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `MilestoneDeliversFeature` | "This milestone schedules these features" (via `features` field) |
-| `milestone` | `MilestoneDependsOn` | "This milestone depends on these milestones" (via `depends_on` field) |
-| `behavior` | `MilestoneIncludesBehavior` | "This milestone delivers these behaviors" (via `behaviors` field) |
-| `module` | `MilestoneScopesModule` | "This milestone includes these modules" (via `modules` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [feature](feature.md) | `MilestoneDeliversFeature` | `features` on `milestone` | Features that must be delivered to complete this milestone |
+| outgoing | [milestone](milestone.md) | `MilestoneDependsOn` | `depends_on` on `milestone` | Other milestones that must be completed before this one |
+| outgoing | [behavior](behavior.md) | `MilestoneIncludesBehavior` | `behaviors` on `milestone` | Milestone delivers a behavior (cross-extension enhancement edge) |
+| outgoing | [module](module.md) | `MilestoneScopesModule` | `modules` on `milestone` | Modules scoped to this milestone |
+| incoming | [deliverable](deliverable.md) | `DeliverableTrackedByMilestone` | `milestones` on `deliverable` | Milestones this deliverable is tracked under |
+| incoming | [milestone](milestone.md) | `MilestoneDependsOn` | `depends_on` on `milestone` | Other milestones that must be completed before this one |
+| incoming | [release](release.md) | `ReleaseCompletesMilestone` | `milestones` on `release` | Milestones completed by this release |
 
-### Incoming edges
+## Validation rules
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `deliverable` | `DeliverableTrackedByMilestone` | "Deliverables that are tracked by this milestone" (via `milestones` field) |
-| `milestone` | `MilestoneDependsOn` | "Milestones that depend on this milestone" (via `depends_on` field) |
-| `release` | `ReleaseCompletesMilestone` | "Releases that target this milestone" (via `milestones` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| E010 | error | `@specforge/software` | Invalid milestone behavior range |
+| E015 | error | `@specforge/product` | Milestone dependency cycle |
+| I057 | info | `@specforge/product` | Blocked milestone without dependencies |
+| I060 | info | `@specforge/product` | Blocked milestone missing blockers |
+| I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
+| I080 | info | `@specforge/product` | Entity without owner |
+| W049 | warning | `@specforge/product` | Milestone without features |
+| W057 | warning | `@specforge/product` | Missing milestone exit criteria |
 
-| Code | Level | Rule |
-|------|-------|------|
-| W049 | warning | Milestone with no `features` field (modules don't count). |
-| W057 | warning | Completed milestone without exit criteria. |
-| E015 | error | Circular milestone dependency — `depends_on` edges form a cycle. |
-| E061 | error | A value outside the field's vocabulary. |
-| I057 | info | Blocked milestone without `depends_on`. |
-| I060 | info | Blocked milestone without `blockers`. |
-| I080 | info | No `owner`. |
 
-## Design Guidance
+## Design guidance
 
-### Phase Granularity
+### Granularity
 
-A milestone should be:
-- **Time-bounded** — represents a planning period (sprint, milestone, release)
-- **Verifiable** — has concrete exit criteria that can be checked
-- **Progressive** — builds on previous milestones
+A milestone should be **time-bounded** (a sprint, a phase, a quarter), **verifiable** (concrete exit criteria)
+and **progressive** (it builds on earlier milestones through `depends_on`).
 
-### Status Values
+### Status values
 
 | Value | Meaning |
 |-------|---------|
 | `planned` | Not yet started |
-| `in_progress` | Actively being worked on |
-| `completed` | All features done, exit criteria met |
-| `blocked` | Cannot proceed (should include `reason` and `depends_on`) |
-
-A typical lifecycle:
+| `in_progress` | Being worked on |
+| `completed` | Features done, exit criteria met |
+| `blocked` | Cannot proceed: name what blocks it in `blockers` and `depends_on` (I060, I057) |
 
 ```
 planned -> in_progress -> completed
                 |
-              blocked (requires reason + depends_on)
+             blocked
 ```
 
-### Exit Criteria
+### Exit criteria
 
-Exit criteria should be:
-- **Measurable** — "specforge check --strict passes", "coverage >= 90%"
-- **Specific** — name the behaviors, features, or metrics
-- **Automated where possible** — the compiler can verify behavior coverage and test presence
-- **Anchored** — reference entity IDs (e.g., "all features in [user_management] done") to enable automated verification. Prose-only criteria are valid, but anchoring them to graph-verifiable properties is stronger
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [feature](feature.md) | `MilestoneDeliversFeature` | Features this milestone schedules |
-| outgoing | [milestone](milestone.md) | `MilestoneDependsOn` | Milestones this milestone depends on |
-| outgoing | [behavior](behavior.md) | `MilestoneIncludesBehavior` | Behaviors this milestone delivers |
-| outgoing | [module](module.md) | `MilestoneScopesModule` | Modules this milestone includes |
-| incoming | [deliverable](deliverable.md) | `DeliverableTrackedByMilestone` | Deliverables that are tracked by this milestone |
-| incoming | [milestone](milestone.md) | `MilestoneDependsOn` | Milestones that depend on this milestone |
-| incoming | [release](release.md) | `ReleaseCompletesMilestone` | Releases that target this milestone |
+Make exit criteria **measurable** ("specforge check --strict passes"), **specific** (name the features or
+metrics) and, where you can, **anchored** to the graph ("all features in [user_management] done"). A
+`completed` milestone without exit criteria is W057.
 
 ## Examples
 
-### Active Phase
+### Planned, with a dependency
 
 ```spec
-use "features/user-management"
-use "features/auth"
-
-milestone mvp_phase "MVP" {
-  status        in_progress
-  depends_on    [foundation]
-  features      [user_management, password_auth, user_profile]
-  priority      high
-
-  exit_criteria [
-    "All scheduled features implemented",
-    "Coverage >= 90%",
-    "Zero open E-level diagnostics",
-  ]
-
-  refs [jira.epic:PROJ-001]
-}
-```
-
-### Planned Phase
-
-```spec
-use "features/search"
-use "features/analytics"
-
 milestone search_analytics "Search & Analytics" {
   status        planned
   depends_on    [mvp_phase]
   features      [full_text_search, analytics_dashboard]
+  start_date    2026-07-01
   target_date   2026-09-30
 
   exit_criteria [
-    "Full-text search returns results in < 200ms",
-    "Analytics dashboard renders within 3 seconds",
+    "Full-text search returns results in under 200ms",
+    "The analytics dashboard renders within 3 seconds",
   ]
 }
 ```
 
-### Completed Phase
+### Blocked
 
 ```spec
-milestone foundation "Foundation" {
-  status        completed
-  features      [project_scaffold]
-
-  exit_criteria [
-    "Project scaffold complete",
-    "CI/CD pipeline operational",
-    "specforge init passes",
-  ]
+milestone launch_campaign "Launch Campaign" {
+  status     blocked
+  depends_on [brand_refresh]
+  features   [loyalty_programme]
+  blockers   ["New brand guidelines not yet approved"]
 }
 ```

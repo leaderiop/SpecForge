@@ -17,6 +17,7 @@ mod delta;
 mod derived_references;
 mod directory_links;
 mod disk_changed;
+mod domain_free_kinds;
 mod dual_mode;
 mod e2e_pipeline;
 mod edge_types;

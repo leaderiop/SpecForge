@@ -602,6 +602,78 @@
       "supports_verify": false,
       "testable": false,
       "verify_kinds": []
+    },
+    {
+      "contract_target": true,
+      "description": "A rule that must always hold",
+      "dot_color": "#C62828",
+      "dot_fillcolor": "#FFEBEE",
+      "dot_shape": "diamond",
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The constraint this invariant guarantees holds at all times",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "guarantee",
+          "normative": true,
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Impact level if this invariant is violated",
+          "edge": null,
+          "enum_values": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "risk",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Human-readable summary of this invariant",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "description",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "External references such as issue or document URIs",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "refs",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": "Look for assertions, validation logic, and defensive checks that enforce system-wide rules. Signals: assert!() / assert_eq!() statements, guard clauses that panic or return errors, database constraints (UNIQUE, CHECK, NOT NULL), middleware that rejects invalid state, config validation at startup, and comments like 'must always', 'never allow', 'invariant'. The guarantee field should state what must hold (e.g., 'User email must be unique across all accounts'). The risk field describes consequences of violation. Invariants are architectural rules about state; for quantified limits (latency <200ms, max connections), use constraint instead. Skip: local variable checks, input validation that's behavior-specific, temporary debug assertions.",
+      "keyword": "invariant",
+      "lsp_icon": "Property",
+      "name": "Invariant",
+      "open_fields": false,
+      "semantic_token": "property",
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     }
   ]
 }

@@ -669,11 +669,10 @@ fn diagnostic_hover(
     index: &LineIndex,
     position: Position,
 ) -> Option<String> {
-    specforge_lsp::hover::diagnostics(&specforge_lsp::hover::diagnostics_at(
-        published,
-        |span| Some(index.range(span)),
-        position,
-    ))
+    specforge_lsp::hover::diagnostics(
+        &specforge_lsp::hover::diagnostics_at(published, |span| Some(index.range(span)), position),
+        &[],
+    )
 }
 
 /// An extension's finding with a code it may not use (here E001, core's)

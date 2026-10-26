@@ -15,6 +15,7 @@ expression: "shape(&reply, dir.path())"
     "installed_extensions": [
       "@specforge/product",
       "@specforge/software",
+      "@specforge/governance",
       "@specforge/testing"
     ],
     "kinds": [
@@ -204,18 +205,6 @@ expression: "shape(&reply, dir.path())"
         "kind": "behavior"
       },
       {
-        "description": "A system-wide constraint that must always hold true",
-        "extension": "@specforge/software",
-        "fields": [
-          "description",
-          "guarantee*",
-          "refs",
-          "risk"
-        ],
-        "inference_guide": "[guide]",
-        "kind": "invariant"
-      },
-      {
         "description": "A significant occurrence in the system that triggers reactions",
         "extension": "@specforge/software",
         "fields": [
@@ -255,6 +244,86 @@ expression: "shape(&reply, dir.path())"
         ],
         "inference_guide": "[guide]",
         "kind": "port"
+      },
+      {
+        "description": "An architectural or design decision with rationale and status",
+        "extension": "@specforge/governance",
+        "fields": [
+          "affects_features",
+          "alternatives",
+          "authors",
+          "consequences",
+          "constraints",
+          "context*",
+          "date",
+          "deciders",
+          "decision*",
+          "description",
+          "invariants",
+          "reason",
+          "refs",
+          "status*",
+          "superseded_by",
+          "tags"
+        ],
+        "inference_guide": "[guide]",
+        "kind": "decision"
+      },
+      {
+        "description": "A technical or business constraint that limits design choices",
+        "extension": "@specforge/governance",
+        "fields": [
+          "category",
+          "constrains",
+          "description*",
+          "enforced_by",
+          "governs_features",
+          "metric",
+          "priority",
+          "protects",
+          "refs",
+          "scope",
+          "threshold"
+        ],
+        "inference_guide": "[guide]",
+        "kind": "constraint"
+      },
+      {
+        "description": "A potential failure scenario with severity and mitigation",
+        "extension": "@specforge/governance",
+        "fields": [
+          "affected_behaviors",
+          "cause*",
+          "description",
+          "detection",
+          "effect*",
+          "invariant",
+          "mitigation",
+          "occurrence",
+          "post_detection",
+          "post_mitigation",
+          "post_occurrence",
+          "post_severity",
+          "refs",
+          "risk",
+          "rpn",
+          "severity*",
+          "threatens_features"
+        ],
+        "inference_guide": "[guide]",
+        "kind": "failure_mode"
+      },
+      {
+        "description": "A rule that must always hold",
+        "extension": "@specforge/governance",
+        "fields": [
+          "description",
+          "guarantee*",
+          "refs",
+          "risk"
+        ],
+        "inference_guide": "[guide]",
+        "kind": "invariant"
       }
     ],
     "output_format": "Create entities with specforge.edit, one `create` edit per entity (kind, id, title, a `file` under the spec/ directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",

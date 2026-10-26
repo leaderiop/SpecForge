@@ -108,13 +108,13 @@ catalog! {
         "A `.spec` file could not be parsed — invalid syntax such as a missing brace, unclosed string, or malformed field at the reported location; the same code also covers an internal reparse failure in the language server, and the formatter's parser producing no syntax tree at all. Fix the syntax at the reported span and re-save.";
     E002: Error core,
         "Duplicate entity ID",
-        "Two entities of the same kind declare the same ID; the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.";
+        "Two entities of the same kind declare the same ID, or a project writes a second `spec` block (a project has one, whatever its name); the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.";
     E003: Error core,
         "Unresolved reference",
         "A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. A `string_list` field's other items are strings, never references. Fix the typo or add the missing entity; a `did you mean` suggestion is included when a close match exists.";
-    E004: Error software,
-        "Unknown type in port method",
-        "A `port` entity's method field references a `type` ID that isn't declared anywhere in the spec. Declare the missing `type` entity or fix the reference to point at an existing one.";
+    E004: Error core,
+        "Unknown type name",
+        "A name written as a type (a member's type or a member of its union, a port method's parameter or return type: any field an extension derives from type syntax) is no primitive and names no entity of the field's target kind. A union body's variants and a list's items may be an enum's words and are not checked. Declare the type, or name a declared type or a primitive (see `docs/entities/type.md`).";
     E006: Error core,
         "Missing required field",
         "An entity is missing a field marked `required: true` for its kind in the field registry. Add the missing field to the entity.";
@@ -177,7 +177,7 @@ catalog! {
         "Two contributions claim one name. Two commands route under one name, `specforge <short> <command>`: one short name, and ids that spell one command name (`_` and `-` alike), whether from two extensions or declared twice by one; the first in load order is routed and the later runs on no surface. Or two extensions register one MCP tool name, or one MCP resource name. One command id under two short names is two names, not a collision. Rename the later contribution, or give its extension another short name (`ext_short`; the SDK's `short`).";
     E040: Error core,
         "Extension project not found or not built",
-        "`specforge extension build`, `extension validate`, `publish`, or `add`/`init --extensions` given a local path, found no extension to work on: nothing is at the path, the directory has no `Cargo.toml`, the build (`cargo build --release --target wasm32-wasip2`) failed, no built component is in `target/wasm32-wasip2/release/` (or several are, and none is the crate's), or the `.wasm` file couldn't be read (over MCP, also a file with more than one name). Build the extension, fix the build error the message quotes, or name the component to use.";
+        "`specforge extension build`, `extension validate`, `publish`, or `add`/`init --extensions` given a local path, found no extension to work on: nothing is at the path, the directory has no `Cargo.toml`, the build (`cargo build --release --target wasm32-wasip2`) failed (the SDK version the crate names not on crates.io among them: a specforge built after its last release names one crates.io does not have yet, see \"Building against an unreleased SDK\" in docs/extension-sdk.md), no built component is in `target/wasm32-wasip2/release/` (or several are, and none is the crate's), or the `.wasm` file couldn't be read (over MCP, also a file with more than one name). Build the extension, fix the build error the message quotes, or name the component to use.";
     E041: Error formal,
         "Refinement chain cycle",
         "The `refines` layering graph between behaviors contains a cycle. Break the cycle by removing or redirecting one of the `refines` edges.";
@@ -346,9 +346,6 @@ catalog! {
     I061: Info product,
         "Deliverable version not semver",
         "A `deliverable`'s `version` isn't a Semantic Versioning 2.0.0 version (for example `v1.0`, `1.0` or `latest`). Use `MAJOR.MINOR.PATCH`, optionally with a pre-release tag (`1.0.0-alpha.1`) or build metadata (`1.0.0+build.42`).";
-    I062: Info product,
-        "Non-standard module family",
-        "A `module`'s `family` isn't one of the standard families: core, platform, extension, integration, advisory. Custom families are allowed; use a standard one if it fits.";
     I063: Info product,
         "Done feature depends on an unfinished feature",
         "A `feature` has `status: done` but a feature its `depends_on` names is not done. Reported once per such dependency, by the `lifecycle` pass of @specforge/product. Finish the dependency (or mark it done), or set the feature back to `in_progress`.";
@@ -514,9 +511,9 @@ catalog! {
     W002: Warning software,
         "Unreferenced type",
         "A `type` entity has no incoming references from any `behavior`, `port`, or other `type`. Reference the type where it's used, or remove it if it's dead.";
-    W003: Warning software,
+    W003: Warning governance,
         "Unenforced invariant",
-        "An `invariant` that nothing references: no behavior lists it in `invariants`, `requires`, `ensures` or `maintains`, so no code path is bound to preserve it. Reference it from the behaviors that must preserve it, or remove it if it no longer applies. `specforge analyze coverage` counts these invariants but does not report them again.";
+        "An `invariant` that nothing references: no behavior enforces it (`invariants`), no decision or constraint protects it, no failure mode threatens it and no axiom or property relies on it. Reference it where it is kept, or remove it if it no longer applies. `specforge analyze coverage` counts these invariants but does not report them again.";
     W004: Warning testing,
         "Untested testable entity",
         "A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements. Union types and entities marked `abstract true` (through a flag their kind declares) are exempt; a struct member named `verify` is a field, not an obligation.";
@@ -657,7 +654,7 @@ catalog! {
         "A `providers` entry in `specforge.json` is missing its `alias`/`name` or `scheme` field, or no installed extension contributes providers to back a configured provider. Add the missing field, or install an extension that contributes the provider.";
     W123: Warning formal,
         "Unreferenced property",
-        "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
+        "A `property` that no behavior names in `satisfies`, so nothing claims to keep it. The rule applies where a loaded extension declares behaviors (`@specforge/software`). Name the property in the `satisfies` of the behaviors that keep it, or remove it.";
     W124: Warning formal,
         "Empty property description",
         "A `property` entity writes a `description` that is empty or only whitespace, which makes the temporal assertion opaque to readers and agents. Write the description, or remove the field. A property that writes no description is not reported.";
@@ -669,7 +666,7 @@ catalog! {
         "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
         "Unreferenced protocol",
-        "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
+        "A `protocol` that no event names in `follows_protocol`, so nothing follows it. The rule applies where a loaded extension declares events (`@specforge/software`). Name the protocol in the `follows_protocol` of the events that follow it, or remove it.";
     W129: Warning formal,
         "Empty protocol description",
         "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";

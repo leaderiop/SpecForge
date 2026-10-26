@@ -6,7 +6,7 @@ CHECK             REACH      TRIGGER (hook, quick)
 pending-snapshots hook       always
                              no insta `.snap.new` is staged (hook) or tracked
 rustfmt           hook       **/*.rs
-                             the workspace, the nine guests and the four fixtures (the bridge component included) are rustfmt-clean
+                             the workspace, the nine guests, the four fixtures (the bridge component included) and each example's extension are rustfmt-clean
 spec-format       hook       computed: a .spec file in a project's spec dir; the formatter, parser or grammar
                              the .spec files of every project are formatted
 grammar           hook       crates/kernel/tree-sitter/grammar.js, crates/kernel/tree-sitter/src/**
@@ -27,8 +27,8 @@ root-layout       hook       always
                              the tracked top-level entries are the root list's (gate/src/root_layout.rs)
 builtins          quick      computed: a file some blob's inputs.json records
                              every committed blob was built from the sources it recorded
-guests            quick      extensions/**, crates/**, integrations/rust/**, Cargo.toml
-                             each guest's tests pass and it is clippy-clean for wasm and native
+guests            quick      extensions/**, examples/*/extension/**, crates/**, integrations/rust/**, Cargo.toml
+                             each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm
 audit             quick      **/Cargo.lock
                              no lockfile holds an unsound or yanked dependency
 build             quick      computed: a workspace member; the root manifest, lockfile or nextest config [compiles]

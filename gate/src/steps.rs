@@ -213,8 +213,18 @@ pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         ),
     ];
     let mut failures = Vec::new();
-    for manifest in guests_of(ctx.repo) {
-        for (what, before, after) in passes {
+    // An example project's extension gets the wasm clippy pass only: it has no tests and no native use.
+    let examples = crate::repo::expand(&ctx.repo.root, "examples/*/extension/Cargo.toml");
+    let runs = guests_of(ctx.repo)
+        .into_iter()
+        .map(|manifest| (manifest, &passes[..]))
+        .chain(
+            examples
+                .into_iter()
+                .map(|manifest| (manifest, &passes[1..2])),
+        );
+    for (manifest, passes) in runs {
+        for &(what, before, after) in passes {
             let mut cmd = ctx.cmd("cargo");
             cmd.env("CARGO_TARGET_DIR", &target)
                 .env("SPECFORGE_REPORT", &reports);
@@ -476,37 +486,16 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
     Ok(found)
 }
 
-/// The manifests outside the workspace (`OUTSIDE_WORKSPACE`): the guests and the fixtures.
+/// The manifests outside the workspace (`OUTSIDE_WORKSPACE`): the guests, the fixtures and the example
+/// projects' extensions.
 pub(crate) fn outside_workspace(repo: &Repo) -> Vec<String> {
     OUTSIDE_WORKSPACE
         .iter()
-        .flat_map(|pattern| manifests(&repo.root, pattern))
+        .flat_map(|pattern| crate::repo::expand(&repo.root, pattern))
         .collect()
 }
 
 /// The guests' manifests: `extensions/*/Cargo.toml`.
 fn guests_of(repo: &Repo) -> Vec<String> {
-    manifests(&repo.root, "extensions/*/Cargo.toml")
-}
-
-/// `dir/*/Cargo.toml` expanded, sorted.
-fn manifests(root: &Path, pattern: &str) -> Vec<String> {
-    let Some((parent, _)) = pattern.split_once("/*/") else {
-        return Vec::new();
-    };
-    let Ok(entries) = std::fs::read_dir(root.join(parent)) else {
-        return Vec::new();
-    };
-    let mut found: Vec<String> = entries
-        .flatten()
-        .map(|entry| {
-            format!(
-                "{parent}/{}/Cargo.toml",
-                entry.file_name().to_string_lossy()
-            )
-        })
-        .filter(|manifest| root.join(manifest).is_file())
-        .collect();
-    found.sort();
-    found
+    crate::repo::expand(&repo.root, "extensions/*/Cargo.toml")
 }

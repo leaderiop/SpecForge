@@ -10,10 +10,14 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
   contract """
     The @specforge/software extension MUST declare itself with name
     "@specforge/software". Its declaration MUST declare
-    exactly 6 entity kinds (behavior, invariant, feature, event, type,
-    port), 9 edge types (References, Implements, Produces, Consumes,
-    UsesType, UsesPort, Enforces, Imports, LinksTo), and all associated
-    validation rules. The compiled Wasm component MUST serve it.
+    exactly 4 entity kinds (behavior, event, type, port), its 15 edge types
+    (References, BehaviorImplementsFeature, BehaviorProducesEvent,
+    BehaviorConsumesEvent, BehaviorReferencesType, EventCarriesPayloadType,
+    TypeComposesType, PortReferencesType, BehaviorUsesPort,
+    BehaviorEnforcesInvariant, TypeExtendsType, ExternalRef,
+    MilestoneIncludesBehavior, ModuleConsumesPort, ModuleDefinesPort), and all
+    associated validation rules. `invariant` is governance's (ADR 0280). The
+    compiled Wasm component MUST serve it.
   """
   requires {
     supported_protocol   "the handshake's protocol major version is the host's"
@@ -21,30 +25,29 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
     wasm_module_exists   "the declaration is read from the compiled Wasm component"
   }
   ensures {
-    six_entity_kinds      "entityKinds.length == 6"
-    nine_edge_types       "edgeTypes.length == 9"
-    all_kinds_named       "entityKinds contains behavior, invariant, feature, event, type, port"
-    all_edges_named       "edgeTypes contains References, Implements, Produces, Consumes, UsesType, UsesPort, Enforces, Imports, LinksTo"
-    declared_categories   "the declaration declares entities, edges, enhancements and validation_rules"
-    optional_product_peer "peer_dependencies holds one optional peer, @specforge/product, whose kinds the feature/module/milestone links target"
+    four_entity_kinds   "entityKinds.length == 4"
+    fifteen_edge_types  "edgeTypes.length == 15"
+    all_kinds_named     "entityKinds contains behavior, event, type, port"
+    declared_categories "the declaration declares entities, edges, enhancements and validation_rules"
+    optional_peers      "peer_dependencies holds two optional peers: @specforge/product, whose kinds the feature/module/milestone links target, and @specforge/governance, whose invariant a behavior's invariants target"
   }
   verify unit "manifest name is @specforge/software"
-  verify unit "manifest declares exactly 6 entity kinds"
-  verify unit "manifest declares exactly 9 edge types"
+  verify unit "manifest declares exactly 4 entity kinds"
+  verify unit "manifest declares exactly 15 edge types"
   verify unit "the handshake's protocol major is the host's"
   verify unit "the declaration declares entities, edges, enhancements and validation_rules"
-  verify unit "the only peer is @specforge/product, and it is optional"
+  verify unit "product and governance are its peers, both optional"
+  verify unit "software declares behavior, event, type and port, and governance as an optional peer"
 }
 
-invariant se_manifest_six_entity_kinds "Six Entity Kinds" {
+invariant se_manifest_four_entity_kinds "Four Entity Kinds" {
   guarantee """
-    The @specforge/software manifest MUST declare exactly 6 entity kinds:
-    behavior, invariant, feature, event, type, port. No more, no fewer.
-    This count was validated by a 10-expert panel (RES-27) and represents
-    the minimal complete set for software engineering specification.
+    The @specforge/software manifest MUST declare exactly 4 entity kinds:
+    behavior, event, type, port. Features are product's and invariants
+    governance's (ADR 0280).
   """
   risk      high
-  verify property "manifest entityKinds array has exactly 6 entries"
+  verify property "manifest entityKinds array has exactly 4 entries"
 }
 
 invariant se_manifest_nine_edge_types "Nine Edge Types" {

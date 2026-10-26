@@ -1,77 +1,69 @@
-# `specforge model` — Logical Data Model
+# `specforge model`: the logical data model
 
-## Overview
+What you get: a picture of your project's **vocabulary**, the entity kinds its extensions declare, their fields
+and the relationships between them, drawn like a database schema (kinds as tables, fields as columns, edge types
+as foreign keys). It is the quickest way to see what a set of extensions teaches SpecForge, and the Markdown form
+is written to be read by an AI agent as well as a person.
 
-`specforge model` renders the **schema-level meta-model** (entity kinds, fields, edge types) declared by extensions as a logical data model. It is the "Modele Logique des Donnees" of a SpecForge project.
+The command has no domain knowledge: it draws whatever the loaded extensions declare. Load a different extension
+and the model changes, with no change to the command.
 
-This is a **core command** with zero domain knowledge. It formats whatever extensions have registered — entity kinds become "tables", fields become "columns", edge types become "relationships". Adding new extensions or entity kinds requires zero changes to the model command.
+## What it shows, and what it does not
 
-### What it shows
+It shows the kinds of the loaded extensions, each kind's fields (type, required, description, enum values,
+default, and which extension added the field), the edge types between kinds with a cardinality, grouped by
+extension.
 
-- Entity kinds declared by extensions (e.g., `behavior`, `feature`, `event`)
-- Fields on each entity kind (name, type, required, description, enum values, defaults)
-- Edge types connecting entity kinds (e.g., `Implements: behavior -> feature`)
-- Cardinality of relationships (inferred from field types)
-- Grouping by extension
+It does not show your entities (the instances): for those use `specforge export`, `specforge query` or
+`specforge trace`. It does not list validation rules: see [diagnostics.md](../diagnostics.md) and the
+[entity pages](../entities/).
 
-### What it does NOT show
-
-- Instance data (actual entities in the project). Use `specforge export` for that.
-- Runtime behavior or compiler internals.
-- Validation rules or diagnostic codes.
-
-## CLI Interface
+## Command line
 
 ```
 specforge model [OPTIONS]
 
-OPTIONS:
-  --format <FORMAT>        Output format [default: markdown]
-                           [possible: markdown, mermaid, dot, json, dbml]
-  --group-by <STRATEGY>    Grouping strategy [default: extension]
-                           [possible: extension, none]
-  --fields <LEVEL>         Field detail level [default: keys]
-                           [possible: none, keys, all]
-  --extension <NAME>       Filter to a single extension
-  --kinds <LIST>           Comma-separated entity kinds to include
-  --root <KIND>            Root entity kind for depth traversal
-  --depth <N>              Max depth from root kind (requires --root)
+  --format <FORMAT>      markdown (default), mermaid, dot, json, dbml
+  --group-by <GROUP_BY>  extension (default): a header per extension; none: one flat list
+  --fields <FIELDS>      none, keys (default), all
+  --extension <NAME>     only the kinds this extension declares
+  --kinds <KINDS>        only these kinds (comma-separated, or the flag repeated)
+  --root <ROOT>          only the kinds connected to this kind
+  --depth <DEPTH>        how many hops from --root (needs --root)
+  --path <PATH>          a path inside the project
 ```
 
-An `--extension` the project does not load, and a `--root` no loaded extension declares, are refused,
-naming the closest. A kind of `--kinds` the project does not know is reported (I020) and selects nothing.
-`--depth` needs `--root`.
+The filters combine: a kind is drawn when every filter keeps it, and a relationship when both its kinds are drawn.
+`--root` follows relationships in both directions; without `--depth` it keeps every kind connected to the root.
+An `--extension` the project does not load, and a `--root` no loaded extension declares, are refused, naming the
+closest match. A kind in `--kinds` that the project does not know is reported (I020) and selects nothing.
 
-### MCP Tool
+The MCP tool `specforge.model` takes the same parameters and calls the same operation.
 
-Exposed as `specforge.model` with identical parameters. The Markdown format is specifically designed for LLM consumption via MCP.
+## Field levels
 
-## Design Decisions
+`--fields` chooses **which** fields each kind lists; every listed field carries its full metadata.
 
-| # | Decision | Answer | Rationale |
-|---|----------|--------|-----------|
-| 1 | Scope | Schema-only (meta-model) | A true MLD shows structure, not instances. Instance view already served by `specforge export --format=dot` |
-| 2 | Command | New `specforge model` | `specforge schema` has an established JSON Schema contract. "model" is the natural name for data model visualization |
-| 3 | Ownership | Core command | Zero domain knowledge required — renders extension-declared metadata. Analogous to `schema` and `export` |
-| 4 | Formats | DOT, Mermaid, JSON, DBML, Markdown | Each serves a distinct audience and toolchain |
-| 5 | Default format | Markdown | Only format readable directly in terminal. Serves both humans and LLMs |
-| 6 | Cardinality | Inferred from field types | `reference` -> N:1, `reference_list` -> N:M. No manifest changes needed |
-| 7 | Grouping | `--group-by=extension` (default) or `none` | Extension boundaries are natural schema boundaries |
-| 8 | Filtering | `--extension`, `--kinds`, `--root`+`--depth` | Three dimensions: by extension, by entity kind, by kind-level adjacency |
-| 9 | Field display | `--fields=none\|keys\|all` (default: `keys`) | Required + reference fields by default. Full metadata (type, description, enum values, default) at every level |
-| 10 | Mermaid dialect | `erDiagram` | Semantically correct for entity-relationship modeling with native cardinality syntax |
-| 11 | Markdown structure | Full detail + framing preamble | Extension summary, entity kind tables with field metadata, relationship lists, LLM-oriented preamble |
-| 12 | DBML mapping | Table/Column/Ref/TableGroup + synthetic `id` PK | Natural mapping. Enum definitions extracted. Extension grouping via TableGroup |
-| 13 | DOT rendering | HTML-like labels | Full control: color-coded headers by extension, bold required fields, reference markers |
-| 14 | JSON structure | ERD-oriented (distinct from `specforge schema`) | Simplified schema focused on entities-as-tables, fields-as-columns, edges-as-relationships with cardinality |
-| 15 | Output destination | stdout only | Consistent with all SpecForge commands. Unix composability via `>` |
-| 16 | MCP surface | Exposed as `specforge.model` | Markdown format designed for LLM consumption — must be accessible via MCP |
-| 17 | Kind-level depth | `--root`+`--depth` on kind adjacency graph | Not instances — shows a kind plus all kinds connected within N hops by edge types |
+| Level | Lists |
+|-------|-------|
+| `none` | No fields: kind names and relationships only, the topology |
+| `keys` (default) | The synthetic `id`, every required field, every `reference` and `reference_list` field |
+| `all` | Every field the kind declares, including fields other extensions add and shared fields such as `tags` |
 
-## Architecture
+The `id` is synthetic: it stands for the block's id (`behavior create_user`), which is not a declared field.
 
-See [architecture.md](architecture.md) for the data flow, crate locations, and key types.
+## Cardinality
 
-See [formats.md](formats.md) for detailed format specifications with examples.
+A relationship's cardinality comes from the field that writes it:
 
-See [field-tiers.md](field-tiers.md) for the three field display tiers.
+| Source field | Cardinality |
+|--------------|-------------|
+| `reference_list` | N:M |
+| `reference` | N:1 (1:1 when the target kind also has a single `reference` back with the same edge) |
+| none on the source, a single `reference` on the target | 1:N |
+| no field on either side | N:M |
+
+## More
+
+- [formats.md](formats.md): each output format, with real output
+- [architecture.md](architecture.md): where the code is and how the model is built

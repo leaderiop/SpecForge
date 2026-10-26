@@ -23,7 +23,6 @@ expression: "normalized(&schema_digest(value), root)"
   "entity_kinds": [
     "behavior",
     "event",
-    "invariant",
     "port",
     "type"
   ],
@@ -42,5 +41,5 @@ expression: "normalized(&schema_digest(value), root)"
     "minor": 0,
     "patch": 0
   },
-  "validation_rules": 22
+  "validation_rules": 20
 }

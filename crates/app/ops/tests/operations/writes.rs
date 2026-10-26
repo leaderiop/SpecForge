@@ -215,7 +215,7 @@ fn rename_writes_are_the_files_it_edited() {
     let login = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
     let other = "behavior other \"Other\" {\n}\n";
     let dir = project(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[
             ("limit.spec", limit),
             ("login.spec", login),

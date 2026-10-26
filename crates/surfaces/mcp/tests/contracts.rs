@@ -1817,7 +1817,7 @@ fn contract_validate() {
     let config = json!({
         "name": "v",
         "version": "0.1.0",
-        "extensions": ["@specforge/software", "@specforge/testing"]
+        "extensions": ["@specforge/software", "@specforge/governance", "@specforge/testing"]
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     std::fs::write(
@@ -1922,7 +1922,7 @@ fn contract_suggest_fixes() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+        r#"{"name":"c","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -2187,7 +2187,7 @@ fn contract_graph_resource() {
 fn contract_schema_resource() {
     // validation_complete_fired: initialize compiled the project.
     let project = project_dir(
-        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}),
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software", "@specforge/governance"]}),
         "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
     );
     let mut server = logged(McpServer::new());

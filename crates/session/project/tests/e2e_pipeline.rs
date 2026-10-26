@@ -59,7 +59,7 @@ fn compile_with_builtins(
 #[test]
 fn port_method_body_reads_without_a_parse_error() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             r#"spec "t" { version "0.1.0" }
@@ -89,7 +89,7 @@ port TaskRepository "Repo" {
 #[test]
 fn type_inline_union_field_reads_without_a_parse_error() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             r#"spec "t" { version "0.1.0" }
@@ -121,7 +121,7 @@ type Manifest "M" {
 )]
 fn port_method_documented_primitives_pass_e004() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             r#"spec "t" { version "0.1.0" }
@@ -164,7 +164,7 @@ port Broken "Broken" {
 #[test]
 fn type_body_syntax_the_grammar_rejects_is_reported() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             r#"type Money "Money" {
@@ -192,7 +192,7 @@ fn type_body_syntax_the_grammar_rejects_is_reported() {
 )]
 fn type_domain_kind_field_is_an_ordinary_field() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             r#"spec "t" { version "0.1.0" }
@@ -465,7 +465,7 @@ invariant security "Security Invariant" {
 )]
 fn an_unclosed_port_body_reports_its_syntax_error() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             "spec \"t\" { version \"0.1.0\" }\nport pay \"Pay\" {\n  direction inbound\n  method charge(amount: string) -> string\n\nbehavior settle \"Settle\" {\n  contract \"Settles.\"\n}\n",
@@ -489,7 +489,7 @@ fn an_unclosed_port_body_reports_its_syntax_error() {
 )]
 fn an_unclosed_string_in_a_port_body_reports_its_syntax_error() {
     let ctx = compile_with_builtins(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "main.spec",
             "spec \"t\" { version \"0.1.0\" }\nport pay \"Pay\" {\n  direction inbound\n  description \"Takes payments\n  method charge(amount: string) -> string\n}\n\nbehavior settle \"Settle\" {\n  contract \"Settles.\"\n}\n",

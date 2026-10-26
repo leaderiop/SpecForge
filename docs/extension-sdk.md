@@ -12,6 +12,12 @@
 
 ## Overview
 
+An extension is how SpecForge learns a domain: it declares the entity kinds a project may write, their fields
+and links, the rules they must obey, and the commands and MCP tools that answer questions about them. The
+compiler itself knows none of these; the builtin extensions (`@specforge/software`, `product`, `governance`,
+`formal`, `testing`, the runner and language extensions) are written with this same SDK. For the method of
+designing a domain before writing one, see [Model your domain](guides/model-your-domain.md).
+
 An extension is a Rust crate compiled to `wasm32-wasip2`, depending on `specforge-extension-sdk` alone (`component_guest!` brings its own bindings).
 The SDK provides:
 
@@ -27,33 +33,20 @@ host loads and what `specforge publish` uploads (ADR 0012).
 
 ## Extension Structure
 
-Extensions live in the `extensions/` directory. Each extension is a standalone Rust crate with its own `Cargo.toml`:
+An extension is a standalone Rust crate with its own `Cargo.toml`, anywhere on disk; `specforge extension init`
+scaffolds one:
 
 ```
-extensions/
-  software/
-    Cargo.toml
-    src/
-      lib.rs          -- the Contributions impl and component_guest!
-    templates/
-      behavior.spec   -- starter template
-  product/
-    Cargo.toml
-    src/
-      lib.rs
-  governance/
-    Cargo.toml
-    src/
-      lib.rs
-  formal/
-    Cargo.toml
-    src/
-      lib.rs
-  software-testing/
-    Cargo.toml
-    src/
-      lib.rs
+my-ext/
+  Cargo.toml          -- cdylib, depends on specforge-extension-sdk
+  .cargo/config.toml  -- pins wasm32-wasip2
+  src/
+    lib.rs            -- the Contributions impl and component_guest!
 ```
+
+The builtin extensions live in this repository's `extensions/` directory, one crate each: `software`, `product`,
+`governance`, `formal`, `testing`, `rust`, `typescript`, `cargo-test` and `vitest`. Each keeps its declaration in
+`src/` (the software extension's starter file is `src/starter.spec`) and its committed build in `wasm/`.
 
 ### Cargo.toml
 
@@ -70,12 +63,28 @@ crate-type = ["cdylib"]
 specforge-extension-sdk = "0.2.0"
 ```
 
-That is an outside author's crate, and what `specforge extension init` writes. A builtin in
+That is an outside author's crate. `specforge extension init` writes this dependency line, in a crate that
+is a workspace of its own (`[workspace]`), so it builds inside another cargo workspace. A builtin in
 `extensions/` names the SDK by path instead:
 
 ```toml
 specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
 ```
+
+### Building against an unreleased SDK
+
+A specforge built after its last release names an SDK version crates.io does not have yet, and
+`specforge extension build` says so (E040). Build against the SDK of the checkout that specforge was built from,
+in a `.cargo/config.toml` beside the crate or in any directory above it:
+
+```toml
+[patch.crates-io]
+specforge-extension-sdk = { path = "/path/to/SpecForge/crates/runtime/extension-sdk" }
+```
+
+The crate's `Cargo.toml` stays as `extension init` wrote it, so it builds against crates.io unchanged once that
+version is released. The patch applies only to the version the crate names; this is how the repository's own test
+builds a scaffold.
 
 ### Compile Target
 
@@ -327,7 +336,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 ### Declarative rules
 
-`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
+`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `description(..)` (what the code means; `specforge explain` and the hover show it), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
 
 | `CheckKind` | Reads |
 |---|---|
@@ -555,8 +564,8 @@ will import the functions below, each allowed only from the call sites listed
 ### Build
 
 ```bash
-cd extensions/software
-cargo build --target wasm32-wasip2 --release
+cd my-ext
+cargo build --release          # .cargo/config.toml pins --target wasm32-wasip2
 ```
 
 The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_software.wasm`.
@@ -620,16 +629,20 @@ answers no SDK guest gives (a trap, bytes that do not parse) are given with `ans
 
 ### Install
 
-Copy the `.wasm` file to the extension directory and register it:
+`specforge add` copies the component into the project and registers it in `specforge.json`. Name the crate
+directory (its `target/wasm32-wasip2/release` component) or the `.wasm` file:
 
 ```bash
-specforge add ./extensions/software/target/wasm32-wasip2/release/specforge_ext_software.wasm
+specforge add ./my-ext
+specforge add ./my-ext/target/wasm32-wasip2/release/my_ext.wasm
 ```
 
-Or for published extensions:
+A builtin is added by name, and a published extension by name and version from a configured registry
+([registry trust](registry-trust.md)):
 
 ```bash
-specforge add @specforge/software
+specforge add @specforge/product
+specforge add @you/my-ext@0.1.0
 ```
 
 ## Enhancement-Only Extensions
@@ -670,7 +683,7 @@ Running Cucumber and mapping its results would be a separate runner extension wi
 ## Related Documentation
 
 - [Extension Protocol](extension-protocol.md) -- the wire protocol this SDK implements
-- [Extension Inventory](extension-inventory.md) -- the five official extensions
+- [Extension Inventory](extension-inventory.md) -- the builtin extensions
 - [Extension Model](extension-model.md) -- the broader extension architecture (extensions, providers, renderers)
 - [Entity Model](entity-model.md) -- entity kinds, edge types, and validation rules
 

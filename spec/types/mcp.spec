@@ -692,7 +692,9 @@ type McpStrayRecord "A recorded test naming an entity the graph does not have (W
   verify unit "McpStrayRecord schema is valid"
 }
 
-type McpExplainResult "Mcp Explain Result" = McpExplainEntry | McpExplainRetired
+type McpExplainResult "Mcp Explain Result" = McpExplainEntry
+  | McpExplainRetired
+  | McpExplainDeclared
 
 type McpExplainEntry "Mcp Explain Entry" {
   code        string @readonly
@@ -722,6 +724,27 @@ type McpExplainReplacement "Mcp Explain Replacement" {
   explanation string
   docs        string
   verify unit "McpExplainReplacement schema is valid"
+}
+
+/// A code the catalog does not have that the loaded extensions' rules declare (ADR 0278).
+type McpExplainDeclared "Mcp Explain Declared" {
+  code    string @readonly
+  /// error, warning or info.
+  level   string
+  rules   McpExplainDeclaredRule[]
+  retired boolean
+  verify unit "McpExplainDeclared schema is valid"
+}
+
+type McpExplainDeclaredRule "Mcp Explain Declared Rule" {
+  extension   string
+  target_kind string @optional
+  check       string
+  /// Its message template, as declared.
+  message     string
+  /// What the extension says the code means.
+  description string @optional
+  verify unit "McpExplainDeclaredRule schema is valid"
 }
 
 type McpCollectResult "Mcp Collect Result" {

@@ -1,6 +1,11 @@
 use crate::vocabulary::*;
 use specforge_extension_sdk::prelude::*;
 
+/// An open field's description: what it is, then its suggested words (ADR 0279).
+fn suggesting(what: &str, words: &[&str]) -> String {
+    format!("{what}: one word, for example {}", words.join(", "))
+}
+
 pub(super) fn kinds(c: &mut ContributionsBuilder) {
     c.kind("Feature", |k| {
         k.keyword("feature")
@@ -133,9 +138,9 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .description("Human-readable summary of the deliverable");
         });
         k.field("artifact_type", |f| {
-            f.vocabulary(&ARTIFACT_TYPE)
+            f.field_type(FieldType::Identifier)
                 .required()
-                .description("Kind of artifact produced");
+                .description(&suggesting("Kind of artifact produced", ARTIFACT_TYPES));
         });
         k.field("status", |f| {
             f.vocabulary(&DELIVERABLE_STATUS)
@@ -267,9 +272,9 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_fillcolor("#ECEFF1")
             .inference_guide("Look for logical boundaries in the codebase: bounded contexts, packages, crates, or top-level directories that group related functionality. Signals: top-level directories in src/ (e.g., src/auth/, src/billing/); Cargo workspace members; Go packages; separate npm workspaces; DDD bounded contexts; module declarations in architecture docs. Set family for higher-level grouping (e.g., 'core', 'platform', 'integration'). Link features contained in this module and depends_on for inter-module dependencies. Modules are logical groupings of features; for shippable artifacts, use deliverable instead. Skip: pure utility directories with no domain cohesion, test directories, build tooling.");
         k.field("family", |f| {
-            f.field_type(FieldType::Identifier).description(&format!(
-                "Category or family this module belongs to; the standard ones are {}",
-                MODULE_FAMILY.values().join(", ")
+            f.field_type(FieldType::Identifier).description(&suggesting(
+                "Category or family this module belongs to",
+                MODULE_FAMILIES,
             ));
         });
         k.field("description", |f| {
@@ -388,8 +393,10 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .description("Human-readable summary of this channel");
         });
         k.field("interaction_model", |f| {
-            f.vocabulary(&INTERACTION_MODEL)
-                .description("How users interact through this channel");
+            f.field_type(FieldType::Identifier).description(&suggesting(
+                "How users interact through this channel",
+                INTERACTION_MODELS,
+            ));
         });
         k.field("url", |f| {
             f.field_type(FieldType::String)

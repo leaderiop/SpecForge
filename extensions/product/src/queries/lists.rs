@@ -96,7 +96,13 @@ pub const JOURNEYS: ListKind = ListKind {
 pub const DELIVERABLES: ListKind = ListKind {
     kind: "deliverable",
     plural: "deliverables",
-    filters: &[Closed("status"), Closed("artifact_type")],
+    filters: &[
+        Closed("status"),
+        Open {
+            field: "artifact_type",
+            help: "Only deliverables of this artifact type, as written",
+        },
+    ],
 };
 pub const MILESTONES: ListKind = ListKind {
     kind: "milestone",
@@ -106,11 +112,10 @@ pub const MILESTONES: ListKind = ListKind {
 pub const MODULES: ListKind = ListKind {
     kind: "module",
     plural: "modules",
-    // `ModuleFamily` is open: a family outside the standard set is I062,
-    // not an error, so it is a value to match, not one to refuse.
+    // An open field (ADR 0279): any family is a value to match, none to refuse.
     filters: &[Open {
         field: "family",
-        help: "Only modules of this family, standard or not",
+        help: "Only modules of this family, as written",
     }],
 };
 pub const TERMS: ListKind = ListKind {
@@ -126,7 +131,13 @@ pub const PERSONAS: ListKind = ListKind {
 pub const CHANNELS: ListKind = ListKind {
     kind: "channel",
     plural: "channels",
-    filters: &[Closed("status"), Closed("interaction_model")],
+    filters: &[
+        Closed("status"),
+        Open {
+            field: "interaction_model",
+            help: "Only channels of this interaction model, as written",
+        },
+    ],
 };
 pub const RELEASES: ListKind = ListKind {
     kind: "release",

@@ -47,8 +47,12 @@ async fn e2e_completion_entity_with_title() {
 #[tokio::test]
 async fn e2e_completion_keywords_at_top_level() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "test.spec",
+        text,
+    )
+    .await;
     // Completion at column 0 (top level, line start)
     let resp = client.completion(&uri, 1, 0).await;
     let result = &resp["result"];
@@ -88,7 +92,11 @@ async fn e2e_completion_no_keywords_inside_block() {
 /// Completion items at (line, col) of `text`, with software enabled.
 async fn items_at(text: &str, line: u32, col: u32) -> Vec<Value> {
     let (mut client, uri, _dir) = Session::with_extensions(
-        &["@specforge/software", "@specforge/testing"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
         "test.spec",
         text,
     )
@@ -216,9 +224,13 @@ async fn scheme_ref_items(insert_replace: bool) -> Vec<Value> {
     let capabilities = json!({
         "textDocument": {"completion": {"completionItem": {"insertReplaceSupport": insert_replace}}}
     });
-    let (mut client, uri, _dir, _) =
-        Session::with_extensions_as(&["@specforge/software"], "test.spec", text, capabilities)
-            .await;
+    let (mut client, uri, _dir, _) = Session::with_extensions_as(
+        &["@specforge/software", "@specforge/governance"],
+        "test.spec",
+        text,
+        capabilities,
+    )
+    .await;
     let resp = client.completion(&uri, 4, 13).await;
     resp["result"].as_array().cloned().unwrap_or_default()
 }

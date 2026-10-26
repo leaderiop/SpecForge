@@ -429,6 +429,10 @@ pub struct ValidationRuleDescriptor {
     /// Absent: the kind belongs to the extension itself or a declared peer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_extension: Option<String>,
+    /// What the code means and how to fix it: the sentence `specforge explain` and the hover show
+    /// for a code the host catalog does not have (an extension's own, E900–E998, W900–W998, I900–I998).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 // ── Surface Descriptors ──

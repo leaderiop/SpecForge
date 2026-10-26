@@ -1,12 +1,16 @@
 # SpecForge Cookbook
 
 Task-oriented recipes for common modeling problems. Each recipe is a goal, a
-copy-paste-ready snippet, and the result. For a guided introduction, start with the
+copy-paste-ready snippet, and the result. The recipes use the kinds the builtin extensions
+declare (software, product, governance, formal); for kinds of your own, see
+[Model your domain](model-your-domain.md). For a guided introduction, start with the
 **[zero-to-hero tutorial](authoring-spec-files.md)**; for principles, see
 **[best practices](spec-best-practices.md)**.
 
-> 💡 Every snippet here is validated against `specforge check`. Imports (`use "..."`) are
-> shown where a snippet references entities defined elsewhere.
+> 💡 Every snippet here is checked with `specforge check`; a snippet that names entities
+> defined elsewhere compiles in a project that defines them (the
+> [todo-app example](../../examples/todo-app/) defines most). References resolve across the
+> whole project; the `use` lines record which files a file depends on.
 
 ## Contents
 
@@ -239,7 +243,7 @@ protocol task_sync "Task sync protocol" {
 
 **Goal:** split a growing spec across files and wire them with `use`.
 
-Organize **by entity kind**, then import what each file references:
+Organize **by entity kind**, and record with `use` what each file depends on:
 
 ```
 spec/
@@ -264,8 +268,9 @@ behavior create_task "Create a task" {
 }
 ```
 
-> ⚠️ Imports must form a DAG. A circular `use` chain raises `E003`. Forgetting to import a
-> file whose entity you reference raises `E001` (unresolved reference).
+> ⚠️ Imports must form a DAG: a circular `use` chain is `W113`. A `use` path that names no
+> file is `E025`. A reference to an entity no file declares is `E003` (unresolved reference),
+> with or without a `use`.
 
 ---
 
@@ -275,12 +280,15 @@ behavior create_task "Create a task" {
 
 ```bash
 specforge add @specforge/product       # adds journey, feature, milestone, …
-specforge extensions                    # list what's installed
+specforge add ./my-ext                  # a local extension: its crate directory or a .wasm file
+specforge extensions                    # list what's enabled and loaded, with each one's kinds
 specforge remove @specforge/formal      # uninstall (use --force if depended upon)
 ```
 
 This edits the `extensions` array in `specforge.json`. New entity kinds become available
-immediately on the next `specforge check`.
+immediately on the next `specforge check`, and the LSP and MCP server reload them on their own.
+A registry package (`@scope/name@1.0.0`) needs a registry configured; see
+[registry trust](../registry-trust.md).
 
 ---
 

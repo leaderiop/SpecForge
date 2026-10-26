@@ -69,7 +69,7 @@ fn served(files: &[(&str, &str)]) -> Served {
     files
         .iter()
         .fold(
-            TestProject::new().enabling(&["@specforge/software"]),
+            TestProject::new().enabling(&["@specforge/software", "@specforge/governance"]),
             |project, (file, text)| project.file(file, text),
         )
         .serve_components()

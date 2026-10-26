@@ -191,7 +191,7 @@ fn diagnostics_are_those_about_the_entity() {
 )]
 fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
     let p = compile(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[
             (
                 "a.spec",
@@ -218,7 +218,11 @@ fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
 #[test]
 fn facts_carry_the_node_kind_entry_headline_and_obligations() {
     let p = compile(
-        &["@specforge/software", "@specforge/testing"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
         &[(
             "a.spec",
             "behavior login \"Log in\" {\n  contract \"The system MUST log a known user in\"\n  \
@@ -347,7 +351,7 @@ fn an_unknown_entity_is_not_found() {
 )]
 fn the_headline_and_the_fields_read_one_entry_of_a_field_written_twice() {
     let p = compile(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "a.spec",
             "behavior beh \"B\" {\n  category command\n  contract \"first contract\"\n  \
@@ -373,7 +377,7 @@ fn the_headline_and_the_fields_read_one_entry_of_a_field_written_twice() {
 )]
 fn an_entitys_headline_is_its_field_text_whatever_its_shape() {
     let p = compile(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[("a.spec", crate::search::SHAPES)],
     );
     let view = ProjectView::of(&p.project);

@@ -1,6 +1,8 @@
 # Understand Diagnostics
 
-SpecForge validates your specs in real time and reports issues as you type. Every diagnostic has a unique code that tells you exactly what went wrong.
+SpecForge validates your specs in real time and reports issues as you type. The same check runs on every edit, whether you typed it or an AI agent made it, so a change that breaks a rule never slips through. Every diagnostic has a unique code that tells you exactly what went wrong.
+
+Some checks are structural (a name that points nowhere). The rest come from your extensions: each one brings the rules for the kinds it declares.
 
 ## Diagnostic severity levels
 
@@ -22,7 +24,7 @@ SpecForge validates your specs in real time and reports issues as you type. Ever
 ### Warnings to watch for
 
 - **W001** -- Behavior implements no feature (with `@specforge/product`)
-- **W003** -- Invariant that nothing references
+- **W003** -- Invariant that no behavior enforces
 - **W061** -- Reference cycle detected
 
 ## Using diagnostics

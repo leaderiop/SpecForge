@@ -21,7 +21,9 @@ prefix doesn't state the severity; no other family is accepted. Each entry's
 extension reports at another level, or a code it does not own, is reported as
 W150. The ranges
 `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
-extensions and never appear in this catalog; `I999` is a core code.
+extensions and never appear in this catalog; `specforge explain` run in a
+project explains them from the rules its extensions declare. `I999` is a core
+code.
 
 Regenerate this page after editing the catalog table:
 
@@ -133,9 +135,11 @@ Level: error
 ```
 E002: Duplicate entity ID
 
-Two entities of the same kind declare the same ID; the diagnostic points at the
-duplicate and its message names where the ID was first declared (file:line:col).
-Rename one of the entities so each ID is unique within its kind.
+Two entities of the same kind declare the same ID, or a project writes a second
+`spec` block (a project has one, whatever its name); the diagnostic points at
+the duplicate and its message names where the ID was first declared
+(file:line:col). Rename one of the entities so each ID is unique within its
+kind.
 
 Owner: core
 Level: error
@@ -159,13 +163,16 @@ Level: error
 ## E004
 
 ```
-E004: Unknown type in port method
+E004: Unknown type name
 
-A `port` entity's method field references a `type` ID that isn't declared
-anywhere in the spec. Declare the missing `type` entity or fix the reference to
-point at an existing one.
+A name written as a type (a member's type or a member of its union, a port
+method's parameter or return type: any field an extension derives from type
+syntax) is no primitive and names no entity of the field's target kind. A union
+body's variants and a list's items may be an enum's words and are not checked.
+Declare the type, or name a declared type or a primitive (see
+`docs/entities/type.md`).
 
-Owner: @specforge/software
+Owner: core
 Level: error
 ```
 
@@ -494,11 +501,13 @@ E040: Extension project not found or not built
 `specforge extension build`, `extension validate`, `publish`, or `add`/`init
 --extensions` given a local path, found no extension to work on: nothing is at
 the path, the directory has no `Cargo.toml`, the build (`cargo build --release
---target wasm32-wasip2`) failed, no built component is in
-`target/wasm32-wasip2/release/` (or several are, and none is the crate's), or
-the `.wasm` file couldn't be read (over MCP, also a file with more than one
-name). Build the extension, fix the build error the message quotes, or name the
-component to use.
+--target wasm32-wasip2`) failed (the SDK version the crate names not on
+crates.io among them: a specforge built after its last release names one
+crates.io does not have yet, see "Building against an unreleased SDK" in
+docs/extension-sdk.md), no built component is in `target/wasm32-wasip2/release/`
+(or several are, and none is the crate's), or the `.wasm` file couldn't be read
+(over MCP, also a file with more than one name). Build the extension, fix the
+build error the message quotes, or name the component to use.
 
 Owner: core
 Level: error
@@ -1414,19 +1423,6 @@ Owner: @specforge/product
 Level: info
 ```
 
-## I062
-
-```
-I062: Non-standard module family
-
-A `module`'s `family` isn't one of the standard families: core, platform,
-extension, integration, advisory. Custom families are allowed; use a standard
-one if it fits.
-
-Owner: @specforge/product
-Level: info
-```
-
 ## I063
 
 ```
@@ -2191,13 +2187,13 @@ Level: warning
 ```
 W003: Unenforced invariant
 
-An `invariant` that nothing references: no behavior lists it in `invariants`,
-`requires`, `ensures` or `maintains`, so no code path is bound to preserve it.
-Reference it from the behaviors that must preserve it, or remove it if it no
+An `invariant` that nothing references: no behavior enforces it (`invariants`),
+no decision or constraint protects it, no failure mode threatens it and no axiom
+or property relies on it. Reference it where it is kept, or remove it if it no
 longer applies. `specforge analyze coverage` counts these invariants but does
 not report them again.
 
-Owner: @specforge/software
+Owner: @specforge/governance
 Level: warning
 ```
 
@@ -2839,9 +2835,10 @@ Level: warning
 ```
 W123: Unreferenced property
 
-A `property` entity is not referenced by any `behavior`, so it may be unused.
-Reference the property from a behavior's `verify` block, or remove it if it is
-no longer needed.
+A `property` that no behavior names in `satisfies`, so nothing claims to keep
+it. The rule applies where a loaded extension declares behaviors
+(`@specforge/software`). Name the property in the `satisfies` of the behaviors
+that keep it, or remove it.
 
 Owner: @specforge/formal
 Level: warning
@@ -2892,8 +2889,10 @@ Level: warning
 ```
 W128: Unreferenced protocol
 
-A `protocol` entity is not referenced by any `event`, so it may be unused.
-Reference the protocol from an event, or remove it if it is no longer needed.
+A `protocol` that no event names in `follows_protocol`, so nothing follows it.
+The rule applies where a loaded extension declares events
+(`@specforge/software`). Name the protocol in the `follows_protocol` of the
+events that follow it, or remove it.
 
 Owner: @specforge/formal
 Level: warning
@@ -3352,6 +3351,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E053 | (nothing) |
 | E060 | (nothing) |
 | I006 | (nothing) |
+| I062 | (nothing) |
 | I053 | [E061](#e061) |
 | I086 | [E061](#e061) |
 | I087 | [E061](#e061) |

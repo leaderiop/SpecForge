@@ -1,143 +1,97 @@
 ---
 name: specforge-constraints-dsl
-description: "Write constraint blocks in .spec DSL files (@specforge/governance plugin). Each constraint declares a non-functional requirement with free-form snake_case IDs, category taxonomy (performance, security, reliability, etc.), priority levels (must/should/may), measurable metrics, and verify statements. Use when defining quality attributes with thresholds."
+description: "Write constraint blocks in .spec files (the constraint kind is declared by the builtin @specforge/governance extension). Each constraint declares a measurable limit or requirement -- performance, security, regulatory, compatibility -- with a snake_case ID, a description, a category, a priority (critical/high/medium/low), a metric and threshold, and links to the behaviors it constrains, the invariants it protects and the features it governs. Use when defining quality attributes or rules with thresholds."
 ---
 
 # SpecForge Constraints DSL
 
-Rules and conventions for authoring **`constraint` blocks** in `.spec` files. Constraints declare non-functional requirements -- measurable quality attributes with thresholds and verification methods.
+> **Declared by `@specforge/governance`**, a builtin extension. The `constraint` kind exists only in a project that
+> loads it: run `specforge extensions` first, and if it is not listed, do not write `constraint` blocks (add it with
+> `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
+> `@specforge/testing`. `specforge infer-guide constraint` prints the fields.
 
-**Requires:** `@specforge/governance` plugin.
-
-## When to Use
-
-- Defining performance requirements with measurable thresholds
-- Specifying security requirements (encryption, access control)
-- Setting reliability targets (uptime, recovery time)
-- Documenting compatibility, usability, legal, or operational requirements
-- Constraining specific behaviors or protecting specific invariants
+Constraints declare quantified limits: a metric, a threshold, and what they apply to. For rules about state that are
+either kept or broken, use an invariant instead.
 
 ## Block Syntax
 
 ```spec
 constraint api_latency_under_load "API Latency Under Load" {
+  description "The user API stays fast under peak load."
   category    performance
-  priority    must
+  priority    critical
+  metric      "response time p99"
+  threshold   "< 200ms at 1000 concurrent users for 5 minutes"
+  constrains  [create_user, read_user_by_id]
 
-  metric """
-    response_time_p99 < 200ms
-    at 1000 concurrent users
-    sustained for 5 minutes
-  """
-
-  affects     [create_user, read_user_by_id, update_user_email]
-  invariants  [data_persistence]
-
-  verify load "k6 load test with 1000 VUs for 5 minutes, assert p99 < 200ms"
+  verify load "a k6 run with 1000 virtual users keeps p99 under 200ms"
 }
 ```
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
-| `category` | enum | Quality attribute category (see taxonomy below). |
-| `priority` | enum | `must`, `should`, or `may` -- RFC 2119 priority. |
-| `description` / `metric` | string / triple-string | Quality requirement. `metric` is an alias for quantifiable constraints. |
+| `description` | string (required) | The requirement in words. |
+| `category` | identifier | e.g. `performance`, `security`, `regulatory`, `compatibility`, `reliability`. |
+| `priority` | enum `critical` `high` `medium` `low` | Importance. |
+| `metric` | string | The measured quantity. |
+| `threshold` | string | The acceptable limit. |
+| `scope` | string | Where it applies (system-wide, per module, per request). |
+| `constrains` | reference list -> behavior | Behaviors it limits (needs `@specforge/software`). |
+| `enforced_by` | reference list -> behavior | Behaviors that enforce it at runtime. |
+| `protects` | reference list -> invariant | Invariants it helps protect. |
+| `governs_features` | reference list -> feature | Features it governs (needs `@specforge/product`). |
+| `refs` | string list | Declared `ref` IDs. |
 
-### Optional
+### Verify kinds
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `behaviors` / `affects` | reference list | Behaviors this constraint applies to. Both field names accepted. |
-| `invariants` | reference list | Invariants this constraint helps protect. |
-| `verify` | verify statement(s) | How to test this constraint. |
-| `refs` | reference list | External references linked to this constraint. |
-
-### Category Taxonomy
-
-| Category | Covers |
-|----------|--------|
-| `performance` | Latency, throughput, resource usage |
-| `security` | Authentication, authorization, encryption |
-| `reliability` | Availability, fault tolerance, recovery |
-| `scalability` | Load capacity, elasticity, data volume |
-| `compatibility` | Platform support, backward compatibility |
-| `usability` | Accessibility, learnability, error prevention |
-| `maintainability` | Modularity, testability, analyzability |
-| `portability` | Installability, adaptability, replaceability |
-| `legal` | Regulatory compliance, licensing, data residency |
-| `operational` | Deployment, monitoring, logging, backup |
-
-## Relationships
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `behavior` | `constrains` | Quality requirement applies to these behaviors |
-| `invariant` | `constrains` | Quality requirement protects these invariants |
-| `ref` | `links_to` | External references linked to this constraint |
-
-### Incoming edges
-
-None. Constraints are leaf nodes in the traceability chain.
+With `@specforge/testing`: `unit`, `integration`, `property`, `load`, `contract` (another kind is W009).
 
 ## Writing Rules
 
-1. **Measurable metrics** -- "p99 < 200ms" not "the system is fast".
-2. **Categorize correctly** -- use the standard category taxonomy.
-3. **Scope to behaviors** -- name which behaviors this constraint applies to.
-4. **Add verify statements** -- describe how to test the constraint.
-5. **Priority reflects RFC 2119** -- `must` = absolute, `should` = recommended, `may` = optional.
-6. **Import behavior and invariant files** -- `use` the files declaring referenced entities.
+1. **Measurable** -- "p99 < 200ms", not "the system is fast".
+2. **Scope it** -- name the behaviors or features it applies to.
+3. **Add `verify`** -- describe how a test shows the threshold holds.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E001 | Every ID in `affects` and `invariants` must resolve. |
-| E002 | No duplicate constraint IDs. |
-| W006 | Unconstrained behavior -- behavior with no security or performance constraint coverage. |
+`@specforge/governance` declares no validation rules of its own; the core and testing checks apply.
+
+| Code | Owner | Rule |
+|------|-------|------|
+| E006 | core | `description` is missing. |
+| E061 | core | `priority` outside its enum. |
+| E003 / E022 | core | A reference names nothing, or an entity of another kind. |
+| W009 | testing | A `verify` kind outside the allowed set. |
 
 ## Examples
-
-### Performance
-
-```spec
-constraint api_latency_under_load "API Latency Under Load" {
-  category    performance
-  priority    must
-
-  metric """
-    response_time_p99 < 200ms
-    at 1000 concurrent users
-    sustained for 5 minutes
-  """
-
-  affects     [create_user, read_user_by_id, update_user_email]
-
-  verify load "k6 load test with 1000 VUs, assert p99 < 200ms"
-}
-```
 
 ### Security
 
 ```spec
 constraint pii_encryption_at_rest "PII Encryption at Rest" {
+  description "Every personal data field is encrypted at rest."
   category    security
-  priority    must
+  priority    critical
+  threshold   "AES-256 for every PII column"
+  protects    [pii_encryption]
+  constrains  [create_user, update_user_email]
 
-  metric "All PII fields encrypted with AES-256 in the database."
+  verify integration "a database column inspection finds no plaintext PII"
+}
+```
 
-  invariants  [pii_encryption]
-  affects     [create_user, update_user_email]
-  refs        [gh.issue:55]
+### Regulatory
 
-  verify audit "Database column inspection confirms encryption"
+```spec
+constraint gdpr_data_residency "GDPR Data Residency" {
+  description "EU user data stays in the EU."
+  category    regulatory
+  priority    critical
+  scope       "all stores holding EU personal data"
+  threshold   "0 replicas of EU personal data outside eu-west-1"
+  protects    [data_residency]
 }
 ```
 
@@ -145,35 +99,17 @@ constraint pii_encryption_at_rest "PII Encryption at Rest" {
 
 ```spec
 constraint runtime_compatibility "Runtime Compatibility" {
+  description "The CLI runs on Node.js 18+, Bun 1.0+ and Deno 2.0+."
   category    compatibility
-  priority    must
+  priority    high
 
-  metric "The CLI runs on Node.js 18+, Bun 1.0+, and Deno 2.0+."
-
-  verify integration "CI matrix tests across all supported runtimes"
-}
-```
-
-### Legal
-
-```spec
-constraint gdpr_data_residency "GDPR Data Residency" {
-  category    legal
-  priority    must
-
-  metric "All EU user data stored in EU-West-1 region. No cross-region replication of PII."
-
-  affects     [create_user, update_user_email]
-  invariants  [data_residency]
-
-  verify audit "Infrastructure audit confirms data residency"
+  verify integration "the CI matrix passes on every supported runtime"
 }
 ```
 
 ## What NOT to Do
 
-- Do not write constraints without the `@specforge/governance` plugin installed
-- Do not confuse constraints (graduated quality) with invariants (binary violated-or-not)
+- Do not use `must`/`should`/`may` as a priority -- the enum is `critical`, `high`, `medium`, `low` (E061)
+- Do not write `affects`, `behaviors` or `invariants` -- the fields are `constrains`, `enforced_by` and `protects` (W020)
+- Do not confuse constraints (graduated, measured) with invariants (kept or broken)
 - Do not use vague metrics -- "fast", "secure", "reliable" are not measurable
-- Do not skip the `category` field -- it organizes constraints for reporting
-- Do not reference behaviors or invariants from other files without `use` imports

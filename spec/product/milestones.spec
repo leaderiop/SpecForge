@@ -346,9 +346,9 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   modules       [specforge_package_software]
   tags          ["h2", "extension"]
   exit_criteria [
-    "The declaration declares 5 entity kinds (behavior, invariant, event, type, port) with fields and LSP metadata; @specforge/testing makes them testable",
+    "The declaration declares 4 entity kinds (behavior, event, type, port) with fields and LSP metadata; @specforge/testing makes them testable",
     "The declaration declares 15 edge types with source/target constraints",
-    "Rules W001-W003, W005-W008, W010, E004 and E010 (three of them custom Wasm checks) fire correctly",
+    "Rules W001-W003, W005-W008, W010 and E010 (two of them custom Wasm checks) fire correctly, and the host reports an unknown type name (E004)",
     "Entity enhancements add ports and behaviors fields to product entities",
     "specforge check on SpecForge's own specs reports 0 errors, and every software warning is a genuine finding",
     "Every testable software entity declares verify obligations; linked tests prove them, and specforge stats and milestone-completion report how many are proven",

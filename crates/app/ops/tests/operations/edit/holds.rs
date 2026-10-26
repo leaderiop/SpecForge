@@ -6,7 +6,11 @@ use crate::navigate::compile;
 use serde_json::{Value, json};
 use specforge_graph::field_form;
 
-const SOFTWARE_FORMAL: &[&str] = &["@specforge/software", "@specforge/formal"];
+const SOFTWARE_FORMAL: &[&str] = &[
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/formal",
+];
 
 /// `inherits` writes nothing, `bystander` keeps every default reached (so no "reaches no block" W161), `owns`
 /// overrides each default, `owns_more` adds an entry to the default's.

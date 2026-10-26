@@ -533,7 +533,7 @@ fn installed_project(extra: &str) -> tempfile::TempDir {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        json!({"name": "other", "version": "0.1.0", "extensions": ["@specforge/software"]})
+        json!({"name": "other", "version": "0.1.0", "extensions": ["@specforge/software", "@specforge/governance"]})
             .to_string(),
     )
     .unwrap();

@@ -176,10 +176,20 @@ fn project_change_refusals_print_as_pinned() {
     let p = changeable();
     let hello = p.root().join("spec/hello.spec");
     chmod(&hello, 0o444);
-    out.push_str(&printed(&p, &["set", "user", "status", "active"]));
     out.push_str(&printed(
         &p,
-        &["set", "user", "status", "active", "--format", "json"],
+        &["set", "authenticate_user", "status", "active"],
+    ));
+    out.push_str(&printed(
+        &p,
+        &[
+            "set",
+            "authenticate_user",
+            "status",
+            "active",
+            "--format",
+            "json",
+        ],
     ));
     chmod(&hello, 0o644);
 
@@ -254,7 +264,7 @@ fn project_change_refusals_print_as_pinned() {
                 "specforge.edit",
                 serde_json::json!({"edits": [
                     {"op": "set", "entity_id": "audit_login", "field": "status", "value": "active"},
-                    {"op": "set", "entity_id": "user", "field": "status", "value": "active"},
+                    {"op": "set", "entity_id": "authenticate_user", "field": "status", "value": "active"},
                 ]}),
             ),
         ],

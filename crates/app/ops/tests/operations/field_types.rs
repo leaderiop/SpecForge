@@ -257,7 +257,7 @@ fn vocabulary_project(spec: &str) -> (TestProject, CompiledProject) {
 }
 
 /// One entity of every kind with a vocabulary, each field written with a
-/// value outside its vocabulary (22 of them).
+/// value outside its vocabulary (20 of them).
 const OFF_VOCABULARY: &str = r#"feature feat "F" {
   problem  "p"
   status   finished
@@ -271,7 +271,7 @@ journey jour "J" {
 }
 
 deliverable deli "D" {
-  artifact_type binary
+  artifact_type cli
   status        released
 }
 
@@ -288,7 +288,6 @@ persona pers "P" {
 
 channel chan "C" {
   description       "d"
-  interaction_model sync
   status            retired
 }
 
@@ -360,13 +359,11 @@ fn every_builtin_vocabulary_refuses_a_value_outside_it() {
         "priority/feat",
         "effort/feat",
         "priority/jour",
-        "artifact_type/deli",
         "status/deli",
         "status/mile",
         "priority/mile",
         "technical_level/pers",
         "status/pers",
-        "interaction_model/chan",
         "status/chan",
         "status/rele",
         "status/decn",
@@ -415,10 +412,10 @@ fn an_off_vocabulary_value_suggests_the_closest_value() {
     assert_eq!(e061[0]["suggestion"], "did you mean 'done'?");
 }
 
-/// The twelve closed filters of the product lists: (kind, field, values).
+/// The ten closed filters of the product lists: (kind, field, values).
 /// Written out here, not read from the extension: this is what the lists
 /// take today and what `check` must keep admitting.
-const CLOSED_FILTERS: [(&str, &str, &[&str]); 12] = [
+const CLOSED_FILTERS: [(&str, &str, &[&str]); 10] = [
     (
         "feature",
         "status",
@@ -440,21 +437,6 @@ const CLOSED_FILTERS: [(&str, &str, &[&str]); 12] = [
         "journey",
         "priority",
         &["critical", "high", "medium", "low"],
-    ),
-    (
-        "deliverable",
-        "artifact_type",
-        &[
-            "cli",
-            "service",
-            "library",
-            "web_app",
-            "mobile_app",
-            "api",
-            "extension",
-            "documentation",
-            "package",
-        ],
     ),
     (
         "deliverable",
@@ -483,18 +465,6 @@ const CLOSED_FILTERS: [(&str, &str, &[&str]); 12] = [
         ],
     ),
     ("persona", "status", &["active", "deprecated"]),
-    (
-        "channel",
-        "interaction_model",
-        &[
-            "request_response",
-            "event_driven",
-            "batch",
-            "streaming",
-            "bidirectional",
-            "manual",
-        ],
-    ),
     ("channel", "status", &["active", "deprecated"]),
     (
         "release",
@@ -521,6 +491,7 @@ fn every_closed_value() -> String {
                 "journey" => "  flow [\"a\"]\n",
                 "persona" | "channel" => "  description \"d\"\n",
                 "release" => "  version \"1.0.0\"\n",
+                "deliverable" => "  artifact_type cli\n",
                 _ => "",
             });
             for (other_kind, other, other_values) in CLOSED_FILTERS {
@@ -566,5 +537,51 @@ fn the_lists_take_every_value_check_admits() {
             .map(|e| e["id"].as_str().unwrap())
             .collect();
         assert_eq!(ids, [format!("{kind}_{field}_{last}")], "{kind} --{field}");
+    }
+}
+
+/// A product launch in its own words (plan 03, ADR 0279).
+const OWN_WORDS: &str = r#"module marketing "Marketing" {
+  family workstream
+}
+
+channel retail "Retail partners" {
+  description       "d"
+  interaction_model in_person
+}
+
+deliverable press_kit "Press kit" {
+  artifact_type press_kit
+  modules       [marketing]
+}
+"#;
+
+#[specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "check and the lists take a project's own words for an artifact type, an interaction model and a family"
+)]
+fn a_project_writes_its_own_words_for_what_it_delivers_and_how_it_reaches_people() {
+    let (_project, compiled) = project_enabling(&["@specforge/product"], OWN_WORDS);
+    let (_ok, diags) = check(&compiled);
+    let flagged: Vec<_> = diags
+        .iter()
+        .filter(|d| d["code"] == "E061" || d["code"] == "I062")
+        .collect();
+    assert!(flagged.is_empty(), "{flagged:?}");
+    for (list, field, word, id) in [
+        ("deliverables", "artifact_type", "press_kit", "press_kit"),
+        ("channels", "interaction_model", "in_person", "retail"),
+        ("modules", "family", "workstream", "marketing"),
+    ] {
+        let (exit_code, listed) =
+            command_document(&compiled, "product", list, json!({ field: word }));
+        assert_eq!(exit_code, 0, "{list} --{field} {word}");
+        let ids: Vec<&str> = listed[list]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, [id], "{list} --{field}");
     }
 }

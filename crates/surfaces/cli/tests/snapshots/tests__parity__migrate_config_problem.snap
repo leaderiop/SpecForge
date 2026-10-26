@@ -15,7 +15,8 @@ expression: snapshot
         "["
       ],
       "extensions": [
-        "@specforge/software"
+        "@specforge/software",
+        "@specforge/governance"
       ],
       "name": "demo",
       "registries": [

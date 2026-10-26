@@ -267,7 +267,11 @@ async fn next_published_codes(client: &mut Session, uri: &str) -> Vec<String> {
 async fn e2e_diagnostics_follow_each_edit() {
     let clean = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n\nbehavior login \"L\" {\n  invariants [token_unique]\n}\n";
     let (mut client, uri, _dir) = Session::with_extensions(
-        &["@specforge/software", "@specforge/testing"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
         "auth.spec",
         clean,
     )

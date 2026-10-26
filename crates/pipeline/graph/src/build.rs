@@ -369,19 +369,37 @@ fn declarations<'a>(
                 diagnostics.push(title::untitled_block_error(entity));
             }
             diagnostics.extend(repeated_field_errors(entity));
-            let key = (entity.kind.raw, entity.id.raw);
+            // A project has one spec block, whatever its name (ADR 0282 D2).
+            let root = entity.kind.raw == structural::SPEC;
+            let key = (
+                entity.kind.raw,
+                if root { entity.kind.raw } else { entity.id.raw },
+            );
             if let Some(first) = seen.get(&key) {
+                let (what, site, fix) = if root {
+                    (
+                        "a second spec block",
+                        "the project's spec block is declared at",
+                        "remove it, or merge it into the first: a project has one spec block",
+                    )
+                } else {
+                    (
+                        "duplicate entity ID",
+                        "first declared at",
+                        "rename one of the entities to avoid the collision",
+                    )
+                };
                 diagnostics.push(
                     Diagnostic::new(
                         codes::E002,
                         format!(
-                            "duplicate entity ID '{}' (first declared at {}:{}:{})",
+                            "{what} '{}' ({site} {}:{}:{})",
                             entity.id.raw, first.file, first.start_line, first.start_col
                         ),
                     )
                     .with_span(entity.span.clone())
                     .with_data(about(entity))
-                    .with_suggestion("rename one of the entities to avoid the collision"),
+                    .with_suggestion(fix),
                 );
                 continue;
             }
@@ -525,14 +543,14 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
 
     // Link references -> edges (E003, I004) and warn on reference cycles
     // (W061), which leave a declared single reference out.
-    let diagnostics = graph.link(&config.inputs.field_forms, &config.inputs.target_owners);
+    let mut diagnostics = graph.link(&config.inputs.field_forms, &config.inputs.target_owners);
 
     // Derived reference fields: dependencies, never a reference W061 reads,
-    // so a recursive type is no reference cycle (ADR 0204).
-    graph.link_derived_references(
+    // so a recursive type is no reference cycle (ADR 0204); an unknown type name is E004 (ADR 0282 D1).
+    diagnostics.extend(graph.link_derived_references(
         &config.inputs.derived_references,
         &config.inputs.field_forms,
-    );
+    ));
 
     // The linker's postcondition (E060, retired): every reference to an
     // existing entity has its edge.

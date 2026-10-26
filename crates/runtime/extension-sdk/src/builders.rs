@@ -280,6 +280,7 @@ impl RuleBuilder {
                 constraint: None,
                 wasm_function: None,
                 target_extension: None,
+                description: None,
             },
             validate: None,
         }
@@ -294,6 +295,11 @@ impl RuleBuilder {
             "validator",
             move |context: &ValidatorContext| Ok::<_, String>(handler(context)),
         ));
+        self
+    }
+    /// What the rule's code means and how to fix it, in a sentence or two (`specforge explain`).
+    pub fn description(&mut self, text: &str) -> &mut Self {
+        self.descriptor.description = Some(text.to_string());
         self
     }
     pub fn check(&mut self, kind: CheckKind) -> &mut Self {

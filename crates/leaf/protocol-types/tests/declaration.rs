@@ -152,6 +152,35 @@ fn a_declaration_round_trips_through_its_wire_answers() {
 
 #[specforge_test_macros::test(
     behavior = "load_extension_declaration",
+    verify = "a declaration round-trips through its wire answers unchanged"
+)]
+fn a_rule_description_crosses_the_wire_and_is_absent_when_unset() {
+    let rule = |code: &str, description: Option<&str>| ValidationRuleDescriptor {
+        code: code.to_string(),
+        severity: ValidationSeverity::Error,
+        message_template: "m".to_string(),
+        check: "custom".to_string(),
+        description: description.map(str::to_string),
+        ..Default::default()
+    };
+    let declared = ExtensionDeclaration {
+        validation_rules: vec![rule("E950", Some("What E950 means.")), rule("E951", None)],
+        ..Default::default()
+    };
+    let items = declared.describe_items(DeclaredCategory::ValidationRules);
+    assert_eq!(items[0]["description"], "What E950 means.");
+    assert!(items[1].get("description").is_none(), "{}", items[1]);
+    let loaded = ExtensionDeclaration::from_wire(
+        declared.handshake.clone(),
+        |category| answer(&declared, category),
+        |key| panic!("unexpected unknown key {key:?}"),
+    )
+    .unwrap();
+    assert_eq!(loaded, declared);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
     verify = "a describe category that does not parse fails the load naming the category"
 )]
 fn a_category_that_does_not_parse_fails_naming_it() {

@@ -4,6 +4,11 @@ This guide links a Rust project's tests to the entities they prove, so
 `specforge analyze coverage` can tell which `verify` obligations are backed by
 a passing test, which by a failing one, and which by nothing.
 
+It is the software side of SpecForge's proof model: `verify` statements and
+test runners come from builtin extensions, and the proof `collect` records
+today is a test result. (Evidence for other domains, such as a signed
+batch record, is not built yet.)
+
 It takes three pieces:
 
 - **`@specforge/testing`** gives kinds like `behavior` and `invariant` their

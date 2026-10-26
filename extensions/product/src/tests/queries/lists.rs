@@ -106,7 +106,7 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 13, "thirteen vocabulary fields");
+    assert_eq!(checked, 11, "eleven vocabulary fields");
     // Both directions: an enum field the declaration holds has a vocabulary.
     for entity in &declaration.entities {
         let kind = entity.keyword.as_deref().unwrap();
@@ -123,7 +123,7 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
         assert!(
             ![
                 "W077", "W078", "W079", "W080", "W083", "W084", "W085", "W095", "I053", "I086",
-                "I087",
+                "I087", "I062",
             ]
             .contains(&rule.code.as_str()),
             "{} is retired to E061",
@@ -191,7 +191,50 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
             serde_json::json!(SORT_ORDER)
         );
     }
-    assert_eq!(closed, 12, "twelve closed filters");
+    assert_eq!(closed, 10, "ten closed filters");
+}
+
+#[specforge_test::prelude::specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "a deliverable's artifact type and a channel's interaction model are open identifier fields naming their suggested words"
+)]
+fn the_artifact_type_and_interaction_model_take_any_word() {
+    let declaration = crate::specforge_extension_build().declaration();
+    for (kind, field, word) in [
+        ("deliverable", "artifact_type", "physical_product"),
+        ("channel", "interaction_model", "in_person"),
+    ] {
+        let declared = declaration
+            .entities
+            .iter()
+            .filter(|k| k.keyword.as_deref() == Some(kind))
+            .flat_map(|k| &k.fields)
+            .find(|f| f.name == field)
+            .unwrap_or_else(|| panic!("{kind}.{field} is not declared"));
+        assert_eq!(declared.field_type, "identifier", "{kind}.{field}");
+        assert!(declared.enum_values.is_empty(), "{kind}.{field}");
+        assert!(
+            declared.description.as_deref().unwrap_or("").contains(word),
+            "{kind}.{field}"
+        );
+    }
+}
+
+#[specforge_test::prelude::specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "no product rule checks a module's family"
+)]
+fn no_rule_checks_a_module_family() {
+    let declaration = crate::specforge_extension_build().declaration();
+    let on_family: Vec<_> = declaration
+        .validation_rules
+        .iter()
+        .filter(|r| {
+            r.target_kind.as_deref() == Some("module") && r.field.as_deref() == Some("family")
+        })
+        .map(|r| r.code.clone())
+        .collect();
+    assert!(on_family.is_empty(), "{on_family:?}");
 }
 
 #[test]

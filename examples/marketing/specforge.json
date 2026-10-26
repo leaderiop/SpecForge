@@ -1,0 +1,8 @@
+{
+  "name": "lumen-pro-spring-launch",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@example/marketing=extension/wasm/marketing.wasm"
+  ]
+}

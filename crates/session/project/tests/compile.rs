@@ -218,7 +218,7 @@ fn all_failed_extensions_leave_a_structural_compile() {
     );
 }
 
-/// `@specforge/formal` requires `@specforge/software`: without it the
+/// `@specforge/cargo-test` requires `@specforge/testing`: without it the
 /// compile fails with E027, which says what to install.
 #[specforge_test(
     invariant = "peer_dependency_satisfaction",
@@ -228,7 +228,7 @@ fn a_missing_required_peer_fails_the_compile() {
     let dir = project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
-            "extensions": ["@specforge/formal"]
+            "extensions": ["@specforge/cargo-test"]
         }),
         &[("a.spec", "term alpha \"Alpha\" {\n}\n")],
     );
@@ -238,13 +238,13 @@ fn a_missing_required_peer_fails_the_compile() {
     let e027: Vec<_> = diagnostics.iter().filter(|d| d.code == "E027").collect();
     assert_eq!(e027.len(), 1, "{diagnostics:?}");
     assert!(
-        e027[0].message.contains("'@specforge/formal'")
-            && e027[0].message.contains("'@specforge/software'"),
+        e027[0].message.contains("'@specforge/cargo-test'")
+            && e027[0].message.contains("'@specforge/testing'"),
         "{e027:?}"
     );
     assert_eq!(
         e027[0].suggestion.as_deref(),
-        Some("install it with: specforge add @specforge/software")
+        Some("install it with: specforge add @specforge/testing")
     );
 }
 
@@ -306,7 +306,7 @@ fn a_known_keyword_without_its_extension_is_one_e024_naming_it() {
 fn soft_cross_extension_resolution_contract() {
     let dir = project(
         serde_json::json!({
-            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software", "@specforge/governance"]
         }),
         &[(
             "a.spec",
@@ -317,7 +317,7 @@ fn soft_cross_extension_resolution_contract() {
     let compiled = dir.compile();
     let diagnostics = compiled.diagnostics();
 
-    // registries_populated_fired: software's kinds are registered.
+    // registries_populated_fired: the enabled extensions' kinds are registered.
     assert!(
         compiled
             .environment()
@@ -560,7 +560,7 @@ fn environment_diagnostics_come_in_load_order() {
     let dir = project(
         serde_json::json!({
             "name": "p", "version": "0.1.0",
-            "extensions": ["@specforge/formal", "@acme/missing", "@specforge/product"]
+            "extensions": ["@specforge/cargo-test", "@acme/missing", "@specforge/product"]
         }),
         &[],
     );
@@ -570,11 +570,10 @@ fn environment_diagnostics_come_in_load_order() {
         Some(runtime.clone()),
     );
     let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
-    // The missing extension's load failure, formal's missing peer, then the
-    // registry build's: formal's enhancements of software's kinds.
+    // The missing extension's load failure, then cargo-test's missing peer.
     assert_eq!(
         codes,
-        ["E028", "E027", "I004", "I004", "I004"],
+        ["E028", "E027"],
         "{:#?}",
         env.diagnostics().collect::<Vec<_>>()
     );

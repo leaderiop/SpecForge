@@ -1,7 +1,9 @@
 # A closed field vocabulary is declared once
 
 **Status:** accepted (2026-10-13, architecture round 9, plan 01). Amends ADR 0011 (the product surface's closed
-enums), ADR 0020 D5 (its example) and ADR 0034 D4 (what a declared default means).
+enums), ADR 0020 D5 (its example) and ADR 0034 D4 (what a declared default means). D6 and D7 amended by
+[ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md) (an open field has no info rule;
+`interaction_model` is open).
 
 The builtins declared every closed set of field values (a feature's `status`, a failure mode's `severity`, a
 property's `property_type`) as a `string` field and copied the values by hand into the field's description, a

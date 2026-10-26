@@ -13,6 +13,7 @@ expression: snapshot
     "config": {
       "extensions": [
         "@specforge/software",
+        "@specforge/governance",
         "@specforge/product"
       ],
       "name": "demo",

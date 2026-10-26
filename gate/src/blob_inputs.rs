@@ -1,5 +1,5 @@
-//! `<crate_dir>/wasm/inputs.json`: what one committed blob (a builtin under `extensions/` or a fixture under
-//! `fixtures/`) was built from. `build-blobs` writes and checks it through this module; a quick run asks it which
+//! `<crate_dir>/wasm/inputs.json`: what one committed blob (a builtin under `extensions/`, a fixture under
+//! `fixtures/` or an example project's own extension under `examples/<name>/extension`) was built from. `build-blobs` writes and checks it through this module; a quick run asks it which
 //! blobs a change set feeds. A blob is named by its crate directory from the repository root. The JSON is unchanged
 //! byte for byte.
 
@@ -87,23 +87,19 @@ pub fn inherited_tables(manifest: &str) -> String {
     out
 }
 
-/// The parents of the crates that commit a blob: the builtins and the fixtures.
-pub const BLOB_PARENTS: &[&str] = &["extensions", "fixtures"];
+/// The crates that commit a blob, as `repo::expand` patterns: the builtins, the fixtures and the example projects'
+/// extensions.
+pub const BLOB_CRATES: &[&str] = &["extensions/*", "fixtures/*", "examples/*/extension"];
 
-/// Every committed blob with a record: the crate directories (`extensions/<dir>`, `fixtures/<dir>`, sorted) whose
-/// `wasm/inputs.json` exists.
+/// Every committed blob with a record: the crate directories (`extensions/<dir>`, `fixtures/<dir>`,
+/// `examples/<dir>/extension`, sorted) whose `wasm/inputs.json` exists.
 pub fn blobs(repo_root: &Path) -> Result<Vec<String>, String> {
-    let mut found = Vec::new();
-    for parent in BLOB_PARENTS {
-        let dir = repo_root.join(parent);
-        let entries = std::fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        found.extend(
-            entries
-                .flatten()
-                .filter(|entry| entry.path().join("wasm").join(FILE).is_file())
-                .map(|entry| format!("{parent}/{}", entry.file_name().to_string_lossy())),
-        );
-    }
+    let suffix = format!("/wasm/{FILE}");
+    let mut found: Vec<String> = BLOB_CRATES
+        .iter()
+        .flat_map(|pattern| crate::repo::expand(repo_root, &format!("{pattern}{suffix}")))
+        .filter_map(|record| record.strip_suffix(&suffix).map(str::to_owned))
+        .collect();
     found.sort();
     Ok(found)
 }

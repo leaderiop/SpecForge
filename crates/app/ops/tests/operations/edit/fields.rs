@@ -209,7 +209,11 @@ const REQUIRING: &str = r#"behavior check_graph "Check the Graph" {
 )]
 fn set_of_a_nested_entry_edits_one_line() {
     let c = compile(
-        &["@specforge/software", "@specforge/formal"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/formal",
+        ],
         &[("g.spec", REQUIRING)],
     );
     let text = after(
@@ -246,7 +250,11 @@ fn set_of_a_nested_entry_edits_one_line() {
 #[test]
 fn unset_of_the_last_entry_removes_the_block_field() {
     let c = compile(
-        &["@specforge/software", "@specforge/formal"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/formal",
+        ],
         &[("g.spec", REQUIRING)],
     );
     let text = after(
@@ -271,10 +279,10 @@ fn unset_of_the_last_entry_removes_the_block_field() {
 fn a_member_of_an_open_kind_can_be_set() {
     let source = "type Task \"Task\" {\n  id string\n}\n";
     let c = project(&[("t.spec", source)]);
-    let text = after(&c, "t.spec", &[set("Task", "owner", one("Person[]"))]);
+    let text = after(&c, "t.spec", &[set("Task", "owner", one("Task[]"))]);
     assert_eq!(
         text,
-        "type Task \"Task\" {\n  id    string\n  owner Person[]\n}\n"
+        "type Task \"Task\" {\n  id    string\n  owner Task[]\n}\n"
     );
     let text = after(&c, "t.spec", &[set("Task", "id", one("integer"))]);
     assert_eq!(text, source.replace("string", "integer"));

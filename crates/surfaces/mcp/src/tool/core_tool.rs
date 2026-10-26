@@ -33,7 +33,7 @@ pub trait CoreTool: Sync + 'static {
     /// call only previews (`MutationArgs`); a read's say nothing.
     type Args: Arguments + Previews<Self::Returns>;
     /// What its handler is given before its arguments, and so its call
-    /// target (ADR 0024 A2): `Unscoped`, `View`, `Project` or `NewProject`
+    /// target (ADR 0024 A2): `View`, `OutputView`, `Project` or `NewProject`
     /// ([`crate::target`]).
     type Input: Input;
     /// What its handler returns, and so its reply kind: `Answered<Reply>`,

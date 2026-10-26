@@ -25,7 +25,11 @@ fn titles(fixes: &[Fix]) -> Vec<String> {
     fixes.iter().map(|f| f.title.clone()).collect()
 }
 
-const TESTING: &[&str] = &["@specforge/software", "@specforge/testing"];
+const TESTING: &[&str] = &[
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/testing",
+];
 const UNTESTED: &str = "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
                         behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n";
 

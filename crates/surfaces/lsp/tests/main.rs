@@ -23,6 +23,7 @@ mod format_forms;
 mod format_parity;
 mod hostile_files;
 mod hover;
+mod hover_declared;
 mod hover_members;
 mod hover_obligations;
 mod identity;

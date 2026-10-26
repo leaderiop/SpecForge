@@ -31,20 +31,19 @@ behavior validate_product_vocabularies "Validate Product Field Vocabularies" {
     PersonaStatus,
     ChannelStatus,
     Effort,
-    ArtifactType,
     TechnicalLevel,
-    InteractionModel,
     Diagnostic,
   ]
   contract """
     The @specforge/product extension MUST declare each of its closed
     vocabularies once and declare every field that takes one as an enum of
     it: feature status (FeatureStatus), priority (Priority) and effort
-    (Effort); journey priority; deliverable artifact_type (ArtifactType) and
-    status (DeliverableStatus); milestone status (MilestoneStatus) and
-    priority; persona technical_level (TechnicalLevel) and status
-    (PersonaStatus); channel interaction_model (InteractionModel) and status
-    (ChannelStatus); release status (ReleaseStatus). A status field
+    (Effort); journey priority; deliverable status (DeliverableStatus);
+    milestone status (MilestoneStatus) and priority; persona
+    technical_level (TechnicalLevel) and status (PersonaStatus); channel
+    status (ChannelStatus); release status (ReleaseStatus). A
+    deliverable's artifact_type and a channel's interaction_model are open
+    (accept_a_projects_own_words). A status field
     declares as its default the value an absent status counts as: feature
     proposed, deliverable draft, milestone and release planned, persona and
     channel active. The core refuses a written value outside the
@@ -62,37 +61,24 @@ behavior validate_product_vocabularies "Validate Product Field Vocabularies" {
   verify unit "check admits every value the list filters take, and the lists find it"
 }
 
-behavior validate_module_family_field "Validate Module Family Field" {
+behavior accept_a_projects_own_words "Accept a Project's Own Words" {
   category validation
-  types    [Diagnostic, ProductModule, ModuleFamily]
+  types    [Diagnostic, ProductDeliverable, ProductChannel, ProductModule]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    one_of rule on the module family field with the ModuleFamily members:
-    core, platform, extension, integration, advisory. A module whose family
-    is present and not one of them MUST produce an I062 info diagnostic:
-    "module '{id}' has non-standard family '{value}' — standard families:
-    {allowed}", {allowed} being the ModuleFamily members. Info-level allows
-    custom family values while suggesting standardization: the ModuleFamily
-    enum is an open set. A module with no family field produces nothing.
-
-    Enum semantics:
-      core        — fundamental library or framework component
-      platform    — user-facing binary (CLI, LSP, MCP server)
-      extension   — plugin or extension package
-      integration — integration adapter or bridge
-      advisory    — non-code module (docs, process, governance)
+    A field that classifies a domain's things is open (ADR 0279): a
+    deliverable's artifact_type, a channel's interaction_model and a
+    module's family are identifiers. Any one word is accepted, the field's
+    description names suggested words, no rule checks the word, and the
+    list filter on the field matches the word as written.
   """
   ensures {
-    fires_non_standard  "module with family value not in ModuleFamily enum produces I062"
-    suppresses_standard "module with family value in ModuleFamily enum suppresses I062"
-    absent_passes       "module with no family produces no I062"
-    lists_standard      "I062 names the value and lists the standard families"
+    any_word "a project's own word for an artifact type, an interaction model or a family produces no diagnostic"
+    filters  "the deliverables, channels and modules lists find an entity by its own word"
   }
-  verify unit "module with family=core passes"
-  verify unit "module with family=integration passes"
-  verify unit "module with family=advisory passes"
-  verify unit "module with non-standard family produces I062 listing the standard families"
-  verify unit "module with no family produces no I062"
+  verify unit "a deliverable's artifact type and a channel's interaction model are open identifier fields naming their suggested words"
+  verify unit "no product rule checks a module's family"
+  verify unit "an open field's list filter matches any word it is given"
+  verify unit "check and the lists take a project's own words for an artifact type, an interaction model and a family"
 }
 
 behavior validate_milestone_target_date_format "Validate Milestone Target Date Format" {

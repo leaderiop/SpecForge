@@ -1,0 +1,32 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": "who a campaign speaks to",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CampaignTargetsAudience",
+      "source_kind": "campaign",
+      "target_kind": "audience"
+    },
+    {
+      "description": "what a campaign says",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "CampaignUsesMessage",
+      "source_kind": "campaign",
+      "target_kind": "message"
+    },
+    {
+      "description": "the brand rules a message was checked against",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "MessageObeysBrandRule",
+      "source_kind": "message",
+      "target_kind": "brand_rule"
+    }
+  ]
+}

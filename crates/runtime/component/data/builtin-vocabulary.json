@@ -10,7 +10,7 @@
     "event": "@specforge/software",
     "failure_mode": "@specforge/governance",
     "feature": "@specforge/product",
-    "invariant": "@specforge/software",
+    "invariant": "@specforge/governance",
     "journey": "@specforge/product",
     "milestone": "@specforge/product",
     "module": "@specforge/product",

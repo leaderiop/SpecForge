@@ -237,9 +237,9 @@ fn init_with_a_builtin_that_requires_another_passes_check() {
         .bare_command(&[
             "init",
             "--name",
-            "needs-software",
+            "needs-testing",
             "--extensions",
-            "@specforge/formal",
+            "@specforge/cargo-test",
             "--format",
             "json",
         ])
@@ -255,8 +255,8 @@ fn init_with_a_builtin_that_requires_another_passes_check() {
         .collect();
     let position = |name: &str| installed.iter().position(|e| *e == name);
     assert!(
-        position("@specforge/software") < position("@specforge/formal")
-            && position("@specforge/software").is_some(),
+        position("@specforge/testing") < position("@specforge/cargo-test")
+            && position("@specforge/testing").is_some(),
         "{installed:?}"
     );
 
@@ -520,12 +520,11 @@ fn non_interactive_with_extensions() {
 
     let content = fs::read_to_string(dir.root().join("specforge.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let extensions = json["extensions"].as_array().unwrap();
-    // Enabling software enables the test vocabulary it relies on (ADR 0002).
-    assert_eq!(extensions.len(), 3);
-    assert_eq!(extensions[0], "@specforge/software");
-    assert_eq!(extensions[1], "@specforge/product");
-    assert_eq!(extensions[2], "@specforge/testing");
+    // Software enables its test vocabulary (ADR 0002) and governance's invariant (ADR 0280).
+    assert_eq!(
+        json["extensions"].to_string(),
+        r#"["@specforge/software","@specforge/product","@specforge/testing","@specforge/governance"]"#
+    );
 }
 
 /// `init` enables the runner extensions for the test runners it finds: a
@@ -631,13 +630,9 @@ fn non_interactive_json_all_fields() {
     assert_eq!(json["config_file"], "specforge.json");
     assert_eq!(json["starter_file"], "spec/hello.spec");
 
-    let exts = json["extensions_installed"].as_array().unwrap();
     assert_eq!(
-        exts,
-        &[
-            serde_json::json!("@specforge/software"),
-            serde_json::json!("@specforge/testing")
-        ]
+        json["extensions_installed"].to_string(),
+        r#"["@specforge/software","@specforge/testing","@specforge/governance"]"#
     );
 }
 
@@ -1343,7 +1338,8 @@ fn extensions_flag_splits_a_comma_separated_list() {
         serde_json::json!([
             "@specforge/software",
             "@specforge/product",
-            "@specforge/testing"
+            "@specforge/testing",
+            "@specforge/governance"
         ])
     );
     Cli::on(&dir).command(&["check"]).assert().success();

@@ -1,64 +1,63 @@
 # Extension Inventory
 
-This document catalogs the four official domain extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 57 edge types, and cross-extension enhancements through the Extension Protocol. Test concepts live in three more builtins that declare no entity kinds: `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` ([ADR 0002](adr/0002-test-runner-extensions.md); see their section). The `@specforge/rust` and `@specforge/typescript` builtins are source analyzers used by inference.
+What you get from this page: the catalogue of the extensions that ship with SpecForge, and exactly what each one
+declares. They are a **starter set**: examples of what extensions do, aimed at software and product work. None of
+them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
+the same SDK ([extension model](extension-model.md)).
 
-## Dependency Graph
+Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Five more declare no kinds:
+`@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
+obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
+`@specforge/typescript` read source code for `specforge infer`.
 
-Extensions declare peer dependencies that control load order and enable cross-extension references. The graph reads left-to-right: an arrow means "depends on."
+The counts and lists on this page are read from the builtins' pinned declarations
+(`crates/runtime/component/tests/declarations/`); tests hold the kind count and the edge tables to them.
 
-```
-                   ┌────────────────────┐
-                   │  @specforge/product │  (root -- no dependencies)
-                   │  9 kinds, 20 edges  │
-                   └─────────┬──────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-              v              v              │
-   ┌──────────────────┐  (implicit)        │
-   │ @specforge/       │                    │
-   │ software          │                    │
-   │ 5 kinds, 14 edges │                    │
-   └────────┬─────────┘                    │
-            │                              │
-     ┌──────┼──────┐                       │
-     │             │                       │
-     v             v                       v
-┌──────────┐ ┌──────────────┐  ┌────────────────────┐
-│ formal   │ │ governance   │  │ testing             │
-│ 5 kinds  │ │ 3 kinds      │  │ 0 kinds             │
-│ 12 edges │ │ 11 edges     │  │ 7 enhancements      │
-└──────────┘ └──────────────┘  └─────────┬──────────┘
-                                         │
-                                  ┌──────┴───────┐
-                                  v              v
-                           ┌────────────┐ ┌────────────┐
-                           │ cargo-test │ │ vitest     │
-                           │ collector  │ │ collector  │
-                           └────────────┘ └────────────┘
-```
+## At a glance
 
-Load order: `product` first (no dependencies), then `software` (optionally depends on product), then `formal` and `governance` (depend on software), then `testing` (optionally depends on software and governance, whose kinds it makes testable), then the runner extensions, which require `testing`. Extensions with no peer between them keep the order `specforge.json` lists them in (ADR 0041).
+| Extension | Kinds | Edge types | Adds to other kinds | Peers |
+|-----------|-------|------------|---------------------|-------|
+| `@specforge/product` | 9 | 20 | -- | none |
+| `@specforge/software` | 4 | 15 | `module`, `milestone` | product, governance (both optional) |
+| `@specforge/governance` | 4 | 11 | -- | software, product (both optional) |
+| `@specforge/formal` | 5 | 10 | `behavior`, `event`, `invariant` | software, governance (both optional) |
+| `@specforge/testing` | 0 | 0 | `verify` kinds on 7 kinds | software, governance (both optional) |
+| `@specforge/cargo-test` | 0 | 0 | -- | testing (required) |
+| `@specforge/vitest` | 0 | 0 | -- | testing (required) |
+| `@specforge/rust` | 0 | 0 | -- | none |
+| `@specforge/typescript` | 0 | 0 | -- | none |
+
+Extensions load after the peers they declare; extensions with no peer between them keep the order
+`specforge.json` lists them in (ADR 0041). A required peer must be loaded (E027); an optional one, when loaded,
+must be in the declared version range.
+
+## In progress and not started
+
+| Family | State |
+|--------|-------|
+| `@gsd/*` (the GSD spec framework modelled as extensions) | Being designed; nothing built yet |
+| BMAD, OpenSpec, SpecKit | Not started |
 
 ## @specforge/product
 
-**Root extension with no dependencies.** Provides the product planning and delivery vocabulary. Not every project needs this -- internal tools, scripts, and libraries may skip it entirely.
+Product planning and delivery: what is built, for whom, through which channels, when it ships. Nothing in it is
+software-only; a clinic, a course or a campaign has features, personas, journeys and milestones too.
 
-### Entity Kinds (9)
+### Entity kinds (9)
 
-| Kind | Keyword | Singleton | Description |
-|------|---------|-----------|-------------|
-| Feature | `feature` | no | User-facing capability composed of behaviors |
-| Journey | `journey` | no | UX flow mapping a persona and channel to features |
-| Deliverable | `deliverable` | no | Shippable artifact bundling journeys and modules |
-| Milestone | `milestone` | no | Planning phase with scheduled features and exit criteria |
-| Module | `module` | no | Code package mapping features to ports |
-| Term | `term` | no | Structured vocabulary for the project's ubiquitous language |
-| Persona | `persona` | no | User archetype that interacts with the system |
-| Channel | `channel` | no | Interaction medium through which personas access the system |
-| Release | `release` | no | Coordinated shipment of deliverables targeting milestones |
+| Kind | Description |
+|------|-------------|
+| [`feature`](entities/feature.md) | A unit of value, with problem and solution framing |
+| [`journey`](entities/journey.md) | One persona's path through some features, on some channels |
+| [`deliverable`](entities/deliverable.md) | Something that ships, bundling journeys and modules |
+| [`milestone`](entities/milestone.md) | A planning phase with scheduled features and exit criteria |
+| [`module`](entities/module.md) | A structural unit (package, subsystem, workstream) that builds features |
+| [`term`](entities/term.md) | A glossary entry |
+| [`persona`](entities/persona.md) | A kind of person who uses what you build |
+| [`channel`](entities/channel.md) | The medium people reach it through |
+| [`release`](entities/release.md) | Deliverables and milestones that ship together |
 
-### Edge Types (20)
+### Edge types (20)
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
@@ -83,33 +82,35 @@ Load order: `product` first (no dependencies), then `software` (optionally depen
 | `ReleaseDependsOn` | release | release | This release depends on that release |
 | `PersonaPrioritizesFeature` | persona | feature | This persona prioritizes this feature |
 
-### Shared Fields
+### Also declares
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `tags` | string_list | Freeform labels applied to all entity kinds |
-
-### Notes
-
-- No testable or verify concepts: `@specforge/testing` contributes those.
-- Feature includes a `deprecated` status (terminal state, reachable from `done`).
-- Persona and channel are first-class entity kinds, not configuration values.
+- A shared field, `tags` (string list), on all nine kinds.
+- 47 rule declarations (unreferenced entities, dependency cycles, missing owners, missing reasons, non-SemVer
+  versions, ...), each listed on its kind's page.
+- Two passes: `lifecycle` (every compile: a completed milestone delivering a feature that is not done, W154, and
+  similar contradictions across entities) and `delivery_evidence` (`specforge analyze`: a `done` feature the
+  recorded tests do not prove, I071).
+- 40 commands, `specforge product <command>` on the CLI and the same names as MCP tools: the list commands
+  (`features`, `journeys`, ...) and graph queries such as `milestone-completion`, `critical-path`,
+  `deliverable-traceability`, `owner-workload`, `coverage-matrix` and `health`. `specforge product --help` lists
+  them all.
 
 ## @specforge/software
 
-**Optionally depends on: @specforge/product** (optional peer dependency: without it, `features` references are I004 hints and the product enhancements are skipped). Provides the software engineering vocabulary: behavioral contracts, domain events, type definitions, and port interfaces.
+Software design: behavioral contracts, domain events, data shapes and interfaces. Its product links
+(`features`, and the fields it adds to `module` and `milestone`) need `@specforge/product`; without it they are
+I004 advice and the additions are skipped.
 
-### Entity Kinds (5)
+### Entity kinds (4)
 
-| Kind | Keyword | Singleton | Description |
-|------|---------|-----------|-------------|
-| Behavior | `behavior` | no | Behavioral contract for a single operation |
-| Invariant | `invariant` | no | Runtime guarantee the system must never violate |
-| Event | `event` | no | Domain or system event emitted by behaviors |
-| Type | `type` | no | Data type definition (struct, union, error, command) |
-| Port | `port` | no | Interface contract (hexagonal architecture boundary) |
+| Kind | Description |
+|------|-------------|
+| [`behavior`](entities/behavior.md) | One operation's contract |
+| [`event`](entities/event.md) | Something the system announces |
+| [`type`](entities/type.md) | A data shape (struct or union) |
+| [`port`](entities/port.md) | An interface contract with typed methods |
 
-### Edge Types (15)
+### Edge types (15)
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
@@ -129,174 +130,156 @@ Load order: `product` first (no dependencies), then `software` (optionally depen
 | `ModuleConsumesPort` | module (product) | port | This module consumes these ports |
 | `ModuleDefinesPort` | module (product) | port | This module defines these ports |
 
-### Entity Enhancements
+### Adds to other kinds
 
-| Target Kind | Owner Extension | Added Fields |
-|-------------|----------------|-------------|
-| `module` | @specforge/product | `ports` (reference_list -> port), `ports_defined` (reference_list -> port) |
-| `milestone` | @specforge/product | `behaviors` (reference_list -> behavior) |
+| Kind | Owner | Added fields |
+|------|-------|--------------|
+| `module` | `@specforge/product` | `ports` (reference list → port), `ports_defined` (reference list → port) |
+| `milestone` | `@specforge/product` | `behaviors` (reference list → behavior) |
 
-### Notes
+### Also declares
 
-- No testable or verify concepts: `@specforge/testing` contributes those.
-- Cross-extension edges to `feature` (product) use the peer dependency mechanism.
-- Enhancement edges (`MilestoneIncludesBehavior`, `ModuleConsumesPort`, `ModuleDefinesPort`) are declared with `c.enhance(..)` on product entity kinds.
+Eight rules (W001, W002, W005–W008, W010, E010). Two are custom validators written in the extension's
+code: milestone behavior references (E010) and type member annotations (W010). The host reports a type name that
+names no type (E004). A starter `.spec` file `specforge init` writes.
 
 ## @specforge/governance
 
-**Depends on: @specforge/software** (peer dependency). Provides architecture governance, quality tracking, and risk assessment.
+Rules that must always hold, decisions, measurable limits and risk. Its links into software and product kinds are optional: without those
+extensions they are I004 advice.
 
-### Entity Kinds (3)
+### Entity kinds (4)
 
-| Kind | Keyword | Singleton | Description |
-|------|---------|-----------|-------------|
-| Decision | `decision` | no | Architecture Decision Record with rationale |
-| Constraint | `constraint` | no | Non-functional requirement with measurable thresholds |
-| FailureMode | `failure_mode` | no | FMEA risk assessment tied to an invariant |
+| Kind | Description |
+|------|-------------|
+| [`invariant`](entities/invariant.md) | A rule that must always hold |
+| [`decision`](entities/decision.md) | A recorded choice with context, alternatives and consequences |
+| [`constraint`](entities/constraint.md) | A measurable quality or limit, with metric and threshold |
+| [`failure_mode`](entities/failure-mode.md) | An FMEA entry: cause, effect, ratings, mitigation |
 
-### Edge Types (11)
+### Edge types (11)
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
-| `DecisionProtectsInvariant` | decision | invariant (software) | This decision protects these invariants |
+| `DecisionProtectsInvariant` | decision | invariant | This decision protects these invariants |
 | `ConstraintEnforcedByBehavior` | constraint | behavior (software) | This constraint applies to these behaviors |
 | `DecisionSupersedesDecision` | decision | decision | This decision supersedes that decision |
 | `ConstraintConstrainsBehavior` | constraint | behavior (software) | This quality requirement constrains these behaviors |
-| `ConstraintProtectsInvariant` | constraint | invariant (software) | This constraint protects these invariants |
-| `FailureModeTargetsInvariant` | failure_mode | invariant (software) | This failure mode threatens this invariant |
+| `ConstraintProtectsInvariant` | constraint | invariant | This constraint protects these invariants |
+| `FailureModeTargetsInvariant` | failure_mode | invariant | This failure mode threatens this invariant |
 | `ConstraintGovernsFeature` | constraint | feature (product) | This constraint governs these features |
 | `DecisionAffectsFeature` | decision | feature (product) | This decision affects these features |
 | `FailureModeThreatensFeature` | failure_mode | feature (product) | This failure mode threatens these features |
 | `DecisionImposesConstraint` | decision | constraint | This decision imposes these constraints |
 | `FailureModeAffectsBehavior` | failure_mode | behavior (software) | This failure mode affects these behaviors |
 
-### Notes
+`failure_mode` declares `severity`, `occurrence` and `detection` (and their `post_` forms) as word vocabularies
+(E061 otherwise); a written `rpn` is not checked against them.
 
-- All cross-extension edges use soft references. If `@specforge/software` or `@specforge/product` is not installed, references to their entity kinds produce `I004` diagnostics.
-- The `failure_mode` kind declares `severity`, `occurrence` and `detection` (and their `post_` forms) as vocabularies (E061); it doesn't check a declared RPN against their product.
+One rule (W003): an invariant nothing references.
 
 ## @specforge/formal
 
-**Depends on: @specforge/software** (peer dependency). Provides formal analysis constructs: structured conditions, specification layering, event graph linting, and coverage tracking.
+Formal methods: temporal properties, assumptions, protocols, refinement between specification layers, and
+communicating processes. Requires `@specforge/software`. See [Formal verification](guides/formal-verification.md).
 
-### Entity Kinds (5)
+### Entity kinds (5)
 
-| Kind | Keyword | Singleton | Description |
-|------|---------|-----------|-------------|
-| Property | `property` | no | Temporal or behavioral assertion (safety, liveness, fairness) |
-| Axiom | `axiom` | no | Assumed-true foundation (no proof required, no coverage tracking) |
-| Protocol | `protocol` | no | Shared synchronization contract across events |
-| Refinement | `refinement` | no | Abstract-to-concrete behavior mapping with condition deltas |
-| Process | `process` | no | CSP-style communicating process with alphabet and composition |
+| Kind | Description |
+|------|-------------|
+| `property` | A temporal or behavioral assertion (safety, liveness, ...) |
+| `axiom` | Something assumed true without proof |
+| `protocol` | A synchronization contract events share |
+| `refinement` | A mapping from an abstract behavior to a concrete one |
+| `process` | A CSP-style communicating process with an alphabet |
 
-### Edge Types (10)
+### Edge types (10)
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
-| `AxiomAssumesInvariant` | axiom | invariant (software) | This axiom assumes this invariant |
+| `AxiomAssumesInvariant` | axiom | invariant | This axiom assumes this invariant |
 | `BehaviorSatisfiesProperty` | behavior (software) | property | This behavior satisfies this property |
 | `BehaviorRefinesBehavior` | behavior (software) | behavior (software) | This concrete behavior refines this abstract behavior |
 | `EventFollowsProtocol` | event (software) | protocol | This event follows this protocol |
-| `PropertyDependsOnInvariant` | property | invariant (software) | This property depends on this invariant |
+| `PropertyDependsOnInvariant` | property | invariant | This property depends on this invariant |
 | `RefinementRefinesAbstract` | refinement | behavior (software) | This refinement maps from this abstract behavior |
 | `RefinementRefinesConcrete` | refinement | behavior (software) | This refinement maps to this concrete behavior |
 | `RefinementChainsToRefinement` | refinement | refinement | This refinement chains to that refinement |
 | `EventParticipatesInProcess` | event (software) | process | This event participates in this process |
 | `ProcessComposesProcess` | process | process | This process composes that process |
 
-### Entity Enhancements
+### Adds to other kinds
 
-| Target Kind | Owner Extension | Added Fields |
-|-------------|----------------|-------------|
-| `behavior` | @specforge/software | `requires` (block), `ensures` (block), `maintains` (block), `satisfies` (reference_list -> property), `sync` (block) |
-| `event` | @specforge/software | `follows_protocol` (reference_list -> protocol), `participates_in` (reference_list -> process), `sync` (block) |
+| Kind | Owner | Added fields |
+|------|-------|--------------|
+| `behavior` | `@specforge/software` | `requires`, `ensures`, `maintains`, `sync` (blocks), `satisfies` (reference list → property), `abstract` (bool), `refines` (reference → behavior) |
+| `event` | `@specforge/software` | `follows_protocol` (reference list → protocol), `participates_in` (reference list → process), `sync` (block) |
+| `invariant` | `@specforge/governance` | `expression` (string) |
 
-### Compiler Passes (4)
+### Passes (5)
 
-| Pass | After | Description |
-|------|-------|-------------|
-| `condition_check` | resolve | Validate structured condition consistency |
-| `layering_verify` | condition_check | Verify specification layering constraints |
-| `event_graph_analyze` | resolve | Analyze event graph for synchronization issues |
-| `coverage_tracking` | layering_verify | Track coverage of formal verification obligations |
+| Pass | After | When |
+|------|-------|------|
+| `analysis_available` | resolve | Every compile |
+| `condition_check` | resolve | `specforge analyze` |
+| `layering_verify` | condition_check | `specforge analyze` |
+| `event_graph_analyze` | layering_verify | `specforge analyze` |
+| `coverage_tracking` | event_graph_analyze | `specforge analyze` |
 
-### Notes
-
-- Requires `warning_level=strict` in `specforge.json` for formal warnings to fire.
-- Structured conditions are inline blocks (requires/ensures/maintains) within behavior bodies. Conditions are not standalone entities; shared constraints are modeled as invariant entities.
-- Cycle detection on refinement chains (E041) and process composition (E042) prevents infinite layering.
+Refinement chains (E041) and process composition (E042) must have no cycle.
 
 ## @specforge/testing and the runner extensions
 
-**`@specforge/testing`** owns the test vocabulary ([ADR 0002](adr/0002-test-runner-extensions.md)). Core keeps `verify [kind] "..."` only as reserved syntax; this extension gives it meaning. It declares no entity kinds or edge types.
+`@specforge/testing` gives `verify [kind] "..."` lines their meaning ([ADR 0002](adr/0002-test-runner-extensions.md)):
+the core grammar parses them, and this extension says which kinds owe test obligations and which verify kinds each
+accepts. It declares no kinds and no edges.
 
-### Entity Enhancements (7)
+### Verify kinds it adds (7 kinds)
 
-Each enhancement makes its target kind testable with the verify kinds listed. An enhancement of a kind whose extension isn't enabled is skipped silently (both are optional peers of @specforge/testing).
+An addition to a kind whose extension is not loaded is skipped silently.
 
-| Target Kind | Owner Extension | Verify Kinds | W004 when no obligations |
-|-------------|----------------|--------------|--------------------------|
-| `behavior` | @specforge/software | unit, contract, integration, property, performance | yes |
-| `invariant` | @specforge/software | unit, integration, property, performance, mutation | yes |
-| `event` | @specforge/software | integration, unit, deadlock_free, liveness | yes |
-| `type` | @specforge/software | unit, property | yes |
-| `port` | @specforge/software | integration, unit | yes |
-| `constraint` | @specforge/governance | unit, integration, property, load, contract | no |
-| `failure_mode` | @specforge/governance | unit, integration, property | no |
+| Kind | Owner | Verify kinds | W004 when it has none |
+|------|-------|--------------|-----------------------|
+| `behavior` | `@specforge/software` | unit, contract, integration, property, performance | yes |
+| `invariant` | `@specforge/governance` | unit, integration, property, performance, mutation | yes |
+| `event` | `@specforge/software` | integration, unit, deadlock_free, liveness | yes |
+| `type` | `@specforge/software` | unit, property | yes |
+| `port` | `@specforge/software` | integration, unit | yes |
+| `constraint` | `@specforge/governance` | unit, integration, property, load, contract | no |
+| `failure_mode` | `@specforge/governance` | unit, integration, property | no |
 
-### Validation Rules
+W009 is a verify kind outside a kind's list.
 
-| Code | Severity | Rule |
-|------|----------|------|
-| W004 | warning | Testable entity declares no verify obligations (union types and abstract entities are exempt) |
-| W009 | warning | Verify kind outside the kind's allowed set |
+### The coverage pass
 
-### Compiler Passes (1)
-
-`coverage` (`specforge analyze coverage`): scores intent (A001/A002), counts enforcement (invariants nothing references, which `check` reports as W003) and proof from the results `specforge collect` records: failing tests (A014), obligations no passing test names (A015), and tests naming obligations the spec doesn't declare (A016), plus formal discharge. `--min` gates CI on proof coverage.
+`coverage` (`specforge analyze coverage`) scores intent (A001/A002), counts enforcement, and reads proof from the
+results `specforge collect` records: failing tests (A014), obligations no passing test names (A015), tests naming
+obligations the spec does not declare (A016). `--min` gates CI on proof coverage.
 
 ### Runner extensions
 
-Each test runner has its own extension that requires `@specforge/testing` and contributes one collector: the files that select it, the command `specforge collect` runs (after the user approves it), where the report lands, and a pure export mapping the report to entities.
+Each test runner has its own extension that requires `@specforge/testing` and declares one collector: the files
+that select it, the command `specforge collect` runs (after you approve it, or with `--yes`), where the report
+lands, and a pure mapping from the report to entities.
 
-| Extension | Detected by | Command | How a test links to its entity |
-|-----------|-------------|---------|--------------------------------|
-| `@specforge/cargo-test` | `Cargo.toml` | `cargo test --workspace --no-fail-fast` (stdout captured) | `#[specforge_test(behavior = "...", verify = "...")]`, or plain tests named `entity_id__obligation_slug` or inside `mod entity_id` |
-| `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `npx --no vitest run` with the JSON reporter | `meta: { specforge: { behavior: "...", verify: "..." } }` |
+| Extension | Detected by | How a test names its entity |
+|-----------|-------------|-----------------------------|
+| `@specforge/cargo-test` | `Cargo.toml` | `#[specforge_test(behavior = "...", verify = "...")]`, or tests named `entity_id__obligation_slug` or inside `mod entity_id` ([guide](guides/rust-test-tracing.md)) |
+| `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `meta: { specforge: { behavior: "...", verify: "..." } }` ([guide](guides/vitest-test-tracing.md)) |
 
-### Notes
+Spec files carry no test paths: the link lives in the tests. `specforge init` enables `@specforge/testing` with
+`@specforge/software`, and a runner extension when it finds that runner in the project.
 
-- Spec files carry no test paths: the retired `tests` field is replaced by linkage in the tests themselves.
-- `init` enables `@specforge/testing` with `@specforge/software`, and a runner extension when it finds that runner in the project.
+Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
+finding) is future work.
 
-## What Was Removed (Entity Audit)
+## @specforge/rust and @specforge/typescript
 
-The entity audit identified four redundant entity kinds and one DSL construct that were removed or retargeted:
+Each declares one analyzer: a scanner that finds the public items (Rust) or exported symbols (TypeScript and
+JavaScript) of source files, which `specforge infer` uses to guide an agent writing specs for existing code.
 
-| Removed | Reason | Replacement |
-|---------|--------|-------------|
-| `library` | Identical fields to module (family, features, depends_on) | Use `module` |
-| `capability` | Identical fields to journey (persona, channels, features, flow) | Use `journey` |
-| `roadmap` | Covered by milestone + release (planning via milestones, shipping via releases) | Use `milestone` and `release` |
-| `condition` | Retargeted to invariant; edges renamed `*Condition` to `*Invariant` | Use `invariant` with requires/ensures/maintains references |
-| `verify` as core grammar | `verify [kind] "..."` stays as reserved syntax; its meaning moved out of core | `@specforge/testing` (ADR 0002) |
+## Related
 
-## Entity Count Summary
-
-| Extension | Entity Kinds | Edge Types | Enhancements | Dependencies |
-|-----------|-------------|------------|--------------|-------------|
-| @specforge/product | 9 | 20 | -- | none |
-| @specforge/software | 5 | 15 | module, milestone | product |
-| @specforge/governance | 3 | 11 | -- | software |
-| @specforge/formal | 5 | 10 | behavior, event | software |
-| @specforge/testing | 0 | 0 | 7 entity kinds | software, governance (optional) |
-| @specforge/cargo-test | 0 | 0 | -- | testing |
-| @specforge/vitest | 0 | 0 | -- | testing |
-| **Total (shipped)** | **22** | **56** | -- | -- |
-
-## Related Documentation
-
-- [Extension Protocol](extension-protocol.md) -- the Wasm protocol extensions implement
-- [Extension SDK](extension-sdk.md) -- the SDK for building extensions
-- [Extension Model](extension-model.md) -- the broader extension architecture
-- [Entity Model](entity-model.md) -- entity kinds, edge types, and validation rules
+- [Extension model](extension-model.md): what an extension can declare and how it runs
+- [Entity model](entity-model.md): the structural core and the builtin kinds
+- [Extension SDK](extension-sdk.md) and [Extension protocol](extension-protocol.md): building one

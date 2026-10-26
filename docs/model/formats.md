@@ -1,25 +1,23 @@
-# Model Output Formats
+# Model output formats
 
-All examples use the same three entity kinds for consistency:
+Every example on this page is real output of `specforge model`, in a project that loads `@specforge/software`
+and `@specforge/product` (`specforge init --extensions @specforge/software,@specforge/product`, which also enables
+`@specforge/testing`), selecting two product kinds:
 
-- **behavior** (@specforge/software) — fields: priority (enum), status (enum), gherkin (string_list, file_reference), features (reference_list -> feature), tests (string_list)
-- **feature** (@specforge/product) — fields: status (enum, required), priority (enum), effort (enum)
-- **event** (@specforge/software) — fields: producers (reference_list -> behavior), consumers (reference_list -> behavior)
+```bash
+specforge model --kinds term,module --format <FORMAT>
+```
 
-Edge types:
-- **Implements**: behavior -> feature (N:M, via `features` field)
-- **Triggers**: behavior -> event (1:N, via `produces` field)
-- **Consumes**: event -> behavior (1:N, via `consumers` field)
-
-All examples shown at `--fields=keys` level with `--group-by=extension`.
-
----
+The field level is the default, `keys`. Note what the selection does: `module`'s `features` field is listed, but
+the `ModuleContainsFeature` relationship is not drawn, because `feature` is not selected. And `module` lists the
+two fields `@specforge/software` adds to it (`ports`, `ports_defined`).
 
 ## Markdown (default)
 
-The Markdown format is designed for both terminal readability and LLM consumption. It includes a framing preamble so an LLM encountering the output for the first time has context.
+For a terminal and for an AI agent: a short preamble on how to read the model, an extension table, then each kind's
+fields and relationships.
 
-```markdown
+````markdown
 # Logical Data Model
 
 ## How to read this model
@@ -35,110 +33,85 @@ N:M (many-to-many).
 
 | Extension | Version | Entity Kinds | Edge Types |
 |-----------|---------|-------------|------------|
-| @specforge/software | 1.0.0 | 5 | 10 |
-| @specforge/product | 1.0.0 | 9 | 16 |
-
-## @specforge/software
-
-### behavior
-
-| Field | Type | Required | Description | Enum Values |
-|-------|------|----------|-------------|-------------|
-| id | string | yes | Entity identifier | |
-| features | reference_list(feature) | no | Features this behavior implements | |
-| gherkin | string_list | no | BDD scenario files | |
-
-**Relationships:**
-- behavior --(Implements)--> feature [N:M]
-- behavior --(Triggers)--> event [1:N]
-
-### event
-
-| Field | Type | Required | Description | Enum Values |
-|-------|------|----------|-------------|-------------|
-| id | string | yes | Entity identifier | |
-| producers | reference_list(behavior) | no | Behaviors that produce this event | |
-| consumers | reference_list(behavior) | no | Behaviors that consume this event | |
-
-**Relationships:**
-- event --(Consumes)--> behavior [1:N]
+| @specforge/product | 1.0.0 | 2 | 3 |
+| @specforge/software | 1.0.0 | 0 | 0 |
+| @specforge/testing | 1.0.0 | 0 | 0 |
 
 ## @specforge/product
 
-### feature
+### module
+*Enhanced by: @specforge/software*
 
-| Field | Type | Required | Description | Enum Values |
-|-------|------|----------|-------------|-------------|
-| id | string | yes | Entity identifier | |
-| status | enum | yes | Lifecycle status | draft, planned, active, done, deprecated |
+| Field | Type | Required | Contribution | Source | Description |
+|-------|------|----------|--------------|--------|-------------|
+| id | string | yes |  |  |  |
+| depends_on | reference_list(module) | no | ModuleDependsOn -> module |  | Other modules this module depends on |
+| features | reference_list(feature) | no | ModuleContainsFeature -> feature |  | Features contained within this module |
+| ports | reference_list(port) | no | ModuleConsumesPort -> port | @specforge/software | Port interfaces this module consumes |
+| ports_defined | reference_list(port) | no | ModuleDefinesPort -> port | @specforge/software | Port interfaces this module defines |
 
 **Relationships:**
-- feature <--(Implements)-- behavior [N:M]
+- module --(ModuleDependsOn)--> module [N:M]
+- module <--(TermBelongsToModule)-- term [N:1]
 
-## Summary
+### term
 
-3 entity kinds, 3 edge types across 2 extensions.
-```
+| Field | Type | Required | Contribution | Source | Description |
+|-------|------|----------|--------------|--------|-------------|
+| id | string | yes |  |  |  |
+| definition | string | yes |  |  | The precise meaning of this term in the project's domain |
+| module | reference(module) | no | TermBelongsToModule -> module |  | The module (bounded context) that owns this term's definition |
+| see_also | reference_list(term) | no | TermReferencesRelatedTerm -> term |  | Related terms for cross-referencing |
 
-### Key characteristics
+**Relationships:**
+- term --(TermBelongsToModule)--> module [N:1]
+- term --(TermReferencesRelatedTerm)--> term [N:M]
 
-- Framing preamble explains what the model is
-- Extension summary table at the top
-- Grouped by extension with `##` headers
-- Field tables include all metadata columns
-- Relationships listed per entity with cardinality
-- Summary counts at the bottom
+2 entity kinds, 3 edge types across 3 extensions.
+````
 
----
+## Mermaid (`erDiagram`)
 
-## Mermaid erDiagram
+Extensions are separated by `%%` comments (Mermaid has no namespaces); a kind another extension enhances says so.
 
 ```mermaid
 erDiagram
-    %% @specforge/software
-
-    behavior {
-        string id PK
-        reference_list features FK "Features this behavior implements"
-        string_list gherkin "BDD scenario files"
-    }
-
-    event {
-        string id PK
-        reference_list producers FK "Behaviors that produce this event"
-        reference_list consumers FK "Behaviors that consume this event"
-    }
 
     %% @specforge/product
 
-    feature {
+    %% Enhanced by: @specforge/software
+    module {
         string id PK
-        enum status "draft, planned, active, done, deprecated"
+        reference_list depends_on FK "ModuleDependsOn -> module | Other modules this module depends on"
+        reference_list features FK "ModuleContainsFeature -> feature | Features contained within this module"
+        reference_list ports FK "ModuleConsumesPort -> port | from @specforge/software | Port interfaces this module consumes"
+        reference_list ports_defined FK "ModuleDefinesPort -> port | from @specforge/software | Port interfaces this module defines"
+    }
+    term {
+        string id PK
+        string definition "The precise meaning of this term in the project's domain"
+        reference module FK "TermBelongsToModule -> module | The module (bounded context) that owns this term's definition"
+        reference_list see_also FK "TermReferencesRelatedTerm -> term | Related terms for cross-referencing"
     }
 
     %% Relationships
 
-    behavior }o--o{ feature : "Implements"
-    behavior ||--o{ event : "Triggers"
-    event ||--o{ behavior : "Consumes"
+    module }o--o{ module : "ModuleDependsOn"
+    term }o--|| module : "TermBelongsToModule"
+    term }o--o{ term : "TermReferencesRelatedTerm"
 ```
 
-### Cardinality notation
-
-| Cardinality | Mermaid syntax | Meaning |
-|-------------|---------------|---------|
-| 1:1 | `\|\|--\|\|` | Exactly one on each side |
-| 1:N | `\|\|--o{` | One source, many targets |
-| N:1 | `}o--\|\|` | Many sources, one target |
-| N:M | `}o--o{` | Many on both sides |
-
-### Extension grouping
-
-Extensions are separated by `%% @extension-name` comment headers. Mermaid erDiagram does not have native namespace support, so comments serve as visual separators.
-
----
+| Cardinality | Mermaid |
+|-------------|---------|
+| 1:1 | `\|\|--\|\|` |
+| 1:N | `\|\|--o{` |
+| N:1 | `}o--\|\|` |
+| N:M | `}o--o{` |
 
 ## DOT (Graphviz)
+
+Each extension is a dashed cluster in its declared `theme_color`; each kind's header uses the colour its
+declaration gives (`dot_color`). Required fields are bold; reference fields show `-> target`.
 
 ```dot
 digraph model {
@@ -146,186 +119,153 @@ digraph model {
   node [shape=none, fontname="Helvetica"];
   edge [fontname="Helvetica", fontsize=10];
 
-  subgraph cluster_software {
-    label="@specforge/software";
-    style=dashed;
-    color="#4a90d9";
-
-    behavior [label=<
-      <table border="1" cellborder="0" cellspacing="0">
-        <tr><td bgcolor="#4a90d9" colspan="3"><font color="white"><b>behavior</b></font></td></tr>
-        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td></tr>
-        <tr><td align="left">features</td><td>reference_list</td><td>-> feature</td></tr>
-        <tr><td align="left">gherkin</td><td>string_list</td><td></td></tr>
-      </table>
-    >];
-
-    event [label=<
-      <table border="1" cellborder="0" cellspacing="0">
-        <tr><td bgcolor="#4a90d9" colspan="3"><font color="white"><b>event</b></font></td></tr>
-        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td></tr>
-        <tr><td align="left">producers</td><td>reference_list</td><td>-> behavior</td></tr>
-        <tr><td align="left">consumers</td><td>reference_list</td><td>-> behavior</td></tr>
-      </table>
-    >];
-  }
-
   subgraph cluster_product {
     label="@specforge/product";
     style=dashed;
     color="#2ecc71";
 
-    feature [label=<
+    module [label=<
       <table border="1" cellborder="0" cellspacing="0">
-        <tr><td bgcolor="#2ecc71" colspan="3"><font color="white"><b>feature</b></font></td></tr>
-        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td></tr>
-        <tr><td align="left"><b>status</b></td><td>enum</td><td></td></tr>
+        <tr><td bgcolor="#607D8B" colspan="5"><font color="white"><b>module (+@specforge/software)</b></font></td></tr>
+        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td><td></td><td></td></tr>
+        <tr><td align="left">depends_on</td><td>reference_list</td><td>-&gt; module</td><td><i>ModuleDependsOn -&gt; module</i></td><td></td></tr>
+        <tr><td align="left">features</td><td>reference_list</td><td>-&gt; feature</td><td><i>ModuleContainsFeature -&gt; feature</i></td><td></td></tr>
+        <tr><td align="left">ports</td><td>reference_list</td><td>-&gt; port</td><td><i>ModuleConsumesPort -&gt; port</i></td><td><font color="gray">@specforge/software</font></td></tr>
+        <tr><td align="left">ports_defined</td><td>reference_list</td><td>-&gt; port</td><td><i>ModuleDefinesPort -&gt; port</i></td><td><font color="gray">@specforge/software</font></td></tr>
+      </table>
+    >];
+
+    term [label=<
+      <table border="1" cellborder="0" cellspacing="0">
+        <tr><td bgcolor="#795548" colspan="5"><font color="white"><b>term</b></font></td></tr>
+        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td><td></td><td></td></tr>
+        <tr><td align="left"><b>definition</b></td><td>string</td><td></td><td></td><td></td></tr>
+        <tr><td align="left">module</td><td>reference</td><td>-&gt; module</td><td><i>TermBelongsToModule -&gt; module</i></td><td></td></tr>
+        <tr><td align="left">see_also</td><td>reference_list</td><td>-&gt; term</td><td><i>TermReferencesRelatedTerm -&gt; term</i></td><td></td></tr>
       </table>
     >];
   }
-
-  behavior -> feature [label="Implements\n[N:M]"];
-  behavior -> event [label="Triggers\n[1:N]"];
-  event -> behavior [label="Consumes\n[1:N]"];
+  module -> module [label="ModuleDependsOn\n[N:M]"];
+  term -> module [label="TermBelongsToModule\n[N:1]"];
+  term -> term [label="TermReferencesRelatedTerm\n[N:M]"];
 }
 ```
 
-### Key characteristics
+## JSON
 
-- HTML-like `<table>` labels for full control over layout
-- Header row colored by extension (blue `#4a90d9` for software, green `#2ecc71` for product)
-- Required fields bolded
-- Reference fields show `-> target_entity` marker
-- Extension grouping via `subgraph cluster_*` with dashed borders
-- Edge labels include relationship name and cardinality
-
-### Extension color palette
-
-| Extension | Color |
-|-----------|-------|
-| @specforge/software | `#4a90d9` (blue) |
-| @specforge/product | `#2ecc71` (green) |
-| @specforge/governance | `#e74c3c` (red) |
-| @specforge/formal | `#9b59b6` (purple) |
-| Other | `#95a5a6` (gray) |
-
-Colors are assigned deterministically by extension name hash when unknown.
-
----
-
-## JSON (ERD-oriented)
+The model itself: extensions with their counts, entities with their fields, relationships with their cardinality.
+It is not `specforge schema` (the Graph Protocol schema the model is built from). Here for `--kinds term`:
 
 ```json
 {
   "schema_version": "1.0.0",
   "extensions": [
-    { "name": "@specforge/software", "version": "1.0.0", "entity_count": 5, "edge_count": 10 },
-    { "name": "@specforge/product", "version": "1.0.0", "entity_count": 9, "edge_count": 16 }
+    {
+      "name": "@specforge/product",
+      "version": "1.0.0",
+      "entity_count": 1,
+      "edge_count": 1
+    },
+    {
+      "name": "@specforge/software",
+      "version": "1.0.0",
+      "entity_count": 0,
+      "edge_count": 0
+    },
+    {
+      "name": "@specforge/testing",
+      "version": "1.0.0",
+      "entity_count": 0,
+      "edge_count": 0
+    }
   ],
   "entities": [
     {
-      "name": "behavior",
-      "extension": "@specforge/software",
-      "fields": [
-        { "name": "id", "type": "string", "required": true, "primary_key": true },
-        { "name": "features", "type": "reference_list", "required": false, "primary_key": false, "references": "feature", "description": "Features this behavior implements" },
-        { "name": "gherkin", "type": "string_list", "required": false, "primary_key": false, "description": "BDD scenario files" }
-      ]
-    },
-    {
-      "name": "event",
-      "extension": "@specforge/software",
-      "fields": [
-        { "name": "id", "type": "string", "required": true, "primary_key": true },
-        { "name": "producers", "type": "reference_list", "required": false, "primary_key": false, "references": "behavior" },
-        { "name": "consumers", "type": "reference_list", "required": false, "primary_key": false, "references": "behavior" }
-      ]
-    },
-    {
-      "name": "feature",
+      "name": "term",
       "extension": "@specforge/product",
+      "dot_color": "#795548",
       "fields": [
-        { "name": "id", "type": "string", "required": true, "primary_key": true },
-        { "name": "status", "type": "enum", "required": true, "primary_key": false, "enum_values": ["draft", "planned", "active", "done", "deprecated"] }
+        {
+          "name": "id",
+          "field_type": "string",
+          "required": true,
+          "is_primary_key": true
+        },
+        {
+          "name": "definition",
+          "field_type": "string",
+          "required": true,
+          "description": "The precise meaning of this term in the project's domain",
+          "is_primary_key": false
+        },
+        {
+          "name": "module",
+          "field_type": "reference",
+          "required": false,
+          "description": "The module (bounded context) that owns this term's definition",
+          "is_primary_key": false,
+          "references": "module",
+          "contribution": "TermBelongsToModule -> module"
+        },
+        {
+          "name": "see_also",
+          "field_type": "reference_list",
+          "required": false,
+          "description": "Related terms for cross-referencing",
+          "is_primary_key": false,
+          "references": "term",
+          "contribution": "TermReferencesRelatedTerm -> term"
+        }
       ]
     }
   ],
   "relationships": [
-    { "name": "Implements", "source": "behavior", "target": "feature", "cardinality": "N:M", "source_field": "features" },
-    { "name": "Triggers", "source": "behavior", "target": "event", "cardinality": "1:N" },
-    { "name": "Consumes", "source": "event", "target": "behavior", "cardinality": "1:N", "source_field": "consumers" }
+    {
+      "name": "TermReferencesRelatedTerm",
+      "source": "term",
+      "target": "term",
+      "cardinality": "N:M",
+      "source_field": "see_also"
+    }
   ]
 }
 ```
 
-### Key characteristics
-
-- Distinct from `specforge schema` output — no compiler metadata (testable, singleton, incremental)
-- Entities modeled as "tables" with fields as "columns"
-- `primary_key` and `references` fields make foreign key relationships explicit
-- Cardinality on relationships (not present in `specforge schema`)
-- Designed to be consumed by external ERD tools or visualization libraries
-
----
-
 ## DBML
+
+For [dbdiagram.io](https://dbdiagram.io) and the DBML toolchain: a `TableGroup` per extension, a synthetic
+`id varchar [pk]` on every table, `[not null]` on required fields, descriptions as notes, and a named `Ref` per
+relationship.
 
 ```dbml
 // Generated by specforge model
 // Schema version: 1.0.0
 
-// ── @specforge/software ──
-
-TableGroup software {
-  behavior
-  event
-}
-
-Table behavior {
-  id string [pk]
-  features string [ref: > feature.id, note: 'Features this behavior implements']
-  produces string [ref: > event.id, note: 'Events this behavior produces']
-  consumes string [ref: > event.id, note: 'Events this behavior consumes']
-  gherkin string [note: 'BDD scenario files']
-}
-
-Table event {
-  id string [pk]
-}
-
 // ── @specforge/product ──
 
 TableGroup product {
-  feature
+  module
+  term
 }
 
-Enum feature_status {
-  draft
-  planned
-  active
-  done
-  deprecated
+Table module { // enhanced by: @specforge/software
+  id varchar [pk]
+  depends_on text [note: 'ModuleDependsOn -> module | Other modules this module depends on']
+  features text [note: 'ModuleContainsFeature -> feature | Features contained within this module']
+  ports text [note: 'ModuleConsumesPort -> port | from @specforge/software | Port interfaces this module consumes']
+  ports_defined text [note: 'ModuleDefinesPort -> port | from @specforge/software | Port interfaces this module defines']
 }
 
-Table feature {
-  id string [pk]
-  status feature_status [not null]
+Table term {
+  id varchar [pk]
+  definition varchar [not null, note: 'The precise meaning of this term in the project\'s domain']
+  module varchar [note: 'TermBelongsToModule -> module | The module (bounded context) that owns this term\'s definition']
+  see_also text [note: 'TermReferencesRelatedTerm -> term | Related terms for cross-referencing']
 }
 
 // ── Relationships ──
 
-Ref Implements: behavior.features > feature.id
-Ref Triggers: behavior.(produces) > event.id
-Ref Consumes: event.consumers > behavior.id
+Ref ModuleDependsOn: module.depends_on <> module.id
+Ref TermBelongsToModule: term.module > module.id
+Ref TermReferencesRelatedTerm: term.see_also <> term.id
 ```
-
-### Key characteristics
-
-- Compatible with [dbdiagram.io](https://dbdiagram.io) and DBML toolchain
-- `TableGroup` for extension grouping
-- `Enum` definitions extracted from enum fields
-- Synthetic `id string [pk]` on every table
-- `[not null]` for required fields
-- `[ref: > target.id]` inline references for FK fields
-- `[note: '...']` for field descriptions
-- Named `Ref` declarations for edge types

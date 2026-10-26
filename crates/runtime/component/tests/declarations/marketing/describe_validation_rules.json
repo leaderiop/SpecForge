@@ -1,0 +1,53 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "no_outgoing_edges",
+      "code": "E901",
+      "constraint": null,
+      "description": "A campaign that targets no audience: money spent on nobody. Give it `audiences`.",
+      "edge_type": "CampaignTargetsAudience",
+      "field": null,
+      "message_template": "campaign '{id}' targets no audience",
+      "severity": "error",
+      "target_kind": "campaign",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "E902",
+      "constraint": null,
+      "description": "A message that cites no brand rule: copy that skipped the brand check. Name the rules it `obeys`.",
+      "edge_type": "MessageObeysBrandRule",
+      "field": null,
+      "message_template": "message '{id}' cites no brand rule",
+      "severity": "error",
+      "target_kind": "message",
+      "wasm_function": null
+    },
+    {
+      "check": "custom",
+      "code": "E903",
+      "constraint": null,
+      "description": "A campaign that ends before it starts: a calendar typo. Set `ends` on or after `starts`.",
+      "edge_type": null,
+      "field": null,
+      "message_template": "campaign '{id}' ends ({value}) before it starts",
+      "severity": "error",
+      "target_kind": "campaign",
+      "wasm_function": "validate__e903"
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W901",
+      "constraint": null,
+      "description": "A brand rule no message obeys: a rule nobody checks against. Cite it from a message, or remove it.",
+      "edge_type": "MessageObeysBrandRule",
+      "field": null,
+      "message_template": "brand rule '{id}' is obeyed by no message",
+      "severity": "warning",
+      "target_kind": "brand_rule",
+      "wasm_function": null
+    }
+  ]
+}

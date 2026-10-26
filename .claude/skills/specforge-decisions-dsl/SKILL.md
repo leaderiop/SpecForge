@@ -1,20 +1,16 @@
 ---
 name: specforge-decisions-dsl
-description: "Write decision (ADR) blocks in .spec DSL files (@specforge/governance plugin). Each decision declares an Architecture Decision Record with free-form snake_case IDs, status lifecycle, context/decision/consequences structure, and invariant protection links. Use when documenting why the system is built a certain way."
+description: "Write decision (ADR) blocks in .spec files (the decision kind is declared by the builtin @specforge/governance extension). Each decision records a significant choice with a snake_case ID, a status lifecycle, context/decision/consequences, alternatives, deciders, and links to the invariants it protects, the constraints it imposes and the features it affects. Use when documenting why something is done a certain way -- an architecture choice, a process rule, a policy."
 ---
 
 # SpecForge Decisions DSL
 
-Rules and conventions for authoring **`decision` blocks** in `.spec` files. Decisions are Architecture Decision Records (ADRs) -- they capture the *why* behind significant technical choices.
+> **Declared by `@specforge/governance`**, a builtin extension. The `decision` kind exists only in a project that
+> loads it: run `specforge extensions` first, and if it is not listed, do not write `decision` blocks (add it with
+> `specforge add @specforge/governance`, or write the kinds the project's own extensions declare).
+> `specforge infer-guide decision` prints the fields.
 
-**Requires:** `@specforge/governance` plugin.
-
-## When to Use
-
-- Documenting why a technology was chosen (database, framework, language)
-- Recording architectural pattern choices (sync vs async, monolith vs microservices)
-- Establishing conventions that affect multiple components
-- Preserving rationale for choices that would be expensive to reverse
+Decisions capture the *why* behind choices that would be expensive to reverse.
 
 ## Block Syntax
 
@@ -22,173 +18,129 @@ Rules and conventions for authoring **`decision` blocks** in `.spec` files. Deci
 decision postgres_over_mongodb "PostgreSQL over MongoDB" {
   status   accepted
   date     2025-03-01
+  deciders ["CTO", "Lead backend engineer"]
 
   context """
-    We need a primary datastore. Team has SQL expertise.
-    Document model not needed -- data is relational.
+    We need a primary datastore. The team has SQL expertise.
+    The data is relational; a document model is not needed.
   """
 
-  decision """
-    Use PostgreSQL with typed schemas.
-  """
+  decision "Use PostgreSQL with typed schemas."
 
   consequences [
     "Migrations required for schema changes",
     "Strong ACID guarantees",
-    "Team can leverage existing SQL knowledge",
   ]
 
-  invariants [data_persistence]
+  alternatives ["MongoDB", "DynamoDB"]
+  invariants   [data_persistence]
 }
 ```
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
-| `status` | enum | `proposed`, `accepted`, `deprecated`, `superseded`. |
-| `context` | string / triple-string | What situation motivated this decision. |
-| `decision` | string / triple-string | What was chosen. |
-
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `date` | date | When the decision was made: one calendar day, written bare (`2026-03-01`); another value is E061. |
-| `consequences` | string list | Known consequences -- both positive and negative. |
-| `invariants` | reference list | Invariants this decision protects. |
-| `refs` | reference list | External references linked to this decision. |
-
-### Status Lifecycle
-
-| Status | Meaning |
-|--------|---------|
-| `proposed` | Under discussion, not yet accepted. |
-| `accepted` | Approved and in effect. |
-| `deprecated` | Superseded by a newer decision. |
-| `superseded` | Replaced by another ADR. |
-
-## Relationships
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `invariant` | `protects` | Decision protects these invariants |
-| `ref` | `links_to` | External references linked to this decision |
-
-### Incoming edges
-
-None. Decisions are referenced informally from behavior contracts.
+| `status` | enum (required) `proposed` `accepted` `deprecated` `superseded` | Lifecycle. |
+| `context` | string (required) | What prompted the decision. |
+| `decision` | string (required) | What was chosen. |
+| `consequences` | string list | Outcomes and trade-offs, good and bad. |
+| `alternatives` | string list | Options considered. |
+| `reason` | string | Why this option over the alternatives. |
+| `date` | date | A bare calendar day, `2026-03-01` (another value is E061). |
+| `authors` / `deciders` | string list | Who wrote it / who signed off. |
+| `superseded_by` | reference -> decision | The decision that replaces this one. |
+| `invariants` | reference list -> invariant | Invariants it protects. |
+| `constraints` | reference list -> constraint | Constraints it imposes. |
+| `affects_features` | reference list -> feature | Features it affects (needs `@specforge/product`). |
+| `description` | string | Summary. |
+| `tags` | string list | Labels. |
+| `refs` | string list | Declared `ref` IDs. |
 
 ## Writing Rules
 
-1. **Context explains forces** -- what problem, constraints, and trade-offs led to this decision.
-2. **Decision is the choice** -- not the rationale (that is in context and consequences).
-3. **Consequences include negatives** -- honest trade-offs, not just benefits.
-4. **Link to invariants** -- decisions should protect invariants when applicable.
-5. **Status transitions** -- `proposed -> accepted -> deprecated/superseded`.
+1. **Context explains the forces** -- the problem, constraints and trade-offs.
+2. **Decision is the choice** -- the rationale lives in context, consequences and `reason`.
+3. **Consequences include negatives.**
+4. **Supersede, do not delete** -- set `status superseded` and `superseded_by` to the new decision.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E001 | Every ID in `invariants` must resolve to an existing invariant. |
-| E002 | No duplicate decision IDs. |
-| I001 | Stale proposal -- `proposed` status with `date` older than 30 days. |
+`@specforge/governance` declares no validation rules of its own; the core checks apply.
+
+| Code | Owner | Rule |
+|------|-------|------|
+| E006 | core | `status`, `context` or `decision` is missing. |
+| E061 | core | `status` outside its enum, or `date` not a calendar day. |
+| E003 / E022 | core | A reference names nothing, or an entity of another kind. |
 
 ## Examples
-
-### Technology Choice
-
-```spec
-decision postgres_over_mongodb "PostgreSQL over MongoDB" {
-  status   accepted
-  date     2025-03-01
-
-  context """
-    We need a primary datastore. Team has SQL expertise.
-    Document model not needed -- data is relational.
-    ACID transactions are required for financial data integrity.
-  """
-
-  decision """
-    Use PostgreSQL 15+ with typed schemas and row-level security.
-  """
-
-  consequences [
-    "Migrations required for schema changes",
-    "Strong ACID guarantees",
-    "Team can leverage existing SQL knowledge",
-    "No native document storage -- complex JSON queries are slower",
-  ]
-
-  invariants [data_persistence]
-  refs [gh.discussion:12]
-}
-```
 
 ### Architectural Pattern
 
 ```spec
 decision event_sourcing_for_audit "Event Sourcing for Audit Trail" {
-  status   accepted
-  date     2025-06-15
+  status accepted
+  date   2025-06-15
 
   context """
     Regulatory requirements demand a complete, immutable audit trail.
-    A traditional update-in-place model would require separate audit
-    logging with risk of drift.
+    An update-in-place model would need separate audit logging
+    that can drift from the data.
   """
 
   decision """
     Use event sourcing for the billing domain.
-    All state changes stored as an append-only event log.
+    Store every state change in an append-only event log.
   """
 
   consequences [
     "Complete audit trail by construction",
     "Event replay enables point-in-time recovery",
     "Increased storage requirements",
-    "Eventually consistent read models required",
   ]
 
-  invariants [audit_trail_integrity, event_ordering]
+  invariants [audit_trail_integrity]
 }
 ```
 
-### Proposed (Not Yet Accepted)
+### Proposed, Outside Software
 
 ```spec
-decision grpc_for_internal_services "Migrate from REST to gRPC for Internal Services" {
-  status   proposed
-  date     2026-02-15
+decision two_person_release_signoff "Two-Person Sign-off for Batch Release" {
+  status proposed
+  date   2026-02-15
 
-  context """
-    Internal service-to-service communication uses REST/JSON.
-    Serialization overhead is measurable at current scale.
-  """
+  context "A single reviewer released a batch with an unrecorded deviation last quarter."
 
-  decision """
-    Adopt gRPC with Protocol Buffers for all internal service communication.
-    External API remains REST/JSON.
-  """
+  decision "Every batch release needs the signatures of two qualified persons."
 
   consequences [
-    "~40% reduction in serialization latency (estimated)",
-    "Compile-time type safety between services",
-    "Requires protobuf tooling in CI",
-    "Two API paradigms to maintain",
+    "Release takes longer on night shifts",
+    "Each release has an independent second check",
   ]
+}
+```
+
+### Superseded
+
+```spec
+decision rest_for_internal_calls "REST for Internal Service Calls" {
+  status        superseded
+  superseded_by grpc_for_internal_calls
+  context       "Internal services needed a shared protocol."
+  decision      "Use REST/JSON between internal services."
+}
+
+decision grpc_for_internal_calls "gRPC for Internal Service Calls" {
+  status   accepted
+  context  "Serialization overhead of REST/JSON is measurable at current scale."
+  decision "Use gRPC with Protocol Buffers between internal services."
 }
 ```
 
 ## What NOT to Do
 
-- Do not write decisions without the `@specforge/governance` plugin installed
 - Do not write ADRs for trivial, easily reversible choices
-- Do not omit consequences -- especially negative trade-offs
-- Do not leave `proposed` decisions for more than 30 days without resolving (I001 warning)
+- Do not omit consequences, especially the negative ones
+- Do not quote the date -- write it bare (`2026-02-15`)

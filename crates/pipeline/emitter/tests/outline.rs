@@ -12,6 +12,8 @@ fn load_manifest(name: &str) -> ExtensionDeclaration {
         "governance" => "@specforge/governance",
         "formal" => "@specforge/formal",
         "rust" => "@specforge/rust",
+        "testing" => "@specforge/testing",
+        "cargo-test" => "@specforge/cargo-test",
         _ => panic!("unknown extension: {}", name),
     };
     let runtime = wasm_runtime_for(&[ext_name]);
@@ -77,6 +79,24 @@ fn load_all_manifests() -> Vec<ExtensionDeclaration> {
         load_manifest("formal"),
     ]
 }
+
+/// The four builtins, whose peers are all optional (ADR 0280), and cargo-test, which requires testing.
+fn manifests_with_a_required_peer() -> Vec<ExtensionDeclaration> {
+    let mut manifests = load_all_manifests();
+    manifests.extend([load_manifest("testing"), load_manifest("cargo-test")]);
+    manifests
+}
+
+/// The optional peers among the four builtins, `from -> to`.
+const OPTIONAL_PEERS: [&str; 7] = [
+    "@specforge/formal -> @specforge/governance",
+    "@specforge/formal -> @specforge/product",
+    "@specforge/formal -> @specforge/software",
+    "@specforge/governance -> @specforge/product",
+    "@specforge/governance -> @specforge/software",
+    "@specforge/software -> @specforge/governance",
+    "@specforge/software -> @specforge/product",
+];
 
 // --- Tracer bullet: empty manifests ---
 
@@ -330,7 +350,7 @@ fn markdown_shows_enhancements() {
 
 #[test]
 fn mermaid_produces_flowchart_tb_with_subgraphs() {
-    let manifests = load_all_manifests();
+    let manifests = manifests_with_a_required_peer();
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
@@ -676,14 +696,14 @@ fn markdown_keys_has_summary_footer() {
 
 #[test]
 fn mermaid_differentiates_required_and_enhancement_edges() {
-    let manifests = load_all_manifests();
+    let manifests = manifests_with_a_required_peer();
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
         ..Default::default()
     };
     let output = drawn(&manifests, opts);
-    // Two distinct edge types rendered (all current deps are required, no optional)
+    // Two distinct edge types rendered: cargo-test's required peer and the enhancements.
     assert!(
         output.contains("-->|"),
         "should have solid dependency edges"
@@ -812,10 +832,13 @@ fn no_reverse_dependencies_in_dag() {
     let manifests = load_all_manifests();
     let outline = outline_json(&manifests);
 
-    for dep in outline["dependencies"].as_array().unwrap() {
+    // Optional peers may close a cycle; only a required one is E027.
+    let required = |d: &&Value| d["optional"] != true;
+    let deps = outline["dependencies"].as_array().unwrap();
+    for dep in deps.iter().filter(required) {
         let (from, to) = (dep["from"].as_str().unwrap(), dep["to"].as_str().unwrap());
         assert!(
-            dependency(&outline, to, from).is_none(),
+            dependency(&outline, to, from).filter(required).is_none(),
             "reverse dependency: {from} <-> {to}"
         );
     }
@@ -927,7 +950,7 @@ fn mermaid_card_has_stats_divider_keywords() {
 
 #[test]
 fn mermaid_renders_required_dep_as_solid_arrow() {
-    let manifests = load_all_manifests();
+    let manifests = manifests_with_a_required_peer();
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
         detail: OutlineDetail::Keys,
@@ -937,30 +960,6 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
     assert!(
         output.contains("-->|\"depends on\"|"),
         "required deps should render as solid arrows with label"
-    );
-}
-
-#[test]
-fn only_the_product_links_and_governance_software_are_optional() {
-    let manifests = load_all_manifests();
-    let outline = outline_json(&manifests);
-
-    let mut optional_deps: Vec<(&str, &str)> = outline["dependencies"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|d| d["optional"] == true)
-        .map(|d| (d["from"].as_str().unwrap(), d["to"].as_str().unwrap()))
-        .collect();
-    optional_deps.sort();
-    assert_eq!(
-        optional_deps,
-        vec![
-            ("@specforge/formal", "@specforge/product"),
-            ("@specforge/governance", "@specforge/product"),
-            ("@specforge/governance", "@specforge/software"),
-            ("@specforge/software", "@specforge/product"),
-        ]
     );
 }
 
@@ -987,15 +986,7 @@ fn json_dependencies_include_optional_field() {
         })
         .collect();
     optional_deps.sort();
-    assert_eq!(
-        optional_deps,
-        vec![
-            "@specforge/formal -> @specforge/product",
-            "@specforge/governance -> @specforge/product",
-            "@specforge/governance -> @specforge/software",
-            "@specforge/software -> @specforge/product",
-        ]
-    );
+    assert_eq!(optional_deps, OPTIONAL_PEERS);
 }
 
 #[test]

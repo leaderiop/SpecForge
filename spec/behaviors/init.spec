@@ -209,6 +209,7 @@ behavior non_interactive_init "Non-Interactive Init" {
     all_prompts_skipped             "All interactive prompts are skipped"
     json_output_supported           "When --format=json is specified, output is the init document specforge.init answers: project_root, name, version, config_file, starter_file, extensions_installed and files_written"
     project_initialized_emitted     "project_initialized event is emitted after successful non-interactive init"
+    software_companions             "enabling @specforge/software enables @specforge/testing and @specforge/governance with it (ADR 0002, ADR 0280)"
   }
   contract   """
     When specforge init is invoked with --name and optional --extensions

@@ -10,14 +10,33 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, errln, outln};
 use serde_json::json;
 use specforge_common::{Code, codes};
-use specforge_ops::OpErrorKind;
 use specforge_ops::extension::{LocalComponent, WASM_TARGET, not_a_builtins_name, target_dir};
+use specforge_ops::{OpError, OpErrorKind};
 use specforge_package::PackageName;
 use std::path::{Path, PathBuf};
 
 /// The diagnostic for an extension project that isn't there or isn't
 /// built.
 const NOT_BUILT: Code = codes::E040;
+
+/// The way forward when the SDK the crate names does not resolve (ADR 0277 D2).
+const UNRELEASED_SDK: &str = "a specforge built after its last release names an SDK version crates.io does not have \
+yet: build against the SDK of the checkout it came from with a [patch.crates-io] entry (docs/extension-sdk.md, \
+\"Building against an unreleased SDK\"), or use a released specforge";
+
+/// Whether cargo's first error line is the SDK's resolution failing, in either form cargo gives it.
+fn sdk_unresolved(first_error: &str) -> bool {
+    [
+        "error: failed to select a version for the requirement ",
+        "error: no matching package named ",
+    ]
+    .iter()
+    .filter_map(|prefix| first_error.strip_prefix(prefix))
+    .any(|rest| {
+        rest.starts_with("`specforge-extension-sdk`")
+            || rest.starts_with("`specforge-extension-sdk ")
+    })
+}
 
 // `specforge extension`'s subcommands.
 #[derive(clap::Subcommand)]
@@ -38,7 +57,7 @@ pub(crate) struct InitArgs {
     #[arg(long)]
     name: Option<String>,
 
-    /// Directory for the new extension
+    /// Directory the extension's crate folder is created in, named after the last segment of --name
     #[arg(long, default_value = ".")]
     dir: PathBuf,
 
@@ -178,6 +197,8 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
             "--target-dir",
         ])
         .arg(target_dir(Path::new("")))
+        // Plain stderr, so its first error line is matched whatever CARGO_TERM_COLOR says.
+        .env("CARGO_TERM_COLOR", "never")
         .current_dir(path)
         .output()
     {
@@ -194,6 +215,18 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let first_error = stderr.lines().find(|l| l.starts_with("error"));
+        if let Some(line) = first_error.filter(|l| sdk_unresolved(l)) {
+            Notes::new(terminal, format).person(format_args!("{}", stderr.trim_end()));
+            let refused = OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NOT_BUILT,
+                format!(
+                    "specforge-extension-sdk does not resolve in {}: {line}",
+                    path.display()
+                ),
+            );
+            return Refusal::of(format).report(terminal, &refused.with_suggestion(UNRELEASED_SDK));
+        }
         let message = format!(
             "cargo build --release --target {WASM_TARGET} failed in {}{}",
             path.display(),
@@ -248,4 +281,25 @@ fn run_validate(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit 
         ),
     }
     Exit::of_verdict(validated.valid())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sdk_unresolved;
+
+    #[test]
+    fn the_sdks_resolution_failures_are_told_from_other_build_errors() {
+        assert!(sdk_unresolved(
+            "error: failed to select a version for the requirement `specforge-extension-sdk = \"^0.2.0\"`"
+        ));
+        assert!(sdk_unresolved(
+            "error: no matching package named `specforge-extension-sdk` found"
+        ));
+        assert!(!sdk_unresolved(
+            "error: could not compile `specforge-extension-sdk` (lib)"
+        ));
+        assert!(!sdk_unresolved(
+            "error: no matching package named `serde_json` found"
+        ));
+    }
 }

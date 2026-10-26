@@ -1,0 +1,11 @@
+{
+  "name": "spec-driven-method",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/software",
+    "@specforge/testing",
+    "@specforge/product",
+    "@specforge/governance"
+  ]
+}

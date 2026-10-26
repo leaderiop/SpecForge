@@ -1,17 +1,21 @@
-# todo-app — worked SpecForge example
+# todo-app: specifying a software product, end to end
 
-A complete, compiler-validated SpecForge project specifying a small **task / todo
-management** application. It is the running example used by the
-[zero-to-hero authoring guide](../../docs/guides/authoring-spec-files.md).
+Software specification is one of SpecForge's biggest use cases. This project specifies a small
+**task / todo** application as one checked graph, from the people who use it down to the tests that
+prove it, and closes the loop with real test results. It is the running example of the
+[authoring guide](../../docs/guides/authoring-spec-files.md). For examples outside software, see the
+[examples index](../README.md).
 
-It uses four extensions: `@specforge/software`, `@specforge/product`,
-`@specforge/governance`, and `@specforge/formal`.
+Extensions: `@specforge/software`, `@specforge/testing`, `@specforge/cargo-test`,
+`@specforge/product`, `@specforge/governance` and `@specforge/formal`. These are builtin extensions:
+each one teaches SpecForge some kinds (`behavior`, `persona`, `decision`, ...). The core itself knows
+none of them.
 
 ## Try it
 
 ```bash
 cd examples/todo-app
-specforge check                         # 0 errors, 0 warnings
+specforge check                         # 0 errors, 0 warnings (3 infos: owners not set)
 specforge trace task_management         # traceability chain for the feature
 specforge query create_task --depth 1   # neighborhood of a behavior
 specforge export --format=context       # what an agent consumes

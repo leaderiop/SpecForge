@@ -1,0 +1,16 @@
+{
+  "category": "surfaces",
+  "items": [
+    {
+      "commands": [
+        {
+          "args": [],
+          "description": "Every campaign in start-date order, with its channel and dates",
+          "export": "cmd__calendar",
+          "id": "calendar",
+          "title": "Campaign calendar"
+        }
+      ]
+    }
+  ]
+}

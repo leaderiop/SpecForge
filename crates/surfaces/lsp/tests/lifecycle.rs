@@ -477,7 +477,7 @@ fn the_watchers_cover_what_the_session_classifies() {
             "version": "0.1.0",
             "spec_root": "spec",
             "extensions": [
-                "@specforge/software",
+                "@specforge/software", "@specforge/governance",
                 "@sdk/docref=ext/docref.wasm",
                 format!("@acme/far={}", module.display()),
             ],

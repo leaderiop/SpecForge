@@ -567,7 +567,7 @@ behavior beta "B" { contract "first" features [alpha] }
     /// invariant; `refund` is linked to nothing.
     fn gap_project() -> (TestProject, CompiledProject) {
         let project = TestProject::new()
-            .enabling(&["@specforge/software", "@specforge/product"])
+            .enabling(&[crate::navigate::SOFTWARE, &["@specforge/product"]].concat())
             .file("main.spec", specs::TRACE_GAPS);
         let compiled = project.compile();
         (project, compiled)
@@ -723,7 +723,7 @@ behavior beta "B" { contract "first" features [alpha] }
     )]
     fn a_field_that_writes_an_unresolved_reference_has_no_missing_link() {
         let project = TestProject::new()
-            .enabling(&["@specforge/software", "@specforge/product"])
+            .enabling(&[crate::navigate::SOFTWARE, &["@specforge/product"]].concat())
             .files(&UNRESOLVED);
         let compiled = project.compile();
         // Each unresolved reference is check's E003.

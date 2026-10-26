@@ -10,6 +10,7 @@ mod disk;
 pub mod entity;
 mod registries;
 pub mod rules;
+pub use rules::declared_level;
 pub mod snapshot;
 
 #[cfg(test)]

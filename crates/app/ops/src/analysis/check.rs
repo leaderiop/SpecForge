@@ -219,7 +219,8 @@ mod tests {
 
     /// Product declares `status` the lifecycle field of features, so a
     /// passing check records something.
-    const CONFIG: &str = r#"{"extensions": ["@specforge/software", "@specforge/product"]}"#;
+    const CONFIG: &str =
+        r#"{"extensions": ["@specforge/software", "@specforge/governance", "@specforge/product"]}"#;
 
     /// A feature with a lifecycle state: infos only (no error, no warning).
     const CLEAN: &str = "feature alpha \"A\" {\n  problem \"p\"\n  status done\n}\n";

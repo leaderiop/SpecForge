@@ -45,13 +45,11 @@ fn governance_declares_its_rating_and_status_vocabularies() {
         assert_eq!(declared.enum_values, values, "{kind}.{field}");
         assert_eq!(declared.default_value, None, "{kind}.{field}");
     }
-    assert!(
-        crate::specforge_extension_build()
-            .declaration()
-            .validation_rules
-            .is_empty(),
-        "no value rule is declared"
-    );
+    let rules = crate::specforge_extension_build()
+        .declaration()
+        .validation_rules;
+    let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
+    assert_eq!(codes, ["W003"], "no value rule is declared");
 }
 
 /// A constraint's category is a tag: one word, written bare (ADR 0147).
@@ -64,4 +62,27 @@ fn the_constraint_category_is_a_word() {
 #[test]
 fn a_decisions_date_is_a_date() {
     assert_eq!(declared("decision", "date").field_type, "date");
+}
+
+/// Governance declares the rules a project keeps (ADR 0280).
+#[specforge_test(
+    behavior = "ge_declare_manifest",
+    verify = "the declaration declares invariant with its guarantee and its risk levels, and W003 over it"
+)]
+fn governance_declares_invariant_its_risk_and_w003() {
+    let guarantee = declared("invariant", "guarantee");
+    assert!(guarantee.required, "invariant.guarantee is required");
+    let risk = declared("invariant", "risk");
+    assert_eq!(risk.field_type, "enum");
+    assert_eq!(risk.enum_values, ["critical", "high", "medium", "low"]);
+    let rules = crate::specforge_extension_build()
+        .declaration()
+        .validation_rules;
+    let w003 = rules
+        .iter()
+        .find(|r| r.code == "W003")
+        .expect("W003 is declared");
+    assert_eq!(w003.target_kind.as_deref(), Some("invariant"));
+    assert_eq!(w003.check, "no_incoming_edges");
+    assert_eq!(w003.edge_type, None, "any reference silences W003");
 }

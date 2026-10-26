@@ -1,229 +1,123 @@
 ---
 name: specforge-failure-modes-dsl
-description: "Write failure_mode blocks in .spec DSL files (@specforge/governance plugin). Each failure_mode declares an FMEA entry with free-form snake_case IDs, severity/occurrence/detection scores (1-10), RPN calculation, cause/effect/mitigation narrative, and post-mitigation reassessment. Use when analyzing what can go wrong with invariants and how bad it would be."
+description: "Write failure_mode blocks in .spec files (the failure_mode kind is declared by the builtin @specforge/governance extension). Each failure_mode is an FMEA entry with a snake_case ID, a cause and an effect, severity/occurrence/detection ratings before and after mitigation, a mitigation, and links to the invariant it threatens, the behaviors it affects and the features it threatens. Use when analysing what can go wrong and how bad it would be, in software or in a regulated process."
 ---
 
 # SpecForge Failure Modes DSL
 
-Rules and conventions for authoring **`failure_mode` blocks** in `.spec` files. Failure modes are FMEA (Failure Mode and Effects Analysis) entries -- structured risk assessments tied to invariants.
+> **Declared by `@specforge/governance`**, a builtin extension. The `failure_mode` kind exists only in a project that
+> loads it: run `specforge extensions` first, and if it is not listed, do not write `failure_mode` blocks (add it with
+> `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
+> `@specforge/testing`. `specforge infer-guide failure_mode` prints the fields.
 
-**Requires:** `@specforge/governance` plugin.
-
-## When to Use
-
-- Analyzing what can go wrong with a runtime invariant
-- Scoring risk: severity, occurrence, and detection (1-10 scales)
-- Computing Risk Priority Numbers (RPN = S x O x D)
-- Documenting cause, effect, and mitigation for each failure scenario
-- Reassessing risk after mitigation (post_mitigation block)
+Failure modes are FMEA (Failure Mode and Effects Analysis) entries: one way something can break, how bad it is, and
+what is done about it.
 
 ## Block Syntax
 
 ```spec
-use "invariants/data"
-
 failure_mode write_acknowledged_but_lost "Write Acknowledged but Lost" {
   invariant  data_persistence
-  severity   8
-  occurrence 2
-  detection  3
-  rpn        48
+  severity   high
+  occurrence unlikely
+  detection  moderate
 
   cause      "Crash between ACK and fsync"
-  effect     "Silent data loss -- user believes write succeeded"
+  effect     "Silent data loss -- the user believes the write succeeded"
   mitigation "Write-ahead log with fsync before ACK"
 
-  post_mitigation {
-    severity   8
-    occurrence 1
-    detection  2
-    rpn        16
-  }
+  post_severity   high
+  post_occurrence rare
+  post_detection  likely
+
+  verify integration "a crash injected after ACK loses no acknowledged write"
 }
 ```
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
-| `invariant` | reference | The invariant this failure mode threatens. Must exist. |
-| `severity` | number | Impact if failure occurs (1-10). 10 = catastrophic. |
-| `occurrence` | number | Likelihood of failure (1-10). 10 = near-certain. |
-| `detection` | number | Ability to detect before user impact (1-10). 10 = undetectable. |
+| `severity` | enum (required) `critical` `high` `medium` `low` | Impact before mitigation. |
+| `cause` | string (required) | Root cause or trigger. |
+| `effect` | string (required) | What happens when it occurs. |
+| `occurrence` | enum `certain` `likely` `occasional` `unlikely` `rare` | Likelihood before mitigation. |
+| `detection` | enum `certain` `likely` `moderate` `unlikely` `undetectable` | Likelihood of catching it before harm. |
+| `mitigation` | string | What reduces the risk. |
+| `post_severity` / `post_occurrence` / `post_detection` | the same enums | Ratings after mitigation. |
+| `post_mitigation` | block | Residual risk written as a block, if you prefer it to the `post_*` fields. |
+| `rpn` | integer | Risk Priority Number, if your method computes one. |
+| `risk` | string | Overall risk assessment in words. |
+| `invariant` | reference -> invariant | The invariant it threatens. |
+| `affected_behaviors` | reference list -> behavior | Behaviors that are failure vectors. |
+| `threatens_features` | reference list -> feature | Features it threatens (needs `@specforge/product`). |
+| `description` | string | Summary. |
+| `refs` | string list | Declared `ref` IDs. |
 
-### Optional
+The ratings are words, not 1-10 numbers: a number in `severity`, `occurrence` or `detection` is E061. No check
+recomputes `rpn`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `rpn` | number | Risk Priority Number = S x O x D. Auto-computed if omitted; validated if provided. |
-| `cause` | string | Root cause or trigger of the failure. |
-| `effect` | string | Impact on user or system when failure occurs. |
-| `mitigation` | string | Actions taken to reduce risk. |
-| `post_mitigation` | block | Reassessed S/O/D scores after mitigation. |
-| `refs` | reference list | External references linked to this failure mode. |
+### Verify kinds
 
-### Post-Mitigation Sub-Block
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `severity` | number | Reassessed severity (1-10). |
-| `occurrence` | number | Reassessed occurrence (1-10). |
-| `detection` | number | Reassessed detection (1-10). |
-| `rpn` | number | Reassessed RPN. Auto-computed if omitted. |
-
-## FMEA Scoring Guide
-
-### Severity (S)
-
-| Score | Impact |
-|-------|--------|
-| 1-2 | Negligible -- minor inconvenience |
-| 3-4 | Low -- degraded experience, workaround available |
-| 5-6 | Moderate -- feature unavailable, manual recovery |
-| 7-8 | High -- data loss or corruption |
-| 9-10 | Critical -- safety risk, regulatory violation |
-
-### Occurrence (O)
-
-| Score | Likelihood |
-|-------|-----------|
-| 1-2 | Rare -- once per year or less |
-| 3-4 | Uncommon -- a few times per year |
-| 5-6 | Occasional -- monthly |
-| 7-8 | Frequent -- weekly |
-| 9-10 | Near-certain -- daily |
-
-### Detection (D)
-
-| Score | Detectability |
-|-------|--------------|
-| 1-2 | Immediate -- automated monitoring |
-| 3-4 | Quick -- detected within minutes |
-| 5-6 | Moderate -- detected within hours |
-| 7-8 | Slow -- detected by user reports |
-| 9-10 | Undetectable -- silent failure |
-
-### RPN Thresholds
-
-| RPN Range | Risk Level | Action |
-|-----------|-----------|--------|
-| 1-50 | Low | Accept, document, monitor |
-| 51-100 | Medium | Mitigate, add monitoring |
-| 101-200 | High | Mitigate urgently, add redundancy |
-| 201+ | Critical | Block release until mitigated |
-
-## Relationships
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `invariant` | `mitigates` | Failure mode threatens this invariant |
-| `ref` | `links_to` | External references linked to this failure mode |
-
-### Incoming edges
-
-None. Failure modes are leaf nodes in the traceability chain.
+With `@specforge/testing`: `unit`, `integration`, `property` (another kind is W009).
 
 ## Writing Rules
 
-1. **One failure mode per invariant threat** -- each FM describes one way an invariant can break.
-2. **Severity rarely changes after mitigation** -- the impact of the failure is inherent; mitigation reduces occurrence and improves detection.
-3. **RPN is validated** -- if provided, must equal S x O x D. Omit to auto-compute.
-4. **Cause-effect-mitigation pattern** -- tell a complete story: what triggers -> what happens -> what we do about it.
-5. **Post-mitigation is essential** -- always reassess after mitigation to show risk reduction.
-6. **Import invariant files** -- `use` the files declaring referenced invariants.
-7. **High-risk invariants need FMs** -- if `INV` has `risk: high` or `risk: critical` and no FM, `W005` fires.
+1. **One failure mode per way of breaking.**
+2. **Cause -> effect -> mitigation** -- tell the whole story.
+3. **Reassess after mitigation** -- severity rarely changes; occurrence and detection should improve.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E001 | `invariant` must resolve to an existing invariant. |
-| E002 | No duplicate failure mode IDs. |
-| E005 | RPN mismatch -- `rpn != severity * occurrence * detection`. |
-| E005 | Same check for `post_mitigation` sub-block. |
+`@specforge/governance` declares no validation rules of its own; the core and testing checks apply.
+
+| Code | Owner | Rule |
+|------|-------|------|
+| E006 | core | `severity`, `cause` or `effect` is missing. |
+| E061 | core | A rating outside its enum (a number, for instance). |
+| E003 / E022 | core | A reference names nothing, or an entity of another kind. |
+| W009 | testing | A `verify` kind outside the allowed set. |
 
 ## Examples
-
-### Data Integrity
-
-```spec
-failure_mode write_acknowledged_but_lost "Write Acknowledged but Lost" {
-  invariant  data_persistence
-  severity   8
-  occurrence 2
-  detection  3
-  rpn        48
-
-  cause      "Crash between ACK and fsync"
-  effect     "Silent data loss -- user believes write succeeded"
-  mitigation "Write-ahead log with fsync before ACK"
-
-  post_mitigation {
-    severity   8
-    occurrence 1
-    detection  2
-    rpn        16
-  }
-}
-```
 
 ### Security
 
 ```spec
 failure_mode email_uniqueness_bypass "Email Uniqueness Bypass via Race Condition" {
-  invariant  email_uniqueness
-  severity   6
-  occurrence 3
-  detection  4
-  rpn        72
+  invariant          email_uniqueness
+  affected_behaviors [create_user]
+  severity           medium
+  occurrence         occasional
+  detection          unlikely
 
   cause      "Two concurrent requests create users with the same email"
-  effect     "Two active users share an email -- login ambiguity"
-  mitigation "Database-level UNIQUE constraint + serializable isolation"
-  refs       [gh.issue:31]
+  effect     "Two active users share an email -- login is ambiguous"
+  mitigation "Database UNIQUE constraint plus serializable isolation"
 
-  post_mitigation {
-    severity   6
-    occurrence 1
-    detection  1
-    rpn        6
-  }
+  post_occurrence rare
+  post_detection  certain
 }
 ```
 
-### Operational
+### Regulated Process (pharma)
 
 ```spec
-failure_mode audit_log_corruption "Audit Log Corruption" {
-  invariant  audit_trail_integrity
-  severity   9
-  occurrence 1
-  detection  5
-  rpn        45
+failure_mode unrecorded_deviation "Deviation Not Recorded in the Batch Record" {
+  severity   critical
+  occurrence occasional
+  detection  unlikely
 
-  cause      "Disk corruption or software bug overwrites existing audit entries"
-  effect     "Regulatory non-compliance -- audit trail integrity compromised"
-  mitigation "Append-only table with no UPDATE/DELETE grants, WAL archiving, daily checksums"
+  cause      "An operator corrects a step on paper and does not open a deviation"
+  effect     "A batch is released with an undocumented departure from procedure"
+  mitigation "Electronic batch record blocks step sign-off until any correction has a deviation ID"
 
-  post_mitigation {
-    severity   9
-    occurrence 1
-    detection  2
-    rpn        18
-  }
+  post_occurrence rare
+  post_detection  likely
 }
 ```
 
 ## What NOT to Do
 
-- Do not write failure modes without the `@specforge/governance` plugin installed
-- Do not provide an incorrect RPN -- it must equal severity x occurrence x detection (E005)
-- Do not skip post_mitigation -- it demonstrates the value of the mitigation
-- Do not change severity in post_mitigation without justification -- the impact is inherent
-- Do not use scores outside 1-10 range
-- Do not reference invariants from other files without a `use` import
+- Do not rate with numbers (`severity 8` is E061) -- use the declared words
+- Do not change `post_severity` without a reason -- the impact is usually inherent
+- Do not skip the after-mitigation ratings -- they show what the mitigation buys

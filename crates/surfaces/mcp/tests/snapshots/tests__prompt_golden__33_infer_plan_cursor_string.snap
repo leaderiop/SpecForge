@@ -65,13 +65,28 @@ expression: "shape(&reply, dir.path())"
         "kind": "release"
       },
       {
+        "existing_count": 0,
+        "extension": "@specforge/governance",
+        "kind": "constraint"
+      },
+      {
+        "existing_count": 0,
+        "extension": "@specforge/governance",
+        "kind": "decision"
+      },
+      {
+        "existing_count": 0,
+        "extension": "@specforge/governance",
+        "kind": "failure_mode"
+      },
+      {
         "existing_count": 1,
         "extension": "@specforge/product",
         "kind": "feature"
       },
       {
         "existing_count": 1,
-        "extension": "@specforge/software",
+        "extension": "@specforge/governance",
         "kind": "invariant"
       },
       {

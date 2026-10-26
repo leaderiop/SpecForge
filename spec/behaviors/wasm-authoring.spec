@@ -27,9 +27,11 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
     extension_project_scaffolded_emitted "extension_project_scaffolded event is emitted after successful scaffolding"
   }
   contract """
-    When specforge extension init is invoked, the system MUST scaffold a
-    new extension crate written with specforge-extension-sdk: a Cargo.toml
-    depending on specforge-extension-sdk at the version of the specforge that
+    When specforge extension init is invoked, the system MUST scaffold, in a
+    folder named after the extension name's last segment inside the directory
+    --dir names, a new extension crate written with specforge-extension-sdk: a Cargo.toml
+    that is a workspace of its own (it builds inside another cargo workspace
+    unedited), depending on specforge-extension-sdk at the version of the specforge that
     scaffolds it (the SDK shares that version), which builds, unedited, into a
     component the host loads, a src/lib.rs whose #[extension(name, version,
     short, description)] declares the extension and whose
@@ -51,6 +53,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "specforge extension init uses default name when --name not provided"
   verify unit "the scaffold's extension name is a package name"
   verify unit "the scaffold names the SDK at the version this specforge is built with"
+  verify unit "a scaffold inside a cargo workspace is a workspace of its own"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 
@@ -71,6 +74,8 @@ behavior build_wasm_extension "Build Wasm Extension" {
     --release --target wasm32-wasip2) and name the component it built, read
     where it built it whether --dir is relative or absolute.
     Build errors MUST be reported as ExtensionError diagnostics (E040).
+    When the SDK version the crate names does not resolve, the E040 refusal
+    MUST say so and name how to build against an unreleased SDK.
     Before compiling, it MUST check that the extension project
     structure exists and fail with a diagnostic when it doesn't.
   """
@@ -79,6 +84,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
   verify unit "build errors reported as ExtensionError diagnostics"
   verify unit "specforge extension build validates project structure exists"
   verify unit "specforge extension build with a relative --dir reads the component it built"
+  verify unit "a build whose SDK does not resolve says so and names how to build against an unreleased SDK"
   verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 }
 

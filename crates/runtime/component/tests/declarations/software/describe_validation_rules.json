@@ -25,17 +25,6 @@
     },
     {
       "check": "no_incoming_edges",
-      "code": "W003",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "invariant '{id}' is not enforced by any behavior",
-      "severity": "warning",
-      "target_kind": "invariant",
-      "wasm_function": null
-    },
-    {
-      "check": "no_incoming_edges",
       "code": "W005",
       "constraint": null,
       "edge_type": null,
@@ -88,17 +77,6 @@
       "severity": "warning",
       "target_kind": "type",
       "wasm_function": "validate__type_field_annotations"
-    },
-    {
-      "check": "custom",
-      "code": "E004",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "port '{id}' method '{field}' references unknown type '{value}'",
-      "severity": "error",
-      "target_kind": "port",
-      "wasm_function": "validate__port_methods"
     },
     {
       "check": "custom",

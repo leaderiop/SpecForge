@@ -28,7 +28,7 @@ fn plant(dir: &Path, names: &[&str]) -> (TempDir, std::path::PathBuf) {
 )]
 fn check_cache_temp_is_not_written_through_a_hard_link() {
     let dir = TestProject::new().raw_config(
-        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .file("spec/main.spec", specs::SOFTWARE);
     let (_outside, victim) = plant(

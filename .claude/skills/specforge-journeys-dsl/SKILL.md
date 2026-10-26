@@ -1,165 +1,109 @@
 ---
 name: specforge-journeys-dsl
-description: "Write journey blocks in .spec DSL files (@specforge/product plugin). Each journey declares a UX flow with free-form snake_case IDs, mapping a persona on channels to features with a step-by-step interaction flow. Use when describing how a specific user type experiences the system."
+description: "Write journey blocks in .spec files (the journey kind is declared by the builtin @specforge/product extension). Each journey declares a user flow with a snake_case ID, the persona who takes it, the channels it happens through, the features it exercises and an ordered step-by-step flow. Use when describing how a specific kind of user experiences a product -- software, a clinic visit, a course enrollment or a customer purchase."
 ---
 
 # SpecForge Journeys DSL
 
-Rules and conventions for authoring **`journey` blocks** in `.spec` files. Journeys are the top of the traceability chain -- they represent what a real user actually does with the system.
+> **Declared by `@specforge/product`**, a builtin extension. The `journey` kind (and the `persona`, `channel` and
+> `feature` kinds it points at) exists only in a project that loads it: run `specforge extensions` first, and if it is
+> not listed, do not write `journey` blocks (add it with `specforge add @specforge/product`, or write the kinds the
+> project's own extensions declare). `specforge infer-guide journey` prints the fields.
 
-**Requires:** `@specforge/product` plugin.
-
-## When to Use
-
-- Describing how a specific persona interacts with the system
-- Mapping UX flows to features
-- Defining interaction sequences for different channels (web, mobile, cli, api)
-- Creating the journeys that deliverables will bundle
+Journeys describe what a real person does, step by step. A journey points at a `persona` entity and at `channel`
+entities, both declared as blocks of their own (not inside the `spec` block).
 
 ## Block Syntax
 
 ```spec
-use "features/user-management"
-use "product/personas"
-use "product/channels"
+persona admin "Administrator" {
+  description     "Manages user accounts for the organisation"
+  technical_level intermediate
+}
+
+channel web "Web App" {
+  description       "The browser application"
+  interaction_model request_response
+}
 
 journey create_new_user "Create a New User" {
   persona  admin
-  channels [web, cli, api]
+  channels [web]
   features [user_management]
+  priority high
 
   flow [
-    "Admin opens user management page",
+    "Admin opens the user management page",
     "Clicks \"New User\"",
-    "Fills form (name, email, role)",
-    "Submits -- system validates uniqueness",
-    "Success: user appears in list",
-    "Failure: inline error on email field",
+    "Fills the form (name, email, role)",
+    "Submits -- the system checks the email is unique",
+    "Success: the user appears in the list",
+    "Failure: an inline error on the email field",
   ]
 }
 ```
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). Phrased as a user action. |
-| `persona` | EntityId @optional | The user type performing this action (e.g., `admin`, `developer`, `patient`, `student`, `volunteer`). Omission emits I054. |
-| `features` | reference list | Features this journey delivers. |
-| `flow` | string list | One item per step, in order (user actions + system responses). Omission emits I050. |
+| `flow` | string list (required) | Ordered steps: user actions and system responses. Empty: I050. |
+| `persona` | reference -> persona | Who takes the journey. Missing: I054. |
+| `channels` | reference list -> channel | Where it happens. Missing or empty: I055. |
+| `features` | reference list -> feature | Features exercised. |
+| `priority` | enum `critical` `high` `medium` `low` | Importance. |
+| `description` | string | Summary. |
+| `tags` | string list | Lowercase-hyphenated labels. |
 
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `channels` | EntityId[] @optional | Channel entities where this journey is available (e.g., `web`, `mobile`, `cli`, `api`). Each must resolve to a `channel` entity (E009). Omission emits I055. |
-| `description` | string @optional | Brief summary of the journey's purpose. |
-| `priority` | Priority @optional | Importance level: `critical`, `high`, `medium`, `low`. |
-| `tags` | string[] @optional | Faceted filtering tags. |
-| `refs` | reference list | External references linked to this journey. |
+`persona` declares `description` (required), `technical_level` (`expert` `advanced` `intermediate` `beginner`
+`non_technical`), `goals`, `pain_points`, `status` (`active` `deprecated`), `reason`, `key_features`.
+`channel` declares `description` (required), `interaction_model` (identifier: one word, e.g. `request_response` `event_driven` `batch`
+`streaming` `bidirectional` `manual` `in_person` `self_service` `broadcast`; any word is accepted), `url`, `status`, `reason`.
 
 ## Relationships
 
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `JourneyFeature` | Journey delivers these features |
-| `persona` | `JourneyPersona` | Journey is performed by this persona |
-| `channel` | `JourneyChannel` | Journey uses these channels |
-| `ref` | `links_to` | External references linked to this journey |
-
-### Incoming edges
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `deliverable` | `DeliverableJourney` | Deliverable ships this journey |
+| Field | Target |
+|-------|--------|
+| `persona` | persona |
+| `channels` | channel |
+| `features` | feature |
+| a deliverable's `journeys` | this journey |
 
 ## Writing Rules
 
-1. **Name as user actions** -- "Create a New User" not "User Creation".
-2. **One item per step, in order** -- alternate between user actions and system responses.
-3. **Include success and failure paths** -- both in the flow.
-4. **Persona must resolve** -- `persona` must match an existing `persona` entity (E008).
-5. **Channels must resolve** -- every `channels` entry must match an existing `channel` entity (E009).
-6. **One journey per persona-action** -- different personas doing the same thing = different journeys.
+1. **Name as user actions** -- "Create a New User", not "User Creation".
+2. **One step per item, in order** -- alternate user actions and system responses.
+3. **Include success and failure paths.**
+4. **One journey per persona and goal** -- different personas doing the same thing are different journeys.
 
 ## Validation Rules
 
-| Code | Level | Rule |
+| Code | Owner | Rule |
 |------|-------|------|
-| E008 | error | `persona` must resolve to an existing `persona` entity. |
-| E009 | error | Every `channels` entry must resolve to an existing `channel` entity. |
-| W042 | warning | Orphan journey -- not referenced by any deliverable. |
-| W075 | warning | Journey references a deprecated persona. |
-| W076 | warning | Journey references a deprecated channel. |
-| I050 | info | Journey has no `flow` steps. |
-| I054 | info | Journey has no `persona` field. |
-| I055 | info | Journey has no `channels` field. |
-| I072 | info | Flow step without numbered prefix (e.g., "1.", "2."). |
+| E003 / E022 | core | `persona`, `channels` or `features` names nothing, or an entity of another kind. |
+| E006 | core | `flow` is missing. |
+| W042 | product | No deliverable references the journey. |
+| I050 | product | `flow []`. |
+| I054 | product | No `persona`. |
+| I055 | product | No `channels`. |
+| I046 / I047 | product | A persona / channel no journey references. |
 
 ## Examples
-
-### Web UI Journey
-
-```spec
-journey create_new_user "Create a New User" {
-  persona  admin
-  channels [web]
-  features [user_management]
-
-  flow [
-    "Admin navigates to Settings > Users",
-    "Clicks \"Add User\" button",
-    "Modal opens with form: name, email, role dropdown",
-    "Admin fills fields and clicks \"Create\"",
-    "System validates email uniqueness",
-    "Success: modal closes, user appears in table, toast notification",
-    "Failure: inline error below email field",
-  ]
-
-  refs [figma.frame:user-create-modal]
-}
-```
 
 ### API Journey
 
 ```spec
 journey create_user_via_api "Create User via API" {
   persona  api_consumer
-  channels [api]
+  channels [public_api]
   features [user_management]
 
   flow [
-    "Consumer sends POST /api/v1/users with JSON body",
-    "System validates request body schema",
-    "System validates email uniqueness",
-    "Success: 201 Created with user object",
-    "Validation failure: 422 Unprocessable Entity",
+    "Consumer sends POST /api/v1/users with a JSON body",
+    "The system validates the request body",
+    "The system checks the email is unique",
+    "Success: 201 Created with the user object",
     "Duplicate email: 409 Conflict",
-  ]
-}
-```
-
-### Multi-Feature Journey
-
-```spec
-journey purchase_and_track_order "Purchase and Track Order" {
-  persona  user
-  channels [web, mobile]
-  features [order_checkout, order_tracking]
-  priority high
-
-  flow [
-    "User reviews cart and clicks \"Checkout\"",
-    "System validates inventory for all items",
-    "User confirms shipping address and payment method",
-    "System processes payment and creates order",
-    "Success: confirmation page with order number and ETA",
-    "User can track order status on \"My Orders\" page",
-    "Payment failure: error page with retry option",
   ]
 }
 ```
@@ -167,45 +111,35 @@ journey purchase_and_track_order "Purchase and Track Order" {
 ### Healthcare Journey
 
 ```spec
+persona patient "Patient" {
+  description     "Books and attends appointments"
+  technical_level non_technical
+}
+
+channel phone "Phone" {
+  description       "Calls to the clinic front desk"
+  interaction_model manual
+}
+
 journey schedule_appointment "Schedule a Doctor Appointment" {
   persona  patient
-  channels [clinic, phone, web]
+  channels [phone, web]
   features [appointment_scheduling]
 
   flow [
-    "Patient calls clinic or opens web portal",
-    "Selects preferred doctor and available time slot",
-    "System checks doctor availability",
-    "Patient confirms appointment details",
-    "Success: confirmation sent via SMS and email",
-    "Conflict: alternative slots suggested",
-  ]
-}
-```
-
-### Education Journey
-
-```spec
-journey enroll_in_course "Enroll in a Course" {
-  persona  student
-  channels [web, in_person]
-  features [course_enrollment]
-
-  flow [
-    "Student browses course catalog",
-    "Selects course and reviews prerequisites",
-    "System checks prerequisite completion",
-    "Student submits enrollment request",
-    "Success: enrollment confirmed, added to roster",
-    "Prerequisite missing: directed to prerequisite courses",
+    "Patient calls the clinic or opens the web portal",
+    "Selects a doctor and an available time slot",
+    "The system checks the doctor's availability",
+    "Patient confirms the appointment details",
+    "Success: a confirmation is sent by SMS and email",
+    "Conflict: alternative slots are suggested",
   ]
 }
 ```
 
 ## What NOT to Do
 
-- Do not write journeys without the `@specforge/product` plugin installed
-- Do not confuse journeys (user-perspective UX flow) with features (system-perspective value)
-- Do not use generic personas -- be specific: `admin`, `developer`, `patient`, `student`, `volunteer`
-- Do not omit failure paths from the flow -- users need to know what happens on error
-- Do not reference features from other files without a `use` import
+- Do not declare personas or channels inside the `spec` block -- they are `persona` and `channel` entities
+- Do not write `refs` on a journey -- the kind does not declare it (W020)
+- Do not confuse journeys (a user's path) with features (units of value)
+- Do not omit failure paths from the flow

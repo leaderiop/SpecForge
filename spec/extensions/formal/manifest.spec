@@ -88,9 +88,9 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     - event_graph_analyze: E034, E042, W029, W032, W033, W034, I009
     - coverage_tracking: W035, I008, I014
 
-    Validation rules (declarative, run in every check): W123 unreferenced
-    property, W124 empty property description, W126 unreferenced axiom, W127 empty axiom description, W128
-    unreferenced protocol, W129 empty protocol description, W131 unreferenced
+    Validation rules (declarative, run in every check): W123 property
+    unreferenced by any behavior (the satisfies edge), W124 empty property description, W126 unreferenced axiom, W127 empty axiom description, W128
+    protocol unreferenced by any event (the follows_protocol edge), W129 empty protocol description, W131 unreferenced
     refinement, W132 empty refinement description, W133 refinement
     without invariant_deltas (a custom rule), W134 unreferenced process, W135
     empty process description, W136 empty process alphabet.
@@ -135,7 +135,7 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     enhancements_declared    "entity_enhancements add requires/ensures/maintains/satisfies/sync/abstract/refines to behavior, follows_protocol/participates_in/sync to event, and expression to invariant"
     proof_roles_declared     "property.expression is a claim, axiom.expression a bound, invariant.expression a claim"
     verify_kinds_declared    "verify_kinds contains contract, refinement, deadlock_free, liveness"
-    peer_dep_software        "peer_dependencies contains @specforge/software ^1.0 (required)"
+    optional_peers           "peer_dependencies holds @specforge/software and @specforge/governance ^1.0, both optional"
     warning_level_strict     "all formal warnings require warning_level=strict"
     no_sandbox_policy        "sandbox_policy is null — formal declares no sandbox policy and runs under the host's ceiling"
   }
@@ -163,6 +163,8 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   verify unit "entity_enhancements add process field to event"
   verify unit "property and invariant expressions are claims and axiom expressions bounds"
   verify unit "verify_kinds contains contract, refinement, deadlock_free, liveness"
-  verify unit "peer_dependencies requires @specforge/software"
+  verify unit "software and governance are optional peers"
+  verify unit "software and governance are optional peers, and W123 and W128 name the edge their message names"
   verify unit "formal warnings require warning_level=strict"
+  verify integration "formal loads without software: a project of invariants, constraints, properties, protocols and processes has no E027, no enhancement I004 and no W123 or W128"
 }

@@ -3027,6 +3027,7 @@ dependencies = [
  "specforge-ops",
  "specforge-parser",
  "specforge-project",
+ "specforge-protocol-types",
  "specforge-registry",
  "specforge-repo-root",
  "specforge-resolver",

@@ -1,4 +1,16 @@
 {
   "category": "validation_rules",
-  "items": []
+  "items": [
+    {
+      "check": "no_incoming_edges",
+      "code": "W003",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "invariant '{id}' is not referenced by any entity — nothing enforces, protects or relies on it",
+      "severity": "warning",
+      "target_kind": "invariant",
+      "wasm_function": null
+    }
+  ]
 }

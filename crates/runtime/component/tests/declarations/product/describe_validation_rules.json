@@ -154,27 +154,6 @@
     },
     {
       "check": "field_value_constraint",
-      "code": "I062",
-      "constraint": {
-        "kind": "one_of",
-        "pattern": null,
-        "values": [
-          "core",
-          "platform",
-          "extension",
-          "integration",
-          "advisory"
-        ]
-      },
-      "edge_type": null,
-      "field": "family",
-      "message_template": "module '{id}' has non-standard family '{value}' — standard families: {allowed}",
-      "severity": "info",
-      "target_kind": "module",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
       "code": "I061",
       "constraint": {
         "kind": "matches",

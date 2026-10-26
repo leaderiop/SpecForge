@@ -974,6 +974,74 @@ expression: "digest(&load(&runtime, &[name]))"
       "required": false,
       "source_extension": "@specforge/governance",
       "target_kind": "feature"
+    },
+    "invariant.description": {
+      "derived_from": null,
+      "description": "Human-readable summary of this invariant",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "description",
+      "field_type": "String",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "invariant",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/governance",
+      "target_kind": null
+    },
+    "invariant.guarantee": {
+      "derived_from": null,
+      "description": "The constraint this invariant guarantees holds at all times",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "guarantee",
+      "field_type": "String",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "invariant",
+      "normative": true,
+      "proof_role": null,
+      "required": true,
+      "source_extension": "@specforge/governance",
+      "target_kind": null
+    },
+    "invariant.refs": {
+      "derived_from": null,
+      "description": "External references such as issue or document URIs",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "refs",
+      "field_type": "StringList",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "invariant",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/governance",
+      "target_kind": null
+    },
+    "invariant.risk": {
+      "derived_from": null,
+      "description": "Impact level if this invariant is violated",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "risk",
+      "field_type": "Enum([\"critical\", \"high\", \"medium\", \"low\"])",
+      "file_reference": false,
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "invariant",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/governance",
+      "target_kind": null
     }
   },
   "graph_inputs": {
@@ -981,11 +1049,8 @@ expression: "digest(&load(&runtime, &[name]))"
       "constraint.constrains": "behavior (@specforge/software)",
       "constraint.enforced_by": "behavior (@specforge/software)",
       "constraint.governs_features": "feature (@specforge/product)",
-      "constraint.protects": "invariant (@specforge/software)",
       "decision.affects_features": "feature (@specforge/product)",
-      "decision.invariants": "invariant (@specforge/software)",
       "failure_mode.affected_behaviors": "behavior (@specforge/software)",
-      "failure_mode.invariant": "invariant (@specforge/software)",
       "failure_mode.threatens_features": "feature (@specforge/product)"
     },
     "derived_references": [],
@@ -1033,7 +1098,11 @@ expression: "digest(&load(&runtime, &[name]))"
       "failure_mode.risk": "string",
       "failure_mode.rpn": "integer",
       "failure_mode.severity": "enum (critical, high, medium, low)",
-      "failure_mode.threatens_features": "reference_list"
+      "failure_mode.threatens_features": "reference_list",
+      "invariant.description": "string",
+      "invariant.guarantee": "string",
+      "invariant.refs": "string_list",
+      "invariant.risk": "enum (critical, high, medium, low)"
     },
     "member_kinds": []
   },
@@ -1094,10 +1163,41 @@ expression: "digest(&load(&runtime, &[name]))"
       "source_extension": "@specforge/governance",
       "supports_verify": false,
       "testable": false
+    },
+    "invariant": {
+      "allowed_verify_kinds": [],
+      "contract_target": true,
+      "declares_types": false,
+      "description": "A rule that must always hold",
+      "dot_color": "#C62828",
+      "dot_fillcolor": "#FFEBEE",
+      "dot_shape": "diamond",
+      "has_body_parser": false,
+      "kind_name": "invariant",
+      "lifecycle_field": null,
+      "lsp_icon": "Property",
+      "open_fields": false,
+      "semantic_token": "property",
+      "singleton": false,
+      "source_extension": "@specforge/governance",
+      "supports_verify": false,
+      "testable": false
     }
   },
   "manifest_surfaces": [],
   "rules": [
+    {
+      "check": "no_incoming_edges",
+      "code": "W003",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "invariant '{id}' is not referenced by any entity — nothing enforces, protects or relies on it",
+      "owner": "@specforge/governance",
+      "severity": "Warning",
+      "target_kind": "invariant",
+      "wasm_function": null
+    },
     {
       "check": "missing_required_field",
       "code": "E006",
@@ -1180,6 +1280,18 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "",
       "severity": "Error",
       "target_kind": "failure_mode",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "E006",
+      "constraint": null,
+      "edge_type": null,
+      "field": "guarantee",
+      "message_template": "invariant '{id}' is missing required field 'guarantee'",
+      "owner": "",
+      "severity": "Error",
+      "target_kind": "invariant",
       "wasm_function": null
     }
   ],

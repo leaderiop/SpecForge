@@ -72,6 +72,7 @@ fn collect_reply_names_the_report_from_the_project_root() {
     let mut server = TestProject::new()
         .enabling(&[
             "@specforge/software",
+            "@specforge/governance",
             "@specforge/testing",
             "@specforge/cargo-test",
         ])
@@ -100,7 +101,7 @@ const LOGOUT: &str = "behavior logout \"Logout\" {\n  invariants [sesion_limit]\
 /// Files named by a request are read into their source key (ADR 0195).
 fn named_files() -> Served {
     TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .config(|c| c["spec_root"] = json!("spec"))
         .file("spec/limit.spec", LIMIT)
         .file("spec/login.spec", LOGOUT)

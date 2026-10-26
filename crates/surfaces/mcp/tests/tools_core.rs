@@ -603,7 +603,7 @@ fn query_is_the_graph_resource() {
 // --- specforge.schema ---
 
 /// A server that compiled `project_with_errors_and_warnings` (which loads
-/// `@specforge/software`), and its `specforge.schema` reply for `args`:
+/// `@specforge/software` and `@specforge/governance`), and its `specforge.schema` reply for `args`:
 /// serving nothing, the server is served the project `validate` names.
 fn compiled_schema(server: &mut McpServer, project: &tempfile::TempDir, args: Value) -> Value {
     call_tool(
@@ -633,11 +633,11 @@ fn schema_tool_returns_the_graph_protocol_schema() {
 
     assert_eq!(
         schema["extensions"],
-        json!([{"name": "@specforge/software", "version": "1.0.0"}])
+        json!([{"name": "@specforge/software", "version": "1.0.0"}, {"name": "@specforge/governance", "version": "1.0.0"}])
     );
     assert_eq!(
-        names(&schema["entity_kinds"], "name"),
-        ["behavior", "event", "invariant", "port", "type"]
+        names(&schema["entity_kinds"], "name").join(" "),
+        "behavior constraint decision event failure_mode invariant port type"
     );
     // Typed fields, not just names: behavior's contract is a required string.
     let behavior = &schema["entity_kinds"][0];
@@ -679,8 +679,8 @@ fn schema_tool_kind_filter() {
     assert_eq!(names(&schema["entity_kinds"], "name"), ["invariant"]);
     // The edge types that can end at an invariant, and the open ones.
     assert_eq!(
-        names(&schema["edge_types"], "label"),
-        ["BehaviorEnforcesInvariant", "ExternalRef", "References"]
+        names(&schema["edge_types"], "label").join(" "),
+        "BehaviorEnforcesInvariant ConstraintProtectsInvariant DecisionProtectsInvariant ExternalRef FailureModeTargetsInvariant References"
     );
 }
 
@@ -714,7 +714,7 @@ fn analyze_reads_the_project_report_by_default() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -765,7 +765,7 @@ fn analyze_returns_stray_records_only_when_records_are_stray() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(root.join("app.spec"), "behavior widget \"Widget\" {\n}\n").unwrap();
@@ -836,7 +836,7 @@ fn analyze_refuses_a_malformed_report() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -976,7 +976,7 @@ fn analyze_of_another_project_leaves_the_served_one() {
     let other = within(served.path(), tempfile::tempdir().unwrap());
     std::fs::write(
         other.path().join("specforge.json"),
-        r#"{"name":"o","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"o","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1074,7 +1074,7 @@ fn project_with_errors_and_warnings() -> tempfile::TempDir {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1110,7 +1110,7 @@ fn validate_reports_the_format_version_headers() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1336,7 +1336,7 @@ fn plan_project() -> (tempfile::TempDir, McpServer) {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1518,7 +1518,7 @@ fn schema_include_edges_false_omits_edges() {
     let full = compiled_schema(&mut server, &project, json!({}));
     assert_eq!(
         full["edge_types"].as_array().unwrap().len(),
-        15,
+        26,
         "edges by default"
     );
     let without = compiled_schema(&mut server, &project, json!({"include_edges": false}));
@@ -1534,7 +1534,7 @@ fn schema_include_edges_false_omits_edges() {
 fn schema_include_validation_rules_lists_extension_rules() {
     let project = project_with_errors_and_warnings();
     let mut server = serving_nothing();
-    // Compiling the project loads @specforge/software's manifest.
+    // Compiling the project loads @specforge/software's and governance's manifests.
     call_tool(
         &mut server,
         "specforge.validate",
@@ -1554,7 +1554,7 @@ fn schema_include_validation_rules_lists_extension_rules() {
         .iter()
         .find(|r| r["code"] == "W003")
         .unwrap_or_else(|| panic!("no W003 in {with}"));
-    assert_eq!(w003["extension"], "@specforge/software");
+    assert_eq!(w003["extension"], "@specforge/governance");
     assert_eq!(w003["severity"], "warning");
 }
 
@@ -2025,7 +2025,7 @@ fn analyze_gates_on_min() {
     std::fs::create_dir_all(root.path().join("spec")).unwrap();
     std::fs::write(
         root.path().join("specforge.json"),
-        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -2096,7 +2096,7 @@ fn analyze_gates_on_min() {
 /// but no lifecycle field.
 fn build_cache_project() -> TestProject {
     TestProject::new()
-        .enabling(&["@specforge/software", "@specforge/product"])
+        .enabling(&["@specforge/software", "@specforge/governance", "@specforge/product"])
         .files(&[
             (
                 "b.spec",

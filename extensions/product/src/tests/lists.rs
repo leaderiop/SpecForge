@@ -217,13 +217,11 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
         ("features", "priority"),
         ("journeys", "priority"),
         ("deliverables", "status"),
-        ("deliverables", "artifact_type"),
         ("milestones", "status"),
         ("milestones", "priority"),
         ("personas", "status"),
         ("personas", "technical_level"),
         ("channels", "status"),
-        ("channels", "interaction_model"),
         ("releases", "status"),
     ] {
         let (exit, error) = refused(list, json!({ arg: "nonesuch" }));
@@ -237,11 +235,34 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
             "{list} --{arg}: {error}"
         );
     }
-    // An open filter matches what it is given: a non-standard family is a
-    // family (I062 says so, as an info).
+    // An open filter matches what it is given: any family is a family, an
+    // open field (ADR 0279).
     assert_eq!(
         ids_of("modules", json!({"family": "experimental"}), &catalog()),
         ["mod2"]
+    );
+}
+
+#[specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "an open field's list filter matches any word it is given"
+)]
+fn an_open_filter_matches_any_word_it_is_given() {
+    let g = G::default()
+        .node("kit", "deliverable", json!({"artifact_type": "press_kit"}))
+        .node("shop", "channel", json!({"interaction_model": "in_person"}))
+        .node("crew", "module", json!({"family": "workstream"}));
+    assert_eq!(
+        ids_of("deliverables", json!({"artifact_type": "press_kit"}), &g),
+        ["kit"]
+    );
+    assert_eq!(
+        ids_of("channels", json!({"interaction_model": "in_person"}), &g),
+        ["shop"]
+    );
+    assert_eq!(
+        ids_of("modules", json!({"family": "workstream"}), &g),
+        ["crew"]
     );
 }
 

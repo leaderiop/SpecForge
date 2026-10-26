@@ -2,7 +2,9 @@
 
 **Status:** accepted (2026-10-23, architecture round 26, plan 09). Extends
 [ADR 0091](0091-the-crate-map-is-generated-from-the-workspace.md) D1 (a crate's manifest is the one source of what
-crates.io shows) to its version.
+crates.io shows) to its version. Extended by
+[ADR 0277](0277-a-scaffold-builds-where-it-is-written.md) (the scaffold is its own workspace; an SDK that does not
+resolve is named with its remedy).
 
 ## Context
 

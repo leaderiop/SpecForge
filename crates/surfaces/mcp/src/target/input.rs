@@ -8,7 +8,7 @@ use std::path::Path;
 
 /// What a core tool's handler is given before its arguments, and so its
 /// call target (ADR 0024 A2: the handler's input is the target; ADR 0049).
-/// Five implementations: [`Unscoped`], [`View`], [`OutputView`], [`Project`], [`NewProject`].
+/// Four implementations: [`View`], [`OutputView`], [`Project`], [`NewProject`].
 pub trait Input {
     /// The value handed to the handler, borrowing the call.
     type Given<'c>;
@@ -35,9 +35,6 @@ impl Reaches for Served {
 impl Reaches for AnyProject {
     const REACH: Reach = Reach::AnyProject;
 }
-
-/// Given nothing: reads no project (explain). `TargetSpec::Unscoped`.
-pub struct Unscoped;
 
 /// Given the project view of the project `R` reaches; with nothing served,
 /// the empty session's (ADR 0025).
@@ -85,15 +82,6 @@ impl NewProjectDir<'_> {
     /// What the call lends init: the call's containment (ADR 0092 D7, ADR 0183), nobody to ask.
     pub fn caller(&self) -> Caller<'_> {
         super::call::lent(self.containment)
-    }
-}
-
-impl Input for Unscoped {
-    type Given<'c> = ();
-    const TARGET: TargetSpec = TargetSpec::Unscoped;
-
-    fn given(_: &Call<'_>) -> Result<(), Box<McpError>> {
-        Ok(())
     }
 }
 

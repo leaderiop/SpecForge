@@ -109,6 +109,7 @@ pub fn rule(code: &str, check: &str) -> ValidationRuleDescriptor {
         constraint: None,
         wasm_function: None,
         target_extension: None,
+        description: None,
     }
 }
 

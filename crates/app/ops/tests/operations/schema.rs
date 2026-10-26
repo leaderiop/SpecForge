@@ -277,7 +277,7 @@ mod published {
     }
 
     /// The kinds @specforge/software registers.
-    const SOFTWARE_KINDS: [&str; 5] = ["behavior", "event", "invariant", "port", "type"];
+    const SOFTWARE_KINDS: [&str; 4] = ["behavior", "event", "port", "type"];
 
     /// The format `name` is, as `--format` parses it.
     fn format_named(name: &str) -> Format {
@@ -1014,7 +1014,7 @@ behavior gamma "G" { contract "first" features [alpha] }
     )]
     fn agent_exports_validate_against_their_published_schema() {
         let project = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .config(|c| c["spec_root"] = "spec".into())
         .files(&[(
             "spec/main.spec",

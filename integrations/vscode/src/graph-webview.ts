@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import { getGraphLayout, isGraphAutoUpdate } from "./config";
+import { isGraphAutoUpdate } from "./config";
 import { graphChanged, sessionGraph } from "./lsp-client";
 import { symbolColor } from "./symbols";
 
@@ -43,17 +43,6 @@ export class GraphWebviewPanel {
         }
       })
     );
-
-    const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("specforge.graph")) {
-        this.panel.webview.postMessage({
-          type: "configChanged",
-          layout: getGraphLayout(),
-          autoUpdate: isGraphAutoUpdate(),
-        });
-      }
-    });
-    this.disposables.push(configWatcher);
 
     this.refresh();
   }
@@ -121,7 +110,6 @@ export class GraphWebviewPanel {
         degrees,
         // Each kind's theme colour, from its declared symbol kind (ADR 0268 D4).
         colors,
-        layout: getGraphLayout(),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1735,9 +1723,6 @@ export class GraphWebviewPanel {
         } else {
           pendingFocus = msg.entityId;
         }
-        break;
-      }
-      case 'configChanged': {
         break;
       }
     }

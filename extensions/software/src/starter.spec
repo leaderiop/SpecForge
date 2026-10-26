@@ -1,6 +1,6 @@
 // {project} — software specification
 //
-// Uses @specforge/software entity kinds: behavior, type, event, port, invariant.
+// Uses @specforge/software entity kinds: behavior, type, event, port.
 //
 // Try: specforge check
 
@@ -9,7 +9,7 @@ spec "{project}" {
 }
 
 type user "User account" {
-  status draft
+  email string
   verify "rejects an empty email"
 }
 

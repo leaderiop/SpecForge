@@ -1,22 +1,17 @@
 ---
 name: specforge-types-dsl
-description: "Write type definitions in .spec DSL files. Supports three syntax variants: struct types with fields and annotations (@readonly, @unique, @literal, @optional), union types (type X = a | b | c), and error types with _tag pattern. Use when defining data shapes for domain entities, commands, errors, and value objects."
+description: "Write type definitions in .spec files (the type kind is declared by the builtin @specforge/software extension). Supports struct types with one `name Type` member per line and annotations (@readonly, @unique, @literal, @optional), union types (type X \"Title\" = a | b | c), and error types with the _tag pattern. Use when defining data shapes for domain entities, commands, errors, event payloads and value objects."
 ---
 
 # SpecForge Types DSL
 
-Rules and conventions for authoring **`type` blocks** in `.spec` files. Types define the data vocabulary -- the shape of domain entities, commands, errors, and value objects.
+> **Declared by `@specforge/software`**, a builtin extension. The `type` kind exists only in a project that loads it:
+> run `specforge extensions` first, and if it is not listed, do not write `type` blocks (add it with
+> `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
+> `@specforge/testing`. `specforge infer-guide type` prints the fields.
 
-**Requires:** `@specforge/software` plugin.
-
-## When to Use
-
-- Defining domain entity shapes (User, Order, Product)
-- Defining command types (CreateUserCommand, PlaceOrderCommand)
-- Defining error types with discriminated unions (DuplicateEmailError)
-- Defining union/enum types (UserRole, OrderStatus)
-- Defining value objects (EmailAddress, Money, DateRange)
-- Defining event payload shapes referenced by events
+Types define the data vocabulary: domain entities, commands, errors, value objects and event payloads. A type's body
+is open: each line is a member, `name Type [annotations]`.
 
 ## Block Syntax
 
@@ -24,117 +19,97 @@ Rules and conventions for authoring **`type` blocks** in `.spec` files. Types de
 
 ```spec
 type User "User" {
-  id        string      @readonly
-  email     string      @unique
+  id        string    @readonly @unique
+  email     string    @unique
   name      string
   role      UserRole
-  createdAt timestamp   @readonly
-  updatedAt timestamp   @readonly
+  createdAt timestamp @readonly
+  updatedAt timestamp @readonly
+
+  verify unit "a user round-trips through JSON unchanged"
 }
 ```
 
-### Union Type (Enum)
+### Union Type
 
 ```spec
 type UserRole "User Role" = admin | editor | viewer
 ```
 
+A union may span lines, each continuation starting with `|`. Union types owe no `verify` obligation.
+
 ### Error Type (Tagged)
 
 ```spec
 type DuplicateEmailError "Duplicate Email Error" {
-  _tag    "DuplicateEmailError"   @literal
+  _tag    "DuplicateEmailError" @literal
   email   string
   message string
 }
 ```
 
-### Command Type
-
-```spec
-type CreateUserCommand "Create User Command" {
-  email  string
-  name   string
-  role   UserRole
-}
-```
-
 ## Fields Reference
 
-### Type-Level
+### Declared fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | identifier | The type name (identifier after `type`). |
-| `kind` | enum | Type kind: `struct`, `union`, `enum`. Inferred from syntax if omitted. |
-| `fields` | field list | For struct types: fields with types and annotations. |
-| `variants` | identifier list | For union types: `= a \| b \| c`. |
-| `refs` | reference list | External references linked to this type. |
+| `extends` | reference -> type | Parent type this type extends. |
+| `description` | string | Human-readable summary. |
+| `refs` | string list | Declared `ref` IDs. |
+| `composed_types` | reference list -> type | Derived from the member types; do not write it. |
 
-### Field-Level
+Every other line in the body is a member: `name Type` followed by zero or more annotations.
 
-| Part | Description |
-|------|-------------|
-| `name` | Field identifier. |
-| `type` | Primitive, another type name, or array (`TypeName[]`). |
-| `annotations` | Zero or more: `@readonly`, `@unique`, `@literal`, `@optional`. |
-| `refined` | Optional refinement constraint on the field value. |
+### Member annotations
 
-### Field Annotations
-
-| Annotation | Semantic Meaning |
-|------------|-----------------|
-| `@readonly` | Set at creation, never modified after construction. |
-| `@unique` | Value unique across all instances of this type. |
+| Annotation | Meaning |
+|------------|---------|
+| `@readonly` | Set at creation, never modified after. |
+| `@unique` | Unique across all instances of this type. |
 | `@literal` | Fixed literal value (for tagged unions / discriminants). |
-| `@optional` | Field may be absent. |
+| `@optional` | May be absent. |
 
-### Primitive Types
+Another annotation is W010.
 
-| Type | Meaning |
-|------|---------|
-| `string` | Text |
-| `number` | Numeric value |
-| `integer` | Integer value |
-| `boolean` | True/false |
-| `timestamp` | Date/time |
-| `date` | Calendar day (TypeScript `string`, Python `datetime.date`, Go `civil.Date`) |
-| `void` | No value (return types only) |
+### Member types
+
+Primitives: `string`, `number`, `integer`, `boolean`, `timestamp`, `date`, `float`, `object`. A member names one
+type, a list `T[]` or a union `A | B`; a generic such as `Result<A, B>` is a port method's (a member does not parse
+it, E001). A member naming no type is E004.
+
+### Verify kinds
+
+With `@specforge/testing`: `unit`, `property`.
 
 ## Relationships
 
-### Incoming edges
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `uses_type` | Behavior uses this type definition |
-| `event` | `uses_type` | Event carries data shaped like this type (via payload reference) |
-| `port` | `uses_type` | Port uses this type in method signatures |
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `ref` | `links_to` | External references linked to this type |
+| From | Field on the other entity |
+|------|---------------------------|
+| behavior | `types` |
+| event | `payload` |
+| port | its method signatures (derived `types`) |
+| type | `extends`, or a member that names it |
 
 ## Writing Rules
 
-1. **PascalCase names recommended** -- by convention, types typically use PascalCase (e.g., `User`, `CreateUserCommand`, `DuplicateEmailError`), but any valid identifier is accepted.
-2. **Suffix conventions** -- `*Command` for commands, `*Error` for errors, no suffix for domain entities.
-3. **Use `_tag` + `@literal` for discriminated unions** -- enables type-safe error handling.
-4. **Use `@readonly` for identity and audit fields** -- `id`, `createdAt`, `updatedAt`.
-5. **Use `@unique` for business uniqueness constraints** -- `email`, `slug`.
-6. **Union types for finite sets** -- `type UserRole = admin | editor | viewer`.
-7. **Array fields use `TypeName[]`** -- `items OrderItem[]`.
+1. **PascalCase names by convention** -- `User`, `CreateUserCommand`; any valid identifier is accepted.
+2. **Suffix conventions** -- `*Command` for commands, `*Error` for errors, `*Payload` for event data.
+3. **Use `_tag` + `@literal` for discriminated errors.**
+4. **Use `@readonly` for identity and audit members**, `@unique` for business uniqueness.
+5. **Every type needs a title** -- the string after the name (E076 otherwise), also for unions.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E002 | No two types may share the same identifier. |
-| E001 | Every type name used in a field type must resolve to a declared type or be a primitive. |
-| W002 | Orphan type -- not referenced by any behavior, event, or port. |
-| W010 | Unknown annotation -- annotation not in the recognized set. |
+| Code | Owner | Rule |
+|------|-------|------|
+| E002 | core | Two types share an ID. |
+| E076 | core | The type has no title. |
+| E081 | core | A member written twice. |
+| E004 | core | A member's type names no type and no primitive (a union body's variants are not checked). |
+| W002 | software | No behavior, port or type references the type. |
+| W010 | software | Unknown member annotation. |
+| W004 | testing | A struct type with no `verify` obligation. |
 
 ## Examples
 
@@ -142,14 +117,13 @@ type CreateUserCommand "Create User Command" {
 
 ```spec
 type Order "Order" {
-  id         string      @readonly
+  id         string    @readonly
   customerId string
   items      OrderItem[]
   status     OrderStatus
   total      number
   currency   string
-  createdAt  timestamp   @readonly
-  updatedAt  timestamp   @readonly
+  createdAt  timestamp @readonly
 }
 ```
 
@@ -157,61 +131,38 @@ type Order "Order" {
 
 ```spec
 type OrderItem "Order Item" {
-  productId  string
-  name       string
-  quantity   integer
-  unitPrice  number
-  total      number
+  productId string
+  name      string
+  quantity  integer
+  unitPrice number
 }
 ```
 
-### Union / Enum
+### Multi-line Union
 
 ```spec
-type OrderStatus "Order Status" = pending | confirmed | shipped | delivered | cancelled
-```
-
-### Error with Tag
-
-```spec
-type InsufficientInventoryError "Insufficient Inventory Error" {
-  _tag       "InsufficientInventoryError"   @literal
-  productId  string
-  requested  integer
-  available  integer
-  message    string
-}
+type OrderStatus "Order Status" = pending
+  | confirmed
+  | shipped
+  | delivered
+  | cancelled
 ```
 
 ### Event Payload Type
 
 ```spec
 type UserCreatedPayload "User Created Payload" {
-  userId    string      @readonly
+  userId    string    @readonly
   email     string
   role      UserRole
-  timestamp timestamp   @readonly
-}
-```
+  timestamp timestamp @readonly
 
-### Command with Nested Type
-
-```spec
-type PlaceOrderCommand "Place Order Command" {
-  customerId string
-  items      OrderItemInput[]
-  currency   string
-}
-
-type OrderItemInput "Order Item Input" {
-  productId  string
-  quantity   integer
+  verify unit "round-trips through JSON unchanged"
 }
 ```
 
 ## What NOT to Do
 
 - Do not define operations on types -- use `port` blocks for methods
+- Do not write `kind`, `fields` or `variants` lines -- the syntax itself says struct or union
 - Do not mix type definitions with behavior contracts -- types are data shapes, behaviors are operations
-- Do not forget to import types referenced in field definitions from other files
-- Do not use lowercase for type names -- they should be PascalCase by convention

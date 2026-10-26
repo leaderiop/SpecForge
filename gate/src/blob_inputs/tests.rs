@@ -62,11 +62,9 @@ fn a_test_only_sdk_file_feeds_no_blob() {
 fn blobs_lists_the_recorded_blobs() {
     let listed = blobs(repo_root()).unwrap();
     assert!(NINE.iter().all(|nine| listed.iter().any(|l| l == nine)));
-    assert!(
-        listed
-            .iter()
-            .all(|l| l.starts_with("extensions/") || l.starts_with("fixtures/"))
-    );
+    assert!(listed.iter().all(|l| l.starts_with("extensions/")
+        || l.starts_with("fixtures/")
+        || l.starts_with("examples/")));
 }
 
 #[test]
@@ -111,4 +109,16 @@ fn inherited_tables_keep_the_lint_tables() {
 fn a_key_names_the_repo_path_it_hashes() {
     assert_eq!(path_of(WORKSPACE_INHERITED), "Cargo.toml");
     assert_eq!(path_of("crates/x/src/lib.rs"), "crates/x/src/lib.rs");
+}
+
+#[test]
+fn a_change_to_an_examples_extension_feeds_its_blob() {
+    assert_eq!(
+        fed_by(
+            repo_root(),
+            &ChangeSet::of(["examples/marketing/extension/src/lib.rs"])
+        )
+        .unwrap(),
+        ["examples/marketing/extension"]
+    );
 }

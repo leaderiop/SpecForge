@@ -10,7 +10,8 @@ expression: snapshot
     },
     "config": {
       "extensions": [
-        "@specforge/software"
+        "@specforge/software",
+        "@specforge/governance"
       ],
       "name": "demo",
       "registries": [
@@ -53,6 +54,13 @@ expression: snapshot
         ]
       },
       "extensions": [
+        {
+          "enhancement_count": 0,
+          "name": "@specforge/governance",
+          "source": "builtin",
+          "status": "loaded",
+          "version": "1.0.0"
+        },
         {
           "enhancement_count": 2,
           "name": "@specforge/software",

@@ -1,6 +1,10 @@
 # Quick Reference
 
-Single-page lookup for the CLI, the configuration file, and every entity kind, edge type, and validation code (provided by the four builtin extensions). For full details, see the [entity model](entity-model.md) or individual [entity docs](entities/).
+One page to look things up: the CLI, the configuration file, the five structural keywords, and every entity kind,
+field and relation the builtin extensions declare. Those builtin kinds are a starter set, not SpecForge's own: the
+core knows only `spec`, `ref`, `use`, `define` and `defaults`, and a project's extensions decide every other kind
+([extension model](extension-model.md)). For more, see the [entity model](entity-model.md) or the
+[entity pages](entities/).
 
 ---
 
@@ -48,6 +52,12 @@ specforge search <query>             # search registries
 specforge publish                    # publish an extension to a registry
 # There is no built-in registry: list yours under "registries" in specforge.json
 # (see registry-trust.md); without one, add/update/search/publish fail with E063.
+
+# Writing your own extension (your own kinds, fields, edges, rules, commands)
+specforge extension init             # scaffold an extension crate written with the SDK
+specforge extension build            # build its WebAssembly component
+specforge extension validate         # load the component and report its declaration's problems
+specforge add ./path/to/ext.wasm     # load it in a project
 
 # Tooling
 specforge format                     # format .spec files
@@ -105,30 +115,17 @@ behavior create_task "Create a Task" {
 
 ## Entities
 
-### spec
-> Module: core | ID: singleton | "What project is this?"
+The five structural keywords belong to the core grammar and exist in every project:
 
-| Required | Optional |
-|----------|----------|
-| name, version, extensions | persona, surface — *(planned: not yet implemented)* providers, gen |
-
-No graph edges. Root configuration declaring which extensions the project uses.
-
----
-
-### ref
-> Module: core | ID: `scheme.kind:identifier` | "What external resource is this connected to?"
-
-| Required | Optional |
-|----------|----------|
-| scheme, identifier, title | provider-specific fields |
-
-No outgoing edges. Leaf node.
-Incoming: any entity (`links_to`)
+| Keyword | Node | What it is |
+|---------|------|------------|
+| `spec` | yes | The project's root entity: `spec "name" { version "0.1.0" }`. It configures nothing; configuration is `specforge.json` ([spec](entities/spec.md)) |
+| `ref` | yes | An outside resource, id `scheme.kind:identifier`, title required: `ref gh.issue:42 "..."`. Entities list refs in `refs`; the export labels that edge `refs` ([ref](entities/ref.md)) |
+| `use` | no | An import of another `.spec` file |
+| `define` | no | Reserved; registers nothing (W143) |
+| `defaults` | no | A file's shared field values for one kind (above) |
 
 ---
-
-`imports` (file to file) and `links_to` (any entity to a `ref`) are structural edges: no field declares them.
 
 Every other kind, field and relation below is generated from the builtin extensions' declarations. A relation is written on its owning field only; the other side is derived (`query` shows it as incoming edges, `trace` as upstream).
 
@@ -137,13 +134,13 @@ Every other kind, field and relation below is generated from the builtin extensi
 > @specforge/product — A communication or distribution channel for the product
 
 Required: `description`
-Optional: `interaction_model` (enum: request_response, event_driven, batch, streaming, bidirectional, manual), `reason`, `status` (enum: active, deprecated), `tags`, `url`
+Optional: `interaction_model` (identifier), `reason`, `status` (enum: active, deprecated), `tags`, `url`
 Written on the other side (derived, never a field here): journey `channels` (`JourneyUsesChannel`)
 
 ### deliverable
 > @specforge/product — A shippable unit of work with dependencies and milestones
 
-Required: `artifact_type` (enum: cli, service, library, web_app, mobile_app, api, extension, documentation, package)
+Required: `artifact_type` (identifier)
 Optional: `contributors`, `depends_on`, `description`, `journeys`, `milestones`, `modules`, `owner`, `reason`, `status` (enum: draft, in_progress, shipped, deprecated), `tags`, `version`
 Writes: `depends_on` → deliverable (`DeliverableDependsOn`), `journeys` → journey (`DeliverableSupportsJourney`), `milestones` → milestone (`DeliverableTrackedByMilestone`), `modules` → module (`DeliverableContainsModule`)
 Written on the other side (derived, never a field here): release `deliverables` (`ReleaseIncludesDeliverable`)
@@ -215,13 +212,6 @@ Optional: `category` (identifier), `channel`, `channel_type` (identifier), `cont
 Writes: `follows_protocol` → protocol (`EventFollowsProtocol`) (from @specforge/formal), `participates_in` → process (`EventParticipatesInProcess`) (from @specforge/formal), `payload` → type (`EventCarriesPayloadType`)
 Written on the other side (derived, never a field here): behavior `consumes` (`BehaviorConsumesEvent`), behavior `produces` (`BehaviorProducesEvent`)
 
-### invariant
-> @specforge/software — A system-wide constraint that must always hold true
-
-Required: `guarantee`
-Optional: `description`, `expression`, `refs`, `risk` (enum: critical, high, medium, low), `tags`
-Written on the other side (derived, never a field here): behavior `invariants` (`BehaviorEnforcesInvariant`, read here as `enforced_by`), constraint `protects` (`ConstraintProtectsInvariant`), decision `invariants` (`DecisionProtectsInvariant`), failure_mode `invariant` (`FailureModeTargetsInvariant`), axiom `assumes` (`AxiomAssumesInvariant`)
-
 ### port
 > @specforge/software — An interface boundary between system components
 
@@ -258,6 +248,13 @@ Writes: `affects_features` → feature (`DecisionAffectsFeature`), `constraints`
 Required: `cause`, `effect`, `severity` (enum: critical, high, medium, low)
 Optional: `affected_behaviors`, `description`, `detection` (enum: certain, likely, moderate, unlikely, undetectable), `invariant`, `mitigation`, `occurrence` (enum: certain, likely, occasional, unlikely, rare), `post_detection` (enum: certain, likely, moderate, unlikely, undetectable), `post_mitigation`, `post_occurrence` (enum: certain, likely, occasional, unlikely, rare), `post_severity` (enum: critical, high, medium, low), `refs`, `risk`, `rpn`, `tags`, `threatens_features`
 Writes: `affected_behaviors` → behavior (`FailureModeAffectsBehavior`), `invariant` → invariant (`FailureModeTargetsInvariant`), `threatens_features` → feature (`FailureModeThreatensFeature`)
+
+### invariant
+> @specforge/governance — A rule that must always hold
+
+Required: `guarantee`
+Optional: `description`, `expression`, `refs`, `risk` (enum: critical, high, medium, low), `tags`
+Written on the other side (derived, never a field here): behavior `invariants` (`BehaviorEnforcesInvariant`, read here as `enforced_by`), constraint `protects` (`ConstraintProtectsInvariant`), decision `invariants` (`DecisionProtectsInvariant`), failure_mode `invariant` (`FailureModeTargetsInvariant`), axiom `assumes` (`AxiomAssumesInvariant`)
 
 ### axiom
 > @specforge/formal — An assumed-true foundational assertion

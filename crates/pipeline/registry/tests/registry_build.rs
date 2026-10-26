@@ -341,6 +341,47 @@ fn a_misused_code_declared_for_several_kinds_is_reported_once_per_severity() {
     assert_eq!(registered(&build, "W001").len(), 3);
 }
 
+/// `declared_level` is the verdict W150 reports: the level when the host takes the code from the
+/// extension, the misuse otherwise.
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose code the extension may not use is reported (W150) and still registered"
+)]
+fn declared_level_is_the_level_w150_accepts() {
+    use specforge_diagnostics::{CodeMisuse, Level};
+    use specforge_registry::declared_level;
+    let level = |name: &str, code: &str, severity| {
+        let declaration = one_rule(name, code, severity);
+        declared_level(name, &declaration.validation_rules[0])
+    };
+    assert_eq!(
+        level("@acme/x", "E950", ValidationSeverity::Error),
+        Ok(Level::Error)
+    );
+    assert_eq!(
+        level("@acme/x", "W950", ValidationSeverity::Error),
+        Err(CodeMisuse::PrefixContradictsLevel)
+    );
+    assert!(
+        matches!(
+            level("@acme/x", "W041", ValidationSeverity::Warning),
+            Err(CodeMisuse::NotItsCode {
+                owner: "@specforge/product",
+                ..
+            })
+        ),
+        "W041 is product's"
+    );
+    assert_eq!(
+        level("@specforge/product", "W041", ValidationSeverity::Warning),
+        Ok(Level::Warning)
+    );
+    assert_eq!(
+        level("@specforge/rust", "W950", ValidationSeverity::Warning),
+        Err(CodeMisuse::Uncatalogued)
+    );
+}
+
 /// A first-party extension's own catalogued rule at its catalogued level
 /// is not reported; at another level, or uncatalogued, it is.
 #[spec(

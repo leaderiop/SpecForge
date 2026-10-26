@@ -1,22 +1,18 @@
 # feature
 
-> **Module:** `@specforge/product`
+> **Declared by `@specforge/product`**, one of the builtin extensions. `feature` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/product`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `feature` declares a **user-facing value unit** composed of one or more behaviors. Features bridge the gap between what users need (problem) and how the system delivers it (solution). They group behaviors into coherent units of value.
+A `feature` is a unit of value for the people a product serves: the thing you put on a roadmap. It answers:
+**"What value does this deliver?"**
 
-It answers: **"What value does this deliver?"**
-
-Features are the natural unit for product planning, release scoping, and stakeholder communication. A feature is what you put on a roadmap. A behavior is how you implement it.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `user_management`, `password_auth`, `full_text_search`
+A feature frames a problem and a solution. In a software project, behaviors implement it (they name it in their
+`features` field). Nothing in the kind is software-only: a feature can just as well be a service offer, a loyalty
+programme or a policy change, tracked through journeys, milestones and releases.
 
 ## Syntax
 
@@ -29,173 +25,131 @@ feature user_management "User Management" {
 
   solution """
     CRUD operations backed by PostgreSQL with
-    unique email constraints and full audit trail.
+    unique email constraints and a full audit trail.
   """
 
   priority   high
   status     in_progress
+  owner      "platform-team"
+  effort     m
   depends_on [password_auth]
 }
 ```
 
 ## Fields
 
-All fields are optional at the type level. Features are intentionally lightweight — `problem` and `solution` are strongly recommended but not enforced by the compiler.
+Every `feature` has an id (the word after `feature`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
+
+### Required
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `problem` | string | The user problem this feature addresses. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the identifier). Auto-derived from identifier if omitted. |
-| `problem` | string | What user need or pain point this feature addresses. Written from the user's perspective. |
-| `solution` | string | How the system addresses the problem. Written from the system's perspective. |
-| `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. Another value is E061. |
-| `status` | FeatureStatus | Lifecycle state: `proposed`, `accepted`, `in_progress`, `done`, `deferred`, `deprecated`. Absent: `proposed`. Another value is E061. Used in completion calculations. |
-| `acceptance` | string[] | Free-form acceptance criteria. Deliberately prose (ADR pe_acceptance_free_form, C12-16): acceptance strings are wishes with formatting, not compiled references — checkable criteria belong in a behavior's `verify` blocks, which the coverage diff tracks. |
-| `depends_on` | EntityId[] | Other features this one depends on. Creates `FeatureDependsOn` edges. Cycles detected by W045. |
-| `reason` | string | Rationale for current status (expected when `deferred`, checked by I059). |
-| `tags` | string[] | Free-form tags for categorization. |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this feature. |
+| `description` | string | Human-readable summary of the feature. |
+| `solution` | string | How this feature solves the stated problem. |
+| `priority` | enum: critical, high, medium, low | Importance level. |
+| `status` | enum: proposed, accepted, in_progress, done, deferred, deprecated | Lifecycle state; default `proposed`. |
+| `acceptance` | string list | Criteria that must be met for the feature to be considered complete. |
+| `depends_on` | reference list → `feature` | Other features that must be completed before this one. |
+| `features` | reference list → `feature` | Related features referenced by this feature. |
+| `refs` | string list | External references such as issues, URLs, or documents. |
+| `reason` | string | Justification for the current status or a status change. |
+| `owner` | string | Person or team responsible for this feature. |
+| `contributors` | string list | Additional people or teams contributing to this feature. |
+| `effort` | enum: xs, s, m, l, xl | T-shirt size estimate. |
+| `tests` | string list | Executable test files that verify this feature, relative to the project root (RES-15 linkage). |
+| `tags` | string list | Freeform labels for filtering and categorization (a shared field of `@specforge/product`). |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `FeatureDependsOn` | "This feature depends on these features" (via `depends_on` field) |
-| `feature` | `FeatureRelatesTo` | "This feature relates to these features" (via `features` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [feature](feature.md) | `FeatureDependsOn` | `depends_on` on `feature` | Other features that must be completed before this one |
+| outgoing | [feature](feature.md) | `FeatureRelatesTo` | `features` on `feature` | Feature has a non-dependency relationship to another feature |
+| incoming | [behavior](behavior.md) | `BehaviorImplementsFeature` | `features` on `behavior` | Behavior implements a feature (cross-extension via peer_dependency @specforge/product) |
+| incoming | [constraint](constraint.md) | `ConstraintGovernsFeature` | `governs_features` on `constraint` | Constraint governs a product feature |
+| incoming | [decision](decision.md) | `DecisionAffectsFeature` | `affects_features` on `decision` | Decision affects a product feature |
+| incoming | [failure_mode](failure-mode.md) | `FailureModeThreatensFeature` | `threatens_features` on `failure_mode` | Failure mode threatens a product feature |
+| incoming | [feature](feature.md) | `FeatureDependsOn` | `depends_on` on `feature` | Other features that must be completed before this one |
+| incoming | [feature](feature.md) | `FeatureRelatesTo` | `features` on `feature` | Feature has a non-dependency relationship to another feature |
+| incoming | [journey](journey.md) | `JourneyExercisesFeature` | `features` on `journey` | Features exercised during this journey |
+| incoming | [milestone](milestone.md) | `MilestoneDeliversFeature` | `features` on `milestone` | Features that must be delivered to complete this milestone |
+| incoming | [module](module.md) | `ModuleContainsFeature` | `features` on `module` | Features contained within this module |
+| incoming | [persona](persona.md) | `PersonaPrioritizesFeature` | `key_features` on `persona` | Persona prioritizes a feature |
 
-### Incoming edges
+## Validation rules
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `BehaviorImplementsFeature` | "Behaviors that implement this feature" (via `features` field) |
-| `constraint` | `ConstraintGovernsFeature` | "Constraints that govern this feature" (via `governs_features` field) |
-| `decision` | `DecisionAffectsFeature` | "Decisions that affect this feature" (via `affects_features` field) |
-| `failure_mode` | `FailureModeThreatensFeature` | "Failure modes that threaten this feature" (via `threatens_features` field) |
-| `feature` | `FeatureDependsOn` | "Features that depend on this feature" (via `depends_on` field) |
-| `feature` | `FeatureRelatesTo` | "Features that relate to this feature" (via `features` field) |
-| `journey` | `JourneyExercisesFeature` | "Journeys that exercise this feature" (via `features` field) |
-| `milestone` | `MilestoneDeliversFeature` | "Milestones that schedule this feature" (via `features` field) |
-| `module` | `ModuleContainsFeature` | "Modules that implement this feature" (via `features` field) |
-| `persona` | `PersonaPrioritizesFeature` | "Personas that prioritize this feature" (via `key_features` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| I048 | info | `@specforge/product` | Feature without acceptance criteria |
+| I059 | info | `@specforge/product` | Deferred feature missing reason |
+| I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
+| I080 | info | `@specforge/product` | Entity without owner |
+| I081 | info | `@specforge/product` | Feature without effort estimate |
+| W008 | warning | `@specforge/software` | Unimplemented feature |
+| W041 | warning | `@specforge/product` | Unreferenced feature |
+| W045 | warning | `@specforge/product` | Feature dependency cycle |
 
-| Code | Level | Rule |
-|------|-------|------|
-| W041 | warning | Feature not referenced by any journey, module, or milestone (unreferenced feature). |
-| W045 | warning | Circular feature dependency — `depends_on` edges form a cycle. |
-| E061 | error | A value outside the field's vocabulary. |
-| I048 | info | No acceptance criteria (no `acceptance`, or an empty list). |
-| I059 | info | Deferred feature without a `reason`. |
-| I080 | info | No `owner`. |
-| I081 | info | No `effort`. |
 
-## Design Guidance
+## Design guidance
 
-### Feature Granularity
+### Granularity
 
 A feature should be:
-- **Deliverable** — something you can ship, demo, or release independently
-- **Valuable** — it solves a real user problem
-- **Composed** — it contains multiple behaviors (if only one behavior, it might be too granular)
+- **Deliverable**: something you can ship, demo or release on its own
+- **Valuable**: it solves a real problem for someone
+- **Composed**: it holds several behaviors or journeys (one alone may be too small)
 
-### Problem/Solution Framing
+### Problem and solution
 
-The `problem` field should:
-- Be written from the user's or stakeholder's perspective
-- Describe the pain point, not the solution
-- Be understandable by non-technical stakeholders
+Write `problem` from the user's or stakeholder's side: the pain, not the fix, in words a non-specialist
+understands. Write `solution` from the system's side: the approach, at a high level.
 
-The `solution` field should:
-- Be written from the system's perspective
-- Describe the approach at a high level
-- Reference specific technologies or patterns where relevant
-
-### Status Lifecycle
+### Status lifecycle
 
 ```
-proposed -> accepted -> in_progress -> done
+proposed -> accepted -> in_progress -> done -> deprecated
                 |
-             deferred (requires reason)
+             deferred (give a reason)
 ```
 
-The `status` field drives milestone completion calculations. A feature counts as "done" only when `status` is `done`. Deferred features should include a `reason`.
+`status` drives milestone completion: a feature counts as finished only when it is `done`. A `deferred` feature
+without a `reason` is I059.
 
-### Feature vs. Behavior
+### Feature vs. behavior
 
 | Feature | Behavior |
 |---------|----------|
 | "User Management" | "Create User" |
-| Composed of multiple operations | A single atomic operation |
-| User-visible value | Implementation contract |
+| Several operations | One operation |
+| Value someone sees | Implementation contract |
 | Goes on a roadmap | Goes in a test suite |
-| Problem/solution framing | Contract with MUST/SHOULD/MAY |
 
-### Feature vs. Journey
+### Feature vs. journey
 
 | Feature | Journey |
 |---------|---------|
 | "User Management" | "Create a New User" |
-| What the system can do | How a specific persona experiences it |
-| Groups behaviors | Groups features by persona + channel |
-| System-centric | User-centric |
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [feature](feature.md) | `FeatureDependsOn` | Features this feature depends on |
-| outgoing | [feature](feature.md) | `FeatureRelatesTo` | Features this feature relates to |
-| incoming | [behavior](behavior.md) | `BehaviorImplementsFeature` | Behaviors that implement this feature |
-| incoming | [constraint](constraint.md) | `ConstraintGovernsFeature` | Constraints that govern this feature |
-| incoming | [decision](decision.md) | `DecisionAffectsFeature` | Decisions that affect this feature |
-| incoming | [failure_mode](failure-mode.md) | `FailureModeThreatensFeature` | Failure modes that threaten this feature |
-| incoming | [feature](feature.md) | `FeatureDependsOn` | Features that depend on this feature |
-| incoming | [feature](feature.md) | `FeatureRelatesTo` | Features that relate to this feature |
-| incoming | [journey](journey.md) | `JourneyExercisesFeature` | Journeys that exercise this feature |
-| incoming | [milestone](milestone.md) | `MilestoneDeliversFeature` | Milestones that schedule this feature |
-| incoming | [module](module.md) | `ModuleContainsFeature` | Modules that implement this feature |
-| incoming | [persona](persona.md) | `PersonaPrioritizesFeature` | Personas that prioritize this feature |
+| What the product can do | How one persona experiences it |
+| Product-centric | User-centric |
 
 ## Examples
 
-### Simple Feature
-
-```spec
-feature password_auth "Password Authentication" {
-  problem """
-    Users need to securely authenticate to access their accounts.
-    The system must prevent unauthorized access while keeping
-    the login experience fast and simple.
-  """
-
-  solution """
-    Password-based authentication with bcrypt hashing,
-    rate-limited login attempts, and secure session tokens.
-  """
-
-  status accepted
-}
-```
-
-### Feature with Dependencies
+### With acceptance criteria
 
 ```spec
 feature full_text_search "Full-Text Search" {
-  problem """
-    Users with large datasets cannot find specific records quickly.
-    Current filtering by exact field match is insufficient for
-    free-form queries across multiple fields.
-  """
-
-  solution """
-    Elasticsearch-backed full-text search with typo tolerance,
-    field weighting, and faceted filtering. Results ranked by
-    relevance with highlighting of matched terms.
-  """
+  problem "Users with large datasets cannot find specific records quickly."
+  solution "Full-text search with typo tolerance, field weighting and faceted filtering."
 
   priority   high
   status     in_progress
@@ -204,29 +158,34 @@ feature full_text_search "Full-Text Search" {
   acceptance [
     "Search returns results within 200ms for datasets up to 1M records",
     "Typo tolerance handles single-character errors",
-    "Results include highlighted matched terms",
   ]
-
-  refs [gh.issue:88, figma.frame:search-ui]
 }
 ```
 
-### Deferred Feature
+### Deferred
 
 ```spec
 feature analytics_dashboard "Analytics Dashboard" {
-  problem """
-    Product managers need visibility into usage patterns
-    and adoption metrics.
-  """
-
-  solution """
-    Real-time dashboard with configurable widgets,
-    date range filtering, and CSV export.
-  """
+  problem "Product managers need visibility into usage patterns."
+  solution "A dashboard with date range filtering and CSV export."
 
   priority high
   status   deferred
-  reason   "Deprioritized in favor of core CRUD features for MVP"
+  reason   "Deprioritized in favor of core features for the first release"
+}
+```
+
+### Outside software
+
+```spec
+feature loyalty_programme "Loyalty Programme" {
+  problem "Repeat customers get nothing for coming back, and churn to competitors."
+  solution "Points on every purchase, redeemable in store and online."
+
+  priority high
+  status   accepted
+  owner    "marketing"
+  effort   l
+  tags     ["retention", "q3-campaign"]
 }
 ```

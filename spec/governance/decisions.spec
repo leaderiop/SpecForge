@@ -929,8 +929,9 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     Every call gets a deterministic fuel budget and a wall-clock
     deadline, and every instance a memory limit (ADR 0037).
     The committed blobs (specforge_component::committed: the builtins
-    under extensions/<name>/wasm/, embedded at compile time, and the test
-    fixtures under fixtures/<name>/wasm/) each carry an inputs.json
+    under extensions/<name>/wasm/, embedded at compile time, the test
+    fixtures under fixtures/<name>/wasm/, and each example project's own
+    extension under examples/<name>/extension/wasm/) each carry an inputs.json
     fingerprint of the sources they were built from; `cargo run -p xtask
     --bin revendor` rebuilds and re-vendors every one of them
     (wasm32-wasip2 target) in a staged workspace that holds each crate and
@@ -944,6 +945,17 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     "Positive: one execution path, typed entry point, warm single engine across extensions, sandbox posture unchanged.",
     "Negative: guests need the wasm32-wasip2 rustup target and wit-bindgen; the old wasm32-unknown-unknown blobs are gone.",
     "Neutral: HostApi host functions were removed with the extism runtime; a typed component host-import surface is future work.",
+  ]
+}
+
+decision example_extension_committed_blob "A Project Example's Own Extension Is a Committed Blob" {
+  status       accepted
+  date         2026-10-26
+  context      "The marketing example loaded a hand-copied marketing.wasm that nothing compared with its sources, and git tracked a .wasm the committed list did not name. See docs/adr/0281."
+  decision     "Each example project's own extension is listed in specforge_component::committed::EXAMPLES and vendored at examples/<name>/extension/wasm/ beside its inputs.json; the blob stage drops a staged crate's own [workspace] and [profile] tables; the gate expands prefix/*/rest patterns once, so the extension is rustfmt- and wasm-clippy-checked and fed to the builtins check."
+  consequences [
+    "14 committed blobs; revendor and build-blobs --verify build one more",
+    "The marketing example's entry is extension/wasm/marketing.wasm",
   ]
 }
 

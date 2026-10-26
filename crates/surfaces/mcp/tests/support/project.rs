@@ -199,7 +199,7 @@ fn a_write_is_served_by_the_next_request() {
 #[test]
 fn serve_components_loads_the_builtins() {
     let served = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("test.spec", ALPHA)
         .serve_components();
 

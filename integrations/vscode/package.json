@@ -215,21 +215,10 @@
           "default": "off",
           "description": "Trace LSP communication (for debugging)."
         },
-        "specforge.graph.defaultLayout": {
-          "type": "string",
-          "enum": [
-            "force",
-            "dagre",
-            "concentric",
-            "grid"
-          ],
-          "default": "force",
-          "description": "Default graph layout algorithm."
-        },
         "specforge.graph.autoUpdate": {
           "type": "boolean",
           "default": true,
-          "description": "Update graph visualization on file save."
+          "description": "Redraw the graph each time the language server rebuilds it, saved or not."
         }
       }
     },

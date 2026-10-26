@@ -136,48 +136,9 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
     }
 }
 
-/// Type names accepted by E004 without a declared `type` entity. Sent to
-/// the guest as `context.primitives`; the guest may also carry its own
-/// embedded copy. `number`, `integer`, `boolean`, `timestamp` and `date` are the
-/// portable primitives docs/entities/type.md documents; `never` marks an
-/// impossible error channel (docs/entities/port.md).
-const PRIMITIVE_TYPES: &[&str] = &[
-    "string",
-    "void",
-    "bool",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "f32",
-    "f64",
-    "usize",
-    "isize",
-    "any",
-    "number",
-    "integer",
-    "boolean",
-    "timestamp",
-    "date",
-    "never",
-    // stdlib containers: their type arguments are checked recursively
-    "Result",
-    "Option",
-    "Vec",
-    "Box",
-    "Arc",
-    "Rc",
-    "HashMap",
-    "HashSet",
-    "BTreeMap",
-    "BTreeSet",
-    "String",
-];
-
 fn primitives() -> Vec<String> {
-    PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect()
+    specforge_graph::PRIMITIVE_TYPES
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }

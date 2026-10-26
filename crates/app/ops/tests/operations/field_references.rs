@@ -20,7 +20,14 @@ fn compile(extensions: &[&str], spec: &str) -> (TestProject, CompiledProject) {
 }
 
 fn product(spec: &str) -> (TestProject, CompiledProject) {
-    compile(&["@specforge/product", "@specforge/software"], spec)
+    compile(
+        &[
+            "@specforge/product",
+            "@specforge/software",
+            "@specforge/governance",
+        ],
+        spec,
+    )
 }
 
 /// The diagnostics of `specforge check`.

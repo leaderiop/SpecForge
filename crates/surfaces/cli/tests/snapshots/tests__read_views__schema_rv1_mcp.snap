@@ -23,7 +23,6 @@ expression: "normalized(&schema_digest(value), root)"
   "entity_kinds": [
     "behavior",
     "event",
-    "invariant",
     "port",
     "type"
   ],

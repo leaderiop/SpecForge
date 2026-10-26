@@ -25,6 +25,7 @@ use crate::entity::RuleInput;
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use check::Check;
 
+pub use build::declared_level;
 pub use verdicts::{CustomCall, CustomVerdicts, NoVerdicts, Subject, Verdict, VerdictError};
 
 /// The registries a rule resolves against: target kinds, the edge types

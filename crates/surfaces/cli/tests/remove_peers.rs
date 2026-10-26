@@ -12,23 +12,23 @@ use crate::support::{Cli, TestProject};
 )]
 fn remove_refuses_a_builtin_another_requires_with_e027_unless_forced() {
     let dir = TestProject::new()
-        .enabling(&["@specforge/software", "@specforge/formal"])
+        .enabling(&["@specforge/testing", "@specforge/cargo-test"])
         .file("main.spec", "");
     let config_path = dir.root().join("specforge.json");
     let config = std::fs::read(&config_path).unwrap();
 
     let human = Cli::on(&dir)
-        .run(&["remove", "@specforge/software"])
+        .run(&["remove", "@specforge/testing"])
         .exits(1);
     assert!(
         human
             .stderr
-            .contains("error[E027]: removing '@specforge/software' breaks '@specforge/formal'"),
+            .contains("error[E027]: removing '@specforge/testing' breaks '@specforge/cargo-test'"),
         "{}",
         human.stderr
     );
     let json = Cli::on(&dir)
-        .run(&["remove", "@specforge/software", "--format", "json"])
+        .run(&["remove", "@specforge/testing", "--format", "json"])
         .exits(1);
     assert!(json.stdout.contains("\"E027\""), "{}", json.stdout);
     assert_eq!(
@@ -38,12 +38,12 @@ fn remove_refuses_a_builtin_another_requires_with_e027_unless_forced() {
     );
 
     Cli::on(&dir)
-        .run(&["remove", "@specforge/software", "--force"])
+        .run(&["remove", "@specforge/testing", "--force"])
         .exits(0);
     let after: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&config_path).unwrap()).unwrap();
     assert_eq!(
         after["extensions"],
-        serde_json::json!(["@specforge/formal"])
+        serde_json::json!(["@specforge/cargo-test"])
     );
 }

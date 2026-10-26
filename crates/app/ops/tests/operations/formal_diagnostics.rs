@@ -12,7 +12,14 @@ use specforge_test_macros::test as specforge_test;
 /// A project enabling @specforge/formal and its peer @specforge/software,
 /// with `spec` as its one spec file.
 fn project(spec: &str) -> TestProject {
-    project_with(&["@specforge/formal", "@specforge/software"], spec)
+    project_with(
+        &[
+            "@specforge/formal",
+            "@specforge/software",
+            "@specforge/governance",
+        ],
+        spec,
+    )
 }
 
 /// [`project`] with @specforge/testing too, which makes behaviors
@@ -22,6 +29,7 @@ fn tested_project(spec: &str) -> TestProject {
         &[
             "@specforge/formal",
             "@specforge/software",
+            "@specforge/governance",
             "@specforge/testing",
         ],
         spec,

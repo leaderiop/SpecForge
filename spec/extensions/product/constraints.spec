@@ -18,7 +18,7 @@ constraint product_validation_latency "Product Validation Latency" {
   metric      """
     Product-specific validation rules (E007, E015, E052, W041-W046, W049,
     W057, W092, W093, I010, I046-I048, I050,
-    I054, I055, I057, I059-I062, I066-I070, I080-I083, I089)
+    I054, I055, I057, I059-I061, I066-I070, I080-I083, I089)
     MUST complete in under
     50ms for a project with up to 500 product entities across all 9 kinds.
   """
@@ -61,7 +61,6 @@ constraint product_validation_latency "Product Validation Latency" {
     detect_deferred_feature_without_reason,
     detect_blocked_milestone_without_reason,
     validate_deliverable_version_format,
-    validate_module_family_field,
     detect_done_feature_with_incomplete_deps,
     detect_milestone_temporal_inconsistency,
     detect_modules_with_no_features,
@@ -233,7 +232,7 @@ constraint product_diagnostic_severity_correctness "Product Diagnostic Severity 
     All product diagnostics MUST fire at their declared severity level:
     E-codes (E007, E015, E052) are errors, W-codes (W041-W046, W049, W057,
     W092, W093) are warnings, I-codes (I010,
-    I046-I048, I050, I054, I055, I057, I059-I062, I066-I070, I080-I083,
+    I046-I048, I050, I054, I055, I057, I059-I061, I066-I070, I080-I083,
     I089) are info. No
     diagnostic may fire at a different severity than its code prefix declares.
   """

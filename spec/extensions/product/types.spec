@@ -19,8 +19,18 @@ type TechnicalLevel "Technical Level" {
   verify property "TechnicalLevel"
 }
 
-type InteractionModel "Interaction Model" {
-  values [request_response, event_driven, batch, streaming, bidirectional, manual]
+type InteractionModel "Interaction model is an open set of suggested words; any one word is accepted (ADR 0279)." {
+  values [
+    request_response,
+    event_driven,
+    batch,
+    streaming,
+    bidirectional,
+    manual,
+    in_person,
+    self_service,
+    broadcast,
+  ]
   verify property "InteractionModel"
 }
 
@@ -34,12 +44,26 @@ type ChannelStatus "Channel Status" {
   verify property "ChannelStatus"
 }
 
-type ArtifactType "Artifact Type" {
-  values [cli, service, library, web_app, mobile_app, api, extension, documentation, package]
+type ArtifactType "Artifact type is an open set of suggested words; any one word is accepted (ADR 0279)." {
+  values [
+    cli,
+    service,
+    library,
+    web_app,
+    mobile_app,
+    api,
+    extension,
+    documentation,
+    package,
+    physical_product,
+    media,
+    event,
+    training,
+  ]
   verify property "ArtifactType"
 }
 
-type ModuleFamily "Module family is an open enum with a recommended standard set. A value outside it produces I062 (info)." {
+type ModuleFamily "Module family is an open set: any one word, for example core, platform, extension, integration, advisory, workstream." {
   values [core, platform, extension, integration, advisory]
   verify property "ModuleFamily"
 }
@@ -152,7 +176,7 @@ type ProductMilestone "Product Milestone" {
 
 type ProductModule "Product Module" {
   // Standard values: core, platform, extension, integration, advisory.
-  // See ModuleFamily enum (other values produce I062).
+  // Any one word; see ModuleFamily for suggested words.
   family      ModuleFamily @optional
   description string       @optional
   features    EntityId[]   @optional

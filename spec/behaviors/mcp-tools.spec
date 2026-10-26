@@ -295,11 +295,13 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
   ensures {
     entry_returned       "The catalogued entry for the code is returned: title, owner, level, explanation and docs link"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
+    declared_returned    "A code the served project's extensions declare is returned from their rules"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.explain tool
     that takes code (case-insensitive) and returns what specforge explain
-    prints for it, as data: the code, its title, its owner (core or the
+    prints for it over the served project (the catalog alone when none is
+    served), as data: the code, its title, its owner (core or the
     emitting extension), its level, its explanation and the link to its
     section of docs/diagnostics.md. A retired code returns retired true and
     the entry of the code that replaced it, if any. It is the operation
@@ -310,6 +312,7 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
   verify unit "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
   verify unit "a retired code names the code that replaced it"
   verify unit "an uncatalogued code is an invalid_input error"
+  verify unit "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {

@@ -458,7 +458,7 @@ fn analyze_refinement_that_drops_an_ensures_condition_is_e031() {
 #[test]
 fn refines_and_abstract_fields_drive_layering_end_to_end() {
     let dir = TestProject::new().raw_config(
-        r#"{"extensions": ["@specforge/formal", "@specforge/software", "@specforge/testing"]}"#,
+        r#"{"extensions": ["@specforge/formal", "@specforge/software", "@specforge/governance", "@specforge/testing"]}"#,
     );
     dir.write(
         "main.spec",
@@ -796,7 +796,7 @@ fn analyze_coverage_leaves_out_kinds_not_declared_testable() {
     ));
     dir.write(
         "specforge.json",
-        r#"{"extensions": ["@specforge/software", "@specforge/formal", "@specforge/testing"]}"#,
+        r#"{"extensions": ["@specforge/software", "@specforge/governance", "@specforge/formal", "@specforge/testing"]}"#,
     );
     let (doc, _) = json_body(&dir, &["coverage"]);
     let coverage = coverage(&doc);

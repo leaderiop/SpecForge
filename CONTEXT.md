@@ -1,5 +1,15 @@
 # SpecForge domain terms
 
+**SpecForge** is a domain-free engine that turns what an organisation knows (its things, their relationships and
+the rules they must obey) into one typed, validated graph that people and AI agents read and change through
+standard protocols. It has five parts: **extensions** (WASM packages that declare entity kinds, fields, edges,
+rules and commands), **the graph** (every entity and link, compiled from `.spec` files), **validation** (the
+extensions' rules plus structural checks, on every compile and every edit), **surfaces** (CLI, MCP, LSP and the
+registry; AG-UI and HTTP planned) and the **AI models** that drive it from outside. The core grammar knows only
+the structural keywords `spec`, `ref`, `use`, `define` and `defaults`; every other kind exists because an
+extension declares it. Software specification is one use of SpecForge, through the builtin extensions, not its
+definition.
+
 Terms the code, the specs and the docs use with one meaning. Architecture decisions are in
 `docs/adr/`; ADR 0004 records the one-project migration these terms come from.
 
@@ -346,12 +356,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   version requirements and peer ranges is `specforge-package` (ADR 0050).
 - **SDK version**: the workspace version, which `specforge-extension-sdk`, its macros, the guest wire and the CLI
   share. `extension init` names it, and a release publishes the three guest crates at it before its tag (ADR 0238).
-  Not the protocol version, which the handshake states and `extension validate` reports.
+  Not the protocol version, which the handshake states and `extension validate` reports. A build after the last release
+  names a version crates.io may not have yet: `extension build` says so (E040) and names the `[patch.crates-io]`
+  recipe (ADR 0277).
+- **Extension scaffold**: the crate `specforge extension init` writes in `<dir>/<last segment of the name>`: a
+  workspace of its own, naming the SDK at the SDK version, building unedited (ADR 0238, ADR 0277).
 - **Committed blob**: a wasm component the repository commits, at `<crate>/wasm/<artifact>` with the `inputs.json` its
-  build recorded: a builtin (`extensions/<name>`, embedded in the host) or a test fixture (`fixtures/<name>`). Listed
+  build recorded: a builtin (`extensions/<name>`, embedded in the host), a test fixture (`fixtures/<name>`) or an
+  example project's own extension (`examples/<name>/extension`). Listed
   once, `specforge_component::committed::COMMITTED`; git tracks exactly that list. An SDK blob answers the host's
   protocol and its wire answers are pinned; a bridge blob (the runtime's own test component) is written without the
-  SDK and declares the canned protocol it answers. `revendor` rebuilds every one (ADR 0070).
+  SDK and declares the canned protocol it answers. `revendor` rebuilds every one (ADR 0070, ADR 0281).
 - **Layer**: one of the eight folders under `crates/` that a workspace crate sits in, bottom to top `leaf kernel
   pipeline runtime session app adapters surfaces` (`crates/<layer>/<crate>/`). A crate's normal and build dependencies
   stay in its layer or go down; the gate's `layers` check holds it (ADR 0084). What each layer owns is in
@@ -608,8 +623,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   The host reads it from the field's declaration: a written value outside it is E061, the editor completes it, the
   schema and the published JSON Schema list it, the guide and the hover show it and its default; the host never
   writes the default into the graph. The extension's own readers (a list filter and its help, a sort, a lifecycle
-  pass, a rollup, a conditional rule's value) read the same constant. An open set of standard values (a module's
-  family) is not one: its field is a string, and an info rule names the standard values (`{allowed}`) (ADR 0071).
+  pass, a rollup, a conditional rule's value) read the same constant. A field that classifies a domain's things (a
+  deliverable's artifact type, a channel's interaction model, a module's family) is not one: it is an `identifier`
+  whose description names suggested words, and no rule checks it (ADR 0279).
+- **Open field**: a field whose values classify a domain's things, declared `identifier` with suggested words in its
+  description: any one word is accepted, the list filter matches it as written (`FilterArg::Open`), and no rule checks
+  it (ADR 0279). A builtin closes a field (a field vocabulary) only when every word fits any domain.
 - **Field form**: a field's declared type with an enum's values, its target kind, read once
   (`specforge_graph::FieldForm`, from `FieldRegistryEntry::form`; `FieldForms::reading(kind, field)` is a
   `Declared` form, a `Member` of an open-fields kind or `Undeclared`, and `Reading::references` is the one rule
@@ -938,6 +957,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   ended as completed or paused; at most one is active (`SessionStatus`). Its steps (start, mark a
   source file analyzed, end) are one management operation, `specforge_ops::read::infer::session`; MCP's
   `specforge.infer_session` is its adapter.
+- **Invariant**: a rule that must always hold (`guarantee`, graded by `risk`), declared by `@specforge/governance`
+  beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
+  an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
+  extension to state one (ADR 0280).
 - **Inference sources**: the files inference covers: under the inference manifest's source roots (the project
   root when none), each file an enabled analyzer claims by its extension, keyed by the source path rule
   (root-relative, `/`-separated, no `..`), every recorded path read as a recorded source path. They are walked by the shared discovery policy
@@ -1098,7 +1121,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `config::rewritable`, never past a problem that hides them), and the only files a `use` import names: a
   compile holds each by its **key**, its project path; an import path is read from the spec root, against the
   keys alone (`specforge_resolver`, ADR 0055, ADR 0242). An editor buffer the session holds for such a path is a
-  source, saved or not.
+  source, saved or not. A project has one `spec` block; a second is E002 (ADR 0282 D2).
   `SourceRoot::files` lists them and `SourceRoot::holds` answers for one path, by one policy: the spec root is
   read whatever its own name and whatever it holds, no skipped directory below it is entered, no symlink is
   followed into a directory, only files are sources (a symlink is one when it resolves to a file, read through
@@ -1361,7 +1384,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   its reply (ADR 0022 D7, ADR 0057). The CLI, the LSP and the operations keep no event.
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which the explain operation
-  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document),
+  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document; in a project it
+  also answers the codes the loaded extensions' rules declare, ADR 0278),
   diagnostics JSON titles, doctor and the LSP hover read and from which
   `docs/diagnostics.md` is generated, and a **code constant** for every core code.
 - **Code constant**: a core diagnostic code as a typed value, `specforge_diagnostics::codes::W112`
@@ -1376,6 +1400,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   a diagnostic (title, explanation, docs link: `CodeEntry::docs_href`) only for the host's own or for the code's owner
   (`specforge_diagnostics::describes`), so an extension's finding with a code it may not use (W150) is
   kept but never presented as that code's owner's.
+- **Declared code**: a diagnostic code the catalog does not have that a loaded extension's validation rule
+  declares and the host takes from that extension (no W150): a third-party extension's own, E900–E998,
+  W900–W998, I900–I998. `specforge explain` and `specforge.explain` answer it in the project from those rules
+  (`specforge_ops::read::explain::declared`, ADR 0278), with the rule's description when it has one.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
@@ -1417,6 +1445,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Derived name**: a type name a derived field links from one block, other than the block's own id, naming an entity of
   the field's target kind: `specforge_graph`'s `derive::derived_names`, which the linker makes an edge and the finder a
   token (ADR 0127 D3, ADR 0163).
+- **Unknown type name**: a name a derived field reads as a type, outside a union body's variants and a list's items,
+  that is no primitive (`PRIMITIVE_TYPES`) and names no entity of the field's target kind: the host's E004 at the name (`derive::unknown_type_names`, ADR 0282).
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
   from one module (`specforge_ops::read::navigate`) in source spans. A span is a position in the text the

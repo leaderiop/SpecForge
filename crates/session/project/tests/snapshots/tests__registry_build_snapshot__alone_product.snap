@@ -623,11 +623,11 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     "channel.interaction_model": {
       "derived_from": null,
-      "description": "How users interact through this channel",
+      "description": "How users interact through this channel: one word, for example request_response, event_driven, batch, streaming, bidirectional, manual, in_person, self_service, broadcast",
       "edge": null,
       "exempts_obligations": false,
       "field_name": "interaction_model",
-      "field_type": "Enum([\"request_response\", \"event_driven\", \"batch\", \"streaming\", \"bidirectional\", \"manual\"])",
+      "field_type": "Identifier",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -708,11 +708,11 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     "deliverable.artifact_type": {
       "derived_from": null,
-      "description": "Kind of artifact produced",
+      "description": "Kind of artifact produced: one word, for example cli, service, library, web_app, mobile_app, api, extension, documentation, package, physical_product, media, event, training",
       "edge": null,
       "exempts_obligations": false,
       "field_name": "artifact_type",
-      "field_type": "Enum([\"cli\", \"service\", \"library\", \"web_app\", \"mobile_app\", \"api\", \"extension\", \"documentation\", \"package\"])",
+      "field_type": "Identifier",
       "file_reference": false,
       "headline": false,
       "inverse_of": null,
@@ -1575,7 +1575,7 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     "module.family": {
       "derived_from": null,
-      "description": "Category or family this module belongs to; the standard ones are core, platform, extension, integration, advisory",
+      "description": "Category or family this module belongs to: one word, for example core, platform, extension, integration, advisory, workstream",
       "edge": null,
       "exempts_obligations": false,
       "field_name": "family",
@@ -2123,12 +2123,12 @@ expression: "digest(&load(&runtime, &[name]))"
     "derived_references": [],
     "field_forms": {
       "channel.description": "string",
-      "channel.interaction_model": "enum (request_response, event_driven, batch, streaming, bidirectional, manual)",
+      "channel.interaction_model": "identifier",
       "channel.reason": "string",
       "channel.status": "enum (active, deprecated)",
       "channel.tags": "string_list",
       "channel.url": "string",
-      "deliverable.artifact_type": "enum (cli, service, library, web_app, mobile_app, api, extension, documentation, package)",
+      "deliverable.artifact_type": "identifier",
       "deliverable.contributors": "string_list",
       "deliverable.depends_on": "reference_list",
       "deliverable.description": "string",
@@ -2570,23 +2570,9 @@ expression: "digest(&load(&runtime, &[name]))"
                 "required": false
               },
               {
-                "arg_type": {
-                  "enum": {
-                    "values": [
-                      "cli",
-                      "service",
-                      "library",
-                      "web_app",
-                      "mobile_app",
-                      "api",
-                      "extension",
-                      "documentation",
-                      "package"
-                    ]
-                  }
-                },
+                "arg_type": "string",
                 "default_value": null,
-                "description": "Only deliverables with this artifact type",
+                "description": "Only deliverables of this artifact type, as written",
                 "name": "artifact_type",
                 "required": false
               },
@@ -2727,7 +2713,7 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "arg_type": "string",
                 "default_value": null,
-                "description": "Only modules of this family, standard or not",
+                "description": "Only modules of this family, as written",
                 "name": "family",
                 "required": false
               },
@@ -2930,20 +2916,9 @@ expression: "digest(&load(&runtime, &[name]))"
                 "required": false
               },
               {
-                "arg_type": {
-                  "enum": {
-                    "values": [
-                      "request_response",
-                      "event_driven",
-                      "batch",
-                      "streaming",
-                      "bidirectional",
-                      "manual"
-                    ]
-                  }
-                },
+                "arg_type": "string",
                 "default_value": null,
-                "description": "Only channels with this interaction model",
+                "description": "Only channels of this interaction model, as written",
                 "name": "interaction_model",
                 "required": false
               },
@@ -3786,28 +3761,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/product",
       "severity": "Info",
       "target_kind": "deliverable",
-      "wasm_function": null
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "I062",
-      "constraint": {
-        "kind": "one_of",
-        "pattern": null,
-        "values": [
-          "core",
-          "platform",
-          "extension",
-          "integration",
-          "advisory"
-        ]
-      },
-      "edge_type": null,
-      "field": "family",
-      "message_template": "module '{id}' has non-standard family '{value}' — standard families: {allowed}",
-      "owner": "@specforge/product",
-      "severity": "Info",
-      "target_kind": "module",
       "wasm_function": null
     },
     {

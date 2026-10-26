@@ -43,7 +43,7 @@ fn a_rename_that_cannot_put_a_file_back_names_it_in_files_written() {
         renamed.len()
     );
     let project = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("a.spec", &old)
         .file(
             "b.spec",
@@ -94,7 +94,7 @@ fn a_format_whose_write_fails_part_way_leaves_the_source_whole() {
     for n in 1..=60 {
         source.push_str(&format!("behavior b{n} \"B{n}\" {{ contract \"c\" }}\n"));
     }
-    let project = TestProject::new().enabling(&["@specforge/software"]);
+    let project = TestProject::new().enabling(&["@specforge/software", "@specforge/governance"]);
     fs::create_dir_all(project.root().join("spec")).unwrap();
     let file = project.root().join("spec").join("a.spec");
     fs::write(&file, &source).unwrap();

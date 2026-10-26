@@ -357,7 +357,8 @@ fn rules(c: &mut ContributionsBuilder) {
             .message_template(
                 "property '{id}' is not referenced by any behavior — it may be unused",
             )
-            .target_kind("property");
+            .target_kind("property")
+            .edge_type("BehaviorSatisfiesProperty");
     });
     c.rule("W126", |r| {
         r.check(CheckKind::NoIncomingEdges)
@@ -369,7 +370,8 @@ fn rules(c: &mut ContributionsBuilder) {
         r.check(CheckKind::NoIncomingEdges)
             .severity(ValidationSeverity::Warning)
             .message_template("protocol '{id}' is not referenced by any event — it may be unused")
-            .target_kind("protocol");
+            .target_kind("protocol")
+            .edge_type("EventFollowsProtocol");
     });
     c.rule("W131", |r| {
         r.check(CheckKind::NoIncomingEdges)

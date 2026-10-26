@@ -11,7 +11,7 @@ use specforge_extension_sdk::prelude::*;
 #[specforge_extension_sdk::extension(
     name = "@specforge/governance",
     version = "1.0.0",
-    description = "Governance: decisions, constraints and failure modes"
+    description = "Governance: the rules a project keeps (invariants), its decisions, constraints and failure modes"
 )]
 struct Governance;
 
@@ -19,8 +19,8 @@ impl Contributions for Governance {
     fn contribute(c: &mut ContributionsBuilder) {
         // Diagrams (`model`, `outline`) draw the extension in this colour.
         c.theme_color("#e74c3c");
-        // Only ConstrainsBehavior targets a software kind (behavior):
-        // governance works without software (its manifest spec).
+        // Behavior (software) and feature (product) are the only kinds
+        // governance targets outside itself; both peers are optional.
         c.optional_peer("@specforge/software", "^1.0")
             .optional_peer("@specforge/product", "^1.0");
 

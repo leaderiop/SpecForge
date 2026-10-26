@@ -89,7 +89,7 @@ fn extensions_returns_list() {
     assert_eq!(
         software["entity_kinds"],
         // The keywords its kinds registered, sorted, as the CLI lists them.
-        json!(["behavior", "event", "invariant", "port", "type"])
+        json!(["behavior", "event", "port", "type"])
     );
 
     // With nothing configured, nothing is listed.

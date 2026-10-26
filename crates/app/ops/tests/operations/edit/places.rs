@@ -107,8 +107,8 @@ fn new_ranks_an_open_kinds_members_by_name_as_set_in_key_order_does() {
     let c = project(&[("tasks.spec", TASKS)]);
     let fields: Vec<(&str, Input)> = vec![
         ("zeta", one("String")),
-        ("alpha", one("Integer")),
-        ("mid", one("List<String>")),
+        ("alpha", one("integer")),
+        ("mid", one("Vec<String>")),
     ];
     let created = after(
         &c,

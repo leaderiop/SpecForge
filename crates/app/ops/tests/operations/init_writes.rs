@@ -278,9 +278,9 @@ fn a_failed_init_leaves_an_empty_directory_empty() {
 fn init_enables_a_builtin_after_the_builtins_it_requires() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
-    let extensions = vec!["@specforge/formal".to_string()];
+    let extensions = vec!["@specforge/cargo-test".to_string()];
     let request = init::Request {
-        dir: &scratch.path().join("formal"),
+        dir: &scratch.path().join("cargo-test"),
         name: Some("demo"),
         version: init::DEFAULT_VERSION,
         extensions: &extensions,
@@ -291,14 +291,8 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
 
     assert_eq!(
         outcome.extensions,
-        [
-            "@specforge/software",
-            "@specforge/formal",
-            "@specforge/testing"
-        ]
+        ["@specforge/testing", "@specforge/cargo-test"]
     );
-    let starter = std::fs::read_to_string(scratch.path().join("formal/spec/hello.spec")).unwrap();
-    assert!(starter.contains("software specification"), "{starter}");
 }
 
 #[specforge_test_macros::test(
@@ -496,7 +490,8 @@ fn init_enables_the_builtins_a_local_file_requires() {
         [
             "@specforge/software",
             "@probe/needs-software",
-            "@specforge/testing"
+            "@specforge/testing",
+            "@specforge/governance"
         ]
     );
     let compiled = compile_at(&dir, Some(Arc::new(runtime)));
@@ -602,11 +597,8 @@ fn init_writes_the_entries_its_plan_judged() {
     let written: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("specforge.json")).unwrap())
             .unwrap();
-    let expected = [
-        "@specforge/software",
-        "@specforge/formal",
-        "@specforge/testing",
-    ];
+    // Formal's peers are optional (ADR 0280): it is enabled alone.
+    let expected = ["@specforge/formal"];
     assert_eq!(outcome.extensions, expected);
     assert_eq!(written["extensions"], serde_json::json!(expected));
     let mut keys: Vec<&str> = written

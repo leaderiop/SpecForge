@@ -1,6 +1,11 @@
 # specforge-extension-sdk
 
 Author [SpecForge](https://github.com/leaderiop/SpecForge) extensions in Rust.
+SpecForge is a domain-free engine: it compiles `.spec` files into one typed,
+validated graph, and every kind of entity in that graph comes from an
+extension. An extension teaches it a domain — software, product planning, a
+regulated procedure, anything with things, links and rules worth checking.
+
 Declare **what your extension contributes**: entity kinds, fields, edges,
 validation rules, compiler passes, collectors, analyzers, feature flags and
 commands, each operation together with the function that answers it. The SDK
@@ -68,7 +73,7 @@ specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 ```console
 $ cargo build --release
 $ specforge extension validate
-$ specforge add ./path/to/my-ext
+$ specforge add ./path/to/my-ext     # the crate directory, from your project
 ```
 
 `short` names the extension's commands (`specforge my-ext <command>`) and MCP
@@ -79,7 +84,9 @@ crate compiles.
 
 - **Wire types are shared with the host** (`specforge-protocol-types`), so the
   protocol cannot drift between your extension and SpecForge.
-- **Contribution flags are derived** from what you contribute.
+- **The declaration is the package**: what the builder builds is what the host
+  loads and what `specforge publish` uploads; there is no manifest to keep in
+  step.
 - **An operation is declared with its handler** (`command`, `mcp_tool`,
   `mcp_resource`, `pass`, `collector`, `rule` with `validate`, `analyzer` with
   `scan`, `migration_hook_handler`): the declaration and the export routing come
@@ -99,7 +106,9 @@ declares go to `component_guest!`'s `handler`, which can decode and encode with
 ## Host functions
 
 None: a guest is pure compute. Everything it needs comes in its call's input,
-and its answer is the only channel back.
+and its answer is the only channel back. It has no file system, environment or
+network, so an extension cannot reach a live business system; a typed
+host-import surface is planned.
 
 ## License
 

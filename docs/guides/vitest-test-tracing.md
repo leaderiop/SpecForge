@@ -3,7 +3,9 @@
 This guide links a TypeScript or JavaScript project's vitest tests to the
 entities they prove, so `specforge analyze coverage` can tell which `verify`
 obligations are backed by a passing test, which by a failing one, and which
-by nothing.
+by nothing. Like the [Rust guide](rust-test-tracing.md), it is the software
+side of the proof model: the runner is a builtin extension, and the proof is
+a test result.
 
 It takes two extensions:
 

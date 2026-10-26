@@ -379,7 +379,7 @@ behavior login \"Log in\" {
 /// A compiled project where `login` references the invariant `token_unique`.
 fn server_with_token_project() -> (Served, std::path::PathBuf) {
     let server = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("spec/tokens.spec", TOKENS_SPEC)
         .file("spec/login.spec", LOGIN_SPEC)
         .serve_components();
@@ -578,7 +578,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
     let (mut server, root) = server_with_token_project();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":"spec"}"#,
     )
     .unwrap();
     // The next call brings the served project up to date with the config just written.
@@ -784,10 +784,10 @@ fn init_adds_the_requested_extensions_to_the_config() {
                "extensions": ["@specforge/software"]}),
     );
 
-    // Software's test obligations come from @specforge/testing (ADR 0002).
+    // Software's test obligations come from @specforge/testing (ADR 0002), its rules from governance.
     assert_eq!(
-        read_config(dir.path())["extensions"],
-        json!(["@specforge/software", "@specforge/testing"])
+        read_config(dir.path())["extensions"].to_string(),
+        r#"["@specforge/software","@specforge/testing","@specforge/governance"]"#
     );
 }
 
@@ -806,12 +806,8 @@ fn init_extensions_in_result() {
     );
 
     assert_eq!(
-        parsed["extensions_installed"],
-        json!([
-            "@specforge/software",
-            "@specforge/product",
-            "@specforge/testing"
-        ])
+        parsed["extensions_installed"].to_string(),
+        r#"["@specforge/software","@specforge/product","@specforge/testing","@specforge/governance"]"#
     );
     assert_eq!(parsed["starter_file"], "spec/hello.spec");
 }
@@ -2153,35 +2149,35 @@ fn served_project(extensions: &[&str], files: &[(&str, &str)]) -> (McpServer, te
     verify = "remove_extension with a path to another project checks that project's dependents and entities"
 )]
 fn remove_on_another_project_checks_that_projects_dependents() {
-    // The served project enables formal, which requires software; the
-    // other enables software alone.
+    // The served project enables cargo-test, which requires testing; the
+    // other enables testing alone.
     let (mut server, served) = served_project(
-        &["@specforge/software", "@specforge/formal"],
+        &["@specforge/testing", "@specforge/cargo-test"],
         &[("main.spec", "")],
     );
     let other = within(served.path(), tempfile::TempDir::new().unwrap());
     std::fs::write(
         other.path().join("specforge.json"),
-        json!({"name": "o", "version": "0.1.0", "extensions": ["@specforge/software"]}).to_string(),
+        json!({"name": "o", "version": "0.1.0", "extensions": ["@specforge/testing"]}).to_string(),
     )
     .unwrap();
     std::fs::write(other.path().join("main.spec"), "").unwrap();
 
-    // Nothing in the other project requires software: it can go.
+    // Nothing in the other project requires testing: it can go.
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"path": other.path().to_str().unwrap(), "name": "@specforge/software", "dry_run": true}),
+        json!({"path": other.path().to_str().unwrap(), "name": "@specforge/testing", "dry_run": true}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert!(payload["extension"].is_string(), "{payload}");
 
-    // In the served project formal still requires it.
+    // In the served project cargo-test still requires it.
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software", "dry_run": true}),
+        json!({"name": "@specforge/testing", "dry_run": true}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["diagnostic"]["code"], "E027", "{error}");
@@ -2361,7 +2357,7 @@ fn rename_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     .unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":["spec"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":["spec"]}"#,
     )
     .unwrap();
     // The next call brings the served project up to date with the config just written.

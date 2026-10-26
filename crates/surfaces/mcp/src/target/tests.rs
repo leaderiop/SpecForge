@@ -11,7 +11,6 @@ use std::path::PathBuf;
 )]
 fn each_input_makes_its_target() {
     let project = |reach, without| TargetSpec::Project { reach, without };
-    assert_eq!(Unscoped::TARGET, TargetSpec::Unscoped);
     assert_eq!(NewProject::TARGET, TargetSpec::NewProject);
     assert_eq!(
         View::<Served>::TARGET,
@@ -37,7 +36,7 @@ fn each_input_makes_its_target() {
 )]
 fn target_arguments_follow_reach() {
     let names = |spec: TargetSpec| -> Vec<String> { spec.properties().keys().cloned().collect() };
-    let mut specs = vec![TargetSpec::Unscoped, TargetSpec::NewProject];
+    let mut specs = vec![TargetSpec::NewProject];
     for reach in [Reach::Served, Reach::AnyProject] {
         for without in [WithoutProject::EmptySession, WithoutProject::Refused] {
             specs.push(TargetSpec::Project { reach, without });
@@ -45,7 +44,6 @@ fn target_arguments_follow_reach() {
     }
     for spec in specs {
         let takes_path = match spec {
-            TargetSpec::Unscoped => false,
             TargetSpec::NewProject => true,
             TargetSpec::Project { reach, .. } => reach == Reach::AnyProject,
         };
@@ -236,10 +234,6 @@ fn a_target_that_needs_a_project_refuses_when_none_is_served() {
             serving: Serving::Adopts
         }))
     ));
-    assert!(matches!(
-        refused(TargetSpec::Unscoped),
-        Ok(CallTarget::Unscoped)
-    ));
 }
 
 #[test]
@@ -414,6 +408,4 @@ fn the_target_takes_its_names_out_of_the_arguments() {
             "{spec:?}"
         );
     }
-    // An Unscoped entry's target takes nothing: its path is the entry's undeclared argument.
-    assert_eq!(TargetSpec::Unscoped.handler_arguments(&given), given);
 }

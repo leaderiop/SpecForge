@@ -13,7 +13,7 @@ fn plan_in_spec_dir(files: &[(&str, &str)], edits: &[Edit]) -> EditPlan {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        serde_json::json!({"name": "n", "spec_root": "spec", "extensions": ["@specforge/software"]})
+        serde_json::json!({"name": "n", "spec_root": "spec", "extensions": ["@specforge/software", "@specforge/governance"]})
             .to_string(),
     )
     .unwrap();
@@ -28,7 +28,11 @@ fn plan_in_spec_dir(files: &[(&str, &str)], edits: &[Edit]) -> EditPlan {
     edit::plan(&ProjectView::of(&project), edits).unwrap()
 }
 
-const TESTING: &[&str] = &["@specforge/software", "@specforge/testing"];
+const TESTING: &[&str] = &[
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/testing",
+];
 
 #[specforge_test_macros::test(
     behavior = "create_entity",
@@ -140,7 +144,7 @@ fn spec_dir_project() -> (tempfile::TempDir, specforge_project::CompiledProject)
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        serde_json::json!({"name": "n", "spec_root": "spec", "extensions": ["@specforge/software"]})
+        serde_json::json!({"name": "n", "spec_root": "spec", "extensions": ["@specforge/software", "@specforge/governance"]})
             .to_string(),
     )
     .unwrap();
@@ -328,7 +332,7 @@ fn outside_project(link: bool) -> (tempfile::TempDir, specforge_project::Compile
     let spec_root = if link { "../link" } else { "../shared" };
     std::fs::write(
         t.join("proj/specforge.json"),
-        serde_json::json!({"name": "n", "spec_root": spec_root, "extensions": ["@specforge/software"]})
+        serde_json::json!({"name": "n", "spec_root": spec_root, "extensions": ["@specforge/software", "@specforge/governance"]})
             .to_string(),
     )
     .unwrap();

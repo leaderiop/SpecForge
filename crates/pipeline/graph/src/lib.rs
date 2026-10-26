@@ -19,7 +19,7 @@ pub use delta::{
     compute_graph_delta_over, moved_nodes,
 };
 mod derive;
-pub use derive::{DerivedFrom, DerivedReference};
+pub use derive::{DerivedFrom, DerivedReference, PRIMITIVE_TYPES};
 mod graph;
 mod members;
 pub mod title;

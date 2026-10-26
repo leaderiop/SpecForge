@@ -1,114 +1,74 @@
 ---
 name: specforge-modules-dsl
-description: "Write module blocks in .spec DSL files (@specforge/product plugin). Each module declares a structural component with free-form snake_case IDs, mapping features to dependencies with a validated dependency DAG. Use when making the relationship between components and spec-level features explicit."
+description: "Write module blocks in .spec files (the module kind is declared by the builtin @specforge/product extension). Each module declares a structural component -- a package, a subsystem, a workstream or a program area -- with a snake_case ID, a family, the features it contains and a dependency graph between modules. Use when making explicit which component delivers which features, in software or any other organisation."
 ---
 
 # SpecForge Modules DSL
 
-Rules and conventions for authoring **`module` blocks** in `.spec` files. Modules represent structural components -- they map features to dependencies and form a dependency DAG the compiler validates.
+> **Declared by `@specforge/product`**, a builtin extension. The `module` kind exists only in a project that loads
+> it: run `specforge extensions` first, and if it is not listed, do not write `module` blocks (add it with
+> `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
+> `specforge infer-guide module` prints the fields.
 
-**Requires:** `@specforge/product` plugin.
-
-## When to Use
-
-- Mapping structural components to the features they implement
-- Establishing module-to-module dependencies (validated DAG)
-- Connecting the implementation layer to the product layer for deliverable coverage validation
-- Describing what component delivers a set of features
+Modules group features into components and form a dependency graph the checks keep acyclic.
 
 ## Block Syntax
 
 ```spec
-use "features/user-management"
-use "features/auth"
-
 module core_mod "@myservice/core" {
-  family       core
-  features     [user_management, password_authentication]
-  depends_on   [crypto_mod]
-  description  "Core domain logic and user management"
+  family      core
+  features    [user_management, password_authentication]
+  depends_on  [crypto_mod]
+  description "Core domain logic and user management"
 }
 ```
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
-| `features` | reference list | Features this module implements. Omission emits I067. |
+| `features` | reference list -> feature | Features the module contains. Missing or empty: I067. |
+| `depends_on` | reference list -> module | Modules this one depends on (a cycle is E007). |
+| `family` | identifier | Grouping: `core`, `platform`, `extension`, `integration`, `advisory`, `workstream` are suggestions; any word is accepted. |
+| `description` | string | Purpose. |
+| `reason` | string | Why the module exists or is grouped this way. |
+| `tags` | string list | Lowercase-hyphenated labels. |
 
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `depends_on` | reference list | Other modules this module depends on. Validated DAG (no cycles). |
-| `description` | string @optional | Free-text explanation of the module's purpose. |
-| `family` | ModuleFamily @optional | Logical grouping: `core`, `platform`, `extension`, `integration`, `advisory`. Non-standard values produce I062 with fuzzy-match suggestion. |
-| `reason` | string @optional | Rationale for module state (e.g., deprecation justification). Documentation-only -- no validation rule in v1. |
-| `tags` | string[] @optional | Faceted filtering tags. |
-| `refs` | reference list | External references linked to this module. |
+With `@specforge/software` loaded, a module also takes `ports` (ports it consumes) and `ports_defined` (ports it
+defines), both reference lists -> port.
 
 ## Relationships
 
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `ModuleFeature` | Module implements these features |
-| `module` | `ModuleDependsOn` | Module depends on these modules |
-| `ref` | `links_to` | External references linked to this module |
-
-### Incoming edges
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `module` | `ModuleDependsOn` | Other modules depend on this one |
-| `deliverable` | `DeliverableModule` | Deliverable uses this module |
-| `milestone` | `MilestoneModule` | Milestone includes this module |
-
-**Note:** If `@specforge/software` is installed, modules gain `ports_defined` (reference list -> port) via entity_enhancement.
+| Field | Target |
+|-------|--------|
+| `features` | feature |
+| `depends_on` | module |
+| a deliverable's or milestone's `modules`, a term's `module` | this module |
 
 ## Writing Rules
 
-1. **Maps to structural components** -- each module corresponds to a package, subsystem, workstream, or program area.
-2. **Features are what it implements** -- the spec-level features this component delivers.
-3. **`depends_on` forms a DAG** -- circular module dependencies are a compile error (E007).
-4. **Import feature files** -- `use` the files declaring referenced entities.
-5. **DSL scope is references, not implementation details** -- internal structure belongs in external tooling.
+1. **Maps to a structural component** -- a package, subsystem, workstream or program area.
+2. **`depends_on` forms a DAG** -- a cycle is E007.
+3. **Reference it** -- a module no deliverable or milestone names is W044.
 
 ## Validation Rules
 
-| Code | Level | Rule |
+| Code | Owner | Rule |
 |------|-------|------|
-| E007 | error | Circular module dependency -- `depends_on` edges must form a DAG. |
-| W044 | warning | Orphan module -- not referenced by any deliverable or milestone. |
-| I062 | info | Non-standard `family` value (not in ModuleFamily enum). Includes fuzzy-match suggestion. |
-| I067 | info | Module with no features. |
+| E007 | product | `depends_on` cycle. |
+| W044 | product | No deliverable or milestone references the module. |
+| I067 | product | No `features`. |
 
 ## Examples
-
-### Software Module
-
-```spec
-module core_mod "@myservice/core" {
-  family       platform
-  features     [user_management, password_authentication]
-  depends_on   [crypto_mod]
-  description  "Core domain logic and authentication"
-  refs         [gh.pr:187]
-}
-```
 
 ### Hardware Subsystem
 
 ```spec
 module power_subsystem "Power Distribution Unit" {
-  family       mechanical
-  features     [power_regulation, thermal_protection]
-  depends_on   [sensor_array]
-  description  "Manages power distribution and voltage regulation across all subsystems"
+  family      platform
+  features    [power_regulation, thermal_protection]
+  depends_on  [sensor_array]
+  description "Manages power distribution and voltage regulation across all subsystems"
 }
 ```
 
@@ -116,20 +76,9 @@ module power_subsystem "Power Distribution Unit" {
 
 ```spec
 module market_analysis "Market Analysis Workstream" {
-  family       advisory
-  features     [competitive_landscape, market_sizing]
-  description  "Research and analysis of target market segments"
-}
-```
-
-### Program Delivery Module
-
-```spec
-module community_outreach "Community Outreach Program" {
-  family       program_delivery
-  features     [volunteer_coordination, event_planning]
-  depends_on   [communications_mod]
-  description  "Coordinates community engagement and volunteer activities"
+  family      advisory
+  features    [competitive_landscape, market_sizing]
+  description "Research and analysis of target market segments"
 }
 ```
 
@@ -137,14 +86,12 @@ module community_outreach "Community Outreach Program" {
 
 ```spec
 module search_mod "@myservice/search" {
-  features     [full_text_search]
+  features [full_text_search]
 }
 ```
 
 ## What NOT to Do
 
-- Do not write modules without the `@specforge/product` plugin installed
-- Do not create circular dependencies between modules -- E007 error
+- Do not write `refs` on a module -- the kind does not declare it (W020)
+- Do not create circular dependencies between modules (E007)
 - Do not confuse modules (structural components) with deliverables (shippable artifacts)
-- Do not put implementation-specific details (version, file paths) in module blocks -- use external tooling
-- Do not reference features or modules from other files without `use` imports

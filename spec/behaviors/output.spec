@@ -704,31 +704,40 @@ behavior explain_diagnostic_code "Explain a Diagnostic Code" {
   features   [diagnostic_reporting]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [McpExplainResult]
+  types      [McpExplainResult, McpExplainDeclared]
   requires {
     code_given "The caller names a diagnostic code"
   }
   ensures {
-    entry_printed   "The catalogued entry, or the retired code and its replacement, is printed with its docs link"
-    one_document    "Under --format json the CLI prints the document specforge.explain answers"
-    unknown_refused "A code the catalog neither has nor retired is refused with unknown_code"
+    entry_printed      "The catalogued entry, or the retired code and its replacement, is printed with its docs link"
+    one_document       "Under --format json the CLI prints the document specforge.explain answers"
+    unknown_refused    "A code the catalog neither has nor retired is refused with unknown_code"
+    declared_explained "In a project, a code the catalog does not have that the loaded extensions' rules declare is answered by those rules"
   }
   contract   """
     specforge explain <code> and specforge.explain MUST be one operation
-    (specforge_ops::read::explain) over the diagnostic catalog: the code is read
+    (specforge_ops::read::explain) over the diagnostic catalog and, in a
+    project, the loaded extensions' validation rules: the code is read
     in any case with surrounding whitespace ignored; a catalogued code
     answers its code, title, owner, level, explanation and docs link; a
     retired code answers retired true and the entry of the code that
     replaced it, if any. The CLI MUST print the entry as text, its last
     line the docs link, and under --format json the document
     specforge.explain answers (McpExplainResult), nothing else. A code the
-    catalog neither has nor retired MUST be refused with unknown_code
+    catalog has or retired is the catalog's; else every loaded rule that
+    declares it and whose code the host takes from its extension (no W150)
+    answers it: the code, its level and each rule's extension, target kind,
+    check, message template and description. A code neither the catalog nor
+    an accepted rule has MUST be refused with unknown_code
     (invalid input) and the code forms as its suggestion, on both surfaces.
   """
   verify unit "specforge explain prints the catalogued entry with its docs link, and a retired code with the entry that replaced it"
   verify integration "specforge explain --format json prints the document specforge.explain answers"
   verify unit "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
   verify unit "an uncatalogued code is refused with unknown_code on both surfaces"
+  verify integration "in a project, specforge explain explains a code its loaded extensions' rules declare and the catalog does not have: the code, its level and each rule with its extension"
+  verify unit "explain answers a code the loaded declarations declare from their rules, the catalog first, and only codes the host takes from their extension"
+  verify integration "outside a project specforge explain answers from the catalog alone: a code only an extension declares is unknown_code"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

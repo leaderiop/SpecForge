@@ -492,7 +492,7 @@ fn one_of_each_severity() -> TestProject {
     TestProject::new().without_config().files(&[
         (
             "specforge.json",
-            r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,
+            r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/governance"]}"#,
         ),
         (
             "spec/main.spec",
@@ -827,7 +827,7 @@ fn project_with_every_severity() -> TestProject {
     TestProject::new().without_config().files(&[
         (
             "specforge.json",
-            r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+            r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/product"]}"#,
         ),
         (
             "main.spec",
