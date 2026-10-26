@@ -619,8 +619,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   The host reads it from the field's declaration: a written value outside it is E061, the editor completes it, the
   schema and the published JSON Schema list it, the guide and the hover show it and its default; the host never
   writes the default into the graph. The extension's own readers (a list filter and its help, a sort, a lifecycle
-  pass, a rollup, a conditional rule's value) read the same constant. An open set of standard values (a module's
-  family) is not one: its field is a string, and an info rule names the standard values (`{allowed}`) (ADR 0071).
+  pass, a rollup, a conditional rule's value) read the same constant. A field that classifies a domain's things (a
+  deliverable's artifact type, a channel's interaction model, a module's family) is not one: it is an `identifier`
+  whose description names suggested words, and no rule checks it (ADR 0279).
+- **Open field**: a field whose values classify a domain's things, declared `identifier` with suggested words in its
+  description: any one word is accepted, the list filter matches it as written (`FilterArg::Open`), and no rule checks
+  it (ADR 0279). A builtin closes a field (a field vocabulary) only when every word fits any domain.
 - **Field form**: a field's declared type with an enum's values, its target kind, read once
   (`specforge_graph::FieldForm`, from `FieldRegistryEntry::form`; `FieldForms::reading(kind, field)` is a
   `Declared` form, a `Member` of an open-fields kind or `Undeclared`, and `Reading::references` is the one rule
