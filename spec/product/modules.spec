@@ -318,6 +318,7 @@ module specforge_lsp "specforge-lsp" {
     specforge_ops,
     specforge_parser,
     specforge_project,
+    specforge_protocol_types,
     specforge_registry,
     specforge_resolver,
     specforge_watch,
