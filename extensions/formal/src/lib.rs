@@ -61,8 +61,8 @@ impl Contributions for Formal {
 // Each pass is declared with its handler above: `__pass_<name>` receives the
 // protocol's PassInput snapshot and answers its diagnostics (ADR 0013).
 
-/// The kind whose entities are coverage items whatever their kind's
-/// testability.
+/// The software kind `condition_check` reads a guarantee and an expression of
+/// (W040).
 const INVARIANT_KIND: &str = "invariant";
 
 fn non_empty(entity: &PassEntity, field: &str) -> bool {

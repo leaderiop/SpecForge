@@ -7,8 +7,8 @@ use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{DiagnosticList, SourceSpan};
-use specforge_graph::{AnnotationJson, FieldJson, MethodJson};
-use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligation_text};
+use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
+use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
 use std::collections::BTreeMap;
 
 use crate::args::Arguments;
@@ -58,8 +58,9 @@ pub struct Reply {
     /// Its methods, as the graph export writes them.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     methods: Vec<MethodJson>,
+    /// Its obligations, as the graph export writes them; absent when it declares none.
     #[serde(skip_serializing_if = "Option::is_none")]
-    verify_declarations: Option<Vec<String>>,
+    verify_declarations: Option<Vec<Obligation>>,
     referenced_by: Vec<String>,
     refers_to: Vec<String>,
     /// Whether it counts and, when it does, how it is proven (ADR 0216), as
@@ -120,8 +121,7 @@ impl Reply {
             fields: facts.members.fields.clone(),
             annotations: facts.members.annotations.clone(),
             methods: facts.members.methods.clone(),
-            verify_declarations: declared
-                .then(|| facts.obligations.iter().map(obligation_text).collect()),
+            verify_declarations: declared.then(|| facts.obligations.to_vec()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),
             coverage_status: coverage.status,

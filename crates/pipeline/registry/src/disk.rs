@@ -21,7 +21,9 @@ pub trait Disk {
     /// can be read.
     fn list(&self, dir: &Path) -> Option<Vec<String>>;
     /// The bytes of the file at `path`; an error of kind `NotFound` when it
-    /// does not exist.
+    /// does not exist. Only a regular file (a link followed to one) of at
+    /// most 64 MiB is read (ADR 0264): anything else is an error naming what
+    /// it is.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
 }
 
@@ -40,7 +42,7 @@ impl Disk for PlainDisk {
     }
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
-        std::fs::read(path)
+        specforge_common::regular::read(path)
     }
 }
 

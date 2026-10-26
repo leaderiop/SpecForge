@@ -1,6 +1,6 @@
 # The graph owns directed reach and degree
 
-**Status:** accepted (2026-10-20, architecture round 18, plan 04). Amends [ADR 0015](0015-read-views-are-operations-over-the-project-view.md) P3 (the degree is the graph's; the export's budget reads it) and its operations list (`trace::trace` answers `TraceOutcome::{Chain, Every}`; `trace::reach` is `trace::affected`).
+**Status:** accepted (2026-10-20, architecture round 18, plan 04). Extended by [ADR 0270](0270-an-edge-from-an-entity-to-itself-counts-in-no-edge-count.md) (the entity snapshot's edge counts read the degree's rule). Amends [ADR 0015](0015-read-views-are-operations-over-the-project-view.md) P3 (the degree is the graph's; the export's budget reads it) and its operations list (`trace::trace` answers `TraceOutcome::{Chain, Every}`; `trace::reach` is `trace::affected`).
 
 ## Context
 

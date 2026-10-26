@@ -63,8 +63,8 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     top-level form of the grammar (an import, a spec, ref, define, union or
     entity block), as the lexer's form-start rule reads it; the text is read
     through the lexer (lex_spec_text), so a
-    backslash before a line break leaves a string unclosed, as the grammar
-    reads it. A body left unclosed ends, missing its closing brace, where
+    backslash before a line break (a CR LF too) leaves a string unclosed, as
+    the grammar reads it. A body left unclosed ends, missing its closing brace, where
     the next line starts a top-level form indented no deeper than the form
     the body opened, whatever member was being typed in it (a field's name
     with no value, an open bracket); the grammar's scanner ends it there
@@ -82,6 +82,10 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     Brackets ((), [] and {}, outside strings and comments) nest at most 32
     levels deep. A source nested deeper is read into no tree: its one
     syntax error is reported at the first bracket past the limit.
+    A source holding a control or bidirectional character other than a tab
+    and a line break (a carriage return only directly before a line feed) is
+    read into no tree: its one syntax error is reported at the first such
+    character, naming its code point.
   """
   requires {
     error_recovery_enabled "SourceParser is initialized with error-recovery mode enabled"
@@ -109,6 +113,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "a syntax error quoting a long first line cuts it at a character boundary"
   verify property "parsing any text yields a file and never panics"
   verify unit "brackets nested past 32 levels are one parse error, and no tree is read"
+  verify unit "a control or bidirectional character in the text is one parse error at it, and no tree is read"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 }
 
@@ -177,6 +182,9 @@ behavior parse_all_block_types "Parse All Block Types" {
     populate the KindRegistry.
     A field named `kind` inside an entity body is an ordinary field of
     that entity, never the block's keyword.
+    A line break is a LF, with a CR directly before it part of it: a quoted
+    text holding a CR LF reads to the text holding a LF, as a triple-quoted
+    one does; an escaped `\r` is a CR (ADR 0266).
   """
   verify unit "parse any keyword as generic entity_block"
   verify unit "spec block uses dedicated grammar rule"
@@ -191,6 +199,8 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "generic block preserves kind, name, title, and fields"
   verify unit "parse string field values correctly"
   verify unit "a value token reads to the text the parse stores: a quoted one unescaped, a triple-quoted one dedented, neither trimmed"
+  verify unit "a raw CR LF inside a quoted text reads as LF, as inside a triple-quoted one"
+  verify unit "an escaped CR inside a quoted text stays a CR, and a raw lone CR is a parse error"
   verify unit "a type field named kind is an ordinary field"
   verify unit "a union block carries its title"
   verify unit "a block answers whether it is a union from its syntax, whatever its fields are named"

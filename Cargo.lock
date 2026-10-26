@@ -3001,7 +3001,6 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2",
  "specforge-common",
  "specforge-extension-sdk",
  "specforge-installed",
@@ -3160,6 +3159,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
@@ -3242,6 +3242,7 @@ dependencies = [
  "specforge-repo-root",
  "specforge-test",
  "specforge-test-macros",
+ "tempfile",
 ]
 
 [[package]]

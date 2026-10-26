@@ -148,3 +148,30 @@ fn an_annotation_after_a_multiline_value_stays_after_it() {
     assert_eq!(value(&once), value(source), "{once:?}");
     assert_eq!(once, source);
 }
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "the formatted text has LF line endings and exactly one final newline"
+)]
+fn format_writes_lf_inside_a_title_a_list_item_and_a_verify_text() {
+    let formatted = fmt(
+        "feature f1 \"F\r\none\" {\r\n  channels [\"a\r\nb\"]\r\n  verify unit \"one\r\ntwo\"\r\n}\r\n",
+    );
+    assert!(!formatted.contains('\r'), "{formatted:?}");
+}
+
+#[specforge_test(
+    behavior = "format_with_parse_errors",
+    verify = "a text holding a control character is left as written, with one E001"
+)]
+fn a_text_holding_a_control_character_is_left_as_written() {
+    let source = "feature f1 \"T\u{1b}[31mt\" {\n  problem    \"p\"\n}\n";
+    let result = format_source(
+        source,
+        &FormatConfig::default(),
+        &specforge_graph::FieldForms::default(),
+    );
+    assert_eq!(result.formatted, source);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, "E001");
+}

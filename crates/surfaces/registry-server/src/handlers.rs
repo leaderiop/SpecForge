@@ -4,9 +4,10 @@ use axum::{
     response::Json,
     routing::{delete, get, post, put},
 };
+use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_package::{PackageName, Version};
 use specforge_registry_wire::address::{Endpoint, HEALTH};
-use specforge_registry_wire::{MAX_PACKAGE_BYTES, TokenVerified};
+use specforge_registry_wire::{ErrorCode, Timestamp, TokenVerified};
 use std::sync::Arc;
 
 use crate::state::AppState;
@@ -51,14 +52,24 @@ async fn health_check() -> &'static str {
     "ok"
 }
 
-async fn verify_auth(State(_state): State<Arc<AppState>>, token: AuthToken) -> Json<TokenVerified> {
+async fn verify_auth(
+    State(_state): State<Arc<AppState>>,
+    token: AuthToken,
+) -> Result<Json<TokenVerified>, ApiError> {
     let record = token.record;
-    Json(TokenVerified {
+    // `validate_bearer` refused a token whose stored expiry is no timestamp, so this holds for every token here.
+    let expires_at = record
+        .expires_at
+        .as_deref()
+        .map(Timestamp::parse)
+        .transpose()
+        .map_err(|why| ApiError::internal(ErrorCode::DbError, why))?;
+    Ok(Json(TokenVerified {
         valid: true,
         scope: record.scope.map(String::from),
         label: record.label,
-        expires_at: record.expires_at,
-    })
+        expires_at,
+    }))
 }
 
 /// The version a read or a yank names, from its URL segment, with its package. A segment that is no

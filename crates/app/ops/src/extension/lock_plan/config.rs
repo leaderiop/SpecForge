@@ -120,7 +120,7 @@ impl Opened {
             .read_if_there()
             .map_err(|error| said(change::unreadable(file, &error)))?;
         let now = match &bytes {
-            Some(bytes) => project_config_from(&held.spelled, Ok(bytes.clone())),
+            Some(bytes) => project_config_from(&held.at, Ok(bytes.clone())),
             None => ConfigRead::default(),
         };
         let now = now.found.then_some(now.config.raw).flatten();

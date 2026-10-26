@@ -60,7 +60,10 @@ fn a_project_opened_in_a_sessions_place_keeps_its_buffers_and_whether_it_verifie
     assert_eq!(update.verification, None, "verification stayed off");
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "complete_keywords",
+    verify = "the registered kinds are handed to keyword completion before any .spec file is read"
+)]
 fn a_reopen_hands_over_the_environment_before_it_reads_a_source() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);

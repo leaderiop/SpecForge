@@ -4,8 +4,8 @@
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_installed::{KeyId, LockSource, Module, Pin, Sha256, recordable_peers};
-use specforge_package::{NotAPackage, PackageName, Version};
+use specforge_installed::{KeyId, LockSource, Module, Pin, recordable_peers};
+use specforge_package::{NotAPackage, PackageName, Sha256, Version};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration, PeerDependency};
 
 use super::super::candidate::{Installable, LocalFile};
@@ -15,8 +15,8 @@ use crate::registry::{KeyPin, LockedPin, METADATA_MISMATCH, Publisher, Registry,
 use crate::{OpError, OpErrorKind};
 
 impl<'a> Install<'a> {
-    /// A `.wasm` file read once, installed as `local:<path>`. The path is relative to `root` when
-    /// the file is under it, absolute otherwise. E072 when it declares no package name.
+    /// A `.wasm` file read once, installed as `local:<path>`: the file's project path ([`Held::shown`]: a link by
+    /// its own name, `/` between components, absolute outside `root`). E072 when it declares no package name.
     pub(crate) fn local(root: &Path, local: LocalFile) -> Result<Install<'a>, OpError> {
         let declared = local.binary.declaration();
         let name = super::super::candidate::package(declared)?;
@@ -26,8 +26,8 @@ impl<'a> Install<'a> {
         let pin = Pin {
             name,
             version,
-            source: LockSource::local(shown_path(root, &local.path))
-                .map_err(|why| unrecordable(&local.path, &why))?,
+            source: LockSource::local(local.held.shown(root).into_string())
+                .map_err(|why| unrecordable(&local.held.named, &why))?,
             key_id: None,
             peers: declared.peers().to_vec(),
         };
@@ -137,8 +137,7 @@ impl<'a> LockPlan<'a> {
     /// registry`. Its binary is not loaded: [`Self::check`] loads it after the gate. Nothing is
     /// pinned for the user: the publisher the fetch decided is pinned when the plan commits. For a
     /// preview, its [`Manifest`], its publisher decided as the fetch decides it: nothing is downloaded. E063
-    /// when the plan fetches from no registry. A preview whose published digest is no SHA-256 is
-    /// R-OPS-002, as its download would be.
+    /// when the plan fetches from no registry.
     pub(crate) fn fetch(
         &self,
         name: &PackageName,
@@ -169,18 +168,6 @@ impl<'a> LockPlan<'a> {
         if self.purpose == Purpose::Preview {
             // Decided as the fetch decides it, downloading nothing (ADR 0213).
             let manifest = fetching.registry.published(name, version, policy)?;
-            let sha256 = Sha256::parse(&manifest.sha256).map_err(|why| {
-                OpError::coded(
-                    OpErrorKind::SchemaMismatch,
-                    codes::R_OPS_002,
-                    format!(
-                        "registry package {}@{} publishes a digest no download can match: {}",
-                        manifest.name,
-                        manifest.version,
-                        specforge_common::remedy::printable(&why),
-                    ),
-                )
-            })?;
             let key_id = lockable_key(&manifest.name, &manifest.version, &manifest.publisher)?;
             lockable_peers(
                 &manifest.name,
@@ -196,7 +183,7 @@ impl<'a> LockPlan<'a> {
             };
             return Ok(Install {
                 module: None,
-                sha256,
+                sha256: manifest.sha256,
                 pin,
                 from: From::Published {
                     registry: fetching.registry,
@@ -338,19 +325,4 @@ fn unrecordable(path: &Path, why: &str) -> OpError {
         ),
     )
     .with_suggestion("rename the file, then add it again")
-}
-
-/// `path` as the lock records it: relative to the project root when it is under it, absolute
-/// otherwise.
-fn shown_path(root: &Path, path: &Path) -> String {
-    let absolute = |p: &Path| {
-        std::path::absolute(p)
-            .map(|p| p.canonicalize().unwrap_or(p))
-            .unwrap_or_else(|_| p.to_path_buf())
-    };
-    let (root, path) = (absolute(root), absolute(path));
-    path.strip_prefix(&root)
-        .unwrap_or(&path)
-        .display()
-        .to_string()
 }

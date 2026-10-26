@@ -45,12 +45,15 @@ fn round_trip_serialization() {
         source_roots: vec!["src/".to_string()],
         ..Default::default()
     };
-    m.upsert_source_entry(SourceFileEntry::new(
-        "src/main.rs",
-        "abc123",
-        vec!["my_behavior".to_string()],
-        "2026-04-24T10:00:00Z",
-    ));
+    m.upsert_source_entry(
+        Path::new("/project"),
+        SourceFileEntry::new(
+            "src/main.rs",
+            "abc123",
+            vec!["my_behavior".to_string()],
+            "2026-04-24T10:00:00Z",
+        ),
+    );
 
     let json = serde_json::to_string_pretty(&m).unwrap();
     let loaded: InferenceManifest = serde_json::from_str(&json).unwrap();
@@ -133,7 +136,10 @@ fn write_and_read_round_trip() {
         source_roots: vec!["crates/my-crate/src".to_string()],
         ..Default::default()
     };
-    m.upsert_source_entry(entry("crates/my-crate/src/lib.rs", &["a", "b"]));
+    m.upsert_source_entry(
+        Path::new("/project"),
+        entry("crates/my-crate/src/lib.rs", &["a", "b"]),
+    );
 
     let writes = m.write(&held(dir.path())).unwrap();
     assert_eq!(writes.named(Some(dir.path())), ["specforge-infer.json"]);
@@ -236,9 +242,9 @@ fn a_manifest_that_leaves_the_root_is_unusable_and_not_read() {
 #[test]
 fn source_index_sorted_after_upsert() {
     let mut m = InferenceManifest::default();
-    m.upsert_source_entry(entry("z.rs", &[]));
-    m.upsert_source_entry(entry("a.rs", &[]));
-    m.upsert_source_entry(entry("m.rs", &[]));
+    m.upsert_source_entry(Path::new("/project"), entry("z.rs", &[]));
+    m.upsert_source_entry(Path::new("/project"), entry("a.rs", &[]));
+    m.upsert_source_entry(Path::new("/project"), entry("m.rs", &[]));
 
     let paths: Vec<&str> = m.source_index.iter().map(|e| e.path.as_str()).collect();
     assert_eq!(paths, vec!["a.rs", "m.rs", "z.rs"]);
@@ -247,18 +253,19 @@ fn source_index_sorted_after_upsert() {
 #[test]
 fn upsert_replaces_existing_entry() {
     let mut m = InferenceManifest::default();
-    m.upsert_source_entry(SourceFileEntry::new(
-        "src/lib.rs",
-        "old",
-        vec!["a".to_string()],
-        "t1",
-    ));
-    m.upsert_source_entry(SourceFileEntry::new(
-        "src/lib.rs",
-        "new",
-        vec!["a".to_string(), "b".to_string()],
-        "t2",
-    ));
+    m.upsert_source_entry(
+        Path::new("/project"),
+        SourceFileEntry::new("src/lib.rs", "old", vec!["a".to_string()], "t1"),
+    );
+    m.upsert_source_entry(
+        Path::new("/project"),
+        SourceFileEntry::new(
+            "src/lib.rs",
+            "new",
+            vec!["a".to_string(), "b".to_string()],
+            "t2",
+        ),
+    );
 
     assert_eq!(m.source_index.len(), 1);
     assert_eq!(m.source_index[0].content_hash, "new");
@@ -266,26 +273,15 @@ fn upsert_replaces_existing_entry() {
 }
 
 #[test]
-fn compute_summary_counts() {
-    let mut m = InferenceManifest::default();
-    m.upsert_source_entry(entry("a.rs", &["e1", "e2"]));
-    m.upsert_source_entry(entry("b.rs", &["e3"]));
-
-    let summary = m.compute_summary(10);
-    assert_eq!(summary.files_total, 10);
-    assert_eq!(summary.files_analyzed, 2);
-    assert_eq!(summary.entities_produced, 3);
-}
-
-#[test]
 fn an_entry_recorded_with_another_spelling_is_the_same_path() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
     let mut m = InferenceManifest::default();
-    m.upsert_source_entry(entry("./src/lib.rs", &["a"]));
-    assert!(m.indexes("src/lib.rs"));
-    assert!(m.indexes("./src/lib.rs"));
-    assert!(!m.indexes("src/main.rs"));
-    // Marking it again replaces the entry, whatever the old spelling.
-    m.upsert_source_entry(entry("src/lib.rs", &["a", "b"]));
+    m.upsert_source_entry(root, entry("./src/lib.rs", &["a"]));
+    let absolute = format!("{}/src/lib.rs", root.display());
+    m.upsert_source_entry(root, entry(&absolute, &["a", "b"]));
+    assert_eq!(m.source_index.len(), 1);
+    m.upsert_source_entry(root, entry("src/lib.rs", &["a", "b", "c"]));
     assert_eq!(m.source_index.len(), 1);
     assert_eq!(m.source_index[0].path, "src/lib.rs");
 }

@@ -82,7 +82,12 @@ behavior load_extension_manifests "Load Extension Manifests" {
     not load as a component, declares another name than the one written,
     declares the name of a builtin (only the builtin loads under a builtin's
     name), or declares an extension another entry already loads (whatever the
-    entry's own text) MUST produce E028 naming the entry.
+    entry's own text) MUST produce E028 naming the entry. A module, a .wasm
+    file entry, specforge.json and specforge.lock are read only when each is
+    a regular file (a link is followed to one) of at most 64 MiB; a named
+    pipe, a device, a socket or a directory is refused before it is opened
+    and a larger file before it is read: E028 for a module or file entry,
+    E069 for the config, E033 for the lock, never a wait or an unbounded read.
     Each entry's outcome MUST record where the load takes its extension from
     (builtin, the lock entry's source, file:<path>, or unknown; a repeated
     entry, the one it repeats') and whether it loaded, with or without a
@@ -143,6 +148,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "two .wasm file entries each run their own component in either order, when one declares the other's entry text"
   verify unit "an entry whose declaration can't be read is E028 saying so and naming what failed"
   verify unit "a .wasm file entry that cannot be read is E028 saying it cannot be read"
+  verify unit "a specforge.json that is not a regular file, or is over 64 MiB, is E069 at once, never waited on or read whole"
+  verify unit "a .wasm file entry or an installed module that is not a regular file, or is over 64 MiB, is E028 at once, never waited on or read whole"
+  verify integration "check reports a .wasm file entry that is a named pipe as E028 at once"
   verify unit "an entry refused at any step of its load leaves nothing loaded"
   verify unit "an entry's declaration is read once, with one handshake"
   verify unit "a .wasm file entry's load warnings name the extension it declares"
@@ -723,6 +731,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
     no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
+    versions_are_versions     "A version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
     address_from_root         "Each call goes to the registry's root, then the protocol's version prefix and the call's path; the server mounts the same routes"
   }
@@ -741,6 +750,10 @@ behavior resolve_registry_source "Resolve Registry Source" {
     Every call MUST go to the configured registry's root followed by the
     protocol's version prefix (/v1) and the call's path; the server MUST
     mount the same routes (ADR 0075).
+    A version list is read as SemVer versions where the reply is read: a
+    list holding another is not the protocol's (R009), never read as fewer
+    versions (ADR 0265); the reference server lists no stored version that
+    is no SemVer version.
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
@@ -753,6 +766,8 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "every call goes to its address under the registry's root, where the server mounts it"
   verify unit "a scope_filter that is not a scope sends none of its scope's names to another registry"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted, address_from_root"
+  verify unit "a version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
+  verify unit "a registry lists no stored version that is no SemVer version"
 }
 
 behavior search_registry "Search Registry" {
@@ -997,6 +1012,7 @@ behavior check_registry_reply "Check Registry Reply" {
   }
   ensures {
     reply_readable         "A reply that isn't the registry protocol's JSON (a malformed publisher signature among them) is refused with R009, even with --allow-unsigned"
+    reply_values           "A reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters is refused with R009 before anything else is checked or downloaded, for a dry run as for an add"
     reply_names_request    "A reply naming another package or version than the one requested is refused with R-TRUST-004"
     manifest_names_request "A served manifest naming another package or version is refused with R-TRUST-004"
     manifest_fails_closed  "A missing or unreadable served manifest is refused with R-OPS-004, never read as declaring no peers"
@@ -1010,6 +1026,10 @@ behavior check_registry_reply "Check Registry Reply" {
     A reply that isn't the registry protocol's JSON for the request (a
     publisher signature that isn't one among them) MUST be refused (R009)
     before anything else is checked: no flag accepts it.
+    A reply's name, version and sha256 are read as a package name, a SemVer
+    version and a SHA-256 in lowercase hex where the reply is read: a reply
+    holding another is not the protocol's (R009), before its binary is
+    downloaded (ADR 0265).
     A 404 is the registry's "not found" only when it carries the protocol's
     NOT_FOUND error; a 404 without it (an address no registry serves, such as
     a url that isn't the registry's root) MUST be refused with R009, not
@@ -1042,8 +1062,8 @@ behavior check_registry_reply "Check Registry Reply" {
     hash pins no bytes.
     A refused reply pins no key and installs nothing. A served manifest is
     read as a declaration printable, as the binary's is (ADR 0244).
-    Text the registry supplies (an error's message, a reply's or a served
-    manifest's name and version, a digest, a download address) MUST be
+    Text the registry supplies (an error's message, a served manifest's name
+    and version, a download address) MUST be
     written in a diagnostic printable: each control character and
     bidirectional control as its \u{..} escape. A registry error's
     diagnostic is printable whole: every text it carries, whatever the
@@ -1073,6 +1093,8 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "every text a registry error carries is written in its diagnostic printable, whatever the variant"
   verify integration "a download address a registry sends reaches R006 and R009 printable"
   verify unit "a manifest's declaration is read printable, as a loaded binary's is"
+  verify unit "a reply whose sha256 is not 64 lowercase hex characters is refused with R009 before its binary is downloaded, and its dry run says so"
+  verify unit "a reply whose name is no package name or whose version is no SemVer version is refused with R009, not as another package"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {
@@ -1114,6 +1136,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
   verify integration "an unsigned package is accepted with --allow-unsigned and pins no key"
   verify integration "an unsigned package accepted with --allow-unsigned is reported as W155"
   verify integration "a signature is verified over the digests the reply describes, before any download"
+  verify unit "a signature made over a reply's text verifies over the values the reply is read as"
   verify unit "a dry run refuses what the add's trust decision refuses, downloading nothing"
   verify integration "a package the trust decision refuses is refused before its download"
 }
@@ -1296,6 +1319,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     missing_source_diagnosed "An unset variable is R010 and an unreadable token file R011, before any request"
     unauthorized_diagnosed   "A 401 is R001 naming how to log in again; a 403 is R002 with permission guidance"
     tokens_never_logged      "Raw tokens are never logged, printed or stored in specforge.json"
+    expiry_is_a_timestamp    "A token check's expiry is an RFC 3339 timestamp, else R009 and login keeps nothing; a kept expiry is RFC 3339, so doctor and R-AUTH-020 read an instant, never text"
     authenticated_emitted    "registry_authenticated event fires on successful authentication"
   }
   contract   """
@@ -1317,7 +1341,10 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     request fails (R004 or R005) with retry guidance; an add of a version
     already installed asks no registry (configure_registries). A raw
     token MUST never be logged, printed, shown in a diagnostic, or stored
-    in specforge.json.
+    in specforge.json. A token check's expiry is read as an RFC 3339
+    timestamp where the reply is read: another is not the protocol's
+    (R009), and login then keeps nothing; a credential store holding an
+    expiry that is not one is unreadable (R012) (ADR 0265).
   """
   verify unit "token resolved from environment variable"
   verify unit "token resolved from token file"
@@ -1331,6 +1358,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify integration "a credential kept for one registry root is never sent to another root under the same alias"
   verify unit "a kept token whose secret is missing is R-AUTH-021 before any request"
   verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, unauthorized_diagnosed, tokens_never_logged, authenticated_emitted"
+  verify unit "a token check whose expiry is not an RFC 3339 timestamp is refused with R009 and login keeps nothing"
 }
 
 behavior retry_registry_request "Retry Registry Request" {

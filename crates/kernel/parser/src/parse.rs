@@ -43,12 +43,12 @@ fn unescape(s: &str) -> String {
     result
 }
 
-/// The text a `"…"` token reads to: its inside, each escape read (`\"`, `\\`, `\n`, `\t`, `\r`; another `\x` is kept
-/// as written), never trimmed. A token without both quotes reads as written (the CST keeps an unclosed string out
-/// of every block, ADR 0063).
+/// The text a `"…"` token reads to: its inside, each CR LF read as LF (ADR 0266), each escape read (`\"`, `\\`, `\n`,
+/// `\t`, `\r`; another `\x` is kept as written), never trimmed. A token without both quotes reads as written (the CST
+/// keeps an unclosed string out of every block, ADR 0063).
 pub(crate) fn string_text(raw: &str) -> String {
     match raw.strip_prefix('"').and_then(|r| r.strip_suffix('"')) {
-        Some(inner) => unescape(inner),
+        Some(inner) => unescape(&crate::line_break::read(inner)),
         None => raw.to_string(),
     }
 }
@@ -76,7 +76,10 @@ pub fn parse_incremental(
     let (mut file, tree) = parse_syntax(source, file_path, old_tree.as_ref());
     // The header is read with the file, so every consumer of a parse (check,
     // watch, the LSP, MCP) has the version and what it reports.
-    (file.format_version, file.format_diagnostics) = detect_format_version(source, file_path);
+    // A file read into no tree reports its one error: no header is checked.
+    if tree.is_some() {
+        (file.format_version, file.format_diagnostics) = detect_format_version(source, file_path);
+    }
     (file, tree)
 }
 
@@ -114,6 +117,14 @@ fn parse_syntax(
                 "brackets nested more than {MAX_NESTING} deep: a .spec file nests (), [] and {{}} at most {MAX_NESTING} levels"
             );
             let span = position_span(source, file_sym, at, at + 1);
+            return (unparsed(file_sym, message, span), None);
+        }
+        Err(CstError::Unprintable { at, c }) => {
+            let message = format!(
+                "a .spec file holds no control or bidirectional character but a tab and a line break: U+{:04X} here; delete it",
+                u32::from(c)
+            );
+            let span = position_span(source, file_sym, at, at + c.len_utf8());
             return (unparsed(file_sym, message, span), None);
         }
     };
@@ -159,7 +170,12 @@ fn parse_syntax(
         file.errors
             .sort_by_key(|e| (e.span.start_line, e.span.start_col));
     }
-    doc::attach(&mut file.entities, &comments, header_row(source));
+    doc::attach(
+        &mut file.entities,
+        &mut file.imports,
+        &comments,
+        header_row(source),
+    );
     (file, Some(cst.into_tree()))
 }
 
@@ -207,6 +223,10 @@ struct ParseContext<'a> {
     /// The own-line comments of the block body being read, nested block fields' included; taken by the block that
     /// reads them.
     body_comments: Vec<SourceSpan>,
+    /// The comments ending the row of the item before them in the block body being read, taken likewise.
+    trailing_comments: Vec<SourceSpan>,
+    /// The comments inside a member's value of the block body being read, taken likewise.
+    value_comments: Vec<SourceSpan>,
 }
 
 /// Whether `comment` starts its own line: one on the row where the item before it ends (`trailed`) trails it.
@@ -227,6 +247,8 @@ impl<'a> ParseContext<'a> {
             errors: Vec::new(),
             comments: Vec::new(),
             body_comments: Vec::new(),
+            trailing_comments: Vec::new(),
+            value_comments: Vec::new(),
         }
     }
 

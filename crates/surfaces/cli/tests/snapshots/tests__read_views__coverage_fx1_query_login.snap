@@ -27,8 +27,8 @@ expression: "normalized(&result, root)"
       "title": "Log in",
       "verify": [
         {
-          "description": "a known user logs in",
-          "kind": "unit"
+          "kind": "unit",
+          "text": "a known user logs in"
         }
       ]
     },

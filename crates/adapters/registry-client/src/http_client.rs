@@ -7,13 +7,14 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use serde::de::DeserializeOwned;
 use specforge_registry_wire::reply::{self, Failure};
 use specforge_registry_wire::{
-    ErrorCode, MAX_PACKAGE_BYTES, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
-    SearchQuery, SearchResults, TokenVerified, VersionList, address::Call, form,
+    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
+    SearchResults, Timestamp, TokenVerified, VersionList, address::Call, form,
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_package::DeclaredPackage;
+use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_package::PackageName;
 use specforge_package::Version;
 
@@ -81,7 +82,7 @@ impl RegistryClient for HttpRegistryClient {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         let credential = credential.filter(|c| c.is_for(registry));
         let address = registry.url.address(&Call::Package(name));
         let body: VersionList = self.get(&address, credential, name.as_str())?;
@@ -190,7 +191,7 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         let url = registry.url.address(&Call::AuthVerify);
         let request = self
             .client
@@ -633,7 +634,7 @@ mod tests {
         verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
     )]
     fn a_malformed_signature_in_a_reply_is_refused_with_r009() {
-        let body = br#"{"name":"@a/b","version":"1.0.0","sha256":"ab","wasm_url":"/x","signature":{"sig":"x","public_key":"z","signed_at":"now"}}"#;
+        let body = br#"{"name":"@a/b","version":"1.0.0","sha256":"abababababababababababababababababababababababababababababababab","wasm_url":"/x","signature":{"sig":"x","public_key":"z","signed_at":"now"}}"#;
         let error = read::<PackageMetadata>(body, "@a/b@1.0.0").unwrap_err();
         assert!(
             matches!(&error, RegistryError::InvalidReply { message, .. }

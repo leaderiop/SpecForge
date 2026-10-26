@@ -139,7 +139,7 @@ pub(super) fn capture_path(
     report: &Held,
     containment: &Containment,
 ) -> Result<Held, OpError> {
-    let spelled = &report.spelled;
+    let spelled = &report.at;
     let named = if report.real.is_dir() || report.real.extension().is_none() {
         spelled.join(format!("{}.stdout.txt", collector.name))
     } else {

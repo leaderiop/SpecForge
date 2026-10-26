@@ -16,6 +16,7 @@ expression: result.imports
             end_line: 2,
             end_col: 22,
         },
+        doc_span: None,
     },
     ImportDeclaration {
         path: Sym("types/core"),
@@ -30,5 +31,6 @@ expression: result.imports
             end_line: 3,
             end_col: 17,
         },
+        doc_span: None,
     },
 ]

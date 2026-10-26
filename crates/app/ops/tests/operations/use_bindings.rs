@@ -136,3 +136,17 @@ fn a_delete_that_leaves_a_use_binding_reports_w027() {
     assert_eq!(w027.len(), 1, "{added:?}");
     assert!(w027[0].message.contains("inv_b"), "{}", w027[0].message);
 }
+
+#[specforge_test(
+    behavior = "delete_entity",
+    verify = "delete with unlink_references removes the comment above a use statement it removes, never the format header"
+)]
+fn delete_with_unlink_references_removes_the_comment_above_a_use_it_removes() {
+    let doc = "// specforge-format: 1.0\n// the rule login needs\nuse { inv_a } from \"rules.spec\"\n\nbehavior login \"Login\" {\n  category   command\n  contract   \"c\"\n  invariants [inv_a, inv_b]\n}\n";
+    let c = project(&[("rules.spec", RULES), ("doc.spec", doc)]);
+    let planned = plan(&c, &[delete("inv_a", true)]).unwrap();
+    assert_eq!(
+        planned.change().after()["doc.spec"],
+        "// specforge-format: 1.0\nbehavior login \"Login\" {\n  category   command\n  contract   \"c\"\n  invariants [inv_b]\n}\n"
+    );
+}

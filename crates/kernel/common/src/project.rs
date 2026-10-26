@@ -283,7 +283,7 @@ impl ConfigRead {
 /// missing file is the default config with no problem.
 pub fn read_project_config(project_root: &Path) -> ConfigRead {
     let path = project_root.join("specforge.json");
-    let read = std::fs::read(&path);
+    let read = crate::regular::read(&path);
     project_config_from(&path, read)
 }
 

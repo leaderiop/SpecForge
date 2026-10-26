@@ -4,7 +4,6 @@
 //! through one writer ([`InferenceManifest::write`]); a key this version
 //! does not define, at any level, is kept as read and written back.
 
-use std::collections::HashSet;
 use std::path::Path;
 
 use serde::de::DeserializeOwned;
@@ -12,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use specforge_common::{Diagnostic, codes};
 
-use crate::source_key::normal_path;
+use crate::source_key::SourceKey;
 use crate::{Containment, Held, OpError, OpErrorKind, Outside, ReadFailure, Writes};
 
 const CURRENT_VERSION: u32 = 1;
@@ -109,9 +108,10 @@ impl SessionStatus {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InferenceSummary {
     pub files_total: usize,
+    /// The inference sources the index records, current or changed: `files_total` less the unanalyzed.
     pub files_analyzed: usize,
     pub entities_produced: usize,
 }
@@ -308,7 +308,7 @@ impl InferenceManifest {
                 format!("failed to write {MANIFEST_FILENAME}: {e}"),
             ));
         }
-        Ok(Writes::from_iter([file.spelled.clone()]))
+        Ok(Writes::from_iter([file.at.clone()]))
     }
 
     /// The session in progress, if any.
@@ -318,49 +318,25 @@ impl InferenceManifest {
             .find(|s| s.status == SessionStatus::Active)
     }
 
-    /// The paths the index records, by the source path rule (`./src/a.rs`,
-    /// as an older version recorded it, is `src/a.rs`).
-    pub(crate) fn indexed_paths(&self) -> HashSet<String> {
-        self.source_index
-            .iter()
-            .map(|entry| normal_path(&entry.path))
-            .collect()
-    }
-
-    /// Whether `path` is indexed, by the source path rule.
-    #[cfg(test)]
-    pub(crate) fn indexes(&self, path: &str) -> bool {
-        self.indexed_paths().contains(&normal_path(path))
-    }
-
-    /// Record `entry`, replacing the entry for the same path (by the
-    /// source path rule); the index stays sorted by path.
-    pub fn upsert_source_entry(&mut self, entry: SourceFileEntry) {
-        let path = normal_path(&entry.path);
+    /// Record `entry`, replacing the entry for the same file: both paths are read from the project `root` into
+    /// their keys (ADR 0271), so whatever spelling recorded the old entry, it is replaced. A path that is no key
+    /// is compared as recorded. The index stays sorted by path.
+    pub fn upsert_source_entry(&mut self, root: &Path, entry: SourceFileEntry) {
+        let named = |path: &str| {
+            SourceKey::read(root, path)
+                .map_or_else(|_| path.to_string(), |key| key.as_str().to_string())
+        };
+        let path = named(&entry.path);
         if let Some(existing) = self
             .source_index
             .iter_mut()
-            .find(|e| normal_path(&e.path) == path)
+            .find(|e| named(&e.path) == path)
         {
             *existing = entry;
         } else {
             self.source_index.push(entry);
         }
         self.source_index.sort_by(|a, b| a.path.cmp(&b.path));
-    }
-
-    pub fn compute_summary(&self, total_source_files: usize) -> InferenceSummary {
-        let entities_produced = self
-            .source_index
-            .iter()
-            .map(|e| e.entities_produced.len())
-            .sum();
-
-        InferenceSummary {
-            files_total: total_source_files,
-            files_analyzed: self.source_index.len(),
-            entities_produced,
-        }
     }
 }
 

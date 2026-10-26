@@ -69,6 +69,14 @@ fn a_crlf_file_keeps_its_line_endings() {
     );
 }
 
+#[test]
+fn a_mixed_file_gets_its_header_ended_lf() {
+    assert_eq!(
+        with_format_version("B\r\nC\n", &CURRENT_FORMAT_VERSION),
+        "// specforge-format: 1.0\nB\r\nC\n"
+    );
+}
+
 /// The lines of `text` without its header line (the first non-blank line, when it is a header),
 /// and whether there was one.
 fn without_header(text: &str) -> (Vec<&str>, bool) {

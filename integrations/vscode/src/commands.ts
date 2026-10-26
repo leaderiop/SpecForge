@@ -1,19 +1,29 @@
 import * as vscode from "vscode";
-import { restartClient } from "./lsp-client";
+import { GraphNode, entityAt, restartClient, sessionGraph } from "./lsp-client";
 import { GraphWebviewPanel } from "./graph-webview";
 import { cliOutput, inTask } from "./binary";
 
-/**
- * One entity as JSON: `specforge query <id> --depth 0` returns a subgraph
- * holding just that node.
- */
-async function entityJson(id: string): Promise<string> {
-  const output = await cliOutput(["query", id, "--depth", "0"]);
-  const node = (JSON.parse(output) as { nodes?: unknown[] }).nodes?.[0];
-  if (!node) {
-    throw new Error(`Entity "${id}" not found.`);
-  }
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** One entity as JSON: the graph node the language server answers. */
+function entityJson(node: GraphNode): string {
   return JSON.stringify(node, null, 2);
+}
+
+/** The entity the cursor names; else one picked from the session's entities. */
+async function entityOrPick(
+  editor: vscode.TextEditor
+): Promise<GraphNode | undefined> {
+  const named = await entityAt(editor);
+  if (named) return named;
+  const nodes = (await sessionGraph()).graph.nodes;
+  const picked = await vscode.window.showQuickPick(
+    nodes.map((node) => ({ label: node.id, description: node.kind, node })),
+    { placeHolder: "The cursor names no entity: pick one", matchOnDescription: true }
+  );
+  return picked?.node;
 }
 
 export function registerCommands(
@@ -243,67 +253,49 @@ export function registerCommands(
     vscode.commands.registerCommand("specforge.inspect", async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
-      const wordRange = editor.document.getWordRangeAtPosition(
-        editor.selection.active
-      );
-      const word = wordRange
-        ? editor.document.getText(wordRange)
-        : await vscode.window.showInputBox({
-            placeHolder: "entity_id",
-            prompt: "Entity ID to inspect",
-          });
-      if (!word) return;
       try {
-        const output = await entityJson(word);
+        const node = await entityOrPick(editor);
+        if (!node) return;
         const doc = await vscode.workspace.openTextDocument({
-          content: output,
+          content: entityJson(node),
           language: "json",
         });
         await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showErrorMessage(`Entity "${word}" not found.`);
+      } catch (err) {
+        vscode.window.showErrorMessage(errorText(err));
       }
     }),
 
     vscode.commands.registerCommand("specforge.trace", async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
-      const wordRange = editor.document.getWordRangeAtPosition(
-        editor.selection.active
-      );
-      const word = wordRange
-        ? editor.document.getText(wordRange)
-        : await vscode.window.showInputBox({
-            placeHolder: "entity_id",
-            prompt: "Entity ID to trace",
-          });
-      if (!word) return;
       try {
-        const output = await cliOutput(["trace", word]);
+        const node = await entityOrPick(editor);
+        if (!node) return;
+        const output = await cliOutput(["trace", node.id]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "json",
         });
         await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showErrorMessage(`Could not trace "${word}".`);
+      } catch (err) {
+        vscode.window.showErrorMessage(`Could not trace: ${errorText(err)}`);
       }
     }),
 
     vscode.commands.registerCommand("specforge.copyEntityJson", async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) return;
-      const wordRange = editor.document.getWordRangeAtPosition(
-        editor.selection.active
-      );
-      const word = wordRange ? editor.document.getText(wordRange) : undefined;
-      if (!word) return;
       try {
-        const output = await entityJson(word);
-        await vscode.env.clipboard.writeText(output);
-        vscode.window.showInformationMessage(`Copied ${word} JSON to clipboard.`);
-      } catch {
-        vscode.window.showErrorMessage(`Entity "${word}" not found.`);
+        const node = await entityAt(editor);
+        if (!node) {
+          vscode.window.showInformationMessage("The cursor names no entity.");
+          return;
+        }
+        await vscode.env.clipboard.writeText(entityJson(node));
+        vscode.window.showInformationMessage(`Copied ${node.id} JSON to clipboard.`);
+      } catch (err) {
+        vscode.window.showErrorMessage(errorText(err));
       }
     }),
 
@@ -328,17 +320,17 @@ export function registerCommands(
         )
     ),
 
-    vscode.commands.registerCommand("specforge.focusInGraph", (entityId?: string) => {
-      const word = entityId ?? (() => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return undefined;
-        const wordRange = editor.document.getWordRangeAtPosition(
-          editor.selection.active
-        );
-        return wordRange ? editor.document.getText(wordRange) : undefined;
-      })();
+    vscode.commands.registerCommand("specforge.focusInGraph", async (entityId?: string) => {
+      const editor = vscode.window.activeTextEditor;
+      let id = entityId;
+      try {
+        if (!id && editor) id = (await entityAt(editor))?.id;
+      } catch (err) {
+        vscode.window.showErrorMessage(errorText(err));
+        return;
+      }
 
-      if (!word) {
+      if (!id) {
         vscode.window.showInformationMessage(
           "Place cursor on an entity ID to focus it in the graph."
         );
@@ -346,7 +338,7 @@ export function registerCommands(
       }
 
       const panel = GraphWebviewPanel.getInstance() ?? GraphWebviewPanel.show(context.extensionUri);
-      panel.focusEntity(word);
+      panel.focusEntity(id);
     }),
   ];
 }

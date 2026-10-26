@@ -156,7 +156,8 @@ vocabulary! {
     /// check's message reads `field` as the default `{field}` and its text
     /// as the default `{value}`.
     CheckKind {
-        /// No edge points at the entity (only `edge_type` edges, from the
+        /// No edge from another entity points at the entity (an edge from it
+        /// to itself is none; only `edge_type` edges, from the
         /// edge type's source kind, when set; an edge type no loaded
         /// extension declares makes the rule inert).
         NoIncomingEdges = "no_incoming_edges",
@@ -165,8 +166,8 @@ vocabulary! {
         /// alone) and no edge leaves it (only `edge_type`'s fields and
         /// edges, to the edge type's target kind, when set).
         NoOutgoingEdges = "no_outgoing_edges",
-        /// No edge points at the entity, and it points at nothing (as
-        /// `no_outgoing_edges`).
+        /// No edge from another entity points at the entity, and it points at
+        /// nothing (as `no_outgoing_edges`).
         NoEdges = "no_edges",
         /// The entity lacks `field` (required); an entity that owes no
         /// `verify` statements is exempt when `field` is `verify`.

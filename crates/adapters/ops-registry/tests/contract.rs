@@ -122,7 +122,7 @@ fn a_published_manifest_is_read_without_downloading_the_binary() {
         .unwrap();
 
     assert_eq!(manifest.name, base);
-    assert!(!manifest.sha256.is_empty());
+    assert_eq!(manifest.sha256.as_str().len(), 64);
     let kinds: Vec<CallKind> = client.calls().iter().map(|call| call.kind).collect();
     assert_eq!(kinds, [CallKind::Metadata], "no download: {kinds:?}");
 }

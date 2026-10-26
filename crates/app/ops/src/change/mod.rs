@@ -94,7 +94,7 @@ impl ProjectChange {
                 .iter()
                 .all(|s| matches!(s.was, Was::Owned(_)) || s.held.real != held.real),
             "{} is staged twice",
-            held.spelled.display()
+            held.at.display()
         );
         if before.as_deref() == Some(after.as_slice()) {
             return;
@@ -107,7 +107,7 @@ impl ProjectChange {
     }
 
     /// Stage a name the operation owns (see [`Was::Owned`]) to hold `after`, with `permissions`. Each owned
-    /// `spelled` is staged at most once.
+    /// `at` is staged at most once.
     pub(crate) fn stage_owned(
         &mut self,
         held: Held,
@@ -115,9 +115,9 @@ impl ProjectChange {
         permissions: std::fs::Permissions,
     ) {
         debug_assert!(
-            self.staged.iter().all(|s| s.held.spelled != held.spelled),
+            self.staged.iter().all(|s| s.held.at != held.at),
             "{} is staged twice",
-            held.spelled.display()
+            held.at.display()
         );
         self.staged.push(Staged {
             held,
@@ -149,7 +149,7 @@ impl ProjectChange {
                 Ok(_) => {
                     return Err(self.failed(
                         Cause::Changed {
-                            file: staged.held.spelled.clone(),
+                            file: staged.held.at.clone(),
                         },
                         Writes::none(),
                     ));
@@ -157,7 +157,7 @@ impl ProjectChange {
                 Err(error) => {
                     return Err(self.failed(
                         Cause::Unreadable {
-                            file: staged.held.spelled.clone(),
+                            file: staged.held.at.clone(),
                             error,
                         },
                         Writes::none(),
@@ -178,7 +178,7 @@ impl ProjectChange {
             Ok(()) => Ok(self
                 .staged
                 .into_iter()
-                .map(|staged| staged.held.spelled)
+                .map(|staged| staged.held.at)
                 .collect()),
             Err(e) => Err(self.put_back(written, &made, Cause::Then(e))),
         }
@@ -187,7 +187,7 @@ impl ProjectChange {
     /// One staged file written; `made` collects the directories created for it.
     fn write(staged: &Staged, made: &mut Vec<PathBuf>) -> Result<(), Cause> {
         let held = &staged.held;
-        let file = || held.spelled.clone();
+        let file = || held.at.clone();
         let unwritable = |error| Cause::Unwritable {
             file: file(),
             error,
@@ -236,7 +236,7 @@ impl ProjectChange {
                 Was::Owned(_) => not_found_passes(held.remove()),
             };
             if restored.is_err() {
-                left.record(held.spelled.clone());
+                left.record(held.at.clone());
             }
         }
         let deepest_first: Vec<PathBuf> = made.iter().rev().cloned().collect();
@@ -244,12 +244,9 @@ impl ProjectChange {
         self.failed(cause, left)
     }
 
-    /// `file` as the operation names it: from the root, or as spelled when it is not under it.
+    /// `file` as the operation names it: its project path (ADR 0102).
     fn named(&self, file: &Path) -> String {
-        file.strip_prefix(&self.root)
-            .unwrap_or(file)
-            .display()
-            .to_string()
+        specforge_common::ProjectPath::of(&self.root, file).into_string()
     }
 
     /// The one wording of a failure (ADR 0155); `left` is what could not be put back, and the error's writes.

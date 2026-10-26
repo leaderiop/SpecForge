@@ -81,6 +81,7 @@ behavior mcp_initialize "MCP Initialize" {
   verify integration "a client that names no projectRoot is served the project at or above the path specforge mcp was started with"
   verify unit "initialize and server/discover give the same capabilities and instructions"
   verify unit "initialize answers the negotiated revision, the server's capabilities, its name and version and its instructions, and no listing"
+  verify integration "specforge mcp answers initialize over a project whose specforge.lock is a named pipe, and doctor reports the lock"
   verify contract "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
 }
 
@@ -305,6 +306,7 @@ behavior read_mcp_arguments_as_declared "Read MCP Arguments as Declared" {
   """
   verify unit "a listing is derived from the typed arguments: each argument's type, description, default, enumerated values and whether it is required"
   verify unit "an absent or null argument reads as the default the listing advertises, and a missing required one is refused naming it"
+  verify unit "a missing required argument is refused in one sentence on every tool, a core tool's and an extension command's alike"
   verify unit "a boolean or count sent as a string is read as one, as an extension command reads it; any other value of the wrong type is refused naming the argument"
   verify unit "an argument neither the tool nor its target declares is refused naming it, with the declared one it is close to"
   verify unit "an extension command given its own project's path, or a null one, runs as it does without one, and another project's path is the target's refusal"
@@ -751,8 +753,8 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     reference. A core tool's reply that its outputSchema
     refuses MUST be a schema_mismatch error naming each violation, never
     structured content.
-    A failed call of a tool with an outputSchema carries no
-    structuredContent: its McpError is in the text block. A 2025-03-26
+    A failed call of any tool carries no structuredContent: its McpError
+    is in the text block. A 2025-03-26
     session is listed no outputSchema.
   """
   verify unit "a core tool's reply its output schema refuses is a schema_mismatch error, never structured content"
@@ -767,7 +769,7 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
   verify unit "tool results carry an object payload as structuredContent from 2025-06-18"
   verify unit "a 2025-03-26 session gets no structuredContent"
   verify unit "each core tool with an object result declares an outputSchema its structured results conform to"
-  verify unit "a failed call of a tool with an outputSchema carries no structuredContent"
+  verify unit "a failed call of any tool carries no structuredContent: its McpError is the text block"
   verify unit "a 2025-03-26 session is listed no outputSchema"
 }
 

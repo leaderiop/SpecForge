@@ -63,7 +63,8 @@ impl World {
             specforge_registry_wire::RegistryRoot::parse(root).unwrap(),
             CredentialEntry::Token {
                 token: token.to_string(),
-                expires_at: expires_at.map(str::to_string),
+                expires_at: expires_at
+                    .map(|text| specforge_registry_wire::Timestamp::parse(text).unwrap()),
             },
         );
         store.write().unwrap();

@@ -1,6 +1,6 @@
 # A tool's arguments are one typed definition
 
-**Status:** accepted (2026-10-07). Amends ADR 0027 D2 (how MCP builds and parses an enumerated
+**Status:** accepted (2026-10-07). Extended by [ADR 0275](0275-a-failed-mcp-tool-call-is-one-mcp-error-in-its-text-block.md) (D2 holds on every tool, an extension command's included). Amends ADR 0027 D2 (how MCP builds and parses an enumerated
 argument).
 
 Every core MCP tool defined its arguments twice: a hand-written JSON input schema in

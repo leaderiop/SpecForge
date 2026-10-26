@@ -61,13 +61,13 @@ expression: out
     "column": null,
     "file": null,
     "line": null,
-    "message": "cannot read test results <root>/none.json: No such file or directory (os error 2)",
+    "message": "cannot read test results none.json: No such file or directory (os error 2)",
     "severity": "Error",
     "span": null,
     "suggestion": "check the path: the named test report does not exist",
     "title": "Invalid test report"
   },
-  "message": "cannot read test results <root>/none.json: No such file or directory (os error 2)",
+  "message": "cannot read test results none.json: No such file or directory (os error 2)",
   "tool": "specforge.analyze"
 }
 == specforge.analyze {"test_results":"bad.json"}
@@ -78,13 +78,13 @@ expression: out
     "column": null,
     "file": null,
     "line": null,
-    "message": "invalid test results <root>/bad.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)",
+    "message": "invalid test results bad.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)",
     "severity": "Error",
     "span": null,
     "suggestion": "run `specforge collect` again to rewrite the report, or fix or remove the file",
     "title": "Invalid test report"
   },
-  "message": "invalid test results <root>/bad.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)",
+  "message": "invalid test results bad.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)",
   "tool": "specforge.analyze"
 }
 == specforge.trace {"entity_id":"logn"}

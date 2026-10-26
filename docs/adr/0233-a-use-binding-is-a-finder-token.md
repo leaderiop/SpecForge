@@ -1,6 +1,6 @@
 # A use binding is a finder token
 
-**Status:** accepted (2026-10-23, architecture round 26, plan 04). Extends [ADR 0163](0163-a-written-token-is-found-by-one-finder.md)
+**Status:** accepted (2026-10-23, architecture round 26, plan 04). Amended by [ADR 0274](0274-a-closing-comment-run-is-the-bodys.md): D3, the statement's doc comment goes with it. Extends [ADR 0163](0163-a-written-token-is-found-by-one-finder.md)
 D1 and D3 and [ADR 0176](0176-the-finder-is-the-only-record-of-where-a-name-is-written.md) D1; answers the last
 consequence of the round-22 amendment of [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md);
 extends [ADR 0055](0055-imports-name-sources.md) D2 (W027).

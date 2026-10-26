@@ -45,6 +45,9 @@ expression: "normalized(result, root)"
   "testable": false,
   "title": "A login is never lost",
   "verify_declarations": [
-    "unit no login is lost"
+    {
+      "kind": "unit",
+      "text": "no login is lost"
+    }
   ]
 }

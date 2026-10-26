@@ -895,7 +895,7 @@ fn references_keep_edge_order_peer_kind_and_field() {
                 .iter()
                 .map(|e| Reference {
                     peer: e.source,
-                    peer_kind: kind_of(e.source.as_str()),
+                    peer_kind: kind_of(e.source.as_str()).unwrap(),
                     field: e.label,
                 })
                 .collect();
@@ -904,7 +904,7 @@ fn references_keep_edge_order_peer_kind_and_field() {
                 .iter()
                 .map(|e| Reference {
                     peer: e.target,
-                    peer_kind: kind_of(e.target.as_str()),
+                    peer_kind: kind_of(e.target.as_str()).unwrap(),
                     field: e.label,
                 })
                 .collect();
@@ -916,12 +916,12 @@ fn references_keep_edge_order_peer_kind_and_field() {
     let alpha = References::of(&ProjectView::of(&cyc.project), "alpha");
     assert_eq!(alpha.referenced_by(), ["beta"]);
     assert_eq!(alpha.refers_to(), ["beta"]);
-    assert_eq!(alpha.incoming[0].peer_kind, Some(Sym::new("behavior")));
+    assert_eq!(alpha.incoming[0].peer_kind, Sym::new("behavior"));
     assert_eq!(alpha.incoming[0].field, Sym::new("depends_on"));
 }
 
 #[test]
-fn an_outgoing_reference_to_a_missing_entity_has_no_peer_kind() {
+fn an_edge_to_an_entity_the_graph_lacks_is_no_reference() {
     let (mut graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
         "behavior a \"A\" {\n}\n",
         "a.spec",
@@ -934,14 +934,7 @@ fn an_outgoing_reference_to_a_missing_entity_has_no_peer_kind() {
     let project = Assembled::new().graph(graph);
     let view = project.rootless_view();
     let references = References::of(&view, "a");
-    assert_eq!(
-        references.outgoing,
-        [Reference {
-            peer: Sym::new("ghost"),
-            peer_kind: None,
-            field: Sym::new("uses"),
-        }]
-    );
+    assert!(references.outgoing.is_empty());
     assert!(references.incoming.is_empty());
     assert_eq!(References::of(&view, "ghost"), References::default());
 }

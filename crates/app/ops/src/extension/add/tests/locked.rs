@@ -3,7 +3,8 @@
 
 use super::*;
 use crate::config::testing::files_under;
-use specforge_installed::{Sha256, hex_sha256, lock_path};
+use specforge_installed::{hex_sha256, lock_path};
+use specforge_package::Sha256;
 
 /// A project locking `@sdk/greet` 0.1.0 as `sha256`, enabled, its module `old` on disk.
 fn locked_greet(sha256: &Sha256) -> tempfile::TempDir {

@@ -4,7 +4,7 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "The host's reading of what an extension package is called, which version is asked for and what its declared peers require (ADR 0036, 0041, 0050)"
+description = "The host's reading of what an extension package is called, which version is asked for, the SHA-256 that pins its bytes and what its declared peers require (ADR 0036, 0041, 0050, 0243)"
 
 [dependencies]
 # The declaration and its declared peers, as the guest wire carries them.
@@ -12,6 +12,7 @@ specforge-protocol-types = { path = "../protocol-types" }
 # A registry reply carries a version as its text (ADR 0231).
 semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

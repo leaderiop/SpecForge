@@ -51,7 +51,7 @@ behavior emit_output "Emit Output" {
     assert_eq!(
         node["verify"],
         serde_json::json!([
-            {"kind": "integration", "description": "emitter produces valid JSON"}
+            {"kind": "integration", "text": "emitter produces valid JSON"}
         ])
     );
 }
@@ -194,7 +194,7 @@ feature fast_parsing "Fast Parsing" {
                 "status": "done",
                 "features": ["fast_parsing"],
             },
-            "verify": [{"kind": "unit", "description": "handles empty input"}],
+            "verify": [{"kind": "unit", "text": "handles empty input"}],
         })
     );
 }

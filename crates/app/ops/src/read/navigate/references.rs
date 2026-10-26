@@ -17,9 +17,7 @@ use crate::view::ProjectView;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reference {
     pub peer: Sym,
-    /// `None` only for an outgoing reference to an entity the graph lacks
-    /// (E003 reports it).
-    pub peer_kind: Option<Sym>,
+    pub peer_kind: Sym,
     pub field: Sym,
 }
 
@@ -44,15 +42,18 @@ impl References {
             incoming: reference_edges(graph, id, Direction::Incoming)
                 .map(|(holder, edge)| Reference {
                     peer: edge.source,
-                    peer_kind: Some(holder.kind.raw),
+                    peer_kind: holder.kind.raw,
                     field: edge.label,
                 })
                 .collect(),
+            // An edge to an entity the graph lacks is no reference: the linker builds none.
             outgoing: reference_edges(graph, id, Direction::Outgoing)
-                .map(|(_, edge)| Reference {
-                    peer: edge.target,
-                    peer_kind: kind_of(edge.target),
-                    field: edge.label,
+                .filter_map(|(_, edge)| {
+                    Some(Reference {
+                        peer: edge.target,
+                        peer_kind: kind_of(edge.target)?,
+                        field: edge.label,
+                    })
                 })
                 .collect(),
         }

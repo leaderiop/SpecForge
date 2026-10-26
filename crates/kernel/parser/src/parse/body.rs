@@ -9,6 +9,10 @@ pub(super) struct Body {
     pub(super) methods: Vec<MethodDecl>,
     /// The own-line comments of the body, nested block fields' included, in source order.
     pub(super) comments: Vec<SourceSpan>,
+    /// The comments ending the row of the item before them.
+    pub(super) trailing: Vec<SourceSpan>,
+    /// The comments inside a member's value.
+    pub(super) inside: Vec<SourceSpan>,
 }
 
 impl<'a> ParseContext<'a> {
@@ -23,6 +27,7 @@ impl<'a> ParseContext<'a> {
                 kind::COMMENT if own_line(child, trailed) => {
                     self.body_comments.push(self.span(child));
                 }
+                kind::COMMENT => self.trailing_comments.push(self.span(child)),
                 kind::FIELD => {
                     if let Some(entry) = self.parse_field(child) {
                         body.fields.push_entry(entry);
@@ -41,6 +46,8 @@ impl<'a> ParseContext<'a> {
         }
 
         body.comments = std::mem::take(&mut self.body_comments);
+        body.trailing = std::mem::take(&mut self.trailing_comments);
+        body.inside = std::mem::take(&mut self.value_comments);
         body
     }
 
@@ -58,6 +65,7 @@ impl<'a> ParseContext<'a> {
         }
         let key_sym = Sym::new(self.text(key));
         let field_value = self.parse_value(value);
+        self.comments_inside(value);
 
         // Extract annotations (children with kind "annotation")
         let mut annotations = Vec::new();
@@ -161,13 +169,35 @@ impl<'a> ParseContext<'a> {
         FieldValue::List(items)
     }
 
+    /// Each comment inside `node`, a field's value, recorded as a value comment: a list's at any depth, an expression
+    /// group's. A nested block's are its members' (`parse_nested_block` reads them).
+    fn comments_inside(&mut self, node: Node) {
+        if node.kind() == kind::NESTED_BLOCK {
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == kind::COMMENT {
+                let span = self.span(child);
+                self.value_comments.push(span);
+            } else {
+                self.comments_inside(child);
+            }
+        }
+    }
+
     fn parse_nested_block(&mut self, node: Node) -> FieldValue {
         let mut fields = FieldMap::new();
         let mut cursor = node.walk();
         let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
-            if child.kind() == kind::COMMENT && own_line(child, trailed) {
-                self.body_comments.push(self.span(child));
+            if child.kind() == kind::COMMENT {
+                let span = self.span(child);
+                if own_line(child, trailed) {
+                    self.body_comments.push(span);
+                } else {
+                    self.trailing_comments.push(span);
+                }
             } else if child.kind() == kind::FIELD
                 && let Some(entry) = self.parse_field(child)
             {

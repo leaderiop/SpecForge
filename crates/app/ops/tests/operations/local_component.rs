@@ -19,7 +19,6 @@ fn refusals(scratch: &Path, path: &Path) -> [(String, String); 4] {
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(existing.path()).unwrap(),
             extensions: vec![path.display().to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: true,
             caller: specforge_ops::testing::caller(),

@@ -9,16 +9,13 @@ use specforge_ops::asking::testing::{Asked, Scripted};
 use specforge_ops::asking::{Asking, ExpectedFrom};
 use specforge_ops::registry::{LockedPin, Publisher, Registry, TrustPolicy};
 use specforge_ops_registry::{ConfiguredRegistry, User};
-use specforge_package::PackageName;
-use specforge_package::Version;
+use specforge_package::{PackageName, Sha256, Version};
 use specforge_project::testing::TestProject;
 use specforge_registry_client::testing::MemoryClient;
 use specforge_registry_client::{
     KnownKeys, RegistryConfig, SigningKey, load_known_keys_at, save_known_keys_at,
 };
-use specforge_registry_wire::{
-    PackageMetadata, PackageSignature, RegistryRoot, SignedContent, sha256_hex,
-};
+use specforge_registry_wire::{PackageMetadata, PackageSignature, RegistryRoot, SignedContent};
 use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
 
@@ -28,11 +25,15 @@ const WASM: &[u8] = b"\0asm-acme-tool";
 /// The package's declaration, as `specforge publish` uploads it.
 const MANIFEST: &str = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","peer_dependencies":[],"sandbox_policy":null}}"#;
 
+fn name(text: &str) -> PackageName {
+    PackageName::parse(text).expect("a valid literal")
+}
+
 /// What the registry serves for `@acme/tool@1.0.0`.
 struct Reply {
-    name: String,
+    name: PackageName,
     /// The metadata's `sha256`.
-    sha256: String,
+    sha256: Sha256,
     /// The downloaded bytes.
     wasm: Vec<u8>,
     manifest: String,
@@ -45,8 +46,8 @@ struct Reply {
 impl Reply {
     fn unsigned() -> Self {
         Reply {
-            name: NAME.to_string(),
-            sha256: sha256_hex(WASM),
+            name: name(NAME),
+            sha256: Sha256::of(WASM),
             wasm: WASM.to_vec(),
             manifest: MANIFEST.to_string(),
             signature: None,
@@ -58,9 +59,9 @@ impl Reply {
     fn signed_over(key: &SigningKey, name: &str, wasm: &[u8], manifest: &str) -> Self {
         let signature = key.sign(&SignedContent::of(name, VERSION, wasm, manifest));
         Reply {
-            name: name.to_string(),
+            name: self::name(name),
             wasm: wasm.to_vec(),
-            sha256: sha256_hex(wasm),
+            sha256: Sha256::of(wasm),
             manifest: manifest.to_string(),
             signature: Some(signature),
             wasm_url: String::new(),
@@ -74,13 +75,14 @@ impl Reply {
     /// The reply the client serves for `@acme/tool@1.0.0`, and its binary.
     fn store(self, client: &MemoryClient) {
         let metadata = PackageMetadata {
-            name: self.name,
-            version: VERSION.to_string(),
-            sha256: self.sha256,
             manifest: self.manifest,
             signature: self.signature,
-            wasm_url: self.wasm_url,
-            ..Default::default()
+            ..PackageMetadata::new(
+                self.name,
+                VERSION.parse().expect("a valid literal"),
+                self.sha256,
+                self.wasm_url,
+            )
         };
         // Whatever it describes is the answer for the package asked for.
         client.store_as(&registry_config(), NAME, VERSION, metadata, self.wasm);
@@ -139,7 +141,7 @@ impl Project {
         asking: Asking<'_>,
     ) -> Result<specforge_ops::registry::Package, specforge_ops::OpError> {
         self.registry().fetch(
-            &PackageName::parse(NAME).expect("a valid literal"),
+            &name(NAME),
             &Version::parse(VERSION).expect("a valid literal"),
             TrustPolicy::new(allow_unsigned, asking),
         )
@@ -186,7 +188,7 @@ fn fetch_through(
     asking: Asking<'_>,
 ) -> Result<specforge_ops::registry::Package, specforge_ops::OpError> {
     registry.fetch(
-        &PackageName::parse(NAME).expect("a valid literal"),
+        &name(NAME),
         &Version::parse(VERSION).expect("a valid literal"),
         TrustPolicy::new(allow_unsigned, asking),
     )
@@ -227,7 +229,7 @@ fn a_download_that_does_not_match_the_registry_sha256_is_refused() {
 )]
 fn a_registry_sha256_that_does_not_match_the_download_is_refused() {
     let served = Reply {
-        sha256: sha256_hex(b"something else"),
+        sha256: Sha256::of(b"something else"),
         ..Reply::unsigned()
     };
     let project = Project::on(served);
@@ -250,7 +252,7 @@ fn a_trust_refusal_is_permission_denied() {
     // A signature over other bytes.
     let key = SigningKey::generate();
     let served = Reply {
-        sha256: sha256_hex(b"\0asm-evil"),
+        sha256: Sha256::of(b"\0asm-evil"),
         wasm: b"\0asm-evil".to_vec(),
         ..Reply::signed(&key)
     };
@@ -269,7 +271,7 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     // must not.
     let key = SigningKey::generate();
     let served = Reply {
-        sha256: sha256_hex(b"\0asm-evil"),
+        sha256: Sha256::of(b"\0asm-evil"),
         wasm: b"\0asm-evil".to_vec(),
         ..Reply::signed(&key)
     };
@@ -344,7 +346,7 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(package.name.as_str(), NAME);
     assert_eq!(package.version.to_string(), VERSION);
     assert_eq!(package.wasm, WASM);
-    assert_eq!(package.sha256, sha256_hex(WASM));
+    assert_eq!(package.sha256, Sha256::of(WASM));
     assert_eq!(
         package.publisher,
         Publisher::Signed {
@@ -355,7 +357,7 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(project.pinned(), None, "the fetch pins nothing");
 
     // The lock plan that fetched it pins the key when it commits.
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
     registry
         .pin(&[package.publisher.pin(&name).expect("a first use pins")])
         .unwrap();
@@ -402,7 +404,7 @@ fn a_pin_that_cannot_be_saved_is_r_trust_006() {
     let package = fetch_through(&registry, false, Asking::Nobody).unwrap();
     // The store's path is a directory: it can be neither read nor replaced.
     std::fs::create_dir_all(project.known_keys()).unwrap();
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
 
     let error = registry
         .pin(&[package.publisher.pin(&name).unwrap()])
@@ -419,7 +421,7 @@ fn fetch_locked(
     asking: Asking<'_>,
 ) -> Result<specforge_ops::registry::Package, specforge_ops::OpError> {
     registry.fetch(
-        &PackageName::parse(NAME).expect("a valid literal"),
+        &name(NAME),
         &Version::parse(VERSION).expect("a valid literal"),
         TrustPolicy::new(false, asking).locked(Some(LockedPin::key(locked))),
     )
@@ -518,7 +520,7 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
         "the fetch pins nothing"
     );
 
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
     registry
         .pin(&[package.publisher.pin(&name).expect("a re-pin pins")])
         .unwrap();
@@ -698,7 +700,7 @@ fn a_read_carries_the_stored_credential() {
     let project = Project::on(Reply::unsigned());
     store_credentials(&project, r#"{"token":"t"}"#);
     let registry = project.registry();
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
 
     registry.versions(&name).unwrap();
     registry
@@ -730,10 +732,7 @@ fn an_expired_stored_credential_refuses_a_read() {
         r#"{"token":"t","expires_at":"2000-01-01T00:00:00Z"}"#,
     );
 
-    let error = project
-        .registry()
-        .versions(&PackageName::parse(NAME).unwrap())
-        .unwrap_err();
+    let error = project.registry().versions(&name(NAME)).unwrap_err();
 
     assert_eq!(error.code, "R-AUTH-020", "{error:?}");
     assert!(project.client.calls().is_empty());
@@ -746,9 +745,7 @@ fn the_environment_token_is_not_sent_on_a_read() {
         .with_client(project.client.clone())
         .as_user(User::at(project.dir.home(), Some("env".to_string())));
 
-    registry
-        .versions(&PackageName::parse(NAME).unwrap())
-        .unwrap();
+    registry.versions(&name(NAME)).unwrap();
 
     let reads = reads(&project);
     assert_eq!(reads.len(), 1);
@@ -765,7 +762,7 @@ fn an_unsigned_fetch_is_reported_as_w155() {
 
     let package = registry
         .fetch(
-            &PackageName::parse(NAME).unwrap(),
+            &name(NAME),
             &Version::parse(VERSION).unwrap(),
             TrustPolicy::new(true, Asking::Nobody),
         )
@@ -791,7 +788,7 @@ fn a_consented_key_change_is_reported_as_w156() {
 
     let package = fetch_through(&registry, false, Asking::Yes).unwrap();
 
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
     let w156_count = |registry: &ConfiguredRegistry| {
         registry
             .reported()
@@ -818,7 +815,7 @@ fn a_consented_key_change_is_reported_as_w156() {
 fn a_key_change_is_decided_by_the_asker() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
-    let name = PackageName::parse(NAME).unwrap();
+    let name = name(NAME);
     let version = Version::parse(VERSION).unwrap();
 
     let project = Project::on(Reply::signed(&other));

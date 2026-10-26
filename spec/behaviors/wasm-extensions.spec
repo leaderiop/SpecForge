@@ -545,7 +545,8 @@ behavior dispatch_collector "Dispatch Collector" {
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
-    directly inside a report directory, in path order) and passes the files
+    directly inside a report directory, in path order) and passes the files,
+    each named by its project path,
     to the collector's pure export as the protocol's CollectInput
     (`{"reports": [{"path", "content"}], "stdout"?}`, `stdout` being the
     captured standard output when the collector declares one, absent
@@ -569,6 +570,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "reads a file or every json file in a directory"
   verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify unit "--report reads only the named files, whatever the collector declares"
+  verify unit "each report file reaches the collector by its project path, however it was named"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only"
 }
 
@@ -718,7 +720,8 @@ behavior run_doctor_check "Run Doctor Check" {
     MUST carry its verdict (no
     error-level finding), and specforge doctor --format json and
     specforge.doctor MUST return the same report (the CLI adds the user's
-    credentials; a credential store that cannot be read is one unusable credential). Each peer requirement the compile reports unsatisfied
+    credentials; a credential store that cannot be read is one unusable credential,
+    and so is one holding a token expiry that is not RFC 3339). Each peer requirement the compile reports unsatisfied
     (E027, E073) MUST be an error finding with the remedy its diagnostic
     suggests: doctor and check judge peers by one rule over the loaded
     extensions (ADR 0041), so a peer a builtin or a .wasm file entry
@@ -758,12 +761,14 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "a lock file that cannot be read is an error finding naming E033"
   verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
   verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
+  verify integration "the reinstall command a local install suggests runs from any directory of the project"
   verify integration "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
   verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
+  verify unit "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
 }
 
 // -- Extension Source Resolution -----
@@ -898,7 +903,7 @@ behavior read_lock_file "Read Lock File" {
   }
   contract   """
     When a specforge.lock file exists, the system MUST use the versions and
-    hashes it records. A lock file that exists and can't be read or parsed is
+    hashes it records. A lock file that exists and can't be read (not a regular file, over 64 MiB) or parsed is
     E033, naming one remedy whatever made it unreadable (fix specforge.lock, or
     delete it and install the extensions again with specforge add): no installed extension loads from it (each is E028 naming the
     lock), and add, update and remove refuse to change what is installed
@@ -917,6 +922,7 @@ behavior read_lock_file "Read Lock File" {
   verify unit "missing lock entry triggers resolution"
   verify unit "an unreadable lock file is E033 and is never replaced by a change"
   verify unit "a lock file that can't be read names one remedy, whatever made it unreadable"
+  verify unit "a specforge.lock that is not a regular file, or is over 64 MiB, is E033 at once, never waited on or read whole"
   verify unit "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
   verify unit "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
   verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"

@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use specforge_package::PackageName;
-use specforge_package::{DeclaredPackage, Version, VersionRequirement};
+use specforge_package::{DeclaredPackage, Sha256, Version, VersionRequirement};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 use specforge_registry_wire::{
     DEFAULT_SEARCH_LIMIT, ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
-    SearchQuery, SignedContent, sha256_hex,
+    SearchQuery, SignedContent, Timestamp,
 };
 
 use crate::SigningKey;
@@ -121,7 +121,7 @@ impl MemoryClient {
     /// `metadata.wasm_url` becomes `memory://{alias}/{name}/{version}`; any other is kept, so a download
     /// can be made to miss.
     pub fn store(&self, registry: &RegistryConfig, metadata: PackageMetadata, wasm: Vec<u8>) {
-        let (name, version) = (metadata.name.clone(), metadata.version.clone());
+        let (name, version) = (metadata.name.to_string(), metadata.version.to_string());
         self.store_as(registry, &name, &version, metadata, wasm);
     }
 
@@ -251,16 +251,17 @@ impl RegistryClient for MemoryClient {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.read(CallKind::Versions, registry, name.to_string(), credential)?;
         let state = self.state.lock().unwrap();
-        let versions: Vec<String> = state
+        let versions: Vec<Version> = state
             .registries
             .get(&key_of(registry))
             .into_iter()
             .flatten()
             .filter(|m| m.name == name.as_str())
-            .map(|m| m.version.clone())
+            // A stored row no client could read is not listed (ADR 0036), as the server skips it.
+            .filter_map(|m| Version::parse(&m.version).ok())
             .collect();
         if versions.is_empty() {
             return Err(RegistryError::NotFound {
@@ -465,7 +466,7 @@ impl RegistryClient for MemoryClient {
         let receipt = PublishReceipt {
             name: name.to_string(),
             version: version.to_string(),
-            sha256: metadata.sha256.clone(),
+            sha256: metadata.sha256.to_string(),
             size_bytes: wasm.len() as u64,
             key_id: signature.key_id(),
         };
@@ -480,7 +481,7 @@ impl RegistryClient for MemoryClient {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         self.begin(
             Call {
                 credential: Some(credential.clone()),
@@ -504,7 +505,6 @@ fn package_metadata(
     manifest: &str,
     key: Option<&SigningKey>,
 ) -> PackageMetadata {
-    let sha256 = sha256_hex(wasm);
     let (description, keywords) = serde_json::from_str::<ExtensionDeclaration>(manifest)
         .map(|d| {
             (
@@ -515,16 +515,17 @@ fn package_metadata(
         .unwrap_or_default();
     let signature = key.map(|key| key.sign(&SignedContent::of(name, version, wasm, manifest)));
     PackageMetadata {
-        name: name.to_string(),
-        version: version.to_string(),
-        sha256,
         size_bytes: wasm.len() as u64,
         description,
         keywords,
-        wasm_url: String::new(),
         signature,
         manifest: manifest.to_string(),
-        ..Default::default()
+        ..PackageMetadata::new(
+            name.parse().expect("a test package's name"),
+            version.parse().expect("a test package's version"),
+            Sha256::of(wasm),
+            "",
+        )
     }
 }
 

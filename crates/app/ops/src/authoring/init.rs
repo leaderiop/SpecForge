@@ -196,7 +196,6 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
         req.extensions,
         Place {
             root: req.dir,
-            base: req.dir,
             containment: req.caller.containment(),
         },
     )

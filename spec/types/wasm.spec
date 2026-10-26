@@ -76,7 +76,6 @@ type LockFileEntry "Lock File Entry" {
 }
 
 type LockFile "Serialized as JSON (specforge.lock). See P6: standard is the moat." {
-  path             string  @readonly
   lockfile_version integer @readonly
   entries          LockFileEntry[]
   verify unit "LockFile schema is valid"
@@ -244,6 +243,7 @@ type PassEntity "One entity of the snapshot. testable: its kind's flag; exempt: 
   kind                string
   // Every field it writes, by name, as its field text (ADR 0019); a name written twice keeps its last text.
   fields              object
+  // Edges from and to other entities (ADR 0270); an edge from the entity to itself is in neither.
   incoming_edge_count integer
   outgoing_edge_count integer
   span                SourceSpan @optional

@@ -325,7 +325,6 @@ fn what_publish_uploads_is_what_add_installs() {
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(project.path()).unwrap(),
             extensions: vec!["@acme/greet@1.0.0".to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: specforge_ops::testing::caller(),

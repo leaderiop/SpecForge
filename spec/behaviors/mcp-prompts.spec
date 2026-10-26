@@ -93,7 +93,7 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
     every field the entity declares (an invariant's guarantee, a decision's
     rationale, whatever its kind names its text),
     all directly related entities (upstream and downstream), verify
-    declarations as verification expectations, and related entities.
+    obligations as verification expectations (as the graph export writes them), and related entities.
     structural_constraints entities are included as additional context even if not
     directly connected. A structural constraint that names no entity is
     refused as a missing entity is everywhere (E003, with the closest

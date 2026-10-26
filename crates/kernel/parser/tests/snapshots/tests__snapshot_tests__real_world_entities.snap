@@ -246,6 +246,8 @@ expression: result.entities
         ],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -315,6 +317,8 @@ expression: result.entities
         obligation_spans: [],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -445,5 +449,7 @@ expression: result.entities
         ],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
 ]

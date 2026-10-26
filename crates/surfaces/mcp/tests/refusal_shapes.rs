@@ -24,7 +24,7 @@ fn failed_run(exit_code: i32, stdout: &str, stderr: &str) -> (Value, Logged) {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
+    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
 )]
 fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
@@ -38,7 +38,7 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
             REPORT,
             json!({}),
             "style",
-            "missing required arg 'style'",
+            "Missing required parameter: style",
             None,
         ),
         (
@@ -80,7 +80,7 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
             "specforge.cmds.pair",
             json!({}),
             "a",
-            "missing required args 'a', 'b'",
+            "Missing required parameter: a",
             None,
         ),
     ] {
@@ -106,10 +106,42 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
             suggestion,
             "{arguments}"
         );
-        assert_eq!(resp["result"]["structuredContent"], error, "{arguments}");
+        assert!(
+            resp["result"].get("structuredContent").is_none(),
+            "{arguments}: {resp}"
+        );
     }
     assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
     assert!(events(&server, "surface_command_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "read_mcp_arguments_as_declared",
+    verify = "a missing required argument is refused in one sentence on every tool, a core tool's and an extension command's alike"
+)]
+fn a_missing_argument_is_refused_in_one_sentence_on_every_tool() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
+        json!({"id": "pair", "title": "Pair", "description": "Two required args",
+            "export": "cmd__pair", "args": [
+                {"name": "a", "arg_type": "string", "required": true},
+                {"name": "b", "arg_type": "string", "required": true}]}),
+    ));
+    for (tool, argument) in [
+        ("specforge.inspect", "entity_id"),
+        (REPORT, "style"),
+        ("specforge.cmds.pair", "a"),
+    ] {
+        let error = mcp_error(&call_tool(&mut server, tool, json!({})));
+        assert_eq!(
+            (&error["code"], &error["argument"], &error["message"]),
+            (
+                &json!("invalid_input"),
+                &json!(argument),
+                &json!(format!("Missing required parameter: {argument}"))
+            ),
+            "{tool}: {error}"
+        );
+    }
 }
 
 #[specforge_test(

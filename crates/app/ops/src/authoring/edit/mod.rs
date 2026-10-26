@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use specforge_common::DiagnosticList;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
+use specforge_parser::LineBreak;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// One typed edit. The MCP `specforge.edit` tool reads a list of them (`op` names the variant); each CLI verb
@@ -259,7 +260,8 @@ impl EditPlan {
     }
 }
 
-/// The part of the plan being made: the edited texts, and what the earlier edits created or deleted.
+/// The part of the plan being made: the edited texts, and what the earlier edits created or deleted. The texts are LF:
+/// each file is read in its `LineBreak` and written back in it (ADR 0266).
 struct Planner<'v> {
     view: &'v ProjectView<'v>,
     /// The plan's one configuration lookup, through the view's disk (ADR 0169).
@@ -286,7 +288,11 @@ impl<'v> Planner<'v> {
     fn text(&self, key: &str) -> Option<String> {
         match self.texts.get(key) {
             Some(text) => Some(text.clone()),
-            None => self.view.project().source_text(key).map(|t| t.to_string()),
+            None => self
+                .view
+                .project()
+                .source_text(key)
+                .map(|t| LineBreak::of(&t).lf(&t).into_owned()),
         }
     }
 
@@ -415,10 +421,11 @@ impl<'v> Planner<'v> {
         let change = PlannedChange::new(
             self.view.env().sources().clone(),
             "cannot apply the edits",
-            self.texts
-                .into_iter()
-                .map(|(key, after)| (project.source_text(&key), key, after))
-                .map(|(before, key, after)| (key, before, after)),
+            self.texts.into_iter().map(|(key, after)| {
+                let before = project.source_text(&key);
+                let line_break = LineBreak::of(before.as_deref().unwrap_or(""));
+                (key, before, line_break.write(&after).into_owned())
+            }),
         );
         let added = if change.is_empty() {
             Vec::new()

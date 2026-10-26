@@ -114,7 +114,7 @@ fn run(
 /// loadable extension, read through `runtime`), `extension_conflict` (a declaration naming a builtin). Its diagnostics are [`declare`]'s.
 pub fn validate(extension: &Path, runtime: &dyn WasmRuntime) -> Result<Validated, OpError> {
     // publish and extension validate are the CLI's only (ADR 0045 D6): unbounded, as the CLI is (ADR 0092 D6).
-    let LocalComponent { path, bytes } =
+    let LocalComponent { held, bytes } =
         LocalComponent::read(extension, &Containment::unbounded())?;
     let loaded = super::candidate::read_declaration(runtime, &bytes)?;
     let protocol = loaded.protocol_version.clone();
@@ -125,7 +125,7 @@ pub fn validate(extension: &Path, runtime: &dyn WasmRuntime) -> Result<Validated
         )
     })?;
     Ok(Validated {
-        binary: path,
+        binary: held.named,
         wasm: bytes,
         declaration,
         diagnostics,

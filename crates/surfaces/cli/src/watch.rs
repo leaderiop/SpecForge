@@ -10,8 +10,6 @@
 
 use crate::terminal::{Terminal, errln, outln};
 
-use std::path::PathBuf;
-
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::project::ProjectArg;
 use serde::Serialize;
@@ -131,8 +129,7 @@ fn unix_seconds() -> u64 {
 
 /// The `ready` event: the session as opened, and caught up with disk.
 fn print_ready(session: &ProjectSession, format: OutputFormat, terminal: &Terminal) {
-    let spec_root: PathBuf = std::fs::canonicalize(session.project().environment().spec_root())
-        .unwrap_or_else(|_| session.project().environment().spec_root().to_path_buf());
+    let spec_root = session.project().environment().spec_root();
     let diagnostics = session.project().diagnostics();
     let Counts {
         errors, warnings, ..

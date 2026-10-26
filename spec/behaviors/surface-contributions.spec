@@ -203,11 +203,12 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     command line applies (its declared defaults, false for an unset flag,
     each value its declared type; an argument the rule refuses is an
     isError result carrying invalid_input on that argument, with the
-    message the CLI writes, and the export is not called), over the served graph, always
+    message the CLI writes, a missing one in the sentence every MCP tool uses
+    (Missing required parameter: <name>), and the export is not called), over the served graph, always
     asking for json: a JSON object the command prints on success (with
     nothing on stderr) is the tool result's structured content too, and
     a failure that prints one JSON object on stderr and nothing on stdout
-    is an isError result carrying the McpError its code names
+    is an isError result carrying, as its text, the McpError its code names
     (INVALID_INPUT is invalid_input, ENTITY_NOT_FOUND is entity_not_found,
     any other code internal_error), its entity and suggestion kept; any other
     failed output is internal_error carrying its exit code, stdout and
@@ -258,7 +259,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "under --format json a command whose export trapped prints one JSON error object"
   verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
   verify unit "the host and the SDK normalize a command's args by the same rule"
-  verify unit "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
+  verify unit "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
   verify unit "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
   verify unit "over MCP a command that fails without one error object is internal_error carrying its exit code, stdout and stderr"
   verify integration "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"

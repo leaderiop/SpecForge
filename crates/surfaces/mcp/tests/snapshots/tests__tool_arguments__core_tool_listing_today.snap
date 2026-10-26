@@ -314,6 +314,21 @@ expression: listing
           ],
           "type": "object"
         },
+        "Obligation": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
         "ParameterJson": {
           "additionalProperties": false,
           "properties": {
@@ -381,22 +396,6 @@ expression: listing
             "budget_tokens",
             "estimated_tokens",
             "truncated_entities"
-          ],
-          "type": "object"
-        },
-        "VerifyStatement": {
-          "additionalProperties": false,
-          "properties": {
-            "description": {
-              "type": "string"
-            },
-            "kind": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "description"
           ],
           "type": "object"
         }
@@ -471,7 +470,7 @@ expression: listing
                   },
                   "verify": {
                     "items": {
-                      "$ref": "#/$defs/VerifyStatement"
+                      "$ref": "#/$defs/Obligation"
                     },
                     "type": "array"
                   }
@@ -571,7 +570,7 @@ expression: listing
                   },
                   "verify": {
                     "items": {
-                      "$ref": "#/$defs/VerifyStatement"
+                      "$ref": "#/$defs/Obligation"
                     },
                     "type": "array"
                   }
@@ -2600,6 +2599,21 @@ expression: listing
           ],
           "type": "object"
         },
+        "Obligation": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
         "ParameterJson": {
           "additionalProperties": false,
           "properties": {
@@ -2738,7 +2752,7 @@ expression: listing
         },
         "verify_declarations": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/Obligation"
           },
           "type": "array"
         }
@@ -7499,7 +7513,7 @@ expression: listing
         },
         "status": {
           "default": "completed",
-          "description": "Final status (for end, `completed` unless asked; refused on another action): completed: the inference is done; paused: a later session continues it",
+          "description": "Final status (for end; refused on another action): completed: the inference is done; paused: a later session continues it",
           "enum": [
             "completed",
             "paused"

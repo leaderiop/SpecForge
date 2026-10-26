@@ -61,12 +61,18 @@ pub enum CstError {
     /// Brackets nest deeper than [`lex::MAX_NESTING`]: the source is read into no tree. `at` is the byte of
     /// the first bracket past the limit.
     TooDeep { at: usize },
+    /// The source holds a control or bidirectional character (`remedy::unprintable_in_lines`): it is read into
+    /// no tree. `at` is its byte.
+    Unprintable { at: usize, c: char },
 }
 
 impl<'s> Cst<'s> {
     /// Read `source`, reusing `old_tree` (already edited to `source`) for
     /// the whole text's parse.
     pub fn read(source: &'s str, old_tree: Option<&Tree>) -> Result<Cst<'s>, CstError> {
+        if let Some((at, c)) = specforge_common::remedy::unprintable_in_lines(source) {
+            return Err(CstError::Unprintable { at, c });
+        }
         if let Some(at) = lex::nested_too_deep(source) {
             return Err(CstError::TooDeep { at });
         }

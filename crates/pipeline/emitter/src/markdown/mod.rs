@@ -10,7 +10,9 @@ mod escape;
 use std::collections::BTreeSet;
 
 use specforge_common::Sym;
-use specforge_graph::{FieldForms, FieldMap, FieldValue, Graph, Members, Node, Selected, Written};
+use specforge_graph::{
+    FieldForms, FieldMap, FieldValue, Graph, Members, Node, Obligation, Selected, Written,
+};
 use specforge_registry::snapshot::field_text;
 
 use crate::emit::EmitOptions;
@@ -153,21 +155,29 @@ fn section(graph: &Graph, node: &Node, options: &EmitOptions<'_>) -> String {
     if !referrers.is_empty() {
         blocks.push(format!("**Referenced by**\n\n{}", entity_table(&referrers)));
     }
-    if !node.obligations.is_empty() {
-        let rows = node.obligations.iter().enumerate().map(|(i, o)| {
-            let kind = if o.kind.is_empty() {
-                NONE.to_string()
-            } else {
-                cell(&o.kind)
-            };
-            vec![(i + 1).to_string(), kind, cell(&o.description)]
-        });
-        blocks.push(format!(
-            "**Verify**\n\n{}",
-            table(&["#", "Kind", "Obligation"], rows.collect())
-        ));
+    let obligations: Vec<Obligation> = node.obligations.iter().map(Obligation::of).collect();
+    if let Some(rows) = obligations_table(&obligations) {
+        blocks.push(format!("**Verify**\n\n{rows}"));
     }
     blocks.join("\n\n")
+}
+
+/// An entity's obligations as one table, numbered from 1, the kind `—` when bare, both cells
+/// escaped to one line (ADR 0273); `None` when there are none. The review document and the hover
+/// list obligations through it.
+pub fn obligations_table(obligations: &[Obligation]) -> Option<String> {
+    if obligations.is_empty() {
+        return None;
+    }
+    let rows = obligations.iter().enumerate().map(|(i, o)| {
+        let kind = if o.kind.is_empty() {
+            NONE.to_string()
+        } else {
+            cell(&o.kind)
+        };
+        vec![(i + 1).to_string(), kind, cell(&o.text)]
+    });
+    Some(table(&["#", "Kind", "Obligation"], rows.collect()))
 }
 
 /// `node`'s references: each written reference in field and written order

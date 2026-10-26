@@ -1,6 +1,7 @@
 use crate::queries::*;
 use crate::tests::G;
 use specforge_extension_sdk::prelude::CommandGraph;
+use specforge_test::prelude::*;
 
 #[test]
 fn bulk_status_aggregates_by_kind() {
@@ -62,4 +63,30 @@ fn project_health_scores_coverage_and_completeness() {
     assert_eq!(report.completeness.features_total, 2);
     assert_eq!(report.completeness.milestones_with_features, 1);
     assert_eq!(report.completeness.milestones_total, 2);
+}
+
+#[specforge_test(
+    behavior = "surface_health",
+    verify = "health counts an entity only it references as unreferenced, and a milestone whose only reference is itself as one without references"
+)]
+fn health_counts_an_entity_only_it_references_as_unreferenced() {
+    let g = G::default()
+        .n("f_self", "feature")
+        .n("f_used", "feature")
+        .n("j1", "journey")
+        .n("ms_self", "milestone")
+        .n("ms1", "milestone")
+        .edge("f_self", "f_self", "depends_on")
+        .edge("j1", "f_used", "features")
+        .edge("ms_self", "ms_self", "depends_on")
+        .edge("ms1", "f_used", "features")
+        .build();
+    let report = project_health(&g);
+    let feature = report
+        .unreferenced_counts
+        .iter()
+        .find(|c| c.kind == "feature")
+        .unwrap();
+    assert_eq!((feature.unreferenced, feature.total), (1, 2));
+    assert_eq!(report.completeness.milestones_with_features, 1);
 }

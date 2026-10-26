@@ -435,8 +435,8 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
                 .containment()
                 .resolve(path)
                 .map_err(|outside| OpError::from(outside).about(FormatField::Paths))?;
-            if names_nothing(&held.spelled) {
-                let shown = path.display().to_string();
+            if names_nothing(&held.at) {
+                let shown = held.named.display().to_string();
                 return Err(OpError::new(
                     OpErrorKind::FileNotFound,
                     crate::view::FILE_NOT_FOUND,
@@ -445,7 +445,7 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
                 .with_file(shown)
                 .about(FormatField::Paths));
             }
-            Ok(held.spelled)
+            Ok(held.at)
         })
         .collect::<Result<Vec<PathBuf>, _>>()?;
     let Targets { files, diagnostics } =

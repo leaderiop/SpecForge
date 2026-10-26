@@ -95,7 +95,6 @@ impl CoreTool for Tool {
             extensions: args.specifiers.0,
             // A relative local path is read from the project's root: the server has no working
             // directory of its own to mean it.
-            base: None,
             // An unsigned package is accepted by a person, in a terminal (ADR 0221), as a key change is.
             allow_unsigned: false,
             dry_run: args.dry_run,

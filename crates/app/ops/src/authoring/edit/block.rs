@@ -8,8 +8,7 @@ use super::{EditField, Input};
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{SourceSpan, codes};
 use specforge_formatter::FormatConfig;
-use specforge_graph::field_form::{FieldForm, Reading, spell};
-use specforge_parser::lex::{LexemeKind, lex};
+use specforge_graph::field_form::{self, FieldForm, Reading, spell};
 use specforge_parser::{Entity, FieldEntry, FieldValue, SpecFile, parse};
 use specforge_protocol_types::FieldType;
 
@@ -50,6 +49,20 @@ fn broken(id: &str) -> Refusal<EditField> {
     )
     .with_entity(id)
     .about(EditField::Entity)
+}
+
+/// A typed edit would rewrite a value holding a comment (ADR 0267): the comment lives in no value an edit writes.
+fn commented(site: &Site<'_>, field: &str) -> Refusal<EditField> {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        NOT_EDITABLE,
+        format!(
+            "field '{field}' of {} '{}' holds a comment inside its value; edit it by hand in {}",
+            site.kind, site.id, site.key
+        ),
+    )
+    .with_entity(site.id)
+    .about(EditField::Field)
 }
 
 fn position(file: &SpecFile, site: &Site<'_>) -> Option<usize> {
@@ -220,12 +233,20 @@ impl Block {
         }
     }
 
-    /// The first line of the comment lines the parse read directly above member line `line` (`line` itself when
-    /// there are none; 0-based, as `lines`). Never above the block's opening brace: a comment on its row trails it.
+    /// The first line of the comment lines the parse read directly above member line `line`, or a closing brace's
+    /// line (`line` itself when there are none; 0-based, as `lines`). Never above the block's opening brace: a
+    /// comment on its row trails it.
     fn with_comments_above(&self, line: usize) -> usize {
         self.entity()
             .comments_above(line + 1)
             .map_or(line, |run| run.start_line - 1)
+    }
+
+    /// Where a new last member of the body closed on 0-based line `close` goes (the block's `}`, or a block field's):
+    /// above the comment lines the parse read directly above that brace. They are the body's: no member owns them,
+    /// so a later removal of the new member leaves them (ADR 0274).
+    fn end_of_members(&self, close: usize) -> usize {
+        self.with_comments_above(close)
     }
 
     /// The block removed, with its doc comment as the parse read it (never the format header) and one blank line
@@ -237,14 +258,7 @@ impl Block {
             .as_ref()
             .map_or(self.header(), |doc| doc.start_line - 1);
         let last = self.close();
-        let before_blank = first > 0 && self.lines[first - 1].trim().is_empty();
-        let after_blank = last + 1 < self.lines.len() && self.lines[last + 1].trim().is_empty();
-        let (first, last) = match (before_blank, after_blank) {
-            (true, _) => (first - 1, last),
-            (false, true) => (first, last + 1),
-            _ => (first, last),
-        };
-        self.lines.drain(first..=last);
+        cut(&mut self.lines, first, last);
     }
 
     pub(super) fn remove(&mut self, first: usize, last: usize) {
@@ -256,6 +270,20 @@ impl Block {
         let new: Vec<String> = text.split('\n').map(String::from).collect();
         self.lines.splice(at..at, new);
     }
+}
+
+/// `lines[first..=last]` removed with one blank line beside them: the one above, else the one below. The empty last
+/// element a final newline leaves is no blank line, so the text keeps ending with one (ADR 0274).
+pub(super) fn cut<T: AsRef<str>>(lines: &mut Vec<T>, first: usize, last: usize) {
+    let blank = |line: usize| lines[line].as_ref().trim().is_empty();
+    let before_blank = first > 0 && blank(first - 1);
+    let after_blank = last + 2 < lines.len() && blank(last + 1);
+    let (first, last) = match (before_blank, after_blank) {
+        (true, _) => (first - 1, last),
+        (false, true) => (first, last + 1),
+        _ => (first, last),
+    };
+    lines.drain(first..=last);
 }
 
 /// Where a field goes: one-line values, then block fields, then triple-quoted text, each in the kind's declared
@@ -298,27 +326,19 @@ fn annotation_text(annotations: &[String]) -> String {
         .collect()
 }
 
-/// A comment ending the text after a value, with the space before it.
-fn trailing_comment(suffix: &str) -> &str {
-    lex(suffix)
-        .iter()
-        .find(|l| l.kind == LexemeKind::Comment)
-        .map_or("", |l| {
-            suffix[..l.start]
-                .rfind(|c: char| c != ' ')
-                .map_or(&suffix[l.start..], |n| &suffix[n + 1..])
-        })
-}
-
 impl Block {
     /// `span` (a value) replaced by `new`; with `annotations`, the text after it becomes them (a trailing comment
     /// is kept).
     fn replace_value(&mut self, span: &SourceSpan, new: &str, annotations: Option<&[String]>) {
         let (first, last) = (span.start_line - 1, span.end_line - 1);
+        let comment = self
+            .entity()
+            .trailing_comment(span)
+            .map_or_else(String::new, |c| format!(" {}", self.text_of(c)));
         let prefix = &self.lines[first][..span.start_col - 1];
         let suffix = &self.lines[last][span.end_col - 1..];
         let suffix = match annotations {
-            Some(a) => format!("{}{}", annotation_text(a), trailing_comment(suffix)),
+            Some(a) => format!("{}{comment}", annotation_text(a)),
             None => suffix.to_string(),
         };
         let replacement = format!("{prefix}{new}{suffix}");
@@ -349,7 +369,9 @@ impl Block {
                 .entity()
                 .obligation_spans
                 .first()
-                .map_or(self.close(), |s| self.with_comments_above(s.start_line - 1)),
+                .map_or(self.end_of_members(self.close()), |s| {
+                    self.with_comments_above(s.start_line - 1)
+                }),
         };
         self.insert(at, &text);
     }
@@ -375,23 +397,58 @@ impl Block {
         annotations: Option<&[String]>,
     ) -> Result<(), Refusal<EditField>> {
         let value = written(reading, name, input, &self.lead_of(name), &self.config)?;
-        self.place(site, name, &value, annotations);
-        Ok(())
+        self.place(site, name, &value, annotations)
     }
 
     /// `value`, already written for field `name`'s column, as the block's own `name`: its value replaced (the text
-    /// after it becoming `annotations` when given), else a new member at its rank with `annotations` (none when
-    /// `None`). Never refuses.
+    /// after it becoming `annotations` when given; a trailing comment stays), else a new member at its rank with
+    /// `annotations` (none when `None`). A value holding a comment is kept as written when `value` reads the same as
+    /// the graph stores both, the annotations still applied; refused `not_editable`, naming the field, the entity and
+    /// the file, when it reads otherwise (ADR 0267).
     pub(super) fn place(
         &mut self,
         site: &Site<'_>,
         name: &str,
         value: &str,
         annotations: Option<&[String]>,
-    ) {
-        match self.entry(name).and_then(|e| e.value_span.clone()) {
-            Some(span) => self.replace_value(&span, value, annotations),
-            None => self.insert_member(site, name, value, annotations.unwrap_or_default()),
+    ) -> Result<(), Refusal<EditField>> {
+        let Some(span) = self.entry(name).and_then(|e| e.value_span.clone()) else {
+            self.insert_member(site, name, value, annotations.unwrap_or_default());
+            return Ok(());
+        };
+        let value = if self.entity().holds_comment(&span) {
+            self.as_written_if_same(site, name, &span, value)?
+        } else {
+            value.to_string()
+        };
+        self.replace_value(&span, &value, annotations);
+        Ok(())
+    }
+
+    /// The value at `span`, as written, when `value` in its place reads the same as the graph stores both
+    /// (`field_form::write` of `FieldForms::stored`, W161's comparison, ADR 0182 D4); else refused.
+    fn as_written_if_same(
+        &mut self,
+        site: &Site<'_>,
+        name: &str,
+        span: &SourceSpan,
+        value: &str,
+    ) -> Result<String, Refusal<EditField>> {
+        let stored = |block: &Block| {
+            block.entry(name).map(|e| {
+                field_form::write(&site.view.registries().field_forms().stored(site.kind, e))
+            })
+        };
+        let (before, written, lines) = (stored(self), self.text_of(span), self.lines.clone());
+        self.replace_value(span, value, None);
+        self.reread(site)?;
+        let same = stored(self) == before;
+        self.lines = lines;
+        self.reread(site)?;
+        if same {
+            Ok(written)
+        } else {
+            Err(commented(site, name))
         }
     }
 
@@ -417,7 +474,7 @@ impl Block {
         if !open {
             // Absent, or written as none (`{}`, one line): open it at its rank, so the entry has a closing line.
             let empty = format!("{{\n{}}}", self.lead_of(outer));
-            self.place(site, outer, &empty, None);
+            self.place(site, outer, &empty, None)?;
             self.reread(site)?;
         }
         let (outer_span, own) = match path::nested(site, self, outer, inner)? {
@@ -446,7 +503,7 @@ impl Block {
             None => {
                 let note = annotation_text(annotations.unwrap_or_default());
                 self.insert(
-                    outer_span.end_line - 1,
+                    self.end_of_members(outer_span.end_line - 1),
                     &format!("{lead}{inner} {value}{note}"),
                 );
             }
@@ -461,14 +518,14 @@ impl Block {
         Ok(())
     }
 
-    /// A `verify` statement line, after the last statement the parse read (else before the closing brace), at the
-    /// members' lead.
+    /// A `verify` statement line, after the last statement the parse read (else above the closing comment run), at
+    /// the members' lead.
     pub(super) fn put_verify(&mut self, statement: &str) {
         let at = self
             .entity()
             .obligation_spans
             .last()
-            .map_or(self.close(), |s| s.end_line);
+            .map_or(self.end_of_members(self.close()), |s| s.end_line);
         let line = format!("{}{statement}", self.member_lead());
         self.insert(at, &line);
     }

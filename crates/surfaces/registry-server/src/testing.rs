@@ -141,6 +141,27 @@ impl LocalRegistry {
     /// manifest, scope): what a registry may already hold. Versions list in store order. `wasm_url` is
     /// ignored (the server serves its own download path); `sha256` is stored as given.
     pub fn store(&self, metadata: &PackageMetadata, wasm: &[u8]) {
+        self.store_row(
+            &PackageVersion {
+                name: metadata.name.to_string(),
+                version: metadata.version.to_string(),
+                sha256: metadata.sha256.to_string(),
+                size_bytes: metadata.size_bytes,
+                description: metadata.description.clone(),
+                keywords: metadata.keywords.join(","),
+                publisher: metadata.publisher.clone(),
+                published_at: String::new(),
+                signature: metadata.signature.clone(),
+                manifest: metadata.manifest.clone(),
+            },
+            wasm,
+        );
+    }
+
+    /// Store `row` as given (its `published_at` is replaced by a strictly increasing one): a row no
+    /// [`PackageMetadata`] can hold, such as a name or digest from before ADR 0036, is what a reader that skips
+    /// unreadable rows is tested with.
+    pub fn store_row(&self, row: &PackageVersion, wasm: &[u8]) {
         let published_at = {
             let mut stored = self.stored.lock().unwrap();
             *stored += 1;
@@ -150,16 +171,8 @@ impl LocalRegistry {
                 .to_rfc3339()
         };
         let row = PackageVersion {
-            name: metadata.name.clone(),
-            version: metadata.version.clone(),
-            sha256: metadata.sha256.clone(),
-            size_bytes: metadata.size_bytes,
-            description: metadata.description.clone(),
-            keywords: metadata.keywords.join(","),
-            publisher: metadata.publisher.clone(),
             published_at,
-            signature: metadata.signature.clone(),
-            manifest: metadata.manifest.clone(),
+            ..row.clone()
         };
         match (
             PackageName::from_url_segment(&row.name),

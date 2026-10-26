@@ -6,6 +6,7 @@
 mod builtin_name;
 mod change;
 mod file_entry_name;
+mod hostile_files;
 mod load;
 mod load_once;
 mod lock_and_health;

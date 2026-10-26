@@ -18,6 +18,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
     not in the graph) is -32002 in a handshake session and -32602 in a
     2026-07-28 request, and its data names the URI as uri. A refusal for a
     missing project names the path argument only where the entry takes one.
+    A refusal of a call's path names it as the call spelled it.
     An operation's failure kind decides the McpError code. An operation
     states the kind where it raises the failure; no table maps a code to a
     kind, and a package the registry or its trust check refuses is never
@@ -45,6 +46,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a failed resources/read carries its McpError as the error's data"
   verify unit "a no-project refusal names path only for an entry that takes one"
   verify unit "a path that does not exist is a file_not_found error on path"
+  verify unit "a call target's refusal names its path as the call spelled it"
   verify unit "an operation's failure kind decides its McpError code, never its code text"
   verify unit "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
 }

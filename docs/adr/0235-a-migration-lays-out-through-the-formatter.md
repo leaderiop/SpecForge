@@ -1,6 +1,6 @@
 # A migration lays out through the formatter
 
-**Status:** accepted (2026-10-23, architecture round 26, plan 06). Extends [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md)
+**Status:** accepted (2026-10-23, architecture round 26, plan 06). Amended by [ADR 0266](0266-a-source-line-break-has-one-reader.md): a migration writes the file's line break around the blocks it lays out. Extends [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md)
 D12 (the hoist decides what moves; the formatter lays it out), [ADR 0186](0186-a-migration-is-judged-before-it-is-written.md)
 D5 (the configuration is looked up after the environment, before the plan) and D7 (the plan writes what `format`
 writes, as it asks the rule the judge applies), and [ADR 0169](0169-the-format-configuration-is-read-through-the-callers-disk.md)

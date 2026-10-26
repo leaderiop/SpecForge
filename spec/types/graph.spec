@@ -51,6 +51,13 @@ type MethodJson "One method member as every output writes it: no position" {
   verify unit "MethodJson schema is valid"
 }
 
+type Obligation "One verify statement as every output writes it and specforge.edit reads it" {
+  /// Absent for a bare verify "…".
+  kind string @optional
+  text string
+  verify unit "Obligation schema is valid"
+}
+
 type Edge "Edge" {
   source    EntityId @readonly
   target    EntityId @readonly

@@ -338,7 +338,7 @@ behavior apply_format_rules "Apply Format Rules" {
     decisions for each whitespace region: keep, replace, insert, or remove.
     Rules cover indentation, spacing, alignment, wrapping, blank lines,
     comments and imports. The formatted text ends every line with LF
-    (CRLF line endings become LF, inside string literals too) and ends with
+    (CRLF line endings become LF, inside string literals too, a title's, a list item's and a verify text's included) and ends with
     exactly one newline; no blank line opens or closes it, and a blank text
     formats to the empty text. A value is written in its field's form
     (ADR 0147), read as the parse reads it (a quoted text with its escapes read, a triple-quoted one dedented, never
@@ -611,6 +611,7 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
   verify unit "diagnostic lists files with parse errors and error line ranges"
   verify unit "a form the parser could not read whole is kept as written and the forms after it are formatted"
   verify unit "the diagnostic spans every line of the form it kept, never past the document"
+  verify unit "a text holding a control character is left as written, with one E001"
   verify unit "forms that share a line with a form left unchanged are kept with it, each line written once"
   verify property "formatting any text never panics, and formatting its output again changes nothing"
   verify contract "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"

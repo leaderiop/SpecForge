@@ -111,7 +111,7 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 | [`coverage`](leaf/coverage/) | `specforge-coverage` | The coverage rule of @specforge/testing: which obligations a project's recorded tests prove, per entity and in summary; linked by the extension's Wasm pass and the host surfaces |
 | [`cycles`](leaf/cycles/) | `specforge-cycles` | Which nodes of a directed graph lie on a cycle, and one closed walk through each: the host's W061, W113 and cycle rules and the formal and product guests read it |
 | [`diagnostics`](leaf/diagnostics/) | `specforge-diagnostics` | The catalog of SpecForge diagnostic codes: titles, owners, levels and explanations |
-| [`package`](leaf/package/) | `specforge-package` | The host's reading of what an extension package is called, which version is asked for and what its declared peers require (ADR 0036, 0041, 0050) |
+| [`package`](leaf/package/) | `specforge-package` | The host's reading of what an extension package is called, which version is asked for, the SHA-256 that pins its bytes and what its declared peers require (ADR 0036, 0041, 0050, 0243) |
 | [`protocol-types`](leaf/protocol-types/) | `specforge-protocol-types` | The guest wire of the SpecForge extension protocol: the handshake, the describe payloads, the operation payloads and the command-arg rule, which the host and every guest compile (ADR 0012, 0013, 0050) |
 | [`repo-root`](leaf/repo-root/) | `specforge-repo-root` | The SpecForge checkout's root, for the tests and build tools that read files outside their crate |
 

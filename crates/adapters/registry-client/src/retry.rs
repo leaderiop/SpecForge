@@ -7,7 +7,7 @@ use specforge_package::DeclaredPackage;
 use specforge_package::PackageName;
 use specforge_package::Version;
 use specforge_registry_wire::{
-    PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
+    PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery, Timestamp,
 };
 
 use crate::registry_client::{RegistryClient, RegistryError};
@@ -112,7 +112,7 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.sent(|| self.inner.versions(name, registry, credential))
     }
 
@@ -169,7 +169,7 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         self.sent(|| self.inner.authenticate(registry, credential))
     }
 }

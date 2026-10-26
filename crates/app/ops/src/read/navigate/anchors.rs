@@ -6,12 +6,13 @@
 //! the infer prompt's file scope render these documents (ADR 0140).
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::shape::Shape;
 
 use super::{FileMatch, match_file};
-use crate::read::infer::SourceKey;
+use crate::source_key::SourceKey;
 use crate::view::{EntityField, ProjectView, not_found};
 use crate::{OpError, Refusal};
 
@@ -111,6 +112,8 @@ fn manifest(view: &ProjectView<'_>) -> Result<AnchorManifest, OpError> {
 /// an anchor names, by its file and its name, for an entity the view's graph declares; else an item
 /// whose name is the id of a declared entity no anchor names. What inference gaps leave out.
 pub(crate) struct CoveredItems<'a> {
+    /// The project root an anchor's file and a scanner's file are read from (ADR 0271).
+    root: PathBuf,
     /// Every id the graph declares.
     declared: HashSet<&'a str>,
     /// Source key to the symbol names anchored there to a declared entity.
@@ -124,6 +127,7 @@ impl<'a> CoveredItems<'a> {
     /// be used, the name rule alone when there is none.
     pub(crate) fn of(view: &ProjectView<'a>) -> Result<Self, OpError> {
         let manifest = manifest(view)?;
+        let root = view.project_root()?.to_path_buf();
         let declared: HashSet<&str> = view
             .graph()
             .nodes()
@@ -133,12 +137,12 @@ impl<'a> CoveredItems<'a> {
         let mut anchored: HashMap<String, HashSet<String>> = HashMap::new();
         let mut anchored_entities = HashSet::new();
         for anchor in &manifest.anchors {
-            // A stale anchor (an id the graph lacks) and an anchor outside the root cover nothing;
-            // navigation still lists them (ADR 0140 D3).
+            // An anchor to an id the graph lacks, or whose key lies outside the root, covers nothing;
+            // navigation still lists it (ADR 0199 D4).
             let Some(&entity) = declared.get(anchor.entity_id.as_str()) else {
                 continue;
             };
-            let Ok(key) = SourceKey::of(&anchor.file) else {
+            let Ok(key) = SourceKey::read(&root, &anchor.file) else {
                 continue;
             };
             anchored
@@ -148,6 +152,7 @@ impl<'a> CoveredItems<'a> {
             anchored_entities.insert(entity);
         }
         Ok(CoveredItems {
+            root,
             declared,
             anchored,
             anchored_entities,
@@ -157,7 +162,7 @@ impl<'a> CoveredItems<'a> {
     /// Whether the item `name` in the source `file` (as a scan reports it) is covered.
     pub(crate) fn covers(&self, file: &str, name: &str) -> bool {
         // keyed as the anchors are, so a scanner's `./src/x.rs` finds `src/x.rs`
-        SourceKey::of(file)
+        SourceKey::read(&self.root, file)
             .ok()
             .and_then(|key| self.anchored.get(key.as_str()))
             .is_some_and(|names| names.contains(name))
@@ -170,7 +175,8 @@ impl<'a> CoveredItems<'a> {
 /// non-empty mode wins: exact matches, else those under the query or ending with it. Rows are in
 /// manifest order. `file_path` is read from the project root as a named spec file is (an absolute path
 /// under the root is that path, a `..` applied where it stands: [`ProjectView::source_root`], ADR 0253),
-/// then compared as text; one whose key lies outside the project root, or that names nothing, is
+/// then compared as text against each anchor's file, read from the project root as the query is
+/// (ADR 0271; an anchor whose key lies outside the root is compared as recorded); one whose key lies outside the project root, or that names nothing, is
 /// `not_a_source_path`, about [`FileAnchorsField::FilePath`]. No file is opened but the manifest. A
 /// missing manifest anchors nothing; one that cannot be used is E071; a view with no root is
 /// `no_project`.
@@ -182,11 +188,16 @@ pub fn anchors_of_file(
         .source_root(file_path)
         .map_err(|error| error.about(FileAnchorsField::FilePath))?;
     let manifest = manifest(view)?;
+    let root = view.project_root()?;
     let mut exact = Vec::new();
     let mut loose = Vec::new();
     let mut under = false;
     for anchor in manifest.anchors {
-        match match_file(query.as_str(), &anchor.file) {
+        let key = SourceKey::read(root, &anchor.file).ok();
+        match match_file(
+            query.as_str(),
+            key.as_ref().map_or(anchor.file.as_str(), SourceKey::as_str),
+        ) {
             FileMatch::Exact => exact.push(anchor),
             FileMatch::Directory => {
                 under = true;
@@ -409,5 +420,30 @@ mod tests {
         let covered = CoveredItems::of(&fixture.view()).unwrap();
         assert!(covered.covers("./src/lib.rs", "compile_project"));
         assert!(!covered.covers("./src/other.rs", "compile_project"));
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "read_a_recorded_source_path",
+        verify = "an anchor recorded by its absolute path under the project root is that file"
+    )]
+    fn an_anchor_recorded_absolute_under_the_root_is_its_file() {
+        let fixture = covering(None);
+        let root = fixture.root().to_path_buf();
+        let canonical = std::fs::canonicalize(&root).unwrap();
+        for file in [
+            format!("{}/src/lib.rs", root.display()),
+            format!("{}/src/lib.rs", canonical.display()),
+            "src/../src/lib.rs".to_string(),
+        ] {
+            fixture.write(
+                ANCHORS_FILENAME,
+                manifest_of(&[anchor("compiled_project", &file, "CompiledProject")]),
+            );
+            let covered = CoveredItems::of(&fixture.view()).unwrap();
+            assert!(covered.covers("src/lib.rs", "CompiledProject"), "{file}");
+            let found = |query: &str| anchors_of_file(&fixture.view(), query).unwrap().match_mode;
+            assert_eq!(found("src/lib.rs"), FileMatch::Exact, "{file}");
+            assert_eq!(found("src"), FileMatch::Directory, "{file}");
+        }
     }
 }

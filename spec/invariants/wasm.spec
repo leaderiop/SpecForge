@@ -187,7 +187,9 @@ invariant registry_reply_binding "Registry Reply Binding" {
     What a registry install verifies, pins and installs is the package and
     version that was requested, described by a manifest that can be read:
     a reply or manifest for another package or version, or a missing or
-    unreadable manifest, is refused before any key is pinned.
+    unreadable manifest, is refused before any key is pinned; a reply
+    whose name, version or digest is no package name, SemVer version or
+    lowercase SHA-256 is refused before anything is downloaded.
   """
   risk      high
   verify integration "a manifest describing another package is refused"

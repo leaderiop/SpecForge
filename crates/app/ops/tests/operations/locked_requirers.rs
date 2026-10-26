@@ -66,7 +66,6 @@ fn add(
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(root).unwrap(),
             extensions: vec![specifier.to_string()],
-            base: None,
             allow_unsigned: true,
             dry_run: false,
             caller: specforge_ops::testing::caller(),

@@ -23,7 +23,10 @@ expression: "shape(&reply, dir.path())"
     "structural_constraints": [],
     "upstream_entities": [],
     "verify_expectations": [
-      "unit alpha works"
+      {
+        "kind": "unit",
+        "text": "alpha works"
+      }
     ]
   },
   "roles": [

@@ -170,9 +170,9 @@ fn vscode_extension_builds_every_flag_as_a_literal() {
 /// search the editor command means) is not on it (ADR 0249 D4).
 #[test]
 fn vscode_extension_calls_only_the_commands_it_means() {
-    const CALLED: [&str; 13] = [
+    const CALLED: [&str; 12] = [
         "analyze", "add", "check", "doctor", "explain", "export", "init", "model", "outline",
-        "query", "remove", "stats", "trace",
+        "remove", "stats", "trace",
     ];
     let called: BTreeSet<String> = vscode_cli_calls()
         .iter()
@@ -272,6 +272,152 @@ fn vscode_manifest_declares_only_what_the_extension_provides() {
             if !root.join(file).exists() && file != main {
                 problems.push(format!("script {script} runs {file}, which is not there"));
             }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// The `file:line` of each line of `text` that holds `needle`.
+fn lines_with(name: &str, text: &str, needle: &str) -> Vec<String> {
+    text.lines()
+        .enumerate()
+        .filter(|(_, l)| l.contains(needle))
+        .map(|(i, _)| format!("{name}:{}: {needle}", i + 1))
+        .collect()
+}
+
+/// The entity under the cursor is the language server's answer
+/// (`specforge/entity`, ADR 0268 D3), not the manifest's word pattern.
+#[test]
+fn vscode_client_reads_no_word_under_the_cursor() {
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .flat_map(|(n, t)| lines_with(n, t, "getWordRangeAtPosition("))
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Every `"specforge/…"` method the client names is one the language server serves
+/// (the constants of `views.rs`, ADR 0268).
+#[test]
+fn vscode_client_asks_only_what_the_server_answers() {
+    let literals = |text: &str| -> Vec<String> {
+        text.split("\"specforge/")
+            .skip(1)
+            .map(|rest| format!("specforge/{}", rest.split('"').next().unwrap_or_default()))
+            .collect()
+    };
+    let views = std::fs::read_to_string(repo_root().join("crates/surfaces/lsp/src/views.rs"))
+        .expect("crates/surfaces/lsp/src/views.rs");
+    let served = literals(&views);
+    assert!(!served.is_empty(), "views.rs names no method");
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .flat_map(|(name, text)| {
+            literals(text)
+                .into_iter()
+                .filter(|method| !served.contains(method))
+                .map(|method| format!("{name}: `{method}` is no method views.rs serves"))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// The init and add pickers offer the builtins that declare kinds, each with its kinds, as
+/// `builtin-vocabulary.json` groups them (ADR 0268 D5): the client keeps the list because
+/// Initialize Project runs before a project exists, and this pin fails the moment a builtin gains
+/// or loses a kind.
+#[test]
+fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
+    use std::collections::BTreeMap;
+    let commands = vscode_sources()
+        .into_iter()
+        .find(|(name, _)| name == "commands.ts")
+        .expect("commands.ts")
+        .1;
+    // Each `label: "@specforge/…"` and the `description: "…"` that follows it (maybe on the next line).
+    let quoted_after = |text: &str, key: &str| -> Option<String> {
+        let rest = &text[text.find(key)? + key.len()..];
+        let rest = rest.trim_start().strip_prefix('"')?;
+        Some(rest[..rest.find('"')?].to_string())
+    };
+    let mut offered: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (at, _) in commands.match_indices("label: \"@specforge/") {
+        let tail = &commands[at..];
+        let label = quoted_after(tail, "label:").expect("a label");
+        let description = quoted_after(tail, "description:").expect("a description");
+        offered.insert(label, description.split(", ").map(str::to_string).collect());
+    }
+    let vocabulary: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            repo_root().join("crates/runtime/component/data/builtin-vocabulary.json"),
+        )
+        .expect("builtin-vocabulary.json"),
+    )
+    .expect("valid vocabulary JSON");
+    let mut declared: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (kind, builtin) in vocabulary["kinds"].as_object().expect("kinds") {
+        declared
+            .entry(builtin.as_str().expect("builtin name").to_string())
+            .or_default()
+            .insert(kind.clone());
+    }
+    assert_eq!(offered, declared, "the Initialize Project picker");
+
+    // The Add Extension picker lists the same builtins.
+    let add = &commands[commands
+        .find("\"specforge.addExtension\"")
+        .expect("the add command")..];
+    let add = &add[..add.find("{ placeHolder").expect("the add picker's options")];
+    let listed: BTreeSet<String> = add
+        .split('"')
+        .filter(|w| w.starts_with("@specforge/"))
+        .map(str::to_string)
+        .collect();
+    assert_eq!(
+        listed,
+        declared.keys().cloned().collect::<BTreeSet<_>>(),
+        "the Add Extension picker"
+    );
+}
+
+/// The tree and the graph show the session's graph (`specforge/graph`,
+/// ADR 0268 D1): no `specforge` process reads the disk for them, and the
+/// graph view counts no degree of its own (the host's rule drops self-edges).
+#[test]
+fn vscode_tree_and_graph_read_the_language_server() {
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .filter(|(n, _)| n == "entity-tree.ts" || n == "graph-webview.ts")
+        .flat_map(|(n, t)| {
+            let mut found = lines_with(n, t, "cliOutput(");
+            found.extend(lines_with(n, t, "entityDegree.set("));
+            found
+        })
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// A kind's icon, colour and order come from its declared symbol kind
+/// (ADR 0268 D4): no source keeps a table keyed by three or more builtin kinds.
+#[test]
+fn vscode_client_keeps_no_kind_table() {
+    let kinds = manifest_domain_kinds();
+    let mut problems = Vec::new();
+    for (name, text) in vscode_sources() {
+        let named: Vec<&String> = kinds
+            .iter()
+            .filter(|k| {
+                [format!("{k}:"), format!("\"{k}\""), format!("'{k}'")]
+                    .iter()
+                    .any(|p| text.contains(p.as_str()))
+            })
+            .collect();
+        if named.len() >= 3 {
+            problems.push(format!(
+                "{name}: kinds {named:?} are named as keys or literals"
+            ));
         }
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));

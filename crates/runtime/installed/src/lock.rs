@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
-use specforge_package::{PackageName, Version};
+use specforge_package::{PackageName, Sha256, Version};
 use specforge_registry::Disk;
 use std::path::Path;
 
 use crate::layout::lock_path;
 use crate::load::{LoadProblem, Recorded};
-use crate::module::Sha256;
 use crate::resolve::Declared;
 
 mod values;
@@ -32,6 +31,7 @@ pub struct LockFileEntry {
     #[serde(deserialize_with = "values::version")]
     pub version: Version,
     pub source: LockSource,
+    #[serde(deserialize_with = "values::wasm_hash")]
     pub wasm_hash: Sha256,
     /// The publisher key id the registry install was signed by: the
     /// project's pin for the name, which a fetch expects when the user has
@@ -247,7 +247,8 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
 
 /// Read a lock file from disk.
 pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
-    let content = std::fs::read_to_string(path).map_err(|e| unreadable(path, &e))?;
+    let content =
+        specforge_common::regular::read_to_string(path).map_err(|e| unreadable(path, &e))?;
     parse_lock_file(path, &content)
 }
 

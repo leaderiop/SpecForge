@@ -53,7 +53,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
     (ADR 0064): text as a string, an expression group as its conjuncts in
     their display form, one per line, an integer or boolean as a JSON
     scalar, a list as an array, a block as an object of its entries; an entity's
-    verify statements as {kind, description} objects under the node's own
+    verify statements as {kind?, text} objects, the kind absent for a bare verify, under the node's own
     `verify`, beside its fields; its methods as {name, params, returns}
     under its own `methods` (a parameter as {name, type, optional?,
     annotations?}); the annotations written after its fields under its own
@@ -509,6 +509,7 @@ behavior read_a_named_source_path "Read a Source-Code Path a Request Names" {
   verify unit "every spelling of a source-code path under the project root reads as its key"
   verify unit "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
   verify unit "a source-code path that names nothing is refused"
+  verify unit "a source-code path that names nothing is refused in one sentence, the infer prompt's file scope included"
   verify unit "infer_session, find_spec_for_source and the infer file scope read one table of spellings alike"
 }
 
@@ -543,6 +544,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "an unknown entity is E003, entity_not_found"
   verify unit "an entity's headline and its fields read the one entry of a field written twice"
   verify unit "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
+  verify unit "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
   verify unit "a duplicate declaration's diagnostics are about its entity"
 }
 
@@ -748,6 +750,8 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
     number, column, source context snippet, suggestion, and color-coded
     severity. Errors MUST be red, warnings yellow, info blue. The format
     MUST be consistent across all output modes.
+    A source line is echoed printable: each control or bidirectional
+    character but a tab and a line break as its escape.
     Colour follows one rule wherever the CLI writes: NO_COLOR set turns
     it off, CLICOLOR_FORCE set (and not 0) turns it on, otherwise only a
     terminal is coloured; specforge explain bolds the code it explains by

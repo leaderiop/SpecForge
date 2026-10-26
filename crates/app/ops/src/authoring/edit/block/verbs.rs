@@ -8,7 +8,6 @@ use super::{Block, Items, Site, items_of, list_text, unreadable};
 use crate::Refusal;
 use specforge_graph::field_form::{Reading, spell};
 use specforge_parser::FieldValue;
-use specforge_parser::lex::{LexemeKind, lex};
 use specforge_protocol_types::FieldType;
 
 fn finish_edit(
@@ -25,7 +24,8 @@ fn finish_edit(
     })
 }
 
-/// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that.
+/// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that. A value holding a comment
+/// is kept as written when it reads the same, else refused (ADR 0267).
 pub fn set(
     site: &Site<'_>,
     text: &str,
@@ -212,16 +212,6 @@ pub fn link(
                 _ => Change::Unchanged,
             });
         };
-        if let Some(span) = held.own().and_then(|e| e.value_span.as_ref())
-            && lex(&block.lines[span.start_line - 1..span.end_line].join("\n"))
-                .iter()
-                .any(|l| l.kind == LexemeKind::Comment)
-        {
-            return Err(not_editable(
-                EditField::Field,
-                format!("'{field}' holds a comment; edit it by hand"),
-            ));
-        }
         let present = items.texts.iter().any(|t| t == target);
         if add == present {
             return Ok(Change::Unchanged);
@@ -243,7 +233,7 @@ pub fn link(
             return Ok(Change::Emptied);
         }
         let new = list_text(&items);
-        block.place(site, field, &new, None);
+        block.place(site, field, &new, None)?;
         Ok(Change::Changed)
     })
 }

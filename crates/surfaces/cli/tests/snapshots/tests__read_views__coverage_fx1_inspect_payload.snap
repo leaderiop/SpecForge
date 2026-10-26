@@ -51,6 +51,9 @@ expression: "normalized(&result, root)"
   "testable": true,
   "title": "Payload",
   "verify_declarations": [
-    "unit Payload schema is valid"
+    {
+      "kind": "unit",
+      "text": "Payload schema is valid"
+    }
   ]
 }

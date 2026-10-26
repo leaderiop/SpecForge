@@ -320,9 +320,13 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     latest compatible version.
     An installed extension MUST be enabled by its bare name; specforge.lock
     records the version the extension itself declares (its handshake), with
-    source "registry", or "local:<path>" for a local .wasm file, so peer
+    source "registry", or "local:<path>" for a local .wasm file (its project
+    path, a link by its own name), so peer
     and diamond checks compare real versions and update never replaces a
     local build from a registry.
+    A relative local path is read from the project root, on the command line as
+    over MCP, so the path specforge.lock records and its reinstall command names is
+    the path add reads, from any directory of the project.
     A local path may name an extension's crate directory, with or without ./: the component its
     crate builds (target/wasm32-wasip2/release/<crate>.wasm) is installed
     and locked by its own path, as publish reads it; a directory with no
@@ -448,6 +452,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "an add of an extension a .wasm file entry loads in place of a broken install is refused, naming the entry, and writes nothing"
   verify integration "add and check agree: an add check would report E027 or E073 for is refused, and an add that passes leaves none"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"
+  verify integration "a local install is locked by its project path, a link by its own name"
   verify unit "a local crate directory installs the component its crate builds"
   verify integration "add extension preserves all other config fields"
   verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"

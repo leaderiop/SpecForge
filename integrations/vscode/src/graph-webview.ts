@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
 import { getGraphLayout, isGraphAutoUpdate } from "./config";
-import { cliOutput } from "./binary";
+import { graphChanged, sessionGraph } from "./lsp-client";
+import { symbolColor } from "./symbols";
 
 export class GraphWebviewPanel {
   private static instance: GraphWebviewPanel | undefined;
@@ -10,6 +11,8 @@ export class GraphWebviewPanel {
   private readonly extensionUri: vscode.Uri;
   private disposables: vscode.Disposable[] = [];
   private isLoading = false;
+  /** A rebuild reported while a load was out: the answer in flight may predate it. */
+  private refreshAgain = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -32,14 +35,14 @@ export class GraphWebviewPanel {
       this.disposables
     );
 
-    if (isGraphAutoUpdate()) {
-      const saveWatcher = vscode.workspace.onDidSaveTextDocument((doc) => {
-        if (doc.languageId === "specforge" || doc.fileName.endsWith(".spec")) {
+    // The language server tells the panel when it rebuilt (ADR 0268 D2), saved or not.
+    this.disposables.push(
+      graphChanged(() => {
+        if (isGraphAutoUpdate()) {
           this.refresh();
         }
-      });
-      this.disposables.push(saveWatcher);
-    }
+      })
+    );
 
     const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("specforge.graph")) {
@@ -97,16 +100,27 @@ export class GraphWebviewPanel {
   }
 
   public async refresh(): Promise<void> {
-    if (this.isLoading) return;
+    if (this.isLoading) {
+      this.refreshAgain = true;
+      return;
+    }
     this.isLoading = true;
 
     this.panel.webview.postMessage({ type: "loading" });
 
     try {
-      const data = await this.getGraphData();
+      const { graph, kinds, degrees } = await sessionGraph();
+      const colors: Record<string, string> = {};
+      for (const [kind, symbolKind] of Object.entries(kinds)) {
+        colors[kind] = symbolColor(symbolKind);
+      }
       this.panel.webview.postMessage({
         type: "graphData",
-        data,
+        data: graph,
+        // The host's count of each entity's edges to other entities (Graph::degree).
+        degrees,
+        // Each kind's theme colour, from its declared symbol kind (ADR 0268 D4).
+        colors,
         layout: getGraphLayout(),
       });
     } catch (err) {
@@ -117,15 +131,10 @@ export class GraphWebviewPanel {
       });
     } finally {
       this.isLoading = false;
-    }
-  }
-
-  private async getGraphData(): Promise<unknown> {
-    const stdout = await cliOutput(["export", "--format=graph"]);
-    try {
-      return JSON.parse(stdout);
-    } catch {
-      throw new Error("Failed to parse graph JSON output.");
+      if (this.refreshAgain) {
+        this.refreshAgain = false;
+        void this.refresh();
+      }
     }
   }
 
@@ -219,16 +228,19 @@ export class GraphWebviewPanel {
   const vscode = acquireVsCodeApi();
 
   // ===== Constants =====
-  const KIND_COLORS = {
-    behavior: '#4285F4', type: '#7B61FF', event: '#E65100',
-    invariant: '#EA4335', port: '#00ACC1',
-    feature: '#34A853', journey: '#43A047', deliverable: '#1E88E5',
-    milestone: '#8E24AA', module: '#607D8B', term: '#795548',
-    persona: '#009688', channel: '#FF7043', release: '#FF5722',
-    decision: '#FBBC04', constraint: '#FF9800', failure_mode: '#F44336',
-    property: '#9C27B0', axiom: '#673AB7', protocol: '#3F51B5',
-    refinement: '#5C6BC0', process: '#7986CB',
-  };
+  // Each kind's colour, resolved from the theme colour the extension names for its symbol kind.
+  let KIND_COLORS = {};
+  function resolveColors(colors) {
+    const probe = document.createElement('span');
+    document.body.appendChild(probe);
+    KIND_COLORS = {};
+    for (const [kind, css] of Object.entries(colors || {})) {
+      probe.style.color = '';
+      probe.style.color = css;
+      KIND_COLORS[kind.toLowerCase()] = getComputedStyle(probe).color || '#888';
+    }
+    probe.remove();
+  }
 
   // Group node dimensions
   const GW = 140, GH = 70, GRX = 12;
@@ -304,11 +316,14 @@ export class GraphWebviewPanel {
     return s.split('_').map(function(w) { return w[0].toUpperCase() + w.slice(1); }).join(' ');
   }
 
-  function hexRgba(hex, a) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  // color is a computed colour: rgb(r, g, b) or #rrggbb.
+  function hexRgba(color, a) {
+    const m = color.match(/\\d+(\\.\\d+)?/g);
+    if (color.startsWith('#')) {
+      return 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' +
+        parseInt(color.slice(5, 7), 16) + ',' + a + ')';
+    }
+    return 'rgba(' + m[0] + ',' + m[1] + ',' + m[2] + ',' + a + ')';
   }
 
   // Compute the intersection of a ray from the center of a rectangle to an
@@ -349,7 +364,7 @@ export class GraphWebviewPanel {
   }
 
   // ===== Parse graph data =====
-  function parseGraphData(data) {
+  function parseGraphData(data, degrees) {
     allNodes = [];
     allEdges = [];
     nodeMap.clear();
@@ -388,10 +403,7 @@ export class GraphWebviewPanel {
       });
     }
 
-    for (const e of allEdges) {
-      entityDegree.set(e.source, (entityDegree.get(e.source) || 0) + 1);
-      entityDegree.set(e.target, (entityDegree.get(e.target) || 0) + 1);
-    }
+    entityDegree = new Map(Object.entries(degrees || {}));
 
     if (allNodes.length === 0) emptyEl.classList.remove('hidden');
   }
@@ -1682,7 +1694,8 @@ export class GraphWebviewPanel {
         loadingEl.classList.add('hidden');
         emptyEl.classList.add('hidden');
         errorEl.classList.add('hidden');
-        parseGraphData(msg.data);
+        resolveColors(msg.colors);
+        parseGraphData(msg.data, msg.degrees);
         egoCenter = null;
         egoExpanded.clear();
         egoPositions.clear();

@@ -457,7 +457,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.inspect tool that
     accepts entity_id (required). The tool MUST return full entity details
-    including kind, fields, contract text, references, verify declarations,
+    including kind, fields, contract text, references, its obligations as the graph export writes them,
     coverage status, and related diagnostics. Its testable field is the
     testability of the entity's kind, the standing the LSP hover shows; a
     separate declared field says whether the entity declares at least one
@@ -495,6 +495,8 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "coverage_status says whether the entity counts, as specforge.coverage's row says"
   verify unit "obligated says whether the entity's kind must declare obligations"
   verify unit "source_extension names the extension that declares the entity's kind"
+  verify unit "inspect writes each obligation as its kind, absent for a bare verify, and its text"
+  verify unit "an obligation inspect writes, given to remove_verify, removes that verify line"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 
@@ -624,7 +626,8 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
     In MCP server mode, the system MUST register a
     specforge.find_spec_for_source tool that accepts file_path (required)
     and returns {file_path, match_mode, entities, count}: the anchors of
-    the project's specforge-anchors.json whose file the path names,
+    the project's specforge-anchors.json whose file, read from the project
+    root as the path is, the path names,
     compared as text component by component (./a and a\b are a and a/b; a
     substring is no match) after the path is read from the project root as a
     named spec file is (its absolute path under the root is that path); a path
@@ -775,11 +778,13 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     so proof coverage never silently drops. A test report that cannot be read
     or parsed, the project's own or the one `test_results` names, MUST be an
     isError result carrying an McpError, as the CLI exits 2 on it. A
-    test_results file that does not exist is file_not_found. A test_results is
+    test_results file that does not exist is file_not_found, and one that names a
+    directory, or nothing, is invalid_input on test_results. A test_results is
     read against the call's project: a relative one names a file under the project's
     root, and one that resolves outside it, by `..`, an absolute name or a
     symlink, is invalid_input on test_results and nothing is read, so the
-    error never says whether a file outside exists. The result MUST list each pass with its
+    error never says whether a file outside exists. A refusal of test_results
+    names it as the call spelled it, with no root joined on. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
     is an error or the coverage gate is below its minimum or unjudged,
     and, with `min`, a `gate` object saying where the gate landed. An extension pass that traps or answers what does not
@@ -802,6 +807,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "a test_results file that does not exist is a file_not_found error"
   verify unit "a relative test_results names a file under the project's root"
   verify unit "a test_results that resolves outside the call's project is refused before it is read"
+  verify unit "a refusal of test_results names it as the call spelled it"
+  verify unit "a test_results that names a directory or nothing is invalid_input on test_results"
   verify unit "extension passes receive no proved claims, as specforge analyze without --prove"
   verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
   verify unit "strict promotes warnings and clears ok"

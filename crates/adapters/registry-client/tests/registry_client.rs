@@ -151,10 +151,9 @@ const ODD: &str = "no \u{1b}[2J\u{1b}]0;pwned\u{7}\n  hint: curl x | sh";
     verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
 )]
 fn a_registry_diagnostic_writes_the_registrys_text_printable() {
-    use specforge_registry_client::registry_ops::verify_registry_integrity;
     use specforge_registry_wire::ErrorCode;
     let s = || "x".to_string();
-    let mut diagnostics = vec![
+    let diagnostics = vec![
         RegistryError::Unauthorized {
             guidance: ODD.into(),
         },
@@ -176,7 +175,6 @@ fn a_registry_diagnostic_writes_the_registrys_text_printable() {
     .into_iter()
     .map(|error| error.to_diagnostic())
     .collect::<Vec<_>>();
-    diagnostics.push(verify_registry_integrity(b"\0asm", ODD).unwrap_err());
     for diagnostic in diagnostics {
         let message = &diagnostic.message;
         assert!(!message.contains(char::is_control), "{message:?}");

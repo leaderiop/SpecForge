@@ -64,6 +64,7 @@ behavior fa_track_coverage_discharge "Track Coverage Item Discharge" {
     test_discharge          "item covered by passing verify/test transitions to test_covered"
     analysis_discharge      "item discharged by static analysis (when opted in) transitions to heuristic_ok"
     undischarged_summary    "undischarged items produce single W035 summary per compilation with breakdown by kind (condition/invariant/layering) and link to drill-down command (specforge analyze coverage)"
+    counted_items_only      "an item is an entity that counts toward coverage as the host counts it (the pass entity read unaltered); no kind is an item by kind alone"
     opt_in_required         "auto-discharge only applies to entities or conditions annotated @auto-discharge-eligible"
     tautological_auto       "opted-in postcondition that is tautologically true auto-discharges to heuristic_ok"
     enforced_invariant_auto "opted-in invariant with enforces referencing matching maintains condition auto-discharges to heuristic_ok"
@@ -82,6 +83,9 @@ behavior fa_track_coverage_discharge "Track Coverage Item Discharge" {
   verify unit "non-trivial item remains pending without test"
   verify unit "@auto-discharge-eligible annotation enables auto-discharge"
   verify unit "entity without @auto-discharge-eligible skips all auto-discharge heuristics"
+  verify unit "an entity the host does not count toward coverage is no W035 or I008 item, whatever its kind"
+  verify unit "W035 says analyze coverage lists an unproven obligation only once results are recorded"
+  verify integration "W035 and I008 name only the entities stats counts toward coverage"
 }
 
 // ── Info Diagnostics ─────────────────────────────────────────
@@ -91,7 +95,7 @@ behavior fa_emit_coverage_item_covered_info "I008: Coverage Item Covered by Test
   types    [CoverageTrackingItem]
   contract """
     When the coverage_tracking pass (specforge analyze) finds a coverage
-    item (an invariant or a testable entity) whose every obligation a
+    item (an entity that counts toward coverage) whose every obligation a
     passing recorded test names, under @specforge/testing's coverage
     rule, emit an I008 info diagnostic naming the tests that prove it.
     An item proven only by an entailed formal claim is not reported,

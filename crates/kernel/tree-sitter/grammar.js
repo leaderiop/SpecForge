@@ -364,7 +364,7 @@ module.exports = grammar({
 
     identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
-    string: (_) => token(seq('"', repeat(choice(/[^"\\]/, seq("\\", /./))), '"')),
+    string: (_) => token(seq('"', repeat(choice(/[^"\\]/, seq("\\", /[^\r\n]/))), '"')),
 
     triple_quoted_string: (_) => {
       return token(seq(

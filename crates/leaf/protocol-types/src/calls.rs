@@ -377,8 +377,10 @@ pub struct PassEntity {
     /// 0094, protocol 1.5.0): they are `verify_kinds` and `verify_texts`.
     #[serde(default)]
     pub fields: BTreeMap<String, String>,
+    /// Edges from other entities into it; an edge from the entity to itself is not counted (ADR 0270).
     #[serde(default)]
     pub incoming_edge_count: usize,
+    /// Edges from it to other entities; an edge from the entity to itself is not counted (ADR 0270).
     #[serde(default)]
     pub outgoing_edge_count: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]

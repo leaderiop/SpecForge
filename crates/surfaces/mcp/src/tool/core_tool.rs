@@ -187,8 +187,6 @@ pub trait ToolSpec: Sync {
     fn target(&self) -> TargetSpec;
     /// Its outputSchema ([`Handled::output_schema`]); `None` for text.
     fn output_schema(&self) -> Option<&'static Value>;
-    /// Whether it lists an outputSchema, without building it.
-    fn is_typed(&self) -> bool;
     /// Run it on its resolved call: a name neither it nor its target
     /// declares is refused first, then its arguments are read, its input
     /// given and its reply finished. The request pipeline's; a test cannot
@@ -319,10 +317,6 @@ impl<T: CoreTool> ToolSpec for T {
 
     fn output_schema(&self) -> Option<&'static Value> {
         <T::Returns as Handled>::output_schema()
-    }
-
-    fn is_typed(&self) -> bool {
-        <T::Returns as Handled>::TYPED
     }
 
     fn run(&self, call: &mut Call<'_>, arguments: &Value) -> ToolOutcome {

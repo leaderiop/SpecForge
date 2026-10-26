@@ -42,6 +42,7 @@ mod registry_order;
 mod reopen;
 mod rooted;
 mod rules;
+mod self_reference;
 mod session;
 mod source_disk;
 mod source_hops;

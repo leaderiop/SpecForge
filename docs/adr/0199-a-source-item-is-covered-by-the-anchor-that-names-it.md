@@ -1,6 +1,6 @@
 # A source item is covered by the anchor that names it
 
-**Status:** accepted (2026-10-21, architecture round 21, plan 08). Amends [ADR 0140](0140-source-anchors-are-a-read-view.md) D1 (the read view answers a third question, which source items are covered; inference gaps read it, the manifest stays private). Cites [ADR 0113](0113-inference-sources-are-walked-by-the-shared-discovery-policy.md) D5 (an anchor's file is keyed by the source path rule) and [ADR 0112](0112-every-project-file-an-operation-opens-goes-through-the-requests-containment.md) D3 (an unusable manifest is E071).
+**Status:** accepted (2026-10-21, architecture round 21, plan 08). Amends [ADR 0140](0140-source-anchors-are-a-read-view.md) D1 (the read view answers a third question, which source items are covered; inference gaps read it, the manifest stays private). Cites [ADR 0113](0113-inference-sources-are-walked-by-the-shared-discovery-policy.md) D5 (an anchor's file is keyed by the source path rule) and [ADR 0112](0112-every-project-file-an-operation-opens-goes-through-the-requests-containment.md) D3 (an unusable manifest is E071). D4: "outside the root" is "its key lies outside the project root", [ADR 0271](0271-a-recorded-source-path-has-one-reader.md).
 
 ## Context
 

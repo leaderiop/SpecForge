@@ -6,7 +6,7 @@ use std::path::PathBuf;
 /// Why a call's target could not be resolved: the call fails with it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetError {
-    /// `path` names nothing on disk: `file_not_found` on argument `path`.
+    /// `path`, as the call wrote it, names nothing on disk: `file_not_found` on argument `path`.
     PathNotFound(PathBuf),
     /// A tool that serves only the served project was given another
     /// project's `path`: `invalid_input` on argument `path` (the dispatcher
@@ -62,9 +62,7 @@ impl From<TargetError> for McpError {
                 "this tool acts on the project the server serves; path cannot name another project",
             ),
             TargetError::Outside(outside) => McpError::from(OpError::from(outside)),
-            TargetError::PathRequired => {
-                McpError::new(ErrorCode::InvalidInput, "Missing required parameter: path")
-            }
+            TargetError::PathRequired => crate::args::missing("path"),
             TargetError::InvalidArgument { message, .. } => {
                 McpError::new(ErrorCode::InvalidInput, message)
             }

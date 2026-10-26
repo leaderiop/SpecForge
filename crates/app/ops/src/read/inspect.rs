@@ -6,16 +6,17 @@
 
 use specforge_common::Diagnostic;
 use specforge_emitter::context::Headline;
-use specforge_graph::{Members, Node};
+use specforge_graph::{Members, Node, Obligation};
 use specforge_project::coverage::{Status, Verdict};
-use specforge_registry::{KindRegistryEntry, ObligationRecord, Standing};
+use specforge_registry::{KindRegistryEntry, Standing};
 
 use crate::read::navigate::{References, is_about};
 use crate::view::{Entity, EntityField, ProjectView};
 use crate::{OpError, Refusal};
 
-/// How the hover and the review document quote a statement (ADR 0152 D6).
-pub use specforge_emitter::markdown::quote;
+/// How the hover and the review document quote a statement (ADR 0152 D6) and list obligations
+/// (ADR 0273).
+pub use specforge_emitter::markdown::{obligations_table, quote};
 
 /// Everything a surface shows about one entity, borrowed from the view.
 #[derive(Debug, Clone)]
@@ -39,9 +40,9 @@ pub struct EntityFacts<'v> {
     /// snapshot (ADR 0019), `testable`, `obligated()`, `exempt()`.
     /// Independent of the recorded report.
     pub standing: &'v Standing,
-    /// Its `verify` statements, in declaration order: its record's in the
-    /// view's entity snapshot (ADR 0019).
-    pub obligations: &'v [ObligationRecord],
+    /// Its `verify` statements, in declaration order: the records every output
+    /// writes (ADR 0273), borrowed from the view's entity snapshot (ADR 0019).
+    pub obligations: &'v [Obligation],
     /// The references to it and the ones it makes (ADR 0016 D2), in graph
     /// edge order.
     pub references: References,
@@ -109,10 +110,4 @@ pub fn inspect<'v>(
             .filter(|d| is_about(graph, d, entity_id))
             .collect(),
     })
-}
-
-/// An obligation as MCP inspect and the context prompt list it:
-/// `"<kind> <text>"`.
-pub fn obligation_text(obligation: &ObligationRecord) -> String {
-    format!("{} {}", obligation.kind, obligation.text)
 }

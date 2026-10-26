@@ -121,7 +121,6 @@ pub(crate) fn add(
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(root).unwrap(),
             extensions: vec![specifier.as_ref().display().to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: specforge_ops::testing::caller(),

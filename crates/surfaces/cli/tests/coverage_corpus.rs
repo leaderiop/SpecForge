@@ -208,7 +208,7 @@ fn fx1_mcp_coverage_today() {
     assert_eq!(inspect["declared"], true, "{inspect}");
     assert_eq!(
         inspect["verify_declarations"],
-        json!(["unit Payload schema is valid"]),
+        json!([{"kind": "unit", "text": "Payload schema is valid"}]),
         "{inspect}"
     );
     assert_eq!(inspect["coverage_status"], "covered", "{inspect}");

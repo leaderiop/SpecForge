@@ -84,8 +84,8 @@ impl From<OpErrorKind> for ErrorCode {
     }
 }
 
-/// A failed call or read: the spec's `McpError`. It is the text (and, for an
-/// untyped tool, the structuredContent) of an `isError` tool result, and the
+/// A failed call or read: the spec's `McpError`. It is the text of an
+/// `isError` tool result (never its structuredContent), and the
 /// `data` of a prompt's or a resource read's JSON-RPC error; serialized from
 /// this one definition everywhere. The diagnostic code, when there is one,
 /// is `diagnostic.code`, never only message text.

@@ -10,6 +10,7 @@ use "types/zero-entity-core"
 port FileSystem "File System" {
   direction outbound
   category  "io/filesystem"
+  // a regular file only, at most 64 MiB (ADR 0264)
   method readFile(path: string) -> Result<string, EmitterError>
   method writeFile(path: string, content: string) -> Result<void, EmitterError>
   method listFiles(pattern: string) -> Result<string[], EmitterError>
@@ -80,12 +81,14 @@ port RegistryClient "Registry Client" {
   // them the same way. A registry refuses a publish into a scope another
   // account owns (Forbidden), and the in-memory client refuses it the same
   // way. A download is held to the size_bytes its reply declares, at most
-  // 64 MiB.
+  // 64 MiB. versions answers SemVer versions; a list holding another is R009.
   method versions(name: PackageName, registry: RegistryConfig, credential: RegistryCredential) -> Result<string[], RegistryError>
   method metadata(name: PackageName, version: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<PackageMetadata, RegistryError>
   method download(metadata: PackageMetadata, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
   method search(query: SearchQuery, registry: RegistryConfig, credential: RegistryCredential) -> Result<SearchHit[], RegistryError>
   method publish(package: DeclaredPackage, wasm: u8[], manifest: string, signature: PackageSignature, registry: RegistryConfig, credential: RegistryCredential) -> Result<PublishReceipt, RegistryError>
+  // authenticate answers the token's expiry as an RFC 3339 timestamp when the registry tracks one;
+  // another text is R009.
   method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
 }

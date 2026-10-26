@@ -1,9 +1,9 @@
 // Inference workflow behaviors — AI agent spec inference from codebases
 //
-// 21 behaviors:
+// 22 behaviors:
 //   - Manifest I/O (3): load, save, compute summary
 //   - Session management (3): start, end, mark analyzed
-//   - Discovery and staleness (2): discover sources, detect stale entries
+//   - Discovery and staleness (3): discover sources, read a recorded path, detect stale entries
 //   - MCP tools (3): infer_progress, infer_session, infer_gaps
 //   - Guides (1): compute inference guide
 //   - MCP prompts (5): the scope read; kind, plan, workflow and file scopes
@@ -85,20 +85,22 @@ behavior compute_inference_summary "Compute Inference Summary" {
   category computation
   ensures {
     files_counted    "files_total reflects source file discovery across all source_roots"
-    analyzed_counted "files_analyzed counts entries in source_index"
+    analyzed_counted "files_analyzed counts the inference sources the index records"
     entities_summed  "entities_produced sums all source_index entity lists"
   }
   contract """
     Compute the InferenceSummary by aggregating the source_index entries.
     files_total is the count of inference sources
-    (discover_inference_sources) across all source_roots. files_analyzed is the count of entries in source_index.
+    (discover_inference_sources) across all source_roots. files_analyzed is
+    the count of inference sources the index records, current or changed:
+    files_total less the unanalyzed ones, so it never exceeds files_total. A
+    recorded file that is no inference source is not counted.
     entities_produced is the sum of all entities_produced arrays across
-    source_index entries. needs_review counts entities that appear in
-    source_index but have no corresponding entity in the compiled graph.
+    source_index entries.
   """
   verify unit "summary counts match source_index contents"
   verify unit "summary scans all source_roots for files_total"
-  verify unit "needs_review detects entities missing from graph"
+  verify unit "files_analyzed counts the inference sources the index records"
 }
 
 // ---------------------------------------------------------------------------
@@ -117,12 +119,16 @@ behavior start_inference_session "Start Inference Session" {
     Create a new InferenceSession with a generated UUID, status=active,
     started_at=now(), and the provided agent identifier. If another session
     already has status=active, return an error — only one active session
-    is allowed. Append the session to the manifest's sessions array and
-    save the manifest.
+    is allowed. Each source root is read as a source-code path is
+    (read_a_named_source_path) and MUST be a directory under the project
+    root: a file, or a path naming nothing on disk, is refused as invalid
+    input on source_roots and nothing is written. Append the session to the
+    manifest's sessions array and save the manifest.
   """
   verify unit "start creates session with active status"
   verify unit "start rejects when another session is active"
   verify unit "start assigns unique session ID"
+  verify unit "start refuses a source root that is not a directory under the project root, and writes nothing"
 }
 
 behavior end_inference_session "End Inference Session" {
@@ -157,12 +163,13 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     Read the source file at the given path and compute its SHA-256 hash.
     Create or update a SourceFileEntry in the manifest's source_index with
     the path, hash, entities_produced list, and current timestamp. If an
-    entry for this path already exists, overwrite it (re-analysis). Save
+    entry for this file already exists, whatever spelling recorded it,
+    overwrite it (re-analysis). Save
     the manifest. The path is recorded root-relative with / separators
     (./src/a.rs and src\a.rs are src/a.rs). It is read from the project root
     as a named spec file is (its absolute path under the root is that path, a
     .. applied where it stands); one whose key lies outside the project root
-    is refused, as is a directory. The same rule applies to the source_roots a
+    is refused, as is a directory. The same key rule applies to the source_roots a
     start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """
@@ -172,6 +179,7 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
   verify unit "mark records the path root-relative with / separators"
   verify unit "mark refuses a file outside the project root"
   verify unit "mark reads an absolute path under the project root as its key"
+  verify unit "mark replaces the entry of its file whatever spelling recorded it"
   verify unit "mark refuses a directory as invalid input on source_file"
 }
 
@@ -198,9 +206,11 @@ behavior discover_inference_sources "Discover Inference Sources" {
     __pycache__, vendor), that an enabled analyzer's excluded_dirs names,
     or that holds specforge.json below a source root. Each source is keyed
     by the source path rule and listed once, whatever source roots reach
-    it. A source root, a file or an indexed path that lands outside the
-    project root, by .., an absolute name or a symlink, is not read: such
-    a root is not walked and such an indexed path is deleted.
+    it; every path the manifest records (a source root, an index entry) is
+    read as read_a_recorded_source_path reads it. A source root, a file or
+    an indexed path whose key lies outside the project root, by .. or an
+    absolute name, or that lands outside through a symlink, is not read:
+    such a root is not walked and such an indexed path is deleted.
   """
   verify unit "no symlinked directory is entered, so a symlink cycle adds no source"
   verify unit "an analyzer's excluded_dirs add to the default skipped directories"
@@ -208,6 +218,27 @@ behavior discover_inference_sources "Discover Inference Sources" {
   verify unit "no inference source lands outside the project root"
   verify unit "an indexed path outside the project root is deleted, never read"
   verify unit "a nested project's files are not the outer project's inference sources"
+}
+
+// A source-code path a manifest records (specforge_ops source_key::SourceKey::read, ADR 0271).
+behavior read_a_recorded_source_path "Read a Source-Code Path a Manifest Records" {
+  features [infer_progress_tracking, infer_gap_analysis]
+  category computation
+  contract """
+    A source-code path a manifest records (an anchor's file in
+    specforge-anchors.json, an index entry's path or a source root in
+    specforge-infer.json) MUST be read from the project root into its key by
+    the reader a source-code path a request names is read by
+    (read_a_named_source_path): every spelling of one path is that path, its
+    absolute path under the project root included, a .. applied where it
+    stands. One whose key lies outside the project root, or that names
+    nothing, is no key: it covers no item, such an index entry is deleted and
+    such a source root is not walked; navigation still lists such an anchor,
+    matched by its text. Each recorded path is read once per operation.
+  """
+  verify unit "an anchor recorded by its absolute path under the project root is that file"
+  verify unit "an index entry recorded by its absolute path under the project root is that file"
+  verify unit "a source root recorded by its absolute path under the project root is walked"
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +258,7 @@ behavior detect_stale_inference_entries "Detect Stale Inference Entries" {
     its current SHA-256 hash. If the hash differs from content_hash, the
     entry is stale. If the file no longer exists, the entry is deleted.
     Return both lists so the agent or user can decide to re-analyze.
-    An indexed path that is not a path inside the project root is deleted;
+    An indexed path whose key lies outside the project root is deleted;
     its file is never read.
   """
   verify unit "detects stale file when content changes"
@@ -304,14 +335,15 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     graph_crossed    "public items cross-referenced with the anchors manifest and graph entities"
     anchored_only    "an anchored entity covers only the items its anchors name"
     per_dir_gaps     "gaps computed per directory"
-    approximate_flag "output marked approximate when using regex fallback"
+    approximate_flag "output marked approximate when a scanner failed on a file"
   }
   contract """
     Register an MCP tool specforge.infer_gaps that scans source files in
-    source_roots for public items. v1 uses regex-based detection for Rust
-    (pub fn, pub struct, pub enum, pub trait) — output is explicitly marked
-    as approximate. An item is covered when the project's
-    specforge-anchors.json anchors it, by its file and its name, to an entity
+    source_roots for public items. Public items are what the enabled
+    analyzers' scanners report; a scanner that fails on a file makes the
+    report approximate. An item is covered when the project's
+    specforge-anchors.json anchors it, by its file (read as
+    read_a_recorded_source_path reads it) and its name, to an entity
     the compiled graph declares, or, when no anchor names that entity, when its
     name is the entity's id. An anchor to an entity the graph does not declare
     covers nothing. An anchors manifest that cannot be used is refused with
@@ -327,7 +359,7 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     refusal (precondition_failed), as the gap analysis refuses a view
     without a root.
   """
-  verify unit "scans Rust files for pub items via regex"
+  verify unit "scans each source file with its analyzer's scanner"
   verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"

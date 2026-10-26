@@ -1,6 +1,6 @@
 # Every MCP tool refuses with an McpError
 
-**Status:** accepted (2026-10-26, architecture round 27, plan 10). Reopens [ADR 0017](0017-one-extension-surface-table.md) D5; amends [ADR 0011](0011-extension-command-contract-and-the-product-surface.md) B and O2 and the "Rejected" list of [ADR 0239](0239-the-call-target-takes-its-own-arguments.md); restores [ADR 0004](0004-architecture-migration-decisions.md) D4-a for extension commands.
+**Status:** accepted (2026-10-26, architecture round 27, plan 10). Amended by [ADR 0275](0275-a-failed-mcp-tool-call-is-one-mcp-error-in-its-text-block.md) (D2: a missing argument is every tool's sentence). Reopens [ADR 0017](0017-one-extension-surface-table.md) D5; amends [ADR 0011](0011-extension-command-contract-and-the-product-surface.md) B and O2 and the "Rejected" list of [ADR 0239](0239-the-call-target-takes-its-own-arguments.md); restores [ADR 0004](0004-architecture-migration-decisions.md) D4-a for extension commands.
 
 ## Context
 

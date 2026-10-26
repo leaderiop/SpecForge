@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-08)
 
+**Amended by [ADR 0265](0265-a-registry-reply-is-read-as-values-where-it-is-read.md) (round 28):** D2, the wire types read a reply's values (a package name, SemVer versions, a lowercase SHA-256, an RFC 3339 expiry); a reply holding another is R009.
+
 **Amended by [ADR 0250](0250-a-download-is-held-to-the-size-its-reply-declares.md) (round 27):** D2, every answer is read through one bounded reader; D4, `download` takes the reply and the client contract gains K14 and K15.
 
 **Extended by [ADR 0231](0231-a-search-hit-is-a-package-name-at-the-wire.md) (round 26):** D2, a hit that is no package name makes the search reply unreadable (R009); D4, the port contract gains R-S3 (a found description is printable).

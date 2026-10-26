@@ -192,7 +192,8 @@ pub enum SessionField {
 enum Normalized<'a> {
     Start {
         agent: Option<&'a str>,
-        source_roots: Option<Vec<String>>,
+        /// Each root as the caller gave it, and as the manifest records it.
+        source_roots: Option<Vec<(&'a str, String)>>,
     },
     Mark {
         /// As the caller gave it: what a refusal names.
@@ -222,7 +223,7 @@ impl<'a> Normalized<'a> {
                             .iter()
                             .map(|root| {
                                 view.source_root(root)
-                                    .map(|key| key.as_str().to_string())
+                                    .map(|key| (root.as_str(), key.as_str().to_string()))
                                     .map_err(|error| error.about(SessionField::SourceRoots))
                             })
                             .collect::<Result<Vec<_>, _>>()
@@ -277,7 +278,31 @@ fn apply(
                 .into());
             }
             if let Some(roots) = source_roots {
-                manifest.source_roots = roots;
+                let files = ProjectFiles::at(root);
+                for (given, key) in &roots {
+                    match files.directory(key) {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            return Err(OpError::new(
+                                OpErrorKind::InvalidInput,
+                                SOURCE_UNREADABLE,
+                                format!(
+                                    "'{given}' is not a directory: a source root is a directory under the project root"
+                                ),
+                            )
+                            .about(SessionField::SourceRoots));
+                        }
+                        Err(outside) => {
+                            let named = Outside::new(
+                                Path::new(given),
+                                outside.landed().to_path_buf(),
+                                outside.root(),
+                            );
+                            return Err(OpError::from(named).about(SessionField::SourceRoots));
+                        }
+                    }
+                }
+                manifest.source_roots = roots.into_iter().map(|(_, key)| key).collect();
             }
             let session_id = new_id();
             manifest.sessions.push(InferenceSession {
@@ -325,12 +350,10 @@ fn apply(
                 SourceRead::Unreadable(e) => return Err(unreadable(&e, given)),
             };
             let content_hash = content_hash(&bytes);
-            manifest.upsert_source_entry(SourceFileEntry::new(
-                path.as_str(),
-                content_hash,
-                entities.to_vec(),
-                now,
-            ));
+            manifest.upsert_source_entry(
+                root,
+                SourceFileEntry::new(path.as_str(), content_hash, entities.to_vec(), now),
+            );
             Ok(Recorded::Marked {
                 source_file: path.as_str().to_string(),
                 entities: entities.to_vec(),

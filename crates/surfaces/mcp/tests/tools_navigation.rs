@@ -146,7 +146,7 @@ fn inspect_includes_referenced_by_and_refers_to() {
     // references alpha.
     assert_eq!(parsed["referenced_by"], json!([]));
     assert_eq!(parsed["refers_to"], json!(["beta"]));
-    assert_eq!(parsed["verify_declarations"], json!(["unit test alpha"]));
+    assert_eq!(parsed["verify_declarations"], json!([unit("test alpha")]));
     // The deprecated aliases are gone.
     assert!(parsed.get("references").is_none(), "{parsed}");
     assert!(parsed.get("reference_count").is_none(), "{parsed}");

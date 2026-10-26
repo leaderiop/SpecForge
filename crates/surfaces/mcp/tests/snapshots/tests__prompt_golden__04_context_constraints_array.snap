@@ -35,7 +35,10 @@ expression: "shape(&reply, dir.path())"
     ],
     "upstream_entities": [],
     "verify_expectations": [
-      "unit alpha works"
+      {
+        "kind": "unit",
+        "text": "alpha works"
+      }
     ]
   },
   "roles": [

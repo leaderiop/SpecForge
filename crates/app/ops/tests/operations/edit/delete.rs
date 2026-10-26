@@ -209,3 +209,32 @@ fn delete_with_unlink_references_leaves_a_word_a_string_list_holds() {
         "{unlinked}"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "delete_entity",
+    verify = "a delete keeps the file's final newline"
+)]
+fn a_delete_keeps_the_files_final_newline() {
+    let c = project(&[(
+        "a.spec",
+        "// specforge-format: 1.0\ninvariant inv_a \"A\" {\n  guarantee \"g\"\n}\n",
+    )]);
+    assert_eq!(
+        after(&c, "a.spec", &[delete("inv_a", false)]),
+        "// specforge-format: 1.0\n"
+    );
+    let c = project(&[
+        (
+            "rules.spec",
+            "invariant inv_a \"A\" {\n  guarantee \"g\"\n}\n",
+        ),
+        (
+            "b.spec",
+            "// specforge-format: 1.0\nuse { inv_a } from \"rules.spec\"\n",
+        ),
+    ]);
+    assert_eq!(
+        after(&c, "b.spec", &[delete("inv_a", true)]),
+        "// specforge-format: 1.0\n"
+    );
+}

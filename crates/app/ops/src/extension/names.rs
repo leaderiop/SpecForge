@@ -1,6 +1,6 @@
 //! The extensions a change names (ADR 0105): `add` and `init` read their extension strings here, once.
-//! Each string is one specifier (ADR 0036): nothing splits it. A relative local path is joined onto the
-//! change's base, and a local file is read within the change's containment (ADR 0104), its `..` resolved
+//! Each string is one specifier (ADR 0036): nothing splits it. A relative local path is read against the
+//! change's root, named as written, and a local file is read within the change's containment (ADR 0104), its `..` resolved
 //! as the file system resolves it. Every specifier is claimed (ADR 0098), so two that name one extension
 //! are a duplicate or `extension_conflict`. A registry package is resolved by the caller's step, then
 //! claimed. It then asks the change's opened lock plan for each, and names the plan's refusal
@@ -27,10 +27,9 @@ use std::path::Path;
 /// Where a change reads the local files its specifiers name.
 #[derive(Clone, Copy)]
 pub(crate) struct Place<'r> {
-    /// The project the change installs into: the lock records a local file under it relative to it.
+    /// The project the change installs into: a relative local path is read from it, and the lock
+    /// records a local file under it relative to it.
     pub(crate) root: &'r Path,
-    /// What a relative local path is joined onto.
-    pub(crate) base: &'r Path,
     /// What the change may read (ADR 0104).
     pub(crate) containment: &'r Containment,
 }
@@ -78,7 +77,7 @@ enum Named<'a> {
 impl<'r> Names<'r> {
     /// Read `strings`. Each is trimmed and parsed (E054 for an empty string or a package reference
     /// that is not one, R-RES-003 for a requirement that is none). The first refusal wins, named
-    /// "adding '<s>': " when there are several. A relative local path is joined onto `place.base`.
+    /// "adding '<s>': " when there are several. A relative local path is kept as written; it is read from `place.root`.
     /// No file is opened and no registry is asked. An empty `strings` reads as no names: whether that
     /// is refused is the operation's call (add: E054 "no extension specifier"; init: none).
     pub(crate) fn read<S: AsRef<str>>(strings: &[S], place: Place<'r>) -> Result<Self, OpError> {
@@ -87,13 +86,7 @@ impl<'r> Names<'r> {
             .iter()
             .map(|string| {
                 let specifier = string.as_ref().trim();
-                let mut source =
-                    parse(specifier).map_err(|error| named(several, specifier, error))?;
-                if let Source::Local(path) = &mut source
-                    && path.is_relative()
-                {
-                    *path = place.base.join(&*path);
-                }
+                let source = parse(specifier).map_err(|error| named(several, specifier, error))?;
                 Ok(Specified {
                     specifier: specifier.to_string(),
                     source,
@@ -212,8 +205,9 @@ impl<'r> Names<'r> {
                         .into_named(|| Named::Builtin(name))
                 }
                 Source::Local(path) => {
-                    let local = LocalFile::read(runtime, path, self.place.containment)
-                        .map_err(|error| self.named(at, error))?;
+                    let local =
+                        LocalFile::read(runtime, self.place.root, path, self.place.containment)
+                            .map_err(|error| self.named(at, error))?;
                     let declaration = Box::new(local.binary.declaration().clone());
                     let install = Install::local(self.place.root, local)
                         .map_err(|error| self.named(at, error))?;

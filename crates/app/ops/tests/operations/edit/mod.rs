@@ -1,6 +1,7 @@
 //! Typed edits (`specforge_ops::authoring::edit`) over projects compiled in a temp dir.
 
 mod apply;
+mod closing;
 mod comments;
 mod create;
 mod declared;
@@ -10,6 +11,7 @@ mod fields;
 mod holds;
 mod inherited;
 mod layout;
+mod line_breaks;
 mod links;
 mod net;
 mod obligations;
@@ -23,6 +25,7 @@ mod skeleton;
 mod statements;
 mod unions;
 mod validate;
+mod value_comments;
 
 use crate::navigate::{Compiled, SOFTWARE, compile};
 use specforge_ops::Refusal;

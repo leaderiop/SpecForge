@@ -114,6 +114,88 @@ fn brackets_nested_past_the_limit_are_one_parse_error() {
     }
 }
 
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "a control or bidirectional character in the text is one parse error at it, and no tree is read"
+)]
+fn a_control_character_in_the_text_is_one_parse_error_at_it() {
+    // `§` stands for the character under test.
+    let held = [
+        (
+            "a title",
+            "feature f1 \"T§t\" {\n  problem \"p\"\n}\n",
+            '\u{1b}',
+        ),
+        (
+            "a value",
+            "feature f1 \"T\" {\n  problem \"p§\"\n}\n",
+            '\u{1b}',
+        ),
+        (
+            "a triple value",
+            "feature f1 \"T\" {\n  problem \"\"\"\n    p§\n  \"\"\"\n}\n",
+            '\u{1b}',
+        ),
+        (
+            "a comment",
+            "feature f1 \"T\" {\n  problem \"p\" // x§y\n}\n",
+            '\u{7}',
+        ),
+        (
+            "between tokens",
+            "feature f1 \"T\" {\n  problem \"p\" §\n}\n",
+            '\u{1b}',
+        ),
+        (
+            "an id",
+            "feature f§1 \"T\" {\n  problem \"p\"\n}\n",
+            '\u{202e}',
+        ),
+        ("a C1", "feature f1 \"T§\" {\n}\n", '\u{9b}'),
+        ("a line separator", "feature f1 \"T§\" {\n}\n", '\u{2028}'),
+        ("a NUL", "feature f1 \"T§\" {\n}\n", '\0'),
+        ("a DEL", "feature f1 \"T§\" {\n}\n", '\u{7f}'),
+        ("a lone CR", "feature f1 \"T§\" {\n}\n", '\r'),
+    ];
+    for (what, template, c) in held {
+        let at = template.find('§').unwrap();
+        let source = template.replace('§', &c.to_string());
+        let (file, tree) = parse_incremental(&source, "c.spec", None);
+        assert!(tree.is_none(), "{what}: a tree was read");
+        assert_eq!(file.errors.len(), 1, "{what}: {:?}", file.errors);
+        assert!(file.entities.is_empty(), "{what}");
+        let error = &file.errors[0];
+        let line = source[..at].matches('\n').count() + 1;
+        let col = at - source[..at].rfind('\n').map_or(0, |n| n + 1) + 1;
+        assert_eq!(
+            (error.span.start_line, error.span.start_col),
+            (line, col),
+            "{what}"
+        );
+        assert!(error.message.contains("U+"), "{what}: {}", error.message);
+        assert!(!error.message.chars().any(char::is_control), "{what}");
+    }
+    for (what, source) in [
+        (
+            "a tab in a value",
+            "feature f1 \"T\" {\n  problem \"a\tb\"\n}\n",
+        ),
+        (
+            "a CRLF file",
+            "feature f1 \"T\" {\r\n  problem \"p\"\r\n}\r\n",
+        ),
+        ("a no-break space", "feature f1 \"T\u{a0}\" {\n}\n"),
+        ("a leading BOM", "\u{feff}feature f1 \"T\" {\n}\n"),
+    ] {
+        let (file, tree) = parse_incremental(source, "c.spec", None);
+        assert!(
+            tree.is_some() && file.errors.is_empty(),
+            "{what}: {:?}",
+            file.errors
+        );
+    }
+}
+
 #[test]
 fn the_nesting_limit_counts_brackets_outside_strings_and_comments() {
     let nested = |n: usize| format!("{}x{}", "(".repeat(n), ")".repeat(n));

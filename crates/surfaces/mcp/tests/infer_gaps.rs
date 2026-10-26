@@ -198,3 +198,35 @@ fn an_anchor_to_an_entity_the_graph_does_not_declare_covers_nothing() {
         [("src/other.rs".to_string(), "Other".to_string())]
     );
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_infer_gaps_tool",
+    verify = "every item find_spec_for_source anchors to a declared entity is no gap"
+)]
+fn an_anchor_recorded_absolute_under_the_root_is_no_gap_where_find_spec_for_source_finds_it() {
+    let project = TestProject::new()
+        .file("test.spec", SPEC)
+        .file("src/lib.rs", LIB);
+    let absolute = project.root().join("src/lib.rs");
+    let anchors = ANCHORS.replace(
+        "\"src/lib.rs\"",
+        &format!("{:?}", absolute.to_str().unwrap()),
+    );
+    let mut server = project.file("specforge-anchors.json", &anchors).serve(&[
+        TestExtension::software(),
+        TestExtension::named("@specforge/rust").declaring(rust),
+    ]);
+    let found = |server: &mut Served, path: &str| -> Value {
+        let reply = call_tool(
+            server,
+            "specforge.find_spec_for_source",
+            json!({"file_path": path}),
+        );
+        serde_json::from_str(&tool_text(&reply)).unwrap()
+    };
+    let file = found(&mut server, "src/lib.rs");
+    assert_eq!(file["match_mode"], "exact", "{file}");
+    assert_eq!(file["count"], 2, "{file}");
+    assert_eq!(found(&mut server, "src")["match_mode"], "directory");
+    assert_eq!(gap_items(&mut server), []);
+}

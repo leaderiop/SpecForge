@@ -26,7 +26,7 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
 /// directly inside a directory, only those modified at or after `since`
 /// when given. Each file is held by `containment` before it is opened (one that
 /// lands outside is `outside_root`); a read that fails is E045. Paths are reported
-/// relative to `root`.
+/// as project paths of `root` ([`Held::shown`]).
 pub(super) fn read_report(
     report: &Held,
     root: &Path,
@@ -44,7 +44,7 @@ pub(super) fn read_report(
     if report.real.is_dir() {
         for path in json_files(&report.real).into_iter().filter(fresh) {
             let name = path.file_name().unwrap_or_default();
-            held.push(containment.resolve(&report.spelled.join(name))?);
+            held.push(report.entry(containment, Path::new(name))?);
         }
     } else if report.real.is_file() {
         held.push(report.clone());
@@ -55,12 +55,11 @@ pub(super) fn read_report(
                 OpError::coded(
                     OpErrorKind::SchemaMismatch,
                     codes::E045,
-                    format!("failed to read report {}: {e}", file.spelled.display()),
+                    format!("failed to read report {}: {e}", file.named.display()),
                 )
             })?;
-            let shown = file.spelled.strip_prefix(root).unwrap_or(&file.spelled);
             Ok(CollectReportFile {
-                path: shown.display().to_string(),
+                path: file.shown(root).into_string(),
                 content,
             })
         })

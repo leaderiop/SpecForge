@@ -223,3 +223,75 @@ fn hidden_directories_are_not_walked() {
     write(project.root(), ".cache/h.rs", "pub fn hidden() {}\n");
     assert_eq!(unanalyzed(&project), ["src/lib.rs"]);
 }
+
+#[specforge_test(
+    behavior = "read_a_recorded_source_path",
+    verify = "an index entry recorded by its absolute path under the project root is that file"
+)]
+fn an_index_entry_recorded_absolute_under_the_root_is_its_file() {
+    let project = project();
+    write(project.root(), "src/net/wire.rs", "pub fn wire() {}\n");
+    let root = project.root().to_path_buf();
+    let canonical = std::fs::canonicalize(&root).unwrap();
+    let first = format!("{}/src/lib.rs", root.display());
+    let second = format!("{}/src/net/wire.rs", canonical.display());
+    manifest(
+        &project,
+        json!({"version": 1, "source_roots": ["src"], "source_index": [
+            {"path": first, "content_hash": "00", "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"},
+            {"path": second, "content_hash": "00", "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"}]}),
+    );
+    let progress = progress(&project.view()).unwrap();
+    assert_eq!(progress.stale, [first, second]);
+    assert!(progress.deleted.is_empty(), "{progress:?}");
+    assert!(progress.unanalyzed.is_empty(), "{progress:?}");
+    let lint = lint(&project.view());
+    assert_eq!(
+        lint.iter().filter(|d| d.code == "I200").count(),
+        2,
+        "{lint:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "read_a_recorded_source_path",
+    verify = "a source root recorded by its absolute path under the project root is walked"
+)]
+fn a_source_root_recorded_absolute_under_the_root_is_walked() {
+    let project = project();
+    let root = project.root().join("src");
+    manifest(
+        &project,
+        json!({"version": 1, "source_roots": [root.to_str().unwrap()]}),
+    );
+    let progress = progress(&project.view()).unwrap();
+    assert_eq!(progress.summary.files_total, 1, "{progress:?}");
+    assert_eq!(progress.unanalyzed, ["src/lib.rs"]);
+}
+
+#[specforge_test(
+    behavior = "compute_inference_summary",
+    verify = "files_analyzed counts the inference sources the index records"
+)]
+fn files_analyzed_counts_the_indexed_inference_sources() {
+    let project = project();
+    manifest(
+        &project,
+        json!({"version": 1, "source_roots": ["src"], "source_index": [
+            {"path": "src/gone.rs", "content_hash": "00", "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"}]}),
+    );
+    let gone = progress(&project.view()).unwrap();
+    assert_eq!(gone.summary.files_total, 1);
+    assert_eq!(gone.summary.files_analyzed, 0, "{gone:?}");
+    assert_eq!(gone.unanalyzed, ["src/lib.rs"]);
+
+    let hash = "00";
+    manifest(
+        &project,
+        json!({"version": 1, "source_roots": ["src"], "source_index": [
+            {"path": "./src/lib.rs", "content_hash": hash, "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"},
+            {"path": "src/lib.rs", "content_hash": hash, "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"}]}),
+    );
+    let twice = progress(&project.view()).unwrap();
+    assert_eq!(twice.summary.files_analyzed, 1, "{twice:?}");
+}

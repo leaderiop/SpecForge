@@ -52,8 +52,9 @@ impl Installed {
 mod tests {
     use super::*;
     use crate::lock::{LockFile, LockState};
-    use crate::module::{Sha256, hex_sha256};
+    use crate::module::hex_sha256;
     use specforge_package::PackageName;
+    use specforge_package::Sha256;
     use tempfile::TempDir;
 
     fn entry(name: &str, hash: Sha256) -> LockFileEntry {

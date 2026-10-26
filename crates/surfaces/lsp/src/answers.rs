@@ -56,6 +56,9 @@ pub struct ClientSupport {
     /// `textDocument.codeAction.resolveSupport` names `edit`: a stub's edits
     /// are made when the editor resolves the action, not when it lists them.
     pub code_action_resolve: bool,
+    /// `experimental.specforgeGraphChanged`: only then is the editor sent `specforge/graphChanged`
+    /// after a rebuild (ADR 0268 D2), a method no other client knows.
+    pub graph_changed: bool,
 }
 
 impl ClientSupport {
@@ -93,6 +96,12 @@ impl ClientSupport {
                 .and_then(|t| t.code_action.as_ref())
                 .and_then(|c| c.resolve_support.as_ref())
                 .is_some_and(|r| r.properties.iter().any(|p| p == "edit")),
+            graph_changed: capabilities
+                .experimental
+                .as_ref()
+                .and_then(|e| e.get(crate::views::GRAPH_CHANGED_CAPABILITY))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
         }
     }
 }
@@ -122,7 +131,11 @@ fn renames_in(compiled: &Compiled, file: &str) -> tower_lsp::jsonrpc::Result<boo
 
 /// The entity the cursor at `position` of the open document `key` names
 /// ([`Compiled::target`]): what references and rename act on.
-fn entity_under_cursor(compiled: &Compiled, key: &str, position: Position) -> Option<Sym> {
+pub(crate) fn entity_under_cursor(
+    compiled: &Compiled,
+    key: &str,
+    position: Position,
+) -> Option<Sym> {
     match compiled.target(key, position)? {
         Target::Entity { id, .. } => Some(id),
         _ => None,

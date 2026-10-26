@@ -33,12 +33,17 @@ pub struct Containment {
     root: Option<PathBuf>,
 }
 
-/// A path a containment holds. The caller opens (reads, rewrites, creates) `real` and names
-/// `spelled` in its messages, documents and records: never the other way round.
+/// A path a containment holds (ADR 0104, ADR 0112, ADR 0272): one path, three names, one use each.
+/// The caller opens (reads, rewrites, creates) `real`, except an owned name, which it opens at `at`;
+/// it quotes `named` in its messages and writes [`Held::shown`] in its documents and records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Held {
-    /// As the caller gave it, joined onto the root when bounded and relative.
-    pub spelled: PathBuf,
+    /// As the caller wrote it. May be relative even when bounded: never joined onto anything.
+    pub named: PathBuf,
+    /// `named` read against its base (a bounded containment's root, the process's directory when
+    /// unbounded, or the base given to [`Containment::resolve_from`]), its links not followed: an
+    /// owned name is created and unlinked here (ADR 0171), a runner is handed it, and `shown` names it.
+    pub at: PathBuf,
     /// Where it lands: canonical as far as it exists, a missing tail joined on.
     pub real: PathBuf,
 }
@@ -84,27 +89,31 @@ impl Containment {
         self.root.as_deref()
     }
 
-    /// Where `named` really is, and how to name it. Bounded: `named` is read against the root (an
-    /// absolute name stands); `Outside` unless it lands inside. Unbounded: a relative name is the
-    /// process's, as the CLI's user typed it, and nothing is refused. Either way the real path is
-    /// computed component by component, so what the caller opens is what was checked.
+    /// [`resolve_from`](Self::resolve_from) against the root when bounded, the process's directory
+    /// when not. Bounded: an absolute `named` stands; `Outside` unless it lands inside. Unbounded:
+    /// a relative name is the process's, as the CLI's user typed it, and nothing is refused. Either
+    /// way the real path is computed component by component, so what the caller opens is what was
+    /// checked.
     pub fn resolve(&self, named: &Path) -> Result<Held, Outside> {
-        let Some(root) = &self.root else {
-            return Ok(Held {
-                spelled: named.to_path_buf(),
-                real: landing(named),
-            });
-        };
-        let spelled = root.join(named);
-        let real = landing(&spelled);
-        if real.starts_with(root) {
-            Ok(Held { spelled, real })
-        } else {
-            Err(Outside {
-                named: named.to_path_buf(),
+        self.resolve_from(self.root.as_deref().unwrap_or(Path::new("")), named)
+    }
+
+    /// `named` read against `base` (an absolute `named` stands); `Outside` (quoting `named`) unless
+    /// it lands inside the root.
+    pub fn resolve_from(&self, base: &Path, named: &Path) -> Result<Held, Outside> {
+        self.hold(named.to_path_buf(), base.join(named))
+    }
+
+    /// The name `named`, read at `at`, held: its landing checked against the root when bounded.
+    fn hold(&self, named: PathBuf, at: PathBuf) -> Result<Held, Outside> {
+        let real = landing(&at);
+        match &self.root {
+            Some(root) if !real.starts_with(root) => Err(Outside {
+                named,
                 landed: real,
                 root: root.clone(),
-            })
+            }),
+            _ => Ok(Held { named, at, real }),
         }
     }
 }
@@ -210,6 +219,10 @@ pub(crate) fn landing(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod disk_tests;
+#[cfg(test)]
+mod named_tests;
+#[cfg(test)]
+mod regular_tests;
 #[cfg(test)]
 mod replace_tests;
 #[cfg(test)]

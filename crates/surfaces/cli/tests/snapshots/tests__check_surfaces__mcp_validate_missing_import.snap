@@ -1,6 +1,6 @@
 ---
 source: crates/surfaces/cli/tests/check_surfaces.rs
-expression: "normalized(&Value::Array(calls), dir.path())"
+expression: "normalized(&Value::Array(calls), &root)"
 ---
 [
   {
@@ -293,16 +293,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
           "type": "text"
         }
       ],
-      "isError": true,
-      "structuredContent": {
-        "argument": "severity_filter",
-        "code": "invalid_input",
-        "data": {
-          "suggestion": "did you mean 'error'?"
-        },
-        "message": "Unknown severity 'errors' (available: error, warning, info)",
-        "tool": "specforge.validate"
-      }
+      "isError": true
     }
   },
   {
@@ -324,13 +315,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
           "type": "text"
         }
       ],
-      "isError": true,
-      "structuredContent": {
-        "argument": "lint",
-        "code": "invalid_input",
-        "message": "Unknown lint profile 'nonsense' (available: inferred, pedantic)",
-        "tool": "specforge.validate"
-      }
+      "isError": true
     }
   }
 ]

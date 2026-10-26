@@ -206,7 +206,8 @@ impl Planner<'_> {
 
 /// `text`, the planned text of source `key`, without the `use` bindings that import `id` (ADR 0233): a statement
 /// keeps its other bindings, written `{ a, b as c }` as the formatter writes an import; one left with none goes
-/// whole, with one blank line beside it, as a deleted block goes (`Block::delete`). `None` when no binding of `text`
+/// whole with its doc comment as the parse read it (never the format header) and one blank line beside it, as a
+/// deleted block goes (`Block::delete`). `None` when no binding of `text`
 /// imports `id`.
 fn unbind(text: &str, key: &str, id: &str) -> Option<String> {
     let file = parse(text, key);
@@ -240,15 +241,13 @@ fn unbind(text: &str, key: &str, id: &str) -> Option<String> {
             continue;
         }
         let mut lines: Vec<&str> = out.split('\n').collect();
-        let (first, last) = (import.span.start_line - 1, import.span.end_line - 1);
-        let before_blank = first > 0 && lines[first - 1].trim().is_empty();
-        let after_blank = last + 1 < lines.len() && lines[last + 1].trim().is_empty();
-        let (first, last) = match (before_blank, after_blank) {
-            (true, _) => (first - 1, last),
-            (false, true) => (first, last + 1),
-            _ => (first, last),
-        };
-        lines.drain(first..=last);
+        let first = import
+            .doc_span
+            .as_ref()
+            .map_or(import.span.start_line, |doc| doc.start_line)
+            - 1;
+        let last = import.span.end_line - 1;
+        block::cut(&mut lines, first, last);
         out = lines.join("\n");
     }
     (out != text).then_some(out)

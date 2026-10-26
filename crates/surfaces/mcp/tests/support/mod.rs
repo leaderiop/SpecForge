@@ -117,3 +117,8 @@ pub fn unserved() -> Logged {
     assert!(reply["error"].is_null(), "{reply}");
     server
 }
+
+/// A `unit` obligation as every reply writes it (ADR 0273).
+pub fn unit(text: &str) -> serde_json::Value {
+    serde_json::json!({"kind": "unit", "text": text})
+}

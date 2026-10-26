@@ -264,11 +264,14 @@ invariant typed_edit_canonical_form "Typed Edit Canonical Form" {
     default it reaches is left dead). Every block a typed edit
     touches MUST be format-clean afterwards, laid out with the project's
     format configuration, its multi-line values included, and no byte outside
-    the touched blocks changes.
+    the touched blocks changes; a file whose every line break is CR LF is
+    written so (ADR 0266).
   """
   risk      high
   verify property "every block a typed edit writes is unchanged by format"
   verify unit "a spelled value reads back and is left as it is by format and W159"
+  verify unit "a typed edit writes a CRLF file in CRLF, as it writes the same file in LF"
+  verify unit "a typed edit of a file mixing CRLF and LF changes no byte outside the blocks it touches"
 }
 
 invariant typed_edit_atomicity "Typed Edit Atomicity" {

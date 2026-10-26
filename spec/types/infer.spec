@@ -34,7 +34,6 @@ type InferenceSummary "Rollup Statistics (computed on load, never persisted)" {
   files_total       integer
   files_analyzed    integer
   entities_produced integer
-  needs_review      integer
   verify unit "InferenceSummary is derived from source_index, not stored"
 }
 
@@ -53,7 +52,7 @@ type InferenceGapReport "Per-Directory Inference Gap Analysis" {
   approximate   boolean
   // The files a scanner failed on: their items are unknown.
   scan_failures ScanFailure[] @optional
-  verify unit "InferenceGapReport marks results as approximate when using regex fallback"
+  verify unit "InferenceGapReport is approximate when a scanner failed on a file"
 }
 
 // A source file a scanner failed on, with the E028 the call reported.

@@ -60,10 +60,13 @@ type RegistryConfig "One entry of specforge.json's registries. url is the regist
 // specforge-registry-server and specforge-registry-client.
 
 // GET {root}/v1/packages/{name}: every version not yanked, oldest first.
+// name is a package name and each version a SemVer version; a list holding
+// another does not read (R009).
 type VersionList "Version List" {
-  name     string
+  name     PackageName
   versions string[]
   verify unit "VersionList is the JSON a registry serves for a package's versions"
+  verify unit "a version list holding a version that is no SemVer version does not read"
 }
 
 // GET {root}/v1/packages/{name}/{version}: what a registry stores for one
@@ -72,9 +75,11 @@ type VersionList "Version List" {
 // is an http or https URL or a path at the registry's root
 // (/v1/packages/{name}/{version}/download, what the reference server answers);
 // anything else makes the reply unreadable (R009). size_bytes is the binary's
-// length: a download is held to it, and to 64 MiB.
+// length: a download is held to it, and to 64 MiB. name is a package name,
+// version a SemVer version and sha256 64 lowercase hex characters (the lock's
+// spelling); a reply holding another does not read (R009).
 type PackageMetadata "Package Metadata" {
-  name         string
+  name         PackageName
   version      string
   sha256       string
   size_bytes   integer          @optional
@@ -86,6 +91,8 @@ type PackageMetadata "Package Metadata" {
   signature    PackageSignature @optional
   manifest     string           @optional
   verify unit "PackageMetadata is the JSON a registry serves for one version"
+  verify unit "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
+  verify unit "a package reply read as values writes the text it was read from"
 }
 
 // A publisher's Ed25519 signature over a package's name and version as
@@ -144,13 +151,15 @@ type PublishReceipt "Publish Receipt" {
   verify unit "PublishReceipt is the JSON a registry answers a publish with"
 }
 
-// POST {root}/v1/auth/verify.
+// POST {root}/v1/auth/verify. expires_at is an RFC 3339 timestamp; a check
+// holding another does not read (R009).
 type TokenVerified "Token Verified" {
   valid      boolean
   scope      string @optional
   label      string
   expires_at string @optional
   verify unit "TokenVerified is the JSON a registry answers a token check with"
+  verify unit "a token check whose expires_at is not an RFC 3339 timestamp does not read"
 }
 
 type RegistryErrorCode "What a registry refused, named the same by server and client (specforge_registry_wire::ErrorCode); a client reads a code it doesn't know as UNKNOWN." = "NOT_FOUND"
@@ -267,7 +276,8 @@ type RegistryPublished "Registry Published" {
 // One entry of ~/.specforge/credentials.json, keyed by registry root:
 // where that registry's token comes from. Never in specforge.json. At most
 // one of token_env and token_file is set; with neither, login stored the
-// secret (in a 0600 file under ~/.specforge/secrets/).
+// secret (in a 0600 file under ~/.specforge/secrets/). expires_at, when kept,
+// is RFC 3339; an entry holding another makes the file unreadable (R012).
 type RegistryCredential "Registry Credential" {
   root       string @readonly @unique
   token_env  string @optional

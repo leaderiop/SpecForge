@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
 
-use specforge_registry_wire::{RegistryRoot, sha256_hex};
+use specforge_registry_wire::{RegistryRoot, Timestamp, sha256_hex};
 
 use super::registry_config::RegistryCredential;
 
@@ -36,7 +36,7 @@ pub enum CredentialEntry {
         #[serde(default, skip_serializing_if = "String::is_empty")]
         token: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        expires_at: Option<String>,
+        expires_at: Option<Timestamp>,
     },
 }
 
@@ -164,11 +164,7 @@ impl CredentialStore {
             CredentialEntry::Token { token, expires_at } => {
                 // Expiry is known metadata: a clear re-login error beats a
                 // cryptic 401 from the server later.
-                if let Some(expires_at) = expires_at
-                    .as_deref()
-                    .and_then(|e| chrono::DateTime::parse_from_rfc3339(e).ok())
-                    .filter(|deadline| chrono::Utc::now() > *deadline)
-                {
+                if let Some(expires_at) = expires_at.filter(|e| e.is_past(chrono::Utc::now())) {
                     return Err(Diagnostic::new(
                         codes::R_AUTH_020,
                         format!("stored token for registry '{root}' expired at {expires_at}"),
@@ -217,7 +213,7 @@ impl CredentialStore {
         &mut self,
         root: RegistryRoot,
         token: String,
-        expires_at: Option<String>,
+        expires_at: Option<Timestamp>,
     ) -> Result<(), String> {
         let path = self.secret_path(&root);
         let json = serde_json::to_string(&Stored {
@@ -291,7 +287,7 @@ mod tests {
             .keep_secret(
                 root("default"),
                 "sfr_super_secret".to_string(),
-                Some("2027-01-01T00:00:00+00:00".to_string()),
+                Some(Timestamp::parse("2027-01-01T00:00:00+00:00").unwrap()),
             )
             .unwrap();
         store.write().unwrap();
@@ -347,7 +343,7 @@ mod tests {
             .keep_secret(
                 root("default"),
                 "sfr_old".to_string(),
-                Some("2020-01-01T00:00:00+00:00".to_string()),
+                Some(Timestamp::parse("2020-01-01T00:00:00+00:00").unwrap()),
             )
             .unwrap();
 

@@ -90,8 +90,8 @@ enum Scope {
 }
 
 impl Scope {
-    /// The scope `scope` names. An empty kind or file, and a scope the prompt does not know, are invalid
-    /// input on `scope` (ADR 0101 D2, amended by round 13, plan 12).
+    /// The scope `scope` names. An empty kind, and a scope the prompt does not know, are invalid
+    /// input on `scope` (ADR 0101 D2); an empty file is the source path reader's refusal (ADR 0253).
     fn parse(scope: Option<&str>) -> Result<Scope, Box<McpError>> {
         let invalid = |message: String| {
             Box::new(McpError::new(ErrorCode::InvalidInput, message).with_argument("scope"))
@@ -107,13 +107,7 @@ impl Scope {
                 }
                 Scope::Kind(kind)
             }
-            Some(s) if s.starts_with("file:") => {
-                let file = &s["file:".len()..];
-                if file.is_empty() {
-                    return Err(invalid("Empty file path in scope 'file:'".to_string()));
-                }
-                Scope::File(file.to_string())
-            }
+            Some(s) if s.starts_with("file:") => Scope::File(s["file:".len()..].to_string()),
             Some(other) => return Err(invalid(format!("unknown scope '{other}': {SCOPES}"))),
         })
     }

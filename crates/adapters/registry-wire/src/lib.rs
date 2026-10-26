@@ -12,33 +12,37 @@ pub mod code;
 pub mod form;
 pub mod reply;
 pub mod signature;
+mod timestamp;
 
 pub use address::RegistryRoot;
 
 pub use code::ErrorCode;
 pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex};
+pub use timestamp::Timestamp;
 
 use serde::{Deserialize, Serialize};
-use specforge_package::{PackageName, Version};
-
-/// The largest package binary a registry stores, and the most bytes any registry answer may be: the reference
-/// server's upload limit (ADR 0250). A client reads no more of an answer than this.
-pub const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024;
+use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Sha256, Version};
 
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Its name and versions are values (ADR 0265): a list holding a version that is no SemVer version is not this
+/// body (R009), as a search hit holding one is not.
 pub struct VersionList {
-    pub name: String,
-    pub versions: Vec<String>,
+    pub name: PackageName,
+    pub versions: Vec<Version>,
 }
 
 /// `GET {root}/v1/packages/{name}/{version}`: what a registry stores for one version.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Its name, version and digest are values (ADR 0265): a reply holding a name that is no package name, a version
+/// that is no SemVer version or a digest that is not 64 lowercase hex characters is not this body (R009).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageMetadata {
-    pub name: String,
-    pub version: String,
-    /// SHA-256 of the binary, lowercase hex.
-    pub sha256: String,
+    pub name: PackageName,
+    pub version: Version,
+    /// SHA-256 of the binary: the lock's spelling; any other is no reply (R009).
+    pub sha256: Sha256,
     /// The binary's length; a download is held to it, and to [`MAX_PACKAGE_BYTES`] (ADR 0250).
     #[serde(default)]
     pub size_bytes: u64,
@@ -68,6 +72,29 @@ pub struct PackageMetadata {
 }
 
 impl PackageMetadata {
+    /// The reply of `name@version` whose binary has `sha256` and downloads from `wasm_url`: the four keys a
+    /// reply must carry; every other field empty.
+    pub fn new(
+        name: PackageName,
+        version: Version,
+        sha256: Sha256,
+        wasm_url: impl Into<String>,
+    ) -> Self {
+        Self {
+            name,
+            version,
+            sha256,
+            size_bytes: 0,
+            description: String::new(),
+            keywords: Vec::new(),
+            publisher: String::new(),
+            published_at: String::new(),
+            wasm_url: wasm_url.into(),
+            signature: None,
+            manifest: String::new(),
+        }
+    }
+
     /// The most bytes its binary may download as (ADR 0250): the `size_bytes` it declares, at most
     /// [`MAX_PACKAGE_BYTES`]; that ceiling when it declares none (an absent one reads as `0`).
     pub fn download_limit(&self) -> u64 {
@@ -167,8 +194,8 @@ pub struct TokenVerified {
     /// The scope the token may publish into; `None` is every scope.
     pub scope: Option<String>,
     pub label: String,
-    /// RFC 3339; `None` never expires.
-    pub expires_at: Option<String>,
+    /// An RFC 3339 instant (ADR 0265); `None` never expires.
+    pub expires_at: Option<Timestamp>,
 }
 
 /// `POST {root}/v1/admin/tokens` body (an admin token authenticates it). `account` is required; the other fields are optional.
@@ -255,18 +282,18 @@ mod tests {
         let limit = |size_bytes| {
             PackageMetadata {
                 size_bytes,
-                ..Default::default()
+                ..PackageMetadata::new(
+                    PackageName::parse("@acme/tool").unwrap(),
+                    Version::new(1, 0, 0),
+                    Sha256::of(b"x"),
+                    "/x",
+                )
             }
             .download_limit()
         };
         assert_eq!(limit(0), MAX_PACKAGE_BYTES);
         assert_eq!(limit(10), 10);
         assert_eq!(limit(MAX_PACKAGE_BYTES + 1), MAX_PACKAGE_BYTES);
-    }
-
-    #[test]
-    fn the_package_ceiling_is_the_servers_upload_limit() {
-        assert_eq!(MAX_PACKAGE_BYTES, 64 * 1024 * 1024);
     }
 
     /// `value` serializes to `expected` and `expected` reads back as `value`.
@@ -285,8 +312,8 @@ mod tests {
     fn a_version_list_is_this_json() {
         is_this_json(
             &VersionList {
-                name: "@acme/tool".into(),
-                versions: vec!["1.0.0".into(), "1.1.0".into()],
+                name: PackageName::parse("@acme/tool").unwrap(),
+                versions: vec![Version::new(1, 0, 0), Version::new(1, 1, 0)],
             },
             json!({"name": "@acme/tool", "versions": ["1.0.0", "1.1.0"]}),
         );
@@ -304,9 +331,9 @@ mod tests {
             chrono::Utc.with_ymd_and_hms(2026, 10, 8, 0, 0, 0).unwrap(),
         );
         let signed = PackageMetadata {
-            name: "@acme/tool".into(),
-            version: "1.0.0".into(),
-            sha256: "ab".repeat(32),
+            name: PackageName::parse("@acme/tool").unwrap(),
+            version: Version::new(1, 0, 0),
+            sha256: "ab".repeat(32).parse().unwrap(),
             size_bytes: 12,
             description: "A tool".into(),
             keywords: vec!["tool".into()],
@@ -348,7 +375,7 @@ mod tests {
 
         // A signature that isn't one makes the reply unreadable.
         let malformed = json!({
-            "name": "@acme/tool", "version": "1.0.0", "sha256": "ab", "wasm_url": "/x",
+            "name": "@acme/tool", "version": "1.0.0", "sha256": "ab".repeat(32), "wasm_url": "/x",
             "signature": {"sig": "x", "public_key": "z", "signed_at": "now"},
         });
         let error = serde_json::from_value::<PackageMetadata>(malformed).unwrap_err();
@@ -359,7 +386,7 @@ mod tests {
 
         // A reply with only the required four keys reads.
         let minimal: PackageMetadata = serde_json::from_value(
-            json!({"name": "@acme/tool", "version": "1.0.0", "sha256": "ab", "wasm_url": "/x"}),
+            json!({"name": "@acme/tool", "version": "1.0.0", "sha256": "ab".repeat(32), "wasm_url": "/x"}),
         )
         .unwrap();
         assert_eq!(minimal.size_bytes, 0);
@@ -444,7 +471,7 @@ mod tests {
                 valid: true,
                 scope: None,
                 label: "ci".into(),
-                expires_at: Some("2027-01-01T00:00:00+00:00".into()),
+                expires_at: Some(Timestamp::parse("2027-01-01T00:00:00+00:00").unwrap()),
             },
             json!({"valid": true, "scope": null, "label": "ci", "expires_at": "2027-01-01T00:00:00+00:00"}),
         );
@@ -562,5 +589,94 @@ mod tests {
             SearchQuery::new("widget").to_query_string(),
             "q=widget&limit=50"
         );
+    }
+
+    #[specforge_test_macros::test(
+        type = "PackageMetadata",
+        verify = "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
+    )]
+    fn a_package_reply_holds_a_package_name_a_semver_version_and_a_lowercase_sha256() {
+        let digest = "ab".repeat(32);
+        let reply = |key: &str, value: serde_json::Value| {
+            let mut reply = json!({"name": "@acme/tool", "version": "1.0.0", "sha256": digest, "wasm_url": "/x"});
+            reply[key] = value;
+            reply
+        };
+        for bad in [
+            reply("sha256", json!(digest.to_uppercase())),
+            reply("sha256", json!("nope")),
+            reply("sha256", json!(&digest[1..])),
+            reply("name", json!("@acme/tool\u{1b}[31m")),
+            reply("name", json!("Acme")),
+            reply("version", json!("1.0")),
+            reply("version", json!("1.0.0\u{1b}[2J")),
+        ] {
+            assert!(
+                serde_json::from_value::<PackageMetadata>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
+        assert!(serde_json::from_value::<PackageMetadata>(reply("size_bytes", json!(1))).is_ok());
+    }
+
+    #[specforge_test_macros::test(
+        type = "PackageMetadata",
+        verify = "a package reply read as values writes the text it was read from"
+    )]
+    fn a_reply_read_as_values_writes_the_text_it_was_read_from() {
+        let digest = "ab".repeat(32);
+        for (name, version) in [
+            ("@acme/tool", "1.0.0"),
+            ("@acme/tool", "1.0.0-rc.1+build.5"),
+            ("@acme/tool", "0.0.1-alpha.0.x"),
+            ("plain-name", "2.3.4"),
+        ] {
+            let text =
+                json!({"name": name, "version": version, "sha256": digest, "wasm_url": "/x"});
+            let reply: PackageMetadata = serde_json::from_value(text).unwrap();
+            assert_eq!(reply.name.as_str(), name);
+            assert_eq!(reply.version.to_string(), version);
+            assert_eq!(reply.sha256.as_str(), digest);
+        }
+    }
+
+    #[specforge_test_macros::test(
+        type = "VersionList",
+        verify = "a version list holding a version that is no SemVer version does not read"
+    )]
+    fn a_version_list_holds_semver_versions() {
+        for bad in [
+            json!({"name": "@acme/tool", "versions": ["1.0.0", "not-a-version"]}),
+            json!({"name": "@acme/tool", "versions": ["9.9.9\u{1b}[31m"]}),
+        ] {
+            assert!(
+                serde_json::from_value::<VersionList>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
+        let good = json!({"name": "@acme/tool", "versions": ["1.0.0", "2.0.0-beta.1"]});
+        assert!(serde_json::from_value::<VersionList>(good).is_ok());
+    }
+
+    #[specforge_test_macros::test(
+        type = "TokenVerified",
+        verify = "a token check whose expires_at is not an RFC 3339 timestamp does not read"
+    )]
+    fn a_token_expiry_is_an_rfc_3339_timestamp() {
+        let check = |expires_at: serde_json::Value| {
+            serde_json::from_value::<TokenVerified>(
+                json!({"valid": true, "scope": null, "label": "x", "expires_at": expires_at}),
+            )
+        };
+        for bad in ["soon\u{1b}]0;PWNED\u{7}", "next tuesday", "2027-01-01"] {
+            assert!(check(json!(bad)).is_err(), "{bad:?}");
+        }
+        for good in [
+            json!("2027-01-01T00:00:00Z"),
+            json!("2027-01-01T00:00:00+02:00"),
+            json!(null),
+        ] {
+            assert!(check(good.clone()).is_ok(), "{good}");
+        }
     }
 }

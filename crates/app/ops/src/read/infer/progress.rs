@@ -1,7 +1,7 @@
 //! Inference progress: the source files the enabled analyzers would scan
 //! against `specforge-infer.json`'s index.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 use serde::Serialize;
@@ -13,6 +13,7 @@ use super::gaps::directory_of;
 use super::manifest::{InferenceManifest, InferenceSession, InferenceSummary};
 use super::sources::{IndexState, InferenceSources};
 use crate::OpError;
+use crate::source_key::SourceKey;
 use crate::view::ProjectView;
 
 /// The unanalyzed files of one directory (`specforge infer-status --gaps`).
@@ -63,15 +64,17 @@ fn progress_under(
 ) -> Progress {
     let sources = InferenceSources::of(root, declarations, manifest);
     let files = sources.keys();
-    let indexed = manifest.indexed_paths();
-    let unanalyzed = files
+    let indexed = sources.files().indexed(manifest);
+    let recorded_keys: HashSet<&SourceKey> =
+        indexed.iter().filter_map(|i| i.key.as_ref()).collect();
+    let unanalyzed: Vec<String> = files
         .iter()
-        .filter(|key| !indexed.contains(key.as_str()))
+        .filter(|key| !recorded_keys.contains(key))
         .map(|key| key.as_str().to_string())
         .collect();
     let mut stale = Vec::new();
     let mut deleted = Vec::new();
-    for indexed in sources.files().indexed(manifest) {
+    for indexed in &indexed {
         match indexed.state {
             IndexState::Changed { .. } => stale.push(indexed.entry.path.clone()),
             IndexState::Deleted => deleted.push(indexed.entry.path.clone()),
@@ -79,7 +82,15 @@ fn progress_under(
         }
     }
     Progress {
-        summary: manifest.compute_summary(files.len()),
+        summary: InferenceSummary {
+            files_total: files.len(),
+            files_analyzed: files.len() - unanalyzed.len(),
+            entities_produced: manifest
+                .source_index
+                .iter()
+                .map(|entry| entry.entities_produced.len())
+                .sum(),
+        },
         unanalyzed,
         stale,
         deleted,
@@ -92,7 +103,7 @@ impl Progress {
     /// No project: nothing discovered, nothing recorded.
     pub fn none() -> Self {
         Progress {
-            summary: InferenceManifest::default().compute_summary(0),
+            summary: InferenceSummary::default(),
             unanalyzed: Vec::new(),
             stale: Vec::new(),
             deleted: Vec::new(),
@@ -242,6 +253,7 @@ mod tests {
         assert_eq!(progress.deleted, ["src/gone.rs"]);
         assert!(progress.stale.is_empty(), "{progress:?}");
         assert_eq!(progress.summary.files_total, 2);
+        assert_eq!(progress.summary.files_analyzed, 1);
         assert_eq!(progress.summary.entities_produced, 1);
         assert_eq!(
             progress.unanalyzed_by_directory(),

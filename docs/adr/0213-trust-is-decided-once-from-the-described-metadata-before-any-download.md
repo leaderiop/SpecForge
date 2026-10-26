@@ -7,6 +7,8 @@ narrowed), [ADR 0201](0201-a-locked-package-is-fetched-to-the-pin-its-lock-entry
 adapter's) and [ADR 0010](0010-operations-reach-the-registry-through-a-port.md) (`published` takes the policy).
 **Extended by [ADR 0250](0250-a-download-is-held-to-the-size-its-reply-declares.md) (round 27):** D1, the download is held to the size the reply declares (at most 64 MiB) before it is held to the SHA-256.
 
+**Amended by [ADR 0265](0265-a-registry-reply-is-read-as-values-where-it-is-read.md) (round 28):** the reply's digest is a SHA-256 at the reply read, so a digest no download can match is R009 before the download, and "a refused package is never downloaded" holds for it.
+
 **D2 amended by [ADR 0221](0221-an-unsigned-package-is-held-to-its-names-expected-publisher.md) (round 25):** the adapter reads the user's store for an unsigned package too, and the expected key holds it.
 
 ## Context

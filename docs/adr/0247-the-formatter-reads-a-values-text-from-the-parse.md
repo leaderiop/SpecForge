@@ -1,6 +1,6 @@
 # The formatter reads a value's text from the parse
 
-**Status:** accepted (2026-10-26, architecture round 27, plan 05). Reopens [ADR 0234](0234-a-values-spelling-is-the-spellers.md) D1 (`Respell` carries the spelling) and D3 (the formatter reads the parse's reading of the written value, as W159 does); amends [ADR 0147](0147-a-value-is-written-in-its-fields-one-form.md) D4 (check and format ask the rule of one reading of the value).
+**Status:** accepted (2026-10-26, architecture round 27, plan 05). Reopened by [ADR 0266](0266-a-source-line-break-has-one-reader.md): a raw CR LF was a second fact of a value format read apart from the parse. Reopens [ADR 0234](0234-a-values-spelling-is-the-spellers.md) D1 (`Respell` carries the spelling) and D3 (the formatter reads the parse's reading of the written value, as W159 does); amends [ADR 0147](0147-a-value-is-written-in-its-fields-one-form.md) D4 (check and format ask the rule of one reading of the value).
 
 ## Context
 

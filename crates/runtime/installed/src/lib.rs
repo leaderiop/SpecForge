@@ -31,7 +31,7 @@ pub use lock::{
     KeyId, LocalPath, LockFile, LockFileEntry, LockSource, LockState, read_lock_file,
     recordable_peers, write_lock_file,
 };
-pub use module::{Module, Sha256, hex_sha256};
+pub use module::{Module, hex_sha256};
 pub use resolve::{Declared, FileEntry, Origin, Resolution, Resolved};
 
 /// A project's installed extensions: its root and what `specforge.lock`

@@ -29,9 +29,9 @@ pub struct Args {
     entities_produced: Vec<String>,
     /// Session ID to end (for end; refused on another action)
     session_id: Option<String>,
-    /// Final status (for end, `completed` unless asked; refused on another action)
+    /// Final status (for end; refused on another action)
     #[arg(choice = infer::END_STATUS)]
-    status: Option<EndStatus>,
+    status: EndStatus,
 }
 
 impl MutationArgs for Args {
@@ -114,7 +114,7 @@ fn step(args: &Args) -> Result<SessionStep<'_>, Box<McpError>> {
     let action = infer::SESSION_ACTION
         .parse(&args.action)
         .map_err(|error| Box::new(McpError::from(error).with_argument("action")))?;
-    foreign(args)?;
+    foreign(args, action)?;
     Ok(match action {
         SessionAction::Start => SessionStep::Start {
             agent: args.agent.as_deref(),
@@ -126,39 +126,48 @@ fn step(args: &Args) -> Result<SessionStep<'_>, Box<McpError>> {
         },
         SessionAction::End => SessionStep::End {
             session_id: required(&args.session_id, "session_id")?,
-            status: args.status.unwrap_or(EndStatus::Completed),
+            status: args.status,
         },
     })
 }
 
 /// The first argument given that belongs to another action than `action`, refused on it.
-fn foreign(args: &Args) -> Result<(), Box<McpError>> {
+fn foreign(args: &Args, action: SessionAction) -> Result<(), Box<McpError>> {
     // shortcut: an explicit [] for `entities_produced` on another action passes, it carries nothing.
     let given = [
-        ("agent", "start", args.agent.is_some()),
-        ("source_roots", "start", args.source_roots.is_some()),
-        ("source_file", "mark_analyzed", args.source_file.is_some()),
+        ("agent", SessionAction::Start, args.agent.is_some()),
+        (
+            "source_roots",
+            SessionAction::Start,
+            args.source_roots.is_some(),
+        ),
+        (
+            "source_file",
+            SessionAction::MarkAnalyzed,
+            args.source_file.is_some(),
+        ),
         (
             "entities_produced",
-            "mark_analyzed",
+            SessionAction::MarkAnalyzed,
             !args.entities_produced.is_empty(),
         ),
-        ("session_id", "end", args.session_id.is_some()),
+        ("session_id", SessionAction::End, args.session_id.is_some()),
         // `completed` is the schema's default, so a client that fills defaults sends it on every action
         (
             "status",
-            "end",
-            args.status.is_some_and(|s| s != EndStatus::Completed),
+            SessionAction::End,
+            Some(args.status) != infer::END_STATUS.default,
         ),
     ];
     match given
         .into_iter()
-        .find(|(_, owner, given)| *given && *owner != args.action)
+        .find(|(_, owner, given)| *given && *owner != action)
     {
         Some((name, owner, _)) => {
             let message = format!(
                 "'{name}' is an argument of action '{}', not of '{}'",
-                owner, args.action
+                infer::SESSION_ACTION.name_of(owner),
+                infer::SESSION_ACTION.name_of(action)
             );
             Err(Box::new(
                 McpError::new(ErrorCode::InvalidInput, message).with_argument(name),
@@ -170,10 +179,9 @@ fn foreign(args: &Args) -> Result<(), Box<McpError>> {
 
 /// The argument `value` holds, or the refusal that it is missing.
 fn required<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, Box<McpError>> {
-    value.as_deref().ok_or_else(|| {
-        let message = format!("Missing required parameter: {name}");
-        Box::new(McpError::new(ErrorCode::InvalidInput, message).with_argument(name))
-    })
+    value
+        .as_deref()
+        .ok_or_else(|| Box::new(crate::args::missing(name)))
 }
 
 /// What a recorded step replies.

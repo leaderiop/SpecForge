@@ -70,9 +70,17 @@ impl World {
             "entities": if entities { serde_json::json!([{"name": "thing"}]) } else { serde_json::json!([]) },
         })
         .to_string();
-        self.client.store(
+        // A name no reply can hold is stored as the row's text: what a registry from before ADR 0036 lists.
+        let replied = if specforge_package::PackageName::parse(name).is_ok() {
+            name
+        } else {
+            "@sdk/unreadable"
+        };
+        self.client.store_as(
             &registry_named(alias),
-            package(name, version, b"\0asm", &manifest, None),
+            name,
+            version,
+            package(replied, version, b"\0asm", &manifest, None),
             b"\0asm".to_vec(),
         );
     }

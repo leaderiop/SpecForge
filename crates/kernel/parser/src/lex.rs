@@ -413,9 +413,9 @@ fn regular_string(bytes: &[u8], open: usize) -> (usize, bool) {
         match bytes.get(i) {
             None => break None,
             Some(b'"') => break Some(i),
-            // The grammar's escape is `\` and any character but a line break.
+            // The grammar's escape is `\` and any character but a CR or a LF.
             Some(b'\\') => match bytes.get(i + 1) {
-                None | Some(b'\n') => break None,
+                None | Some(b'\n' | b'\r') => break None,
                 Some(_) => i += 2,
             },
             Some(_) => i += 1,

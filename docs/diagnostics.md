@@ -304,15 +304,16 @@ Level: error
 ```
 E025: Import resolution failed
 
-Either a `.spec` file discovery found can't be read (not UTF-8, no permission):
-it is named, left out of the graph, and an import of it reports nothing more; or
-a `use` import names no source of the project: no `.spec` file by that path
-under the spec root that discovery keeps. A file an `exclude` entry leaves out,
-one under a skipped directory (`target`, `build`, ...), one inside a nested
-project (a directory below the spec root holding its own `specforge.json`), one
-above the spec root and one whose name differs only in case are no source. Fix
-the import path or the `exclude` entry; a `did you mean` suggestion is included
-when a close match exists.
+Either a `.spec` file discovery found can't be read (not UTF-8, no permission,
+not a regular file such as a named pipe or a device, or larger than 64 MiB): it
+is named, left out of the graph, and an import of it reports nothing more; or a
+`use` import names no source of the project: no `.spec` file by that path under
+the spec root that discovery keeps. A file an `exclude` entry leaves out, one
+under a skipped directory (`target`, `build`, ...), one inside a nested project
+(a directory below the spec root holding its own `specforge.json`), one above
+the spec root and one whose name differs only in case are no source. Fix the
+import path or the `exclude` entry; a `did you mean` suggestion is included when
+a close match exists.
 
 Owner: core
 Level: error
@@ -358,24 +359,25 @@ Level: error
 E028: Extension load or execution failure
 
 An extension failed somewhere in its lifecycle: its binary is missing,
-unreadable or does not load as a component, or `specforge.lock` can't be read so
-nothing is known to be installed (a `.wasm` file entry of `specforge.json` also
-when the file declares another name than the entry writes, the name of a
-builtin, or an extension another entry already loads); its handshake or one of
-its describe categories failed or does not parse, so its declaration cannot be
-read (`specforge add` and `specforge publish` refuse such a binary); or a call
-the host makes on the loaded extension failed. The host calls ten exports: the
-handshake and describe, a command, an MCP tool, an MCP resource, a compiler
-pass, a collector, a custom validator, a scanner and the migration hook. Each
-call fails when the export traps (a limit of its sandbox included: its time, its
-fuel or its memory, the trap naming which), when the extension does not route
-it, or when it answers output that is not the protocol type the operation owes
-(a collector's test whose status is not `passed`, `failed` or `skipped`, say);
-the message names the operation, the export and the extension (`command cmd__x()
-of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check
-pass's is the compile's error, an analyze pass's a finding of that pass, a
-scanner's makes `infer` approximate. Report the failure to the extension's
-author, and confirm the extension is installed and up to date.
+unreadable (no permission, not a regular file, larger than 64 MiB) or does not
+load as a component, or `specforge.lock` can't be read so nothing is known to be
+installed (a `.wasm` file entry of `specforge.json` also when the file declares
+another name than the entry writes, the name of a builtin, or an extension
+another entry already loads); its handshake or one of its describe categories
+failed or does not parse, so its declaration cannot be read (`specforge add` and
+`specforge publish` refuse such a binary); or a call the host makes on the
+loaded extension failed. The host calls ten exports: the handshake and describe,
+a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom
+validator, a scanner and the migration hook. Each call fails when the export
+traps (a limit of its sandbox included: its time, its fuel or its memory, the
+trap naming which), when the extension does not route it, or when it answers
+output that is not the protocol type the operation owes (a collector's test
+whose status is not `passed`, `failed` or `skipped`, say); the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -1144,11 +1146,11 @@ Level: info
 ```
 I008: Coverage item proven by tests
 
-`specforge analyze`'s `coverage_tracking` pass found a coverage item (an
-invariant or a testable entity) whose every `verify` obligation a passing
-recorded test names, under @specforge/testing's coverage rule. The message names
-those tests. An item proven only by an entailed claim is not reported. Nothing
-to do.
+`specforge analyze`'s `coverage_tracking` pass found a coverage item (an entity
+that counts toward coverage: its kind is testable and it owes or declares
+obligations) whose every `verify` obligation a passing recorded test names,
+under @specforge/testing's coverage rule. The message names those tests. An item
+proven only by an entailed claim is not reported. Nothing to do.
 
 Owner: @specforge/formal
 Level: info
@@ -2071,15 +2073,18 @@ R009: Registry reply unreadable
 The registry's answer isn't one the registry protocol defines for that request:
 a body that isn't the request's JSON (such as a publisher signature that isn't
 an Ed25519 signature object, or a publish receipt that describes another upload
-than the one sent), a 404 without the protocol's NOT_FOUND error (no registry
-serves that address: the configured `url` isn't a SpecForge registry's root), a
-download URL that is neither an `http`/`https` URL nor a path at the registry's
-root, or an answer longer than the request admits (a download longer than the
-`size_bytes` its reply declares, or any answer over 64 MiB, the largest package
-a registry accepts; it is refused before more of it is read). The registry is
-broken, or the URL isn't a SpecForge registry's root. Nothing is installed and
-no key is pinned, and `--allow-unsigned` doesn't accept such a package. Check
-the registry and its `url` in `specforge.json`.
+than the one sent), a name that is no package name, a version that is no SemVer
+version, a digest that is not a SHA-256 in lowercase hex or a token expiry that
+is not an RFC 3339 timestamp (each refused before anything is downloaded or
+kept), a 404 without the protocol's NOT_FOUND error (no registry serves that
+address: the configured `url` isn't a SpecForge registry's root), a download URL
+that is neither an `http`/`https` URL nor a path at the registry's root, or an
+answer longer than the request admits (a download longer than the `size_bytes`
+its reply declares, or any answer over 64 MiB, the largest package a registry
+accepts; it is refused before more of it is read). The registry is broken, or
+the URL isn't a SpecForge registry's root. Nothing is installed and no key is
+pinned, and `--allow-unsigned` doesn't accept such a package. Check the registry
+and its `url` in `specforge.json`.
 
 Owner: core
 Level: error
@@ -2488,11 +2493,13 @@ Level: warning
 ```
 W035: Undischarged coverage items
 
-One or more coverage items (invariants and testable entities) are not proven
-under @specforge/testing's coverage rule: some obligation has no passing
-recorded test that names it, and no entailed formal claim discharges it. Link a
-test to each obligation by its text and run `specforge collect`; `specforge
-analyze coverage` lists what is unproven (A001, A015).
+One or more coverage items are not proven under @specforge/testing's coverage
+rule. An item is an entity that counts toward coverage, as `specforge stats` and
+`specforge analyze coverage` count it: some obligation has no passing recorded
+test that names it and no entailed formal claim discharges it, or it declares
+none. Link a test to each obligation by its text and run `specforge collect`;
+`specforge analyze coverage` then lists each item that declares no obligation
+(A001) and, once results are recorded, each unproven obligation (A015).
 
 Owner: @specforge/formal
 Level: warning

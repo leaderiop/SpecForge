@@ -1,90 +1,7 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import { cliOutput } from "./binary";
-
-// --- Types for CLI output ---
-
-interface ListEntity {
-  id: string;
-  kind: string;
-  title?: string;
-  file?: string;
-  line?: number;
-}
-
-/** `specforge export --format=graph` and `specforge query` output. */
-interface GraphJson {
-  nodes?: InspectEntity[];
-  edges?: { source: string; target: string; label: string }[];
-}
-
-interface InspectEntity {
-  id: string;
-  kind: string;
-  title?: string;
-  file?: string;
-  line?: number;
-  fields?: Record<string, unknown>;
-  references?: string[];
-}
-
-// --- Codicon mapping per entity kind ---
-
-const KIND_ICONS: Record<string, string> = {
-  behavior: "symbol-method",
-  feature: "symbol-class",
-  event: "symbol-event",
-  type: "symbol-struct",
-  invariant: "symbol-interface",
-  port: "symbol-interface",
-  journey: "symbol-misc",
-  deliverable: "symbol-package",
-  milestone: "symbol-ruler",
-  module: "symbol-namespace",
-  term: "symbol-text",
-  persona: "symbol-account",
-  channel: "symbol-broadcast",
-  release: "symbol-tag",
-  decision: "symbol-law",
-  constraint: "symbol-lock",
-  failure_mode: "symbol-warning",
-  property: "symbol-property",
-  axiom: "symbol-key",
-  protocol: "symbol-link",
-  refinement: "symbol-type-hierarchy",
-  process: "symbol-debug-step-over",
-};
-
-// Canonical ordering for entity kind groups in the tree
-const KIND_ORDER: string[] = [
-  "behavior",
-  "feature",
-  "event",
-  "type",
-  "invariant",
-  "port",
-  "journey",
-  "deliverable",
-  "milestone",
-  "module",
-  "term",
-  "persona",
-  "channel",
-  "release",
-  "decision",
-  "constraint",
-  "failure_mode",
-  "property",
-  "axiom",
-  "protocol",
-  "refinement",
-  "process",
-];
-
-function kindSortIndex(kind: string): number {
-  const idx = KIND_ORDER.indexOf(kind);
-  return idx >= 0 ? idx : KIND_ORDER.length;
-}
+import { symbolIcon } from "./symbols";
+import { GraphNode, SessionGraph, graphChanged, sessionGraph } from "./lsp-client";
 
 function pluralizeKind(kind: string): string {
   if (kind.endsWith("y") && !kind.endsWith("ey")) {
@@ -111,13 +28,13 @@ type TreeElement = KindGroupItem | EntityItem | DetailItem;
 class KindGroupItem {
   constructor(
     public readonly kind: string,
-    public readonly entities: ListEntity[]
+    public readonly entities: GraphNode[]
   ) {}
 }
 
 class EntityItem {
   constructor(
-    public readonly entity: ListEntity,
+    public readonly entity: GraphNode,
     public readonly kind: string
   ) {}
 }
@@ -127,10 +44,6 @@ class DetailItem {
     public readonly label: string,
     public readonly value: string
   ) {}
-}
-
-function getWorkspaceCwd(): string | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 // --- Tree Data Provider ---
@@ -143,13 +56,12 @@ export class EntityTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private entities: ListEntity[] = [];
-  private groupedByKind: Map<string, ListEntity[]> = new Map();
-  private inspectCache: Map<string, InspectEntity> = new Map();
+  private entities: GraphNode[] = [];
+  private groupedByKind: Map<string, GraphNode[]> = new Map();
+  private graph: SessionGraph | undefined;
   private errorMessage: string | undefined;
 
   refresh(): void {
-    this.inspectCache.clear();
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -179,18 +91,18 @@ export class EntityTreeProvider
   // --- Root level: kind groups ---
 
   private async getRootChildren(): Promise<TreeElement[]> {
-    const cwd = getWorkspaceCwd();
-    if (!cwd) {
+    if (!vscode.workspace.workspaceFolders?.length) {
       this.errorMessage = "No workspace folder open.";
       return [];
     }
 
     try {
-      const output = await cliOutput(["export", "--format=graph", "--no-schema"]);
-      this.entities = (JSON.parse(output) as GraphJson).nodes ?? [];
+      this.graph = await sessionGraph();
+      this.entities = this.graph.graph.nodes ?? [];
       this.errorMessage = undefined;
     } catch (err) {
       this.errorMessage = err instanceof Error ? err.message.split("\n")[0] : String(err);
+      this.graph = undefined;
       this.entities = [];
     }
 
@@ -215,9 +127,7 @@ export class EntityTreeProvider
       }
     }
 
-    const sortedKinds = [...this.groupedByKind.keys()].sort(
-      (a, b) => kindSortIndex(a) - kindSortIndex(b)
-    );
+    const sortedKinds = [...this.groupedByKind.keys()].sort();
 
     return sortedKinds.map(
       (kind) => new KindGroupItem(kind, this.groupedByKind.get(kind)!)
@@ -229,31 +139,11 @@ export class EntityTreeProvider
   private async getEntityDetails(
     element: EntityItem
   ): Promise<DetailItem[]> {
-    const cwd = getWorkspaceCwd();
-    if (!cwd) return [];
-
     const id = element.entity.id;
-    let inspected = this.inspectCache.get(id);
-
-    if (!inspected) {
-      try {
-        const output = await cliOutput(["query", id, "--depth", "1"]);
-        const graph = JSON.parse(output) as GraphJson;
-        const node = graph.nodes?.find((n) => n.id === id);
-        if (!node) {
-          return [new DetailItem("(not found)", "")];
-        }
-        inspected = {
-          ...node,
-          references: (graph.edges ?? [])
-            .filter((e) => e.source === id)
-            .map((e) => `${e.label}: ${e.target}`),
-        };
-        this.inspectCache.set(id, inspected);
-      } catch {
-        return [new DetailItem("(inspect failed)", "")];
-      }
-    }
+    const inspected = element.entity;
+    const references = (this.graph?.graph.edges ?? [])
+      .filter((e) => e.source === id)
+      .map((e) => `${e.label}: ${e.target}`);
 
     const details: DetailItem[] = [];
 
@@ -270,10 +160,8 @@ export class EntityTreeProvider
     }
 
     // Show references
-    if (inspected.references && inspected.references.length > 0) {
-      details.push(
-        new DetailItem("references", inspected.references.join(", "))
-      );
+    if (references.length > 0) {
+      details.push(new DetailItem("references", references.join(", ")));
     }
 
     if (details.length === 0) {
@@ -291,8 +179,7 @@ export class EntityTreeProvider
       label,
       vscode.TreeItemCollapsibleState.Collapsed
     );
-    const iconId = KIND_ICONS[element.kind] ?? "symbol-misc";
-    item.iconPath = new vscode.ThemeIcon(iconId);
+    item.iconPath = symbolIcon(this.graph?.kinds[element.kind]);
     item.contextValue = "entityKindGroup";
     return item;
   }
@@ -309,8 +196,7 @@ export class EntityTreeProvider
       item.description = entity.title;
     }
 
-    const iconId = KIND_ICONS[element.kind] ?? "symbol-misc";
-    item.iconPath = new vscode.ThemeIcon(iconId);
+    item.iconPath = symbolIcon(this.graph?.kinds[element.kind]);
     item.contextValue = "entity";
     item.tooltip = entity.title
       ? `${entity.kind}: ${entity.id}\n${entity.title}`
@@ -378,24 +264,20 @@ export function registerEntityTree(
     })
   );
 
-  // Debounced auto-refresh on .spec file save
+  // The language server notifies after each rebuild (saved or not, ADR 0268 D2); VS Code asks the
+  // tree again only while the view is visible.
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-  const specWatcher = vscode.workspace.onDidSaveTextDocument((doc) => {
-    if (
-      doc.languageId === "specforge" ||
-      doc.fileName.endsWith(".spec") ||
-      doc.fileName.endsWith("specforge.json")
-    ) {
+  context.subscriptions.push(
+    graphChanged(() => {
       if (refreshTimer) {
         clearTimeout(refreshTimer);
       }
       refreshTimer = setTimeout(() => {
         provider.refresh();
         refreshTimer = undefined;
-      }, 500);
-    }
-  });
-  context.subscriptions.push(specWatcher);
+      }, 300);
+    })
+  );
 
   return provider;
 }

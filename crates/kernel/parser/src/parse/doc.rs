@@ -1,5 +1,6 @@
-//! A block's doc comment: the run of whole-line comments directly above its first line, the format header never one
-//! (ADR 0202); and a member's, by the same rule (ADR 0248).
+//! A block's doc comment, and a `use` statement's by the same rule: the run of whole-line comments directly above its first line, the format header never one
+//! (ADR 0202); and a member's, by the same rule (ADR 0248); and the comments inside and after a member's value
+//! (ADR 0267).
 
 use super::*;
 
@@ -30,11 +31,20 @@ fn run_above(
     })
 }
 
-/// Each of `entities` given its doc comment, read from `comments` (whole-line comments between top-level items, in
-/// source order, absolute spans) and `header` (the format header's 0-based row, ADR 0095).
-pub(super) fn attach(entities: &mut [Entity], comments: &[SourceSpan], header: Option<usize>) {
+/// Each of `entities` and `imports` given its doc comment, read from `comments` (whole-line comments between
+/// top-level items, in source order, absolute spans) and `header` (the format header's 0-based row, ADR 0095).
+pub(super) fn attach(
+    entities: &mut [Entity],
+    imports: &mut [ImportDeclaration],
+    comments: &[SourceSpan],
+    header: Option<usize>,
+) {
+    let doc = |line| run_above(comments, line, |row| header == Some(row));
     for entity in entities {
-        entity.doc_span = run_above(comments, entity.span.start_line, |row| header == Some(row));
+        entity.doc_span = doc(entity.span.start_line);
+    }
+    for import in imports {
+        import.doc_span = doc(import.span.start_line);
     }
 }
 
@@ -44,5 +54,27 @@ impl Entity {
     /// when none stands there. Lines are as this parse read them.
     pub fn comments_above(&self, line: usize) -> Option<SourceSpan> {
         run_above(&self.body_comments, line, |_| false)
+    }
+
+    /// The comment trailing the member whose value is written at `value`: on the row the value ends on, past it (after
+    /// its annotations). `None` when none stands there.
+    pub fn trailing_comment(&self, value: &SourceSpan) -> Option<&SourceSpan> {
+        self.trailing_comments
+            .iter()
+            .find(|c| c.start_line == value.end_line && c.start_col >= value.end_col)
+    }
+
+    /// Whether a comment is written inside `value` (a member's value span): a list's, a nested block field's member
+    /// comment or trailing comment. The comment trailing the value itself is outside it ([`Self::trailing_comment`]).
+    pub fn holds_comment(&self, value: &SourceSpan) -> bool {
+        let inside = |c: &SourceSpan| {
+            (c.start_line, c.start_col) > (value.start_line, value.start_col)
+                && (c.start_line, c.start_col) < (value.end_line, value.end_col)
+        };
+        self.value_comments
+            .iter()
+            .chain(&self.body_comments)
+            .chain(&self.trailing_comments)
+            .any(inside)
     }
 }

@@ -7,7 +7,6 @@ fn builtin_request<'a>(
     AddRequest {
         root,
         extensions: vec![Source::builtin(name).into()],
-        base: None,
         allow_unsigned: false,
         dry_run: false,
         caller: crate::testing::caller(),

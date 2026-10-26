@@ -32,7 +32,6 @@ fn local_request<'a>(root: &'a specforge_common::ProjectRoot, file: &Path) -> Ad
     AddRequest {
         root,
         extensions: vec![Source::Local(file.to_path_buf()).into()],
-        base: None,
         allow_unsigned: false,
         dry_run: false,
         caller: crate::testing::caller(),
@@ -51,7 +50,6 @@ fn add_greet(root: &Path, registry: &MemoryRegistry) -> Result<AddOutcome, Refus
             extensions: vec![
                 Source::Registry(PackageRef::parse("@sdk/greet@0.1.0").unwrap()).into(),
             ],
-            base: None,
             allow_unsigned: true,
             dry_run: false,
             caller: crate::testing::caller(),
@@ -78,7 +76,6 @@ fn several(
     AddRequest {
         root,
         extensions,
-        base: None,
         allow_unsigned: true,
         dry_run,
         caller: crate::testing::caller(),

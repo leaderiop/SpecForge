@@ -215,6 +215,24 @@ fn empty_file_scope_returns_error() {
     assert_eq!(resp["error"]["data"]["argument"], "scope");
 }
 
+#[specforge_test(
+    behavior = "read_a_named_source_path",
+    verify = "a source-code path that names nothing is refused in one sentence, the infer prompt's file scope included"
+)]
+fn an_empty_file_scope_is_refused_as_an_empty_source_path_is() {
+    let mut state = make_state_with_kind("behavior", Some("guide text"));
+    let data = &infer(&mut state, json!({"scope": "file:"}))["error"]["data"];
+    assert_eq!(
+        (&data["code"], &data["argument"], &data["message"]),
+        (
+            &json!("invalid_input"),
+            &json!("scope"),
+            &json!("'' names no file: a source file is named from the project root")
+        ),
+        "{data}"
+    );
+}
+
 #[test]
 fn plan_scope_returns_kind_priorities() {
     let mut state = state_with_my_behavior();

@@ -225,7 +225,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     assert_eq!(d["contract"], "The system MUST work");
     assert_eq!(
         d["verify"],
-        serde_json::json!([{ "kind": "unit", "description": "it works" }])
+        serde_json::json!([{ "kind": "unit", "text": "it works" }])
     );
     let a = nodes.iter().find(|n| n["id"] == "a").unwrap();
     assert_eq!(a["status"], "planned");
@@ -284,7 +284,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     );
     assert_eq!(
         d["verify"],
-        serde_json::json!([{ "kind": "unit", "description": "it works" }])
+        serde_json::json!([{ "kind": "unit", "text": "it works" }])
     );
     assert_eq!(parsed["nodes"][0]["fields"]["status"], "planned");
     assert_eq!(

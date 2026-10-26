@@ -82,7 +82,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   contract   """
     The declarative validation engine MUST execute each registered pattern
     against the compiled graph. no_incoming_edges MUST check that every
-    entity of the target kind has at least one incoming edge. no_outgoing_edges
+    entity of the target kind has at least one incoming edge from another
+    entity. no_outgoing_edges
     MUST report an entity that points at nothing: no field writes a reference,
     resolved or not, and no edge leaves it (with an edge type, only that edge
     type's fields and edges). A reference that does not resolve is E003,
@@ -132,6 +133,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "a missing path a file_exists rule names suggests a close sibling"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
+  verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
+  verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 
@@ -242,7 +245,10 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     Edges: every edge the snapshot holds is typed by the edge type its
     field writes from the kind it starts at, and each entity's edges are
     counted in total and by that type. An edge whose field writes no edge
-    type has none and counts in the total only.
+    type has none and counts in the total only. An entity's edges are its
+    edges to and from other entities, as its degree counts them: an edge
+    from it to itself counts in neither, and the snapshot still holds it
+    for the cycle rules.
 
     Field text: every field an entity writes has exactly one text, which
     declarative rules match, custom validators receive as the field's
@@ -271,7 +277,8 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     coverage rule's one counting rule, read with the standing's facts.
     The rules, the pass input's `owes_none` (it owes none, and may still
     count by declaring some), stats and the verify-stub fix all read this
-    one standing.
+    one standing; every pass reads the pass entity's facts unaltered
+    (ADR 0269).
   """
   verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
   verify unit "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
@@ -287,6 +294,7 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "every written field keeps its value shape and value span beside its text"
   verify unit "the coverage rule reads each entity as the pass input carries it"
   verify unit "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
+  verify unit "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
 }
 
 // -- Entity Checks -----------------------------------------------------------

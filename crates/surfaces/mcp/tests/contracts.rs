@@ -387,10 +387,7 @@ fn contract_export() {
     );
     let alpha = find(&context["nodes"], "id", "alpha");
     assert_eq!(alpha["contract"], "MUST work");
-    assert_eq!(
-        alpha["verify"],
-        json!([{"kind": "unit", "description": "works"}])
-    );
+    assert_eq!(alpha["verify"], json!([{"kind": "unit", "text": "works"}]));
     assert!(
         alpha["fields"].get("contract").is_none(),
         "context lifts the contract, not repeats it: {alpha}"
@@ -673,7 +670,7 @@ fn contract_inspect() {
     assert_eq!(details["title"], "Alpha");
     assert_eq!(details["contract"], "MUST work");
     assert_eq!(details["fields"]["contract"], "MUST work");
-    assert_eq!(details["verify_declarations"], json!(["unit works"]));
+    assert_eq!(details["verify_declarations"], json!([unit("works")]));
     assert_eq!(details["referenced_by"], json!([]));
     assert_eq!(details["coverage_status"], "uncovered");
     let codes: Vec<&str> = details["diagnostics"]
@@ -960,7 +957,7 @@ fn contract_context_prompt() {
     assert_eq!(context["contract_text"], "MUST work");
     assert_eq!(context["upstream_entities"], json!([]));
     assert_eq!(context["downstream_entities"], json!(["beta"]));
-    assert_eq!(context["verify_expectations"], json!(["unit works"]));
+    assert_eq!(context["verify_expectations"], json!([unit("works")]));
     // hints_included: gamma rides along although no edge reaches it.
     assert_eq!(context["structural_constraints"], json!(["gamma"]));
     let hint = &context["structural_constraint_entities"][0];
@@ -2221,10 +2218,7 @@ fn contract_context_resource() {
     assert_eq!(content["uri"], "specforge://context");
     let alpha = find(&context["nodes"], "id", "alpha");
     assert_eq!(alpha["contract"], "MUST work");
-    assert_eq!(
-        alpha["verify"],
-        json!([{"kind": "unit", "description": "works"}])
-    );
+    assert_eq!(alpha["verify"], json!([{"kind": "unit", "text": "works"}]));
     assert_eq!(context["edges"].as_array().unwrap().len(), 1);
     // context_format_returned: what export --format=context returns.
     let export = tool(

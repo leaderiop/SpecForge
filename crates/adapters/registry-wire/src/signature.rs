@@ -39,7 +39,12 @@ impl SignedContent {
 
     /// The content a reply describes: `wasm_sha256` is the binary's digest as the reply states it, so no download is
     /// needed. Equal to [`SignedContent::of`] of the bytes that hash to `wasm_sha256`.
-    pub fn described(name: &str, version: &str, wasm_sha256: &str, manifest: &str) -> Self {
+    pub fn described(
+        name: &specforge_package::PackageName,
+        version: &specforge_package::Version,
+        wasm_sha256: &specforge_package::Sha256,
+        manifest: &str,
+    ) -> Self {
         Self {
             name: name.to_string(),
             version: version.to_string(),
@@ -267,7 +272,12 @@ mod tests {
 
     #[test]
     fn the_described_content_is_the_content_of_the_bytes_it_names() {
-        let described = SignedContent::described(NAME, VERSION, &sha256_hex(WASM), MANIFEST);
+        let described = SignedContent::described(
+            &NAME.parse().unwrap(),
+            &VERSION.parse().unwrap(),
+            &sha256_hex(WASM).parse().unwrap(),
+            MANIFEST,
+        );
         assert_eq!(described, content());
         let signature = PackageSignature::sign(&key(), &content(), at());
         assert!(signature.verify(&described).is_ok());

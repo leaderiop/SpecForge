@@ -47,6 +47,11 @@ pub struct ImportDeclaration {
     pub namespace: Option<String>,
     pub is_pub: bool,
     pub span: SourceSpan,
+    /// Where the statement's doc comment is written, by the rule of [`Entity::doc_span`]: the whole-line `//`
+    /// comments directly above it, no blank line between, the format header never one. `None` when none stands
+    /// there. The parse's only: a removed statement takes it (ADR 0274); no comment reaches the graph (ADR 0202).
+    #[serde(skip)]
+    pub doc_span: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +88,15 @@ pub struct Entity {
     /// brace) trails that item and is not one; a `//` inside a string is no comment. Read through
     /// [`Self::comments_above`]. The parse's only: no comment reaches the graph (ADR 0148, ADR 0202, ADR 0248).
     pub body_comments: Vec<SourceSpan>,
+    /// Where each comment of the block's body that ends the row of the item before it is written: one trailing a
+    /// member (after its value and its annotations), an entry of a nested block field, or an opening brace. In source
+    /// order. Read through [`Self::trailing_comment`]. The parse's only: no comment reaches the graph (ADR 0267).
+    pub trailing_comments: Vec<SourceSpan>,
+    /// Where each comment inside a member's value is written: a list's (its items' comments, own-line or not), an
+    /// expression group's; never a nested block field's members' (those are [`Self::body_comments`] and
+    /// [`Self::trailing_comments`]) nor one between a key and its value. In source order. Read through
+    /// [`Self::holds_comment`]. The parse's only (ADR 0267).
+    pub value_comments: Vec<SourceSpan>,
 }
 
 /// One `method` member of an entity body.

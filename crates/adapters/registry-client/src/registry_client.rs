@@ -6,7 +6,7 @@ use specforge_package::DeclaredPackage;
 use specforge_package::PackageName;
 use specforge_package::Version;
 use specforge_registry_wire::{
-    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
+    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery, Timestamp,
 };
 
 /// Errors that can occur during registry operations.
@@ -133,16 +133,16 @@ impl From<RegistryError> for Diagnostic {
 /// [`crate::HttpRegistryClient`] and, in tests, `crate::testing::MemoryClient`; both are held to
 /// `crate::testing::assert_client_contract`.
 pub trait RegistryClient: Send + Sync {
-    /// Every version `registry` publishes of `name`, as served (not parsed). `NotFound` when the registry
-    /// answers that it has no such package (its 404 with `NOT_FOUND`); an answer no registry gives is
-    /// `InvalidReply`. A read carries `credential` as `Authorization: Bearer` when given; a registry that
+    /// Every version `registry` publishes of `name`, as SemVer versions in its order. `NotFound` when the
+    /// registry answers that it has no such package (its 404 with `NOT_FOUND`); an answer no registry gives,
+    /// a list holding a version that is no SemVer version among them, is `InvalidReply`. A read carries `credential` as `Authorization: Bearer` when given; a registry that
     /// requires one answers `Unauthorized` without it.
     fn versions(
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError>;
+    ) -> Result<Vec<Version>, RegistryError>;
 
     /// What `registry` stores for `name@version`, its `wasm_url` absolute, as its URL's
     /// serialization. `NotFound` when the registry
@@ -189,10 +189,11 @@ pub trait RegistryClient: Send + Sync {
     ) -> Result<PublishReceipt, RegistryError>;
 
     /// Validate that the given credential authenticates successfully.
-    /// Returns the server-reported expiry (RFC3339), when the registry tracks one.
+    /// Returns the server-reported expiry, when the registry tracks one; an expiry that is no RFC 3339
+    /// timestamp is `InvalidReply`.
     fn authenticate(
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError>;
+    ) -> Result<Option<Timestamp>, RegistryError>;
 }

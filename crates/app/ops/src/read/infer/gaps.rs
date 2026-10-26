@@ -22,8 +22,8 @@ pub struct Gaps {
     pub covered_items: usize,
     /// Directory (`.` for the root) to its uncovered items, sorted.
     pub by_directory: BTreeMap<String, Vec<SourceItem>>,
-    /// Whether the counts are approximate: a regex fallback found the
-    /// items (no scanner extension), or a scanner failed on a file.
+    /// Whether the counts are approximate: a scanner failed on a file, so
+    /// its items are unknown.
     pub approximate: bool,
     pub scanners_used: Vec<String>,
     /// The files a scanner failed on (E028 each): their items are unknown.

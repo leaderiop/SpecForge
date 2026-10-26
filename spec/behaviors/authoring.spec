@@ -15,7 +15,7 @@ behavior create_entity "Create an Entity" {
   contract   """
     A create edit names a kind, an id, a title and a file named from the project
     root, inside the spec root (wherever the spec root lies); every spelling of the file under the project root is that file (its source key; ADR 0195, ADR 0242). The block is written in the canonical form, after the last block of
-    its kind in the file, or at the end of the file; a file that does not exist
+    its kind in the file, or at the end of the file, in the file's line break; a file that does not exist
     is created, unless the later edits of the list leave it empty: a file that does not
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused
@@ -74,7 +74,11 @@ behavior edit_entity_field "Edit an Entity Field" {
     project's max_width, triple-quoted with its lines one indent of the
     project's format configuration past its key, and inserts an absent field
     at its rank (one-line values, then
-    block fields, then triple-quoted text, in the kind's declared order). An
+    block fields, then triple-quoted text, in the kind's declared order), a new last field or entry above the comment lines
+    directly above the closing brace of its block or block field, which no unset takes. A value holding a comment inside it (a list's item
+    comment, a block field's member comment) is kept as written when the set reads the same as the graph stores both, and a set
+    to another value is refused not_editable, naming its field, its entity and its file: the comment lives in no value an edit
+    writes. A comment trailing the value stays on its row. An
     unset edit leaves the field holding none: it removes the field and the comment lines directly above it, as the
     parse reads them (a `//` line inside a string is none), or, over a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
     hold none and is refused. A second unset changes nothing. A
@@ -125,6 +129,11 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "retitle refuses a blank title before anything is planned, as create does"
   verify unit "unset keeps a // line inside the string above the field"
   verify unit "set of an absent field never writes inside the string above the first field"
+  verify unit "a typed edit of a CRLF block holding a multi-line quoted text is planned, its text kept"
+  verify unit "set of a value holding a comment to what it holds writes nothing"
+  verify unit "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
+  verify unit "set keeps the comment trailing the value, annotations given or not"
+  verify unit "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -133,7 +142,8 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   contract   """
     A link edit adds a target to a list field and keeps the items as written;
     an unlink edit removes it, and removes the field when the last item goes.
-    A link to a target already there changes nothing. A list written as one value is its one item. A field a block inherits
+    A link to a target already there changes nothing, whatever comment the list holds; a comment trailing the list stays on its
+    row, and a link or unlink that changes a list holding a comment inside it is refused as a set of it is. A list written as one value is its one item. A field a block inherits
     from its file's defaults is copied into an own field before it changes, as
     the earlier edits of the list left the file, and an own field that holds what the default holds, as the graph stores both, is removed. A link or unlink
     takes a whole list field: a `field.entry` path names an entry of a block field, which holds one text, and is
@@ -155,6 +165,8 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "unlink of an inherited single reference is refused as unset is"
   verify unit "a link and its unlink leave a block as it was"
   verify unit "unlink of the last item keeps a // line inside the string above the list"
+  verify unit "link and unlink keep the comment trailing the list"
+  verify unit "a link to a target already there writes nothing, whatever comment the list holds"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {
@@ -162,7 +174,8 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   category   mutation
   contract   """
     An add-verify edit inserts a verify line after the last verify statement,
-    or before the closing brace. A remove-verify edit removes the statement
+    or above the comment lines directly above the closing brace, which are the
+    block's: a remove-verify of it leaves them. A remove-verify edit removes the statement
     with that kind and text. Where each statement is written is read from the
     block's parse: an entry named verify inside a block field is a field, never
     a statement (ADR 0187, amended). An equal line is not added twice. The
@@ -184,6 +197,7 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "--verify names the obligation the entity writes in either reading of its prefix"
   verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
   verify unit "remove-verify keeps a // line inside the string above the statement"
+  verify unit "an added verify line goes above the comment lines before the closing brace, and its removal leaves them"
 }
 
 behavior delete_entity "Delete an Entity" {
@@ -191,7 +205,8 @@ behavior delete_entity "Delete an Entity" {
   category   mutation
   contract   """
     A delete edit removes the entity's block and its doc comment, as the parse
-    reads it: the // lines directly above the block with no blank line between.
+    reads it: the // lines directly above the block with no blank line between,
+    and one blank line beside it; the file keeps its final newline.
     The format header is never a doc comment and stays. Deleting an entity that is still referenced leaves the project
     with an error, so it is refused with E080 unless the edit asks to remove
     every reference to the entity in the same change. The references are every
@@ -201,7 +216,9 @@ behavior delete_entity "Delete an Entity" {
     a derived field reads, refuses the delete as not_editable, naming where it
     is written.
     A use binding that imports the entity is removed, its statement with it
-    when it was the last (ADR 0233).
+    when it was the last, and with the statement its doc comment, as a deleted
+    block's goes; the format header stays (ADR 0233, ADR 0274).
+    A referrer's list holding a comment inside it refuses the delete as not_editable, naming the referrer and its file.
   """
   verify unit "delete removes the block and the comment above it"
   verify unit "delete keeps the format header above the block"
@@ -213,6 +230,9 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references refuses a type name a derived field reads"
   verify unit "delete with unlink_references removes a use binding that imports it"
   verify unit "delete with unlink_references keeps a // line inside a string above a reference"
+  verify unit "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
+  verify unit "a delete keeps the file's final newline"
+  verify unit "delete with unlink_references removes the comment above a use statement it removes, never the format header"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
@@ -247,6 +267,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "every verb's graph change is what it declares"
   verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
+  verify unit "a value holding a control character is refused not_editable and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"
   verify unit "a preview refuses what the write would"

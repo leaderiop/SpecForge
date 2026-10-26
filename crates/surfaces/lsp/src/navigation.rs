@@ -151,8 +151,10 @@ impl<'s> Compiled<'s> {
             };
             let same = match document {
                 Some(doc) => doc.text() == &*compiled,
-                None => std::fs::read_to_string(self.state.files().file_path(file))
-                    .is_ok_and(|disk| disk == *compiled),
+                None => {
+                    specforge_common::regular::read_to_string(&self.state.files().file_path(file))
+                        .is_ok_and(|disk| disk == *compiled)
+                }
             };
             if same {
                 EditorText::Compiled
@@ -324,7 +326,7 @@ pub(crate) fn outline_to_document_symbols(
     DocumentSymbolResponse::Flat(symbols)
 }
 
-/// The symbol kind of an entity kind: its extension-declared LSP icon
+/// The symbol kind of an entity kind: its extension-declared LSP icon, else `Object`
 /// (`spec` is a namespace).
 pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
     if kind == structural::SPEC {
@@ -335,7 +337,7 @@ pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) 
     {
         return lsp_icon_to_symbol_kind(icon);
     }
-    SymbolKind::VARIABLE
+    SymbolKind::OBJECT
 }
 
 fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
@@ -352,7 +354,7 @@ fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
         "Text" => SymbolKind::STRING,
         "Package" => SymbolKind::PACKAGE,
         "Folder" => SymbolKind::NAMESPACE,
-        _ => SymbolKind::VARIABLE,
+        _ => SymbolKind::OBJECT,
     }
 }
 
@@ -477,6 +479,31 @@ mod tests {
             "the copy holds the compiled text"
         );
         state.set_session(session);
+    }
+
+    #[spec(
+        behavior = "provide_extension_defined_lsp_icons",
+        verify = "default SymbolKind::Object when lsp_icon not specified"
+    )]
+    fn a_kind_without_an_lsp_icon_is_an_object() {
+        let mut registry = KindRegistry::new();
+        assert_eq!(
+            symbol_kind_from_entity("gadget", &registry),
+            SymbolKind::OBJECT
+        );
+        for icon in [None, Some("Sparkle".to_string())] {
+            let mut entry = specforge_registry::KindRegistryEntry {
+                kind_name: "gadget".into(),
+                ..Default::default()
+            };
+            entry.declared.lsp_icon = icon.clone();
+            registry.register(entry);
+            assert_eq!(
+                symbol_kind_from_entity("gadget", &registry),
+                SymbolKind::OBJECT,
+                "{icon:?}"
+            );
+        }
     }
 
     #[spec(

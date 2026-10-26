@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use specforge_common::SourceSpan;
-use specforge_graph::{Rewrite, ValueShape};
+use specforge_graph::{Obligation, Rewrite, ValueShape};
 
 use crate::disk::Disk;
 
@@ -23,10 +23,10 @@ pub struct EntityRecord {
     /// its field text.
     pub fields: Vec<FieldRecord>,
     /// Its `verify` statements, in order: what it declares it will prove.
-    pub obligations: Vec<ObligationRecord>,
-    /// Edges into it, in total and by edge type.
+    pub obligations: Vec<Obligation>,
+    /// Edges into it from other entities, in total and by edge type.
     pub incoming: EdgeCounts,
-    /// Edges out of it, in total and by edge type.
+    /// Edges out of it to other entities, in total and by edge type.
     pub outgoing: EdgeCounts,
     /// The fields it gives their link (ADR 0232: a written reference,
     /// resolved or not, or an edge out of it), typed as its edges are. What
@@ -66,14 +66,8 @@ pub struct FieldRecord {
     pub rewrites: Vec<Rewrite>,
 }
 
-/// One `verify` statement: its kind (`""` for a bare `verify "…"`) and text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ObligationRecord {
-    pub kind: String,
-    pub text: String,
-}
-
-/// Edge counts in one direction.
+/// Edge counts in one direction, to or from other entities: an edge from the entity to itself
+/// counts in neither (ADR 0270).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EdgeCounts {
     pub total: usize,
@@ -234,7 +228,7 @@ impl EntityRecord {
 
     /// One more `verify` statement.
     pub fn with_obligation(mut self, kind: &str, text: &str) -> Self {
-        self.obligations.push(ObligationRecord {
+        self.obligations.push(Obligation {
             kind: kind.to_string(),
             text: text.to_string(),
         });

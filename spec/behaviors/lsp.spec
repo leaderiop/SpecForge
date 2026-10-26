@@ -59,6 +59,7 @@ behavior lsp_initialize "LSP Initialize" {
   verify unit "zero extensions produces structural-only capabilities"
   verify contract "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
   verify unit "initialize response includes server_info with name and version"
+  verify integration "the language server ends indexing over a project whose specforge.lock or a .spec file is a named pipe"
   verify unit "a workspace root inside a project opens the enclosing project"
 }
 
@@ -685,6 +686,7 @@ behavior entity_code_lens "Entity Code Lens" {
     workspace.codeLens.refreshSupport is asked to refresh its lenses.
   """
   verify integration "a lens counts an entity's references and verify statements as the compile reads them"
+  verify integration "a spec block's lens is at its string, the name it is written with"
   verify unit "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
 }
 
@@ -715,6 +717,33 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
   verify unit "a misspelled query within the fuzzy threshold finds the entity"
   verify unit "search results use extension-defined SymbolKind"
   verify contract "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
+}
+
+behavior session_graph_request "Session Graph Request" {
+  features   [outline_and_symbol_search]
+  category   query
+  invariants [zero_domain_knowledge_core, lsp_response_latency]
+  ports      [LspProtocol]
+  contract   """
+    The LSP MUST answer specforge/graph, a request with no params, with
+    the session's graph as specforge export --format=graph --no-schema
+    writes the project (the open buffers included; while a rebuild runs,
+    the last complete compile) and the symbol kind of each kind its nodes
+    hold, and each node's degree: its edges to and from other entities,
+    an edge from an entity to itself counting for nothing (Graph::degree,
+    the graph's one self-edge rule). It MUST answer specforge/entity, at a
+    text document position, with the graph node of the entity
+    Cursor::target names there, and null where the cursor names no entity:
+    a word in a string or a comment, a keyword, a field name. After each
+    applied change, a client that declared the experimental capability
+    specforgeGraphChanged MUST be sent specforge/graphChanged; no other
+    client is sent it.
+  """
+  verify integration "the graph request answers the session's graph, an unsaved buffer's entities included, with each kind's symbol kind"
+  verify integration "the entity request answers the node the cursor names, and nothing for a word in a string"
+  verify integration "the graph request answers each entity's degree, an entity naming only itself at 0"
+  verify unit "a rebuild notifies only a client that declared specforgeGraphChanged"
+  verify integration "a rebuild sends specforge/graphChanged to a client that declared it"
 }
 
 // Delegates to behaviors/incremental.spec pipeline: watch_file_system_for_changes ->
@@ -935,13 +964,13 @@ behavior complete_keywords "Complete Keywords" {
     and, on the cursor's line, on a verify line being typed (lex_spec_text),
     nothing after the kind, and nothing when the kind takes no verify
     statements. The registered kinds come from the
-    environment (CONTEXT: Environment), which is loaded before any .spec
-    file is read, so keyword completion MUST name them as soon as the
-    environment is loaded, while the workspace is still being indexed.
+    environment (CONTEXT: Environment), which the session hands over before
+    it reads any .spec file, so keyword completion MUST name them as soon as
+    the environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
   verify unit "a kind keyword's completion documents the kind with its description and inference guide"
-  verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
+  verify unit "the registered kinds are handed to keyword completion before any .spec file is read"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "nothing is suggested after the kind of a verify statement being typed"

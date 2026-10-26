@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-25, architecture round 27, plan 08). Extends [ADR 0213](0213-trust-is-decided-once-from-the-described-metadata-before-any-download.md) D1
 (the download is held to the size the reply declares before it is held to the SHA-256). Amends
 [ADR 0044](0044-the-package-registry-contract-is-one-crate.md) D2 (every answer is read through one bounded reader) and D4
-(`download` takes the reply, and the client contract gains K14 and K15).
+(`download` takes the reply, and the client contract gains K14 and K15). **Amended by [ADR 0264](0264-a-project-file-is-read-bounded-and-only-when-regular.md) (round 28):** D4, the ceiling is `specforge_package::MAX_PACKAGE_BYTES`, and it is also the most bytes read from one project file.
 
 ## Context
 

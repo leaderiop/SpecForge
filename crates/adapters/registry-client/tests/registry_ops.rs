@@ -1,5 +1,5 @@
 use specforge_common::Severity;
-use specforge_package::{DeclaredPackage, PackageName, Version};
+use specforge_package::{DeclaredPackage, PackageName, Sha256, Version};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::registry_ops::{publish_to_registry, verify_registry_integrity};
 use specforge_registry_client::testing::{Call, CallKind, MemoryClient, package};
@@ -7,7 +7,8 @@ use specforge_registry_client::{
     RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
 use specforge_registry_wire::{
-    PackageMetadata, PackageSignature, RegistryRoot, SignedContent, address::Call as WireCall,
+    PackageMetadata, PackageSignature, RegistryRoot, SignedContent, Timestamp,
+    address::Call as WireCall,
 };
 
 // ---------------------------------------------------------------------------
@@ -57,10 +58,13 @@ fn store(client: &MemoryClient, registry: &RegistryConfig, name: &str, version: 
     client.store(
         registry,
         PackageMetadata {
-            name: name.to_string(),
-            version: version.to_string(),
             description: desc.to_string(),
-            ..Default::default()
+            ..PackageMetadata::new(
+                name.parse().unwrap(),
+                version.parse().unwrap(),
+                Sha256::of(b""),
+                "",
+            )
         },
         Vec::new(),
     );
@@ -221,9 +225,11 @@ fn publish_threads_credential_to_client() {
 fn verify_integrity_matching_sha256_passes() {
     let data = b"hello world";
     // Pre-computed SHA256 of "hello world"
-    let expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+    let expected: Sha256 = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        .parse()
+        .unwrap();
 
-    let result = verify_registry_integrity(data, expected);
+    let result = verify_registry_integrity(data, &expected);
     assert!(result.is_ok());
 }
 
@@ -233,7 +239,7 @@ fn verify_integrity_mismatched_sha256_is_error() {
     let data = b"hello world";
     let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
-    let err = verify_registry_integrity(data, wrong_hash).unwrap_err();
+    let err = verify_registry_integrity(data, &wrong_hash.parse().unwrap()).unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert_eq!(err.code, "R-OPS-002");
     assert!(err.message.contains("integrity check failed"));
@@ -359,7 +365,7 @@ impl RegistryClient for WrongReceipt {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.0.versions(name, registry, credential)
     }
 
@@ -416,7 +422,7 @@ impl RegistryClient for WrongReceipt {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         self.0.authenticate(registry, credential)
     }
 }
@@ -458,11 +464,39 @@ fn a_signature_is_verified_over_the_digests_the_reply_describes() {
     );
 
     let other = PackageMetadata {
-        sha256: specforge_registry_wire::sha256_hex(b"other"),
+        sha256: Sha256::of(b"other"),
         ..reply
     };
     assert_eq!(
         verify_package_signature(&other).unwrap_err().code,
         "R-TRUST-002"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "verify_publisher_signature",
+    verify = "a signature made over a reply's text verifies over the values the reply is read as"
+)]
+fn a_signature_over_a_replys_text_verifies_over_its_values() {
+    use specforge_registry_client::{TrustCheck, verify_package_signature};
+    use specforge_registry_wire::SignedContent;
+    let wasm = b"fake-wasm-bytes";
+    // Text a build-metadata version and a prerelease keep through a read and a write.
+    let version = "1.0.0-rc.1+build.5";
+    let signature = key().sign(&SignedContent::of("@test/ext", version, wasm, "{}"));
+    let text = serde_json::json!({
+        "name": "@test/ext", "version": version, "sha256": Sha256::of(wasm).as_str(),
+        "wasm_url": "/x", "manifest": "{}",
+        "signature": serde_json::from_str::<serde_json::Value>(&signature.to_json()).unwrap(),
+    })
+    .to_string();
+
+    let reply: PackageMetadata = serde_json::from_str(&text).unwrap();
+
+    assert_eq!(
+        verify_package_signature(&reply).unwrap(),
+        TrustCheck::Verified {
+            key_id: key().key_id()
+        }
     );
 }
