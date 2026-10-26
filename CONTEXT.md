@@ -1117,7 +1117,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `config::rewritable`, never past a problem that hides them), and the only files a `use` import names: a
   compile holds each by its **key**, its project path; an import path is read from the spec root, against the
   keys alone (`specforge_resolver`, ADR 0055, ADR 0242). An editor buffer the session holds for such a path is a
-  source, saved or not.
+  source, saved or not. A project has one `spec` block; a second is E002 (ADR 0282 D2).
   `SourceRoot::files` lists them and `SourceRoot::holds` answers for one path, by one policy: the spec root is
   read whatever its own name and whatever it holds, no skipped directory below it is entered, no symlink is
   followed into a directory, only files are sources (a symlink is one when it resolves to a file, read through
@@ -1441,6 +1441,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Derived name**: a type name a derived field links from one block, other than the block's own id, naming an entity of
   the field's target kind: `specforge_graph`'s `derive::derived_names`, which the linker makes an edge and the finder a
   token (ADR 0127 D3, ADR 0163).
+- **Unknown type name**: a name a derived field reads as a type that is no primitive (`PRIMITIVE_TYPES`) and names no
+  entity of the field's target kind: the host's E004 at the name (`derive::unknown_type_names`, ADR 0282).
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
   from one module (`specforge_ops::read::navigate`) in source spans. A span is a position in the text the
