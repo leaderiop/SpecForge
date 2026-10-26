@@ -30,6 +30,21 @@ fn a_dangling_link_is_e080_with_the_e003_in_its_data() {
     assert_eq!(data["diagnostics"][0]["code"], "E003");
 }
 
+#[specforge_test_macros::test(
+    behavior = "validate_typed_edit",
+    verify = "a value holding a control character is E080 and writes nothing"
+)]
+#[ignore = "flipped by T3"]
+fn a_value_holding_a_control_character_is_e080() {
+    let c = tasks();
+    let error = plan(&c, &[set("complete_task", "contract", one("a\u{1b}[2Jb"))])
+        .unwrap_err()
+        .error;
+    assert!(error.is(codes::E080), "{error:?}");
+    let data = error.data.unwrap();
+    assert_eq!(data["diagnostics"][0]["code"], "E001");
+}
+
 #[test]
 fn a_missing_required_field_is_e080() {
     let c = tasks();

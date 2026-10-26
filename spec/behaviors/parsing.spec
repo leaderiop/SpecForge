@@ -109,6 +109,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "a syntax error quoting a long first line cuts it at a character boundary"
   verify property "parsing any text yields a file and never panics"
   verify unit "brackets nested past 32 levels are one parse error, and no tree is read"
+  verify unit "a control or bidirectional character in the text is one parse error at it, and no tree is read"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 }
 

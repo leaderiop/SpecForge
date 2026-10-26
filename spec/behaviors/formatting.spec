@@ -611,6 +611,7 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
   verify unit "diagnostic lists files with parse errors and error line ranges"
   verify unit "a form the parser could not read whole is kept as written and the forms after it are formatted"
   verify unit "the diagnostic spans every line of the form it kept, never past the document"
+  verify unit "a text holding a control character is left as written, with one E001"
   verify unit "forms that share a line with a form left unchanged are kept with it, each line written once"
   verify property "formatting any text never panics, and formatting its output again changes nothing"
   verify contract "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"

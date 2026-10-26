@@ -246,4 +246,26 @@ mod tests {
         let out = render_diagnostics(&[diag], &sources, false);
         assert!(out.contains("beyond eof"));
     }
+
+    #[test]
+    #[ignore = "flipped by T2"]
+    fn an_echoed_source_line_is_printable() {
+        let source = "a\u{202e}b\r\nfeature f1 {\r\n  status \"x\u{1b}[2Jy\"\r\n}\n";
+        // Line 3: the quoted value, ESC inside.
+        let diag = Diagnostic::new(codes::E061, "bad").with_span(crate::SourceSpan {
+            file: "a.spec".into(),
+            start_line: 3,
+            start_col: 10,
+            end_line: 3,
+            end_col: 18,
+        });
+        let sources = HashMap::from([("a.spec".to_string(), source.to_string())]);
+        let out = render_diagnostics(&[diag], &sources, false);
+        assert!(
+            !out.contains('\u{1b}') && !out.contains('\u{202e}'),
+            "{out:?}"
+        );
+        assert!(out.contains("x\\u{1b}[2Jy"), "{out}");
+        assert!(out.contains("feature f1 {"), "{out}");
+    }
 }
