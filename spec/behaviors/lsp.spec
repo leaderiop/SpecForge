@@ -685,6 +685,7 @@ behavior entity_code_lens "Entity Code Lens" {
     workspace.codeLens.refreshSupport is asked to refresh its lenses.
   """
   verify integration "a lens counts an entity's references and verify statements as the compile reads them"
+  verify unit "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {

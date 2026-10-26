@@ -46,6 +46,9 @@ pub struct ClientSupport {
     /// `workspace.semanticTokens.refreshSupport`: only then is the editor
     /// asked to refresh its semantic tokens.
     pub tokens_refresh: bool,
+    /// `workspace.codeLens.refreshSupport`: only then is the editor asked to refresh its code
+    /// lenses after a rebuild.
+    pub lens_refresh: bool,
     /// `workspace.didChangeWatchedFiles.relativePatternSupport`: the
     /// watchers are patterns relative to each input's directory, else
     /// absolute globs.
@@ -77,6 +80,10 @@ impl ClientSupport {
             tokens_refresh: workspace
                 .and_then(|w| w.semantic_tokens.as_ref())
                 .and_then(|t| t.refresh_support)
+                .unwrap_or(false),
+            lens_refresh: workspace
+                .and_then(|w| w.code_lens.as_ref())
+                .and_then(|l| l.refresh_support)
                 .unwrap_or(false),
             relative_patterns: workspace
                 .and_then(|w| w.did_change_watched_files.as_ref())

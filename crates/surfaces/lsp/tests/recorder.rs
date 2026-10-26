@@ -24,6 +24,7 @@ pub enum Sent {
     Logged(MessageType, String),
     Progress(WorkDone),
     TokensRefreshed,
+    LensesRefreshed,
 }
 
 type Refusal = Box<dyn Fn(&[FileSystemWatcher]) -> bool>;
@@ -107,6 +108,10 @@ impl Editor for Recorder {
     fn refresh_tokens(&mut self) {
         self.push(Sent::TokensRefreshed);
     }
+
+    fn refresh_lenses(&mut self) {
+        self.push(Sent::LensesRefreshed);
+    }
 }
 
 // Readers over a record.
@@ -182,4 +187,9 @@ fn glob_of(watcher: &FileSystemWatcher) -> String {
 /// Whether the editor was asked to refresh its semantic tokens.
 pub fn refreshed(sent: &[Sent]) -> bool {
     sent.iter().any(|s| matches!(s, Sent::TokensRefreshed))
+}
+
+/// Whether the editor was asked to refresh its code lenses.
+pub fn lenses_refreshed(sent: &[Sent]) -> bool {
+    sent.iter().any(|s| matches!(s, Sent::LensesRefreshed))
 }

@@ -1,7 +1,10 @@
 //! The server answers `textDocument/codeLens` from the compile (ADR 0249 D2).
 
+use crate::recorder::lenses_refreshed;
+use crate::served::Served;
 use crate::session::Session;
 use serde_json::{Value, json};
+use specforge_lsp::ClientSupport;
 use specforge_test_macros::test as spec;
 
 const TEXT: &str = r#"behavior login "Log \"in\" with {braces}" {
@@ -66,4 +69,28 @@ async fn a_lens_counts_what_the_compile_reads() {
         login["command"]["arguments"],
         json!([uri, {"line": 0, "character": 9}])
     );
+}
+
+/// A server with no project whose client declared `lens_refresh`, `lens.spec` open and compiled.
+fn lensing(lens_refresh: bool) -> Served {
+    let mut served = Served::detached().client(ClientSupport {
+        lens_refresh,
+        ..Default::default()
+    });
+    let uri = served.uri("lens.spec");
+    served.open_document(&uri, "behavior login \"Login\" {\n  contract \"x\"\n}\n");
+    served
+}
+
+#[spec(
+    behavior = "entity_code_lens",
+    verify = "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
+)]
+fn a_recompile_asks_a_lens_refreshing_client_to_refresh() {
+    let grown = "behavior login \"Login\" {\n  contract \"x\"\n}\nbehavior b \"B\" {\n  depends_on [login]\n}\n";
+    for (support, asked) in [(true, true), (false, false)] {
+        let mut served = lensing(support);
+        served.edit("lens.spec", grown);
+        assert_eq!(lenses_refreshed(&served.sent()), asked, "support {support}");
+    }
 }
