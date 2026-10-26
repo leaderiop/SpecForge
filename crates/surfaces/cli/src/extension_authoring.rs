@@ -57,7 +57,7 @@ pub(crate) struct InitArgs {
     #[arg(long)]
     name: Option<String>,
 
-    /// Directory for the new extension
+    /// Directory the extension's crate folder is created in, named after the last segment of --name
     #[arg(long, default_value = ".")]
     dir: PathBuf,
 
