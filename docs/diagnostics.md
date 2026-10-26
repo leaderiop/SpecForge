@@ -21,7 +21,9 @@ prefix doesn't state the severity; no other family is accepted. Each entry's
 extension reports at another level, or a code it does not own, is reported as
 W150. The ranges
 `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
-extensions and never appear in this catalog; `I999` is a core code.
+extensions and never appear in this catalog; `specforge explain` run in a
+project explains them from the rules its extensions declare. `I999` is a core
+code.
 
 Regenerate this page after editing the catalog table:
 

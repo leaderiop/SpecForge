@@ -20,7 +20,6 @@ fn greet_project() -> TestProject {
     behavior = "explain_diagnostic_code",
     verify = "in a project, specforge explain explains a code its loaded extensions' rules declare and the catalog does not have: the code, its level and each rule with its extension"
 )]
-#[ignore = "flipped by T4"]
 fn explain_explains_a_code_the_projects_extension_declares() {
     let project = greet_project();
     let cli = Cli::on(&project);
@@ -49,4 +48,18 @@ fn explain_explains_a_code_the_projects_extension_declares() {
         assert!(text.contains(line), "{line} in {text}");
     }
     assert!(!text.contains("Docs:"), "{text}");
+}
+
+#[specforge_test(
+    behavior = "explain_diagnostic_code",
+    verify = "outside a project specforge explain answers from the catalog alone: a code only an extension declares is unknown_code"
+)]
+fn outside_its_project_a_declared_code_is_unknown() {
+    let loose = TestProject::new().without_config();
+    let stderr = Cli::on(&loose).bare(&["explain", "E901"]).exits(1).stderr;
+    assert!(stderr.contains("error[unknown_code]"), "{stderr}");
+    assert!(
+        stderr.contains("inside a project that loads the extension"),
+        "{stderr}"
+    );
 }

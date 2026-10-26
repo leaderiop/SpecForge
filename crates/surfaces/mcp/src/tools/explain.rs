@@ -41,7 +41,7 @@ impl CoreTool for Tool {
     type Returns = Answered<Reply>;
 
     fn call(_: (), args: Args) -> Answered<Reply> {
-        specforge_ops::read::explain::explain(&args.code)
+        specforge_ops::read::explain::explain(&args.code, &[])
             .map(Into::into)
             .map_err(|refusal| Box::new(Self::refused(refusal)))
     }

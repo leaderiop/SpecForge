@@ -285,9 +285,8 @@ mod tests {
     }
 
     /// The commands that read no project: they take no `--path`.
-    const NO_PROJECT: [&str; 7] = [
+    const NO_PROJECT: [&str; 6] = [
         "init",
-        "explain",
         "mcp",
         "extension",
         "extension init",
