@@ -277,6 +277,70 @@ fn vscode_manifest_declares_only_what_the_extension_provides() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+/// The `file:line` of each line of `text` that holds `needle`.
+fn lines_with(name: &str, text: &str, needle: &str) -> Vec<String> {
+    text.lines()
+        .enumerate()
+        .filter(|(_, l)| l.contains(needle))
+        .map(|(i, _)| format!("{name}:{}: {needle}", i + 1))
+        .collect()
+}
+
+/// The entity under the cursor is the language server's answer
+/// (`specforge/entity`, ADR 0268 D3), not the manifest's word pattern.
+#[test]
+#[ignore = "flipped by T6"]
+fn vscode_client_reads_no_word_under_the_cursor() {
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .flat_map(|(n, t)| lines_with(n, t, "getWordRangeAtPosition("))
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// The tree and the graph show the session's graph (`specforge/graph`,
+/// ADR 0268 D1): no `specforge` process reads the disk for them, and the
+/// graph view counts no degree of its own (the host's rule drops self-edges).
+#[test]
+#[ignore = "flipped by T7"]
+fn vscode_tree_and_graph_read_the_language_server() {
+    let problems: Vec<_> = vscode_sources()
+        .iter()
+        .filter(|(n, _)| n == "entity-tree.ts" || n == "graph-webview.ts")
+        .flat_map(|(n, t)| {
+            let mut found = lines_with(n, t, "cliOutput(");
+            found.extend(lines_with(n, t, "entityDegree.set("));
+            found
+        })
+        .collect();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// A kind's icon, colour and order come from its declared symbol kind
+/// (ADR 0268 D4): no source keeps a table keyed by three or more builtin kinds.
+#[test]
+#[ignore = "flipped by T8"]
+fn vscode_client_keeps_no_kind_table() {
+    let kinds = manifest_domain_kinds();
+    let mut problems = Vec::new();
+    for (name, text) in vscode_sources() {
+        let named: Vec<&String> = kinds
+            .iter()
+            .filter(|k| {
+                [format!("{k}:"), format!("\"{k}\""), format!("'{k}'")]
+                    .iter()
+                    .any(|p| text.contains(p.as_str()))
+            })
+            .collect();
+        if named.len() >= 3 {
+            problems.push(format!(
+                "{name}: kinds {named:?} are named as keys or literals"
+            ));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
 fn specforge_help(args: &[&str]) -> String {
     let mut argv = args.to_vec();
     argv.push("--help");
