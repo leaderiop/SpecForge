@@ -67,7 +67,7 @@ fn progress_under(
     let indexed = sources.files().indexed(manifest);
     let recorded_keys: HashSet<&SourceKey> =
         indexed.iter().filter_map(|i| i.key.as_ref()).collect();
-    let unanalyzed = files
+    let unanalyzed: Vec<String> = files
         .iter()
         .filter(|key| !recorded_keys.contains(key))
         .map(|key| key.as_str().to_string())
@@ -82,7 +82,15 @@ fn progress_under(
         }
     }
     Progress {
-        summary: manifest.compute_summary(files.len()),
+        summary: InferenceSummary {
+            files_total: files.len(),
+            files_analyzed: files.len() - unanalyzed.len(),
+            entities_produced: manifest
+                .source_index
+                .iter()
+                .map(|entry| entry.entities_produced.len())
+                .sum(),
+        },
         unanalyzed,
         stale,
         deleted,
@@ -95,7 +103,7 @@ impl Progress {
     /// No project: nothing discovered, nothing recorded.
     pub fn none() -> Self {
         Progress {
-            summary: InferenceManifest::default().compute_summary(0),
+            summary: InferenceSummary::default(),
             unanalyzed: Vec::new(),
             stale: Vec::new(),
             deleted: Vec::new(),
@@ -245,6 +253,7 @@ mod tests {
         assert_eq!(progress.deleted, ["src/gone.rs"]);
         assert!(progress.stale.is_empty(), "{progress:?}");
         assert_eq!(progress.summary.files_total, 2);
+        assert_eq!(progress.summary.files_analyzed, 1);
         assert_eq!(progress.summary.entities_produced, 1);
         assert_eq!(
             progress.unanalyzed_by_directory(),

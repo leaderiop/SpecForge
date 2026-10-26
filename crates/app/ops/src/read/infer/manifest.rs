@@ -108,9 +108,10 @@ impl SessionStatus {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InferenceSummary {
     pub files_total: usize,
+    /// The inference sources the index records, current or changed: `files_total` less the unanalyzed.
     pub files_analyzed: usize,
     pub entities_produced: usize,
 }
@@ -336,20 +337,6 @@ impl InferenceManifest {
             self.source_index.push(entry);
         }
         self.source_index.sort_by(|a, b| a.path.cmp(&b.path));
-    }
-
-    pub fn compute_summary(&self, total_source_files: usize) -> InferenceSummary {
-        let entities_produced = self
-            .source_index
-            .iter()
-            .map(|e| e.entities_produced.len())
-            .sum();
-
-        InferenceSummary {
-            files_total: total_source_files,
-            files_analyzed: self.source_index.len(),
-            entities_produced,
-        }
     }
 }
 

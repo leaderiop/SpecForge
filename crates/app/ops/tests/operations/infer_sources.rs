@@ -273,7 +273,6 @@ fn a_source_root_recorded_absolute_under_the_root_is_walked() {
     behavior = "compute_inference_summary",
     verify = "files_analyzed counts the inference sources the index records"
 )]
-#[ignore = "flipped by T4"]
 fn files_analyzed_counts_the_indexed_inference_sources() {
     let project = project();
     manifest(

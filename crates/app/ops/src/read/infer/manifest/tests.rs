@@ -273,18 +273,6 @@ fn upsert_replaces_existing_entry() {
 }
 
 #[test]
-fn compute_summary_counts() {
-    let mut m = InferenceManifest::default();
-    m.upsert_source_entry(Path::new("/project"), entry("a.rs", &["e1", "e2"]));
-    m.upsert_source_entry(Path::new("/project"), entry("b.rs", &["e3"]));
-
-    let summary = m.compute_summary(10);
-    assert_eq!(summary.files_total, 10);
-    assert_eq!(summary.files_analyzed, 2);
-    assert_eq!(summary.entities_produced, 3);
-}
-
-#[test]
 fn an_entry_recorded_with_another_spelling_is_the_same_path() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();

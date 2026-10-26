@@ -85,13 +85,16 @@ behavior compute_inference_summary "Compute Inference Summary" {
   category computation
   ensures {
     files_counted    "files_total reflects source file discovery across all source_roots"
-    analyzed_counted "files_analyzed counts entries in source_index"
+    analyzed_counted "files_analyzed counts the inference sources the index records"
     entities_summed  "entities_produced sums all source_index entity lists"
   }
   contract """
     Compute the InferenceSummary by aggregating the source_index entries.
     files_total is the count of inference sources
-    (discover_inference_sources) across all source_roots. files_analyzed is the count of entries in source_index.
+    (discover_inference_sources) across all source_roots. files_analyzed is
+    the count of inference sources the index records, current or changed:
+    files_total less the unanalyzed ones, so it never exceeds files_total. A
+    recorded file that is no inference source is not counted.
     entities_produced is the sum of all entities_produced arrays across
     source_index entries. needs_review counts entities that appear in
     source_index but have no corresponding entity in the compiled graph.
