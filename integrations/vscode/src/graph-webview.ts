@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
 import { getGraphLayout, isGraphAutoUpdate } from "./config";
-import { cliOutput } from "./binary";
+import { graphChanged, sessionGraph } from "./lsp-client";
 
 export class GraphWebviewPanel {
   private static instance: GraphWebviewPanel | undefined;
@@ -10,6 +10,8 @@ export class GraphWebviewPanel {
   private readonly extensionUri: vscode.Uri;
   private disposables: vscode.Disposable[] = [];
   private isLoading = false;
+  /** A rebuild reported while a load was out: the answer in flight may predate it. */
+  private refreshAgain = false;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -32,14 +34,14 @@ export class GraphWebviewPanel {
       this.disposables
     );
 
-    if (isGraphAutoUpdate()) {
-      const saveWatcher = vscode.workspace.onDidSaveTextDocument((doc) => {
-        if (doc.languageId === "specforge" || doc.fileName.endsWith(".spec")) {
+    // The language server tells the panel when it rebuilt (ADR 0268 D2), saved or not.
+    this.disposables.push(
+      graphChanged(() => {
+        if (isGraphAutoUpdate()) {
           this.refresh();
         }
-      });
-      this.disposables.push(saveWatcher);
-    }
+      })
+    );
 
     const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("specforge.graph")) {
@@ -97,16 +99,21 @@ export class GraphWebviewPanel {
   }
 
   public async refresh(): Promise<void> {
-    if (this.isLoading) return;
+    if (this.isLoading) {
+      this.refreshAgain = true;
+      return;
+    }
     this.isLoading = true;
 
     this.panel.webview.postMessage({ type: "loading" });
 
     try {
-      const data = await this.getGraphData();
+      const { graph, degrees } = await sessionGraph();
       this.panel.webview.postMessage({
         type: "graphData",
-        data,
+        data: graph,
+        // The host's count of each entity's edges to other entities (Graph::degree).
+        degrees,
         layout: getGraphLayout(),
       });
     } catch (err) {
@@ -117,15 +124,10 @@ export class GraphWebviewPanel {
       });
     } finally {
       this.isLoading = false;
-    }
-  }
-
-  private async getGraphData(): Promise<unknown> {
-    const stdout = await cliOutput(["export", "--format=graph"]);
-    try {
-      return JSON.parse(stdout);
-    } catch {
-      throw new Error("Failed to parse graph JSON output.");
+      if (this.refreshAgain) {
+        this.refreshAgain = false;
+        void this.refresh();
+      }
     }
   }
 
@@ -349,7 +351,7 @@ export class GraphWebviewPanel {
   }
 
   // ===== Parse graph data =====
-  function parseGraphData(data) {
+  function parseGraphData(data, degrees) {
     allNodes = [];
     allEdges = [];
     nodeMap.clear();
@@ -388,10 +390,7 @@ export class GraphWebviewPanel {
       });
     }
 
-    for (const e of allEdges) {
-      entityDegree.set(e.source, (entityDegree.get(e.source) || 0) + 1);
-      entityDegree.set(e.target, (entityDegree.get(e.target) || 0) + 1);
-    }
+    entityDegree = new Map(Object.entries(degrees || {}));
 
     if (allNodes.length === 0) emptyEl.classList.remove('hidden');
   }
@@ -1682,7 +1681,7 @@ export class GraphWebviewPanel {
         loadingEl.classList.add('hidden');
         emptyEl.classList.add('hidden');
         errorEl.classList.add('hidden');
-        parseGraphData(msg.data);
+        parseGraphData(msg.data, msg.degrees);
         egoCenter = null;
         egoExpanded.clear();
         egoPositions.clear();

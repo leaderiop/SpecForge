@@ -170,9 +170,9 @@ fn vscode_extension_builds_every_flag_as_a_literal() {
 /// search the editor command means) is not on it (ADR 0249 D4).
 #[test]
 fn vscode_extension_calls_only_the_commands_it_means() {
-    const CALLED: [&str; 13] = [
+    const CALLED: [&str; 12] = [
         "analyze", "add", "check", "doctor", "explain", "export", "init", "model", "outline",
-        "query", "remove", "stats", "trace",
+        "remove", "stats", "trace",
     ];
     let called: BTreeSet<String> = vscode_cli_calls()
         .iter()
@@ -328,7 +328,6 @@ fn vscode_client_asks_only_what_the_server_answers() {
 /// ADR 0268 D1): no `specforge` process reads the disk for them, and the
 /// graph view counts no degree of its own (the host's rule drops self-edges).
 #[test]
-#[ignore = "flipped by T7"]
 fn vscode_tree_and_graph_read_the_language_server() {
     let problems: Vec<_> = vscode_sources()
         .iter()

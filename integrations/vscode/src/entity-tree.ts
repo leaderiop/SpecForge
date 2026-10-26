@@ -1,32 +1,6 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
-import { cliOutput } from "./binary";
-
-// --- Types for CLI output ---
-
-interface ListEntity {
-  id: string;
-  kind: string;
-  title?: string;
-  file?: string;
-  line?: number;
-}
-
-/** `specforge export --format=graph` and `specforge query` output. */
-interface GraphJson {
-  nodes?: InspectEntity[];
-  edges?: { source: string; target: string; label: string }[];
-}
-
-interface InspectEntity {
-  id: string;
-  kind: string;
-  title?: string;
-  file?: string;
-  line?: number;
-  fields?: Record<string, unknown>;
-  references?: string[];
-}
+import { GraphNode, SessionGraph, graphChanged, sessionGraph } from "./lsp-client";
 
 // --- Codicon mapping per entity kind ---
 
@@ -111,13 +85,13 @@ type TreeElement = KindGroupItem | EntityItem | DetailItem;
 class KindGroupItem {
   constructor(
     public readonly kind: string,
-    public readonly entities: ListEntity[]
+    public readonly entities: GraphNode[]
   ) {}
 }
 
 class EntityItem {
   constructor(
-    public readonly entity: ListEntity,
+    public readonly entity: GraphNode,
     public readonly kind: string
   ) {}
 }
@@ -127,10 +101,6 @@ class DetailItem {
     public readonly label: string,
     public readonly value: string
   ) {}
-}
-
-function getWorkspaceCwd(): string | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 // --- Tree Data Provider ---
@@ -143,13 +113,12 @@ export class EntityTreeProvider
   >();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private entities: ListEntity[] = [];
-  private groupedByKind: Map<string, ListEntity[]> = new Map();
-  private inspectCache: Map<string, InspectEntity> = new Map();
+  private entities: GraphNode[] = [];
+  private groupedByKind: Map<string, GraphNode[]> = new Map();
+  private graph: SessionGraph | undefined;
   private errorMessage: string | undefined;
 
   refresh(): void {
-    this.inspectCache.clear();
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -179,18 +148,18 @@ export class EntityTreeProvider
   // --- Root level: kind groups ---
 
   private async getRootChildren(): Promise<TreeElement[]> {
-    const cwd = getWorkspaceCwd();
-    if (!cwd) {
+    if (!vscode.workspace.workspaceFolders?.length) {
       this.errorMessage = "No workspace folder open.";
       return [];
     }
 
     try {
-      const output = await cliOutput(["export", "--format=graph", "--no-schema"]);
-      this.entities = (JSON.parse(output) as GraphJson).nodes ?? [];
+      this.graph = await sessionGraph();
+      this.entities = this.graph.graph.nodes ?? [];
       this.errorMessage = undefined;
     } catch (err) {
       this.errorMessage = err instanceof Error ? err.message.split("\n")[0] : String(err);
+      this.graph = undefined;
       this.entities = [];
     }
 
@@ -229,31 +198,11 @@ export class EntityTreeProvider
   private async getEntityDetails(
     element: EntityItem
   ): Promise<DetailItem[]> {
-    const cwd = getWorkspaceCwd();
-    if (!cwd) return [];
-
     const id = element.entity.id;
-    let inspected = this.inspectCache.get(id);
-
-    if (!inspected) {
-      try {
-        const output = await cliOutput(["query", id, "--depth", "1"]);
-        const graph = JSON.parse(output) as GraphJson;
-        const node = graph.nodes?.find((n) => n.id === id);
-        if (!node) {
-          return [new DetailItem("(not found)", "")];
-        }
-        inspected = {
-          ...node,
-          references: (graph.edges ?? [])
-            .filter((e) => e.source === id)
-            .map((e) => `${e.label}: ${e.target}`),
-        };
-        this.inspectCache.set(id, inspected);
-      } catch {
-        return [new DetailItem("(inspect failed)", "")];
-      }
-    }
+    const inspected = element.entity;
+    const references = (this.graph?.graph.edges ?? [])
+      .filter((e) => e.source === id)
+      .map((e) => `${e.label}: ${e.target}`);
 
     const details: DetailItem[] = [];
 
@@ -270,10 +219,8 @@ export class EntityTreeProvider
     }
 
     // Show references
-    if (inspected.references && inspected.references.length > 0) {
-      details.push(
-        new DetailItem("references", inspected.references.join(", "))
-      );
+    if (references.length > 0) {
+      details.push(new DetailItem("references", references.join(", ")));
     }
 
     if (details.length === 0) {
@@ -378,24 +325,20 @@ export function registerEntityTree(
     })
   );
 
-  // Debounced auto-refresh on .spec file save
+  // The language server notifies after each rebuild (saved or not, ADR 0268 D2); VS Code asks the
+  // tree again only while the view is visible.
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-  const specWatcher = vscode.workspace.onDidSaveTextDocument((doc) => {
-    if (
-      doc.languageId === "specforge" ||
-      doc.fileName.endsWith(".spec") ||
-      doc.fileName.endsWith("specforge.json")
-    ) {
+  context.subscriptions.push(
+    graphChanged(() => {
       if (refreshTimer) {
         clearTimeout(refreshTimer);
       }
       refreshTimer = setTimeout(() => {
         provider.refresh();
         refreshTimer = undefined;
-      }, 500);
-    }
-  });
-  context.subscriptions.push(specWatcher);
+      }, 300);
+    })
+  );
 
   return provider;
 }

@@ -1,8 +1,11 @@
 import * as vscode from "vscode";
 import {
+  ClientCapabilities,
+  FeatureState,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  StaticFeature,
   SymbolKind as ProtocolSymbolKind,
   TransportKind,
 } from "vscode-languageclient/node";
@@ -10,6 +13,25 @@ import { serverBinary, serverHint } from "./binary";
 import { getLspTrace } from "./config";
 
 let client: LanguageClient | undefined;
+
+const graphChangedEmitter = new vscode.EventEmitter<void>();
+/** Fires on each `specforge/graphChanged` (the session rebuilt), across restarts of the client. */
+export const graphChanged: vscode.Event<void> = graphChangedEmitter.event;
+
+/** Declares `experimental.specforgeGraphChanged`: only then is the server sending the notification. */
+class GraphChangedCapability implements StaticFeature {
+  fillClientCapabilities(capabilities: ClientCapabilities): void {
+    capabilities.experimental = {
+      ...(capabilities.experimental as object | undefined),
+      specforgeGraphChanged: true,
+    };
+  }
+  initialize(): void {}
+  getState(): FeatureState {
+    return { kind: "static" };
+  }
+  clear(): void {}
+}
 
 const kindIcons: Record<string, string> = {
   behavior: "$(symbol-method)",
@@ -196,6 +218,9 @@ export async function startClient(
     serverOptions,
     clientOptions
   );
+
+  client.registerFeature(new GraphChangedCapability());
+  client.onNotification("specforge/graphChanged", () => graphChangedEmitter.fire());
 
   try {
     await client.start();

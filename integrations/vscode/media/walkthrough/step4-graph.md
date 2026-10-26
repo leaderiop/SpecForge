@@ -44,7 +44,7 @@ Place your cursor on an entity ID in the editor and press `Alt+G` to focus that 
 
 ## Auto-update
 
-When `specforge.graph.autoUpdate` is enabled (the default), the graph refreshes automatically every time you save a spec file. You will see the graph evolve as you add entities and relationships.
+When `specforge.graph.autoUpdate` is enabled (the default), the graph refreshes automatically as the project changes, saved or not. You will see the graph evolve as you add entities and relationships.
 
 ## Other visualization formats
 
