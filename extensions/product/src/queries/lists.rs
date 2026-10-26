@@ -112,11 +112,10 @@ pub const MILESTONES: ListKind = ListKind {
 pub const MODULES: ListKind = ListKind {
     kind: "module",
     plural: "modules",
-    // `ModuleFamily` is open: a family outside the standard set is I062,
-    // not an error, so it is a value to match, not one to refuse.
+    // An open field (ADR 0279): any family is a value to match, none to refuse.
     filters: &[Open {
         field: "family",
-        help: "Only modules of this family, standard or not",
+        help: "Only modules of this family, as written",
     }],
 };
 pub const TERMS: ListKind = ListKind {

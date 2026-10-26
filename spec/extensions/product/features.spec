@@ -167,7 +167,7 @@ feature pe_validation_suite "Product Validation Suite" {
   solution """
     Declarative validation rules (E007, E015, E052, W041-W046, W049, W057,
     W092, W093, I010, I046-I048, I050,
-    I054, I055, I057, I059-I062, I066-I070, I080-I083, I089)
+    I054, I055, I057, I059-I061, I066-I070, I080-I083, I089)
     detect common product
     specification quality issues. The core's declarative engine runs
     them, and every diagnostic is reported whatever its severity.
@@ -187,8 +187,7 @@ feature pe_validation_suite "Product Validation Suite" {
     persona or channels (I054, I055); blocked milestones without
     depends_on (I057); deferred features without reason (I059); blocked
     milestones without blockers (I060); deliverable versions that are
-    not semver (I061); module families outside the standard set (I062);
-    modules without features (I067); tags that are not
+    not semver (I061); modules without features (I067); tags that are not
     lowercase-hyphenated (I068); deprecated deliverables, personas and
     channels without reason (I066, I069, I070); features, milestones,
     deliverables and releases without an owner (I080); features without

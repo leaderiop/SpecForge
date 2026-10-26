@@ -123,7 +123,7 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
         assert!(
             ![
                 "W077", "W078", "W079", "W080", "W083", "W084", "W085", "W095", "I053", "I086",
-                "I087",
+                "I087", "I062",
             ]
             .contains(&rule.code.as_str()),
             "{} is retired to E061",
@@ -224,7 +224,6 @@ fn the_artifact_type_and_interaction_model_take_any_word() {
     behavior = "accept_a_projects_own_words",
     verify = "no product rule checks a module's family"
 )]
-#[ignore = "flipped by T3"]
 fn no_rule_checks_a_module_family() {
     let declaration = crate::specforge_extension_build().declaration();
     let on_family: Vec<_> = declaration

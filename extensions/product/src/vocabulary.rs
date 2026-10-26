@@ -78,10 +78,15 @@ pub const INTERACTION_MODELS: &[&str] = &[
     "self_service",
     "broadcast",
 ];
-/// `ModuleFamily`: the standard families. Open: `family` is a string, and a
-/// family outside these is I062 (info), so no field is declared with it.
-pub const MODULE_FAMILY: Vocabulary =
-    Vocabulary::new(&["core", "platform", "extension", "integration", "advisory"]);
+/// A module's `family`.
+pub const MODULE_FAMILIES: &[&str] = &[
+    "core",
+    "platform",
+    "extension",
+    "integration",
+    "advisory",
+    "workstream",
+];
 
 // The members the queries, the lifecycle pass and the conditional rules
 // name, each checked against its vocabulary when the crate compiles.

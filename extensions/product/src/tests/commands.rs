@@ -296,6 +296,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// - 39762 bytes, `0x9e54_3fbe_4ff9_f166`: `deliverables --artifact-type` and
 ///   `channels --interaction-model` match the word as written (ADR 0279): they
 ///   lose their `one_of`; nothing else changed.
+/// - 39757 bytes, `0x9530_8653_a431_8836`: `modules --family`'s help says "as written",
+///   not "standard or not" (ADR 0279); nothing else changed.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = MockHost::new(crate::specforge_extension_build())
@@ -303,7 +305,7 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (39762, 0x9e54_3fbe_4ff9_f166),
+        (39757, 0x9530_8653_a431_8836),
         "the surfaces payload changed"
     );
 }

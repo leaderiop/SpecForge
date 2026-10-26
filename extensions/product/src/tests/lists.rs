@@ -235,8 +235,8 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
             "{list} --{arg}: {error}"
         );
     }
-    // An open filter matches what it is given: a non-standard family is a
-    // family (I062 says so, as an info).
+    // An open filter matches what it is given: any family is a family, an
+    // open field (ADR 0279).
     assert_eq!(
         ids_of("modules", json!({"family": "experimental"}), &catalog()),
         ["mod2"]

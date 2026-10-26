@@ -20,7 +20,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     ReleaseIncludesDeliverable, ReleaseCompletesMilestone, ReleaseDependsOn,
     PersonaPrioritizesFeature), and 47 validation rules. Diagnostic codes:
     E007, E015, E052, W041-W046, W049, W057, W092,
-    W093, I010, I046-I048, I050, I054, I055, I057, I059-I062,
+    W093, I010, I046-I048, I050, I054, I055, I057, I059-I061,
     I066-I070, I080-I083, I089. Feature, milestone,
     deliverable, persona, channel and release MUST declare status as their
     lifecycle field, the state the build cache records for the transition

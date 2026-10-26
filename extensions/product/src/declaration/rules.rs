@@ -107,19 +107,6 @@ pub(super) fn rules(c: &mut ContributionsBuilder) {
             fc.kind(ConstraintKind::NonEmpty);
         });
     });
-    c.rule("I062", |r| {
-        r.check(CheckKind::FieldValueConstraint)
-            .severity(ValidationSeverity::Info)
-            .message_template(
-                "module '{id}' has non-standard family '{value}' — standard families: {allowed}",
-            )
-            .target_kind("module")
-            .field("family");
-        r.constraint(|fc| {
-            fc.kind(ConstraintKind::OneOf)
-                .values(MODULE_FAMILY.values());
-        });
-    });
     c.rule("I061", |r| {
         r.check(CheckKind::FieldValueConstraint)
             .severity(ValidationSeverity::Info)

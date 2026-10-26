@@ -355,7 +355,7 @@ decision pe_diagnostic_code_gaps "Intentional Diagnostic Code Gaps" {
   context      """
     Product's warning codes are W041-W046, W049, W057, W092 and W093
     (W077-W080, W083-W085 and W095 are retired to E061); its info codes are I010, I046-I048,
-    I050, I054, I055, I057, I059-I062, I066-I070, I080-I083 and
+    I050, I054, I055, I057, I059-I061, I066-I070, I080-I083 and
     I089. Of the warning codes between them, W050-W052 are retired,
     W053, W054 and W060-W062 are core's, and W063 is retired; W047, W048,
     W055, W056, W058, W064-W076, W081, W082 and W086-W091 are
