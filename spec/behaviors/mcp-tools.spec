@@ -775,7 +775,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     so proof coverage never silently drops. A test report that cannot be read
     or parsed, the project's own or the one `test_results` names, MUST be an
     isError result carrying an McpError, as the CLI exits 2 on it. A
-    test_results file that does not exist is file_not_found. A test_results is
+    test_results file that does not exist is file_not_found, and one that names a
+    directory, or nothing, is invalid_input on test_results. A test_results is
     read against the call's project: a relative one names a file under the project's
     root, and one that resolves outside it, by `..`, an absolute name or a
     symlink, is invalid_input on test_results and nothing is read, so the

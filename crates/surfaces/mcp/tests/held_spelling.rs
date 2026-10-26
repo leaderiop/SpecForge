@@ -92,7 +92,6 @@ fn a_call_targets_path_is_named_as_the_call_wrote_it() {
     behavior = "provide_mcp_analyze_tool",
     verify = "a test_results that names a directory or nothing is invalid_input on test_results"
 )]
-#[ignore = "flipped by T7"]
 fn analyze_refuses_a_test_results_directory_or_empty_name_on_test_results() {
     let mut server = served();
     for named in ["", "."] {

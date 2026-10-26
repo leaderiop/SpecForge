@@ -18,6 +18,9 @@ const REWRITE: &str =
 const LINKED_OUT: &str =
     "keep the report inside the project: remove the link and run `specforge collect` again";
 
+/// What to do about a named report that is a directory or names nothing.
+const NAME_THE_REPORT: &str = "name the specforge-report.json file `specforge collect` writes";
+
 /// A test report that cannot be used, as every operation fails with it:
 /// code E045, of kind
 ///
@@ -53,9 +56,29 @@ pub(crate) fn unusable(error: ReportError) -> OpError {
 /// The report at `path` (`--test-results`, MCP `test_results`), which must
 /// exist, read through `containment`: a name that lands outside is `outside_root` and nothing
 /// is opened, so the error never says whether a file outside exists. Messages name `path` as
-/// the caller wrote it (ADR 0272).
+/// the caller wrote it (ADR 0272). A directory, or an empty name, is `InvalidInput` (E045) about the
+/// argument: the recorded report that is a directory stays `Internal` (no argument to blame).
 pub(crate) fn named(path: &Path, containment: &Containment) -> Result<Arc<TestReport>, OpError> {
     let held = containment.resolve(path)?;
+    if held.named.as_os_str().is_empty() {
+        return Err(OpError::coded(
+            OpErrorKind::InvalidInput,
+            codes::E045,
+            "an empty test_results names no file",
+        )
+        .with_suggestion(NAME_THE_REPORT));
+    }
+    if held.real.is_dir() {
+        return Err(OpError::coded(
+            OpErrorKind::InvalidInput,
+            codes::E045,
+            format!(
+                "'{}' is a directory: test results are a specforge-report.json file",
+                held.named.display()
+            ),
+        )
+        .with_suggestion(NAME_THE_REPORT));
+    }
     let bytes = held
         .read()
         .map_err(|error| unusable(ReportError::unreadable(&held.named, &error)))?;

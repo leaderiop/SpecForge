@@ -113,7 +113,6 @@ fn a_local_install_records_its_project_path_a_link_by_its_own_name() {
     behavior = "provide_mcp_analyze_tool",
     verify = "a test_results that names a directory or nothing is invalid_input on test_results"
 )]
-#[ignore = "flipped by T7"]
 fn a_named_report_that_is_a_directory_is_invalid_input_on_the_report() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir(dir.path().join("spec")).unwrap();
