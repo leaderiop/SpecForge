@@ -210,7 +210,6 @@ fn a_bare_true_item_on_a_members_kind_is_quoted() {
     behavior = "apply_format_rules",
     verify = "a quoted number is written as the number it reads to"
 )]
-#[ignore = "flipped by T3"]
 fn a_quoted_number_is_written_as_the_number_it_reads_to() {
     for (given, written) in [("+3", "3"), (" 3", "3"), ("007", "7")] {
         assert_eq!(

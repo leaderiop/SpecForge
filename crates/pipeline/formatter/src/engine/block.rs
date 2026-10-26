@@ -400,7 +400,7 @@ fn in_form(node: Node, source: &str, key: &str, forms: Forms, place: Place) -> O
             text.to_string()
         }
     } else {
-        spell::spelled(word.trim(), respell.to)
+        respell.spelling
     };
     Some(if respell.listed {
         format!("[{item}]")

@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use specforge_graph::field_form::{FieldForm, FieldForms, Place, Respell, ValueShape};
+use specforge_graph::field_form::{FieldForm, FieldForms, Place, ValueShape};
 use specforge_graph::{FieldValue, Written};
 use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
@@ -98,8 +98,12 @@ fn a_field_type_writes_its_values_in_one_form() {
 )]
 fn a_value_is_rewritten_at_its_place_to_its_types_one_form() {
     let forms = forms();
-    let at = |field, written, text, place| forms.rewrite("k", field, written, text, place);
-    let respell = |to, listed| Some(Respell { to, listed });
+    let at = |field, written, text, place| {
+        forms
+            .rewrite("k", field, written, text, place)
+            .map(|r| (r.to, r.listed))
+    };
+    let respell = |to, listed| Some((to, listed));
     use Place::{Item, Whole};
     assert_eq!(
         at("num", Written::Quoted, "100", Whole),
@@ -234,5 +238,33 @@ fn a_date_field_takes_one_calendar_day() {
     assert_eq!(
         form.json_schema(&mut defs),
         serde_json::json!({"type": "string", "format": "date"})
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
+)]
+fn a_respelled_value_carries_its_spelling() {
+    let forms = forms();
+    let spelling = |field, written, text| {
+        forms
+            .rewrite("k", field, written, text, Place::Whole)
+            .map(|r| (r.spelling, r.listed))
+    };
+    for text in [" 7", "+7", "007"] {
+        assert_eq!(
+            spelling("num", Written::Quoted, text),
+            Some(("7".to_string(), false)),
+            "{text:?}"
+        );
+    }
+    assert_eq!(
+        spelling("text", Written::Literal, "100"),
+        Some(("\"100\"".to_string(), false))
+    );
+    assert_eq!(
+        spelling("refs", Written::Quoted, "f1"),
+        Some(("f1".to_string(), true))
     );
 }

@@ -196,7 +196,6 @@ fn a_quoted_calendar_day_on_a_date_field_is_w159() {
     behavior = "check_field_value_types",
     verify = "a quoted number's W159 writes the number it reads to"
 )]
-#[ignore = "flipped by T3"]
 fn a_quoted_numbers_w159_writes_the_number_it_reads_to() {
     for given in [" 3", "+3"] {
         let found = w159(&format!("ticket t1 \"T\" {{\n  points \"{given}\"\n}}\n"));
