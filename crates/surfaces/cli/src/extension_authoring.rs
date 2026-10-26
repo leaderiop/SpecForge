@@ -197,6 +197,8 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
             "--target-dir",
         ])
         .arg(target_dir(Path::new("")))
+        // Plain stderr, so its first error line is matched whatever CARGO_TERM_COLOR says.
+        .env("CARGO_TERM_COLOR", "never")
         .current_dir(path)
         .output()
     {
