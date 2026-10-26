@@ -74,8 +74,9 @@ Another annotation is W010.
 
 ### Member types
 
-Primitives: `string`, `number`, `integer`, `boolean`, `timestamp`, `date`. A member may also name another type,
-an array (`OrderItem[]`) or a generic (`Result<Order, OrderError>`).
+Primitives: `string`, `number`, `integer`, `boolean`, `timestamp`, `date`, `float`, `object`. A member names one
+type, a list `T[]` or a union `A | B`; a generic such as `Result<A, B>` is a port method's (a member does not parse
+it, E001). A member naming no type is E004.
 
 ### Verify kinds
 
@@ -105,6 +106,7 @@ With `@specforge/testing`: `unit`, `property`.
 | E002 | core | Two types share an ID. |
 | E076 | core | The type has no title. |
 | E081 | core | A member written twice. |
+| E004 | core | A member's type names no type and no primitive (a union body's variants are not checked). |
 | W002 | software | No behavior, port or type references the type. |
 | W010 | software | Unknown member annotation. |
 | W004 | testing | A struct type with no `verify` obligation. |

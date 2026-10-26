@@ -2,8 +2,8 @@
 //!
 //! Its kinds, edges, enhancements and rules are declared with the SDK
 //! builders in [`declaration`]; the handshake is derived by the SDK from the
-//! extension metadata and the contributions. It also hosts the four
-//! `validate__*` custom-rule exports (E004/E006/E010/W010).
+//! extension metadata and the contributions. It also hosts the
+//! `validate__*` custom-rule exports (E010/W010).
 
 mod declaration;
 
@@ -44,68 +44,6 @@ impl Contributions for Software {
 // validator needs, so each is a pure function of the context.
 
 use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
-
-/// Type names accepted by E004 without a declared `type` entity. Mirrors
-/// the host's `PRIMITIVE_TYPES`; the host also sends its copy in
-/// `context.primitives`, so the union keeps the guest correct even for a
-/// host that ships an empty list.
-const PRIMITIVE_TYPES: &[&str] = &[
-    "string",
-    "void",
-    "bool",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "f32",
-    "f64",
-    "usize",
-    "isize",
-    "any",
-    // the portable primitives docs/entities/type.md documents, and `never`
-    // for an impossible error channel (docs/entities/port.md)
-    "number",
-    "integer",
-    "boolean",
-    "timestamp",
-    "date",
-    "never",
-    // stdlib containers: their type arguments are checked recursively
-    "Result",
-    "Option",
-    "Vec",
-    "Box",
-    "Arc",
-    "Rc",
-    "HashMap",
-    "HashSet",
-    "BTreeMap",
-    "BTreeSet",
-    "String",
-];
-
-/// `Result<A, B>` -> `A, B`; `string[]` -> `string`; whitespace trimmed.
-fn base_type_names(ty: &str) -> Vec<String> {
-    // Generics, arrays, the unit type `()` and function types
-    // `fn(A) -> B` reduce to the named types inside them.
-    ty.chars()
-        .map(|c| {
-            if matches!(c, '<' | '>' | '[' | ']' | '(' | ')' | '-') {
-                ' '
-            } else {
-                c
-            }
-        })
-        .collect::<String>()
-        .split(|c: char| c == ',' || c.is_whitespace())
-        .filter(|s| !s.is_empty() && *s != "fn")
-        .map(str::to_string)
-        .collect()
-}
 
 /// Reference IDs declared by a field value. The wire value of a
 /// reference-list field is either the comma-joined ID string (the host's
@@ -162,33 +100,6 @@ fn validate_type_field_annotations(context: &ValidatorContext) -> ValidatorVerdi
                 return ValidatorVerdict::Fail {
                     field: Some(field.key.clone()),
                     value: Some(format!("@{ann}")),
-                };
-            }
-        }
-    }
-    ValidatorVerdict::Pass
-}
-
-/// E004: port method param/return types must be primitives or declared types.
-fn validate_port_methods(context: &ValidatorContext) -> ValidatorVerdict {
-    let known_type = |name: &str| -> bool {
-        PRIMITIVE_TYPES.contains(&name)
-            || context.primitives.iter().any(|p| p == name)
-            || context.declared_types.iter().any(|d| d == name)
-    };
-    for method in &context.entity.methods {
-        let mut type_refs: Vec<String> = Vec::new();
-        for p in &method.params {
-            type_refs.extend(base_type_names(&p.ty));
-        }
-        if let Some(ret) = &method.returns {
-            type_refs.extend(base_type_names(ret));
-        }
-        for t in type_refs {
-            if !known_type(&t) {
-                return ValidatorVerdict::Fail {
-                    field: Some(method.name.clone()),
-                    value: Some(t),
                 };
             }
         }

@@ -98,7 +98,7 @@ Core checks every entity whatever its kind: references must resolve (E003), ids 
 
 | Code | Level | Declared by | Rule |
 |------|-------|-------------|------|
-| E004 | error | `@specforge/software` | Unknown type in port method |
+| E004 | error | core | Unknown type name |
 | W004 | warning | `@specforge/testing` | Untested testable entity |
 | W005 | warning | `@specforge/software` | Unreferenced port |
 | W009 | warning | `@specforge/testing` | Disallowed verify kind |

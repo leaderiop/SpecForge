@@ -84,7 +84,7 @@ consumes (`ports`) and defines (`ports_defined`).
 | E002 | core | Two ports share an ID. |
 | E006 | core | `direction` is missing. |
 | E061 | core | `direction` outside its enum. |
-| E004 | software | A method names an unknown type. |
+| E004 | core | A method names an unknown type. |
 | W005 | software | No behavior uses the port. |
 | W004 | testing | No `verify` obligation. |
 | W033 | formal | Asymmetric connectivity between the behaviors that use the port (`specforge analyze`). |

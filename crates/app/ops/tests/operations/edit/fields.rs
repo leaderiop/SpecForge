@@ -279,10 +279,10 @@ fn unset_of_the_last_entry_removes_the_block_field() {
 fn a_member_of_an_open_kind_can_be_set() {
     let source = "type Task \"Task\" {\n  id string\n}\n";
     let c = project(&[("t.spec", source)]);
-    let text = after(&c, "t.spec", &[set("Task", "owner", one("Person[]"))]);
+    let text = after(&c, "t.spec", &[set("Task", "owner", one("Task[]"))]);
     assert_eq!(
         text,
-        "type Task \"Task\" {\n  id    string\n  owner Person[]\n}\n"
+        "type Task \"Task\" {\n  id    string\n  owner Task[]\n}\n"
     );
     let text = after(&c, "t.spec", &[set("Task", "id", one("integer"))]);
     assert_eq!(text, source.replace("string", "integer"));

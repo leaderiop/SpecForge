@@ -382,14 +382,6 @@ fn rules(c: &mut ContributionsBuilder) {
             .wasm_function("validate__type_field_annotations")
             .validate(crate::validate_type_field_annotations);
     });
-    c.rule("E004", |r| {
-        r.check(CheckKind::Custom)
-            .severity(ValidationSeverity::Error)
-            .message_template("port '{id}' method '{field}' references unknown type '{value}'")
-            .target_kind("port")
-            .wasm_function("validate__port_methods")
-            .validate(crate::validate_port_methods);
-    });
     c.rule("E010", |r| {
         r.check(CheckKind::Custom)
             .severity(ValidationSeverity::Error)

@@ -23,7 +23,9 @@ panel, whose script never read it and has one layout.
 A name a derived field reads as a type (`derive::type_expressions` or `method_signatures`) that is not the block's own
 id, not a host primitive (`specforge_graph::PRIMITIVE_TYPES`, the one list) and names no entity of the field's target
 kind is E004, owned by `core`, at the name's span. No extension reports it. The port sentence is kept byte for byte;
-any other field reads `{kind} '{id}' field '{key}' references unknown type '{name}'`.
+any other field reads `{kind} '{id}' field '{key}' references unknown type '{name}'`. A union body's variants
+(`type Status = open | closed`) and a list's items (`values [cli, api]`) may be an enum's words, so they still link
+when they name a type but are never reported: the repository's own spec writes 368 such words.
 
 ## D2. A project has one spec block
 

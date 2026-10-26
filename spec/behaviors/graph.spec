@@ -147,8 +147,9 @@ behavior link_derived_references "Link Derived References" {
     entity itself, gets one edge labelled with the field's name. A
     primitive, a generic wrapper or an undeclared name resolves to nothing
     and creates no edge. An undeclared name is E004, the host's, at the
-    name; a primitive (the host's one list) or the entity's own id is not
-    (ADR 0282 D1).
+    name; a primitive (the host's one list) or the entity's own id is not,
+    and neither is a union body's variant or a list's item, which may be
+    an enum's word (ADR 0282 D1).
 
     The core names no kind here (zero_domain_knowledge_core): which kinds
     derive edges, from where and to which kind comes only from the fields

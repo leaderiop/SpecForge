@@ -1,7 +1,5 @@
 use super::*;
-use specforge_extension_sdk::{
-    ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam, ValidatorRef,
-};
+use specforge_extension_sdk::{ValidatorEntity, ValidatorField, ValidatorRef};
 
 fn context(entity: ValidatorEntity, referenced: Vec<ValidatorRef>) -> ValidatorContext {
     ValidatorContext {
@@ -38,20 +36,6 @@ fn fail(field: &str, value: &str) -> ValidatorVerdict {
         field: Some(field.to_string()),
         value: Some(value.to_string()),
     }
-}
-
-#[test]
-fn base_type_names_reach_inside_every_type_form() {
-    assert_eq!(
-        base_type_names("Result<(), string>"),
-        vec!["Result", "string"]
-    );
-    assert_eq!(base_type_names("float[][]"), vec!["float"]);
-    assert_eq!(
-        base_type_names("fn(string, i32) -> bool"),
-        vec!["string", "i32", "bool"]
-    );
-    assert!(base_type_names("fn()").is_empty());
 }
 
 #[test]
@@ -109,73 +93,6 @@ fn type_annotations_pass_on_known_annotations() {
     ];
     let ctx = context(entity("type", vec![f]), vec![]);
     assert_eq!(validate_type_field_annotations(&ctx), pass());
-}
-
-fn port(methods: Vec<ValidatorMethod>) -> ValidatorContext {
-    context(
-        ValidatorEntity {
-            id: "order_port".to_string(),
-            kind: "port".to_string(),
-            fields: vec![],
-            methods,
-        },
-        vec![],
-    )
-}
-
-#[test]
-fn port_methods_fail_on_undeclared_type() {
-    let ctx = port(vec![ValidatorMethod {
-        name: "submit".to_string(),
-        params: vec![ValidatorParam {
-            name: "order".to_string(),
-            ty: "Undeclared".to_string(),
-        }],
-        returns: None,
-    }]);
-    assert_eq!(validate_port_methods(&ctx), fail("submit", "Undeclared"));
-}
-
-#[test]
-fn port_methods_accept_generics_arrays_and_declared_types() {
-    let ctx = port(vec![ValidatorMethod {
-        name: "find".to_string(),
-        params: vec![
-            ValidatorParam {
-                name: "q".to_string(),
-                ty: "String".to_string(),
-            },
-            ValidatorParam {
-                name: "ids".to_string(),
-                ty: "Vec<string>[]".to_string(),
-            },
-        ],
-        returns: Some("Result<order, string>".to_string()),
-    }]);
-    assert_eq!(validate_port_methods(&ctx), pass());
-}
-
-#[test]
-fn port_methods_accept_documented_primitives_without_host_list() {
-    let ctx = port(vec![ValidatorMethod {
-        name: "stat".to_string(),
-        params: vec![ValidatorParam {
-            name: "ratio".to_string(),
-            ty: "number".to_string(),
-        }],
-        returns: Some("Result<(integer, boolean, timestamp, date), never>".to_string()),
-    }]);
-    assert_eq!(validate_port_methods(&ctx), pass());
-}
-
-#[test]
-fn port_methods_fail_on_generic_argument_of_known_container() {
-    let ctx = port(vec![ValidatorMethod {
-        name: "load".to_string(),
-        params: vec![],
-        returns: Some("Option<Undeclared>".to_string()),
-    }]);
-    assert_eq!(validate_port_methods(&ctx), fail("load", "Undeclared"));
 }
 
 #[test]

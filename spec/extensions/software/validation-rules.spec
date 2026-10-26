@@ -121,8 +121,9 @@ behavior se_validate_port_methods "E004: Invalid Port Methods" {
   category query
   types    [ValidationRulePattern, PortOperation]
   contract """
-    Detect port entities whose methods block contains operations with
-    invalid type signatures.
+    A port method's parameter and return types name declared types or
+    primitives. The host's derived walk reports a name that does not
+    (ADR 0282 D1); this behavior states what a port method may name.
   """
   requires {
     type_registry_available "all declared type entities are registered"

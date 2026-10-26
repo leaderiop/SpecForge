@@ -1441,8 +1441,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Derived name**: a type name a derived field links from one block, other than the block's own id, naming an entity of
   the field's target kind: `specforge_graph`'s `derive::derived_names`, which the linker makes an edge and the finder a
   token (ADR 0127 D3, ADR 0163).
-- **Unknown type name**: a name a derived field reads as a type that is no primitive (`PRIMITIVE_TYPES`) and names no
-  entity of the field's target kind: the host's E004 at the name (`derive::unknown_type_names`, ADR 0282).
+- **Unknown type name**: a name a derived field reads as a type, outside a union body's variants and a list's items,
+  that is no primitive (`PRIMITIVE_TYPES`) and names no entity of the field's target kind: the host's E004 at the name (`derive::unknown_type_names`, ADR 0282).
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
   from one module (`specforge_ops::read::navigate`) in source spans. A span is a position in the text the

@@ -177,7 +177,9 @@ iface Store "Store" {
     let (graph, diagnostics) = build(source, derived());
 
     assert!(graph.edges().is_empty(), "{:?}", graph.edges());
-    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    // The undeclared names are E004s (ADR 0282 D1), and nothing else.
+    let other: Vec<_> = diagnostics.iter().filter(|d| d.code != "E004").collect();
+    assert!(other.is_empty(), "{other:?}");
 }
 
 #[specforge_test(
@@ -290,25 +292,26 @@ fn a_quoted_union_variant_derives_no_edge() {
     assert_eq!(edges_from(&graph, "Level"), vec![edge("Wheel", "parts")]);
 }
 
-/// The E004s of a build: (message, line, column) of each.
+/// The E004s of a build: (message, line, column) of each, in written order.
 fn e004s(diagnostics: &[specforge_graph::Diagnostic]) -> Vec<(String, usize, usize)> {
-    diagnostics
+    let mut found: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.code == "E004")
         .map(|d| {
             let at = d.span.as_ref().expect("E004 is at the name");
             (d.message.clone(), at.start_line, at.start_col)
         })
-        .collect()
+        .collect();
+    found.sort_by_key(|(_, line, col)| (*line, *col));
+    found
 }
 
 #[specforge_test(
     behavior = "link_derived_references",
     verify = "a member, a union variant or a method type naming no type is E004 at the name"
 )]
-#[ignore = "flipped by T7"]
 fn a_member_a_variant_or_a_method_type_naming_no_type_is_e004() {
-    let source = "shape t \"T\" {\n  id string\n}\nshape m \"M\" {\n  g Missing\n}\nshape a = Nowhere | t\niface Store \"Store\" {\n  method load(id: Absent) -> Result<t, never>\n}\n";
+    let source = "shape t \"T\" {\n  id string\n}\nshape m \"M\" {\n  g Missing\n  u Nowhere | t\n}\niface Store \"Store\" {\n  method load(id: Absent) -> Result<t, never>\n}\n";
     let (_, diagnostics) = build(source, derived());
 
     let found = e004s(&diagnostics);
@@ -321,11 +324,14 @@ fn a_member_a_variant_or_a_method_type_naming_no_type_is_e004() {
             5
         )
     );
-    assert!(
-        found[1].0.ends_with("references unknown type 'Nowhere'"),
-        "{found:?}"
+    assert_eq!(
+        found[1],
+        (
+            "shape 'm' field 'u' references unknown type 'Nowhere'".to_string(),
+            6,
+            5
+        )
     );
-    assert_eq!((found[1].1, found[1].2), (7, 11));
     assert_eq!(
         found[2],
         (
@@ -340,9 +346,9 @@ fn a_member_a_variant_or_a_method_type_naming_no_type_is_e004() {
     behavior = "link_derived_references",
     verify = "a primitive, a container or a declared type is no E004"
 )]
-#[ignore = "flipped by T7"]
 fn a_primitive_a_container_or_a_declared_type_is_no_e004() {
-    let source = "shape t \"T\" {\n  name string\n  many t[]\n  one t\n  self_ref t\n  level \"Lit\" | t\n}\niface Store \"Store\" {\n  method load(id: string) -> Vec<t>\n}\n";
+    // A union body's variants may be an enum's words: no E004 (ADR 0282 D1).
+    let source = "shape t \"T\" {\n  name string\n  many t[]\n  one t\n  self_ref t\n  level \"Lit\" | t\n}\niface Store \"Store\" {\n  method load(id: string) -> Vec<t>\n}\nshape e \"E\" = open | closed\n";
     let (_, diagnostics) = build(source, derived());
 
     assert!(e004s(&diagnostics).is_empty(), "{diagnostics:?}");

@@ -9,9 +9,52 @@
 //! (`written_tokens`, ADR 0176).
 
 use crate::{Edge, Graph, Reading};
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes};
 use specforge_parser::lex::{LexemeKind, lex};
 use specforge_parser::{FieldEntry, FieldValue, MethodDecl, Written};
+
+/// The type names that are no entity: what an unknown type name is checked against (E004, ADR 0282 D1), and what the
+/// registry sends validators as `context.primitives`. `number`, `integer`, `boolean`, `timestamp` and `date` are the
+/// portable primitives docs/entities/type.md documents; `never` marks an impossible error channel
+/// (docs/entities/port.md).
+pub const PRIMITIVE_TYPES: &[&str] = &[
+    "string",
+    "void",
+    "bool",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "f32",
+    "f64",
+    "usize",
+    "isize",
+    "any",
+    "number",
+    "integer",
+    "boolean",
+    "timestamp",
+    "date",
+    "never",
+    "float",
+    "object",
+    // stdlib containers: their type arguments are names of their own
+    "Result",
+    "Option",
+    "Vec",
+    "Box",
+    "Arc",
+    "Rc",
+    "HashMap",
+    "HashSet",
+    "BTreeMap",
+    "BTreeSet",
+    "String",
+];
 
 /// Where a derived reference field takes its targets from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +91,11 @@ pub struct DerivedReference {
 #[derive(Clone, Copy)]
 pub(crate) struct TypeExpression<'v> {
     pub text: &'v str,
+    /// The field key or method name it is written in.
+    pub owner: &'v str,
+    /// Whether each name in it must name a type (E004): not a union body's variant nor a list's item, which may be
+    /// an enum's words (`type Status = open | closed`, `values [cli, api]`).
+    pub typed: bool,
     /// Where `text` starts; `None` for a value built without a position.
     pub at: Option<&'v SourceSpan>,
 }
@@ -62,6 +110,8 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
     match &entry.value {
         FieldValue::Identifier(expr) => vec![TypeExpression {
             text: expr,
+            owner: entry.key.as_str(),
+            typed: true,
             at: entry.value_span.as_ref(),
         }],
         FieldValue::TypeUnion(members) | FieldValue::VariantList(members) => members
@@ -69,6 +119,8 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
             .filter(|m| m.written != Written::Quoted)
             .map(|m| TypeExpression {
                 text: &m.text,
+                owner: entry.key.as_str(),
+                typed: matches!(entry.value, FieldValue::TypeUnion(_)),
                 at: Some(&m.span),
             })
             .collect(),
@@ -77,6 +129,8 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
             .filter(|item| item.written == Written::Bare)
             .map(|item| TypeExpression {
                 text: &item.text,
+                owner: entry.key.as_str(),
+                typed: false,
                 at: Some(&item.span),
             })
             .collect(),
@@ -106,10 +160,14 @@ fn type_expressions<'v>(
             for method in methods {
                 written.extend(method.params.iter().map(|p| TypeExpression {
                     text: &p.ty,
+                    owner: &method.name,
+                    typed: true,
                     at: p.ty_span.as_ref(),
                 }));
                 written.extend(method.returns.as_deref().map(|text| TypeExpression {
                     text,
+                    owner: &method.name,
+                    typed: true,
                     at: method.returns_span.as_ref(),
                 }));
             }
@@ -120,7 +178,7 @@ fn type_expressions<'v>(
 
 /// The names inside a type expression, each with where it is written: the identifiers of the language's lexer
 /// (`Result<A, B[]>` -> Result, A, B), at the expression's position plus the identifier's offset.
-fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>)> {
+fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>, &str)> {
     lex(expression.text)
         .into_iter()
         .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
@@ -130,6 +188,7 @@ fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<S
                 expression
                     .at
                     .map(|at| within(at, expression.text, lexeme.start, lexeme.end)),
+                expression.owner,
             )
         })
 }
@@ -153,9 +212,38 @@ pub(crate) fn derived_names(
     type_expressions(reference, forms, kind, entries, methods)
         .into_iter()
         .flat_map(names)
-        .map(|(name, at)| (Sym::new(name), at))
+        .map(|(name, at, _)| (Sym::new(name), at))
         .filter(|(name, _)| {
             Some(*name) != own && kind_of(name.as_str()).is_some_and(|k| target.admits(k.as_str()))
+        })
+        .collect()
+}
+
+/// The names `reference` reads as types from one block of its kind, outside a union body's variants and a list's
+/// items (`TypeExpression::typed`), that are not `own`, no [`PRIMITIVE_TYPES`] entry,
+/// and name no entity (`kind_of`) the field's target admits: each with where it is written and the field key or
+/// method name it is in. The same walk as [`derived_names`], so the linker and the report agree on what a type
+/// name is (ADR 0282 D1). None when the field declares no target.
+pub(crate) fn unknown_type_names<'v>(
+    reference: &DerivedReference,
+    forms: &crate::FieldForms,
+    entries: &'v [FieldEntry],
+    methods: &'v [MethodDecl],
+    own: Option<Sym>,
+    kind_of: &dyn Fn(&str) -> Option<Sym>,
+) -> Vec<(&'v str, Option<SourceSpan>, &'v str)> {
+    let kind = reference.source_kind.as_str();
+    let Some(target) = forms.target(kind, &reference.field) else {
+        return Vec::new();
+    };
+    type_expressions(reference, forms, kind, entries, methods)
+        .into_iter()
+        .filter(|expression| expression.typed)
+        .flat_map(names)
+        .filter(|(name, _, _)| {
+            Some(Sym::new(name)) != own
+                && !PRIMITIVE_TYPES.contains(name)
+                && !kind_of(name).is_some_and(|k| target.admits(k.as_str()))
         })
         .collect()
 }
@@ -185,14 +273,15 @@ fn within(at: &SourceSpan, text: &str, start: usize, end: usize) -> SourceSpan {
 }
 
 impl Graph {
-    /// Add the edges of every derived reference field. Idempotent; run
-    /// after references resolve, since resolution clears the edges.
+    /// Add the edges of every derived reference field, and report each name read as a type that names no type
+    /// (E004, ADR 0282 D1). Idempotent; run after references resolve, since resolution clears the edges.
     pub(crate) fn link_derived_references(
         &mut self,
         derived: &[DerivedReference],
         forms: &crate::FieldForms,
-    ) {
+    ) -> Vec<Diagnostic> {
         let mut edges: Vec<Edge> = Vec::new();
+        let mut diagnostics = Vec::new();
         for reference in derived {
             for node in self.nodes_by_kind(&reference.source_kind) {
                 let kind_of = |name: &str| self.node(name).map(|named| named.kind.raw);
@@ -209,10 +298,45 @@ impl Graph {
                     target: name,
                     label: Sym::new(&reference.field),
                 }));
+                let unknown = unknown_type_names(
+                    reference,
+                    forms,
+                    node.fields.entries(),
+                    &node.methods,
+                    Some(node.id.raw),
+                    &kind_of,
+                );
+                for (name, at, owner) in unknown {
+                    let place = match reference.from {
+                        DerivedFrom::TypeExpressions => "field",
+                        DerivedFrom::MethodSignatures => "method",
+                    };
+                    let mut diagnostic = Diagnostic::new(
+                        codes::E004,
+                        format!(
+                            "{} '{}' {place} '{owner}' references unknown type '{name}'",
+                            node.kind.raw, node.id.raw
+                        ),
+                    )
+                    .with_data(DiagnosticData::UnresolvedReference {
+                        target: name.to_string(),
+                        entity: node.id.raw.to_string(),
+                        field: owner.to_string(),
+                        did_you_mean: None,
+                    })
+                    .with_suggestion(format!(
+                        "declare a type '{name}', or name a declared type or a primitive"
+                    ));
+                    if let Some(at) = at {
+                        diagnostic = diagnostic.with_span(at);
+                    }
+                    diagnostics.push(diagnostic);
+                }
             }
         }
         for edge in edges {
             self.add_edge(edge);
         }
+        diagnostics
     }
 }

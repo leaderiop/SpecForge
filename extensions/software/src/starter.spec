@@ -9,7 +9,7 @@ spec "{project}" {
 }
 
 type user "User account" {
-  status draft
+  email string
   verify "rejects an empty email"
 }
 

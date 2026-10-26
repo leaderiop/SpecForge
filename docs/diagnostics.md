@@ -163,13 +163,16 @@ Level: error
 ## E004
 
 ```
-E004: Unknown type in port method
+E004: Unknown type name
 
-A `port` entity's method field references a `type` ID that isn't declared
-anywhere in the spec. Declare the missing `type` entity or fix the reference to
-point at an existing one.
+A name written as a type (a member's type or a member of its union, a port
+method's parameter or return type: any field an extension derives from type
+syntax) is no primitive and names no entity of the field's target kind. A union
+body's variants and a list's items may be an enum's words and are not checked.
+Declare the type, or name a declared type or a primitive (see
+`docs/entities/type.md`).
 
-Owner: @specforge/software
+Owner: core
 Level: error
 ```
 

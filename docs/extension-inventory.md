@@ -140,8 +140,9 @@ I004 advice and the additions are skipped.
 
 ### Also declares
 
-Ten rules (W001–W003, W005–W008, W010, E004, E010). Three are custom validators written in the extension's
-code: port method types (E004), milestone behavior references (E010) and type member annotations (W010). A starter `.spec` file `specforge init` writes.
+Nine rules (W001–W003, W005–W008, W010, E010). Two are custom validators written in the extension's
+code: milestone behavior references (E010) and type member annotations (W010). The host reports a type name that
+names no type (E004). A starter `.spec` file `specforge init` writes.
 
 ## @specforge/governance
 

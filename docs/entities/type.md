@@ -50,7 +50,7 @@ Any other annotation is W010.
 ### Primitive types
 
 Besides declared types, a member or a port method may use `string`, `number`, `integer`, `boolean`, `timestamp`,
-`date`, `void`, `never`, `any`, the Rust-style primitives (`bool`, `i8`…`i64`, `u8`…`u64`, `f32`, `f64`, `usize`,
+`date`, `void`, `never`, `any`, `float`, `object`, the Rust-style primitives (`bool`, `i8`…`i64`, `u8`…`u64`, `f32`, `f64`, `usize`,
 `isize`) and the containers `Result`, `Option`, `Vec`, `Box`, `Arc`, `Rc`, `HashMap`, `HashSet`, `BTreeMap`,
 `BTreeSet`, `String`. `TypeName[]` is a list.
 
@@ -91,6 +91,7 @@ Core checks every entity whatever its kind: references must resolve (E003), ids 
 
 | Code | Level | Declared by | Rule |
 |------|-------|-------------|------|
+| E004 | error | core | A member's type names no type and no primitive (a union body's variants are not checked) |
 | W002 | warning | `@specforge/software` | Unreferenced type |
 | W004 | warning | `@specforge/testing` | Untested testable entity |
 | W009 | warning | `@specforge/testing` | Disallowed verify kind |

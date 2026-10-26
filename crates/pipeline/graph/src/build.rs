@@ -543,14 +543,14 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
 
     // Link references -> edges (E003, I004) and warn on reference cycles
     // (W061), which leave a declared single reference out.
-    let diagnostics = graph.link(&config.inputs.field_forms, &config.inputs.target_owners);
+    let mut diagnostics = graph.link(&config.inputs.field_forms, &config.inputs.target_owners);
 
     // Derived reference fields: dependencies, never a reference W061 reads,
-    // so a recursive type is no reference cycle (ADR 0204).
-    graph.link_derived_references(
+    // so a recursive type is no reference cycle (ADR 0204); an unknown type name is E004 (ADR 0282 D1).
+    diagnostics.extend(graph.link_derived_references(
         &config.inputs.derived_references,
         &config.inputs.field_forms,
-    );
+    ));
 
     // The linker's postcondition (E060, retired): every reference to an
     // existing entity has its edge.

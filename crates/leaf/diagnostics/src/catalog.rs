@@ -112,9 +112,9 @@ catalog! {
     E003: Error core,
         "Unresolved reference",
         "A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. A `string_list` field's other items are strings, never references. Fix the typo or add the missing entity; a `did you mean` suggestion is included when a close match exists.";
-    E004: Error software,
-        "Unknown type in port method",
-        "A `port` entity's method field references a `type` ID that isn't declared anywhere in the spec. Declare the missing `type` entity or fix the reference to point at an existing one.";
+    E004: Error core,
+        "Unknown type name",
+        "A name written as a type (a member's type or a member of its union, a port method's parameter or return type: any field an extension derives from type syntax) is no primitive and names no entity of the field's target kind. A union body's variants and a list's items may be an enum's words and are not checked. Declare the type, or name a declared type or a primitive (see `docs/entities/type.md`).";
     E006: Error core,
         "Missing required field",
         "An entity is missing a field marked `required: true` for its kind in the field registry. Add the missing field to the entity.";
