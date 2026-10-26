@@ -43,12 +43,12 @@ fn unescape(s: &str) -> String {
     result
 }
 
-/// The text a `"…"` token reads to: its inside, each escape read (`\"`, `\\`, `\n`, `\t`, `\r`; another `\x` is kept
-/// as written), never trimmed. A token without both quotes reads as written (the CST keeps an unclosed string out
-/// of every block, ADR 0063).
+/// The text a `"…"` token reads to: its inside, each CR LF read as LF (ADR 0266), each escape read (`\"`, `\\`, `\n`,
+/// `\t`, `\r`; another `\x` is kept as written), never trimmed. A token without both quotes reads as written (the CST
+/// keeps an unclosed string out of every block, ADR 0063).
 pub(crate) fn string_text(raw: &str) -> String {
     match raw.strip_prefix('"').and_then(|r| r.strip_suffix('"')) {
-        Some(inner) => unescape(inner),
+        Some(inner) => unescape(&crate::line_break::read(inner)),
         None => raw.to_string(),
     }
 }

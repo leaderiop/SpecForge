@@ -1,12 +1,13 @@
 //! The `.spec` language read from text: the one lexer (`lex`), the recovered syntax (`cst`), the AST the parser
 //! walks it into (`ast`, `parse`), the expression grammar (`expr`) and the format version header
-//! (`format_version`). Every reader of `.spec` text goes through it (ADR 0038, ADR 0063).
+//! (`format_version`) and what a line break is (`line_break`). Every reader of `.spec` text goes through it (ADR 0038, ADR 0063).
 
 pub mod ast;
 pub mod cst;
 pub mod expr;
 mod format_version;
 pub mod lex;
+pub mod line_break;
 mod parse;
 #[cfg(feature = "testing")]
 pub mod testing;

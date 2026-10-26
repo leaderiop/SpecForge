@@ -10,7 +10,6 @@ fn crlf(text: &str) -> String {
     behavior = "edit_entity_field",
     verify = "a typed edit of a CRLF block holding a multi-line quoted text is planned, its text kept"
 )]
-#[ignore = "flipped by T2"]
 fn a_typed_edit_of_a_crlf_block_holding_a_multi_line_text_is_planned() {
     let text = crlf("behavior b \"B\" {\n  category query\n  contract \"a\nb\"\n}\n");
     let c = project(&[("tasks.spec", &text)]);

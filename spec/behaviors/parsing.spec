@@ -177,6 +177,9 @@ behavior parse_all_block_types "Parse All Block Types" {
     populate the KindRegistry.
     A field named `kind` inside an entity body is an ordinary field of
     that entity, never the block's keyword.
+    A line break is a LF, with a CR directly before it part of it: a quoted
+    text holding a CR LF reads to the text holding a LF, as a triple-quoted
+    one does; an escaped `\r` is a CR (ADR 0266).
   """
   verify unit "parse any keyword as generic entity_block"
   verify unit "spec block uses dedicated grammar rule"

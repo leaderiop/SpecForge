@@ -197,7 +197,6 @@ fn a_relaid_corpus_file_formats_as_the_file_does() {
     invariant = "formatting_semantic_preservation",
     verify = "a file with CRLF line breaks parses to the entities its LF reading does, and format keeps them"
 )]
-#[ignore = "flipped by T2"]
 fn formatting_a_corpus_file_with_crlf_line_breaks_keeps_its_entities() {
     for (path, text) in specforge_parser::testing::corpus() {
         let lf = specforge_parser::parse(text, "p.spec");

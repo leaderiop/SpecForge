@@ -20,7 +20,6 @@ fn both_layouts(header: &str, body: &str) -> [String; 2] {
     behavior = "parse_all_block_types",
     verify = "a raw CR LF inside a quoted text reads as LF, as inside a triple-quoted one"
 )]
-#[ignore = "flipped by T2"]
 fn a_raw_cr_lf_inside_a_quoted_text_reads_as_lf() {
     let field = |value: &str| both_layouts("feature f1 \"F1\"", &format!("  problem {value}\n"));
     for source in field("\"a␍\nb\"") {
