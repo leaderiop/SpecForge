@@ -25,7 +25,8 @@ fn finish_edit(
     })
 }
 
-/// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that.
+/// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that. A value holding a comment
+/// is kept as written when it reads the same, else refused (ADR 0267).
 pub fn set(
     site: &Site<'_>,
     text: &str,
@@ -243,7 +244,7 @@ pub fn link(
             return Ok(Change::Emptied);
         }
         let new = list_text(&items);
-        block.place(site, field, &new, None);
+        block.place(site, field, &new, None)?;
         Ok(Change::Changed)
     })
 }

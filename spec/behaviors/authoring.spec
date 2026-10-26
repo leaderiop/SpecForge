@@ -74,7 +74,10 @@ behavior edit_entity_field "Edit an Entity Field" {
     project's max_width, triple-quoted with its lines one indent of the
     project's format configuration past its key, and inserts an absent field
     at its rank (one-line values, then
-    block fields, then triple-quoted text, in the kind's declared order). An
+    block fields, then triple-quoted text, in the kind's declared order). A value holding a comment inside it (a list's item
+    comment, a block field's member comment) is kept as written when the set reads the same as the graph stores both, and a set
+    to another value is refused not_editable, naming its field, its entity and its file: the comment lives in no value an edit
+    writes. A comment trailing the value stays on its row. An
     unset edit leaves the field holding none: it removes the field and the comment lines directly above it, as the
     parse reads them (a `//` line inside a string is none), or, over a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
     hold none and is refused. A second unset changes nothing. A

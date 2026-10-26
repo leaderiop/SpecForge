@@ -23,7 +23,6 @@ fn entries(pairs: &[(&str, &str)]) -> Input {
     behavior = "edit_entity_field",
     verify = "set of a value holding a comment to what it holds writes nothing"
 )]
-#[ignore = "flipped by T4"]
 fn set_to_what_a_value_holding_a_comment_holds_writes_nothing() {
     let c = tasks();
     let same = [
@@ -47,7 +46,6 @@ fn set_to_what_a_value_holding_a_comment_holds_writes_nothing() {
     behavior = "edit_entity_field",
     verify = "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
 )]
-#[ignore = "flipped by T4"]
 fn set_of_a_value_holding_a_comment_to_another_is_refused_naming_its_entity_and_file() {
     let c = tasks();
     let error = plan(

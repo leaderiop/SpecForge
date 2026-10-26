@@ -65,7 +65,7 @@ pub fn change(
         _ => None,
     };
     if let Some(copy) = copied {
-        block.place(site, field, &copy, None);
+        block.place(site, field, &copy, None)?;
         block = Block::reopen(site, &block.text())?; // the copy is now the block's own field
     }
     let held = of(site, block.file()).held(block.entity(), field).cloned();
@@ -134,7 +134,7 @@ fn emptied(
             ));
         }
     };
-    block.place(site, field, none, None);
+    block.place(site, field, none, None)?;
     block.finish(site)
 }
 
