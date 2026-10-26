@@ -11,7 +11,7 @@ A `deliverable` is something that ships: an app, a service, a CLI, a document, a
 journeys it serves and the modules it is built from. It answers: **"What ships to users?"**
 
 Deliverables make release planning explicit: `release -> deliverable -> journey -> feature`. The artifact need
-not be code: `artifact_type documentation` covers a policy framework or a procedure manual.
+not be code: a policy framework is `artifact_type document`, a launch kit `media`; any word is accepted.
 
 ## Syntax
 
@@ -35,7 +35,7 @@ Every `deliverable` has an id (the word after `deliverable`) and a title (the qu
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `artifact_type` | enum: cli, service, library, web_app, mobile_app, api, extension, documentation, package | Kind of artifact produced. |
+| `artifact_type` | identifier (required) | Kind of artifact produced: one word, for example cli, service, library, web_app, mobile_app, api, extension, documentation, package, physical_product, media, event, training. Any word is accepted. |
 
 ### Optional
 

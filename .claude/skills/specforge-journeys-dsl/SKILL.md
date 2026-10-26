@@ -57,8 +57,8 @@ journey create_new_user "Create a New User" {
 
 `persona` declares `description` (required), `technical_level` (`expert` `advanced` `intermediate` `beginner`
 `non_technical`), `goals`, `pain_points`, `status` (`active` `deprecated`), `reason`, `key_features`.
-`channel` declares `description` (required), `interaction_model` (`request_response` `event_driven` `batch`
-`streaming` `bidirectional` `manual`), `url`, `status`, `reason`.
+`channel` declares `description` (required), `interaction_model` (identifier: one word, e.g. `request_response` `event_driven` `batch`
+`streaming` `bidirectional` `manual` `in_person` `self_service` `broadcast`; any word is accepted), `url`, `status`, `reason`.
 
 ## Relationships
 

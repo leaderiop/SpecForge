@@ -43,7 +43,6 @@ files: a person, a script or an AI agent working over MCP.
 | `spec/glossary.spec` | `term` | sell-in, sell-through, ship week |
 | `spec/decisions.spec` | `decision`, `constraint`, `failure_mode` | open online first; the launch budget; the stock-out risk |
 
-Some of the product extension's words lean towards software: a deliverable's `artifact_type` is one of
-`cli`, `service`, `web_app`, `documentation`, ... so the press kit is `documentation` and the store page
-is a `web_app`. A team that wants its own words (campaign, asset, retailer) writes its own extension;
-[`../marketing/`](../marketing/) does that.
+The product fields that classify things take the project's own words (`artifact_type media`,
+`interaction_model in_person`, `family workstream`); a team that wants its own *kinds* (campaign, asset,
+retailer) writes its own extension, as [`../marketing/`](../marketing/) does.

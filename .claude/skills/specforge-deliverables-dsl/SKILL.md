@@ -30,7 +30,7 @@ deliverable user_management_mvp "User Management MVP" {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `artifact_type` | enum (required) `cli` `service` `library` `web_app` `mobile_app` `api` `extension` `documentation` `package` | Kind of artifact. |
+| `artifact_type` | identifier (required) | Kind of artifact: one word, for example `cli` `web_app` `documentation` `physical_product` `media` `event` `training`; any word is accepted. |
 | `status` | enum `draft` `in_progress` `shipped` `deprecated` | Lifecycle; absent means `draft`. |
 | `journeys` | reference list -> journey | Journeys it supports. Missing: W043. |
 | `modules` | reference list -> module | Modules it contains. Missing: W046. |
@@ -64,7 +64,7 @@ deliverable user_management_mvp "User Management MVP" {
 | Code | Owner | Rule |
 |------|-------|------|
 | E006 | core | `artifact_type` is missing. |
-| E061 | core | `artifact_type` or `status` outside its enum. |
+| E061 | core | `status` outside its enum. |
 | E052 | product | `depends_on` cycle. |
 | W043 / W046 | product | No journeys / no modules. |
 | I061 | product | `version` is not semver. |

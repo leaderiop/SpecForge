@@ -1,6 +1,6 @@
 # Getting Started with @specforge/product
 
-`@specforge/product` is a builtin extension: it teaches SpecForge 9 planning kinds — **feature**, **journey**, **deliverable**, **milestone**, **module**, **term**, **persona**, **channel**, and **release** — and about 40 commands that answer planning questions over them. Few of its words are about code (`module` and a deliverable's `artifact_type` lean towards software), so a marketing team launching a campaign or a clinic planning a new service can use it too. Together the kinds model the planning lifecycle: who it is for, what they need, how they get it, and when it ships.
+`@specforge/product` is a builtin extension: it teaches SpecForge 9 planning kinds — **feature**, **journey**, **deliverable**, **milestone**, **module**, **term**, **persona**, **channel**, and **release** — and about 40 commands that answer planning questions over them. Few of its words are about code (the fields that classify things, such as a deliverable's `artifact_type`, take any word), so a marketing team launching a campaign or a clinic planning a new service can use it too. Together the kinds model the planning lifecycle: who it is for, what they need, how they get it, and when it ships.
 
 ## Quick start
 

@@ -5,11 +5,13 @@ use "journeys"
 
 module marketing "Marketing workstream" {
   description "The story, the store page and the launch emails."
+  family      workstream
   features    [all_day_light, preorder]
 }
 
 module retail "Retail workstream" {
   description "Packaging and everything a retail partner needs to say yes."
+  family      workstream
   features    [shelf_ready_box, one_dial]
 }
 
@@ -45,7 +47,7 @@ deliverable store_page "Store page and pre-order flow" {
 }
 
 deliverable press_kit "Press kit" {
-  artifact_type documentation
+  artifact_type media
   status        shipped
   description   "Photos, the day-to-evening clip and a one-page fact sheet."
   journeys      [discover_and_preorder]
@@ -55,7 +57,7 @@ deliverable press_kit "Press kit" {
 }
 
 deliverable sell_in_deck "Retail sell-in deck" {
-  artifact_type documentation
+  artifact_type sales_deck
   status        in_progress
   journeys      [stock_the_shelf]
   modules       [retail]

@@ -22,19 +22,19 @@ persona retail_buyer "Retail buyer" {
 
 channel web_store "Online store" {
   description       "The brand's own shop, where pre-orders open first."
-  interaction_model request_response
+  interaction_model self_service
   url               "https://example.com/halo"
   status            active
 }
 
 channel retail_partners "Retail partners" {
   description       "Homeware chains that stock the lamp in stores."
-  interaction_model manual
+  interaction_model in_person
   status            active
 }
 
 channel newsletter "Newsletter" {
   description       "The monthly email to existing customers."
-  interaction_model batch
+  interaction_model broadcast
   status            active
 }

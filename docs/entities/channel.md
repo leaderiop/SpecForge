@@ -38,7 +38,7 @@ Every `channel` has an id (the word after `channel`) and a title (the quoted str
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `interaction_model` | enum: request_response, event_driven, batch, streaming, bidirectional, manual | How users interact through this channel. |
+| `interaction_model` | identifier | How users interact through this channel: one word, for example request_response, event_driven, batch, streaming, bidirectional, manual, in_person, self_service, broadcast. Any word is accepted. |
 | `url` | string | URL or endpoint for this channel. |
 | `status` | enum: active, deprecated | Lifecycle state; default `active`. |
 | `reason` | string | Justification for the current status or a status change. |

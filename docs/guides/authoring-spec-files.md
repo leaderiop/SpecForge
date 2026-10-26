@@ -579,7 +579,7 @@ persona individual "Individual user" {
 
 channel cli "Command-line interface" {
   description       "A terminal CLI for managing tasks."
-  interaction_model request_response // request_response | event_driven | batch | streaming | bidirectional | manual
+  interaction_model request_response // one word, e.g. request_response, in_person
   status            active
 }
 ```
@@ -600,7 +600,7 @@ milestone mvp "Minimum Viable Product" {
 }
 
 deliverable todo_cli "todo CLI" {
-  artifact_type cli                  // cli|service|library|web_app|mobile_app|api|extension|documentation|package
+  artifact_type cli                  // one word, e.g. cli, web_app, physical_product
   status        in_progress          // draft | in_progress | shipped | deprecated
   journeys      [capture_and_complete]
   modules       [core]

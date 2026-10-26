@@ -29,7 +29,7 @@ module core_mod "@myservice/core" {
 |-------|------|-------------|
 | `features` | reference list -> feature | Features the module contains. Missing or empty: I067. |
 | `depends_on` | reference list -> module | Modules this one depends on (a cycle is E007). |
-| `family` | identifier | Grouping; the standard ones are `core`, `platform`, `extension`, `integration`, `advisory` (another is I062, allowed). |
+| `family` | identifier | Grouping: `core`, `platform`, `extension`, `integration`, `advisory`, `workstream` are suggestions; any word is accepted. |
 | `description` | string | Purpose. |
 | `reason` | string | Why the module exists or is grouped this way. |
 | `tags` | string list | Lowercase-hyphenated labels. |
@@ -57,7 +57,6 @@ defines), both reference lists -> port.
 |------|-------|------|
 | E007 | product | `depends_on` cycle. |
 | W044 | product | No deliverable or milestone references the module. |
-| I062 | product | Non-standard `family` (informational; custom families are allowed). |
 | I067 | product | No `features`. |
 
 ## Examples

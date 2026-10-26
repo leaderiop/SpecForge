@@ -29,7 +29,7 @@ With `@specforge/software` loaded, a module can also list the ports it consumes 
 
 ### Families
 
-`family` is one bare word of your own; the five below are suggestions.
+`family` is one bare word of your own; the six below are suggestions, and any word is accepted.
 
 | Value | Meaning |
 |-------|---------|
@@ -38,6 +38,7 @@ With `@specforge/software` loaded, a module can also list the ports it consumes 
 | `extension` | Plugin or extension package |
 | `integration` | Integration adapter or bridge |
 | `advisory` | Non-code module (docs, process, governance) |
+| `workstream` | A team's or programme's stream of work |
 
 ## Fields
 
@@ -47,7 +48,7 @@ Every `module` has an id (the word after `module`) and a title (the quoted strin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `family` | identifier (one bare word) | Category or family this module belongs to; the standard ones are core, platform, extension, integration, advisory. |
+| `family` | identifier (one bare word) | Category or family this module belongs to: core, platform, extension, integration, advisory and workstream are suggestions, any word is accepted. |
 | `description` | string | Human-readable summary of the module. |
 | `features` | reference list → `feature` | Features contained within this module. |
 | `depends_on` | reference list → `module` | Other modules this module depends on. |
