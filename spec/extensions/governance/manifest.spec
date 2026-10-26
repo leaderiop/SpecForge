@@ -34,6 +34,9 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
   verify unit "the declaration declares entities, edges and validation_rules"
   verify unit "peer_dependencies includes optional @specforge/software"
   verify unit "sandbox_policy is null"
+  verify integration "a project that loads governance and not software declares invariants, and W003 reports the one nothing references"
+  verify integration "governance and formal load together without software"
+  verify integration "a project that loads software, governance and formal checks its invariants as before the move"
 }
 
 invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {

@@ -165,4 +165,5 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   verify unit "verify_kinds contains contract, refinement, deadlock_free, liveness"
   verify unit "peer_dependencies requires @specforge/software"
   verify unit "formal warnings require warning_level=strict"
+  verify integration "formal loads without software: a project of invariants, constraints, properties, protocols and processes has no E027, no enhancement I004 and no W123 or W128"
 }
