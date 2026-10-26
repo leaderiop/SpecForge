@@ -55,7 +55,7 @@ const TESTABLE: &[Testable] = &[
     },
     Testable {
         kind: "invariant",
-        owner: SOFTWARE,
+        owner: GOVERNANCE,
         verify_kinds: &["unit", "integration", "property", "performance", "mutation"],
         requires_obligations: true,
         risk: Some(Risk {

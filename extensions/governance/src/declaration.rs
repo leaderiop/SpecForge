@@ -18,10 +18,14 @@ const OCCURRENCE: Vocabulary =
 const DETECTION: Vocabulary =
     Vocabulary::new(&["certain", "likely", "moderate", "unlikely", "undetectable"]);
 
+/// `RiskLevel`, the consequence of an invariant's violation, worst first.
+const RISK: Vocabulary = Vocabulary::new(&["critical", "high", "medium", "low"]);
+
 /// Declare everything this module holds on `c`.
 pub(crate) fn declare(c: &mut ContributionsBuilder) {
     kinds(c);
     edges(c);
+    rules(c);
 }
 
 fn kinds(c: &mut ContributionsBuilder) {
@@ -266,6 +270,35 @@ fn kinds(c: &mut ContributionsBuilder) {
                 .target_kind("behavior");
         });
     });
+    c.kind("Invariant", |k| {
+        k.keyword("invariant")
+            .description("A rule that must always hold")
+            .semantic_token("property")
+            .lsp_icon("Property")
+            .dot_shape("diamond")
+            .dot_color("#C62828")
+            .dot_fillcolor("#FFEBEE")
+            .inference_guide("Look for assertions, validation logic, and defensive checks that enforce system-wide rules. Signals: assert!() / assert_eq!() statements, guard clauses that panic or return errors, database constraints (UNIQUE, CHECK, NOT NULL), middleware that rejects invalid state, config validation at startup, and comments like 'must always', 'never allow', 'invariant'. The guarantee field should state what must hold (e.g., 'User email must be unique across all accounts'). The risk field describes consequences of violation. Invariants are architectural rules about state; for quantified limits (latency <200ms, max connections), use constraint instead. Skip: local variable checks, input validation that's behavior-specific, temporary debug assertions.")
+            .contract_target();
+        k.field("guarantee", |f| {
+            f.field_type(FieldType::String)
+                .required()
+                .description("The constraint this invariant guarantees holds at all times")
+                .normative();
+        });
+        k.field("risk", |f| {
+            f.vocabulary(&RISK)
+                .description("Impact level if this invariant is violated");
+        });
+        k.field("description", |f| {
+            f.field_type(FieldType::String)
+                .description("Human-readable summary of this invariant");
+        });
+        k.field("refs", |f| {
+            f.field_type(FieldType::StringList)
+                .description("External references such as issue or document URIs");
+        });
+    });
 }
 
 fn edges(c: &mut ContributionsBuilder) {
@@ -345,5 +378,18 @@ fn edges(c: &mut ContributionsBuilder) {
             .target_kind("behavior")
             .edge_style("dashed")
             .edge_color("#D32F2F");
+    });
+}
+
+fn rules(c: &mut ContributionsBuilder) {
+    // Untyped: a behavior that enforces it, a decision or constraint that protects it, a failure
+    // mode that threatens it, an axiom or property that assumes it: any of them references it.
+    c.rule("W003", |r| {
+        r.check(CheckKind::NoIncomingEdges)
+            .severity(ValidationSeverity::Warning)
+            .message_template(
+                "invariant '{id}' is not referenced by any entity — nothing enforces, protects or relies on it",
+            )
+            .target_kind("invariant");
     });
 }

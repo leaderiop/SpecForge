@@ -78,3 +78,24 @@ behavior detect_constraints_with_no_protected_invariants "Detect Constraints wit
   verify unit "constraint with empty protects list produces W048"
   verify unit "constraint with valid protects suppresses W048"
 }
+
+behavior ge_validate_unused_invariants "W003: Unused Invariants" {
+  features [ge_validation_suite]
+  category query
+  contract """
+    Detect invariant entities that nothing references: no behavior enforces
+    them, no decision or constraint protects them, no failure mode threatens
+    them, no axiom or property relies on them. This is the only
+    unreferenced-invariant finding; `analyze coverage` counts them without
+    reporting them again.
+  """
+  requires {
+    graph_built "entity graph is fully constructed with all edges"
+  }
+  ensures {
+    unused_detected   "invariant nothing references produces W003"
+    referenced_passes "invariant with incoming reference edge produces no diagnostic"
+  }
+  verify unit "invariant nothing references produces W003"
+  verify unit "invariant with incoming reference edge passes"
+}

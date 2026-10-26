@@ -4,8 +4,6 @@
 
 use specforge_extension_sdk::prelude::*;
 
-/// `RiskLevel`, the consequence of an invariant's violation, worst first.
-const RISK: Vocabulary = Vocabulary::new(&["critical", "high", "medium", "low"]);
 /// `PortDirection`.
 const PORT_DIRECTION: Vocabulary = Vocabulary::new(&["inbound", "outbound", "bidirectional"]);
 
@@ -96,35 +94,6 @@ fn kinds(c: &mut ContributionsBuilder) {
         k.field("diagnostic", |f| {
             f.field_type(FieldType::Identifier)
                 .description("Diagnostic message for validation tooling");
-        });
-    });
-    c.kind("Invariant", |k| {
-        k.keyword("invariant")
-            .description("A system-wide constraint that must always hold true")
-            .semantic_token("property")
-            .lsp_icon("Property")
-            .dot_shape("diamond")
-            .dot_color("#C62828")
-            .dot_fillcolor("#FFEBEE")
-            .inference_guide("Look for assertions, validation logic, and defensive checks that enforce system-wide rules. Signals: assert!() / assert_eq!() statements, guard clauses that panic or return errors, database constraints (UNIQUE, CHECK, NOT NULL), middleware that rejects invalid state, config validation at startup, and comments like 'must always', 'never allow', 'invariant'. The guarantee field should state what must hold (e.g., 'User email must be unique across all accounts'). The risk field describes consequences of violation. Invariants are architectural rules about state; for quantified limits (latency <200ms, max connections), use constraint instead. Skip: local variable checks, input validation that's behavior-specific, temporary debug assertions.")
-            .contract_target();
-        k.field("guarantee", |f| {
-            f.field_type(FieldType::String)
-                .required()
-                .description("The constraint this invariant guarantees holds at all times")
-                .normative();
-        });
-        k.field("risk", |f| {
-            f.vocabulary(&RISK)
-                .description("Impact level if this invariant is violated");
-        });
-        k.field("description", |f| {
-            f.field_type(FieldType::String)
-                .description("Human-readable summary of this invariant");
-        });
-        k.field("refs", |f| {
-            f.field_type(FieldType::StringList)
-                .description("External references such as issue or document URIs");
         });
     });
     c.kind("Event", |k| {
@@ -376,12 +345,6 @@ fn rules(c: &mut ContributionsBuilder) {
             .severity(ValidationSeverity::Warning)
             .message_template("type '{id}' is not referenced by any behavior, port, or type")
             .target_kind("type");
-    });
-    c.rule("W003", |r| {
-        r.check(CheckKind::NoIncomingEdges)
-            .severity(ValidationSeverity::Warning)
-            .message_template("invariant '{id}' is not enforced by any behavior")
-            .target_kind("invariant");
     });
     c.rule("W005", |r| {
         r.check(CheckKind::NoIncomingEdges)

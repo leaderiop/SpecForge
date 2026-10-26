@@ -6,7 +6,7 @@ use "types/zero-entity-core"
 
 behavior ge_register_entity_kinds "Register Governance Entity Kinds" {
   category   command
-  invariants [ge_manifest_three_entity_kinds]
+  invariants [ge_manifest_four_entity_kinds]
   types      [EntityKindDescriptor, GovernanceDecision, GovernanceConstraint, GovernanceFailureMode]
   contract   """
     The @specforge/governance extension MUST register 3 entity kinds with

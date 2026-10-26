@@ -12,17 +12,19 @@ use specforge_extension_sdk::prelude::*;
 #[specforge_extension_sdk::extension(
     name = "@specforge/software",
     version = "1.0.0",
-    description = "Software design: behaviors, invariants, events, types and ports, and the checks that keep them consistent"
+    description = "Software design: behaviors, events, types and ports, and the checks that keep them consistent"
 )]
 struct Software;
 
 impl Contributions for Software {
     fn contribute(c: &mut ContributionsBuilder) {
         // Optional: product provides the kinds behind the feature, module
-        // and milestone links; without it those links are inert (I004).
+        // and milestone links; governance provides the invariants a behavior
+        // enforces; without them those links are inert (I004).
         // Diagrams (`model`, `outline`) draw the extension in this colour.
         c.theme_color("#4a90d9");
-        c.optional_peer("@specforge/product", "^1.0");
+        c.optional_peer("@specforge/product", "^1.0")
+            .optional_peer("@specforge/governance", "^1.0");
         c.meta.sandbox_policy = Some(SandboxPolicy {
             max_memory_mb: Some(256),
             max_execution_ms: Some(5000),

@@ -7,7 +7,7 @@ use "types/zero-entity-core"
 behavior se_register_entity_kinds "Register Software Entity Kinds" {
   features   [se_core_entity_kinds]
   category   command
-  invariants [se_manifest_six_entity_kinds]
+  invariants [se_manifest_four_entity_kinds]
   types      [
     EntityKindDescriptor,
     SoftwareBehavior,
