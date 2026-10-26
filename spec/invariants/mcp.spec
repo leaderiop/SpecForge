@@ -37,6 +37,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a package the registry or the trust check refuses is never an internal_error"
   verify unit "success responses never have error field"
   verify unit "a failed tool call is an isError result whose content is an McpError with a code"
+  verify unit "every refusal of every MCP tool kind is an isError result carrying one McpError that names the tool"
   verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
   verify unit "a missing entity is one E003 refusal naming the closest entity on every read view"
   verify unit "a depth without the entity it counts from is one refusal, about the entity, on every read"

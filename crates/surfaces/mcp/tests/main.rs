@@ -45,6 +45,7 @@ mod prompts;
 mod protocol;
 mod read_notices;
 mod refusal_arguments;
+mod refusal_shapes;
 mod refusal_wire;
 mod remove_peers;
 mod render_writes;
