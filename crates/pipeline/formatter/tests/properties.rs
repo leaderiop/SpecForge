@@ -192,3 +192,37 @@ fn a_relaid_corpus_file_formats_as_the_file_does() {
     });
     fail(result);
 }
+
+#[specforge_test(
+    invariant = "formatting_semantic_preservation",
+    verify = "a file with CRLF line breaks parses to the entities its LF reading does, and format keeps them"
+)]
+#[ignore = "flipped by T2"]
+fn formatting_a_corpus_file_with_crlf_line_breaks_keeps_its_entities() {
+    for (path, text) in specforge_parser::testing::corpus() {
+        let lf = specforge_parser::parse(text, "p.spec");
+        if !lf.errors.is_empty() {
+            continue;
+        }
+        let crlf = text.replace('\n', "\r\n");
+        let parsed = specforge_parser::parse(&crlf, "p.spec");
+        let reparsed = specforge_parser::parse(&fmt(&crlf), "p.spec");
+        let (lf, parsed, reparsed) = (
+            layout_free(&lf.entities),
+            layout_free(&parsed.entities),
+            layout_free(&reparsed.entities),
+        );
+        assert!(
+            parsed == lf,
+            "{}: a CRLF reading differs: {}",
+            path.display(),
+            first_difference(&lf, &parsed)
+        );
+        assert!(
+            reparsed == parsed,
+            "{}: format changed the entities: {}",
+            path.display(),
+            first_difference(&parsed, &reparsed)
+        );
+    }
+}

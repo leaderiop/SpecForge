@@ -90,6 +90,7 @@ invariant migration_canonical_form "Migration Canonical Form" {
   risk      medium
   verify property "every block a migration writes is unchanged by format"
   verify unit "a block no migration step changed is left as written"
+  verify unit "a migration writes a CRLF file in CRLF, as it migrates the same file in LF"
 }
 
 invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {

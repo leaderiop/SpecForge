@@ -148,3 +148,15 @@ fn an_annotation_after_a_multiline_value_stays_after_it() {
     assert_eq!(value(&once), value(source), "{once:?}");
     assert_eq!(once, source);
 }
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "the formatted text has LF line endings and exactly one final newline"
+)]
+#[ignore = "flipped by T3"]
+fn format_writes_lf_inside_a_title_a_list_item_and_a_verify_text() {
+    let formatted = fmt(
+        "feature f1 \"F\r\none\" {\r\n  channels [\"a\r\nb\"]\r\n  verify unit \"one\r\ntwo\"\r\n}\r\n",
+    );
+    assert!(!formatted.contains('\r'), "{formatted:?}");
+}

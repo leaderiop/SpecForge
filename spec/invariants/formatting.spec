@@ -94,6 +94,7 @@ invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
   verify property "format(spec) parses to an identical entity graph as spec"
   verify property "format(spec) under the project's field forms stores the same values and references as spec"
   verify unit "formatting does not alter entity IDs, field values, or reference lists"
+  verify unit "a file with CRLF line breaks parses to the entities its LF reading does, and format keeps them"
 }
 
 invariant format_rule_priority "Format Rule Application Order" {

@@ -125,6 +125,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "retitle refuses a blank title before anything is planned, as create does"
   verify unit "unset keeps a // line inside the string above the field"
   verify unit "set of an absent field never writes inside the string above the first field"
+  verify unit "a typed edit of a CRLF block holding a multi-line quoted text is planned, its text kept"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {

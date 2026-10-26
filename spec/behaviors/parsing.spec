@@ -191,6 +191,8 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "generic block preserves kind, name, title, and fields"
   verify unit "parse string field values correctly"
   verify unit "a value token reads to the text the parse stores: a quoted one unescaped, a triple-quoted one dedented, neither trimmed"
+  verify unit "a raw CR LF inside a quoted text reads as LF, as inside a triple-quoted one"
+  verify unit "an escaped CR and a lone CR inside a quoted text stay a CR"
   verify unit "a type field named kind is an ordinary field"
   verify unit "a union block carries its title"
   verify unit "a block answers whether it is a union from its syntax, whatever its fields are named"
