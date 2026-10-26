@@ -286,8 +286,9 @@ fn a_command_is_told_the_project_root_on_each_surface() {
         &[tool_call(1, "specforge.probe.probe", serde_json::json!({}))],
     );
     let response = find_response(&responses, 1).unwrap();
-    let mcp: Value =
-        serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    // The probe exits 3: its output rides in the refusal's data (ADR 0252).
+    let stdout = response["result"]["structuredContent"]["data"]["stdout"].as_str();
+    let mcp: Value = serde_json::from_str(stdout.unwrap()).unwrap();
     assert_eq!(mcp["cwd"], cli["cwd"], "{response}");
 }
 
