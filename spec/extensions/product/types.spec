@@ -19,8 +19,18 @@ type TechnicalLevel "Technical Level" {
   verify property "TechnicalLevel"
 }
 
-type InteractionModel "Interaction Model" {
-  values [request_response, event_driven, batch, streaming, bidirectional, manual]
+type InteractionModel "Interaction model is an open set of suggested words; any one word is accepted (ADR 0279)." {
+  values [
+    request_response,
+    event_driven,
+    batch,
+    streaming,
+    bidirectional,
+    manual,
+    in_person,
+    self_service,
+    broadcast,
+  ]
   verify property "InteractionModel"
 }
 
@@ -34,8 +44,22 @@ type ChannelStatus "Channel Status" {
   verify property "ChannelStatus"
 }
 
-type ArtifactType "Artifact Type" {
-  values [cli, service, library, web_app, mobile_app, api, extension, documentation, package]
+type ArtifactType "Artifact type is an open set of suggested words; any one word is accepted (ADR 0279)." {
+  values [
+    cli,
+    service,
+    library,
+    web_app,
+    mobile_app,
+    api,
+    extension,
+    documentation,
+    package,
+    physical_product,
+    media,
+    event,
+    training,
+  ]
   verify property "ArtifactType"
 }
 

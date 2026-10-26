@@ -96,7 +96,13 @@ pub const JOURNEYS: ListKind = ListKind {
 pub const DELIVERABLES: ListKind = ListKind {
     kind: "deliverable",
     plural: "deliverables",
-    filters: &[Closed("status"), Closed("artifact_type")],
+    filters: &[
+        Closed("status"),
+        Open {
+            field: "artifact_type",
+            help: "Only deliverables of this artifact type, as written",
+        },
+    ],
 };
 pub const MILESTONES: ListKind = ListKind {
     kind: "milestone",
@@ -126,7 +132,13 @@ pub const PERSONAS: ListKind = ListKind {
 pub const CHANNELS: ListKind = ListKind {
     kind: "channel",
     plural: "channels",
-    filters: &[Closed("status"), Closed("interaction_model")],
+    filters: &[
+        Closed("status"),
+        Open {
+            field: "interaction_model",
+            help: "Only channels of this interaction model, as written",
+        },
+    ],
 };
 pub const RELEASES: ListKind = ListKind {
     kind: "release",

@@ -181,8 +181,8 @@ decision pe_interaction_model_metadata "Interaction Model as Metadata" {
   """
   decision     """
     The interaction_model field is metadata for tooling and AI agents, not
-    a flow-step validation constraint. interaction_model is an enum of
-    InteractionModel (a value outside it is E061), and the compiler does
+    a flow-step validation constraint. interaction_model is an open
+    identifier with suggested words (ADR 0279), and the compiler does
     NOT enforce that journey flow steps are compatible with the
     referenced channel's interaction model. Flow-step compatibility is
     domain-specific and belongs to domain extensions or agent reasoning.
@@ -191,7 +191,7 @@ decision pe_interaction_model_metadata "Interaction Model as Metadata" {
     "Interaction model is queryable metadata for agents and tooling",
     "No coupling between journey flow steps and channel interaction model",
     "Domain extensions can add flow-step validation if needed",
-    "The value is one of InteractionModel; nothing else is checked about it",
+    "Any one word is accepted; nothing else is checked about it",
     "Agents can use interaction_model to reason about UX patterns",
   ]
 }
@@ -2155,7 +2155,7 @@ decision pe_vocabularies_are_enum_fields "Product Vocabularies Are Enum Fields" 
   consequences [
     "An off-vocabulary value is an error, as the list filters already treated it",
     "The editor completes the values and the schema lists them",
-    "technical_level, interaction_model and release status are closed",
+    "technical_level and release status are closed; interaction_model reopened by ADR 0279",
     "A status field's absent value is its declared default",
   ]
 }

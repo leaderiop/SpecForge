@@ -106,7 +106,7 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 13, "thirteen vocabulary fields");
+    assert_eq!(checked, 11, "eleven vocabulary fields");
     // Both directions: an enum field the declaration holds has a vocabulary.
     for entity in &declaration.entities {
         let kind = entity.keyword.as_deref().unwrap();
@@ -191,14 +191,13 @@ fn every_vocabulary_field_is_declared_with_its_vocabulary() {
             serde_json::json!(SORT_ORDER)
         );
     }
-    assert_eq!(closed, 12, "twelve closed filters");
+    assert_eq!(closed, 10, "ten closed filters");
 }
 
 #[specforge_test::prelude::specforge_test(
     behavior = "accept_a_projects_own_words",
     verify = "a deliverable's artifact type and a channel's interaction model are open identifier fields naming their suggested words"
 )]
-#[ignore = "flipped by T2"]
 fn the_artifact_type_and_interaction_model_take_any_word() {
     let declaration = crate::specforge_extension_build().declaration();
     for (kind, field, word) in [

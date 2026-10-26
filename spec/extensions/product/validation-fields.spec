@@ -31,20 +31,19 @@ behavior validate_product_vocabularies "Validate Product Field Vocabularies" {
     PersonaStatus,
     ChannelStatus,
     Effort,
-    ArtifactType,
     TechnicalLevel,
-    InteractionModel,
     Diagnostic,
   ]
   contract """
     The @specforge/product extension MUST declare each of its closed
     vocabularies once and declare every field that takes one as an enum of
     it: feature status (FeatureStatus), priority (Priority) and effort
-    (Effort); journey priority; deliverable artifact_type (ArtifactType) and
-    status (DeliverableStatus); milestone status (MilestoneStatus) and
-    priority; persona technical_level (TechnicalLevel) and status
-    (PersonaStatus); channel interaction_model (InteractionModel) and status
-    (ChannelStatus); release status (ReleaseStatus). A status field
+    (Effort); journey priority; deliverable status (DeliverableStatus);
+    milestone status (MilestoneStatus) and priority; persona
+    technical_level (TechnicalLevel) and status (PersonaStatus); channel
+    status (ChannelStatus); release status (ReleaseStatus). A
+    deliverable's artifact_type and a channel's interaction_model are open
+    (accept_a_projects_own_words). A status field
     declares as its default the value an absent status counts as: feature
     proposed, deliverable draft, milestone and release planned, persona and
     channel active. The core refuses a written value outside the

@@ -1,5 +1,6 @@
 //! The closed value sets product's fields take (`types.spec`'s enum types),
-//! each declared once (ADR 0071). The declaration declares each field with
+//! each declared once (ADR 0071), and the suggested words of the open fields
+//! (ADR 0279). The declaration declares each field with
 //! `FieldBuilder::vocabulary`, so the host refuses another value (E061) and
 //! completes, documents and publishes the values; the list commands filter
 //! and sort by them, and the lifecycle pass and the rollups read a missing
@@ -36,8 +37,21 @@ pub const CHANNEL_STATUS: Vocabulary =
     Vocabulary::new(&["active", "deprecated"]).absent_as("active");
 /// `Effort`, smallest first; its weights are `queries::EFFORT_WEIGHTS`.
 pub const EFFORT: Vocabulary = Vocabulary::new(&["xs", "s", "m", "l", "xl"]);
-/// `ArtifactType`.
-pub const ARTIFACT_TYPE: Vocabulary = Vocabulary::new(&[
+/// `TechnicalLevel`, most technical first.
+pub const TECHNICAL_LEVEL: Vocabulary = Vocabulary::new(&[
+    "expert",
+    "advanced",
+    "intermediate",
+    "beginner",
+    "non_technical",
+]);
+// ── The suggested words of the open fields ──
+// A field that classifies a domain's things is an identifier: any one word
+// is accepted (ADR 0279). These are the words its description suggests;
+// nothing checks a value against them.
+
+/// A deliverable's `artifact_type`.
+pub const ARTIFACT_TYPES: &[&str] = &[
     "cli",
     "service",
     "library",
@@ -47,24 +61,23 @@ pub const ARTIFACT_TYPE: Vocabulary = Vocabulary::new(&[
     "extension",
     "documentation",
     "package",
-]);
-/// `TechnicalLevel`, most technical first.
-pub const TECHNICAL_LEVEL: Vocabulary = Vocabulary::new(&[
-    "expert",
-    "advanced",
-    "intermediate",
-    "beginner",
-    "non_technical",
-]);
-/// `InteractionModel`.
-pub const INTERACTION_MODEL: Vocabulary = Vocabulary::new(&[
+    "physical_product",
+    "media",
+    "event",
+    "training",
+];
+/// A channel's `interaction_model`.
+pub const INTERACTION_MODELS: &[&str] = &[
     "request_response",
     "event_driven",
     "batch",
     "streaming",
     "bidirectional",
     "manual",
-]);
+    "in_person",
+    "self_service",
+    "broadcast",
+];
 /// `ModuleFamily`: the standard families. Open: `family` is a string, and a
 /// family outside these is I062 (info), so no field is declared with it.
 pub const MODULE_FAMILY: Vocabulary =
@@ -101,10 +114,8 @@ const OTHERS: &[(&str, &str, &Vocabulary)] = &[
     ("feature", "priority", &PRIORITY),
     ("feature", "effort", &EFFORT),
     ("journey", "priority", &PRIORITY),
-    ("deliverable", "artifact_type", &ARTIFACT_TYPE),
     ("milestone", "priority", &PRIORITY),
     ("persona", "technical_level", &TECHNICAL_LEVEL),
-    ("channel", "interaction_model", &INTERACTION_MODEL),
 ];
 
 /// The `status` vocabulary of `kind`, when it is a lifecycle kind.

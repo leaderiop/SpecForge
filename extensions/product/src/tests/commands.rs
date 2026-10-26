@@ -293,6 +293,9 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 ///   as; nothing else changed.
 /// - 40433 bytes, `0xced9_0e33_5754_998a`: the 13 descriptions say the request's words, not a
 ///   CLI flag (ADR 0135 D5); nothing else changed.
+/// - 39762 bytes, `0x9e54_3fbe_4ff9_f166`: `deliverables --artifact-type` and
+///   `channels --interaction-model` match the word as written (ADR 0279): they
+///   lose their `one_of`; nothing else changed.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = MockHost::new(crate::specforge_extension_build())
@@ -300,7 +303,7 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (40433, 0xced9_0e33_5754_998a),
+        (39762, 0x9e54_3fbe_4ff9_f166),
         "the surfaces payload changed"
     );
 }

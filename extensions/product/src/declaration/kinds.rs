@@ -1,6 +1,11 @@
 use crate::vocabulary::*;
 use specforge_extension_sdk::prelude::*;
 
+/// An open field's description: what it is, then its suggested words (ADR 0279).
+fn suggesting(what: &str, words: &[&str]) -> String {
+    format!("{what}: one word, for example {}", words.join(", "))
+}
+
 pub(super) fn kinds(c: &mut ContributionsBuilder) {
     c.kind("Feature", |k| {
         k.keyword("feature")
@@ -133,9 +138,9 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .description("Human-readable summary of the deliverable");
         });
         k.field("artifact_type", |f| {
-            f.vocabulary(&ARTIFACT_TYPE)
+            f.field_type(FieldType::Identifier)
                 .required()
-                .description("Kind of artifact produced");
+                .description(&suggesting("Kind of artifact produced", ARTIFACT_TYPES));
         });
         k.field("status", |f| {
             f.vocabulary(&DELIVERABLE_STATUS)
@@ -388,8 +393,10 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
                 .description("Human-readable summary of this channel");
         });
         k.field("interaction_model", |f| {
-            f.vocabulary(&INTERACTION_MODEL)
-                .description("How users interact through this channel");
+            f.field_type(FieldType::Identifier).description(&suggesting(
+                "How users interact through this channel",
+                INTERACTION_MODELS,
+            ));
         });
         k.field("url", |f| {
             f.field_type(FieldType::String)

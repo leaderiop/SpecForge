@@ -89,14 +89,14 @@ behavior surface_list_deliverables "Surface: List Deliverables" {
   contract """
     The product:deliverables CLI command MUST list all deliverable entities
     in the product graph, returning a paginated DeliverableListResult.
-    Accepts the standard list flags plus --artifact-type to filter by
-    ArtifactType.
+    Accepts the standard list flags plus --artifact-type, which
+    matches the field as written.
     Wasm export: cmd__product_deliverables.
     MCP tool: specforge.product.deliverables.
   """
   ensures {
     returns_list         "stdout is a valid DeliverableListResult JSON object"
-    artifact_type_filter "when --artifact-type is set, only deliverables with matching ArtifactType are returned"
+    artifact_type_filter "when --artifact-type is set, only deliverables whose artifact_type is the word as written are returned"
     status_filter        "when --status is set, only deliverables with matching DeliverableStatus are returned"
     journey_count        "each entry's journey_count reflects the number of DeliverableSupportsJourney edges"
     module_count         "each entry's module_count reflects the number of DeliverableContainsModule edges"
@@ -199,14 +199,14 @@ behavior surface_list_channels "Surface: List Channels" {
   contract """
     The product:channels CLI command MUST list all channel entities in
     the product graph, returning a paginated ChannelListResult. Accepts
-    the standard list flags plus --interaction-model to filter by
-    InteractionModel.
+    the standard list flags plus --interaction-model, which matches
+    the field as written.
     Wasm export: cmd__product_channels.
     MCP tool: specforge.product.channels.
   """
   ensures {
     returns_list             "stdout is a valid ChannelListResult JSON object"
-    interaction_model_filter "when --interaction-model is set, only channels with matching InteractionModel are returned"
+    interaction_model_filter "when --interaction-model is set, only channels whose interaction_model is the word as written are returned"
     journey_count            "each entry's journey_count reflects the number of reverse JourneyUsesChannel edges"
     exit_zero                "exit code 0 on success"
   }
