@@ -761,6 +761,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "every call goes to its address under the registry's root, where the server mounts it"
   verify unit "a scope_filter that is not a scope sends none of its scope's names to another registry"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted, address_from_root"
+  verify unit "a version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
 }
 
 behavior search_registry "Search Registry" {
@@ -1081,6 +1082,8 @@ behavior check_registry_reply "Check Registry Reply" {
   verify unit "every text a registry error carries is written in its diagnostic printable, whatever the variant"
   verify integration "a download address a registry sends reaches R006 and R009 printable"
   verify unit "a manifest's declaration is read printable, as a loaded binary's is"
+  verify unit "a reply whose sha256 is not 64 lowercase hex characters is refused with R009 before its binary is downloaded, and its dry run says so"
+  verify unit "a reply whose name is no package name or whose version is no SemVer version is refused with R009, not as another package"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {
@@ -1339,6 +1342,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify integration "a credential kept for one registry root is never sent to another root under the same alias"
   verify unit "a kept token whose secret is missing is R-AUTH-021 before any request"
   verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, unauthorized_diagnosed, tokens_never_logged, authenticated_emitted"
+  verify unit "a token check whose expiry is not an RFC 3339 timestamp is refused with R009 and login keeps nothing"
 }
 
 behavior retry_registry_request "Retry Registry Request" {

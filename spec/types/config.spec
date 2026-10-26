@@ -64,6 +64,7 @@ type VersionList "Version List" {
   name     string
   versions string[]
   verify unit "VersionList is the JSON a registry serves for a package's versions"
+  verify unit "a version list holding a version that is no SemVer version does not read"
 }
 
 // GET {root}/v1/packages/{name}/{version}: what a registry stores for one
@@ -86,6 +87,7 @@ type PackageMetadata "Package Metadata" {
   signature    PackageSignature @optional
   manifest     string           @optional
   verify unit "PackageMetadata is the JSON a registry serves for one version"
+  verify unit "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
 }
 
 // A publisher's Ed25519 signature over a package's name and version as
@@ -151,6 +153,7 @@ type TokenVerified "Token Verified" {
   label      string
   expires_at string @optional
   verify unit "TokenVerified is the JSON a registry answers a token check with"
+  verify unit "a token check whose expires_at is not an RFC 3339 timestamp does not read"
 }
 
 type RegistryErrorCode "What a registry refused, named the same by server and client (specforge_registry_wire::ErrorCode); a client reads a code it doesn't know as UNKNOWN." = "NOT_FOUND"

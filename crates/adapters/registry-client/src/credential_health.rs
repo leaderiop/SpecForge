@@ -297,4 +297,41 @@ mod tests {
             "{health:?}"
         );
     }
+
+    #[specforge_test_macros::test(
+        behavior = "run_doctor_check",
+        verify = "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
+    )]
+    #[ignore = "flipped by T5"]
+    fn a_stored_expiry_that_is_no_timestamp_makes_the_store_unreadable() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("credentials.json"),
+            r#"{"registries":{"https://x.invalid":{"token":"t","expires_at":"soon\u001b]0;PWNED\u0007"}}}"#,
+        )
+        .unwrap();
+
+        let health = credential_health(
+            dir.path(),
+            &dir.path().join("signing-key.json"),
+            chrono::Utc::now(),
+        );
+
+        assert_eq!(health.failures, 1, "{health:?}");
+        assert_eq!(health.lines.len(), 1, "{health:?}");
+        assert_eq!(health.lines[0].level, CredentialLevel::Error);
+        assert!(
+            health.lines[0]
+                .text
+                .contains("invalid credentials file format"),
+            "{health:?}"
+        );
+        assert!(
+            health
+                .lines
+                .iter()
+                .all(|line| !line.text.chars().any(char::is_control)),
+            "{health:?}"
+        );
+    }
 }

@@ -764,6 +764,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor states each finding once, saying what it is about, and its verdict; the CLI and MCP return one report"
   verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
+  verify unit "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
 }
 
 // -- Extension Source Resolution -----

@@ -554,4 +554,75 @@ mod tests {
             "q=widget&limit=50"
         );
     }
+
+    #[specforge_test_macros::test(
+        type = "PackageMetadata",
+        verify = "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
+    )]
+    #[ignore = "flipped by T3"]
+    fn a_package_reply_holds_a_package_name_a_semver_version_and_a_lowercase_sha256() {
+        let digest = "ab".repeat(32);
+        let reply = |key: &str, value: serde_json::Value| {
+            let mut reply = json!({"name": "@acme/tool", "version": "1.0.0", "sha256": digest, "wasm_url": "/x"});
+            reply[key] = value;
+            reply
+        };
+        for bad in [
+            reply("sha256", json!(digest.to_uppercase())),
+            reply("sha256", json!("nope")),
+            reply("sha256", json!(&digest[1..])),
+            reply("name", json!("@acme/tool\u{1b}[31m")),
+            reply("name", json!("Acme")),
+            reply("version", json!("1.0")),
+            reply("version", json!("1.0.0\u{1b}[2J")),
+        ] {
+            assert!(
+                serde_json::from_value::<PackageMetadata>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
+        assert!(serde_json::from_value::<PackageMetadata>(reply("size_bytes", json!(1))).is_ok());
+    }
+
+    #[specforge_test_macros::test(
+        type = "VersionList",
+        verify = "a version list holding a version that is no SemVer version does not read"
+    )]
+    #[ignore = "flipped by T4"]
+    fn a_version_list_holds_semver_versions() {
+        for bad in [
+            json!({"name": "@acme/tool", "versions": ["1.0.0", "not-a-version"]}),
+            json!({"name": "@acme/tool", "versions": ["9.9.9\u{1b}[31m"]}),
+        ] {
+            assert!(
+                serde_json::from_value::<VersionList>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
+        let good = json!({"name": "@acme/tool", "versions": ["1.0.0", "2.0.0-beta.1"]});
+        assert!(serde_json::from_value::<VersionList>(good).is_ok());
+    }
+
+    #[specforge_test_macros::test(
+        type = "TokenVerified",
+        verify = "a token check whose expires_at is not an RFC 3339 timestamp does not read"
+    )]
+    #[ignore = "flipped by T5"]
+    fn a_token_expiry_is_an_rfc_3339_timestamp() {
+        let check = |expires_at: serde_json::Value| {
+            serde_json::from_value::<TokenVerified>(
+                json!({"valid": true, "scope": null, "label": "x", "expires_at": expires_at}),
+            )
+        };
+        for bad in ["soon\u{1b}]0;PWNED\u{7}", "next tuesday", "2027-01-01"] {
+            assert!(check(json!(bad)).is_err(), "{bad:?}");
+        }
+        for good in [
+            json!("2027-01-01T00:00:00Z"),
+            json!("2027-01-01T00:00:00+02:00"),
+            json!(null),
+        ] {
+            assert!(check(good.clone()).is_ok(), "{good}");
+        }
+    }
 }
