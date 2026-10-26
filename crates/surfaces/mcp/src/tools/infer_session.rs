@@ -144,7 +144,12 @@ fn foreign(args: &Args) -> Result<(), Box<McpError>> {
             !args.entities_produced.is_empty(),
         ),
         ("session_id", "end", args.session_id.is_some()),
-        ("status", "end", args.status.is_some()),
+        // `completed` is the schema's default, so a client that fills defaults sends it on every action
+        (
+            "status",
+            "end",
+            args.status.is_some_and(|s| s != EndStatus::Completed),
+        ),
     ];
     match given
         .into_iter()

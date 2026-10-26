@@ -70,3 +70,20 @@ fn an_argument_of_another_action_is_refused_on_it() {
     let ended: Value = serde_json::from_str(&tool_text(&ended)).unwrap();
     assert_eq!(ended["status"], "completed", "{ended}");
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_infer_session_tool",
+    verify = "an argument of another action is refused on that argument"
+)]
+fn the_schema_default_status_is_accepted_on_any_action() {
+    let mut server = served();
+    let started = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start", "agent": "a", "status": "completed"}),
+    );
+    assert!(
+        serde_json::from_str::<Value>(&tool_text(&started)).unwrap()["session_id"].is_string(),
+        "{started}"
+    );
+}
