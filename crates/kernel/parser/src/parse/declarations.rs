@@ -242,6 +242,7 @@ impl<'a> ParseContext<'a> {
             namespace,
             is_pub,
             span: self.span(node),
+            doc_span: None,
         });
     }
 }

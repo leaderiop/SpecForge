@@ -47,6 +47,11 @@ pub struct ImportDeclaration {
     pub namespace: Option<String>,
     pub is_pub: bool,
     pub span: SourceSpan,
+    /// Where the statement's doc comment is written, by the rule of [`Entity::doc_span`]: the whole-line `//`
+    /// comments directly above it, no blank line between, the format header never one. `None` when none stands
+    /// there. The parse's only: a removed statement takes it (ADR 0274); no comment reaches the graph (ADR 0202).
+    #[serde(skip)]
+    pub doc_span: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone)]

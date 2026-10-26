@@ -1,4 +1,4 @@
-//! A block's doc comment: the run of whole-line comments directly above its first line, the format header never one
+//! A block's doc comment, and a `use` statement's by the same rule: the run of whole-line comments directly above its first line, the format header never one
 //! (ADR 0202); and a member's, by the same rule (ADR 0248); and the comments inside and after a member's value
 //! (ADR 0267).
 
@@ -31,11 +31,20 @@ fn run_above(
     })
 }
 
-/// Each of `entities` given its doc comment, read from `comments` (whole-line comments between top-level items, in
-/// source order, absolute spans) and `header` (the format header's 0-based row, ADR 0095).
-pub(super) fn attach(entities: &mut [Entity], comments: &[SourceSpan], header: Option<usize>) {
+/// Each of `entities` and `imports` given its doc comment, read from `comments` (whole-line comments between
+/// top-level items, in source order, absolute spans) and `header` (the format header's 0-based row, ADR 0095).
+pub(super) fn attach(
+    entities: &mut [Entity],
+    imports: &mut [ImportDeclaration],
+    comments: &[SourceSpan],
+    header: Option<usize>,
+) {
+    let doc = |line| run_above(comments, line, |row| header == Some(row));
     for entity in entities {
-        entity.doc_span = run_above(comments, entity.span.start_line, |row| header == Some(row));
+        entity.doc_span = doc(entity.span.start_line);
+    }
+    for import in imports {
+        import.doc_span = doc(import.span.start_line);
     }
 }
 

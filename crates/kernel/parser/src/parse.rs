@@ -159,7 +159,12 @@ fn parse_syntax(
         file.errors
             .sort_by_key(|e| (e.span.start_line, e.span.start_col));
     }
-    doc::attach(&mut file.entities, &comments, header_row(source));
+    doc::attach(
+        &mut file.entities,
+        &mut file.imports,
+        &comments,
+        header_row(source),
+    );
     (file, Some(cst.into_tree()))
 }
 

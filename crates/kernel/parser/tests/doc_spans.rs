@@ -84,6 +84,25 @@ fn a_comment_above_an_import_documents_no_block() {
 }
 
 #[test]
+fn a_use_statement_takes_its_doc_comment_by_the_same_rule() {
+    let file = parse(
+        "// specforge-format: 1.0\n// about x\nuse \"x.spec\"\n// about y\nuse \"y.spec\"\n\n// note\n\nuse \"z.spec\"\ntype A \"A\" {\n}\n",
+        "a.spec",
+    );
+    let got: Vec<_> = file
+        .imports
+        .iter()
+        .map(|i| {
+            i.doc_span
+                .as_ref()
+                .map(|s| (s.start_line, s.start_col, s.end_line, s.end_col))
+        })
+        .collect();
+    assert_eq!(got, [Some((2, 1, 2, 11)), Some((4, 1, 4, 11)), None]);
+    assert_eq!(file.entities[0].doc_span, None);
+}
+
+#[test]
 fn every_block_kind_takes_its_doc_comment() {
     let source = "// U\ntype s \"S\" = a | b\n\n// D\ndefine d {\n}\n\n// P\nspec \"P\" {\n}\n\n// R\nref gh.issue:1 \"r\"\n";
     let got: Vec<_> = docs(source).into_iter().map(|(_, d)| d).collect();
