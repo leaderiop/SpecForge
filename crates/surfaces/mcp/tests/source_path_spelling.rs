@@ -146,7 +146,6 @@ fn render_names_a_refused_out_dir_as_the_call_spelled_it() {
     );
 }
 
-#[ignore = "flipped by T6"]
 #[test]
 fn a_call_targets_path_outside_is_refused_in_the_containments_sentence() {
     let mut server = served();
