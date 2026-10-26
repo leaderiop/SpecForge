@@ -1,0 +1,21 @@
+# zstd 0.13 / zstd-safe 7.2 / zstd-sys 2.0 arrive only through wasmtime's `cache` feature, which
+# compresses and decompresses wasmtime's own on-disk compile cache. No SpecForge input reaches
+# them, and wasmtime 50.0.0 still pins the same zstd, so no upgrade clears these yet.
+# Drop the list when wasmtime moves to zstd >= 0.14 / zstd-safe >= 8.2 / zstd-sys >= 2.1.2.
+[advisories]
+ignore = [
+  "RUSTSEC-2026-0391",
+  "RUSTSEC-2026-0395",
+  "RUSTSEC-2026-0396",
+  "RUSTSEC-2026-0397",
+  "RUSTSEC-2026-0398",
+  "RUSTSEC-2026-0399",
+  "RUSTSEC-2026-0400",
+  "RUSTSEC-2026-0401",
+  "RUSTSEC-2026-0402",
+  "RUSTSEC-2026-0403",
+  "RUSTSEC-2026-0404",
+  "RUSTSEC-2026-0405",
+  "RUSTSEC-2026-0406",
+  "RUSTSEC-2026-0410",
+]
