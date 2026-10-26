@@ -36,6 +36,7 @@ mod field_types;
 mod finder_references;
 mod fix_edits;
 mod fixes;
+mod formal_coverage;
 mod formal_diagnostics;
 mod graph_edges;
 mod groups;
