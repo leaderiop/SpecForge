@@ -30,7 +30,6 @@ fn added(root: &Path, specifier: &str) -> specforge_ops::OpError {
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(root).unwrap(),
             extensions: vec![specifier.to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: true,
             caller: specforge_ops::testing::bounded(&containment),

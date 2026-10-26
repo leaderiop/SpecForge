@@ -491,7 +491,6 @@ fn project_with_a_changed_greet() -> (tempfile::TempDir, tempfile::TempDir) {
         &crate::extension::AddRequest {
             root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             extensions: vec![blob.display().to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: crate::testing::caller(),
@@ -563,7 +562,6 @@ fn doctor_reports_a_changed_binary_once() {
         &crate::extension::AddRequest {
             root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             extensions: vec![command.to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: crate::testing::caller(),

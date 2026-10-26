@@ -24,8 +24,7 @@ fn a_bare_path_is_a_local_source() {
     std::fs::write(krate.join("Cargo.toml"), "[package]\nname = \"greet\"\n").unwrap();
     std::fs::write(release.join("greet.wasm"), GREET).unwrap();
     let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
-    let mut request = several(&root, vec!["ext".to_string()], false);
-    request.base = Some(dir.path());
+    let request = several(&root, vec!["ext".to_string()], false);
 
     let added = add(&request, &crate::registry::Unconfigured("add"), &runtime()).unwrap();
 

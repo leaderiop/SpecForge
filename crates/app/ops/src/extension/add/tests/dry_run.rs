@@ -14,7 +14,6 @@ fn a_dry_run_of_a_present_extension_answers_as_the_add_would() {
         AddRequest {
             root,
             extensions: vec![source.into()],
-            base: None,
             allow_unsigned: true,
             dry_run: true,
             caller: crate::testing::caller(),
@@ -238,7 +237,6 @@ fn a_dry_run_judges_a_registry_package_by_its_published_declaration() {
     let request = |dry_run| AddRequest {
         root: &root,
         extensions: vec![Source::Registry(PackageRef::parse("@acme/app@1.0.0").unwrap()).into()],
-        base: None,
         allow_unsigned: true,
         dry_run,
         caller: crate::testing::caller(),
@@ -303,7 +301,6 @@ fn a_dry_run_refuses_what_the_trust_decision_refuses() {
     let request = |spec: &str, dry_run| AddRequest {
         root: &root,
         extensions: vec![Source::Registry(PackageRef::parse(spec).unwrap()).into()],
-        base: None,
         allow_unsigned: false,
         dry_run,
         caller: crate::testing::caller(), // nobody to ask: a key change is refused

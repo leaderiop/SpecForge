@@ -323,6 +323,9 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     source "registry", or "local:<path>" for a local .wasm file, so peer
     and diamond checks compare real versions and update never replaces a
     local build from a registry.
+    A relative local path is read from the project root, on the command line as
+    over MCP, so the path specforge.lock records and its reinstall command names is
+    the path add reads, from any directory of the project.
     A local path may name an extension's crate directory, with or without ./: the component its
     crate builds (target/wasm32-wasip2/release/<crate>.wasm) is installed
     and locked by its own path, as publish reads it; a directory with no

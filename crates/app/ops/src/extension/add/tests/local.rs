@@ -24,7 +24,6 @@ fn an_unusable_config_is_refused_before_anything_is_installed() {
                 let request = AddRequest {
                     root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
                     extensions: vec![source.clone().into()],
-                    base: None,
                     allow_unsigned: false,
                     dry_run,
                     caller: crate::testing::caller(),
@@ -56,7 +55,6 @@ fn add_reinstalls_a_binary_that_changed() {
     let request = AddRequest {
         root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
         extensions: vec![Source::Local(greet).into()],
-        base: None,
         allow_unsigned: false,
         dry_run: false,
         caller: crate::testing::caller(),
@@ -358,7 +356,6 @@ fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
     let request = AddRequest {
         root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
         extensions: vec![Source::builtin("@specforge/product").into()],
-        base: None,
         allow_unsigned: false,
         dry_run: false,
         caller: crate::testing::caller(),
@@ -492,7 +489,6 @@ fn a_local_path_the_lock_cannot_record_is_refused_before_anything_is_written() {
         let request = AddRequest {
             root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             extensions: vec![Source::Local(greet.clone()).into()],
-            base: None,
             allow_unsigned: false,
             dry_run,
             caller: crate::testing::caller(),
@@ -532,7 +528,6 @@ fn refused_before_anything_is_written(
         let request = AddRequest {
             root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
             extensions: vec![Source::Local(wasm.clone()).into()],
-            base: None,
             allow_unsigned: false,
             dry_run,
             caller: crate::testing::caller(),

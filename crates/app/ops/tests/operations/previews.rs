@@ -20,7 +20,6 @@ fn add_over(root: &std::path::Path, specifier: &str, dry_run: bool) -> extension
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(root).unwrap(),
             extensions: vec![specifier.to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run,
             caller: specforge_ops::testing::caller(),

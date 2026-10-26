@@ -288,7 +288,6 @@ fn add_and_check_agree_on_the_project_peer_set() {
             &AddRequest {
                 root: &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
                 extensions: vec![source],
-                base: None,
                 allow_unsigned: false,
                 dry_run: false,
                 caller: specforge_ops::testing::caller(),
@@ -365,7 +364,6 @@ fn a_dry_run_answers_what_the_add_answers() {
                 &AddRequest {
                     root: &root,
                     extensions: vec![source.clone()],
-                    base: None,
                     allow_unsigned: false,
                     dry_run,
                     caller: specforge_ops::testing::caller(),

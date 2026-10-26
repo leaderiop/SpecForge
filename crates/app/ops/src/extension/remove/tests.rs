@@ -176,7 +176,6 @@ fn remove_refuses_as_add_and_update_do() {
             &AddRequest {
                 root: &specforge_common::ProjectRoot::of(fixture.root()).unwrap(),
                 extensions: vec!["@specforge/product".to_string()],
-                base: None,
                 allow_unsigned: false,
                 dry_run: false,
                 caller: crate::testing::caller(),
@@ -402,7 +401,6 @@ fn remove_refuses_an_unreadable_lock_as_add_and_update_do() {
         &AddRequest {
             root: &root,
             extensions: vec![fixture.root().join("missing.wasm").display().to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: crate::testing::caller(),

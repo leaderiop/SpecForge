@@ -23,9 +23,6 @@ pub struct AddRequest<'a> {
     /// The extensions to add, one specifier per string, in the order given: one change
     /// (`extension::names`, ADR 0105).
     pub extensions: Vec<String>,
-    /// What a relative local path is read from: the project's root when `None`. The CLI passes
-    /// its working directory.
-    pub base: Option<&'a std::path::Path>,
     /// Accept a registry package with no publisher signature, when no key is pinned or locked for its name.
     pub allow_unsigned: bool,
     /// The add's lock plan judged and not committed: report what the add would do, or the refusal it
@@ -162,7 +159,6 @@ pub fn add(
     }
     let place = Place {
         root: req.root.dir(),
-        base: req.base.unwrap_or(req.root.dir()),
         containment: req.caller.containment(),
     };
     let names = Names::read(&req.extensions, place).map_err(|e| e.about(AddField::Extensions))?;

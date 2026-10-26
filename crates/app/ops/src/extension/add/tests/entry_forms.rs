@@ -96,7 +96,6 @@ fn an_add_of_a_builtin_over_a_file_entry_declaring_its_name_enables_the_builtin(
     let request = |dry_run| AddRequest {
         root: &root,
         extensions: vec![Source::builtin("@specforge/product").into()],
-        base: None,
         allow_unsigned: false,
         dry_run,
         caller: crate::testing::caller(),

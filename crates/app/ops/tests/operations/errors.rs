@@ -255,7 +255,6 @@ fn add_package(
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(dir).unwrap(),
             extensions: vec![specifier.to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: specforge_ops::testing::caller(),

@@ -115,7 +115,6 @@ fn an_update_over_an_unreadable_lock_is_refused_as_add_refuses_it() {
         &AddRequest {
             root: &root,
             extensions: vec![dir.path().join("missing.wasm").display().to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: crate::testing::caller(),

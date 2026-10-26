@@ -122,7 +122,6 @@ fn init_reads_its_specifiers_as_add_reads_them() {
                 root: &specforge_common::ProjectRoot::of(existing.path()).unwrap(),
                 extensions: vec![specifier.to_string()],
                 // As init reads a relative path: from the directory it creates.
-                base: Some(&dir),
                 allow_unsigned: false,
                 dry_run: false,
                 caller: specforge_ops::testing::caller(),
@@ -244,7 +243,6 @@ fn init_reads_a_dot_dot_after_a_symlink_as_add_does() {
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(existing.path()).unwrap(),
             extensions: vec!["link/../a.wasm".to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: specforge_ops::testing::caller(),

@@ -9,11 +9,10 @@ fn runtime() -> InProcessRuntime {
     testing::candidates()
 }
 
-/// A place whose root and base are `dir`, unbounded.
+/// A place whose root is `dir`.
 fn place<'r>(dir: &'r Path, containment: &'r Containment) -> Place<'r> {
     Place {
         root: dir,
-        base: dir,
         containment,
     }
 }
@@ -188,21 +187,20 @@ fn each_string_is_read_in_order_and_refused_named_among_several() {
 }
 
 #[test]
-fn a_relative_local_path_is_read_from_the_base_and_named_as_written() {
+fn a_relative_local_path_is_read_from_the_root_and_named_as_written() {
     let runtime = runtime();
     let scratch = tempfile::tempdir().unwrap();
     let base = scratch.path().join("sub");
     write_greet(&base.join("a.wasm"));
     let place = Place {
-        root: scratch.path(),
-        base: &base,
+        root: &base,
         containment: &UNBOUNDED,
     };
     let names = Names::read(&["a.wasm", "b.wasm"], place).unwrap();
     assert_eq!(names.wanted[0].source, Source::Local("a.wasm".into()));
     assert_eq!(names.wanted[1].source, Source::Local("b.wasm".into()));
     let named = names.name_each(&runtime, &mut no_packages).err();
-    // The second file does not exist under the base: refused named among several, naming the path as written.
+    // The second file does not exist under the root: refused named among several, naming the path as written.
     let error = named.unwrap();
     assert_eq!(error.code, "E040");
     assert_eq!(

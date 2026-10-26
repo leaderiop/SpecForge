@@ -40,7 +40,6 @@ fn add(root: &Path, source: &str) -> Result<Added, specforge_ops::Refusal<extens
         &AddRequest {
             root: &specforge_common::ProjectRoot::of(root).unwrap(),
             extensions: vec![source.to_string()],
-            base: None,
             allow_unsigned: false,
             dry_run: false,
             caller: specforge_ops::testing::caller(),
