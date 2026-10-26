@@ -62,6 +62,7 @@ expression: result.entities
         obligations: [],
         obligation_spans: [],
         doc_span: None,
+        body_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -122,5 +123,6 @@ expression: result.entities
         obligations: [],
         obligation_spans: [],
         doc_span: None,
+        body_comments: [],
     },
 ]

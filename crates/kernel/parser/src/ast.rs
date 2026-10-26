@@ -78,6 +78,11 @@ pub struct Entity {
     /// the line of the item above trails that item, and the format header is never one (ADR 0095's placement rule).
     /// `None` when no such comment stands there. The parse's only: no comment reaches the graph (ADR 0148, ADR 0202).
     pub doc_span: Option<SourceSpan>,
+    /// Where each whole-line `//` comment of the block's body is written, nested block fields' included, in source
+    /// order. A comment on the row where the item before it ends (a member, a nested block's or the block's opening
+    /// brace) trails that item and is not one; a `//` inside a string is no comment. Read through
+    /// [`Self::comments_above`]. The parse's only: no comment reaches the graph (ADR 0148, ADR 0202, ADR 0248).
+    pub body_comments: Vec<SourceSpan>,
 }
 
 /// One `method` member of an entity body.

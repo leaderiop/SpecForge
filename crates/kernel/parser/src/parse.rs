@@ -204,6 +204,14 @@ struct ParseContext<'a> {
     /// The comments between top-level items that start their own line, in source order (a block's doc comment is
     /// read from them).
     comments: Vec<SourceSpan>,
+    /// The own-line comments of the block body being read, nested block fields' included; taken by the block that
+    /// reads them.
+    body_comments: Vec<SourceSpan>,
+}
+
+/// Whether `comment` starts its own line: one on the row where the item before it ends (`trailed`) trails it.
+fn own_line(comment: Node, trailed: Option<usize>) -> bool {
+    trailed != Some(comment.start_position().row)
 }
 
 impl<'a> ParseContext<'a> {
@@ -218,6 +226,7 @@ impl<'a> ParseContext<'a> {
             entities: Vec::new(),
             errors: Vec::new(),
             comments: Vec::new(),
+            body_comments: Vec::new(),
         }
     }
 
@@ -236,7 +245,7 @@ impl<'a> ParseContext<'a> {
                 kind::USE_IMPORT => self.parse_use_import(child, false),
                 kind::PUB_USE_IMPORT => self.parse_use_import(child, true),
                 // A comment on the row where the previous item ends trails it: it documents nothing below.
-                kind::COMMENT if trailed != Some(child.start_position().row) => {
+                kind::COMMENT if own_line(child, trailed) => {
                     self.comments.push(self.span(child));
                 }
                 _ => {}

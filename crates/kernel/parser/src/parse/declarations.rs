@@ -23,6 +23,7 @@ impl<'a> ParseContext<'a> {
             obligations: body.obligations,
             obligation_spans: body.obligation_spans,
             doc_span: None,
+            body_comments: body.comments,
         });
     }
 
@@ -47,6 +48,7 @@ impl<'a> ParseContext<'a> {
             obligations: body.obligations,
             obligation_spans: body.obligation_spans,
             doc_span: None,
+            body_comments: body.comments,
         });
     }
 
@@ -69,10 +71,13 @@ impl<'a> ParseContext<'a> {
             fields.push(Sym::new("identifier"), FieldValue::String(identifier));
         }
 
+        let mut body_comments = Vec::new();
         if inner.kind() == kind::REF_FULL {
-            for entry in self.parse_block_body(inner).fields.entries() {
+            let body = self.parse_block_body(inner);
+            for entry in body.fields.entries() {
                 fields.push_entry(entry.clone());
             }
+            body_comments = body.comments;
         }
 
         self.entities.push(Entity {
@@ -91,6 +96,7 @@ impl<'a> ParseContext<'a> {
             obligations: Vec::new(),
             obligation_spans: Vec::new(),
             doc_span: None,
+            body_comments,
         });
     }
 
@@ -147,6 +153,7 @@ impl<'a> ParseContext<'a> {
             obligations: Vec::new(),
             obligation_spans: Vec::new(),
             doc_span: None,
+            body_comments: Vec::new(),
         });
     }
 
@@ -169,6 +176,7 @@ impl<'a> ParseContext<'a> {
             obligations: body.obligations,
             obligation_spans: body.obligation_spans,
             doc_span: None,
+            body_comments: body.comments,
         });
     }
 

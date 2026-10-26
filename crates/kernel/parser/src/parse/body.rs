@@ -7,15 +7,22 @@ pub(super) struct Body {
     pub(super) obligations: Vec<VerifyStatement>,
     pub(super) obligation_spans: Vec<SourceSpan>,
     pub(super) methods: Vec<MethodDecl>,
+    /// The own-line comments of the body, nested block fields' included, in source order.
+    pub(super) comments: Vec<SourceSpan>,
 }
 
 impl<'a> ParseContext<'a> {
     pub(super) fn parse_block_body(&mut self, node: Node) -> Body {
         let mut body = Body::default();
         let mut cursor = node.walk();
+        // The row where the previous item ends: a comment on it trails that item.
+        let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
             match child.kind() {
                 _ if child.is_error() => self.push_error_node(child),
+                kind::COMMENT if own_line(child, trailed) => {
+                    self.body_comments.push(self.span(child));
+                }
                 kind::FIELD => {
                     if let Some(entry) = self.parse_field(child) {
                         body.fields.push_entry(entry);
@@ -30,8 +37,10 @@ impl<'a> ParseContext<'a> {
                 kind::METHOD_STATEMENT => body.methods.push(self.parse_method_statement(child)),
                 _ => {}
             }
+            trailed = Some(child.end_position().row);
         }
 
+        body.comments = std::mem::take(&mut self.body_comments);
         body
     }
 
@@ -155,12 +164,16 @@ impl<'a> ParseContext<'a> {
     fn parse_nested_block(&mut self, node: Node) -> FieldValue {
         let mut fields = FieldMap::new();
         let mut cursor = node.walk();
+        let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
-            if child.kind() == kind::FIELD
+            if child.kind() == kind::COMMENT && own_line(child, trailed) {
+                self.body_comments.push(self.span(child));
+            } else if child.kind() == kind::FIELD
                 && let Some(entry) = self.parse_field(child)
             {
                 fields.push_entry(entry);
             }
+            trailed = Some(child.end_position().row);
         }
         FieldValue::Block(fields)
     }
