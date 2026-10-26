@@ -35,16 +35,19 @@ pub fn printable(text: &str) -> Cow<'_, str> {
     escaped(text, false)
 }
 
-/// [`printable`], a newline, a return and a tab kept when `keep_lines` (a file's text).
+/// [`printable`], a newline, a tab and a return directly before a newline kept when `keep_lines`
+/// (a file's text).
 fn escaped(text: &str, keep_lines: bool) -> Cow<'_, str> {
-    let escape = |c: char| is_unprintable(c) && !(keep_lines && matches!(c, '\n' | '\r' | '\t'));
-    if !text.contains(escape) {
+    if !text
+        .char_indices()
+        .any(|(at, c)| escapes(text, at, c, keep_lines))
+    {
         return Cow::Borrowed(text);
     }
     Cow::Owned(
-        text.chars()
-            .map(|c| {
-                if escape(c) {
+        text.char_indices()
+            .map(|(at, c)| {
+                if escapes(text, at, c, keep_lines) {
                     c.escape_default().to_string()
                 } else {
                     c.to_string()
@@ -52,6 +55,40 @@ fn escaped(text: &str, keep_lines: bool) -> Cow<'_, str> {
             })
             .collect(),
     )
+}
+
+/// Whether the `c` at byte `at` of `text` is written as its escape. With `keep_lines` a tab, a line feed and a
+/// carriage return directly before a line feed (a line break, as `specforge_parser::line_break::read` reads
+/// it) are kept; a lone carriage return is not.
+fn escapes(text: &str, at: usize, c: char, keep_lines: bool) -> bool {
+    is_unprintable(c)
+        && !(keep_lines
+            && (matches!(c, '\n' | '\t')
+                || (c == '\r' && text[at + c.len_utf8()..].starts_with('\n'))))
+}
+
+/// The first character of a file's `text` that [`printable_lines`] escapes, with its byte offset: a control
+/// character or bidirectional control other than a tab, a line feed, and a carriage return directly before a
+/// line feed (part of the line break). `None` when it holds none.
+pub fn unprintable_in_lines(text: &str) -> Option<(usize, char)> {
+    text.char_indices()
+        .find(|&(at, c)| escapes(text, at, c, true))
+}
+
+/// A file's `text` with each character [`unprintable_in_lines`] finds written as its escape.
+pub fn printable_lines(text: &str) -> Cow<'_, str> {
+    escaped(text, true)
+}
+
+/// Where byte `at` of `text` lands in [`printable_lines`]`(text)`: `at` plus the widening of every escaped
+/// character before it. `at` past the end is moved by every escape.
+pub fn printable_lines_at(text: &str, at: usize) -> usize {
+    at + text
+        .char_indices()
+        .take_while(|&(i, _)| i < at)
+        .filter(|&(i, c)| escapes(text, i, c, true))
+        .map(|(_, c)| c.escape_default().count() - c.len_utf8())
+        .sum::<usize>()
 }
 
 /// The keys of a declaration whose text is a file's (a starter template): held printable but for
@@ -228,5 +265,33 @@ mod tests {
                 .unwrap();
             assert_eq!(String::from_utf8_lossy(&output.stdout), value, "{word}");
         }
+    }
+
+    #[test]
+    fn a_files_text_keeps_a_tab_and_a_crlf_and_escapes_a_lone_cr() {
+        assert_eq!(printable_lines("a\r\n\tb"), "a\r\n\tb");
+        assert_eq!(printable_lines("a\rb\u{1b}"), "a\\rb\\u{1b}");
+        assert_eq!(printable_lines("a\r"), "a\\r");
+    }
+
+    #[test]
+    fn printable_lines_at_moves_a_byte_past_each_escape() {
+        let text = "a\u{1b}b\r\nc\u{202e}d";
+        let shown = printable_lines(text);
+        for (at, c) in text.char_indices() {
+            let there = shown[printable_lines_at(text, at)..].chars().next();
+            assert!(there == Some(c) || there == Some('\\'), "{at}");
+        }
+        assert_eq!(printable_lines_at(text, text.len()), shown.len());
+    }
+
+    #[test]
+    fn the_first_unprintable_character_of_a_files_text_is_found() {
+        assert_eq!(unprintable_in_lines("ab\u{9b}\u{1b}"), Some((2, '\u{9b}')));
+        assert_eq!(unprintable_in_lines("a\r\n\t\u{a0}\u{feff}"), None);
+        assert_eq!(unprintable_in_lines("a\rb"), Some((1, '\r')));
+        let held = printable_lines("x\u{1b}\rq\u{2028}");
+        assert_eq!(unprintable_in_lines(&held), None);
+        assert_eq!(printable_lines(&held), held);
     }
 }

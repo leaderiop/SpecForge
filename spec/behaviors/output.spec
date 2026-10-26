@@ -748,6 +748,8 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
     number, column, source context snippet, suggestion, and color-coded
     severity. Errors MUST be red, warnings yellow, info blue. The format
     MUST be consistent across all output modes.
+    A source line is echoed printable: each control or bidirectional
+    character but a tab and a line break as its escape.
     Colour follows one rule wherever the CLI writes: NO_COLOR set turns
     it off, CLICOLOR_FORCE set (and not 0) turns it on, otherwise only a
     terminal is coloured; specforge explain bolds the code it explains by

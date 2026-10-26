@@ -1,6 +1,6 @@
 //! The human, source-annotated rendering of diagnostics (ariadne).
 
-use crate::{Diagnostic, Severity};
+use crate::{Diagnostic, Severity, remedy};
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -21,7 +21,7 @@ pub fn render_diagnostics<S: AsRef<str>>(
     let mut cache = ariadne::sources(
         sources
             .iter()
-            .map(|(k, v)| (k.clone(), v.as_ref().to_string())),
+            .map(|(k, v)| (k.clone(), remedy::printable_lines(v.as_ref()).into_owned())),
     );
 
     for diag in diagnostics {
@@ -45,17 +45,21 @@ pub fn render_diagnostics<S: AsRef<str>>(
             buf.push(b'\n');
             continue;
         };
+        // Columns are the original's; the cache holds the escaped text, so the range moves with it.
+        let original = sources
+            .get(span.file.as_str())
+            .map(|s| s.as_ref())
+            .unwrap_or("");
         let byte_range = line_col_to_byte_range(
-            sources
-                .get(span.file.as_str())
-                .map(|s| s.as_ref())
-                .unwrap_or(""),
+            original,
             span.start_line,
             span.start_col,
             span.end_line,
             span.end_col,
         );
-        let (file, offset) = (span.file.to_string(), byte_range);
+        let offset = remedy::printable_lines_at(original, byte_range.start)
+            ..remedy::printable_lines_at(original, byte_range.end);
+        let file = span.file.to_string();
 
         let span: Span = (file.clone(), offset.clone());
 
@@ -248,7 +252,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "flipped by T2"]
     fn an_echoed_source_line_is_printable() {
         let source = "a\u{202e}b\r\nfeature f1 {\r\n  status \"x\u{1b}[2Jy\"\r\n}\n";
         // Line 3: the quoted value, ESC inside.
@@ -266,6 +269,22 @@ mod tests {
             "{out:?}"
         );
         assert!(out.contains("x\\u{1b}[2Jy"), "{out}");
+        // The underline starts under the value, and ends with it.
+        let line = out.lines().find(|l| l.contains("status")).unwrap();
+        let under = out.lines().find(|l| l.contains('┬')).unwrap();
+        let col = |l: &str, f: fn(&str) -> Option<usize>| f(l).map(|b| l[..b].chars().count());
+        let (value, end) = (col(line, |l| l.find("\"x")), col(line, |l| l.rfind('"')));
+        assert_eq!(col(under, |l| l.find('─')), value, "{out}");
+        assert_eq!(col(under, |l| l.rfind('─')), end, "{out}");
+        // A line holding none is echoed as written.
+        let clean = Diagnostic::new(codes::E061, "bad").with_span(crate::SourceSpan {
+            file: "a.spec".into(),
+            start_line: 2,
+            start_col: 1,
+            end_line: 2,
+            end_col: 8,
+        });
+        let out = render_diagnostics(&[clean], &sources, false);
         assert!(out.contains("feature f1 {"), "{out}");
     }
 }
