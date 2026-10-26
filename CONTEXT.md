@@ -563,13 +563,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `reference_list` item, quoted for a `string` and each `string_list` item; an integer, true/false and a calendar day bare; a `string_list` / `reference_list` field's value is a list `[…]`, however many items (ADR 0147, ADR 0234). `specforge format` writes it;
   W159 reports a value written otherwise. Spelled by one module, `specforge_graph::field_form::spell` (the escape
   table, the bare rule and each declared type's one-line spelling); `spell::form` is the one table, which `FieldForms::rewrite` and `spell::value` read, and
-  `format`, W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
+  `format` (reading a value's text through `specforge_parser::value_token`), W159, migrate's `titles` step, the typed-edit writer and init's starter spell through it (ADR 0153,
   ADR 0226); `spell::escaped` is the inside of a quote. A `defaults` body's values are written in the forms of its
   body kind (ADR 0224).
 - **Stored value**: a field value as the graph build stores it: coerced by its field form (`FieldForms::stored`,
   ADR 0182), so a list written as one value is a one-item list and `"100"` on an integer field is `100`. Every reader
   of references, derived names and inherited values reads it; what a file *writes* (W159 through `written_fields`, W161, the formatter) reads
   the written value.
+- **Value token**: one written value of a field, or one item of its list, as the parse reads it: how it is written
+  (bare, quoted, a scheme ref, a literal) and its text, a `"..."` with its escapes read and a `"""..."""` dedented,
+  never otherwise trimmed (`specforge_parser::value_token`). The parse's field values and list items, W159 and
+  format's rewrite read it, so a padded `" draft"` is kept as written and E061 reports it (ADR 0247).
 - **Field vocabulary**: the closed set of values an enum field takes, in their order, and the value an absent one
   counts as (its declared `default_value`), declared once by the extension that declares the field, as a `const`
   (`specforge_extension_sdk::Vocabulary`, through `FieldBuilder::vocabulary`, the only way to declare an enum).
