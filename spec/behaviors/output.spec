@@ -543,6 +543,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "an unknown entity is E003, entity_not_found"
   verify unit "an entity's headline and its fields read the one entry of a field written twice"
   verify unit "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
+  verify unit "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
   verify unit "a duplicate declaration's diagnostics are about its entity"
 }
 

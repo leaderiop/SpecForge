@@ -20,3 +20,17 @@ fn hover_lists_obligations_apart_from_fields() {
     );
     assert!(!hover.contains("`verify` = unit"), "{hover}");
 }
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover lists each obligation once, its kind apart from its text, whatever the text holds"
+)]
+#[ignore = "flipped by T5"]
+fn hover_lists_each_obligation_once_whatever_its_text() {
+    let project = coverage_project(
+        "behavior b5 \"B5\" {\n  contract \"c\"\n  verify unit \"x\"\n  verify \"unit: x\"\n  verify unit \"first line\\nsecond\"\n}\n",
+    );
+    let hover = project.hover_on("main.spec", "b5").unwrap();
+    let want = "**Obligations**\n\n| # | Kind | Obligation |\n|---|---|---|\n| 1 | unit | x |\n| 2 | — | unit: x |\n| 3 | unit | first line second |";
+    assert!(hover.contains(want), "{hover}");
+}

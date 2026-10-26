@@ -495,6 +495,8 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "coverage_status says whether the entity counts, as specforge.coverage's row says"
   verify unit "obligated says whether the entity's kind must declare obligations"
   verify unit "source_extension names the extension that declares the entity's kind"
+  verify unit "inspect writes each obligation as its kind, absent for a bare verify, and its text"
+  verify unit "an obligation inspect writes, given to remove_verify, removes that verify line"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

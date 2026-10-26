@@ -105,6 +105,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover shows reference count from graph"
   verify unit "hover shows the entity's coverage as specforge.inspect reports it"
   verify unit "hover lists the entity's obligations apart from its fields"
+  verify unit "hover lists each obligation once, its kind apart from its text, whatever the text holds"
   verify unit "hover lists the entity's methods and each field's annotations"
   verify unit "hover lists the entity's diagnostics the cursor's do not already show"
   verify unit "hover on an entity lists the diagnostics of its duplicate declarations"
