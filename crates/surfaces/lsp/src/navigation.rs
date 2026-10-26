@@ -326,7 +326,7 @@ pub(crate) fn outline_to_document_symbols(
     DocumentSymbolResponse::Flat(symbols)
 }
 
-/// The symbol kind of an entity kind: its extension-declared LSP icon
+/// The symbol kind of an entity kind: its extension-declared LSP icon, else `Object`
 /// (`spec` is a namespace).
 pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
     if kind == structural::SPEC {
@@ -337,7 +337,7 @@ pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) 
     {
         return lsp_icon_to_symbol_kind(icon);
     }
-    SymbolKind::VARIABLE
+    SymbolKind::OBJECT
 }
 
 fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
@@ -354,7 +354,7 @@ fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
         "Text" => SymbolKind::STRING,
         "Package" => SymbolKind::PACKAGE,
         "Folder" => SymbolKind::NAMESPACE,
-        _ => SymbolKind::VARIABLE,
+        _ => SymbolKind::OBJECT,
     }
 }
 
@@ -485,7 +485,6 @@ mod tests {
         behavior = "provide_extension_defined_lsp_icons",
         verify = "default SymbolKind::Object when lsp_icon not specified"
     )]
-    #[ignore = "flipped by T3"]
     fn a_kind_without_an_lsp_icon_is_an_object() {
         let mut registry = KindRegistry::new();
         assert_eq!(
