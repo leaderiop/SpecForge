@@ -38,7 +38,6 @@ fn remove_verify() -> Edit {
     behavior = "edit_entity_obligation",
     verify = "an added verify line goes above the comment lines before the closing brace, and its removal leaves them"
 )]
-#[ignore = "flipped by T2"]
 fn an_added_verify_line_and_its_removal_leave_the_closing_comment() {
     let c = project(&[("k.spec", CLOSING)]);
     let planned = plan(&c, &[add_verify(), remove_verify()]).unwrap();
@@ -53,7 +52,6 @@ fn an_added_verify_line_and_its_removal_leave_the_closing_comment() {
     behavior = "edit_entity_field",
     verify = "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
 )]
-#[ignore = "flipped by T2"]
 fn a_first_field_and_its_unset_leave_the_closing_comment() {
     let c = project(&[("ev.spec", BARE)]);
     let planned = plan(
@@ -75,7 +73,6 @@ fn a_first_field_and_its_unset_leave_the_closing_comment() {
     behavior = "edit_entity_field",
     verify = "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
 )]
-#[ignore = "flipped by T2"]
 fn a_new_entry_and_its_unset_leave_the_block_fields_closing_comment() {
     let c = nested();
     let planned = plan(
@@ -97,7 +94,6 @@ fn a_new_entry_and_its_unset_leave_the_block_fields_closing_comment() {
     behavior = "edit_entity_field",
     verify = "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
 )]
-#[ignore = "flipped by T2"]
 fn a_new_last_member_goes_above_the_closing_comment() {
     let c = project(&[("k.spec", CLOSING)]);
     let text = after(&c, "k.spec", &[add_verify()]);

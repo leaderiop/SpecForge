@@ -233,12 +233,20 @@ impl Block {
         }
     }
 
-    /// The first line of the comment lines the parse read directly above member line `line` (`line` itself when
-    /// there are none; 0-based, as `lines`). Never above the block's opening brace: a comment on its row trails it.
+    /// The first line of the comment lines the parse read directly above member line `line`, or a closing brace's
+    /// line (`line` itself when there are none; 0-based, as `lines`). Never above the block's opening brace: a
+    /// comment on its row trails it.
     fn with_comments_above(&self, line: usize) -> usize {
         self.entity()
             .comments_above(line + 1)
             .map_or(line, |run| run.start_line - 1)
+    }
+
+    /// Where a new last member of the body closed on 0-based line `close` goes (the block's `}`, or a block field's):
+    /// above the comment lines the parse read directly above that brace. They are the body's: no member owns them,
+    /// so a later removal of the new member leaves them (ADR 0274).
+    fn end_of_members(&self, close: usize) -> usize {
+        self.with_comments_above(close)
     }
 
     /// The block removed, with its doc comment as the parse read it (never the format header) and one blank line
@@ -354,7 +362,9 @@ impl Block {
                 .entity()
                 .obligation_spans
                 .first()
-                .map_or(self.close(), |s| self.with_comments_above(s.start_line - 1)),
+                .map_or(self.end_of_members(self.close()), |s| {
+                    self.with_comments_above(s.start_line - 1)
+                }),
         };
         self.insert(at, &text);
     }
@@ -486,7 +496,7 @@ impl Block {
             None => {
                 let note = annotation_text(annotations.unwrap_or_default());
                 self.insert(
-                    outer_span.end_line - 1,
+                    self.end_of_members(outer_span.end_line - 1),
                     &format!("{lead}{inner} {value}{note}"),
                 );
             }
@@ -501,14 +511,14 @@ impl Block {
         Ok(())
     }
 
-    /// A `verify` statement line, after the last statement the parse read (else before the closing brace), at the
-    /// members' lead.
+    /// A `verify` statement line, after the last statement the parse read (else above the closing comment run), at
+    /// the members' lead.
     pub(super) fn put_verify(&mut self, statement: &str) {
         let at = self
             .entity()
             .obligation_spans
             .last()
-            .map_or(self.close(), |s| s.end_line);
+            .map_or(self.end_of_members(self.close()), |s| s.end_line);
         let line = format!("{}{statement}", self.member_lead());
         self.insert(at, &line);
     }

@@ -74,7 +74,8 @@ behavior edit_entity_field "Edit an Entity Field" {
     project's max_width, triple-quoted with its lines one indent of the
     project's format configuration past its key, and inserts an absent field
     at its rank (one-line values, then
-    block fields, then triple-quoted text, in the kind's declared order). A value holding a comment inside it (a list's item
+    block fields, then triple-quoted text, in the kind's declared order), a new last field or entry above the comment lines
+    directly above the closing brace of its block or block field, which no unset takes. A value holding a comment inside it (a list's item
     comment, a block field's member comment) is kept as written when the set reads the same as the graph stores both, and a set
     to another value is refused not_editable, naming its field, its entity and its file: the comment lives in no value an edit
     writes. A comment trailing the value stays on its row. An
@@ -173,7 +174,8 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   category   mutation
   contract   """
     An add-verify edit inserts a verify line after the last verify statement,
-    or before the closing brace. A remove-verify edit removes the statement
+    or above the comment lines directly above the closing brace, which are the
+    block's: a remove-verify of it leaves them. A remove-verify edit removes the statement
     with that kind and text. Where each statement is written is read from the
     block's parse: an entry named verify inside a block field is a field, never
     a statement (ADR 0187, amended). An equal line is not added twice. The
