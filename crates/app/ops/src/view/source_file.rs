@@ -10,7 +10,7 @@ use std::path::{Component, Path};
 use specforge_common::SourceRoot;
 
 use super::ProjectView;
-use crate::source_key::SourceKey;
+use crate::source_key::{SourceKey, Unkeyed};
 use crate::{OpError, OpErrorKind};
 
 /// A create's file is not a project source.
@@ -22,12 +22,6 @@ pub const NOT_A_SOURCE_PATH: &str = "not_a_source_path";
 
 pub(crate) const FILE_NOT_FOUND: &str = "file_not_found";
 
-/// `named`, read from the project root, as the key [`SourceRoot::key`] mints for it: a `.`, a doubled separator and
-/// a `..` applied where they stand, a link keeping its own name (ADR 0246).
-fn minted(sources: &SourceRoot, named: &str) -> String {
-    sources.key(&sources.base().join(named)).into_string()
-}
-
 /// The one sentence of a named path whose key lies outside the roots its reader reads against (ADR 0253).
 fn lies_outside(named: &str, roots: &str, what: &str) -> String {
     format!("'{named}' lies outside {roots}: {what} is named from the project root")
@@ -36,7 +30,7 @@ fn lies_outside(named: &str, roots: &str, what: &str) -> String {
 /// The key `named` mints, or `None` when it lies outside both the project root and the spec root. A project with no
 /// root (one assembled in memory) keys its sources by the absolute path they were given.
 fn key_of(sources: &SourceRoot, named: &str) -> Option<String> {
-    let key = minted(sources, named);
+    let key = crate::source_key::minted(sources.base(), named);
     let path = Path::new(&key);
     let inside = if path.is_absolute() {
         sources.base().as_os_str().is_empty()
@@ -115,48 +109,27 @@ impl ProjectView<'_> {
     /// the project root, or one that names nothing, is `not_a_source_path` (kind `InvalidInput`, no file). Reads no
     /// file: where a link lands is judged where the file is opened.
     pub(crate) fn source_path(&self, named: &str) -> Result<SourceKey, OpError> {
-        self.source_key(named, SourceKey::of)
+        self.project_root()?;
+        SourceKey::read(self.env().sources().base(), named).map_err(|why| unkeyed(why, named))
     }
 
     /// [`Self::source_path`] for a directory (a source root, find_spec_for_source's `file_path`): `.` and the
     /// project root's own path are the project root.
     pub(crate) fn source_root(&self, named: &str) -> Result<SourceKey, OpError> {
-        if named.is_empty() {
-            return Err(names_no_file(named));
-        }
-        self.source_key(named, SourceKey::root)
-    }
-
-    fn source_key<E>(
-        &self,
-        named: &str,
-        rule: impl FnOnce(&str) -> Result<SourceKey, E>,
-    ) -> Result<SourceKey, OpError> {
         self.project_root()?;
-        let key = minted(self.env().sources(), named);
-        let climbs = Path::new(&key).components().any(|c| {
-            matches!(
-                c,
-                Component::ParentDir | Component::RootDir | Component::Prefix(_)
-            )
-        });
-        if !climbs && let Ok(key) = rule(&key) {
-            return Ok(key);
-        }
-        // What stays refuses only when the rule finds nothing in it: a drive path or a leading `\` lies outside.
-        let nothing = !climbs
-            && key
-                .split(['/', '\\'])
-                .all(|part| part.is_empty() || part == ".");
-        Err(if nothing {
-            names_no_file(named)
-        } else {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                NOT_A_SOURCE_PATH,
-                lies_outside(named, "the project root", "a source file"),
-            )
-        })
+        SourceKey::read_root(self.env().sources().base(), named).map_err(|why| unkeyed(why, named))
+    }
+}
+
+/// The refusal of a named source-code path that is no key.
+fn unkeyed(why: Unkeyed, named: &str) -> OpError {
+    match why {
+        Unkeyed::Nothing => names_no_file(named),
+        Unkeyed::Outside => OpError::new(
+            OpErrorKind::InvalidInput,
+            NOT_A_SOURCE_PATH,
+            lies_outside(named, "the project root", "a source file"),
+        ),
     }
 }
 
