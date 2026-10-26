@@ -132,6 +132,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "a missing path a file_exists rule names suggests a close sibling"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
+  verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
+  verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 
@@ -287,6 +289,7 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "every written field keeps its value shape and value span beside its text"
   verify unit "the coverage rule reads each entity as the pass input carries it"
   verify unit "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
+  verify unit "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
 }
 
 // -- Entity Checks -----------------------------------------------------------

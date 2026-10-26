@@ -924,4 +924,5 @@ behavior surface_health "Surface: Project Health" {
     exit_code     "exit 0 on success"
   }
   verify unit "health reports the score, counts and unreferenced entities"
+  verify unit "health counts an entity only it references as unreferenced, and a milestone whose only reference is itself as one without references"
 }
