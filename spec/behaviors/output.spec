@@ -509,6 +509,7 @@ behavior read_a_named_source_path "Read a Source-Code Path a Request Names" {
   verify unit "every spelling of a source-code path under the project root reads as its key"
   verify unit "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
   verify unit "a source-code path that names nothing is refused"
+  verify unit "a source-code path that names nothing is refused in one sentence, the infer prompt's file scope included"
   verify unit "infer_session, find_spec_for_source and the infer file scope read one table of spellings alike"
 }
 
