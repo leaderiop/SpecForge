@@ -132,6 +132,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set of a value holding a comment to what it holds writes nothing"
   verify unit "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
   verify unit "set keeps the comment trailing the value, annotations given or not"
+  verify unit "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -194,6 +195,7 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "--verify names the obligation the entity writes in either reading of its prefix"
   verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
   verify unit "remove-verify keeps a // line inside the string above the statement"
+  verify unit "an added verify line goes above the comment lines before the closing brace, and its removal leaves them"
 }
 
 behavior delete_entity "Delete an Entity" {
@@ -225,6 +227,8 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references removes a use binding that imports it"
   verify unit "delete with unlink_references keeps a // line inside a string above a reference"
   verify unit "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
+  verify unit "a delete keeps the file's final newline"
+  verify unit "delete with unlink_references removes the comment above a use statement it removes, never the format header"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
