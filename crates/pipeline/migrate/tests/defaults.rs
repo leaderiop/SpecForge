@@ -139,7 +139,6 @@ fn a_line_with_a_comment_on_or_above_it_is_left_as_written() {
     }
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test(
     behavior = "hoist_file_defaults",
     verify = "a // line inside a string above a list is no comment"

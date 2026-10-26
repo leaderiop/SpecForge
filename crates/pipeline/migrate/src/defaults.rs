@@ -152,7 +152,7 @@ struct Listed {
 }
 
 /// `entity`'s field `key` when it is written exactly once, annotation-free, as a non-empty one-line list of bare
-/// items alone on its line, with no comment directly above it.
+/// items alone on its line, with no comment directly above it as the parse reads it.
 fn one_line_list(lines: &[&str], entity: &Entity, key: &str) -> Option<Listed> {
     let mut entries = entity.fields.entries().iter().filter(|e| e.key == key);
     let entry: &FieldEntry = entries.next()?;
@@ -173,7 +173,7 @@ fn one_line_list(lines: &[&str], entity: &Entity, key: &str) -> Option<Listed> {
     let line = lines.get(row)?;
     let source = line.get(span.start_col - 1..span.end_col - 1)?;
     let written = line.trim().strip_prefix(key)?;
-    let above_is_comment = row > 0 && lines[row - 1].trim_start().starts_with("//");
+    let above_is_comment = entity.comments_above(span.start_line).is_some();
     (written.starts_with(char::is_whitespace) && written.trim() == source && !above_is_comment)
         .then(|| Listed {
             row,
