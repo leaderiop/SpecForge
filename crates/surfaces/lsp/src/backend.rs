@@ -4,7 +4,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::sync::{mpsc, watch};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer};
+use tower_lsp::{Client, ClientSocket, LanguageServer, LspService};
 
 use specforge_project::RuntimeSource;
 use specforge_watch::Debouncer;
@@ -12,9 +12,19 @@ use specforge_watch::Debouncer;
 use crate::changes::Change;
 use crate::editor::ClientEditor;
 use crate::reaction::Reaction;
+use crate::views;
 use crate::{ClientSupport, LspState, answers};
 
 use specforge_ops::authoring::format;
+
+/// The language server's service: the LSP methods and the editor client's own requests (ADR 0268).
+/// `main` and the tests build it here, so both serve the same methods.
+pub fn service() -> (LspService<Backend>, ClientSocket) {
+    LspService::build(Backend::new)
+        .custom_method(views::GRAPH, Backend::graph)
+        .custom_method(views::ENTITY, Backend::entity)
+        .finish()
+}
 
 /// The reaction, behind the queue every change waits in (ADR 0043 D4).
 type Shared = Arc<Mutex<Reaction<ClientEditor>>>;
@@ -317,6 +327,19 @@ impl LanguageServer for Backend {
 }
 
 impl Backend {
+    /// `specforge/graph`: the session's graph, its kinds' symbol kinds and its degrees.
+    async fn graph(&self) -> Result<serde_json::Value> {
+        self.answering(views::GRAPH, views::graph).await
+    }
+
+    /// `specforge/entity`: the graph node the cursor names, `null` where it names none.
+    async fn entity(&self, at: TextDocumentPositionParams) -> Result<Option<serde_json::Value>> {
+        self.answering(views::ENTITY, |state| {
+            views::entity(state, &at.text_document.uri, at.position)
+        })
+        .await
+    }
+
     /// What `answer` reads from the state, or -32603 InternalError after telling the client what `method`
     /// panicked with: a panic in a handler is a fault of the server, not the end of the session
     /// (`lsp_survives_its_faults`). `tokio::sync::RwLock` does not poison, so the state is whole after it.

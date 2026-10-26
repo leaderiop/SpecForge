@@ -122,7 +122,11 @@ fn renames_in(compiled: &Compiled, file: &str) -> tower_lsp::jsonrpc::Result<boo
 
 /// The entity the cursor at `position` of the open document `key` names
 /// ([`Compiled::target`]): what references and rename act on.
-fn entity_under_cursor(compiled: &Compiled, key: &str, position: Position) -> Option<Sym> {
+pub(crate) fn entity_under_cursor(
+    compiled: &Compiled,
+    key: &str,
+    position: Position,
+) -> Option<Sym> {
     match compiled.target(key, position)? {
         Target::Entity { id, .. } => Some(id),
         _ => None,

@@ -25,7 +25,6 @@ fn node_ids(reply: &Value) -> Vec<&str> {
     verify = "the graph request answers the session's graph, an unsaved buffer's entities included, with each kind's symbol kind"
 )]
 #[tokio::test]
-#[ignore = "flipped by T4"]
 async fn the_graph_request_answers_the_session_graph() {
     let (mut client, uri, _dir) =
         Session::with_extensions(&["@specforge/software"], "a.spec", TEXT).await;
@@ -62,7 +61,6 @@ async fn the_graph_request_answers_the_session_graph() {
     verify = "the graph request answers each entity's degree, an entity naming only itself at 0"
 )]
 #[tokio::test]
-#[ignore = "flipped by T4"]
 async fn the_graph_request_counts_no_self_edge() {
     let (mut client, _uri, _dir) =
         Session::with_extensions(&["@specforge/product"], "a.spec", SELF).await;
@@ -86,7 +84,6 @@ async fn the_graph_request_counts_no_self_edge() {
     verify = "the entity request answers the node the cursor names, and nothing for a word in a string"
 )]
 #[tokio::test]
-#[ignore = "flipped by T4"]
 async fn the_entity_request_names_what_the_cursor_names() {
     let (mut client, uri, _dir) =
         Session::with_extensions(&["@specforge/software"], "a.spec", TEXT).await;

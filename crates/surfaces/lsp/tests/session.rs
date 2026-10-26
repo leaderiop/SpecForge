@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 use tokio::task::JoinHandle;
-use tower_lsp::{LspService, Server};
+use tower_lsp::Server;
 
 /// A client of an in-process LSP server, over memory streams.
 pub struct Session {
@@ -88,7 +88,7 @@ impl Session {
     pub fn spawn() -> Session {
         let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
         let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
-        let (service, socket) = LspService::new(specforge_lsp::backend::Backend::new);
+        let (service, socket) = specforge_lsp::backend::service();
         let server = tokio::spawn(async move {
             Server::new(server_stdin, server_stdout, socket)
                 .serve(service)
