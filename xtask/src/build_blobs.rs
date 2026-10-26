@@ -145,8 +145,9 @@ impl Stage {
     /// Lay out `blob`'s stage, after emptying it:
     /// - the path packages reached from the extension over normal and build dependencies, each
     ///   copied without `target/` (and the extension without `wasm/`);
-    /// - every staged `Cargo.toml` without its dev-dependency tables: a staged path package is a
-    ///   workspace member, and its dev-dependencies would join the resolution;
+    /// - every staged `Cargo.toml` without its dev-dependency, workspace and profile tables: a
+    ///   staged crate is a member of the stage's one workspace (its dev-dependencies would join the
+    ///   resolution) and is built with the stage's `[profile.blob]`;
     /// - a `Cargo.toml` naming the extension as the member, with the root manifest's inherited
     ///   tables (`[workspace.package]`, `[workspace.dependencies]` and the `[workspace.lints]` tables
     ///   the staged crates' `[lints] workspace = true` reads);
@@ -349,7 +350,7 @@ fn copy_dir(from: &Path, to: &Path, extension: bool, top: bool) -> Result<(), St
             copy_dir(&entry.path(), &target, extension, false)?;
         } else if top && file_name == "Cargo.toml" {
             let text = std::fs::read_to_string(entry.path()).map_err(|e| e.to_string())?;
-            std::fs::write(&target, strip_dev_dependencies(&text)).map_err(|e| e.to_string())?;
+            std::fs::write(&target, staged_manifest(&text)).map_err(|e| e.to_string())?;
         } else {
             std::fs::copy(entry.path(), &target)
                 .map_err(|e| format!("copy {}: {e}", entry.path().display()))?;
@@ -358,10 +359,10 @@ fn copy_dir(from: &Path, to: &Path, extension: bool, top: bool) -> Result<(), St
     Ok(())
 }
 
-/// A manifest without its `[dev-dependencies]`, `[dev-dependencies.<x>]` and
-/// `[target.<cfg>.dev-dependencies]` tables (each up to the next header). Line-based, like
-/// [`blob_inputs::inherited_tables`].
-fn strip_dev_dependencies(manifest: &str) -> String {
+/// A manifest without its `[dev-dependencies]`, `[dev-dependencies.<x>]`,
+/// `[target.<cfg>.dev-dependencies]`, `[workspace]`, `[workspace.<x>]` and `[profile.<x>]` tables
+/// (each up to the next header). Line-based, like [`blob_inputs::inherited_tables`].
+fn staged_manifest(manifest: &str) -> String {
     let mut out = String::new();
     let mut skip = false;
     for line in manifest.lines() {
@@ -372,7 +373,10 @@ fn strip_dev_dependencies(manifest: &str) -> String {
                 || header.starts_with("dev-dependencies.")
                 || (header.starts_with("target.")
                     && (header.ends_with(".dev-dependencies")
-                        || header.contains(".dev-dependencies.")));
+                        || header.contains(".dev-dependencies.")))
+                || header == "workspace"
+                || header.starts_with("workspace.")
+                || header.starts_with("profile.");
         }
         if !skip {
             out.push_str(line);
