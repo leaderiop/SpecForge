@@ -7472,26 +7472,26 @@ expression: listing
           "type": "string"
         },
         "agent": {
-          "description": "Agent identifier (for start)",
+          "description": "Agent identifier (for start; refused on another action)",
           "type": "string"
         },
         "entities_produced": {
-          "description": "Entity IDs produced from the file (for mark_analyzed)",
+          "description": "Entity IDs produced from the file (for mark_analyzed; refused on another action)",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "session_id": {
-          "description": "Session ID to end (for end)",
+          "description": "Session ID to end (for end; refused on another action)",
           "type": "string"
         },
         "source_file": {
-          "description": "Relative path to analyzed file (for mark_analyzed)",
+          "description": "Relative path to analyzed file (for mark_analyzed; refused on another action)",
           "type": "string"
         },
         "source_roots": {
-          "description": "Source directories to scan (for start)",
+          "description": "Source directories to scan (for start; refused on another action)",
           "items": {
             "type": "string"
           },
@@ -7499,7 +7499,7 @@ expression: listing
         },
         "status": {
           "default": "completed",
-          "description": "Final status (for end): completed: the inference is done; paused: a later session continues it",
+          "description": "Final status (for end, `completed` unless asked; refused on another action): completed: the inference is done; paused: a later session continues it",
           "enum": [
             "completed",
             "paused"

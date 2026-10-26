@@ -23,7 +23,6 @@ fn manifest(server: &Served) -> String {
     behavior = "provide_mcp_infer_session_tool",
     verify = "an argument of another action is refused on that argument"
 )]
-#[ignore = "flipped by T11"]
 fn an_argument_of_another_action_is_refused_on_it() {
     let mut server = served();
     let started = call_tool(

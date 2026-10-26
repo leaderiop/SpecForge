@@ -19,19 +19,19 @@ pub struct Args {
     /// Session action to perform
     #[arg(choice = infer::SESSION_ACTION)]
     action: String,
-    /// Agent identifier (for start)
+    /// Agent identifier (for start; refused on another action)
     agent: Option<String>,
-    /// Source directories to scan (for start)
+    /// Source directories to scan (for start; refused on another action)
     source_roots: Option<Vec<String>>,
-    /// Relative path to analyzed file (for mark_analyzed)
+    /// Relative path to analyzed file (for mark_analyzed; refused on another action)
     source_file: Option<String>,
-    /// Entity IDs produced from the file (for mark_analyzed)
+    /// Entity IDs produced from the file (for mark_analyzed; refused on another action)
     entities_produced: Vec<String>,
-    /// Session ID to end (for end)
+    /// Session ID to end (for end; refused on another action)
     session_id: Option<String>,
-    /// Final status (for end)
+    /// Final status (for end, `completed` unless asked; refused on another action)
     #[arg(choice = infer::END_STATUS)]
-    status: EndStatus,
+    status: Option<EndStatus>,
 }
 
 impl MutationArgs for Args {
@@ -114,6 +114,7 @@ fn step(args: &Args) -> Result<SessionStep<'_>, Box<McpError>> {
     let action = infer::SESSION_ACTION
         .parse(&args.action)
         .map_err(|error| Box::new(McpError::from(error).with_argument("action")))?;
+    foreign(args)?;
     Ok(match action {
         SessionAction::Start => SessionStep::Start {
             agent: args.agent.as_deref(),
@@ -125,9 +126,41 @@ fn step(args: &Args) -> Result<SessionStep<'_>, Box<McpError>> {
         },
         SessionAction::End => SessionStep::End {
             session_id: required(&args.session_id, "session_id")?,
-            status: args.status,
+            status: args.status.unwrap_or(EndStatus::Completed),
         },
     })
+}
+
+/// The first argument given that belongs to another action than `action`, refused on it.
+fn foreign(args: &Args) -> Result<(), Box<McpError>> {
+    // shortcut: an explicit [] for `entities_produced` on another action passes, it carries nothing.
+    let given = [
+        ("agent", "start", args.agent.is_some()),
+        ("source_roots", "start", args.source_roots.is_some()),
+        ("source_file", "mark_analyzed", args.source_file.is_some()),
+        (
+            "entities_produced",
+            "mark_analyzed",
+            !args.entities_produced.is_empty(),
+        ),
+        ("session_id", "end", args.session_id.is_some()),
+        ("status", "end", args.status.is_some()),
+    ];
+    match given
+        .into_iter()
+        .find(|(_, owner, given)| *given && *owner != args.action)
+    {
+        Some((name, owner, _)) => {
+            let message = format!(
+                "'{name}' is an argument of action '{}', not of '{}'",
+                owner, args.action
+            );
+            Err(Box::new(
+                McpError::new(ErrorCode::InvalidInput, message).with_argument(name),
+            ))
+        }
+        None => Ok(()),
+    }
 }
 
 /// The argument `value` holds, or the refusal that it is missing.

@@ -479,15 +479,17 @@ impl Given<'_> {
             .map_err(|error| Box::new(McpError::from(error).with_argument(name)))
     }
 
-    /// An enumerated `Option<_>` field: absent is none.
+    /// An enumerated `Option<_>` field: absent is none, whatever the table's default.
     pub fn optional_choice<T: Copy + PartialEq>(
         &self,
         table: &OptionTable<T>,
         name: &'static str,
     ) -> Result<Option<T>, Box<McpError>> {
         let given = self.text(name)?;
-        table
-            .parse_optional(given.as_deref())
+        given
+            .as_deref()
+            .map(|given| table.parse(given))
+            .transpose()
             .map_err(|error| Box::new(McpError::from(error).with_argument(name)))
     }
 

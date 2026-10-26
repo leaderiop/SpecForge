@@ -281,6 +281,8 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
     - mark_analyzed: Call mark_source_file_analyzed with provided
       source_file path and entities_produced list.
     - end: Call end_inference_session with session_id and status.
+    An argument of another action MUST be refused as invalid_input on
+    that argument, before anything is read or written.
     All actions read and save the manifest through the call's project,
     atomically. On first write, creates
     specforge-infer.json if it does not exist.
