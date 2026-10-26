@@ -9,7 +9,6 @@ use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{SourceSpan, codes};
 use specforge_formatter::FormatConfig;
 use specforge_graph::field_form::{FieldForm, Reading, spell};
-use specforge_parser::lex::{LexemeKind, lex};
 use specforge_parser::{Entity, FieldEntry, FieldValue, SpecFile, parse};
 use specforge_protocol_types::FieldType;
 
@@ -298,27 +297,19 @@ fn annotation_text(annotations: &[String]) -> String {
         .collect()
 }
 
-/// A comment ending the text after a value, with the space before it.
-fn trailing_comment(suffix: &str) -> &str {
-    lex(suffix)
-        .iter()
-        .find(|l| l.kind == LexemeKind::Comment)
-        .map_or("", |l| {
-            suffix[..l.start]
-                .rfind(|c: char| c != ' ')
-                .map_or(&suffix[l.start..], |n| &suffix[n + 1..])
-        })
-}
-
 impl Block {
     /// `span` (a value) replaced by `new`; with `annotations`, the text after it becomes them (a trailing comment
     /// is kept).
     fn replace_value(&mut self, span: &SourceSpan, new: &str, annotations: Option<&[String]>) {
         let (first, last) = (span.start_line - 1, span.end_line - 1);
+        let comment = self
+            .entity()
+            .trailing_comment(span)
+            .map_or_else(String::new, |c| format!(" {}", self.text_of(c)));
         let prefix = &self.lines[first][..span.start_col - 1];
         let suffix = &self.lines[last][span.end_col - 1..];
         let suffix = match annotations {
-            Some(a) => format!("{}{}", annotation_text(a), trailing_comment(suffix)),
+            Some(a) => format!("{}{comment}", annotation_text(a)),
             None => suffix.to_string(),
         };
         let replacement = format!("{prefix}{new}{suffix}");
