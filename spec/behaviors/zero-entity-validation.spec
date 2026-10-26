@@ -481,6 +481,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a value the check admits is written as the published schema admits it"
   verify unit "a value outside a builtin vocabulary is E061"
   verify unit "a value that is not one word on an identifier field is E061"
+  verify unit "E061 quotes a string value as a .spec string writes it"
   verify unit "a quoted word on a word field and a bare word on a text field are W159"
   verify unit "a bare word on a kind that takes members is not W159"
   verify unit "a value E061 refuses is not W159"
