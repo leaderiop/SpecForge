@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import { fileUri } from "./paths";
 import { restartClient } from "./lsp-client";
 import { GraphWebviewPanel } from "./graph-webview";
 import { cliOutput, inTask } from "./binary";
@@ -51,8 +50,12 @@ export function registerCommands(
       );
       if (!extensions) return;
 
-      const extArgs = extensions.flatMap((e) => ["--extension", e.label]);
-      inTask(["init", ...extArgs]);
+      // An empty `--extensions` is refused (E054): pass the flag only for a pick.
+      if (!extensions.length) {
+        inTask(["init"]);
+        return;
+      }
+      inTask(["init", "--extensions", extensions.map((e) => e.label).join(",")]);
     }),
 
     vscode.commands.registerCommand("specforge.check", () => {
@@ -92,47 +95,10 @@ export function registerCommands(
       );
     }),
 
-    vscode.commands.registerCommand("specforge.search", async () => {
-      const query = await vscode.window.showInputBox({
-        placeHolder: "Search entities...",
-        prompt: "Enter a search term to find entities",
-      });
-      if (!query) return;
-      try {
-        const output = await cliOutput([
-          "search",
-          query,
-          "--format=json",
-        ]);
-        const results = JSON.parse(output);
-        if (!results.length) {
-          vscode.window.showInformationMessage(
-            `No entities found for "${query}".`
-          );
-          return;
-        }
-        interface SearchItem extends vscode.QuickPickItem {
-          file?: string;
-        }
-        const items: SearchItem[] = results.map(
-          (r: { id: string; kind: string; title: string; file: string }) => ({
-            label: r.id,
-            description: r.kind,
-            detail: r.title,
-            file: r.file,
-          })
-        );
-        const picked = await vscode.window.showQuickPick(items, {
-          placeHolder: "Select an entity to navigate to",
-        });
-        if (picked?.file) {
-          const doc = await vscode.workspace.openTextDocument(fileUri(picked.file));
-          await vscode.window.showTextDocument(doc);
-        }
-      } catch {
-        inTask(["search", query]);
-      }
-    }),
+    // The language server's workspace symbol search, in the editor's own picker.
+    vscode.commands.registerCommand("specforge.search", () =>
+      vscode.commands.executeCommand("workbench.action.quickOpen", "#")
+    ),
 
     vscode.commands.registerCommand("specforge.explainError", async () => {
       const code = await vscode.window.showInputBox({
@@ -289,7 +255,7 @@ export function registerCommands(
         const output = await cliOutput(["trace", word]);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
-          language: "markdown",
+          language: "json",
         });
         await vscode.window.showTextDocument(doc);
       } catch {

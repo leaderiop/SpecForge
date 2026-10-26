@@ -156,7 +156,6 @@ fn vscode_manifest() -> serde_json::Value {
 /// `...extArgs` hid `--extension` (the flag is `--extensions`) from it
 /// since the first commit (ADR 0249 D4).
 #[test]
-#[ignore = "flipped by T7"]
 fn vscode_extension_builds_every_flag_as_a_literal() {
     let spreads: Vec<_> = vscode_cli_calls()
         .into_iter()
@@ -170,7 +169,6 @@ fn vscode_extension_builds_every_flag_as_a_literal() {
 /// is added here, and `search` (the registry's search, not the entity
 /// search the editor command means) is not on it (ADR 0249 D4).
 #[test]
-#[ignore = "flipped by T7"]
 fn vscode_extension_calls_only_the_commands_it_means() {
     const CALLED: [&str; 13] = [
         "analyze", "add", "check", "doctor", "explain", "export", "init", "model", "outline",

@@ -389,12 +389,6 @@
         "command": "specforge.inspect",
         "key": "alt+i",
         "when": "editorLangId == specforge"
-      },
-      {
-        "command": "specforge.search",
-        "key": "ctrl+shift+s",
-        "mac": "cmd+shift+s",
-        "when": "specforge:projectDetected"
       }
     ],
     "menus": {
