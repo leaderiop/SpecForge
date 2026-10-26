@@ -96,12 +96,10 @@ behavior compute_inference_summary "Compute Inference Summary" {
     files_total less the unanalyzed ones, so it never exceeds files_total. A
     recorded file that is no inference source is not counted.
     entities_produced is the sum of all entities_produced arrays across
-    source_index entries. needs_review counts entities that appear in
-    source_index but have no corresponding entity in the compiled graph.
+    source_index entries.
   """
   verify unit "summary counts match source_index contents"
   verify unit "summary scans all source_roots for files_total"
-  verify unit "needs_review detects entities missing from graph"
   verify unit "files_analyzed counts the inference sources the index records"
 }
 
@@ -337,13 +335,13 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     graph_crossed    "public items cross-referenced with the anchors manifest and graph entities"
     anchored_only    "an anchored entity covers only the items its anchors name"
     per_dir_gaps     "gaps computed per directory"
-    approximate_flag "output marked approximate when using regex fallback"
+    approximate_flag "output marked approximate when a scanner failed on a file"
   }
   contract """
     Register an MCP tool specforge.infer_gaps that scans source files in
-    source_roots for public items. v1 uses regex-based detection for Rust
-    (pub fn, pub struct, pub enum, pub trait) — output is explicitly marked
-    as approximate. An item is covered when the project's
+    source_roots for public items. Public items are what the enabled
+    analyzers' scanners report; a scanner that fails on a file makes the
+    report approximate. An item is covered when the project's
     specforge-anchors.json anchors it, by its file (read as
     read_a_recorded_source_path reads it) and its name, to an entity
     the compiled graph declares, or, when no anchor names that entity, when its
@@ -361,7 +359,7 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     refusal (precondition_failed), as the gap analysis refuses a view
     without a root.
   """
-  verify unit "scans Rust files for pub items via regex"
+  verify unit "scans each source file with its analyzer's scanner"
   verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
