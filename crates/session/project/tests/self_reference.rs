@@ -28,7 +28,6 @@ refinement r_self \"Self\" {\n  refines b1\n  refined_by b2\n  chains_to r_self\
     behavior = "execute_validation_pattern",
     verify = "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
 )]
-#[ignore = "flipped by T3"]
 fn an_entity_only_it_references_is_unreferenced() {
     let compiled = TestProject::new()
         .enabling(&[

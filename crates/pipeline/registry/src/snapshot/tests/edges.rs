@@ -8,7 +8,6 @@ use std::path::Path;
     behavior = "snapshot_entities_once",
     verify = "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
 )]
-#[ignore = "flipped by T3"]
 fn an_entitys_edge_counts_leave_out_an_edge_to_itself() {
     let registries = declared(&[("behavior", true, true)], false, vec![]);
     let source = "behavior loop \"Loop\" {\n  features [loop, other]\n}\n\n\

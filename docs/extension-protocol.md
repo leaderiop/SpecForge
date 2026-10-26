@@ -483,7 +483,9 @@ watch, the LSP, MCP). Passes with any other phase, or none, run only under
 each entity is `{"id", "kind", "fields", "incoming_edge_count",
 "outgoing_edge_count", "span"?, "testable", "owes_none", "verify_kinds",
 "verify_texts"}`, `owes_none` meaning it owes no obligations of its own, decided
-by the host from the registries) and answers host diagnostics, bare or as
+by the host from the registries; `incoming_edge_count` and `outgoing_edge_count`
+count the edges from and to other entities, an edge from the entity to itself in
+neither) and answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 `previous` (check passes only) is the build cache, `{"statuses": {"<id>":

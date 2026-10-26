@@ -82,7 +82,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   contract   """
     The declarative validation engine MUST execute each registered pattern
     against the compiled graph. no_incoming_edges MUST check that every
-    entity of the target kind has at least one incoming edge. no_outgoing_edges
+    entity of the target kind has at least one incoming edge from another
+    entity. no_outgoing_edges
     MUST report an entity that points at nothing: no field writes a reference,
     resolved or not, and no edge leaves it (with an edge type, only that edge
     type's fields and edges). A reference that does not resolve is E003,
@@ -244,7 +245,10 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     Edges: every edge the snapshot holds is typed by the edge type its
     field writes from the kind it starts at, and each entity's edges are
     counted in total and by that type. An edge whose field writes no edge
-    type has none and counts in the total only.
+    type has none and counts in the total only. An entity's edges are its
+    edges to and from other entities, as its degree counts them: an edge
+    from it to itself counts in neither, and the snapshot still holds it
+    for the cycle rules.
 
     Field text: every field an entity writes has exactly one text, which
     declarative rules match, custom validators receive as the field's

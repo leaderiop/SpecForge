@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use specforge_graph::{Graph, Node, ValueShape};
+use specforge_graph::{Direction, Graph, Node, ValueShape};
 use specforge_parser::{FieldMap, FieldValue};
 
 use super::text::{field_items, field_text};
@@ -40,7 +40,7 @@ pub(super) fn record(
     registries: &RegistryBuild,
 ) -> (EntityRecord, Vec<String>) {
     let id = node.id.raw.as_str();
-    // Edges in one direction, in total and by edge type.
+    // Edges to and from other entities (the degree's, ADR 0270), in total and by edge type.
     let counts = |types: Vec<Option<String>>| {
         let mut by_type = BTreeMap::new();
         for edge_type in types.iter().flatten() {
@@ -53,15 +53,13 @@ pub(super) fn record(
     };
     let incoming = counts(
         graph
-            .edges_to(id)
-            .iter()
+            .edges_with_others(id, Direction::Incoming)
             .map(|e| edge_type_of(kind_of, registries, e.source.as_str(), e.label.as_str()))
             .collect(),
     );
     let outgoing = counts(
         graph
-            .edges_from(id)
-            .iter()
+            .edges_with_others(id, Direction::Outgoing)
             .map(|e| edge_type_of(kind_of, registries, id, e.label.as_str()))
             .collect(),
     );

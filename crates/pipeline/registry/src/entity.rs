@@ -24,9 +24,9 @@ pub struct EntityRecord {
     pub fields: Vec<FieldRecord>,
     /// Its `verify` statements, in order: what it declares it will prove.
     pub obligations: Vec<ObligationRecord>,
-    /// Edges into it, in total and by edge type.
+    /// Edges into it from other entities, in total and by edge type.
     pub incoming: EdgeCounts,
-    /// Edges out of it, in total and by edge type.
+    /// Edges out of it to other entities, in total and by edge type.
     pub outgoing: EdgeCounts,
     /// The fields it gives their link (ADR 0232: a written reference,
     /// resolved or not, or an edge out of it), typed as its edges are. What
@@ -73,7 +73,8 @@ pub struct ObligationRecord {
     pub text: String,
 }
 
-/// Edge counts in one direction.
+/// Edge counts in one direction, to or from other entities: an edge from the entity to itself
+/// counts in neither (ADR 0270).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EdgeCounts {
     pub total: usize,
