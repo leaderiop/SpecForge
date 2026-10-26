@@ -19,7 +19,7 @@ behavior beta \"B\" {\n  contract \"b\"\n  invariants [inv]\n}\n";
 )]
 fn an_entity_without_obligations_is_a010() {
     let project = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("main.spec", SPEC);
     let doc = analyzed(
         &project.compile(),

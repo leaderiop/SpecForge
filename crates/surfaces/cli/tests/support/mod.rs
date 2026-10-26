@@ -12,3 +12,10 @@ pub mod written;
 
 pub use cli::{Cli, Run};
 pub use specforge_project::testing::TestProject;
+
+/// Software and testing, with governance for the `invariant` a project writes (ADR 0280).
+pub const SOFTWARE_GOVERNANCE_TESTING: &[&str] = &[
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/testing",
+];

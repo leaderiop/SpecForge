@@ -1014,7 +1014,7 @@ behavior gamma "G" { contract "first" features [alpha] }
     )]
     fn agent_exports_validate_against_their_published_schema() {
         let project = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .config(|c| c["spec_root"] = "spec".into())
         .files(&[(
             "spec/main.spec",

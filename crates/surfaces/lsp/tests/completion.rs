@@ -26,7 +26,7 @@ use tower_lsp::lsp_types::{
 pub fn compiled(files: &[(&str, &str)]) -> (TestProject, CompiledProject) {
     let dir = TestProject::new()
         .config(|c| c["name"] = "completion".into())
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .files(files);
     let project = dir.loaded();
     (dir, project)

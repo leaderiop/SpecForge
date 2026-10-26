@@ -23,7 +23,7 @@ fn project() -> tempfile::TempDir {
             "name": "probe",
             "version": "0.1.0",
             "spec_root": "spec",
-            "extensions": ["@specforge/product", "@specforge/software", "@specforge/testing"],
+            "extensions": ["@specforge/product", "@specforge/software", "@specforge/governance", "@specforge/testing"],
         })
         .to_string(),
     )

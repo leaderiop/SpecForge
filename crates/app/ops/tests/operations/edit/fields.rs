@@ -209,7 +209,11 @@ const REQUIRING: &str = r#"behavior check_graph "Check the Graph" {
 )]
 fn set_of_a_nested_entry_edits_one_line() {
     let c = compile(
-        &["@specforge/software", "@specforge/formal"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/formal",
+        ],
         &[("g.spec", REQUIRING)],
     );
     let text = after(
@@ -246,7 +250,11 @@ fn set_of_a_nested_entry_edits_one_line() {
 #[test]
 fn unset_of_the_last_entry_removes_the_block_field() {
     let c = compile(
-        &["@specforge/software", "@specforge/formal"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/formal",
+        ],
         &[("g.spec", REQUIRING)],
     );
     let text = after(

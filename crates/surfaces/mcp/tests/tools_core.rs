@@ -714,7 +714,7 @@ fn analyze_reads_the_project_report_by_default() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -765,7 +765,7 @@ fn analyze_returns_stray_records_only_when_records_are_stray() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(root.join("app.spec"), "behavior widget \"Widget\" {\n}\n").unwrap();
@@ -836,7 +836,7 @@ fn analyze_refuses_a_malformed_report() {
     let root = project.path();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -976,7 +976,7 @@ fn analyze_of_another_project_leaves_the_served_one() {
     let other = within(served.path(), tempfile::tempdir().unwrap());
     std::fs::write(
         other.path().join("specforge.json"),
-        r#"{"name":"o","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"o","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1110,7 +1110,7 @@ fn validate_reports_the_format_version_headers() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1336,7 +1336,7 @@ fn plan_project() -> (tempfile::TempDir, McpServer) {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -2025,7 +2025,7 @@ fn analyze_gates_on_min() {
     std::fs::create_dir_all(root.path().join("spec")).unwrap();
     std::fs::write(
         root.path().join("specforge.json"),
-        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -2096,7 +2096,7 @@ fn analyze_gates_on_min() {
 /// but no lifecycle field.
 fn build_cache_project() -> TestProject {
     TestProject::new()
-        .enabling(&["@specforge/software", "@specforge/product"])
+        .enabling(&["@specforge/software", "@specforge/governance", "@specforge/product"])
         .files(&[
             (
                 "b.spec",

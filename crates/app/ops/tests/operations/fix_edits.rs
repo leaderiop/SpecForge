@@ -9,7 +9,11 @@ use specforge_ops::authoring::fix::{Fix, FixQuery};
 use specforge_test::prelude::*;
 use std::collections::BTreeMap;
 
-const TESTING: &[&str] = &["@specforge/software", "@specforge/testing"];
+const TESTING: &[&str] = &[
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/testing",
+];
 const FOUR: &str = "indent_width = 4\n";
 
 const VERIFY_4: &str = "behavior first \"First\" {\n    contract \"c\"\n}\n";

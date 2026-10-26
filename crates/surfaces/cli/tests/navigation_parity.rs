@@ -24,8 +24,8 @@ use serde_json::{Value, json};
 use specforge_test::prelude::*;
 use tower_lsp::lsp_types::Url;
 
-use crate::support::TestProject;
 use crate::support::lsp::Client;
+use crate::support::{SOFTWARE_GOVERNANCE_TESTING, TestProject};
 
 // ── Fixtures ────────────────────────────────────────────────────────────
 
@@ -1013,7 +1013,7 @@ fn search_ranks_as_workspace_symbols_and_completion() {
 fn suggest_fixes_carries_the_code_actions_edits() {
     let nav = project("nav");
     let testing = project_of(
-        &["@specforge/software", "@specforge/testing"],
+        SOFTWARE_GOVERNANCE_TESTING,
         &[
             (
                 "limit.spec",
@@ -1195,7 +1195,7 @@ fn lsp_offers_a_verify_stub_for_a_testable_entity_without_obligations() {
 #[test]
 fn lsp_offers_a_stub_for_a_reference_to_nothing() {
     let p = project_of(
-        &["@specforge/software", "@specforge/testing"],
+        SOFTWARE_GOVERNANCE_TESTING,
         &[(
             "auth.spec",
             "behavior login \"L\" {\n  invariants [session_limit]\n  verify unit \"y\"\n}\n",
@@ -1222,7 +1222,7 @@ fn lsp_offers_a_stub_for_a_reference_to_nothing() {
 #[test]
 fn lsp_ranges_are_utf16_after_multibyte_text() {
     let p = project_of(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         &[(
             "a.spec",
             "invariant cap \"é→\" { guarantee \"x\" }\nbehavior b \"é→\" { invariants [cap] }\n",

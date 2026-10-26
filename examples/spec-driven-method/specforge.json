@@ -5,6 +5,7 @@
   "extensions": [
     "@specforge/software",
     "@specforge/testing",
-    "@specforge/product"
+    "@specforge/product",
+    "@specforge/governance"
   ]
 }

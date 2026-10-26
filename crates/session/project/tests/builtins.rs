@@ -594,7 +594,7 @@ fn product_declares_its_lifecycle_passes() {
 )]
 fn check_reports_an_unreferenced_invariant_as_w003() {
     let compiled = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file(
             "main.spec",
             concat!(

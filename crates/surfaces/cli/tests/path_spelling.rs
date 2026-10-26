@@ -165,7 +165,7 @@ fn files_written_outside_the_root_is_absolute_and_canonical() {
 )]
 fn collect_report_is_named_from_the_project_root() {
     let project = TestProject::new().raw_config(
-        r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test"]}"#,
+        r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing","@specforge/cargo-test"]}"#,
     );
     let root = project.root();
     fs::create_dir_all(root.join("spec")).unwrap();

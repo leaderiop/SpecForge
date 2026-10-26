@@ -11,7 +11,7 @@ const LOGIN: &str = "behavior login \"Log in\" {\n  invariants [token_unique]\n 
 
 fn served() -> (Served, std::path::PathBuf) {
     let server = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("spec/tokens.spec", TOKENS)
         .file("spec/login.spec", LOGIN)
         .serve_components();
@@ -158,7 +158,7 @@ fn edit_on_another_project_by_path_leaves_the_served_one() {
     let other = within(
         &root,
         TestProject::new()
-            .enabling(&["@specforge/software"])
+            .enabling(&["@specforge/software", "@specforge/governance"])
             .file("spec/login.spec", LOGIN.replace("[token_unique]", "[]"))
             .file("spec/tokens.spec", TOKENS)
             .into_dir(),

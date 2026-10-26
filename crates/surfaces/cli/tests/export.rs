@@ -68,7 +68,7 @@ fn export_context_includes_contracts() {
     let dir = TestProject::new().without_config().files(&[
         (
             "specforge.json",
-            r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+            r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#,
         ),
         ("main.spec", SPEC_CONTENT),
     ]);
@@ -351,7 +351,7 @@ fn schema_publish_outputs_json_schema() {
 )]
 fn export_context_keeps_an_invariants_guarantee() {
     let dir = TestProject::new()
-        .raw_config(r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#);
+        .raw_config(r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#);
     dir.write("app.spec", "invariant unique_ids \"Unique ids\" {\n  guarantee \"Ids MUST be unique\"\n  risk \"duplicates\"\n}\n");
     let out = Cli::on(&dir)
         .command(&["export", "--format", "context"])
@@ -377,7 +377,7 @@ fn export_context_keeps_an_invariants_guarantee() {
 /// contracts and a feature linking them all. Two extensions give the export
 /// a schema of real size.
 fn budget_project() -> TestProject {
-    const CONFIG: &str = r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#;
+    const CONFIG: &str = r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/product"]}"#;
     let mut spec = String::new();
     for i in 0..8 {
         spec.push_str(&format!(
@@ -811,7 +811,7 @@ fn budget_below_the_empty_envelope_fails() {
 )]
 fn publish_refuses_kind_and_format_needs_publish() {
     let dir = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .config(|c| c["spec_root"] = "spec".into())
         .file("spec/main.spec", specs::SOFTWARE);
     let cli = Cli::on(&dir);

@@ -183,8 +183,12 @@ const LIMIT_AND_LOGIN: &str = "invariant session_limit \"Limit\" {\n  guarantee 
 #[tokio::test]
 async fn find_all_references_contract() {
     // Requires: the project's graph is built, with the entity's references.
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "a.spec",
+        LIMIT_AND_LOGIN,
+    )
+    .await;
     // Ensures: every reference, each its token; the declaration's name
     // only when the request includes it.
     let with = client.references_with(&uri, 0, 12, true).await;
@@ -217,8 +221,12 @@ async fn find_all_references_contract() {
 #[tokio::test]
 async fn e2e_reference_ranges_are_utf16() {
     let text = "invariant cap \"é→\" { guarantee \"x\" }\nbehavior b \"é→\" { invariants [cap] }\n";
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "a.spec", text).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "a.spec",
+        text,
+    )
+    .await;
     let resp = client.references_with(&uri, 0, 11, true).await;
     // `cap` follows "é→" on line 1: 2 UTF-16 units, 5 bytes.
     assert_eq!(
@@ -234,8 +242,12 @@ async fn e2e_reference_ranges_are_utf16() {
 )]
 #[tokio::test]
 async fn e2e_prepare_rename_answers_the_token() {
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "a.spec",
+        LIMIT_AND_LOGIN,
+    )
+    .await;
     let declaration = client.rename_range_at(&uri, 0, 15).await;
     assert_eq!(
         lsp_range(&declaration["result"]),
@@ -252,8 +264,12 @@ async fn e2e_prepare_rename_answers_the_token() {
 )]
 #[tokio::test]
 async fn e2e_prepare_rename_outside_an_id_is_not_available() {
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "a.spec",
+        LIMIT_AND_LOGIN,
+    )
+    .await;
     // The title, the kind keyword, a field name.
     for (line, character) in [(0, 27), (0, 3), (1, 4)] {
         let resp = client.rename_range_at(&uri, line, character).await;
@@ -263,8 +279,12 @@ async fn e2e_prepare_rename_outside_an_id_is_not_available() {
 
 #[tokio::test]
 async fn e2e_goto_definition_selects_the_name() {
-    let (mut client, uri, _dir) =
-        Session::with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
+    let (mut client, uri, _dir) = Session::with_extensions(
+        &["@specforge/software", "@specforge/governance"],
+        "a.spec",
+        LIMIT_AND_LOGIN,
+    )
+    .await;
     let resp = client.goto_definition(&uri, 4, 16).await;
     assert_eq!(lsp_range(&resp["result"]["range"]), "0:10-0:23", "{resp}");
 }
@@ -273,7 +293,7 @@ async fn e2e_goto_definition_selects_the_name() {
 async fn e2e_goto_definition_links_the_block_and_its_name() {
     let capabilities = json!({"textDocument": {"definition": {"linkSupport": true}}});
     let (mut client, uri, _dir, _) = Session::with_extensions_as(
-        &["@specforge/software"],
+        &["@specforge/software", "@specforge/governance"],
         "a.spec",
         LIMIT_AND_LOGIN,
         capabilities,

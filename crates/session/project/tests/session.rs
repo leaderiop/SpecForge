@@ -10,8 +10,7 @@ use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
-const CONFIG: &str =
-    r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#;
+const CONFIG: &str = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#;
 
 fn project(config: &str, files: &[(&str, &str)]) -> TestProject {
     TestProject::new().raw_config(config).files(files)
@@ -480,7 +479,7 @@ fn resolve_imports_on_update_contract() {
 )]
 fn excluded_files_stay_out_of_the_compile_and_the_session() {
     let dir = project(
-        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec","exclude":["drafts/"]}"#,
+        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":"spec","exclude":["drafts/"]}"#,
         &[
             ("spec/main.spec", "term alpha \"Alpha\" {\n}\n"),
             (
@@ -560,7 +559,7 @@ fn a_nested_projects_files_are_not_compiled() {
     verify = "a nested project appearing below the spec root takes its files out of the session, and its removal puts them back"
 )]
 fn a_nested_project_appearing_takes_its_files_out_and_its_removal_puts_them_back() {
-    let bare = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software"]}"#;
+    let bare = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"]}"#;
     let dir = project(
         bare,
         &[
@@ -612,7 +611,7 @@ fn a_reload_reads_the_environment_again() {
 
     fs::write(
         root.join("specforge.json"),
-        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/no-such-extension"]}"#,
+        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/no-such-extension"]}"#,
     )
     .unwrap();
     let update = session.reload_environment();
@@ -1421,7 +1420,7 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
         "drafts/d.spec",
         "build/f.spec",
     ];
-    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"],"spec_root":"spec","exclude":["drafts/"]}"#;
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"],"spec_root":"spec","exclude":["drafts/"]}"#;
     for seed in [
         0x9E37_79B9_7F4A_7C15_u64,
         0xD1B5_4A32_D192_ED03,
@@ -1585,7 +1584,7 @@ const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior be
 )]
 fn a_diagnostic_about_entities_moves_with_its_first_entity() {
     let dir = project(
-        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+        r#"{"name":"c","extensions":["@specforge/software","@specforge/governance"]}"#,
         &[("cycle.spec", CYCLE)],
     );
     let root = dir.root();
@@ -1658,7 +1657,7 @@ fn a_session_reports_what_a_fresh_compile_reports_in_order() {
         };
         serde_json::json!({
             "name": "s", "version": "0.1.0",
-            "extensions": ["@specforge/software", "@specforge/testing"],
+            "extensions": ["@specforge/software", "@specforge/governance", "@specforge/testing"],
             "spec_root": "spec", "exclude": exclude,
         })
         .to_string()
@@ -1838,7 +1837,7 @@ fn every_update_kind_leaves_what_a_fresh_compile_builds() {
 
     // The config enables an extension that is not installed: E028, no
     // lock entry.
-    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@acme/missing"]}"#;
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing","@acme/missing"]}"#;
     fs::write(root.join("specforge.json"), config).unwrap();
     bring_up_to_date(&mut session);
     assert_matches_a_fresh_compile(&session, &dir);
@@ -2007,8 +2006,7 @@ fn a_racy_rewrite_is_still_seen() {
     verify = "a specforge.lock change reloads the environment"
 )]
 fn a_lock_change_reloads_the_environment() {
-    let config =
-        r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@acme/missing"]}"#;
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@acme/missing"]}"#;
     let dir = project(config, &[("a.spec", "behavior alpha \"A\" {\n}\n")]);
     let root = dir.root();
     let mut session = dir.session();
@@ -2907,7 +2905,7 @@ fn a_batch_naming_every_changed_path_changes_what_is_stale() {
             ""
         };
         format!(
-            r#"{{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"],"spec_root":"spec"{exclude}}}"#
+            r#"{{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing"],"spec_root":"spec"{exclude}}}"#
         )
     };
     for seed in [

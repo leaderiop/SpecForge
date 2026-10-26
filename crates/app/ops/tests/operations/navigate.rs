@@ -75,7 +75,7 @@ pub fn keys(occurrences: &[Occurrence]) -> Vec<String> {
         .collect()
 }
 
-pub const SOFTWARE: &[&str] = &["@specforge/software"];
+pub const SOFTWARE: &[&str] = &["@specforge/software", "@specforge/governance"];
 
 pub const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
 pub const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n\
@@ -323,7 +323,7 @@ fn derived_references_are_the_names_in_types_and_signatures() {
 #[test]
 fn strings_comments_and_verify_texts_are_not_occurrences() {
     let p = compile(
-        &["@specforge/software", "@specforge/testing"],
+        &[SOFTWARE, &["@specforge/testing"]].concat(),
         &[(
             "a.spec",
             "invariant session_limit \"session_limit cap\" {\n  guarantee \"session_limit is never exceeded\"\n}\n\
@@ -447,7 +447,7 @@ const FIELD_TEXTS: &str = "invariant fast \"Fast\" {\n  guarantee \"responds qui
 )]
 fn the_field_filter_reads_the_field_text() {
     let p = compile(
-        &["@specforge/software", "@specforge/formal"],
+        &[SOFTWARE, &["@specforge/formal"]].concat(),
         &[("a.spec", FIELD_TEXTS)],
     );
     let holding = |field, value| {

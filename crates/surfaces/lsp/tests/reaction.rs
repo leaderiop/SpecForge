@@ -346,7 +346,7 @@ fn a_diagnostic_about_entities_is_published_at_its_block() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+        r#"{"name":"c","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     let cycle_text = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
@@ -389,7 +389,7 @@ fn a_spanless_diagnostic_follows_its_entity() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
         dir.path().join("specforge.json"),
-        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+        r#"{"name":"c","extensions":["@specforge/software","@specforge/governance"]}"#,
     )
     .unwrap();
     let cycle_text = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
@@ -649,7 +649,7 @@ fn a_closed_document_is_not_answered_for() {
     verify = "removing an extension while LSP is running removes kinds from KindRegistry atomically"
 )]
 fn removing_every_extension_clears_the_kinds() {
-    let dir = project_with(&["@specforge/software"]);
+    let dir = project_with(&["@specforge/software", "@specforge/governance"]);
     std::fs::write(
         dir.path().join("main.spec"),
         "behavior login \"Login\" {\n  contract \"logs in\"\n}\n",
@@ -723,7 +723,7 @@ fn the_watchers_cover_the_environment_inputs() {
         "name": "test",
         "version": "0.1.0",
         "spec_root": "spec",
-        "extensions": ["@specforge/software", "@acme/local=ext/local.wasm", "@acme/installed"],
+        "extensions": ["@specforge/software", "@specforge/governance", "@acme/local=ext/local.wasm", "@acme/installed"],
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     std::fs::create_dir_all(dir.path().join("spec")).unwrap();

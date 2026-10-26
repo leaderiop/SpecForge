@@ -74,6 +74,18 @@ expression: "shape(&reply, dir.path())"
       {
         "inference_guide": "[guide]",
         "kind": "port"
+      },
+      {
+        "inference_guide": "[guide]",
+        "kind": "decision"
+      },
+      {
+        "inference_guide": "[guide]",
+        "kind": "constraint"
+      },
+      {
+        "inference_guide": "[guide]",
+        "kind": "failure_mode"
       }
     ],
     "match_mode": "exact",

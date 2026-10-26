@@ -46,10 +46,12 @@ fn the_fixture_serves_its_declaration_through_the_registry_build() {
 /// and an `initialize` that names no project answers what the plain `with_project_root` server answers.
 #[test]
 fn rooted_serves_what_specforge_mcp_serves() {
-    let project = TestProject::new().enabling(&["@specforge/software"]).file(
-        "main.spec",
-        "behavior alpha \"Alpha\" {\n    contract \"The system MUST do alpha\"\n}\n",
-    );
+    let project = TestProject::new()
+        .enabling(&["@specforge/software", "@specforge/governance"])
+        .file(
+            "main.spec",
+            "behavior alpha \"Alpha\" {\n    contract \"The system MUST do alpha\"\n}\n",
+        );
     let mut by_hand = specforge_mcp::McpServer::with_project_root(project.root().to_path_buf())
         .with_solver(z3_ready());
     call(&mut by_hand, "initialize", json!({}));

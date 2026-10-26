@@ -298,7 +298,7 @@ mod tests {
 
     fn project(files: &[(&str, &str)]) -> (tempfile::TempDir, specforge_project::CompiledProject) {
         project_with_config(
-            r#"{"name":"r","extensions":["@specforge/software"]}"#,
+            r#"{"name":"r","extensions":["@specforge/software","@specforge/governance"]}"#,
             files,
         )
     }
@@ -345,7 +345,7 @@ mod tests {
         verify = "a rename is refused when specforge.json does not say which files are the project's sources"
     )]
     fn a_config_that_hides_the_sources_refuses_the_rename() {
-        let hiding = r#"{"name":"r","extensions":["@specforge/software"],"spec_root":["spec"]}"#;
+        let hiding = r#"{"name":"r","extensions":["@specforge/software","@specforge/governance"],"spec_root":["spec"]}"#;
         let (_dir, project) = project_with_config(hiding, &[("limit.spec", LIMIT)]);
         let refused = plan(&nav(&project), "session_limit", "session_cap").unwrap_err();
         assert_eq!(refused.error.code, "config_invalid");
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(refused.error.code, "config_invalid");
 
         // A problem the plan goes around plans as usual.
-        let around = r#"{"name":7,"extensions":["@specforge/software"]}"#;
+        let around = r#"{"name":7,"extensions":["@specforge/software","@specforge/governance"]}"#;
         let (_dir, project) = project_with_config(around, &[("limit.spec", LIMIT)]);
         assert!(plan(&nav(&project), "session_limit", "session_cap").is_ok());
     }

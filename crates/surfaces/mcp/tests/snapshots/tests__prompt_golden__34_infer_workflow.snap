@@ -21,7 +21,10 @@ expression: "shape(&reply, dir.path())"
       "invariant",
       "event",
       "type",
-      "port"
+      "port",
+      "decision",
+      "constraint",
+      "failure_mode"
     ],
     "scope": "workflow",
     "tools": [

@@ -512,7 +512,7 @@ fn edit_project() -> TestProject {
 fn cargo_test_project() -> TestProject {
     TestProject::new()
         .raw_config(
-            r#"{"name":"demo","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test"]}"#,
+            r#"{"name":"demo","version":"0.1.0","extensions":["@specforge/software","@specforge/governance","@specforge/testing","@specforge/cargo-test"]}"#,
         )
         .file("app.spec", "behavior login \"Login\" {\n  verify unit \"accepts valid credentials\"\n}\n")
         .file("Cargo.toml", "")

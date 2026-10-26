@@ -53,7 +53,11 @@ fn messages(project: &TestProject, code: &str) -> Vec<String> {
 )]
 fn coverage_items_are_the_entities_stats_counts() {
     // Without testing nothing is testable: stats counts none, so formal names none.
-    let bare = project(&["@specforge/formal", "@specforge/software"]);
+    let bare = project(&[
+        "@specforge/formal",
+        "@specforge/software",
+        "@specforge/governance",
+    ]);
     assert_eq!(stats_of(&bare.compile()).testable_count, 0);
     assert_eq!(messages(&bare, "W035"), Vec::<String>::new());
     assert_eq!(messages(&bare, "I008"), Vec::<String>::new());
@@ -61,6 +65,7 @@ fn coverage_items_are_the_entities_stats_counts() {
     let tested = project(&[
         "@specforge/formal",
         "@specforge/software",
+        "@specforge/governance",
         "@specforge/testing",
     ]);
     assert_eq!(stats_of(&tested.compile()).testable_count, 2);

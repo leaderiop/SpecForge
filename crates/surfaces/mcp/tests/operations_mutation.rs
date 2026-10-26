@@ -379,7 +379,7 @@ behavior login \"Log in\" {
 /// A compiled project where `login` references the invariant `token_unique`.
 fn server_with_token_project() -> (Served, std::path::PathBuf) {
     let server = TestProject::new()
-        .enabling(&["@specforge/software"])
+        .enabling(&["@specforge/software", "@specforge/governance"])
         .file("spec/tokens.spec", TOKENS_SPEC)
         .file("spec/login.spec", LOGIN_SPEC)
         .serve_components();
@@ -578,7 +578,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
     let (mut server, root) = server_with_token_project();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":"spec"}"#,
     )
     .unwrap();
     // The next call brings the served project up to date with the config just written.
@@ -2361,7 +2361,7 @@ fn rename_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     .unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":["spec"]}"#,
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/governance"],"spec_root":["spec"]}"#,
     )
     .unwrap();
     // The next call brings the served project up to date with the config just written.

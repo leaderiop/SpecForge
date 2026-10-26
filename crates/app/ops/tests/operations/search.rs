@@ -148,7 +148,10 @@ pub(crate) const SHAPES: &str = "behavior dated \"Dated\" {\n  contract 2026-10-
     verify = "the text search reads every field by the field-text rule, as the field filter does"
 )]
 fn the_text_search_reads_every_field_by_the_field_text_rule() {
-    let p = crate::navigate::compile(&["@specforge/software"], &[("a.spec", SHAPES)]);
+    let p = crate::navigate::compile(
+        &["@specforge/software", "@specforge/governance"],
+        &[("a.spec", SHAPES)],
+    );
     let view = specforge_ops::view::ProjectView::of(&p.project);
     let hits = |t| answered(search(&view, &text(t)));
     let ids = |t| {

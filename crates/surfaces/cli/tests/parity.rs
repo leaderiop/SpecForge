@@ -69,7 +69,7 @@ const CONFIG: &str = r#"{
   "name": "demo",
   "version": "0.1.0",
   "spec_root": "spec",
-  "extensions": ["@specforge/software"],
+  "extensions": ["@specforge/software", "@specforge/governance"],
   "registries": [
     { "alias": "offline", "url": "http://127.0.0.1:9", "default_registry": true }
   ]
@@ -102,8 +102,8 @@ fn project_with_product_enabled(proj: &TestProject) {
     let root = proj.root();
     project(proj);
     let config = CONFIG.replace(
-        r#"["@specforge/software"]"#,
-        r#"["@specforge/software", "@specforge/product"]"#,
+        r#"["@specforge/software", "@specforge/governance"]"#,
+        r#"["@specforge/software", "@specforge/governance", "@specforge/product"]"#,
     );
     std::fs::write(root.join("specforge.json"), config).unwrap();
 }
@@ -791,7 +791,7 @@ fn analyze_project(proj: &TestProject) {
     std::fs::create_dir_all(root.join("spec")).unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/testing"]}"#,
+        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(
@@ -1026,7 +1026,7 @@ fn infer_project(proj: &TestProject) {
     std::fs::create_dir_all(root.join("src/net")).unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/rust"]}"#,
+        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/rust"]}"#,
     )
     .unwrap();
     std::fs::write(root.join("spec/a.spec"), MAIN_SPEC).unwrap();
@@ -1190,7 +1190,7 @@ fn collect_project(proj: &TestProject) {
     std::fs::create_dir_all(root.join("target/specforge")).unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test"]}"#,
+        r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing","@specforge/cargo-test"]}"#,
     )
     .unwrap();
     std::fs::write(

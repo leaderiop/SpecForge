@@ -14,7 +14,11 @@ async fn missing_verify_produces_stub() {
     let text = "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
                 behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n";
     let (mut client, uri, _dir) = crate::session::Session::with_extensions(
-        &["@specforge/software", "@specforge/testing"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
         "flows.spec",
         text,
     )
@@ -73,7 +77,11 @@ async fn actions_are_those_overlapping_the_requested_range() {
     let text = "behavior login \"Login\" {\n  contract \"c\"\n  invariants [sesion_limit]\n}\n\n\
                 behavior logout \"Logout\" {\n  contract \"c\"\n}\n";
     let (mut client, uri, _dir) = crate::session::Session::with_extensions(
-        &["@specforge/software", "@specforge/testing"],
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
         "login.spec",
         text,
     )

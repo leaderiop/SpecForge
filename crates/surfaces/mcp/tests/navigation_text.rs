@@ -62,7 +62,7 @@ fn set_mtime(path: &std::path::Path) {
 /// before it is served, so its stamps carry no content hash.
 fn served_old(files: &[(&str, &str)]) -> Served {
     let project = files.iter().fold(
-        TestProject::new().enabling(&["@specforge/software"]),
+        TestProject::new().enabling(&["@specforge/software", "@specforge/governance"]),
         |project, (file, text)| project.file(file, text),
     );
     set_mtime(&project.root().join("specforge.json"));
