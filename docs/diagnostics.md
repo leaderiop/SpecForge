@@ -501,11 +501,13 @@ E040: Extension project not found or not built
 `specforge extension build`, `extension validate`, `publish`, or `add`/`init
 --extensions` given a local path, found no extension to work on: nothing is at
 the path, the directory has no `Cargo.toml`, the build (`cargo build --release
---target wasm32-wasip2`) failed, no built component is in
-`target/wasm32-wasip2/release/` (or several are, and none is the crate's), or
-the `.wasm` file couldn't be read (over MCP, also a file with more than one
-name). Build the extension, fix the build error the message quotes, or name the
-component to use.
+--target wasm32-wasip2`) failed (the SDK version the crate names not on
+crates.io among them: a specforge built after its last release names one
+crates.io does not have yet, see "Building against an unreleased SDK" in
+docs/extension-sdk.md), no built component is in `target/wasm32-wasip2/release/`
+(or several are, and none is the crate's), or the `.wasm` file couldn't be read
+(over MCP, also a file with more than one name). Build the extension, fix the
+build error the message quotes, or name the component to use.
 
 Owner: core
 Level: error

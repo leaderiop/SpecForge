@@ -70,6 +70,21 @@ That is an outside author's crate, and what `specforge extension init` writes. A
 specforge-extension-sdk = { path = "../../crates/runtime/extension-sdk" }
 ```
 
+### Building against an unreleased SDK
+
+A specforge built after its last release names an SDK version crates.io does not have yet, and
+`specforge extension build` says so (E040). Build against the SDK of the checkout that specforge was built from,
+in a `.cargo/config.toml` beside the crate or in any directory above it:
+
+```toml
+[patch.crates-io]
+specforge-extension-sdk = { path = "/path/to/SpecForge/crates/runtime/extension-sdk" }
+```
+
+The crate's `Cargo.toml` stays as `extension init` wrote it, so it builds against crates.io unchanged once that
+version is released. The patch applies only to the version the crate names; this is how the repository's own test
+builds a scaffold.
+
 ### Compile Target
 
 Extensions compile to `wasm32-wasip2`:

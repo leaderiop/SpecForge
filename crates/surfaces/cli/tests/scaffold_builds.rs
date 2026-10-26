@@ -61,7 +61,6 @@ fn a_scaffold_inside_a_cargo_workspace_is_a_workspace_of_its_own() {
     behavior = "build_wasm_extension",
     verify = "a build whose SDK does not resolve says so and names how to build against an unreleased SDK"
 )]
-#[ignore = "flipped by T5"]
 fn a_build_whose_sdk_does_not_resolve_names_the_remedy() {
     let dir = TestProject::new().without_config();
     let krate = dir.root().join("needs-sdk");

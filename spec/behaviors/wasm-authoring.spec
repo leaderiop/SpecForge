@@ -73,6 +73,8 @@ behavior build_wasm_extension "Build Wasm Extension" {
     --release --target wasm32-wasip2) and name the component it built, read
     where it built it whether --dir is relative or absolute.
     Build errors MUST be reported as ExtensionError diagnostics (E040).
+    When the SDK version the crate names does not resolve, the E040 refusal
+    MUST say so and name how to build against an unreleased SDK.
     Before compiling, it MUST check that the extension project
     structure exists and fail with a diagnostic when it doesn't.
   """
