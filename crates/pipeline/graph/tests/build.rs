@@ -464,3 +464,33 @@ fn a_declarations_diagnostics_name_its_entity_whether_or_not_it_is_placed() {
     assert_eq!(applied.verification, Some(Ok(())));
     assert_eq!(named(&build), expected);
 }
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a second spec block is E002 whatever its name, and is not placed"
+)]
+#[ignore = "flipped by T5"]
+fn a_second_spec_block_is_e002_whatever_its_name() {
+    let two_files = [
+        file("a.spec", "spec \"two\" {\n}\n"),
+        file("b.spec", "spec \"other\" {\n}\n"),
+    ];
+    let one_file = [file("a.spec", "spec \"two\" {\n}\n\nspec \"other\" {\n}\n")];
+    for files in [two_files.to_vec(), one_file.to_vec()] {
+        let build = GraphBuild::of(files, GraphConfig::default());
+        let e002: Vec<_> = build
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E002")
+            .collect();
+        assert_eq!(e002.len(), 1, "{:?}", build.diagnostics());
+        assert_eq!(
+            e002[0].message,
+            "a second spec block 'other' (the project's spec block is declared at a.spec:1:1)"
+        );
+        assert!(build.graph().node("other").is_none());
+        let nodes = build.graph().nodes();
+        let roots = nodes.iter().filter(|n| n.kind.raw == "spec");
+        assert_eq!(roots.count(), 1);
+    }
+}

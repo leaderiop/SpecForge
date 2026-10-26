@@ -167,7 +167,9 @@ behavior link_entity_references "Link Entity References" {
     and so is the token navigation reads (ADR 0218). Every diagnostic the
     build reports about one declaration (E076, E081, E002, W060, I005)
     names the declaration's ID in its data, so it is about that ID's entity
-    even when the build drops the block.
+    even when the build drops the block. A project has one spec block,
+    whatever its name: a second one is E002 naming the first, and is not
+    placed (ADR 0282 D2).
   """
   verify unit "reference list IDs create graph edges"
   verify unit "unresolvable reference produces E003"
@@ -186,6 +188,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "E003 span covers exactly the unresolved identifier token"
   verify unit "a quoted reference is written at its ID, inside its quotes"
   verify unit "cross-file duplicate entity ID produces E002 naming the first declaration"
+  verify unit "a second spec block is E002 whatever its name, and is not placed"
   verify unit "same ID different kind across files warns W060 with both kinds named"
   verify unit "a declaration's graph-build diagnostics name its entity in their data"
 }
