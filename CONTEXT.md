@@ -596,7 +596,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (bare, quoted, a scheme ref, a literal) and its text, a `"..."` with its escapes read and a `"""..."""` dedented,
   never otherwise trimmed (`specforge_parser::value_token`). The parse's field values and list items, W159 and
   format's rewrite read it, so a padded `" draft"` is kept as written and E061 reports it (ADR 0247).
-- **Line break**: a LF in `.spec` text, with a CR directly before it part of it (`specforge_parser::line_break`). The parse reads every one as LF, a quoted text's included; format writes LF; a typed edit and a migration write a file whose every break is CR LF in CR LF, any other file LF where they change it (`LineBreak`, ADR 0266). A lone CR is text.
+- **Line break**: a LF in `.spec` text, with a CR directly before it part of it (`specforge_parser::line_break`). The parse reads every one as LF, a quoted text's included; format writes LF; a typed edit and a migration write a file whose every break is CR LF in CR LF, any other file LF where they change it (`LineBreak`, ADR 0266). A lone CR is a control character: the parse refuses it (ADR 0276).
 - **Field vocabulary**: the closed set of values an enum field takes, in their order, and the value an absent one
   counts as (its declared `default_value`), declared once by the extension that declares the field, as a `const`
   (`specforge_extension_sdk::Vocabulary`, through `FieldBuilder::vocabulary`, the only way to declare an enum).
@@ -753,7 +753,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   writes it into a message or a listing: each control character and bidirectional control as its `\u{..}` escape
   (`specforge_common::remedy::printable`, ADR 0231). Applied where the text enters, and by a registry error's writer as a
   whole (ADR 0245), so every surface carries the same; JSON another program sends is held once where it is read
-  (`remedy::hold_printable`, ADR 0244).
+  (`remedy::hold_printable`, ADR 0244). A project's own `.spec` text holds none of these characters but a tab and a line break (a CR only before a LF): the parse refuses the file, E001 (ADR 0276), and a diagnostic echoes a source line printable.
 - **Package name**: what an extension package is called, `@scope/name` (a registry holds only
   these) or `name` alone (a local module); each part `a-z 0-9 . _ -`, starting with a letter or
   digit, so it is always a relative path inside the directory it is joined to and one URL segment

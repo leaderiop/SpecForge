@@ -1,6 +1,6 @@
 # An extension's text is read printable where the host reads it
 
-**Status:** accepted (2026-10-25, architecture round 27, plan 02). Extends [ADR 0231](0231-a-search-hit-is-a-package-name-at-the-wire.md) D4 (its "what would reopen it": extension-supplied text gets the same function at its own entry points) and [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md) D1.
+**Status:** accepted (2026-10-25, architecture round 27, plan 02). **Extended by [ADR 0276](0276-a-projects-own-text-is-read-printable-at-the-parse.md) (round 28, plan 13):** a project's own `.spec` text, at the parse. Extends [ADR 0231](0231-a-search-hit-is-a-package-name-at-the-wire.md) D4 (its "what would reopen it": extension-supplied text gets the same function at its own entry points) and [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md) D1.
 
 ## Context
 
@@ -50,4 +50,4 @@ AFTER   guest answer -> reads_text? -> Value -> remedy::hold_printable -> O -> t
 
 - A protocol carrying rich text (Markdown descriptions).
 - A command's output reaching a terminal raw judged a channel to close (a terminal-only write of `printable`).
-- A project's own `.spec` text holding a control character (it enters at the parse, a follow-up of its own).
+- A project's own `.spec` text holding a control character (answered by ADR 0276: it enters at the parse).
