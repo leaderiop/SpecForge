@@ -51,7 +51,6 @@ fn messages(project: &TestProject, code: &str) -> Vec<String> {
     behavior = "fa_track_coverage_discharge",
     verify = "W035 and I008 name only the entities stats counts toward coverage"
 )]
-#[ignore = "flipped by T5 after the re-vendor"]
 fn coverage_items_are_the_entities_stats_counts() {
     // Without testing nothing is testable: stats counts none, so formal names none.
     let bare = project(&["@specforge/formal", "@specforge/software"]);
