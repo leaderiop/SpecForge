@@ -183,7 +183,10 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
         }
         Some(Target::Import { .. }) | None => None,
     };
-    let value = match (hover::diagnostics(&shown), about) {
+    let value = match (
+        hover::diagnostics(&shown, state.view().registries().declarations()),
+        about,
+    ) {
         (Some(diagnostics), Some(about)) => format!("{diagnostics}{}{about}", hover::SECTION),
         (diagnostics, about) => diagnostics.or(about)?,
     };

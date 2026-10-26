@@ -18,6 +18,7 @@ specforge-graph = { path = "../../pipeline/graph" }
 specforge-ops = { path = "../../app/ops" }
 specforge-parser = { workspace = true }
 specforge-project = { path = "../../session/project" }
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { path = "../../pipeline/registry" }
 specforge-resolver = { path = "../../pipeline/resolver" }
 specforge-watch = { path = "../../session/watch", features = ["tokio"] }
