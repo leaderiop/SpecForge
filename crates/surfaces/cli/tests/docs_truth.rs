@@ -80,6 +80,8 @@ fn vscode_manifest_indents_spec_files_as_the_formatter_does() {
 struct VscodeCliCall {
     site: String,
     args: Vec<Option<String>>,
+    /// An element is a spread (`...x`): the scan cannot see its flags.
+    spread: bool,
 }
 
 /// Every argv the VS Code extension hands the `specforge` binary: the array
@@ -108,6 +110,7 @@ fn vscode_cli_calls() -> Vec<VscodeCliCall> {
                 };
                 let body = &body[..body.find(']').expect("closing bracket")];
                 let line = text[..at].lines().count();
+                let spread = body.split(',').any(|a| a.trim().starts_with("..."));
                 let args = body
                     .split(',')
                     .map(str::trim)
@@ -125,11 +128,164 @@ fn vscode_cli_calls() -> Vec<VscodeCliCall> {
                 calls.push(VscodeCliCall {
                     site: format!("{}:{line}", path.file_name().unwrap().to_string_lossy()),
                     args,
+                    spread,
                 });
             }
         }
     }
     calls
+}
+
+/// Every `.ts` source of the VS Code extension: (file name, text).
+fn vscode_sources() -> Vec<(String, String)> {
+    let src = repo_root().join("integrations/vscode/src");
+    let mut files: Vec<_> = std::fs::read_dir(&src)
+        .expect("integrations/vscode/src")
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("ts"))
+        .map(|p| {
+            let name = p.file_name().unwrap().to_string_lossy().into_owned();
+            (name, std::fs::read_to_string(&p).expect("read .ts source"))
+        })
+        .collect();
+    files.sort();
+    files
+}
+
+fn vscode_manifest() -> serde_json::Value {
+    let raw = std::fs::read_to_string(repo_root().join("integrations/vscode/package.json"))
+        .expect("integrations/vscode/package.json");
+    serde_json::from_str(&raw).expect("valid package.json")
+}
+
+/// No argv element is a spread: the scan above sees only literals, so a
+/// `...extArgs` hid `--extension` (the flag is `--extensions`) from it
+/// since the first commit (ADR 0249 D4).
+#[test]
+#[ignore = "flipped by T7"]
+fn vscode_extension_builds_every_flag_as_a_literal() {
+    let spreads: Vec<_> = vscode_cli_calls()
+        .into_iter()
+        .filter(|c| c.spread)
+        .map(|c| format!("{}: a spread element hides its flags from the scan", c.site))
+        .collect();
+    assert!(spreads.is_empty(), "{}", spreads.join("\n"));
+}
+
+/// The commands the extension runs are a list kept on purpose: a new call
+/// is added here, and `search` (the registry's search, not the entity
+/// search the editor command means) is not on it (ADR 0249 D4).
+#[test]
+#[ignore = "flipped by T7"]
+fn vscode_extension_calls_only_the_commands_it_means() {
+    const CALLED: [&str; 13] = [
+        "analyze", "add", "check", "doctor", "explain", "export", "init", "model", "outline",
+        "query", "remove", "stats", "trace",
+    ];
+    let called: BTreeSet<String> = vscode_cli_calls()
+        .iter()
+        .filter_map(|c| c.args.first().cloned().flatten())
+        .collect();
+    let expected: BTreeSet<String> = CALLED.iter().map(|s| s.to_string()).collect();
+    assert_eq!(called, expected);
+}
+
+/// One file resolves and runs the binaries (ADR 0249 D3): `binary.ts`
+/// alone names `specforge-lsp` or spawns a process; no source walks
+/// `target/` or types a command into a terminal; the spawn sets a buffer.
+#[test]
+#[ignore = "flipped by T6"]
+fn vscode_extension_runs_binaries_by_one_rule() {
+    let sources = vscode_sources();
+    let spawners: Vec<_> = sources
+        .iter()
+        .filter(|(_, t)| {
+            [
+                "specforge-lsp",
+                "cp.execFile(",
+                "ProcessExecution(",
+                "createTerminal(",
+            ]
+            .iter()
+            .any(|m| t.contains(m))
+        })
+        .map(|(n, _)| n.as_str())
+        .collect();
+    assert_eq!(spawners, ["binary.ts"], "who resolves or spawns a binary");
+    for (name, text) in &sources {
+        assert!(!text.contains("\"target\""), "{name} walks target/");
+        assert!(!text.contains("sendText("), "{name} types into a terminal");
+    }
+    let binary = &sources
+        .iter()
+        .find(|(n, _)| n == "binary.ts")
+        .expect("binary.ts")
+        .1;
+    assert!(binary.contains("maxBuffer"), "binary.ts sets no maxBuffer");
+}
+
+/// A hover is marked trusted for one command only: a spec title can hold
+/// a `command:` link, and `isTrusted = true` runs any command it names
+/// (ADR 0249 D5).
+#[test]
+#[ignore = "flipped by T5"]
+fn vscode_hover_trusts_only_the_graph_command() {
+    let mut problems = Vec::new();
+    for (name, text) in vscode_sources() {
+        for (at, _) in text.match_indices("isTrusted") {
+            let rest = &text[at + "isTrusted".len()..];
+            if !rest.trim_start().starts_with("= { enabledCommands:") {
+                let line = text[..at].lines().count();
+                problems.push(format!("{name}:{line}: isTrusted without enabledCommands"));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// The manifest declares what the client provides (ADR 0249 D7): every
+/// setting is read, every view is registered, every `node` script runs a
+/// file that exists.
+#[test]
+#[ignore = "flipped by T9"]
+fn vscode_manifest_declares_only_what_the_extension_provides() {
+    let manifest = vscode_manifest();
+    let sources = vscode_sources();
+    let in_sources = |needle: &str| sources.iter().any(|(_, t)| t.contains(needle));
+    let mut problems = Vec::new();
+    for key in manifest["contributes"]["configuration"]["properties"]
+        .as_object()
+        .expect("settings")
+        .keys()
+    {
+        let suffix = key.strip_prefix("specforge.").unwrap_or(key);
+        if !in_sources(&format!("\"{suffix}\"")) {
+            problems.push(format!("setting {key} is read by no source"));
+        }
+    }
+    for views in manifest["contributes"]["views"]
+        .as_object()
+        .expect("views")
+        .values()
+    {
+        for view in views.as_array().expect("view list") {
+            let id = view["id"].as_str().expect("view id");
+            if !in_sources(&format!("\"{id}\"")) {
+                problems.push(format!("view {id} has no provider"));
+            }
+        }
+    }
+    let root = repo_root().join("integrations/vscode");
+    for (script, cmd) in manifest["scripts"].as_object().expect("scripts") {
+        if let Some(file) = cmd.as_str().and_then(|c| c.strip_prefix("node ")) {
+            let file = file.split_whitespace().next().unwrap_or("");
+            let main = manifest["main"].as_str().unwrap_or("");
+            if !root.join(file).exists() && file != main {
+                problems.push(format!("script {script} runs {file}, which is not there"));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
 fn specforge_help(args: &[&str]) -> String {
