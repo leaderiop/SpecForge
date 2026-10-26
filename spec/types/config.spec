@@ -73,9 +73,11 @@ type VersionList "Version List" {
 // is an http or https URL or a path at the registry's root
 // (/v1/packages/{name}/{version}/download, what the reference server answers);
 // anything else makes the reply unreadable (R009). size_bytes is the binary's
-// length: a download is held to it, and to 64 MiB.
+// length: a download is held to it, and to 64 MiB. name is a package name,
+// version a SemVer version and sha256 64 lowercase hex characters (the lock's
+// spelling); a reply holding another does not read (R009).
 type PackageMetadata "Package Metadata" {
-  name         string
+  name         PackageName
   version      string
   sha256       string
   size_bytes   integer          @optional
@@ -88,6 +90,7 @@ type PackageMetadata "Package Metadata" {
   manifest     string           @optional
   verify unit "PackageMetadata is the JSON a registry serves for one version"
   verify unit "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
+  verify unit "a package reply read as values writes the text it was read from"
 }
 
 // A publisher's Ed25519 signature over a package's name and version as

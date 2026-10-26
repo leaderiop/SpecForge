@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
-use specforge_package::{PackageName, Version};
+use specforge_package::{PackageName, Sha256, Version};
 use specforge_registry_wire::address::Call;
 use specforge_registry_wire::{
     ErrorCode, PackageMetadata, SearchHit, SearchQuery, SearchResults, VersionList,
@@ -72,10 +72,17 @@ pub(super) async fn get_package_version(
             .collect()
     };
 
+    // The reply is read as values by every client (ADR 0265): a row no client could read is not served.
+    let sha256 = Sha256::parse(&pkg.sha256).map_err(|_| {
+        ApiError::internal(
+            ErrorCode::IntegrityViolation,
+            format!("the stored digest of {package}@{parsed} is not a SHA-256"),
+        )
+    })?;
     Ok(Json(PackageMetadata {
-        name: pkg.name,
-        version: pkg.version,
-        sha256: pkg.sha256,
+        name: package,
+        version: parsed,
+        sha256,
         size_bytes: pkg.size_bytes,
         description: pkg.description,
         keywords,

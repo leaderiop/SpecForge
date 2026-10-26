@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use specforge_package::PackageName;
-use specforge_package::{DeclaredPackage, Version, VersionRequirement};
+use specforge_package::{DeclaredPackage, Sha256, Version, VersionRequirement};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 use specforge_registry_wire::{
     DEFAULT_SEARCH_LIMIT, ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
-    SearchQuery, SignedContent, sha256_hex,
+    SearchQuery, SignedContent,
 };
 
 use crate::SigningKey;
@@ -121,7 +121,7 @@ impl MemoryClient {
     /// `metadata.wasm_url` becomes `memory://{alias}/{name}/{version}`; any other is kept, so a download
     /// can be made to miss.
     pub fn store(&self, registry: &RegistryConfig, metadata: PackageMetadata, wasm: Vec<u8>) {
-        let (name, version) = (metadata.name.clone(), metadata.version.clone());
+        let (name, version) = (metadata.name.to_string(), metadata.version.to_string());
         self.store_as(registry, &name, &version, metadata, wasm);
     }
 
@@ -465,7 +465,7 @@ impl RegistryClient for MemoryClient {
         let receipt = PublishReceipt {
             name: name.to_string(),
             version: version.to_string(),
-            sha256: metadata.sha256.clone(),
+            sha256: metadata.sha256.to_string(),
             size_bytes: wasm.len() as u64,
             key_id: signature.key_id(),
         };
@@ -504,7 +504,6 @@ fn package_metadata(
     manifest: &str,
     key: Option<&SigningKey>,
 ) -> PackageMetadata {
-    let sha256 = sha256_hex(wasm);
     let (description, keywords) = serde_json::from_str::<ExtensionDeclaration>(manifest)
         .map(|d| {
             (
@@ -515,16 +514,17 @@ fn package_metadata(
         .unwrap_or_default();
     let signature = key.map(|key| key.sign(&SignedContent::of(name, version, wasm, manifest)));
     PackageMetadata {
-        name: name.to_string(),
-        version: version.to_string(),
-        sha256,
         size_bytes: wasm.len() as u64,
         description,
         keywords,
-        wasm_url: String::new(),
         signature,
         manifest: manifest.to_string(),
-        ..Default::default()
+        ..PackageMetadata::new(
+            name.parse().expect("a test package's name"),
+            version.parse().expect("a test package's version"),
+            Sha256::of(wasm),
+            "",
+        )
     }
 }
 

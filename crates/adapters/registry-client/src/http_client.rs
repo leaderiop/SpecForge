@@ -634,7 +634,7 @@ mod tests {
         verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
     )]
     fn a_malformed_signature_in_a_reply_is_refused_with_r009() {
-        let body = br#"{"name":"@a/b","version":"1.0.0","sha256":"ab","wasm_url":"/x","signature":{"sig":"x","public_key":"z","signed_at":"now"}}"#;
+        let body = br#"{"name":"@a/b","version":"1.0.0","sha256":"abababababababababababababababababababababababababababababababab","wasm_url":"/x","signature":{"sig":"x","public_key":"z","signed_at":"now"}}"#;
         let error = read::<PackageMetadata>(body, "@a/b@1.0.0").unwrap_err();
         assert!(
             matches!(&error, RegistryError::InvalidReply { message, .. }

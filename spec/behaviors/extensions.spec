@@ -1006,6 +1006,7 @@ behavior check_registry_reply "Check Registry Reply" {
   }
   ensures {
     reply_readable         "A reply that isn't the registry protocol's JSON (a malformed publisher signature among them) is refused with R009, even with --allow-unsigned"
+    reply_values           "A reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters is refused with R009 before anything else is checked or downloaded, for a dry run as for an add"
     reply_names_request    "A reply naming another package or version than the one requested is refused with R-TRUST-004"
     manifest_names_request "A served manifest naming another package or version is refused with R-TRUST-004"
     manifest_fails_closed  "A missing or unreadable served manifest is refused with R-OPS-004, never read as declaring no peers"
@@ -1019,6 +1020,10 @@ behavior check_registry_reply "Check Registry Reply" {
     A reply that isn't the registry protocol's JSON for the request (a
     publisher signature that isn't one among them) MUST be refused (R009)
     before anything else is checked: no flag accepts it.
+    A reply's name, version and sha256 are read as a package name, a SemVer
+    version and a SHA-256 in lowercase hex where the reply is read: a reply
+    holding another is not the protocol's (R009), before its binary is
+    downloaded (ADR 0265).
     A 404 is the registry's "not found" only when it carries the protocol's
     NOT_FOUND error; a 404 without it (an address no registry serves, such as
     a url that isn't the registry's root) MUST be refused with R009, not
@@ -1051,8 +1056,8 @@ behavior check_registry_reply "Check Registry Reply" {
     hash pins no bytes.
     A refused reply pins no key and installs nothing. A served manifest is
     read as a declaration printable, as the binary's is (ADR 0244).
-    Text the registry supplies (an error's message, a reply's or a served
-    manifest's name and version, a digest, a download address) MUST be
+    Text the registry supplies (an error's message, a served manifest's name
+    and version, a download address) MUST be
     written in a diagnostic printable: each control character and
     bidirectional control as its \u{..} escape. A registry error's
     diagnostic is printable whole: every text it carries, whatever the
@@ -1125,6 +1130,7 @@ behavior verify_publisher_signature "Verify Publisher Signature" {
   verify integration "an unsigned package is accepted with --allow-unsigned and pins no key"
   verify integration "an unsigned package accepted with --allow-unsigned is reported as W155"
   verify integration "a signature is verified over the digests the reply describes, before any download"
+  verify unit "a signature made over a reply's text verifies over the values the reply is read as"
   verify unit "a dry run refuses what the add's trust decision refuses, downloading nothing"
   verify integration "a package the trust decision refuses is refused before its download"
 }

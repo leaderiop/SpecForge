@@ -19,7 +19,7 @@ pub use code::ErrorCode;
 pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex};
 
 use serde::{Deserialize, Serialize};
-use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Version};
+use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Sha256, Version};
 
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,12 +29,15 @@ pub struct VersionList {
 }
 
 /// `GET {root}/v1/packages/{name}/{version}`: what a registry stores for one version.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Its name, version and digest are values (ADR 0265): a reply holding a name that is no package name, a version
+/// that is no SemVer version or a digest that is not 64 lowercase hex characters is not this body (R009).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageMetadata {
-    pub name: String,
-    pub version: String,
-    /// SHA-256 of the binary, lowercase hex.
-    pub sha256: String,
+    pub name: PackageName,
+    pub version: Version,
+    /// SHA-256 of the binary: the lock's spelling; any other is no reply (R009).
+    pub sha256: Sha256,
     /// The binary's length; a download is held to it, and to [`MAX_PACKAGE_BYTES`] (ADR 0250).
     #[serde(default)]
     pub size_bytes: u64,
@@ -64,6 +67,29 @@ pub struct PackageMetadata {
 }
 
 impl PackageMetadata {
+    /// The reply of `name@version` whose binary has `sha256` and downloads from `wasm_url`: the four keys a
+    /// reply must carry; every other field empty.
+    pub fn new(
+        name: PackageName,
+        version: Version,
+        sha256: Sha256,
+        wasm_url: impl Into<String>,
+    ) -> Self {
+        Self {
+            name,
+            version,
+            sha256,
+            size_bytes: 0,
+            description: String::new(),
+            keywords: Vec::new(),
+            publisher: String::new(),
+            published_at: String::new(),
+            wasm_url: wasm_url.into(),
+            signature: None,
+            manifest: String::new(),
+        }
+    }
+
     /// The most bytes its binary may download as (ADR 0250): the `size_bytes` it declares, at most
     /// [`MAX_PACKAGE_BYTES`]; that ceiling when it declares none (an absent one reads as `0`).
     pub fn download_limit(&self) -> u64 {
@@ -251,7 +277,12 @@ mod tests {
         let limit = |size_bytes| {
             PackageMetadata {
                 size_bytes,
-                ..Default::default()
+                ..PackageMetadata::new(
+                    PackageName::parse("@acme/tool").unwrap(),
+                    Version::new(1, 0, 0),
+                    Sha256::of(b"x"),
+                    "/x",
+                )
             }
             .download_limit()
         };
@@ -295,9 +326,9 @@ mod tests {
             chrono::Utc.with_ymd_and_hms(2026, 10, 8, 0, 0, 0).unwrap(),
         );
         let signed = PackageMetadata {
-            name: "@acme/tool".into(),
-            version: "1.0.0".into(),
-            sha256: "ab".repeat(32),
+            name: PackageName::parse("@acme/tool").unwrap(),
+            version: Version::new(1, 0, 0),
+            sha256: "ab".repeat(32).parse().unwrap(),
             size_bytes: 12,
             description: "A tool".into(),
             keywords: vec!["tool".into()],
@@ -339,7 +370,7 @@ mod tests {
 
         // A signature that isn't one makes the reply unreadable.
         let malformed = json!({
-            "name": "@acme/tool", "version": "1.0.0", "sha256": "ab", "wasm_url": "/x",
+            "name": "@acme/tool", "version": "1.0.0", "sha256": "ab".repeat(32), "wasm_url": "/x",
             "signature": {"sig": "x", "public_key": "z", "signed_at": "now"},
         });
         let error = serde_json::from_value::<PackageMetadata>(malformed).unwrap_err();
@@ -350,7 +381,7 @@ mod tests {
 
         // A reply with only the required four keys reads.
         let minimal: PackageMetadata = serde_json::from_value(
-            json!({"name": "@acme/tool", "version": "1.0.0", "sha256": "ab", "wasm_url": "/x"}),
+            json!({"name": "@acme/tool", "version": "1.0.0", "sha256": "ab".repeat(32), "wasm_url": "/x"}),
         )
         .unwrap();
         assert_eq!(minimal.size_bytes, 0);
@@ -559,7 +590,6 @@ mod tests {
         type = "PackageMetadata",
         verify = "a package reply whose name is no package name, whose version is no SemVer version or whose sha256 is not 64 lowercase hex characters does not read"
     )]
-    #[ignore = "flipped by T3"]
     fn a_package_reply_holds_a_package_name_a_semver_version_and_a_lowercase_sha256() {
         let digest = "ab".repeat(32);
         let reply = |key: &str, value: serde_json::Value| {
@@ -582,6 +612,27 @@ mod tests {
             );
         }
         assert!(serde_json::from_value::<PackageMetadata>(reply("size_bytes", json!(1))).is_ok());
+    }
+
+    #[specforge_test_macros::test(
+        type = "PackageMetadata",
+        verify = "a package reply read as values writes the text it was read from"
+    )]
+    fn a_reply_read_as_values_writes_the_text_it_was_read_from() {
+        let digest = "ab".repeat(32);
+        for (name, version) in [
+            ("@acme/tool", "1.0.0"),
+            ("@acme/tool", "1.0.0-rc.1+build.5"),
+            ("@acme/tool", "0.0.1-alpha.0.x"),
+            ("plain-name", "2.3.4"),
+        ] {
+            let text =
+                json!({"name": name, "version": version, "sha256": digest, "wasm_url": "/x"});
+            let reply: PackageMetadata = serde_json::from_value(text).unwrap();
+            assert_eq!(reply.name.as_str(), name);
+            assert_eq!(reply.version.to_string(), version);
+            assert_eq!(reply.sha256.as_str(), digest);
+        }
     }
 
     #[specforge_test_macros::test(

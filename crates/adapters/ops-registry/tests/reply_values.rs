@@ -126,7 +126,6 @@ fn policy() -> TrustPolicy<'static> {
     behavior = "check_registry_reply",
     verify = "a reply whose sha256 is not 64 lowercase hex characters is refused with R009 before its binary is downloaded, and its dry run says so"
 )]
-#[ignore = "flipped by T3"]
 fn a_digest_that_is_no_sha256_is_refused_before_any_download() {
     for bad in [
         digest().to_uppercase(),
@@ -152,7 +151,6 @@ fn a_digest_that_is_no_sha256_is_refused_before_any_download() {
     behavior = "check_registry_reply",
     verify = "a reply whose name is no package name or whose version is no SemVer version is refused with R009, not as another package"
 )]
-#[ignore = "flipped by T3"]
 fn a_name_or_version_that_is_not_one_is_r009_not_another_package() {
     for (key, bad) in [
         ("name", "@acme/tool\u{1b}[31m"),

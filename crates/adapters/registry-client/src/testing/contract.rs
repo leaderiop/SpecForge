@@ -1,5 +1,5 @@
 use specforge_package::Version;
-use specforge_package::{DeclaredPackage, PackageName};
+use specforge_package::{DeclaredPackage, PackageName, Sha256};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_wire::{
     ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchQuery, SignedContent,
@@ -82,9 +82,9 @@ pub fn assert_client_contract(
     let metadata = client
         .metadata(&tool, &Version::new(1, 1, 0), registry, None)
         .expect("K4: metadata of 1.1.0");
-    assert_eq!(metadata.name, "@contract/tool", "K4: name");
-    assert_eq!(metadata.version, "1.1.0", "K4: version");
-    assert_eq!(metadata.sha256, sha256_hex(wasm), "K4: sha256");
+    assert_eq!(metadata.name.as_str(), "@contract/tool", "K4: name");
+    assert_eq!(metadata.version, Version::new(1, 1, 0), "K4: version");
+    assert_eq!(metadata.sha256, Sha256::of(wasm), "K4: sha256");
     assert_eq!(metadata.size_bytes, wasm.len() as u64, "K4: size_bytes");
     assert_eq!(
         metadata.manifest,
@@ -440,12 +440,14 @@ pub fn assert_private_client_contract(
         "download",
         client
             .download(
-                &PackageMetadata {
-                    wasm_url: registry
+                &PackageMetadata::new(
+                    tool.clone(),
+                    Version::new(1, 0, 0),
+                    Sha256::of(b""),
+                    registry
                         .url
                         .address(&address::Call::Download(&tool, &Version::new(1, 0, 0))),
-                    ..Default::default()
-                },
+                ),
                 registry,
                 None,
             )

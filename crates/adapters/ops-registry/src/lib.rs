@@ -182,6 +182,8 @@ pub fn configured(
 /// project's `specforge.json` configures and the user's credential store once: when an operation opens it
 /// ([`Registry::open`]) or first asks it anything. It asks the one that serves a name, and hands ops only a package that passed the fetch policy:
 ///
+/// 0. the reply reads as the protocol's JSON and its values: a package name, a SemVer version and a lowercase
+///    SHA-256, else R009 (ADR 0265);
 /// 1. the reply names the package and version asked for (R-TRUST-004);
 /// 2. the manifest reads as an extension declaration (R-OPS-004; a `manifest.json` from before ADR 0012 is
 ///    refused with a re-publish suggestion) naming the package and version asked for (R-TRUST-004);
@@ -373,8 +375,8 @@ impl Registry for ConfiguredRegistry {
         if publisher == Publisher::Unsigned {
             self.reported_by_policy.extend([
                 specforge_registry_client::trust_flow::unsigned_accepted(
-                    &metadata.name,
-                    &metadata.version,
+                    metadata.name.as_str(),
+                    &metadata.version.to_string(),
                 ),
             ]); // W155
         }
@@ -563,14 +565,13 @@ fn reply_names(
     version: &Version,
     metadata: &PackageMetadata,
 ) -> Result<(), OpError> {
-    if metadata.name != name.as_str() || metadata.version != version.to_string() {
+    if metadata.name != *name || metadata.version != *version {
         return Err(OpError::coded(
             OpErrorKind::SchemaMismatch,
             METADATA_MISMATCH,
             format!(
                 "registry answered {name}@{version} with {}@{}",
-                printable(&metadata.name),
-                printable(&metadata.version)
+                metadata.name, metadata.version
             ),
         )
         .with_suggestion("don't install the package, and check the registry"));
@@ -696,26 +697,25 @@ mod tests {
     fn a_reply_or_manifest_naming_another_package_is_quoted_printable() {
         let name = PackageName::parse("@sdk/greet").unwrap();
         let version = Version::new(1, 0, 0);
-        let metadata = PackageMetadata {
-            name: "@sdk/gre\u{1b}[2Jet".into(),
-            version: "1.0.0".into(),
-            ..Default::default()
-        };
+        let metadata = PackageMetadata::new(
+            PackageName::parse("@sdk/other").unwrap(),
+            Version::new(1, 0, 0),
+            specforge_package::Sha256::of(b""),
+            "/x",
+        );
         let declaration: ExtensionDeclaration = serde_json::from_value(serde_json::json!({
             "handshake": {"protocol_version": "1.0.0", "name": "@sdk/gre\u{1b}[2Jet",
                 "version": "1.0.0", "peer_dependencies": [], "sandbox_policy": null}
         }))
         .unwrap();
-        for error in [
-            reply_names(&name, &version, &metadata).unwrap_err(),
-            declaration_names(&name, &version, &declaration).unwrap_err(),
-        ] {
-            assert!(!error.message.contains(char::is_control), "{error:?}");
-            assert!(
-                error.message.contains("@sdk/gre\\u{1b}[2Jet@1.0.0"),
-                "{error:?}"
-            );
-        }
+        let other = reply_names(&name, &version, &metadata).unwrap_err();
+        assert!(other.message.contains("@sdk/other@1.0.0"), "{other:?}");
+        let error = declaration_names(&name, &version, &declaration).unwrap_err();
+        assert!(!error.message.contains(char::is_control), "{error:?}");
+        assert!(
+            error.message.contains("@sdk/gre\\u{1b}[2Jet@1.0.0"),
+            "{error:?}"
+        );
     }
 
     #[specforge_test_macros::test(

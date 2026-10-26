@@ -70,7 +70,7 @@ pub struct Package {
     pub name: PackageName,
     pub version: Version,
     pub wasm: Vec<u8>,
-    pub sha256: String,
+    pub sha256: Sha256,
     /// The declaration published with it (its manifest): the diamond gate
     /// reads its peers before the binary is loaded, and the binary must then
     /// declare exactly the same (ADR 0012).
@@ -87,7 +87,7 @@ pub struct Package {
 pub struct Manifest {
     pub name: PackageName,
     pub version: Version,
-    pub sha256: String,
+    pub sha256: Sha256,
     pub declaration: ExtensionDeclaration,
     /// How the trust decision accepted its publisher, as a fetch would.
     pub publisher: Publisher,
@@ -129,12 +129,12 @@ impl<'a> LockedPin<'a> {
         &self,
         name: &PackageName,
         version: &Version,
-        sha256: &str,
+        sha256: &Sha256,
     ) -> Result<(), OpError> {
         let Some((locked, pinned)) = self.bytes else {
             return Ok(());
         };
-        if pinned.as_str().eq_ignore_ascii_case(sha256) || locked != version {
+        if pinned == sha256 || locked != version {
             return Ok(());
         }
         Err(OpError::coded(
@@ -142,8 +142,7 @@ impl<'a> LockedPin<'a> {
             LOCKED_BYTES_CHANGED,
             format!(
                 "registry package {name}@{version} is not the binary specforge.lock pins: \
-                 the lock records sha256 {pinned}, the registry serves {}",
-                printable(sha256)
+                 the lock records sha256 {pinned}, the registry serves {sha256}"
             ),
         )
         .with_suggestion(format!(
@@ -202,7 +201,7 @@ impl<'a> TrustPolicy<'a> {
         &self,
         name: &PackageName,
         version: &Version,
-        sha256: &str,
+        sha256: &Sha256,
     ) -> Result<(), OpError> {
         self.locked
             .map_or(Ok(()), |pin| pin.admits(name, version, sha256))
@@ -554,28 +553,6 @@ mod tests {
     use super::*;
 
     #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
-    )]
-    fn a_locked_pin_quotes_the_served_digest_printable() {
-        let pinned = Sha256::of(b"A");
-        let pin = LockedPin {
-            bytes: Some((&Version::new(1, 0, 0), &pinned)),
-            key_id: None,
-        };
-        let name = PackageName::parse("@a/x").unwrap();
-        let error = pin
-            .admits(&name, &Version::new(1, 0, 0), "B\u{1b}[2J")
-            .unwrap_err();
-        assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
-        assert!(!error.message.contains(char::is_control), "{error:?}");
-        assert!(
-            error.message.ends_with("the registry serves B\\u{1b}[2J"),
-            "{error:?}"
-        );
-    }
-
-    #[specforge_test_macros::test(
         type = "KeyPin",
         verify = "KeyPin is what a committed lock plan pins for a package name"
     )]
@@ -658,18 +635,11 @@ mod tests {
             bytes: Some((&locked, sha256)),
             key_id: None,
         };
-        let admits = |pin: LockedPin, version: &str, served: &Sha256| {
-            pin.admits(&name, &v(version), served.as_str())
-        };
+        let admits =
+            |pin: LockedPin, version: &str, served: &Sha256| pin.admits(&name, &v(version), served);
 
         assert!(admits(pin(&a), "1.0.0", &a).is_ok(), "its bytes");
         assert!(admits(pin(&a), "2.0.0", &b).is_ok(), "another version");
-        assert!(
-            pin(&a)
-                .admits(&name, &v("1.0.0"), &a.as_str().to_uppercase())
-                .is_ok(),
-            "its bytes, described in uppercase"
-        );
         let error = admits(pin(&a), "1.0.0", &b).unwrap_err();
         assert!(error.is(LOCKED_BYTES_CHANGED), "{error:?}");
         assert_eq!(
@@ -680,9 +650,9 @@ mod tests {
             )
         );
         let unpinned = TrustPolicy::new(true, Asking::Nobody);
-        assert!(unpinned.admits(&name, &v("1.0.0"), "B").is_ok());
+        assert!(unpinned.admits(&name, &v("1.0.0"), &b).is_ok());
         let pinned = unpinned.locked(Some(pin(&a)));
-        assert!(pinned.admits(&name, &v("1.0.0"), "B").is_err());
+        assert!(pinned.admits(&name, &v("1.0.0"), &b).is_err());
     }
 
     #[test]

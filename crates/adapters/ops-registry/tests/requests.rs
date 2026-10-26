@@ -7,7 +7,6 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-use sha2::{Digest, Sha256};
 use specforge_ops::asking::Asking;
 use specforge_ops::extension::resolve;
 use specforge_ops::registry::{LockedPin, Registry, TrustPolicy};
@@ -28,11 +27,13 @@ fn serving(versions: &[&str]) -> LocalRegistry {
         let wasm = b"\0asm-acme-tool";
         server.store(
             &PackageMetadata {
-                name: "@acme/tool".to_string(),
-                version: version.to_string(),
-                sha256: hex::encode(Sha256::digest(wasm)),
                 manifest: MANIFEST.to_string(),
-                ..Default::default()
+                ..PackageMetadata::new(
+                    name("@acme/tool"),
+                    version.parse().unwrap(),
+                    specforge_package::Sha256::of(wasm),
+                    "",
+                )
             },
             wasm,
         );

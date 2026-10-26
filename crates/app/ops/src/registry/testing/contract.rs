@@ -88,11 +88,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
     assert_eq!(fetched.name, base, "C3: name");
     assert_eq!(fetched.version, one_one, "C3: version");
     assert_eq!(fetched.wasm, expected.wasm, "C3: the published bytes");
-    assert_eq!(
-        fetched.sha256,
-        hex_sha256(&fetched.wasm).as_str(),
-        "C3: sha256"
-    );
+    assert_eq!(fetched.sha256, hex_sha256(&fetched.wasm), "C3: sha256");
     assert_eq!(fetched.declaration, expected.declaration, "C3: declaration");
     let signer = expected.key_id.clone().expect("base is signed");
     let first_use = Publisher::Signed {
