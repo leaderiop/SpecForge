@@ -219,7 +219,6 @@ fn empty_file_scope_returns_error() {
     behavior = "read_a_named_source_path",
     verify = "a source-code path that names nothing is refused in one sentence, the infer prompt's file scope included"
 )]
-#[ignore = "flipped by T5"]
 fn an_empty_file_scope_is_refused_as_an_empty_source_path_is() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let data = &infer(&mut state, json!({"scope": "file:"}))["error"]["data"];

@@ -8,9 +8,9 @@ expression: "shape(&reply, dir.path())"
     "data": {
       "argument": "scope",
       "code": "invalid_input",
-      "message": "Empty file path in scope 'file:'",
+      "message": "'' names no file: a source file is named from the project root",
       "prompt": "specforge://prompts/infer"
     },
-    "message": "Empty file path in scope 'file:'"
+    "message": "'' names no file: a source file is named from the project root"
   }
 }
