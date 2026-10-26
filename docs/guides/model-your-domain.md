@@ -47,8 +47,8 @@ The builtin extensions are a starter set:
 | Extension | Kinds | Fits |
 |---|---|---|
 | `@specforge/product` | feature, journey, persona, channel, module, milestone, deliverable, release, term | any product or programme plan: who it is for, what they need, how they get it, when it ships |
-| `@specforge/governance` | decision, constraint, failure_mode | decisions and their reasons, limits with thresholds, risks (FMEA) — in any domain |
-| `@specforge/software` | behavior, type, event, port, invariant | software design; `invariant` (a rule that must always hold) is useful well beyond code |
+| `@specforge/governance` | invariant (a rule that must always hold), decision, constraint, failure_mode | rules, decisions and their reasons, limits with thresholds, risks (FMEA) — in any domain |
+| `@specforge/software` | behavior, type, event, port | software design; `behavior` and `event` are useful well beyond code |
 | `@specforge/formal` | property, axiom, protocol, refinement, process | state machines and machine-checkable limits (`specforge analyze --prove`) |
 | `@specforge/testing` + runners | `verify` statements; test runners for Rust and vitest | proving software entities with test results |
 

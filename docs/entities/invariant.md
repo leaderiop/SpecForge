@@ -1,9 +1,9 @@
 # invariant
 
-> **Declared by `@specforge/software`**, one of the builtin extensions. `invariant` is one example of an entity kind, not part of
+> **Declared by `@specforge/governance`**, one of the builtin extensions. `invariant` is one example of an entity kind, not part of
 > SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
 > with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
-> one with `specforge add @specforge/software`. The fields, edges and rules below are read from its declaration.
+> one with `specforge add @specforge/governance`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
@@ -70,7 +70,7 @@ Core checks every entity whatever its kind: references must resolve (E003), ids 
 
 | Code | Level | Declared by | Rule |
 |------|-------|-------------|------|
-| W003 | warning | `@specforge/software` | Unenforced invariant |
+| W003 | warning | `@specforge/governance` | Unenforced invariant |
 | W004 | warning | `@specforge/testing` | Untested testable entity |
 | W009 | warning | `@specforge/testing` | Disallowed verify kind |
 

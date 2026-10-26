@@ -4,7 +4,8 @@ A product team is launching **Halo**, a desk lamp. This project holds what the t
 launch as one checked graph: who the lamp is for, where it is sold, what it does, what ships when, the
 words the team agrees on, and the decisions and risks around it. There is no code in it.
 
-Extensions: `@specforge/product` and `@specforge/governance`.
+Extensions: `@specforge/product` and `@specforge/governance`. A product team states its rules with
+`invariant` from governance, which this project already loads.
 
 ## Try it
 

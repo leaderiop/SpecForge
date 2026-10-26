@@ -9,8 +9,8 @@ the procedure and what can go wrong.
 GMP, EU Annex 16, 21 CFR Part 11 or any other rule. It shows how SpecForge can hold this kind of knowledge.
 
 Extensions: `@specforge/software`, `@specforge/governance` and `@specforge/formal`. Software is loaded
-for its generic kinds: `invariant` (a rule that must always hold), `behavior` (a step with a contract)
-and `event` (a record a step leaves behind). Nothing here is code.
+for `behavior` (a step with a contract) and `event` (a record a step leaves behind); the rules,
+`invariant`, are governance's. Nothing here is code.
 
 ## Try it
 

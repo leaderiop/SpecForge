@@ -50,7 +50,7 @@ decision postgres_over_mongodb "PostgreSQL over MongoDB" {
 | `date` | date | A bare calendar day, `2026-03-01` (another value is E061). |
 | `authors` / `deciders` | string list | Who wrote it / who signed off. |
 | `superseded_by` | reference -> decision | The decision that replaces this one. |
-| `invariants` | reference list -> invariant | Invariants it protects (needs `@specforge/software`). |
+| `invariants` | reference list -> invariant | Invariants it protects. |
 | `constraints` | reference list -> constraint | Constraints it imposes. |
 | `affects_features` | reference list -> feature | Features it affects (needs `@specforge/product`). |
 | `description` | string | Summary. |

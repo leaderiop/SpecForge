@@ -370,7 +370,7 @@ This tour goes deep on the two most projects start with — `@specforge/software
 | A data shape (struct / union / error) | **type** | software |
 | Something that happened (past tense) | **event** | software |
 | An interface boundary / dependency | **port** | software |
-| A rule that must always hold | **invariant** | software |
+| A rule that must always hold | **invariant** | governance |
 | A user-facing capability | **feature** | product |
 | A UX flow (persona × channel → features) | **journey** | product |
 | A kind of user | **persona** | product |

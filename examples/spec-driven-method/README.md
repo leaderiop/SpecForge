@@ -5,7 +5,7 @@ success criteria, requirements, and a verification step before anything counts a
 keep those layers in Markdown files. This project keeps them in one checked graph, using only the
 builtin extensions, and applies the method to a small link shortener.
 
-Extensions: `@specforge/software`, `@specforge/testing` and `@specforge/product`.
+Extensions: `@specforge/software`, `@specforge/testing`, `@specforge/product` and `@specforge/governance`.
 
 ## The mapping
 

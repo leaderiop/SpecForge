@@ -18,9 +18,9 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | Extension | Kinds | Edge types | Adds to other kinds | Peers |
 |-----------|-------|------------|---------------------|-------|
 | `@specforge/product` | 9 | 20 | -- | none |
-| `@specforge/software` | 5 | 15 | `module`, `milestone` | product (optional) |
-| `@specforge/governance` | 3 | 11 | -- | software, product (both optional) |
-| `@specforge/formal` | 5 | 10 | `behavior`, `event`, `invariant` | software (required) |
+| `@specforge/software` | 4 | 15 | `module`, `milestone` | product, governance (both optional) |
+| `@specforge/governance` | 4 | 11 | -- | software, product (both optional) |
+| `@specforge/formal` | 5 | 10 | `behavior`, `event`, `invariant` | software, governance (both optional) |
 | `@specforge/testing` | 0 | 0 | `verify` kinds on 7 kinds | software, governance (both optional) |
 | `@specforge/cargo-test` | 0 | 0 | -- | testing (required) |
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
@@ -97,16 +97,15 @@ software-only; a clinic, a course or a campaign has features, personas, journeys
 
 ## @specforge/software
 
-Software design: behavioral contracts, guarantees, domain events, data shapes and interfaces. Its product links
+Software design: behavioral contracts, domain events, data shapes and interfaces. Its product links
 (`features`, and the fields it adds to `module` and `milestone`) need `@specforge/product`; without it they are
 I004 advice and the additions are skipped.
 
-### Entity kinds (5)
+### Entity kinds (4)
 
 | Kind | Description |
 |------|-------------|
 | [`behavior`](entities/behavior.md) | One operation's contract |
-| [`invariant`](entities/invariant.md) | A guarantee that must never be broken |
 | [`event`](entities/event.md) | Something the system announces |
 | [`type`](entities/type.md) | A data shape (struct or union) |
 | [`port`](entities/port.md) | An interface contract with typed methods |
@@ -140,19 +139,20 @@ I004 advice and the additions are skipped.
 
 ### Also declares
 
-Nine rules (W001–W003, W005–W008, W010, E010). Two are custom validators written in the extension's
+Eight rules (W001, W002, W005–W008, W010, E010). Two are custom validators written in the extension's
 code: milestone behavior references (E010) and type member annotations (W010). The host reports a type name that
 names no type (E004). A starter `.spec` file `specforge init` writes.
 
 ## @specforge/governance
 
-Decisions, measurable limits and risk. Its links into software and product kinds are optional: without those
+Rules that must always hold, decisions, measurable limits and risk. Its links into software and product kinds are optional: without those
 extensions they are I004 advice.
 
-### Entity kinds (3)
+### Entity kinds (4)
 
 | Kind | Description |
 |------|-------------|
+| [`invariant`](entities/invariant.md) | A rule that must always hold |
 | [`decision`](entities/decision.md) | A recorded choice with context, alternatives and consequences |
 | [`constraint`](entities/constraint.md) | A measurable quality or limit, with metric and threshold |
 | [`failure_mode`](entities/failure-mode.md) | An FMEA entry: cause, effect, ratings, mitigation |
@@ -161,12 +161,12 @@ extensions they are I004 advice.
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
-| `DecisionProtectsInvariant` | decision | invariant (software) | This decision protects these invariants |
+| `DecisionProtectsInvariant` | decision | invariant | This decision protects these invariants |
 | `ConstraintEnforcedByBehavior` | constraint | behavior (software) | This constraint applies to these behaviors |
 | `DecisionSupersedesDecision` | decision | decision | This decision supersedes that decision |
 | `ConstraintConstrainsBehavior` | constraint | behavior (software) | This quality requirement constrains these behaviors |
-| `ConstraintProtectsInvariant` | constraint | invariant (software) | This constraint protects these invariants |
-| `FailureModeTargetsInvariant` | failure_mode | invariant (software) | This failure mode threatens this invariant |
+| `ConstraintProtectsInvariant` | constraint | invariant | This constraint protects these invariants |
+| `FailureModeTargetsInvariant` | failure_mode | invariant | This failure mode threatens this invariant |
 | `ConstraintGovernsFeature` | constraint | feature (product) | This constraint governs these features |
 | `DecisionAffectsFeature` | decision | feature (product) | This decision affects these features |
 | `FailureModeThreatensFeature` | failure_mode | feature (product) | This failure mode threatens these features |
@@ -175,6 +175,8 @@ extensions they are I004 advice.
 
 `failure_mode` declares `severity`, `occurrence` and `detection` (and their `post_` forms) as word vocabularies
 (E061 otherwise); a written `rpn` is not checked against them.
+
+One rule (W003): an invariant nothing references.
 
 ## @specforge/formal
 
@@ -195,11 +197,11 @@ communicating processes. Requires `@specforge/software`. See [Formal verificatio
 
 | Edge Type | Source | Target | Semantics |
 |-----------|--------|--------|-----------|
-| `AxiomAssumesInvariant` | axiom | invariant (software) | This axiom assumes this invariant |
+| `AxiomAssumesInvariant` | axiom | invariant | This axiom assumes this invariant |
 | `BehaviorSatisfiesProperty` | behavior (software) | property | This behavior satisfies this property |
 | `BehaviorRefinesBehavior` | behavior (software) | behavior (software) | This concrete behavior refines this abstract behavior |
 | `EventFollowsProtocol` | event (software) | protocol | This event follows this protocol |
-| `PropertyDependsOnInvariant` | property | invariant (software) | This property depends on this invariant |
+| `PropertyDependsOnInvariant` | property | invariant | This property depends on this invariant |
 | `RefinementRefinesAbstract` | refinement | behavior (software) | This refinement maps from this abstract behavior |
 | `RefinementRefinesConcrete` | refinement | behavior (software) | This refinement maps to this concrete behavior |
 | `RefinementChainsToRefinement` | refinement | refinement | This refinement chains to that refinement |
@@ -212,7 +214,7 @@ communicating processes. Requires `@specforge/software`. See [Formal verificatio
 |------|-------|--------------|
 | `behavior` | `@specforge/software` | `requires`, `ensures`, `maintains`, `sync` (blocks), `satisfies` (reference list → property), `abstract` (bool), `refines` (reference → behavior) |
 | `event` | `@specforge/software` | `follows_protocol` (reference list → protocol), `participates_in` (reference list → process), `sync` (block) |
-| `invariant` | `@specforge/software` | `expression` (string) |
+| `invariant` | `@specforge/governance` | `expression` (string) |
 
 ### Passes (5)
 
@@ -239,7 +241,7 @@ An addition to a kind whose extension is not loaded is skipped silently.
 | Kind | Owner | Verify kinds | W004 when it has none |
 |------|-------|--------------|-----------------------|
 | `behavior` | `@specforge/software` | unit, contract, integration, property, performance | yes |
-| `invariant` | `@specforge/software` | unit, integration, property, performance, mutation | yes |
+| `invariant` | `@specforge/governance` | unit, integration, property, performance, mutation | yes |
 | `event` | `@specforge/software` | integration, unit, deadlock_free, liveness | yes |
 | `type` | `@specforge/software` | unit, property | yes |
 | `port` | `@specforge/software` | integration, unit | yes |

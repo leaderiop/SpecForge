@@ -37,7 +37,7 @@ Cross-cutting: `ref` attaches an external reference (an issue, a design, a docum
 
 ## 3. Guarantees: what must always be true?
 
-- `invariant` (software): a rule that must never be broken, with its `risk` and what proves it (`verify`).
+- `invariant` (governance): a rule that must never be broken, with its `risk` and what proves it (`verify`).
 
 **Checkpoint:** each invariant will be listed in a behavior's `invariants` in step 5; until then W003
 (unenforced invariant) reminds you.
@@ -94,7 +94,8 @@ missing features. Go back, add them, and check again. A relation is always writt
 | E006 | A required field left out | the extension declaring the field |
 | E079 | A relation written on its other side | core |
 | W113 | Files that import each other in a cycle | core |
-| W001, W002, W003, W005, W007, W008 | Behaviors, types, invariants, ports, events and features nothing connects | `@specforge/software` |
+| W001, W002, W005, W007, W008 | Behaviors, types, ports, events and features nothing connects | `@specforge/software` |
+| W003 | Invariants nothing references | `@specforge/governance` |
 | W041–W044, E007 | Features, journeys, deliverables and modules nothing connects; module cycles | `@specforge/product` |
 | W004 | An entity with obligations but no proof | `@specforge/testing` |
 

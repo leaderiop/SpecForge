@@ -57,7 +57,7 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W020** | `unrecognized field 'F' on entity 'X' of kind 'K'` | The kind declares no such field (often a field another kind has, or one an enhancing extension adds that isn't enabled). | Fix the name; `specforge model` lists every kind's fields. |
 | **W158** | `entity 'X' of kind 'K' declares verify statements, which its kind does not accept` | `verify` lines on a kind that takes none, or `@specforge/testing` isn't enabled. | Remove them, or enable `@specforge/testing`. |
 | **W002** | `type 'X' is not referenced by any behavior, port, or type` | Unreferenced type. | Reference it from a behavior/port, or remove it. |
-| **W003** (software) | `invariant 'X' is not enforced by any behavior` | No behavior lists this invariant. | Add the invariant to an enforcing behavior's `invariants [...]`. |
+| **W003** (governance) | `invariant 'X' is referenced by nothing` | No behavior enforces it, no decision or constraint protects it, no failure mode threatens it, no axiom or property relies on it. | Reference it where it is kept (a behavior's `invariants [...]`, a decision's `invariants`, ...), or remove it. |
 | **W061** | reference cycle | A reference chain forms a cycle (A → B → A). | Break the cycle — references must form a DAG. |
 | **W113** (import) | `circular import detected: a.spec -> b.spec` | A `use` chain forms a cycle. | Break the cycle, or extract shared entities into a third file both import. |
 | **W005** | `port 'X' is not referenced by any behavior` | Unreferenced port. | Add it to a behavior's `ports [...]`, or remove it. |

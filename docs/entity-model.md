@@ -34,9 +34,9 @@ do, aimed at software and product work, not a base every project needs. The kind
 
 | Extension | Kinds it declares | For |
 |-----------|-------------------|-----|
-| `@specforge/software` | [behavior](entities/behavior.md), [invariant](entities/invariant.md), [event](entities/event.md), [type](entities/type.md), [port](entities/port.md) | Software design: contracts, guarantees, events, data shapes, interfaces |
+| `@specforge/software` | [behavior](entities/behavior.md), [event](entities/event.md), [type](entities/type.md), [port](entities/port.md) | Software design: contracts, events, data shapes, interfaces |
 | `@specforge/product` | [feature](entities/feature.md), [journey](entities/journey.md), [deliverable](entities/deliverable.md), [milestone](entities/milestone.md), [module](entities/module.md), [term](entities/term.md), [persona](entities/persona.md), [channel](entities/channel.md), [release](entities/release.md) | Product planning, in software or anywhere else |
-| `@specforge/governance` | [decision](entities/decision.md), [constraint](entities/constraint.md), [failure_mode](entities/failure-mode.md) | Decisions, measurable limits, risk (FMEA) |
+| `@specforge/governance` | [invariant](entities/invariant.md), [decision](entities/decision.md), [constraint](entities/constraint.md), [failure_mode](entities/failure-mode.md) | Rules that must always hold, decisions, measurable limits, risk (FMEA) |
 | `@specforge/formal` | `property`, `axiom`, `protocol`, `refinement`, `process` | Formal methods ([guide](guides/formal-verification.md)) |
 
 With the two structural node kinds that makes 2 + 22 = 24 entity kinds in a project that loads all four. Other

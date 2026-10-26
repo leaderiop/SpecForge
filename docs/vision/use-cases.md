@@ -24,8 +24,8 @@ Or the team follows a method (GSD, BMAD, OpenSpec, SpecKit) whose state lives in
 
 **Today, with the builtin extensions.**
 
-- `@specforge/software` declares behaviors, invariants, events, types and ports. `@specforge/governance` adds
-  decisions, constraints and failure modes; `@specforge/formal` adds properties an SMT solver proves.
+- `@specforge/software` declares behaviors, events, types and ports. `@specforge/governance` adds
+  invariants, decisions, constraints and failure modes; `@specforge/formal` adds properties an SMT solver proves.
 - `specforge check` refuses a broken reference, an invariant no behavior enforces, an event nothing produces, or a
   missing required field, with the line and a fix hint.
 - Each `verify` line is an obligation. Rust and vitest tests name the obligation they prove;

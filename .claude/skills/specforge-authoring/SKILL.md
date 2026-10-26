@@ -81,7 +81,7 @@ Use a child skill only when `specforge extensions` lists its extension.
 | `spec` | **specforge-spec-block** | core (structural) |
 | `ref` | **specforge-refs-dsl** | core (structural) |
 | `behavior` | **specforge-behaviors-dsl** | `@specforge/software` |
-| `invariant` | **specforge-invariants-dsl** | `@specforge/software` |
+| `invariant` | **specforge-invariants-dsl** | `@specforge/governance` |
 | `event` | **specforge-events-dsl** | `@specforge/software` |
 | `type` | **specforge-types-dsl** | `@specforge/software` |
 | `port` | **specforge-ports-dsl** | `@specforge/software` |

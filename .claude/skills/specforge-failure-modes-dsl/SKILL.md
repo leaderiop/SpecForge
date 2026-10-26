@@ -48,7 +48,7 @@ failure_mode write_acknowledged_but_lost "Write Acknowledged but Lost" {
 | `post_mitigation` | block | Residual risk written as a block, if you prefer it to the `post_*` fields. |
 | `rpn` | integer | Risk Priority Number, if your method computes one. |
 | `risk` | string | Overall risk assessment in words. |
-| `invariant` | reference -> invariant | The invariant it threatens (needs `@specforge/software`). |
+| `invariant` | reference -> invariant | The invariant it threatens. |
 | `affected_behaviors` | reference list -> behavior | Behaviors that are failure vectors. |
 | `threatens_features` | reference list -> feature | Features it threatens (needs `@specforge/product`). |
 | `description` | string | Summary. |

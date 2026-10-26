@@ -66,7 +66,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
   "starter_template": "spec \"{project}\" {\n  version \"{version}\"\n}\n",
   "theme_color": "#4a90d9",
   "ext_short": "software",
-  "description": "Software design: behaviors, invariants, events, types and ports",
+  "description": "Software design: behaviors, events, types and ports, and the checks that keep them consistent",
   "keywords": ["design", "contracts"]
 }
 ```

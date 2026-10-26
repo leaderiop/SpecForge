@@ -1,13 +1,13 @@
 ---
 name: specforge-invariants-dsl
-description: "Write invariant blocks in .spec files (the invariant kind is declared by the builtin @specforge/software extension). Each invariant declares a rule that must always hold, with a snake_case ID, a guarantee statement using RFC 2119 keywords, a risk level (critical/high/medium/low), verify obligations (with @specforge/testing) and an optional machine-checkable expression (with @specforge/formal). Use when defining what must ALWAYS be true."
+description: "Write invariant blocks in .spec files (the invariant kind is declared by the builtin @specforge/governance extension). Each invariant declares a rule that must always hold, with a snake_case ID, a guarantee statement using RFC 2119 keywords, a risk level (critical/high/medium/low), verify obligations (with @specforge/testing) and an optional machine-checkable expression (with @specforge/formal). Use when defining what must ALWAYS be true."
 ---
 
 # SpecForge Invariants DSL
 
-> **Declared by `@specforge/software`**, a builtin extension. The `invariant` kind exists only in a project that loads
+> **Declared by `@specforge/governance`**, a builtin extension. The `invariant` kind exists only in a project that loads
 > it: run `specforge extensions` first, and if it is not listed, do not write `invariant` blocks (add it with
-> `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
+> `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`; `expression` needs `@specforge/formal`. `specforge infer-guide invariant` prints the fields.
 
 Invariants declare non-negotiable guarantees. Behaviors name the invariants they enforce; decisions, constraints and
@@ -73,7 +73,7 @@ list on the invariant is E079), and `specforge trace <invariant>` lists them.
 | E002 | core | Two invariants share an ID. |
 | E006 | core | `guarantee` is missing. |
 | E061 | core | `risk` outside its enum. |
-| W003 | software | No behavior enforces the invariant. |
+| W003 | governance | Nothing references the invariant. |
 | W004 | testing | No `verify` obligation. |
 | W040 | formal | No `expression` (reported by `specforge analyze`). |
 

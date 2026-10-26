@@ -7,7 +7,7 @@ on different domains. Each one compiles with zero errors.
 | Example | Domain | Extensions | What it shows |
 |---|---|---|---|
 | [todo-app](todo-app/) | software product | `software`, `testing`, `cargo-test`, `product`, `governance`, `formal` | a full software spec, from personas to behaviors and invariants, with test results collected back into the graph |
-| [shop](shop/) | software (minimal) | `software`, `testing`, `cargo-test` | the smallest loop: one type, one behavior, one invariant, and the Rust tests that prove them |
+| [shop](shop/) | software (minimal) | `software`, `governance`, `testing`, `cargo-test` | the smallest loop: one type, one behavior, one invariant, and the Rust tests that prove them |
 | [product-launch](product-launch/) | product management | `product`, `governance` | a team launching a desk lamp: personas, channels, journeys, features, milestones, a release, a glossary, decisions and risks; no code |
 | [regulated-process](regulated-process/) | pharma / GxP (illustration) | `software`, `governance`, `formal` | releasing a batch of medicine: rules that must hold, limits checked by an SMT solver, the batch lifecycle as a state machine, failure modes; no code, no compliance claim |
 | [spec-driven-method](spec-driven-method/) | software method (GSD / SpecKit style) | `software`, `testing`, `product` | milestones, phases, requirements and must-hold truths with verify obligations, applied to a link shortener |

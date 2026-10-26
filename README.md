@@ -78,9 +78,9 @@ These extensions ship inside the binary, as a starter set:
 
 | Extension | What it declares |
 |---|---|
-| `@specforge/software` | Behaviors, the rules they must keep (invariants), events, types, and interfaces (ports) |
+| `@specforge/software` | Behaviors, events, types, and interfaces (ports) |
 | `@specforge/product` | Features, personas, channels, journeys, deliverables, milestones, releases, modules, and your team's vocabulary (terms) |
-| `@specforge/governance` | Decisions, constraints, and failure modes |
+| `@specforge/governance` | Rules that must always hold (invariants), decisions, constraints, and failure modes |
 | `@specforge/formal` | Properties and axioms that an SMT solver proves or refutes |
 | `@specforge/testing`, `@specforge/cargo-test`, `@specforge/vitest` | Which of your tests prove which entities |
 | `@specforge/rust`, `@specforge/typescript` | Source analysis that helps an agent write a spec from existing code |

@@ -37,9 +37,9 @@ These ship inside the binary as examples of what an extension can declare. They 
 
 | Extension | Declares |
 |-----------|----------|
-| `@specforge/software` | kinds `behavior`, `invariant`, `event`, `type`, `port` |
+| `@specforge/software` | kinds `behavior`, `event`, `type`, `port` |
 | `@specforge/product` | kinds `feature`, `journey`, `persona`, `channel`, `deliverable`, `milestone`, `module`, `term`, `release`; extension commands (`specforge product features`, ...) |
-| `@specforge/governance` | kinds `decision`, `constraint`, `failure_mode` |
+| `@specforge/governance` | kinds `invariant`, `decision`, `constraint`, `failure_mode` |
 | `@specforge/formal` | kinds `property`, `axiom`, `protocol`, `refinement`, `process`; adds `requires`/`ensures`/`maintains`/`abstract`/`refines`/`sync` to behaviors; analysis passes |
 | `@specforge/testing` | no kinds: which kinds owe `verify` obligations and with which verify kinds, and the coverage pass |
 | `@specforge/cargo-test`, `@specforge/vitest` | test collectors for `specforge collect` |
