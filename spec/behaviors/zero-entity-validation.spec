@@ -444,7 +444,7 @@ behavior check_field_value_types "Check Field Value Types" {
 
     A stored value its declared type does not take MUST produce an E061
     error at the value's source span naming the field, the declared type
-    and the value given. A string field takes text, a bare word, a date, a
+    and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
     (suggesting the closest); an integer field an integer; a bool field
     true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,

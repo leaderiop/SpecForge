@@ -56,7 +56,6 @@ fn a_quoted_path_on_an_identifier_field_is_e061() {
     behavior = "check_field_value_types",
     verify = "E061 quotes a string value as a .spec string writes it"
 )]
-#[ignore = "flipped by T2"]
 fn e061_quotes_a_string_as_the_spec_writes_it() {
     let found = e061("  points \"x\\\"y\"\n  label \"a\\nb\"\n");
     let messages: Vec<&str> = found.iter().map(|(m, _)| m.as_str()).collect();

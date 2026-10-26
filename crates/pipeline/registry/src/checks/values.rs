@@ -3,6 +3,7 @@
 use specforge_common::{Diagnostic, codes};
 
 use specforge_graph::ValueShape;
+use specforge_graph::field_form::spell;
 
 use crate::entity::{EntityRecord, FieldRecord};
 use crate::{FieldRegistry, FieldRegistryEntry, KindRegistry};
@@ -68,10 +69,11 @@ fn mismatch(declared: &FieldRegistryEntry, field: &FieldRecord) -> Option<Mismat
     })
 }
 
-/// The value as the message quotes it.
+/// The value as the message quotes it: a string as a `.spec` string writes it
+/// ([`spell::quoted`]).
 fn describe(field: &FieldRecord) -> String {
     match field.shape {
-        ValueShape::String => format!("\"{}\"", field.text),
+        ValueShape::String => spell::quoted(&field.text),
         ValueShape::Identifier
         | ValueShape::Date
         | ValueShape::Integer
