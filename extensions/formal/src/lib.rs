@@ -29,7 +29,13 @@ impl Contributions for Formal {
     fn contribute(c: &mut ContributionsBuilder) {
         // Diagrams (`model`, `outline`) draw the extension in this colour.
         c.theme_color("#9b59b6");
-        c.peer("@specforge/software", "^1.0");
+        // Formal's own kinds stand alone. Software provides the behaviors and
+        // events its enhancements, refinements and the W123/W128 edges need,
+        // governance the invariants it enhances and its axioms and properties
+        // name: both optional (ADR 0280), so a project of rules and lifecycles
+        // loads formal without software.
+        c.optional_peer("@specforge/software", "^1.0")
+            .optional_peer("@specforge/governance", "^1.0");
 
         // Declaration order is deliberately shuffled; the host must order
         // passes by the declared after-constraints, not by declaration.
@@ -61,7 +67,7 @@ impl Contributions for Formal {
 // Each pass is declared with its handler above: `__pass_<name>` receives the
 // protocol's PassInput snapshot and answers its diagnostics (ADR 0013).
 
-/// The software kind `condition_check` reads a guarantee and an expression of
+/// The governance kind `condition_check` reads a guarantee and an expression of
 /// (W040).
 const INVARIANT_KIND: &str = "invariant";
 
@@ -73,6 +79,9 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
 }
 
 const BEHAVIOR_KIND: &str = "behavior";
+
+#[cfg(test)]
+mod declaration_tests;
 
 #[cfg(test)]
 mod pass_tests;

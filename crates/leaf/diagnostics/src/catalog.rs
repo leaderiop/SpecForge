@@ -657,7 +657,7 @@ catalog! {
         "A `providers` entry in `specforge.json` is missing its `alias`/`name` or `scheme` field, or no installed extension contributes providers to back a configured provider. Add the missing field, or install an extension that contributes the provider.";
     W123: Warning formal,
         "Unreferenced property",
-        "A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.";
+        "A `property` that no behavior names in `satisfies`, so nothing claims to keep it. The rule applies where a loaded extension declares behaviors (`@specforge/software`). Name the property in the `satisfies` of the behaviors that keep it, or remove it.";
     W124: Warning formal,
         "Empty property description",
         "A `property` entity writes a `description` that is empty or only whitespace, which makes the temporal assertion opaque to readers and agents. Write the description, or remove the field. A property that writes no description is not reported.";
@@ -669,7 +669,7 @@ catalog! {
         "An `axiom` entity writes a `description` that is empty or only whitespace, which leaves the assumption unexplained. Write the description, or remove the field. An axiom that writes no description is not reported.";
     W128: Warning formal,
         "Unreferenced protocol",
-        "A `protocol` entity is not referenced by any `event`, so it may be unused. Reference the protocol from an event, or remove it if it is no longer needed.";
+        "A `protocol` that no event names in `follows_protocol`, so nothing follows it. The rule applies where a loaded extension declares events (`@specforge/software`). Name the protocol in the `follows_protocol` of the events that follow it, or remove it.";
     W129: Warning formal,
         "Empty protocol description",
         "A `protocol` entity writes a `description` that is empty or only whitespace, which makes the synchronization contract opaque. Write the description, or remove the field. A protocol that writes no description is not reported.";

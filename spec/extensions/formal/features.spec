@@ -170,7 +170,7 @@ feature fa_temporal_properties "Temporal Properties" {
     with a kind classifier (safety/liveness/fairness). Behaviors
     declare which properties they satisfy via the satisfies field,
     creating Satisfies edges. Properties can depend on conditions via
-    PropertyDependsOn edges. Unreferenced properties (W123), empty
+    PropertyDependsOn edges. Properties no behavior satisfies (W123, where behaviors load), empty
     descriptions (W124) are detected, and a property_type outside its
     vocabulary is the core's E061.
   """
@@ -205,7 +205,7 @@ feature fa_protocol_contracts "Protocol Contracts" {
     The protocol entity kind represents a shared synchronization
     contract with ordering, timeout, and delivery semantics. Events
     reference protocols via the follows_protocol field, creating
-    FollowsProtocol edges. Unreferenced protocols (W128) and empty
+    FollowsProtocol edges. Protocols no event follows (W128, where events load) and empty
     descriptions (W129) are detected. Protocols
     coexist with inline sync blocks — dual-mode like conditions.
   """

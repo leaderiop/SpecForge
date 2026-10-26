@@ -28,7 +28,7 @@ decision formal_extension_split "Split Formal Analysis from Software Extension" 
     "Progressive warning levels prevent overwhelming new users",
     "ExtensionDeclaration gains passes and feature_flags for extension-contributed analysis",
     "Entity enhancement mechanism proves its value for cross-extension composition",
-    "@specforge/formal requires peer_dependency on @specforge/software",
+    "@specforge/formal peers @specforge/software and @specforge/governance optionally (ADR 0280)",
     "Inline condition fields (requires/ensures/maintains) reference invariants for reusable constraints",
   ]
 }
