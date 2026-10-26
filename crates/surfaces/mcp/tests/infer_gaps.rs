@@ -203,7 +203,6 @@ fn an_anchor_to_an_entity_the_graph_does_not_declare_covers_nothing() {
     behavior = "provide_mcp_infer_gaps_tool",
     verify = "every item find_spec_for_source anchors to a declared entity is no gap"
 )]
-#[ignore = "flipped by T5"]
 fn an_anchor_recorded_absolute_under_the_root_is_no_gap_where_find_spec_for_source_finds_it() {
     let project = TestProject::new()
         .file("test.spec", SPEC)

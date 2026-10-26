@@ -340,7 +340,8 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     source_roots for public items. v1 uses regex-based detection for Rust
     (pub fn, pub struct, pub enum, pub trait) — output is explicitly marked
     as approximate. An item is covered when the project's
-    specforge-anchors.json anchors it, by its file and its name, to an entity
+    specforge-anchors.json anchors it, by its file (read as
+    read_a_recorded_source_path reads it) and its name, to an entity
     the compiled graph declares, or, when no anchor names that entity, when its
     name is the entity's id. An anchor to an entity the graph does not declare
     covers nothing. An anchors manifest that cannot be used is refused with

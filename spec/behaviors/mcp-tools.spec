@@ -624,7 +624,8 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
     In MCP server mode, the system MUST register a
     specforge.find_spec_for_source tool that accepts file_path (required)
     and returns {file_path, match_mode, entities, count}: the anchors of
-    the project's specforge-anchors.json whose file the path names,
+    the project's specforge-anchors.json whose file, read from the project
+    root as the path is, the path names,
     compared as text component by component (./a and a\b are a and a/b; a
     substring is no match) after the path is read from the project root as a
     named spec file is (its absolute path under the root is that path); a path

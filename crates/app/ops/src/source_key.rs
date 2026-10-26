@@ -24,7 +24,7 @@ pub(crate) fn minted(base: &Path, named: &str) -> String {
 
 /// A path outside the project root, or naming nothing: the source path rule refuses it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct OutsideRoot;
+struct OutsideRoot;
 
 /// A source file's key: root-relative, `/`-separated, no empty or `.` component, never absolute,
 /// a drive path or `..`. What the manifest records and what every read opens (joined onto the
@@ -37,7 +37,7 @@ impl SourceKey {
     /// records. Separators `/` and `\` are both accepted; empty and `.` components are dropped.
     /// A path that is absolute, has a drive prefix, has a `..` component, or names nothing is
     /// outside the root.
-    pub(crate) fn of(given: &str) -> Result<SourceKey, OutsideRoot> {
+    fn of(given: &str) -> Result<SourceKey, OutsideRoot> {
         let parts = components(given)?;
         if parts.is_empty() {
             return Err(OutsideRoot);
