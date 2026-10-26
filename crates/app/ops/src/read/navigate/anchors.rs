@@ -410,4 +410,30 @@ mod tests {
         assert!(covered.covers("./src/lib.rs", "compile_project"));
         assert!(!covered.covers("./src/other.rs", "compile_project"));
     }
+
+    #[specforge_test_macros::test(
+        behavior = "read_a_recorded_source_path",
+        verify = "an anchor recorded by its absolute path under the project root is that file"
+    )]
+    #[ignore = "flipped by T5"]
+    fn an_anchor_recorded_absolute_under_the_root_is_its_file() {
+        let fixture = covering(None);
+        let root = fixture.root().to_path_buf();
+        let canonical = std::fs::canonicalize(&root).unwrap();
+        for file in [
+            format!("{}/src/lib.rs", root.display()),
+            format!("{}/src/lib.rs", canonical.display()),
+            "src/../src/lib.rs".to_string(),
+        ] {
+            fixture.write(
+                ANCHORS_FILENAME,
+                manifest_of(&[anchor("compiled_project", &file, "CompiledProject")]),
+            );
+            let covered = CoveredItems::of(&fixture.view()).unwrap();
+            assert!(covered.covers("src/lib.rs", "CompiledProject"), "{file}");
+            let found = |query: &str| anchors_of_file(&fixture.view(), query).unwrap().match_mode;
+            assert_eq!(found("src/lib.rs"), FileMatch::Exact, "{file}");
+            assert_eq!(found("src"), FileMatch::Directory, "{file}");
+        }
+    }
 }

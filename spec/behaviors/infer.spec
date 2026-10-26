@@ -1,9 +1,9 @@
 // Inference workflow behaviors — AI agent spec inference from codebases
 //
-// 21 behaviors:
+// 22 behaviors:
 //   - Manifest I/O (3): load, save, compute summary
 //   - Session management (3): start, end, mark analyzed
-//   - Discovery and staleness (2): discover sources, detect stale entries
+//   - Discovery and staleness (3): discover sources, read a recorded path, detect stale entries
 //   - MCP tools (3): infer_progress, infer_session, infer_gaps
 //   - Guides (1): compute inference guide
 //   - MCP prompts (5): the scope read; kind, plan, workflow and file scopes
@@ -99,6 +99,7 @@ behavior compute_inference_summary "Compute Inference Summary" {
   verify unit "summary counts match source_index contents"
   verify unit "summary scans all source_roots for files_total"
   verify unit "needs_review detects entities missing from graph"
+  verify unit "files_analyzed counts the inference sources the index records"
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +173,7 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
   verify unit "mark records the path root-relative with / separators"
   verify unit "mark refuses a file outside the project root"
   verify unit "mark reads an absolute path under the project root as its key"
+  verify unit "mark replaces the entry of its file whatever spelling recorded it"
   verify unit "mark refuses a directory as invalid input on source_file"
 }
 
@@ -208,6 +210,27 @@ behavior discover_inference_sources "Discover Inference Sources" {
   verify unit "no inference source lands outside the project root"
   verify unit "an indexed path outside the project root is deleted, never read"
   verify unit "a nested project's files are not the outer project's inference sources"
+}
+
+// A source-code path a manifest records (specforge_ops source_key::SourceKey::read, ADR 0271).
+behavior read_a_recorded_source_path "Read a Source-Code Path a Manifest Records" {
+  features [infer_progress_tracking, infer_gap_analysis]
+  category computation
+  contract """
+    A source-code path a manifest records (an anchor's file in
+    specforge-anchors.json, an index entry's path or a source root in
+    specforge-infer.json) MUST be read from the project root into its key by
+    the reader a source-code path a request names is read by
+    (read_a_named_source_path): every spelling of one path is that path, its
+    absolute path under the project root included, a .. applied where it
+    stands. One whose key lies outside the project root, or that names
+    nothing, is no key: it covers no item, such an index entry is deleted and
+    such a source root is not walked; navigation still lists such an anchor,
+    matched by its text. Each recorded path is read once per operation.
+  """
+  verify unit "an anchor recorded by its absolute path under the project root is that file"
+  verify unit "an index entry recorded by its absolute path under the project root is that file"
+  verify unit "a source root recorded by its absolute path under the project root is walked"
 }
 
 // ---------------------------------------------------------------------------

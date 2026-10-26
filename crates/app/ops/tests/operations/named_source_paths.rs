@@ -176,3 +176,30 @@ fn the_anchors_read_their_query_from_the_project_root() {
         assert_eq!(refusal.error.code, "not_a_source_path", "{outside:?}");
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "mark_source_file_analyzed",
+    verify = "mark replaces the entry of its file whatever spelling recorded it"
+)]
+#[ignore = "flipped by T3"]
+fn marking_a_file_replaces_its_entry_recorded_absolute() {
+    let project = project();
+    let recorded = project.root().join("src/tiny.rs");
+    project.write(
+        "specforge-infer.json",
+        json!({"version": 1, "source_roots": ["src"], "source_index": [
+            {"path": recorded.to_str().unwrap(), "content_hash": "00", "entities_produced": [], "analyzed_at": "2026-10-01T00:00:00Z"}]})
+        .to_string(),
+    );
+    start(&project, "src").unwrap();
+    mark(&project, "src/tiny.rs").unwrap();
+    let text = std::fs::read_to_string(project.root().join("specforge-infer.json")).unwrap();
+    let written: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let paths: Vec<&str> = written["source_index"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(paths, ["src/tiny.rs"]);
+}
