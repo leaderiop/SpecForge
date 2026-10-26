@@ -140,7 +140,8 @@ async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
   }
 
   const enhanced = new vscode.MarkdownString(md);
-  enhanced.isTrusted = true;
+  // Only the extension's own link may run: a spec title can hold a `command:` link.
+  enhanced.isTrusted = { enabledCommands: ["specforge.focusInGraph"] };
   enhanced.supportThemeIcons = true;
 
   const parts = [...contents];

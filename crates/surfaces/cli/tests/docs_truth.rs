@@ -228,7 +228,6 @@ fn vscode_extension_runs_binaries_by_one_rule() {
 /// a `command:` link, and `isTrusted = true` runs any command it names
 /// (ADR 0249 D5).
 #[test]
-#[ignore = "flipped by T5"]
 fn vscode_hover_trusts_only_the_graph_command() {
     let mut problems = Vec::new();
     for (name, text) in vscode_sources() {
