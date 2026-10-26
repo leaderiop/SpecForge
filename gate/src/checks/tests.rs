@@ -150,6 +150,16 @@ fn manifests_matching(pattern: &str) -> Vec<String> {
 }
 
 #[test]
+#[ignore = "flipped by T4"]
+fn an_examples_extension_is_format_checked() {
+    assert!(
+        crate::steps::outside_workspace(&this_repo())
+            .iter()
+            .any(|manifest| manifest == "examples/marketing/extension/Cargo.toml")
+    );
+}
+
+#[test]
 fn a_staged_starter_template_is_not_format_checked() {
     // §3.5: a template a blob embeds, and a parser fixture, are formatted or not by their tests' needs.
     for path in [

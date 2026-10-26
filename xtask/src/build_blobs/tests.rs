@@ -137,3 +137,15 @@ fn a_builtin_compiles_no_test_code() {
         }
     }
 }
+
+#[test]
+#[ignore = "flipped by T3"]
+fn a_staged_member_carries_no_workspace_or_profile_table() {
+    let manifest = "[package]\nname = \"x\"\n\n[workspace]\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n\
+         [dependencies]\nserde = \"1\"\n\n[profile.release]\nopt-level = \"z\"\n\n\
+         [workspace.lints.rust]\nx = \"deny\"\n";
+    assert_eq!(
+        strip_dev_dependencies(manifest),
+        "[package]\nname = \"x\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nserde = \"1\"\n\n"
+    );
+}

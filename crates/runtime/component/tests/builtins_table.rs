@@ -7,7 +7,7 @@
 )]
 
 use specforge_component::builtins::{BUILTIN_EXTENSIONS, BUILTINS};
-use specforge_component::committed::{COMMITTED, FIXTURES};
+use specforge_component::committed::{COMMITTED, EXAMPLES, FIXTURES};
 use specforge_test_macros::test as specforge_test;
 
 #[specforge_test(
@@ -89,4 +89,26 @@ fn the_fixtures_are_the_fixtures_directory() {
         held.sort();
         assert_eq!(held, [blob.artifact], "{}: its wasm/ directory", blob.name);
     }
+}
+
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "every example's extension crate is listed once, by its directory under examples/"
+)]
+#[ignore = "flipped by T6"]
+fn every_examples_extension_is_a_committed_blob() {
+    let examples = specforge_repo_root::repo_root().join("examples");
+    let mut on_disk: Vec<String> = std::fs::read_dir(examples)
+        .expect("examples/")
+        .flatten()
+        .filter(|entry| entry.path().join("extension/Cargo.toml").is_file())
+        .map(|entry| format!("examples/{}/extension", entry.file_name().to_string_lossy()))
+        .collect();
+    on_disk.sort();
+    let mut listed: Vec<&str> = EXAMPLES.iter().map(|b| b.crate_dir).collect();
+    listed.sort();
+    assert_eq!(
+        listed, on_disk,
+        "EXAMPLES lists every examples/*/extension crate, once"
+    );
 }

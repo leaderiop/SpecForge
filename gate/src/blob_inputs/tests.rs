@@ -112,3 +112,16 @@ fn a_key_names_the_repo_path_it_hashes() {
     assert_eq!(path_of(WORKSPACE_INHERITED), "Cargo.toml");
     assert_eq!(path_of("crates/x/src/lib.rs"), "crates/x/src/lib.rs");
 }
+
+#[test]
+#[ignore = "flipped by T6"]
+fn a_change_to_an_examples_extension_feeds_its_blob() {
+    assert_eq!(
+        fed_by(
+            repo_root(),
+            &ChangeSet::of(["examples/marketing/extension/src/lib.rs"])
+        )
+        .unwrap(),
+        ["examples/marketing/extension"]
+    );
+}

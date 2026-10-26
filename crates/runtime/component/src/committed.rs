@@ -116,6 +116,9 @@ pub const BRIDGE: CommittedBlob = CommittedBlob {
 /// The fixtures, in the order [`COMMITTED`] lists them after the builtins.
 pub const FIXTURES: [CommittedBlob; 4] = [GREET, DOCREF, PROBE, BRIDGE];
 
+/// Each example project's own extension (none listed yet).
+pub const EXAMPLES: [CommittedBlob; 0] = [];
+
 /// Every committed blob: the builtins in [`BUILTINS`] order, then [`FIXTURES`].
 pub const COMMITTED: &[CommittedBlob] = &{
     let mut out = [GREET; BUILTINS.len() + FIXTURES.len()];
