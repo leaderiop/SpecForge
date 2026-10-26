@@ -481,6 +481,7 @@ behavior read_a_named_spec_file "Read a Spec File a Request Names" {
   verify unit "a refusal of a named spec file names the file as the request spelled it"
   verify unit "a spec file is named from the project root, as every document names it"
   verify unit "a new spec file under the spec root is a place, whatever directory it repeats"
+  verify unit "a create into a file that differs from a source only in case is not_a_source, naming the source"
   verify unit "a source under a spec root outside the project reads by its key and every spelling of it from the project root"
   verify unit "a spelling with a .. reads as the file it lands on"
 }
