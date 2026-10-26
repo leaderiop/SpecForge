@@ -76,7 +76,6 @@ type LockFileEntry "Lock File Entry" {
 }
 
 type LockFile "Serialized as JSON (specforge.lock). See P6: standard is the moat." {
-  path             string  @readonly
   lockfile_version integer @readonly
   entries          LockFileEntry[]
   verify unit "LockFile schema is valid"
