@@ -5,6 +5,7 @@
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{SourceSpan, Sym};
+use specforge_graph::field_form::spell;
 use specforge_graph::{Node, SpecFile, WrittenToken, written_tokens};
 
 use super::{Navigator, contains};
@@ -165,6 +166,20 @@ impl Navigator<'_> {
             name,
             precision,
         }
+    }
+
+    /// The span an outline selects: the name token, or, for a block whose name is written as a string (a `spec`
+    /// block), that string; the block when the text spells neither. Never a rename's token (`definition_of`).
+    pub(super) fn selected_name(&self, node: &Node) -> SourceSpan {
+        let definition = self.definition_of(node);
+        if definition.precision == Precision::Token {
+            return definition.name;
+        }
+        let quoted = spell::quoted(node.id.raw.as_str());
+        self.parsed_block(node)
+            .and_then(|entity| entity.name_span.clone())
+            .filter(|name| self.spelled(name, &quoted))
+            .unwrap_or(definition.name)
     }
 
     /// The block `node` was built from: in the compile's parse of its file, the entity whose block is the node's (a

@@ -58,8 +58,8 @@ pub struct OutlineEntry {
     pub kind: Sym,
     pub title: Option<String>,
     pub block: SourceSpan,
-    /// The entity's name where the parse read it (its block when the compile holds no parse or text of the file,
-    /// or the text does not spell it there).
+    /// The entity's name where the parse read it: its name token, or a `spec` block's string (its block when the
+    /// compile holds no parse or text of the file, or the text does not spell it there).
     pub name: SourceSpan,
     /// Its `method` members, in line order.
     pub children: Vec<OutlineMethod>,
@@ -100,7 +100,6 @@ pub fn outline(nav: &Navigator<'_>, file: &str) -> Result<Vec<OutlineEntry>, OpE
     let entries = nodes
         .into_iter()
         .map(|node| {
-            let definition = nav.definition_of(node);
             let mut children: Vec<OutlineMethod> = node
                 .methods
                 .iter()
@@ -121,7 +120,7 @@ pub fn outline(nav: &Navigator<'_>, file: &str) -> Result<Vec<OutlineEntry>, OpE
                 kind: node.kind.raw,
                 title: node.title.clone(),
                 block: node.source_span.clone(),
-                name: definition.name,
+                name: nav.selected_name(node),
                 children,
             }
         })

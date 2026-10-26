@@ -75,7 +75,6 @@ async fn a_lens_counts_what_the_compile_reads() {
     behavior = "entity_code_lens",
     verify = "a spec block's lens is at its string, the name it is written with"
 )]
-#[ignore = "flipped by T14"]
 #[tokio::test]
 async fn a_spec_blocks_lens_is_at_its_string() {
     let (mut client, uri, _dir) =
