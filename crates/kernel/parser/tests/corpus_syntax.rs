@@ -107,9 +107,11 @@ fn every_repository_spec_parses_cleanly() {
         .iter()
         .filter_map(|path| {
             let source = std::fs::read_to_string(path).unwrap();
-            let (_, tree) = parse_incremental(&source, &path.to_string_lossy(), None);
-            let tree = tree?;
-            tree.root_node().has_error().then(|| {
+            let (file, tree) = parse_incremental(&source, &path.to_string_lossy(), None);
+            // A file read into no tree (too deep, a control character) is broken, not skipped.
+            let broken =
+                tree.is_none_or(|tree| tree.root_node().has_error()) || !file.errors.is_empty();
+            broken.then(|| {
                 path.strip_prefix(root)
                     .unwrap_or(path)
                     .display()
