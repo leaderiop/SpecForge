@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "9c44a73d70b6a36c46f1f02af0c35da1aab55bb3d094028b68e19db7720e96fa",
+  "artifact_sha256": "1c21374b4c63f75edb4f93c5608116af183173a3c302c5c1465491eb86f92a95",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "c7f3d62bc5883894cde14340dcdc9562c35d0adaf9223b0246552ed27401a4fe",
@@ -9,12 +9,12 @@
     "crates/leaf/cycles/Cargo.toml": "acca8d0cd53845b5ee733c9a90ec393e743a8bee2d4bc99f2e4255704014e70b",
     "crates/leaf/cycles/src/lib.rs": "18b6d9b085c507c2f0e52c1011d2d92526ac2e0e3f459d282d086ed5f497a920",
     "crates/leaf/protocol-types/Cargo.toml": "c49e26358223169c357b4157ada37addc7bc97ae7b10e07198748faf5b3f94aa",
-    "crates/leaf/protocol-types/src/calls.rs": "f89f21d2b55ebba843d01fb76850fd524d20e9b0abc398f17b51ff9ed65f35b0",
+    "crates/leaf/protocol-types/src/calls.rs": "a8e29eab0e6d3ab04007caae3227135db1f7c779c508b6687bdfd235eef1d951",
     "crates/leaf/protocol-types/src/command_args.rs": "dfb15939e9da35bf8e321a7bb23c95e8bd3602ded60b392d3a1ac2f043c041a9",
     "crates/leaf/protocol-types/src/declaration.rs": "efbb1fe12cb0a26b393113206ecc96daefa0abf8869e58ea72d06fe5a0d8455c",
     "crates/leaf/protocol-types/src/lib.rs": "aafa9b40263bb40dfd3181e6525b3271c40996db124c66d3662465ec8af11ae1",
     "crates/leaf/protocol-types/src/tool_input.rs": "29a67310cd116ce8b364b130acc5e2345072e3b2557fccc0d533e149d4e6bc9f",
-    "crates/leaf/protocol-types/src/vocabulary.rs": "d090601151c77802f2f88c9fcb9d20f9fa80cec768425bfe82b0459d1449fec1",
+    "crates/leaf/protocol-types/src/vocabulary.rs": "fe10c8c6592f10bcbb3a62cff802246032b63d793474e6e3cbcfc6e9fb981ea3",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "70231526688ecc7713ccbe939274357bcbde82acb2050374351e7e43b187a499",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "11c06a2b2b7f74e997224fc41d7a80ddd6ef429814438d8b9e825fd78fc58972",
@@ -28,10 +28,10 @@
     "extensions/formal/Cargo.lock": "be455f964cd51ed565ace3954f03bdf5ef9989e91101c111d72b0cc8929c9dac",
     "extensions/formal/Cargo.toml": "b08caa0960330830b646a92334ea52e7f8107517f65c70c0bcb44ae27ddcc2f1",
     "extensions/formal/src/conditions.rs": "461be0847cda870b246d0f4296968128a3c5dc4325ee7ec2829284b59af7c113",
-    "extensions/formal/src/coverage_tracking.rs": "f3b3fc1736c866bf8e2f452644df71929f640872ac0f83a1a6b1b859998a0992",
+    "extensions/formal/src/coverage_tracking.rs": "f2008111484b955800b8da3b2bea70435f5abf73e6ce6602de2094dc1a4134ab",
     "extensions/formal/src/declaration.rs": "45357620aaa11c3e191339edba01249ea247c11b6985a45be4569c228f095d74",
     "extensions/formal/src/event_graph.rs": "52462bc35397e5664f00be833960b15360d0854a519d22f4170e4b0899092e7a",
     "extensions/formal/src/layering.rs": "587368684fab8f24ccb52fe0b92ae18b8101c6f5697904bc5aa7880f5c7f70a0",
-    "extensions/formal/src/lib.rs": "76c70fb52a8015cd70c23f2eb7125558971440f03476f1c7b4144f16dc27915e"
+    "extensions/formal/src/lib.rs": "4a3dca8e2fb7b1710cf1fd9d6dac2f417c8cb2dbd78703325bf2e67b2a601263"
   }
 }
