@@ -311,20 +311,9 @@
         },
         {
           "default_value": null,
-          "description": "Kind of artifact produced",
+          "description": "Kind of artifact produced: one word, for example cli, service, library, web_app, mobile_app, api, extension, documentation, package, physical_product, media, event, training",
           "edge": null,
-          "enum_values": [
-            "cli",
-            "service",
-            "library",
-            "web_app",
-            "mobile_app",
-            "api",
-            "extension",
-            "documentation",
-            "package"
-          ],
-          "field_type": "enum",
+          "field_type": "identifier",
           "file_reference": false,
           "inverse_of": null,
           "name": "artifact_type",
@@ -648,7 +637,7 @@
       "fields": [
         {
           "default_value": null,
-          "description": "Category or family this module belongs to; the standard ones are core, platform, extension, integration, advisory",
+          "description": "Category or family this module belongs to: one word, for example core, platform, extension, integration, advisory, workstream",
           "edge": null,
           "field_type": "identifier",
           "file_reference": false,
@@ -920,17 +909,9 @@
         },
         {
           "default_value": null,
-          "description": "How users interact through this channel",
+          "description": "How users interact through this channel: one word, for example request_response, event_driven, batch, streaming, bidirectional, manual, in_person, self_service, broadcast",
           "edge": null,
-          "enum_values": [
-            "request_response",
-            "event_driven",
-            "batch",
-            "streaming",
-            "bidirectional",
-            "manual"
-          ],
-          "field_type": "enum",
+          "field_type": "identifier",
           "file_reference": false,
           "inverse_of": null,
           "name": "interaction_model",

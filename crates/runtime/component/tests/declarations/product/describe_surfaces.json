@@ -170,22 +170,8 @@
               "required": false
             },
             {
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "cli",
-                    "service",
-                    "library",
-                    "web_app",
-                    "mobile_app",
-                    "api",
-                    "extension",
-                    "documentation",
-                    "package"
-                  ]
-                }
-              },
-              "description": "Only deliverables with this artifact type",
+              "arg_type": "string",
+              "description": "Only deliverables of this artifact type, as written",
               "name": "artifact_type",
               "required": false
             },
@@ -317,7 +303,7 @@
           "args": [
             {
               "arg_type": "string",
-              "description": "Only modules of this family, standard or not",
+              "description": "Only modules of this family, as written",
               "name": "family",
               "required": false
             },
@@ -508,19 +494,8 @@
               "required": false
             },
             {
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "request_response",
-                    "event_driven",
-                    "batch",
-                    "streaming",
-                    "bidirectional",
-                    "manual"
-                  ]
-                }
-              },
-              "description": "Only channels with this interaction model",
+              "arg_type": "string",
+              "description": "Only channels of this interaction model, as written",
               "name": "interaction_model",
               "required": false
             },

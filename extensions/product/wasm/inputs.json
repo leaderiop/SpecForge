@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_product.wasm",
-  "artifact_sha256": "82cb83184364e241d0f6b0f948a893ccee382587eb57792a93064559ec05c07d",
+  "artifact_sha256": "ec2576c77cbf9358e6d6fbacca225a766ed42be9d3bee0375e8c02177dcb4526",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "c7f3d62bc5883894cde14340dcdc9562c35d0adaf9223b0246552ed27401a4fe",
@@ -12,13 +12,13 @@
     "crates/leaf/protocol-types/src/calls.rs": "a8e29eab0e6d3ab04007caae3227135db1f7c779c508b6687bdfd235eef1d951",
     "crates/leaf/protocol-types/src/command_args.rs": "dfb15939e9da35bf8e321a7bb23c95e8bd3602ded60b392d3a1ac2f043c041a9",
     "crates/leaf/protocol-types/src/declaration.rs": "efbb1fe12cb0a26b393113206ecc96daefa0abf8869e58ea72d06fe5a0d8455c",
-    "crates/leaf/protocol-types/src/lib.rs": "aafa9b40263bb40dfd3181e6525b3271c40996db124c66d3662465ec8af11ae1",
+    "crates/leaf/protocol-types/src/lib.rs": "17f5002014c27881167fb67d36922d75a3fb27a434355bafd68cd8f162aa1115",
     "crates/leaf/protocol-types/src/tool_input.rs": "29a67310cd116ce8b364b130acc5e2345072e3b2557fccc0d533e149d4e6bc9f",
     "crates/leaf/protocol-types/src/vocabulary.rs": "fe10c8c6592f10bcbb3a62cff802246032b63d793474e6e3cbcfc6e9fb981ea3",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "70231526688ecc7713ccbe939274357bcbde82acb2050374351e7e43b187a499",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
     "crates/runtime/extension-sdk/Cargo.toml": "11c06a2b2b7f74e997224fc41d7a80ddd6ef429814438d8b9e825fd78fc58972",
-    "crates/runtime/extension-sdk/src/builders.rs": "d8a8a5cb7c23fb09443c861cfc322b8b93cb9cead626f9e84dcb568cf73803ae",
+    "crates/runtime/extension-sdk/src/builders.rs": "b2e4eb8646d9895e5b9a8eb2913bbf343132597750b44ed15fd2b23463fc8c6e",
     "crates/runtime/extension-sdk/src/command_graph.rs": "e88d26d3134c7591aa1afeee1f432ecdf0437a191c23b5d2eb50a50a0b7e5562",
     "crates/runtime/extension-sdk/src/guest.rs": "d1805a20fb3cb635e1765026c31cfa7e9d14716573bcb39f8519f91d7a0d3466",
     "crates/runtime/extension-sdk/src/lib.rs": "92d9515b52fad3c8f3064c3c73ce7901febd853271e13ea40c56ab58727f81e4",
@@ -40,8 +40,8 @@
     "extensions/product/src/commands/traceability.rs": "a73b9b5baf403514eb3600a967dca2d73e96bdd53d09c9dab1d11a3b2290439f",
     "extensions/product/src/declaration.rs": "7feedf6ccd4da7bb25312309b8181bd738746fd982b8479b4e044fc7c9a6ce43",
     "extensions/product/src/declaration/edges.rs": "25a83b365c0cc866944f8b9b22120d1b79d0956f0b42203c1d6ae9c68e6dadd4",
-    "extensions/product/src/declaration/kinds.rs": "818ca9553a592c6048d189192135214b662af53794e22db8663cffc1404eb797",
-    "extensions/product/src/declaration/rules.rs": "d578b891f6c1cdb89c0ce8bcb617153d6998de92add547bcdc9e3fe9823af654",
+    "extensions/product/src/declaration/kinds.rs": "212836ffea94a6f109b00a39195d91cccb8a986e1ba170b2c10da24ea33eaac1",
+    "extensions/product/src/declaration/rules.rs": "42921f780b8779954786b1b9a26d1139a9019b7cc091efdaec6b3a44222860ec",
     "extensions/product/src/evidence.rs": "39742c4a2367e5154c393aaae5387590d882ed06aec8628d0b413dedead64c25",
     "extensions/product/src/lib.rs": "d099963e7f934617ba0feb25b2aec447c8dce5b8ee425eee00d4bf01c1b8a902",
     "extensions/product/src/lifecycle.rs": "c78fd4740c51eac6c3ab325e5124c958b508b012a7fdba05535347fa10c27cd4",
@@ -50,13 +50,13 @@
     "extensions/product/src/queries/dates_and_effort.rs": "43094c05da0c4c7fb161f079ea06520ca78740d848d7649adebfcc2a8cd93de2",
     "extensions/product/src/queries/dependency_graphs.rs": "7207b0ca0171aca33dba14ce1aba640c363ae7369282b574023aa25eac36a523",
     "extensions/product/src/queries/features.rs": "7485b6166574759d8ddf52b9f01ea52dea39c3245b84be333b0aac7a44d84075",
-    "extensions/product/src/queries/lists.rs": "f6b6ff3dbc1b58a2922cecde4744c43cbe5e0959b113e6ff46cfe0b1ffb0d38d",
+    "extensions/product/src/queries/lists.rs": "3be4acac77cbfd32dc31854f115cd55b9ce08ce7ae09d69482638f08e62badb6",
     "extensions/product/src/queries/milestones.rs": "d55c739acbdd283c4b76cc90c3bb4684a174ff4aa35a3673a0de741dc9ec1142",
     "extensions/product/src/queries/project_wide.rs": "c9c5316c3edba0023ce33db784d6265e9dbff28bb81dcf08a0d5469db1ff7b4b",
     "extensions/product/src/queries/rollups.rs": "bdb61dc00eca9a663cee29f4586ee5c8b9086000e49c85893fd7d8179b98d064",
     "extensions/product/src/queries/term_analytics.rs": "fd3256fbfcf4c5b8618f46f53b0b2aa9e79b0314913305d09fb0957452885ccc",
     "extensions/product/src/queries/traceability.rs": "1bd6230c8e9b5c3e5ed0ee35e2f95ef07dc0ca374061a2e587d901b28f2379e6",
     "extensions/product/src/starter.spec": "dee8e4435fca8f6ab0efd89f909fe5638fb7f7be7770bfa254f60ac8645910a4",
-    "extensions/product/src/vocabulary.rs": "29c635fc046cde1edfea18c0afdd0eb1e3d3f42fef28e22de2cf90a0b051ecbb"
+    "extensions/product/src/vocabulary.rs": "25b63ab787dc65b6c8b0d1775db3178dd25f61bf83846e7abb02d638fe7ed639"
   }
 }
