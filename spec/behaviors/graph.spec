@@ -121,6 +121,7 @@ behavior link_derived_references "Link Derived References" {
     field_type_names_linked       "every name in the entity's type-syntax field values that resolves to an entity of the field's target kind gets an edge labelled with the field"
     method_signature_names_linked "every name in the entity's method parameter and return types that resolves to an entity of the field's target kind gets an edge labelled with the field"
     unresolved_names_unlinked     "a primitive, a generic wrapper or an undeclared name creates no edge"
+    unknown_names_reported        "a name written as a type that is no primitive and names no entity of the field's target kind is E004 at the name"
     derived_names_found           "every name a derived edge is derived from is a token the graph's finder reads"
   }
   contract   """
@@ -145,8 +146,9 @@ behavior link_derived_references "Link Derived References" {
     resolves to an entity of the field's target kind, other than the
     entity itself, gets one edge labelled with the field's name. A
     primitive, a generic wrapper or an undeclared name resolves to nothing
-    and creates no edge; reporting undeclared names stays with the
-    extension that owns the kind (E004).
+    and creates no edge. An undeclared name is E004, the host's, at the
+    name; a primitive (the host's one list) or the entity's own id is not
+    (ADR 0282 D1).
 
     The core names no kind here (zero_domain_knowledge_core): which kinds
     derive edges, from where and to which kind comes only from the fields
@@ -158,6 +160,8 @@ behavior link_derived_references "Link Derived References" {
   """
   verify unit "a name in a type-syntax field value links through the derived field"
   verify unit "a name in a method parameter or return type links through the derived field"
+  verify unit "a member, a union variant or a method type naming no type is E004 at the name"
+  verify unit "a primitive, a container or a declared type is no E004"
   verify unit "a primitive, a generic wrapper or an undeclared name creates no edge"
   verify unit "a name that resolves to an entity of another kind creates no edge"
   verify unit "quoted strings and single-reference fields derive no edge"
