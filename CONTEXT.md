@@ -356,7 +356,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   version requirements and peer ranges is `specforge-package` (ADR 0050).
 - **SDK version**: the workspace version, which `specforge-extension-sdk`, its macros, the guest wire and the CLI
   share. `extension init` names it, and a release publishes the three guest crates at it before its tag (ADR 0238).
-  Not the protocol version, which the handshake states and `extension validate` reports.
+  Not the protocol version, which the handshake states and `extension validate` reports. A build after the last release
+  names a version crates.io may not have yet: `extension build` says so (E040) and names the `[patch.crates-io]`
+  recipe (ADR 0277).
+- **Extension scaffold**: the crate `specforge extension init` writes in `<dir>/<last segment of the name>`: a
+  workspace of its own, naming the SDK at the SDK version, building unedited (ADR 0238, ADR 0277).
 - **Committed blob**: a wasm component the repository commits, at `<crate>/wasm/<artifact>` with the `inputs.json` its
   build recorded: a builtin (`extensions/<name>`, embedded in the host), a test fixture (`fixtures/<name>`) or an
   example project's own extension (`examples/<name>/extension`). Listed
