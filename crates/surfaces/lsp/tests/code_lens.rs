@@ -71,6 +71,32 @@ async fn a_lens_counts_what_the_compile_reads() {
     );
 }
 
+#[spec(
+    behavior = "entity_code_lens",
+    verify = "a spec block's lens is at its string, the name it is written with"
+)]
+#[ignore = "flipped by T14"]
+#[tokio::test]
+async fn a_spec_blocks_lens_is_at_its_string() {
+    let (mut client, uri, _dir) =
+        Session::with_extensions(&[], "a.spec", "spec \"p\" {\n  version \"0.1.0\"\n}\n").await;
+    let reply = client
+        .request(
+            "textDocument/codeLens",
+            json!({"textDocument": {"uri": uri}}),
+        )
+        .await;
+    let lenses = reply["result"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{reply}"));
+    assert_eq!(lenses.len(), 1, "{reply}");
+    assert_eq!(
+        lenses[0]["range"],
+        json!({"start": {"line": 0, "character": 5}, "end": {"line": 0, "character": 8}}),
+        "{reply}"
+    );
+}
+
 /// A server with no project whose client declared `lens_refresh`, `lens.spec` open and compiled.
 fn lensing(lens_refresh: bool) -> Served {
     let mut served = Served::detached().client(ClientSupport {
