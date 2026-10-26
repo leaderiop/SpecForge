@@ -63,8 +63,8 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     top-level form of the grammar (an import, a spec, ref, define, union or
     entity block), as the lexer's form-start rule reads it; the text is read
     through the lexer (lex_spec_text), so a
-    backslash before a line break leaves a string unclosed, as the grammar
-    reads it. A body left unclosed ends, missing its closing brace, where
+    backslash before a line break (a CR LF too) leaves a string unclosed, as
+    the grammar reads it. A body left unclosed ends, missing its closing brace, where
     the next line starts a top-level form indented no deeper than the form
     the body opened, whatever member was being typed in it (a field's name
     with no value, an open bracket); the grammar's scanner ends it there

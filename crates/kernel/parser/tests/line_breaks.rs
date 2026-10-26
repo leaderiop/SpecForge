@@ -80,7 +80,6 @@ fn an_escaped_cr_and_a_lone_cr_inside_a_quoted_text_stay_a_cr() {
     behavior = "recover_from_syntax_errors",
     verify = "a backslash before a line break leaves a string unclosed, as the grammar reads it"
 )]
-#[ignore = "flipped by T4"]
 fn a_backslash_before_a_cr_lf_leaves_the_string_unclosed() {
     let source = "behavior a \"A\" {\r\n  contract \"line one \\\r\n  line two\"\r\n}\r\n\r\nbehavior b \"B\" {\r\n  contract \"fine\"\r\n}\r\n";
     let result = parse(source, "test.spec");
