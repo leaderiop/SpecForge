@@ -24,6 +24,8 @@ impl<'a> ParseContext<'a> {
             obligation_spans: body.obligation_spans,
             doc_span: None,
             body_comments: body.comments,
+            trailing_comments: body.trailing,
+            value_comments: body.inside,
         });
     }
 
@@ -49,6 +51,8 @@ impl<'a> ParseContext<'a> {
             obligation_spans: body.obligation_spans,
             doc_span: None,
             body_comments: body.comments,
+            trailing_comments: body.trailing,
+            value_comments: body.inside,
         });
     }
 
@@ -71,13 +75,16 @@ impl<'a> ParseContext<'a> {
             fields.push(Sym::new("identifier"), FieldValue::String(identifier));
         }
 
-        let mut body_comments = Vec::new();
+        let (mut body_comments, mut trailing_comments, mut value_comments) =
+            (Vec::new(), Vec::new(), Vec::new());
         if inner.kind() == kind::REF_FULL {
             let body = self.parse_block_body(inner);
             for entry in body.fields.entries() {
                 fields.push_entry(entry.clone());
             }
             body_comments = body.comments;
+            trailing_comments = body.trailing;
+            value_comments = body.inside;
         }
 
         self.entities.push(Entity {
@@ -97,6 +104,8 @@ impl<'a> ParseContext<'a> {
             obligation_spans: Vec::new(),
             doc_span: None,
             body_comments,
+            trailing_comments,
+            value_comments,
         });
     }
 
@@ -154,6 +163,8 @@ impl<'a> ParseContext<'a> {
             obligation_spans: Vec::new(),
             doc_span: None,
             body_comments: Vec::new(),
+            trailing_comments: Vec::new(),
+            value_comments: Vec::new(),
         });
     }
 
@@ -177,6 +188,8 @@ impl<'a> ParseContext<'a> {
             obligation_spans: body.obligation_spans,
             doc_span: None,
             body_comments: body.comments,
+            trailing_comments: body.trailing,
+            value_comments: body.inside,
         });
     }
 

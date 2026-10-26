@@ -76,6 +76,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
         ],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -145,6 +147,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
         obligation_spans: [],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -230,6 +234,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
         obligation_spans: [],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
     Entity {
         kind: EntityKind {
@@ -310,5 +316,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
         ],
         doc_span: None,
         body_comments: [],
+        trailing_comments: [],
+        value_comments: [],
     },
 ]

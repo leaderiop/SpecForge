@@ -207,6 +207,10 @@ struct ParseContext<'a> {
     /// The own-line comments of the block body being read, nested block fields' included; taken by the block that
     /// reads them.
     body_comments: Vec<SourceSpan>,
+    /// The comments ending the row of the item before them in the block body being read, taken likewise.
+    trailing_comments: Vec<SourceSpan>,
+    /// The comments inside a member's value of the block body being read, taken likewise.
+    value_comments: Vec<SourceSpan>,
 }
 
 /// Whether `comment` starts its own line: one on the row where the item before it ends (`trailed`) trails it.
@@ -227,6 +231,8 @@ impl<'a> ParseContext<'a> {
             errors: Vec::new(),
             comments: Vec::new(),
             body_comments: Vec::new(),
+            trailing_comments: Vec::new(),
+            value_comments: Vec::new(),
         }
     }
 
