@@ -310,6 +310,7 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
   verify unit "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
   verify unit "a retired code names the code that replaced it"
   verify unit "an uncatalogued code is an invalid_input error"
+  verify unit "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {

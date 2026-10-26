@@ -26,6 +26,7 @@ mod edit;
 mod edit_obligations;
 mod expected_publisher;
 mod explain;
+mod explain_declared;
 mod export;
 mod export_markdown;
 mod export_version;

@@ -729,6 +729,7 @@ behavior explain_diagnostic_code "Explain a Diagnostic Code" {
   verify integration "specforge explain --format json prints the document specforge.explain answers"
   verify unit "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
   verify unit "an uncatalogued code is refused with unknown_code on both surfaces"
+  verify integration "in a project, specforge explain explains a code its loaded extensions' rules declare and the catalog does not have: the code, its level and each rule with its extension"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

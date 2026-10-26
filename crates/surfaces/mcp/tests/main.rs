@@ -11,6 +11,7 @@ mod contracts;
 mod entity_members;
 mod event_spec;
 mod events;
+mod explain_declared;
 mod export_markdown;
 mod failure_kinds;
 mod fake_extension;
