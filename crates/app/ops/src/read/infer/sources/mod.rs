@@ -10,7 +10,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 
 use super::manifest::{InferenceManifest, SourceFileEntry};
 use crate::source_key::SourceKey;
-use crate::{Containment, ReadFailure};
+use crate::{Containment, Outside, ReadFailure};
 
 /// Directories inference skips beyond the shared walk's own list.
 const INFERENCE_SKIP: &[&str] = &["__pycache__", "vendor"];
@@ -100,6 +100,11 @@ impl ProjectFiles {
         ProjectFiles {
             held: Containment::within(root),
         }
+    }
+
+    /// Whether `key` names a directory held inside the project root; `Outside` when it lands elsewhere.
+    pub(crate) fn directory(&self, key: &str) -> Result<bool, Outside> {
+        Ok(self.held.resolve(Path::new(key))?.real.is_dir())
     }
 
     /// The file at `key`, read once through its held name.

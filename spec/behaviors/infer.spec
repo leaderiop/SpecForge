@@ -121,8 +121,11 @@ behavior start_inference_session "Start Inference Session" {
     Create a new InferenceSession with a generated UUID, status=active,
     started_at=now(), and the provided agent identifier. If another session
     already has status=active, return an error — only one active session
-    is allowed. Append the session to the manifest's sessions array and
-    save the manifest.
+    is allowed. Each source root is read as a source-code path is
+    (read_a_named_source_path) and MUST be a directory under the project
+    root: a file, or a path naming nothing on disk, is refused as invalid
+    input on source_roots and nothing is written. Append the session to the
+    manifest's sessions array and save the manifest.
   """
   verify unit "start creates session with active status"
   verify unit "start rejects when another session is active"
@@ -168,7 +171,7 @@ behavior mark_source_file_analyzed "Mark Source File as Analyzed" {
     (./src/a.rs and src\a.rs are src/a.rs). It is read from the project root
     as a named spec file is (its absolute path under the root is that path, a
     .. applied where it stands); one whose key lies outside the project root
-    is refused, as is a directory. The same rule applies to the source_roots a
+    is refused, as is a directory. The same key rule applies to the source_roots a
     start sets. Agents should call this AFTER specforge.validate succeeds.
     On validation failure: fix .spec errors, re-validate, then mark.
   """

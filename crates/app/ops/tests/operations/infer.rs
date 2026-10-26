@@ -444,7 +444,6 @@ fn a_source_root_outside_the_root_is_refused() {
     behavior = "start_inference_session",
     verify = "start refuses a source root that is not a directory under the project root, and writes nothing"
 )]
-#[ignore = "flipped by T10"]
 fn a_source_root_that_is_no_directory_is_refused() {
     let project = project(None, serde_json::json!({}));
     for root in ["src/tiny.rs", "nope"] {
