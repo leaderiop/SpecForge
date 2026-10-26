@@ -64,7 +64,6 @@ fn set_of_a_value_holding_a_comment_to_another_is_refused_naming_its_entity_and_
     behavior = "edit_entity_link",
     verify = "link and unlink keep the comment trailing the list"
 )]
-#[ignore = "flipped by T5"]
 fn link_and_unlink_keep_the_comment_trailing_the_list() {
     let c = tasks();
     let linked = after(
@@ -95,7 +94,6 @@ fn link_and_unlink_keep_the_comment_trailing_the_list() {
     behavior = "edit_entity_link",
     verify = "a link to a target already there writes nothing, whatever comment the list holds"
 )]
-#[ignore = "flipped by T5"]
 fn a_link_to_a_target_already_there_writes_nothing_whatever_comment_the_list_holds() {
     let c = tasks();
     for id in ["complete_task", "list_tasks"] {
@@ -113,7 +111,6 @@ fn a_link_to_a_target_already_there_writes_nothing_whatever_comment_the_list_hol
     behavior = "delete_entity",
     verify = "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
 )]
-#[ignore = "flipped by T5"]
 fn delete_through_a_list_holding_a_comment_is_refused_naming_the_referrer_and_its_file() {
     let c = tasks();
     let edit = Edit::Delete {

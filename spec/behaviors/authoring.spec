@@ -140,7 +140,8 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   contract   """
     A link edit adds a target to a list field and keeps the items as written;
     an unlink edit removes it, and removes the field when the last item goes.
-    A link to a target already there changes nothing. A list written as one value is its one item. A field a block inherits
+    A link to a target already there changes nothing, whatever comment the list holds; a comment trailing the list stays on its
+    row, and a link or unlink that changes a list holding a comment inside it is refused as a set of it is. A list written as one value is its one item. A field a block inherits
     from its file's defaults is copied into an own field before it changes, as
     the earlier edits of the list left the file, and an own field that holds what the default holds, as the graph stores both, is removed. A link or unlink
     takes a whole list field: a `field.entry` path names an entry of a block field, which holds one text, and is
@@ -211,6 +212,7 @@ behavior delete_entity "Delete an Entity" {
     is written.
     A use binding that imports the entity is removed, its statement with it
     when it was the last (ADR 0233).
+    A referrer's list holding a comment inside it refuses the delete as not_editable, naming the referrer and its file.
   """
   verify unit "delete removes the block and the comment above it"
   verify unit "delete keeps the format header above the block"

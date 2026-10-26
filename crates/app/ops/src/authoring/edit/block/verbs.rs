@@ -8,7 +8,6 @@ use super::{Block, Items, Site, items_of, list_text, unreadable};
 use crate::Refusal;
 use specforge_graph::field_form::{Reading, spell};
 use specforge_parser::FieldValue;
-use specforge_parser::lex::{LexemeKind, lex};
 use specforge_protocol_types::FieldType;
 
 fn finish_edit(
@@ -213,16 +212,6 @@ pub fn link(
                 _ => Change::Unchanged,
             });
         };
-        if let Some(span) = held.own().and_then(|e| e.value_span.as_ref())
-            && lex(&block.lines[span.start_line - 1..span.end_line].join("\n"))
-                .iter()
-                .any(|l| l.kind == LexemeKind::Comment)
-        {
-            return Err(not_editable(
-                EditField::Field,
-                format!("'{field}' holds a comment; edit it by hand"),
-            ));
-        }
         let present = items.texts.iter().any(|t| t == target);
         if add == present {
             return Ok(Change::Unchanged);
