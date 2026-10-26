@@ -784,10 +784,10 @@ fn init_adds_the_requested_extensions_to_the_config() {
                "extensions": ["@specforge/software"]}),
     );
 
-    // Software's test obligations come from @specforge/testing (ADR 0002).
+    // Software's test obligations come from @specforge/testing (ADR 0002), its rules from governance.
     assert_eq!(
-        read_config(dir.path())["extensions"],
-        json!(["@specforge/software", "@specforge/testing"])
+        read_config(dir.path())["extensions"].to_string(),
+        r#"["@specforge/software","@specforge/testing","@specforge/governance"]"#
     );
 }
 
@@ -806,12 +806,8 @@ fn init_extensions_in_result() {
     );
 
     assert_eq!(
-        parsed["extensions_installed"],
-        json!([
-            "@specforge/software",
-            "@specforge/product",
-            "@specforge/testing"
-        ])
+        parsed["extensions_installed"].to_string(),
+        r#"["@specforge/software","@specforge/product","@specforge/testing","@specforge/governance"]"#
     );
     assert_eq!(parsed["starter_file"], "spec/hello.spec");
 }

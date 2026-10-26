@@ -294,7 +294,8 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
         [
             "@specforge/software",
             "@specforge/formal",
-            "@specforge/testing"
+            "@specforge/testing",
+            "@specforge/governance"
         ]
     );
     let starter = std::fs::read_to_string(scratch.path().join("formal/spec/hello.spec")).unwrap();
@@ -496,7 +497,8 @@ fn init_enables_the_builtins_a_local_file_requires() {
         [
             "@specforge/software",
             "@probe/needs-software",
-            "@specforge/testing"
+            "@specforge/testing",
+            "@specforge/governance"
         ]
     );
     let compiled = compile_at(&dir, Some(Arc::new(runtime)));
@@ -606,6 +608,7 @@ fn init_writes_the_entries_its_plan_judged() {
         "@specforge/software",
         "@specforge/formal",
         "@specforge/testing",
+        "@specforge/governance",
     ];
     assert_eq!(outcome.extensions, expected);
     assert_eq!(written["extensions"], serde_json::json!(expected));

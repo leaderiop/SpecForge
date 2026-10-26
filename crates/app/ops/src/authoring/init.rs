@@ -213,8 +213,10 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     let mut plan = LockPlan::initializing(&installed, runtime, req.caller, document);
     // Test obligations (`verify`) on software kinds come from @specforge/testing (ADR 0002), so
     // enabling software enables it too; the project's test runners get the extensions that
-    // collect their results. The plan reads its companions when it is checked.
+    // collect their results. The plan reads its companions when it is checked. The rules a
+    // software project states, `invariant`, are governance's (ADR 0280).
     plan.accompany("@specforge/software", "@specforge/testing");
+    plan.accompany("@specforge/software", "@specforge/governance");
     for runner in detected_runners(req.dir, &req.caller.containment().narrowed(req.dir)) {
         plan.accompany("@specforge/testing", runner);
     }
@@ -528,23 +530,27 @@ mod tests {
     fn init_refuses_a_required_builtin_peer_the_embedded_one_does_not_satisfy() {
         use crate::testing::{candidates, serving_builtin};
         // formal wants software ^2.0; the software this specforge embeds is 1.0.0. (Init also
-        // enables testing beside software.)
+        // enables testing and governance beside software.)
         let runtime = serving_builtin(
             serving_builtin(
                 serving_builtin(
-                    candidates(),
-                    "@specforge/formal",
-                    declaring(
+                    serving_builtin(
+                        candidates(),
                         "@specforge/formal",
-                        "1.0.0",
-                        &[("@specforge/software", "^2.0", false)],
+                        declaring(
+                            "@specforge/formal",
+                            "1.0.0",
+                            &[("@specforge/software", "^2.0", false)],
+                        ),
                     ),
+                    "@specforge/software",
+                    declaring("@specforge/software", "1.0.0", &[]),
                 ),
-                "@specforge/software",
-                declaring("@specforge/software", "1.0.0", &[]),
+                "@specforge/testing",
+                declaring("@specforge/testing", "1.0.0", &[]),
             ),
-            "@specforge/testing",
-            declaring("@specforge/testing", "1.0.0", &[]),
+            "@specforge/governance",
+            declaring("@specforge/governance", "1.0.0", &[]),
         );
         let target = tempfile::tempdir().unwrap();
         let dir = target.path().join("demo");

@@ -174,10 +174,15 @@ pub fn probes() -> InProcessRuntime {
         "@specforge/software",
         declaring("@specforge/software", "1.0.0", &[]),
     );
-    serving_builtin(
+    let runtime = serving_builtin(
         runtime,
         "@specforge/testing",
         declaring("@specforge/testing", "1.0.0", &[]),
+    );
+    serving_builtin(
+        runtime,
+        "@specforge/governance",
+        declaring("@specforge/governance", "1.0.0", &[]),
     )
 }
 
