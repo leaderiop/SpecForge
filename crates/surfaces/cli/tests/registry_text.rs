@@ -6,6 +6,7 @@
 
 use crate::support::Cli;
 use crate::support::registry::project_on;
+use specforge_registry_server::db::PackageVersion;
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_test_macros::test as specforge_test;
 
@@ -15,17 +16,35 @@ const ODD: &str = "nice \u{1b}[2J\u{1b}]0;pwned\u{7}";
 /// A registry holding a hit that is no package name and `@sdk/good` described as [`ODD`].
 fn serve_hostile() -> LocalRegistry {
     let registry = LocalRegistry::start();
-    for (name, version, description) in [(HOSTILE_NAME, "9.9.9", "x"), ("@sdk/good", "1.0.0", ODD)]
-    {
-        let manifest = serde_json::json!({"handshake": {
-            "protocol_version": "1.0.0", "name": name, "version": version,
-            "description": description, "peer_dependencies": [], "sandbox_policy": null,
-        }})
-        .to_string();
-        let metadata =
-            specforge_registry_client::testing::package(name, version, b"\0asm", &manifest, None);
-        registry.store(&metadata, b"\0asm");
-    }
+    // A row from before ADR 0036: no `PackageMetadata` can hold its name.
+    registry.store_row(
+        &PackageVersion {
+            name: HOSTILE_NAME.into(),
+            version: "9.9.9".into(),
+            sha256: specforge_package::Sha256::of(b"\0asm").to_string(),
+            size_bytes: 0,
+            description: "x".into(),
+            keywords: String::new(),
+            publisher: String::new(),
+            published_at: String::new(),
+            signature: None,
+            manifest: String::new(),
+        },
+        b"\0asm",
+    );
+    let manifest = serde_json::json!({"handshake": {
+        "protocol_version": "1.0.0", "name": "@sdk/good", "version": "1.0.0",
+        "description": ODD, "peer_dependencies": [], "sandbox_policy": null,
+    }})
+    .to_string();
+    let metadata = specforge_registry_client::testing::package(
+        "@sdk/good",
+        "1.0.0",
+        b"\0asm",
+        &manifest,
+        None,
+    );
+    registry.store(&metadata, b"\0asm");
     registry
 }
 
