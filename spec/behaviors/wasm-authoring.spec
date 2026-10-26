@@ -81,6 +81,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
   verify unit "build errors reported as ExtensionError diagnostics"
   verify unit "specforge extension build validates project structure exists"
   verify unit "specforge extension build with a relative --dir reads the component it built"
+  verify unit "a build whose SDK does not resolve says so and names how to build against an unreleased SDK"
   verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 }
 
