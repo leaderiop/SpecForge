@@ -266,56 +266,6 @@ feature accepted "Accepted" {
 }
 
 #[specforge_test(
-    behavior = "validate_module_family_field",
-    verify = "module with family=core passes"
-)]
-#[specforge_test(
-    behavior = "validate_module_family_field",
-    verify = "module with family=integration passes"
-)]
-#[specforge_test(
-    behavior = "validate_module_family_field",
-    verify = "module with family=advisory passes"
-)]
-#[specforge_test(
-    behavior = "validate_module_family_field",
-    verify = "module with non-standard family produces I062 listing the standard families"
-)]
-#[specforge_test(
-    behavior = "validate_module_family_field",
-    verify = "module with no family produces no I062"
-)]
-fn i062_reports_non_standard_module_families() {
-    let diags = product_diagnostics(
-        r#"
-module m_core "Core" {
-  family core
-}
-module m_integration "Integration" {
-  family integration
-}
-module m_advisory "Advisory" {
-  family advisory
-}
-module m_custom "Custom" {
-  family plugins
-}
-module m_none "None" {
-  description "no family"
-}
-"#,
-    );
-    for quiet in ["m_core", "m_integration", "m_advisory", "m_none"] {
-        assert_quiet(&diags, "I062", quiet);
-    }
-    assert_fires(&diags, "I062", "m_custom");
-    assert_eq!(
-        reported(&diags, "I062", "m_custom")[0],
-        "module 'm_custom' has non-standard family 'plugins' — standard families: core, platform, extension, integration, advisory"
-    );
-}
-
-#[specforge_test(
     behavior = "validate_deliverable_version_format",
     verify = "deliverable with valid semver version passes"
 )]

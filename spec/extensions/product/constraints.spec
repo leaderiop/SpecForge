@@ -61,7 +61,6 @@ constraint product_validation_latency "Product Validation Latency" {
     detect_deferred_feature_without_reason,
     detect_blocked_milestone_without_reason,
     validate_deliverable_version_format,
-    validate_module_family_field,
     detect_done_feature_with_incomplete_deps,
     detect_milestone_temporal_inconsistency,
     detect_modules_with_no_features,

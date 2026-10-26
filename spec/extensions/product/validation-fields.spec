@@ -81,39 +81,6 @@ behavior accept_a_projects_own_words "Accept a Project's Own Words" {
   verify unit "check and the lists take a project's own words for an artifact type, an interaction model and a family"
 }
 
-behavior validate_module_family_field "Validate Module Family Field" {
-  category validation
-  types    [Diagnostic, ProductModule, ModuleFamily]
-  contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    one_of rule on the module family field with the ModuleFamily members:
-    core, platform, extension, integration, advisory. A module whose family
-    is present and not one of them MUST produce an I062 info diagnostic:
-    "module '{id}' has non-standard family '{value}' — standard families:
-    {allowed}", {allowed} being the ModuleFamily members. Info-level allows
-    custom family values while suggesting standardization: the ModuleFamily
-    enum is an open set. A module with no family field produces nothing.
-
-    Enum semantics:
-      core        — fundamental library or framework component
-      platform    — user-facing binary (CLI, LSP, MCP server)
-      extension   — plugin or extension package
-      integration — integration adapter or bridge
-      advisory    — non-code module (docs, process, governance)
-  """
-  ensures {
-    fires_non_standard  "module with family value not in ModuleFamily enum produces I062"
-    suppresses_standard "module with family value in ModuleFamily enum suppresses I062"
-    absent_passes       "module with no family produces no I062"
-    lists_standard      "I062 names the value and lists the standard families"
-  }
-  verify unit "module with family=core passes"
-  verify unit "module with family=integration passes"
-  verify unit "module with family=advisory passes"
-  verify unit "module with non-standard family produces I062 listing the standard families"
-  verify unit "module with no family produces no I062"
-}
-
 behavior validate_milestone_target_date_format "Validate Milestone Target Date Format" {
   category validation
   types    [Diagnostic, ProductMilestone]
