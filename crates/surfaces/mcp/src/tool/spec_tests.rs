@@ -7,10 +7,11 @@ use crate::reply::Answer;
 use crate::reply::Answered;
 use crate::state::McpState;
 use crate::target::{Call, TargetSpec};
-use crate::target::{CallTarget, Unscoped};
+use crate::target::{CallTarget, NoProject, Reach, Serving, View, WithoutProject};
 use crate::testing::EventLog;
 use serde::Serialize;
 use specforge_common::shape::Shape;
+use specforge_ops::view::ProjectView;
 use specforge_ops::{Writes, Wrote};
 
 #[derive(Debug, Serialize, Shape)]
@@ -24,7 +25,7 @@ struct ProbeArgs {
     name: String,
 }
 
-/// A read probe: unscoped, a typed reply; its handler panics when it
+/// A read probe: a served view, a typed reply; its handler panics when it
 /// runs on "boom", so a call that never reaches it is shown.
 struct ReadProbe;
 
@@ -36,10 +37,10 @@ impl CoreTool for ReadProbe {
     };
     const SPEC: ReplySpec = ReplySpec::Type("McpProbe");
     type Args = ProbeArgs;
-    type Input = Unscoped;
+    type Input = View;
     type Returns = Answered<Probe>;
 
-    fn call(_: (), args: ProbeArgs) -> Answered<Probe> {
+    fn call(_: ProjectView<'_>, args: ProbeArgs) -> Answered<Probe> {
         assert_ne!(args.name, "boom", "the handler ran");
         Ok(Answer::new(Probe { name: args.name }))
     }
@@ -80,10 +81,10 @@ impl CoreTool for MutationProbe {
     };
     const SPEC: ReplySpec = ReplySpec::Type("McpProbeMutation");
     type Args = MutationProbeArgs;
-    type Input = Unscoped;
+    type Input = View;
     type Returns = Mutation<MutationProbeReply>;
 
-    fn call(_: (), args: MutationProbeArgs) -> Mutation<MutationProbeReply> {
+    fn call(_: ProjectView<'_>, args: MutationProbeArgs) -> Mutation<MutationProbeReply> {
         Ok(Mutated::new(
             Answer::new(MutationProbeReply { ok: true }),
             Written::of(Wrote::of(args.dry_run, Writes::none())),
@@ -101,7 +102,13 @@ fn a_core_tool_spec_is_derived_from_its_module() {
     assert_eq!(tool.description(), "A probe");
     assert_eq!(tool.category(), Category::Navigation);
     assert_eq!(tool.annotations(), read_only_annotations());
-    assert_eq!(tool.target(), TargetSpec::Unscoped);
+    assert_eq!(
+        tool.target(),
+        TargetSpec::Project {
+            reach: Reach::Served,
+            without: WithoutProject::EmptySession
+        }
+    );
     assert!(!tool.is_mutation());
     assert_eq!(tool.spec_reply(), ReplySpec::Type("McpProbe"));
     assert_eq!(tool.reads(), vec!["name"]);
@@ -125,7 +132,13 @@ fn a_core_tool_runs_its_handler_on_its_input() {
     let log = EventLog::new();
     let mut state = McpState::new();
     state.events = Box::new(log.clone());
-    let mut call = Call::new(&mut state, CallTarget::Unscoped);
+    let mut call = Call::new(
+        &mut state,
+        CallTarget::EmptySession(NoProject {
+            reach: Reach::Served,
+            serving: Serving::Adopts,
+        }),
+    );
 
     let outcome = tool.run(&mut call, &json!({"name": "a"}));
     let ToolOutcome::Done {
@@ -199,7 +212,13 @@ fn a_refused_mutation_reports_a_failed_mutation() {
     let log = EventLog::new();
     let mut state = McpState::new();
     state.events = Box::new(log.clone());
-    let mut call = Call::new(&mut state, CallTarget::Unscoped);
+    let mut call = Call::new(
+        &mut state,
+        CallTarget::EmptySession(NoProject {
+            reach: Reach::Served,
+            serving: Serving::Adopts,
+        }),
+    );
     let outcome = tool.run(&mut call, &json!({"dry_run": true}));
     let ToolOutcome::Done {
         payload: Payload::Json(reply),

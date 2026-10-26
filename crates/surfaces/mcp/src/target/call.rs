@@ -55,8 +55,6 @@ pub enum CallTarget {
     /// The directory `init` creates a project in, and whether the call may
     /// serve it once created.
     New { dir: PathBuf, serving: Serving },
-    /// The tool reads no project.
-    Unscoped,
     /// Nothing is served and the call names no project, for a target read
     /// over the empty session (a `Refused` one never resolves to it). The
     /// reach of the entry it was resolved for, and whether the call may
@@ -172,7 +170,7 @@ impl<'s> Call<'s> {
         match &self.target {
             CallTarget::Served => Some(self.state.session()),
             CallTarget::Other(session) => Some(session.as_ref()),
-            CallTarget::New { .. } | CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
+            CallTarget::New { .. } | CallTarget::EmptySession(_) => None,
         }
     }
 
@@ -233,8 +231,8 @@ impl<'s> Call<'s> {
             }
             CallTarget::EmptySession(refusal) => Err(no_project(*refusal)),
             // Only a project handler calls this, and its target never
-            // resolves to these.
-            CallTarget::New { .. } | CallTarget::Unscoped => Err(McpError::new(
+            // resolves to this.
+            CallTarget::New { .. } => Err(McpError::new(
                 ErrorCode::InternalError,
                 "this call has no project",
             )),
@@ -294,7 +292,7 @@ impl<'s> Call<'s> {
         match &self.target {
             CallTarget::New { dir, .. } => Some(dir),
             CallTarget::Served | CallTarget::Other(_) => self.session()?.project().root(),
-            CallTarget::Unscoped | CallTarget::EmptySession(_) => None,
+            CallTarget::EmptySession(_) => None,
         }
     }
 
@@ -331,7 +329,7 @@ impl<'s> Call<'s> {
                 }
                 Vec::new()
             }
-            CallTarget::Unscoped | CallTarget::EmptySession(_) => Vec::new(),
+            CallTarget::EmptySession(_) => Vec::new(),
         }
     }
 }
@@ -360,7 +358,6 @@ pub fn resolve(
     // (ADR 0033 D4): a `path` that is not a string is refused.
     let serving = Serving::of(revision);
     let (reach, without) = match spec {
-        TargetSpec::Unscoped => return Ok(CallTarget::Unscoped),
         TargetSpec::NewProject => {
             let Some(path) = argument::<String>(arguments, TargetArgument::Path)? else {
                 return Err(TargetError::PathRequired);

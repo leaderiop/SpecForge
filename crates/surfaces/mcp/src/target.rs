@@ -51,8 +51,6 @@ pub enum WithoutProject {
 /// handler is given, never declared beside it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TargetSpec {
-    /// Reads no project (explain): no `path`.
-    Unscoped,
     /// Reads or acts on a project.
     Project {
         reach: Reach,
@@ -78,11 +76,10 @@ impl TargetSpec {
         without: WithoutProject::Refused,
     };
 
-    /// Whether a call answers with nothing served (`Unscoped`, or a project
-    /// target read over the empty session).
+    /// Whether a call answers with nothing served (a project target read
+    /// over the empty session).
     pub fn answers_without_project(self) -> bool {
         match self {
-            TargetSpec::Unscoped => true,
             TargetSpec::Project { without, .. } => without == WithoutProject::EmptySession,
             TargetSpec::NewProject => false,
         }
@@ -93,7 +90,6 @@ impl TargetSpec {
     /// hint.
     pub fn takes_path(self) -> bool {
         match self {
-            TargetSpec::Unscoped => false,
             TargetSpec::Project { reach, .. } => reach.takes_path(),
             TargetSpec::NewProject => true,
         }
@@ -130,24 +126,19 @@ impl TargetSpec {
     }
 
     /// Every name the target reads from a call, listed or not: `path` for
-    /// every target but `Unscoped` (a `Served` entry accepts its own
+    /// every target (a `Served` entry accepts its own
     /// project's root and refuses another's,
     /// [`TargetError::OtherProjectRefused`]). [`Self::fields`] stays the
     /// listed ones. These are the names the target takes out of a call before
     /// its handler runs ([`Self::handler_arguments`]).
     pub fn accepted(self) -> &'static [TargetArgument] {
-        if self == TargetSpec::Unscoped {
-            &[]
-        } else {
-            &[TargetArgument::Path]
-        }
+        &[TargetArgument::Path]
     }
 
     /// `arguments` as the entry's handler is handed them: without the names
     /// the target reads ([`Self::accepted`]), whatever their value. The target
     /// took them; no handler, core or extension, declares, reads or refuses
-    /// them (ADR 0239). `Unscoped` takes none: `path` stays, and is the
-    /// entry's undeclared argument.
+    /// them (ADR 0239).
     pub fn handler_arguments(self, arguments: &Value) -> Value {
         let mut handed = arguments.clone();
         if let Value::Object(given) = &mut handed {
@@ -194,6 +185,6 @@ pub use call::{Call, CallTarget, ProjectRef, Serving, resolve};
 pub(crate) use error::refuse_without_project;
 pub use error::{TargetError, no_project};
 pub use input::{
-    AnyProject, Input, NewProject, NewProjectDir, OutputView, Project, Reaches, Served, Unscoped,
-    View, ViewToWrite,
+    AnyProject, Input, NewProject, NewProjectDir, OutputView, Project, Reaches, Served, View,
+    ViewToWrite,
 };
