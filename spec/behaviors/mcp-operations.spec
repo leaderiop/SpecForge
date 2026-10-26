@@ -397,6 +397,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "after add_extension the server serves the extension it installed"
   verify unit "a local extension path in specifiers that resolves outside the project is refused as invalid_input on specifiers"
   verify unit "a crate directory in specifiers whose built component resolves outside the project is refused as invalid_input on specifiers"
+  verify unit "a refusal of a local path in specifiers names it as the call spelled it"
   verify integration "add_extension takes no allow_unsigned: an unsigned package is refused with R-TRUST-001 naming the terminal command"
 }
 

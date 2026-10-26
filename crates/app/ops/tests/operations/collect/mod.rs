@@ -5,6 +5,7 @@
 mod modes;
 mod order;
 mod refusals;
+mod report_paths;
 mod runs;
 
 use std::path::{Path, PathBuf};
@@ -259,6 +260,17 @@ impl Fixture {
             &Containment::unbounded(),
             Asking::Nobody,
             machine,
+        )
+    }
+
+    /// Read the report `files`, reaching every path, runner `acme`.
+    pub fn no_run_reports(&self, files: &[PathBuf]) -> Result<Outcome, Refusal<CollectField>> {
+        self.collect_with(
+            Some("acme"),
+            Mode::Reports(files),
+            &Containment::unbounded(),
+            Asking::Nobody,
+            &ScriptedMachine::new(),
         )
     }
 

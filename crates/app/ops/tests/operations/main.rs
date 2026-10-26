@@ -39,6 +39,7 @@ mod fixes;
 mod formal_diagnostics;
 mod graph_edges;
 mod groups;
+mod held_spelling;
 mod infer;
 mod infer_guide;
 mod infer_sources;

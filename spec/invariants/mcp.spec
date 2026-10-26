@@ -45,6 +45,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a failed resources/read carries its McpError as the error's data"
   verify unit "a no-project refusal names path only for an entry that takes one"
   verify unit "a path that does not exist is a file_not_found error on path"
+  verify unit "a call target's refusal names its path as the call spelled it"
   verify unit "an operation's failure kind decides its McpError code, never its code text"
   verify unit "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
 }

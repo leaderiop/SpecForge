@@ -448,6 +448,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "an add of an extension a .wasm file entry loads in place of a broken install is refused, naming the entry, and writes nothing"
   verify integration "add and check agree: an add check would report E027 or E073 for is refused, and an add that passes leaves none"
   verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"
+  verify integration "a local install is locked by its project path, a link by its own name"
   verify unit "a local crate directory installs the component its crate builds"
   verify integration "add extension preserves all other config fields"
   verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"

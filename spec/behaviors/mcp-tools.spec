@@ -802,6 +802,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "a test_results file that does not exist is a file_not_found error"
   verify unit "a relative test_results names a file under the project's root"
   verify unit "a test_results that resolves outside the call's project is refused before it is read"
+  verify unit "a refusal of test_results names it as the call spelled it"
+  verify unit "a test_results that names a directory or nothing is invalid_input on test_results"
   verify unit "extension passes receive no proved claims, as specforge analyze without --prove"
   verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
   verify unit "strict promotes warnings and clears ok"

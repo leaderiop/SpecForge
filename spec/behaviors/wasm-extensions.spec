@@ -569,6 +569,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "reads a file or every json file in a directory"
   verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify unit "--report reads only the named files, whatever the collector declares"
+  verify unit "each report file reaches the collector by its project path, however it was named"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only"
 }
 
@@ -759,6 +760,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "a lock file that cannot be read is an error finding naming E033"
   verify integration "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
   verify integration "the reinstall command a local install's check suggests runs as written and reinstalls it"
+  verify integration "the reinstall command a local install suggests runs from any directory of the project"
   verify integration "doctor never calls the installed binaries healthy beside an E070 of a binary its lock entry does not record"
   verify unit "doctor reports a solver that does not run as the W098 analyze --prove reports, as a toolchain warning"
   verify integration "doctor's toolchain finding is the W098 specforge analyze --prove prints"
