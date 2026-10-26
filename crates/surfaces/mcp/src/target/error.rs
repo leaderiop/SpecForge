@@ -6,7 +6,7 @@ use std::path::PathBuf;
 /// Why a call's target could not be resolved: the call fails with it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetError {
-    /// `path` names nothing on disk: `file_not_found` on argument `path`.
+    /// `path`, as the call wrote it, names nothing on disk: `file_not_found` on argument `path`.
     PathNotFound(PathBuf),
     /// A tool that serves only the served project was given another
     /// project's `path`: `invalid_input` on argument `path` (the dispatcher

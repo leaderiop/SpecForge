@@ -18,6 +18,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
     not in the graph) is -32002 in a handshake session and -32602 in a
     2026-07-28 request, and its data names the URI as uri. A refusal for a
     missing project names the path argument only where the entry takes one.
+    A refusal of a call's path names it as the call spelled it.
     An operation's failure kind decides the McpError code. An operation
     states the kind where it raises the failure; no table maps a code to a
     kind, and a package the registry or its trust check refuses is never

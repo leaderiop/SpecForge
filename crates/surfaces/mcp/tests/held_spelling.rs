@@ -67,7 +67,6 @@ fn add_extension_names_a_local_path_as_the_call_wrote_it() {
     invariant = "mcp_structured_error_responses",
     verify = "a call target's refusal names its path as the call spelled it"
 )]
-#[ignore = "flipped by T5"]
 fn a_call_targets_path_is_named_as_the_call_wrote_it() {
     let mut server = served();
     for (tool, arguments) in [

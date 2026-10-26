@@ -13,7 +13,7 @@ use specforge_ops::analysis::collect::CollectorMachine;
 use specforge_ops::asking::Asking;
 use specforge_ops::solver::Solver;
 use specforge_ops::view::ProjectView;
-use specforge_ops::{Caller, Containment, Outside};
+use specforge_ops::{Caller, Containment, Held, Outside};
 use specforge_project::{ProjectSession, RuntimeSource, SharedRuntime};
 use std::path::{Path, PathBuf};
 
@@ -365,22 +365,26 @@ pub fn resolve(
             let Some(path) = argument::<String>(arguments, TargetArgument::Path)? else {
                 return Err(TargetError::PathRequired);
             };
-            let mut dir = PathBuf::from(path);
             // Inside the request's bound, read against it (ADR 0092 D2, D4):
             // with a project served that is the project, and inside it is
             // refused below, so init creates the first project of a session.
-            dir = containment::bound(state)
-                .resolve(&dir)
-                .map_err(TargetError::Outside)?
-                .at;
+            let held = containment::bound(state)
+                .resolve(Path::new(&path))
+                .map_err(TargetError::Outside)?;
             if let Some(root) = state.project_root() {
                 let served = Containment::within(root);
-                if served.resolve(&dir).is_ok() {
+                if served.resolve(&held.at).is_ok() {
                     let root = containment::landed(root);
-                    return Err(TargetError::InsideServed { dir, served: root });
+                    return Err(TargetError::InsideServed {
+                        dir: held.named,
+                        served: root,
+                    });
                 }
             }
-            return Ok(CallTarget::New { dir, serving });
+            return Ok(CallTarget::New {
+                dir: held.at,
+                serving,
+            });
         }
         TargetSpec::Project { reach, without } => (reach, without),
     };
@@ -405,14 +409,13 @@ pub fn resolve(
     // The project it names lies inside the request's bound, and so does the
     // path itself, which is read against it (ADR 0092 D2, D3).
     let bound = containment::bound(state);
-    let named = bound
+    let held = bound
         .resolve(Path::new(path))
-        .map_err(TargetError::Outside)?
-        .at;
-    let root = project_at(&named)?;
+        .map_err(TargetError::Outside)?;
+    let root = project_at(&held)?;
     if let Err(outside) = bound.resolve(root.canonical()) {
         // The project the name lands on is outside the bound: named as the call spelled it.
-        let outside = Outside::new(&named, outside.landed().to_path_buf(), outside.root());
+        let outside = Outside::new(&held.named, outside.landed().to_path_buf(), outside.root());
         return Err(TargetError::Outside(outside));
     }
     let served_root = state.project_root().map(containment::landed);
@@ -464,10 +467,10 @@ fn argument<T: crate::args::Arg>(
     }
 }
 
-/// The project `path` names ([`ProjectRoot::of`]), spelled canonically as
-/// MCP serves and compares it (ADR 0014 D6).
-fn project_at(path: &Path) -> Result<ProjectRoot, TargetError> {
-    ProjectRoot::of(path)
+/// The project `held` names ([`ProjectRoot::of`]), spelled canonically as
+/// MCP serves and compares it (ADR 0014 D6); a missing one is refused as the call wrote it.
+fn project_at(held: &Held) -> Result<ProjectRoot, TargetError> {
+    ProjectRoot::of(&held.at)
         .map(ProjectRoot::canonicalized)
-        .map_err(|e| TargetError::PathNotFound(e.path))
+        .map_err(|_| TargetError::PathNotFound(held.named.clone()))
 }
