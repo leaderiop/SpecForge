@@ -250,7 +250,6 @@ fn a_new_file_repeating_a_directory_stays_a_place() {
     behavior = "read_a_named_spec_file",
     verify = "a create into a file that differs from a source only in case is not_a_source, naming the source"
 )]
-#[ignore = "flipped by T6"]
 fn a_new_file_differing_from_a_source_only_in_case_is_not_a_source() {
     let (_dir, project) = spec_dir_project();
     let view = ProjectView::of(&project);

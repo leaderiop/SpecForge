@@ -74,11 +74,28 @@ impl ProjectView<'_> {
     }
 
     /// The key of a file a typed edit may create or change: a compiled source, or a new file discovery would keep.
-    /// `not_a_source` (kind `InvalidInput`) otherwise.
+    /// `not_a_source` (kind `InvalidInput`) otherwise, and for a name equal to a compiled source ignoring case, naming
+    /// that source: two files differing only in case cannot be checked out together on every OS.
     pub fn source_place(&self, named: &str) -> Result<String, OpError> {
         let key = key_of(self.env().sources(), named).ok_or_else(|| outside(named))?;
         if self.project().source_keys().contains(key.as_str()) {
             return Ok(key);
+        }
+        let folded = key.to_lowercase();
+        if let Some(source) = self
+            .project()
+            .source_keys()
+            .into_iter()
+            .find(|k| k.to_lowercase() == folded)
+        {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                NOT_A_SOURCE,
+                format!(
+                    "'{named}' differs from the source '{source}' only in case: name that file as '{source}', or give the new file a name no source has"
+                ),
+            )
+            .with_file(named));
         }
         if self.env().sources().holds_key(&key) {
             return Ok(key);
