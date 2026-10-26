@@ -28,7 +28,7 @@ pub(crate) struct Args {
     #[arg(long, requires = "scope")]
     depth: Option<usize>,
 
-    /// Keep only entities of these kinds (comma-separated); the scoped
+    /// Keep only entities of these kinds (comma-separated, or the flag repeated); the scoped
     /// entity always stays
     #[arg(long)]
     kinds: Vec<String>,

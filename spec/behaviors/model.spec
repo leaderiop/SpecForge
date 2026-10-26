@@ -265,7 +265,7 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   contract """
     After building the ModelIntermediate, the system MUST apply any
     requested filters before rendering. --extension filters to entities
-    from a single loaded extension. --kinds filters to a comma-separated
+    from a single loaded extension. --kinds (or the flag repeated) filters to a comma-separated
     list of entity kind names, each trimmed (an empty item is a kind the
     project does not know); no --kinds filters nothing. --root
     builds a kind-level adjacency graph (where kinds are connected if an
