@@ -36,4 +36,7 @@ A testable unit of system functionality with a defined contract
 ---
 
 **Obligations**
-- unit: a known user logs in
+
+| # | Kind | Obligation |
+|---|---|---|
+| 1 | unit | a known user logs in |

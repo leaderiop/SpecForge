@@ -29,4 +29,7 @@ A data structure or domain model definition
 ---
 
 **Obligations**
-- unit: Payload schema is valid
+
+| # | Kind | Obligation |
+|---|---|---|
+| 1 | unit | Payload schema is valid |

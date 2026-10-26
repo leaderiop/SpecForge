@@ -30,4 +30,7 @@ A temporal property assertion (safety, liveness, fairness)
 ---
 
 **Obligations**
-- unit: no login is lost
+
+| # | Kind | Obligation |
+|---|---|---|
+| 1 | unit | no login is lost |

@@ -84,7 +84,8 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
     the references to it grouped
     by referencing kind and field and the references it makes grouped by
     field, each with its count, every other field value (a long string cut
-    at a character boundary), its obligations, and the diagnostics about the entity that the
+    at a character boundary), its obligations (as the review document's table lists them),
+    and the diagnostics about the entity that the
     diagnostics under the cursor do not already show, each code linked to
     its catalogue entry when it has one. The hover content MUST be
     formatted as markdown and MUST NOT carry editor-specific markup.
