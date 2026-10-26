@@ -199,6 +199,12 @@ export function registerCommands(
         prompt: "Name for the new spec file (without .spec extension)",
       });
       if (!name) return;
+      if (!/^[\w-]+$/.test(name)) {
+        vscode.window.showErrorMessage(
+          "A spec file name is letters, digits, _ and - only."
+        );
+        return;
+      }
 
       // The spec root is the project's own setting (default: the folder itself).
       let specRoot = ".";
@@ -212,12 +218,22 @@ export function registerCommands(
         // no readable specforge.json: the folder itself
       }
       const uri = vscode.Uri.joinPath(workspaceFolder.uri, specRoot, `${name}.spec`);
+      // a cloned specforge.json must not aim the write outside the workspace
+      if (!uri.path.startsWith(workspaceFolder.uri.path.replace(/\/$/, "") + "/")) {
+        vscode.window.showErrorMessage(
+          `spec_root "${specRoot}" leaves the workspace folder.`
+        );
+        return;
+      }
       try {
         await vscode.workspace.fs.stat(uri);
         vscode.window.showErrorMessage(`${name}.spec already exists.`);
         return;
-      } catch {
-        // stat failed: the file is not there
+      } catch (e) {
+        if (!(e instanceof vscode.FileSystemError && e.code === "FileNotFound")) {
+          vscode.window.showErrorMessage(`Cannot check ${name}.spec: ${e}`);
+          return;
+        }
       }
       await vscode.workspace.fs.writeFile(uri, Buffer.from(`// ${name}\n\n`));
       const doc = await vscode.workspace.openTextDocument(uri);
