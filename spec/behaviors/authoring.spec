@@ -234,7 +234,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
     with unlink_references each referrer's field; an edge is declared by its
     source's declared field or by a created or deleted end. An edit whose
     edited graph changes anything else is refused as undeclared_change and
-    writes nothing; E080 is judged first. Warnings and infos it adds are written and reported. A preview
+    writes nothing; a block an edit leaves holding text the parser cannot read whole is refused edit_unreadable, also a
+    defect of the edit, and writes nothing; a block that holds such text before the edit is refused block_unreadable; E080 is judged first. Warnings and infos it adds are written and reported. A preview
     refuses exactly what the write would. The files are written as one project
     change: a file changed since the compile refuses the whole plan, and a
     failed write puts every file already written back. The report names the net

@@ -4,7 +4,6 @@ use specforge_project::testing::Assembled;
 
 const SPEC: &str = "spec \"p\" {\n  version \"0.1.0\"\n}\n";
 
-#[ignore = "flipped by T5"]
 #[specforge_test_macros::test(
     behavior = "validate_typed_edit",
     verify = "a block an edit leaves unreadable is refused edit_unreadable; one unreadable before it, block_unreadable"

@@ -37,6 +37,21 @@ fn unreadable(id: &str) -> Refusal<EditField> {
     .about(EditField::Entity)
 }
 
+/// The typed edit would leave its entity's block holding text the parser cannot read whole: a defect of the edit.
+pub const EDIT_UNREADABLE: &str = "edit_unreadable";
+
+fn broken(id: &str) -> Refusal<EditField> {
+    OpError::new(
+        OpErrorKind::CompilationFailed,
+        EDIT_UNREADABLE,
+        format!(
+            "the edit would leave the block of '{id}' unreadable; nothing was written (a defect of the typed edit: please report it)"
+        ),
+    )
+    .with_entity(id)
+    .about(EditField::Entity)
+}
+
 fn position(file: &SpecFile, site: &Site<'_>) -> Option<usize> {
     file.entities
         .iter()
@@ -52,10 +67,11 @@ pub struct Block {
     config: FormatConfig,
 }
 
-/// `text` with the block of `site` laid out canonically, with its file's configuration.
-pub fn canonical(site: &Site<'_>, text: &str) -> Result<String, Refusal<EditField>> {
+/// `text` with the block of `site` laid out canonically, with its file's configuration; `None` when the parse finds
+/// no such block or the block holds a region the parser could not read whole (W142, kept as written).
+fn laid_out(site: &Site<'_>, text: &str) -> Option<String> {
     let file = parse(text, site.key);
-    let span = &file.entities[position(&file, site).ok_or_else(|| unreadable(site.id))?].span;
+    let span = &file.entities[position(&file, site)?].span;
     let formatted = specforge_formatter::format_range(
         text,
         span.start_line - 1,
@@ -63,12 +79,17 @@ pub fn canonical(site: &Site<'_>, text: &str) -> Result<String, Refusal<EditFiel
         &site.config,
         site.view.registries().field_forms(),
     );
-    // A region the parser could not read whole (W142) is kept as written: the block cannot be edited.
-    if formatted.diagnostics.iter().any(|d| d.is(codes::W142)) {
-        Err(unreadable(site.id))
-    } else {
-        Ok(formatted.formatted)
-    }
+    (!formatted.diagnostics.iter().any(|d| d.is(codes::W142))).then_some(formatted.formatted)
+}
+
+/// [`laid_out`] of the text as the user wrote it: refused `block_unreadable`, the block cannot be edited.
+pub fn canonical(site: &Site<'_>, text: &str) -> Result<String, Refusal<EditField>> {
+    laid_out(site, text).ok_or_else(|| unreadable(site.id))
+}
+
+/// [`laid_out`] of the text an edit changed: refused `edit_unreadable` (ADR 0248).
+fn edited(site: &Site<'_>, text: &str) -> Result<String, Refusal<EditField>> {
+    laid_out(site, text).ok_or_else(|| broken(site.id))
 }
 
 /// Refused `not_editable` when `site`'s block, as `text` parses, is a union (`kind name = a | b`,
@@ -99,7 +120,15 @@ pub fn refuse_union(site: &Site<'_>, text: &str) -> Result<(), Refusal<EditField
 
 impl Block {
     pub fn open(site: &Site<'_>, text: &str) -> Result<Block, Refusal<EditField>> {
-        let text = canonical(site, text)?;
+        Block::read(site, canonical(site, text)?)
+    }
+
+    /// [`Self::open`] over text an edit changed: a block it left unreadable is the edit's defect (ADR 0248).
+    pub fn reopen(site: &Site<'_>, text: &str) -> Result<Block, Refusal<EditField>> {
+        Block::read(site, edited(site, text)?)
+    }
+
+    fn read(site: &Site<'_>, text: String) -> Result<Block, Refusal<EditField>> {
         let file = parse(&text, site.key);
         let index = position(&file, site).ok_or_else(|| unreadable(site.id))?;
         let lines = text.split('\n').map(String::from).collect();
@@ -117,7 +146,7 @@ impl Block {
 
     /// The block laid out again after a change.
     pub fn finish(&self, site: &Site<'_>) -> Result<String, Refusal<EditField>> {
-        canonical(site, &self.text())
+        edited(site, &self.text())
     }
 
     /// The text `span` covers.
@@ -395,7 +424,7 @@ impl Block {
             Some((o, e)) => (o.value_span.clone(), e.and_then(|e| e.value_span.clone())),
             None => (None, None),
         };
-        let outer_span = outer_span.ok_or_else(|| unreadable(site.id))?;
+        let outer_span = outer_span.ok_or_else(|| broken(site.id))?;
         let lead = match &own {
             Some(span) => self.lead(span.start_line - 1).to_string(),
             None => format!(
@@ -428,7 +457,7 @@ impl Block {
     /// The lines read again, without a layout.
     fn reread(&mut self, site: &Site<'_>) -> Result<(), Refusal<EditField>> {
         self.file = parse(&self.text(), site.key);
-        self.index = position(&self.file, site).ok_or_else(|| unreadable(site.id))?;
+        self.index = position(&self.file, site).ok_or_else(|| broken(site.id))?;
         Ok(())
     }
 
