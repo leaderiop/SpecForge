@@ -4,7 +4,9 @@
 D4 (the titles step lifts the doc comment the parse read) and its amendment of [ADR 0095](0095-the-format-header-is-read-and-rewritten-by-one-module.md)
 D3 (withdrawn: `header_row` is private again), [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md) D12 (the
 hoisted block goes above the first form's doc comment, below the format header) and
-[ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md)'s Consequences (a delete removes the block's doc comment).
+[ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md)'s Consequences (a delete removes the block's doc comment). Reopened by
+[ADR 0248](0248-a-members-comment-lines-are-where-the-parse-read-them.md): D5, a member's comment lines are the
+parse's too.
 
 ## Context
 

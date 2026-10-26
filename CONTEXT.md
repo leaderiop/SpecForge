@@ -89,6 +89,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the parse's (`specforge_parser::Entity::doc_span`): a typed delete removes it with its block, `specforge migrate`'s
   titles step lifts it into a missing title, and the defaults hoist writes its block above it. It never reaches the
   graph (ADR 0148, ADR 0202).
+- **Member comment**: the whole-line `//` comments directly above a member of a block's body (a field, an entry of
+  a block field, a verify statement), no blank line between; a comment ending the line of the item above trails it,
+  and a `//` line inside a string is none. Where they are written is the parse's (`specforge_parser::Entity::comments_above`
+  over `Entity::body_comments`): a typed unset, an unlink that empties a field and a remove-verify remove them with
+  their member, a new member goes above them, and the defaults hoist leaves a field with one as written. Like a doc
+  comment, it never reaches the graph (ADR 0202, ADR 0248).
 - **Migration step**: a rewrite `specforge migrate` applies to every source it changes, whatever the file's format
   version, after the header rewrite (`specforge_migrate`'s `titles` and `defaults`).
   The plan reads the environment the judge compiles in: the defaults step hoists only what `FileDefaults` applies
@@ -1412,7 +1418,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   A list of them is planned over the texts the project was compiled from (each edit reading what the ones before
   it left), each value written in its field's form (a multi-line one laid out with the file's format configuration, and left out when it restates its file's default)
   and each touched block formatted; the plan is refused with E080
-  when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
+  when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). A block the edit would leave unreadable is refused `edit_unreadable`, the edit's defect; `block_unreadable` names a block unreadable before it (ADR 0248). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
   A delete with `unlink_references` removes every reference the graph build would link, found by the graph's finder
   in the planned texts (ADR 0163), and a `use` binding that imports it (ADR 0233); one written in a `defaults` block, an undeclared field or as a derived type name refuses it (`not_editable`, ADR 0156).
   A list value is taken by its field's type: a reference list's items split at commas however given, a string list's never (ADR 0157). The stub fixes are typed edits too (ADR 0161).
