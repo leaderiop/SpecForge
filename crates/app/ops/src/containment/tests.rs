@@ -60,11 +60,11 @@ fn an_unbounded_containment_refuses_nothing_and_still_lands_each_name() {
 
     // Relative and absolute names are handed back as given.
     let held = containment.resolve(Path::new("x/y")).unwrap();
-    assert_eq!(held.spelled, Path::new("x/y"));
+    assert_eq!(held.at, Path::new("x/y"));
     let leaving = base.join("proj/spec/../../outside");
     let held = containment.resolve(&leaving).unwrap();
     assert_eq!(
-        (held.spelled.as_path(), held.real),
+        (held.at.as_path(), held.real),
         (leaving.as_path(), base.join("outside"))
     );
     // A symlink then `..` lands where the OS would: beside the link's target, not the link.
@@ -237,9 +237,10 @@ fn remove_unlinks_a_link_and_not_its_target() {
     let root = base.join("proj");
     std::fs::write(root.join("a"), "a").unwrap();
     std::os::unix::fs::symlink(root.join("a"), root.join("l")).unwrap();
-    // `spelled` is the link; the unlink never follows the last component.
+    // `at` is the link; the unlink never follows the last component.
     let held = Held {
-        spelled: root.join("l"),
+        named: "l".into(),
+        at: root.join("l"),
         real: root.join("a"),
     };
     held.remove().unwrap();
@@ -259,14 +260,14 @@ fn read_hands_back_the_held_name_with_its_bytes_or_why_not() {
     std::fs::write(base.join("outside/o"), "o").unwrap();
     let within = Containment::within(&root);
     let (held, bytes) = within.read(Path::new("a")).unwrap();
-    assert_eq!((held.spelled, bytes), (root.join("a"), b"bytes".to_vec()));
+    assert_eq!((held.at, bytes), (root.join("a"), b"bytes".to_vec()));
     assert!(matches!(
         within.read(&base.join("outside/o")),
         Err(ReadFailure::Outside(_))
     ));
     match within.read(Path::new("missing")) {
         Err(ReadFailure::Io { held, error }) => {
-            assert_eq!(held.spelled, root.join("missing"));
+            assert_eq!(held.at, root.join("missing"));
             assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
         }
         other => panic!("{other:?}"),

@@ -372,7 +372,7 @@ pub fn resolve(
             dir = containment::bound(state)
                 .resolve(&dir)
                 .map_err(TargetError::Outside)?
-                .spelled;
+                .at;
             if let Some(root) = state.project_root() {
                 let served = Containment::within(root);
                 if served.resolve(&dir).is_ok() {
@@ -408,7 +408,7 @@ pub fn resolve(
     let named = bound
         .resolve(Path::new(path))
         .map_err(TargetError::Outside)?
-        .spelled;
+        .at;
     let root = project_at(&named)?;
     if let Err(outside) = bound.resolve(root.canonical()) {
         // The project the name lands on is outside the bound: named as the call spelled it.

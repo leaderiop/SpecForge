@@ -40,7 +40,7 @@ fn report_path_must_stay_inside_the_project() {
     assert_eq!(
         report_path(&collector("out/r.json"), root, &any)
             .unwrap()
-            .spelled,
+            .at,
         Path::new("/p/out/r.json")
     );
     assert!(report_path(&collector("../r.json"), root, &any).is_err());

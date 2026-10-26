@@ -185,15 +185,15 @@ fn a_config_that_appeared_or_no_longer_parses_is_changed() {
     );
     assert_eq!(error.suggestion.as_deref(), Some("run add again"));
     // Formatting is not a change; a document that no longer parses is.
-    std::fs::write(held.spelled.clone(), "{ \"extensions\" :\n [\"@acme/x\"] }").unwrap();
+    std::fs::write(held.at.clone(), "{ \"extensions\" :\n [\"@acme/x\"] }").unwrap();
     assert!(opened_file.unchanged(&held, "add").is_ok());
-    std::fs::write(held.spelled.clone(), "{").unwrap();
+    std::fs::write(held.at.clone(), "{").unwrap();
     assert_eq!(
         opened_file.unchanged(&held, "add").unwrap_err().code,
         crate::FILE_CHANGED
     );
     // A file that went is changed; no file, when none was opened, is not.
-    std::fs::remove_file(held.spelled.clone()).unwrap();
+    std::fs::remove_file(held.at.clone()).unwrap();
     assert_eq!(
         opened_file.unchanged(&held, "add").unwrap_err().code,
         crate::FILE_CHANGED

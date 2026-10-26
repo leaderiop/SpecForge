@@ -80,7 +80,7 @@ impl<'m> Source<'m> {
             Mode::NoRun => Declared::of(collector, root, containment).map(Source::Written),
             Mode::Run(output) => {
                 let declared = Declared::of(collector, root, containment)?;
-                let argv = command_line(collector, &declared.report.spelled);
+                let argv = command_line(collector, &declared.report.at);
                 if argv.is_empty() {
                     return Err(fail(
                         OpErrorKind::SchemaMismatch,
@@ -180,12 +180,12 @@ impl<'m> Source<'m> {
             Source::Run { declared, .. } => format!(
                 "{} produced no report at {} (did the tests build?)",
                 collector.name,
-                declared.report.spelled.display()
+                declared.report.at.display()
             ),
             Source::Written(declared) => format!(
                 "no {} report at {}; run the tests to write one (`specforge collect` runs them)",
                 collector.name,
-                declared.report.spelled.display()
+                declared.report.at.display()
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
         }
@@ -241,23 +241,23 @@ fn run_command(
     if report.real.is_file() {
         report
             .remove()
-            .map_err(|e| format!("{}: {e}", report.spelled.display()))?;
+            .map_err(|e| format!("{}: {e}", report.at.display()))?;
     }
     for file in std::iter::once(report).chain(capture) {
         file.create_parent()
-            .map_err(|e| format!("{}: {e}", file.spelled.display()))?;
+            .map_err(|e| format!("{}: {e}", file.at.display()))?;
     }
     let mut kept = match capture {
         Some(held) => Some(
             held.create_fresh()
-                .map_err(|e| format!("{}: {e}", held.spelled.display()))?,
+                .map_err(|e| format!("{}: {e}", held.at.display()))?,
         ),
         None => None,
     };
     let command = CollectorCommand {
         argv,
         dir: root,
-        report: &report.spelled,
+        report: &report.at,
         output,
     };
     machine
@@ -266,7 +266,7 @@ fn run_command(
             kept.as_mut().map(|f| f as &mut dyn std::io::Write),
         )
         .map_err(|failure| match (failure, capture) {
-            (RunFailure::Capture(e), Some(held)) => format!("{}: {e}", held.spelled.display()),
+            (RunFailure::Capture(e), Some(held)) => format!("{}: {e}", held.at.display()),
             (RunFailure::Capture(e) | RunFailure::NotRun(e), _) => {
                 format!("failed to run `{}`: {e}", argv.join(" "))
             }

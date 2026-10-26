@@ -147,18 +147,18 @@ impl LocalComponent {
             return Err(OpError::coded(
                 OpErrorKind::FileNotFound,
                 codes::E040,
-                format!("no extension binary at {}", held.spelled.display()),
+                format!("no extension binary at {}", held.at.display()),
             )
             .with_suggestion("name a .wasm component, or the extension's crate directory"));
         }
         let named = if held.real.is_dir() {
             built(&held, containment)?
         } else {
-            held.spelled.clone()
+            held.at.clone()
         };
         match containment.read(&named) {
             Ok((held, bytes)) => Ok(LocalComponent {
-                path: held.spelled,
+                path: held.at,
                 bytes,
             }),
             Err(ReadFailure::Outside(outside)) => Err(outside.into()),
@@ -169,22 +169,20 @@ impl LocalComponent {
                     OpErrorKind::of_io(&error)
                 },
                 codes::E040,
-                format!("failed to read {}: {error}", held.spelled.display()),
+                format!("failed to read {}: {error}", held.at.display()),
             )),
         }
     }
 }
 
-/// The crate directory's built component, named under `held.spelled`: the crate's own, else the only `.wasm` in its
+/// The crate directory's built component, named under `held.at`: the crate's own, else the only `.wasm` in its
 /// release directory. E040 when there is none or several.
 fn built(held: &Held, containment: &Containment) -> Result<PathBuf, OpError> {
-    let shown = target_dir(&held.spelled)
-        .join(WASM_TARGET)
-        .join(CARGO_RELEASE);
+    let shown = target_dir(&held.at).join(WASM_TARGET).join(CARGO_RELEASE);
     // Where the build lands, judged by the containment before it is listed.
     let release = containment.resolve(&shown)?.real;
     let manifest = containment
-        .read(&held.spelled.join("Cargo.toml"))
+        .read(&held.at.join("Cargo.toml"))
         .ok()
         .and_then(|(_, bytes)| String::from_utf8(bytes).ok());
     if let Some(name) = manifest.as_deref().and_then(crate_name) {

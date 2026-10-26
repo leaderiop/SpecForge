@@ -308,7 +308,7 @@ impl InferenceManifest {
                 format!("failed to write {MANIFEST_FILENAME}: {e}"),
             ));
         }
-        Ok(Writes::from_iter([file.spelled.clone()]))
+        Ok(Writes::from_iter([file.at.clone()]))
     }
 
     /// The session in progress, if any.

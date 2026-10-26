@@ -58,8 +58,8 @@ pub(crate) fn named(path: &Path, containment: &Containment) -> Result<Arc<TestRe
     let held = containment.resolve(path)?;
     let bytes = held
         .read()
-        .map_err(|error| unusable(ReportError::unreadable(&held.spelled, &error)))?;
-    TestReport::parse(&held.spelled, &bytes)
+        .map_err(|error| unusable(ReportError::unreadable(&held.at, &error)))?;
+    TestReport::parse(&held.at, &bytes)
         .map(Arc::new)
         .map_err(unusable)
 }

@@ -264,21 +264,21 @@ pub fn write_into(
     // The file too: it may itself be a link that leaves the project, and what is written is where
     // it lands (ADR 0092 D8, ADR 0104).
     let file = containment
-        .resolve(&dir.spelled.join(request.format().file_name()))
+        .resolve(&dir.at.join(request.format().file_name()))
         .map_err(|outside| named(&directory.name.join(request.format().file_name()), outside))?;
     let exported = export(view, request)?;
     exported.try_map(|document| {
         file.create_parent()
             .and_then(|()| file.replace(document))
             .map_err(|error| about(write_failure(root, &file, &error)))?;
-        Ok(ProjectPath::of(root, &file.spelled))
+        Ok(ProjectPath::of(root, &file.at))
     })
 }
 
 /// A failed write of `file`: a name that is, or goes through, a file is invalid input; any other
 /// failure is the I/O error's kind.
 fn write_failure(root: &Path, file: &Held, error: &std::io::Error) -> OpError {
-    let named = ProjectPath::of(root, &file.spelled);
+    let named = ProjectPath::of(root, &file.at);
     match error.kind() {
         std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::NotADirectory => OpError::new(
             OpErrorKind::InvalidInput,

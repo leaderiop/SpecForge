@@ -322,7 +322,7 @@ fn select<'a>(
 fn load_report(file: &Held) -> TestReport {
     file.read()
         .ok()
-        .and_then(|bytes| TestReport::parse(&file.spelled, &bytes).ok())
+        .and_then(|bytes| TestReport::parse(&file.at, &bytes).ok())
         .unwrap_or(TestReport {
             runner: None,
             results: BTreeMap::new(),
@@ -336,10 +336,10 @@ fn save_report(file: &Held, report: &TestReport) -> Result<PathBuf, OpError> {
         OpError::coded(
             OpErrorKind::of_io(&e),
             codes::E056,
-            format!("failed to write {}: {e}", file.spelled.display()),
+            format!("failed to write {}: {e}", file.at.display()),
         )
     })?;
-    Ok(file.spelled.clone())
+    Ok(file.at.clone())
 }
 
 #[cfg(test)]

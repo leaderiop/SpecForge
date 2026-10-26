@@ -1,9 +1,12 @@
 //! Opening a held file (ADR 0112). A [`Held`] is a name a containment resolved: what is opened is
-//! `real`, where the name landed, so the file checked is the file opened; what messages, documents
-//! and `Writes` name is `spelled`. Every project file an operation reads or writes is opened here.
+//! `real`, where the name landed, so the file checked is the file opened (an owned name's `at`
+//! excepted); what messages name is `named`, documents and records [`Held::shown`], `Writes` `at`.
+//! Every project file an operation reads or writes is opened here.
 
 use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
+
+use specforge_common::ProjectPath;
 
 use super::{Containment, Held, Outside};
 
@@ -11,6 +14,18 @@ impl Held {
     /// The bytes at `real`. A missing file is the caller's `NotFound` (E054, E045, `None`...).
     pub fn read(&self) -> std::io::Result<Vec<u8>> {
         specforge_common::regular::read(&self.real)
+    }
+
+    /// `name` under this held directory, held by `containment`: named `<named>/<name>`, at `<at>/<name>`.
+    /// `Outside` (quoting `<named>/<name>`) when it lands outside.
+    pub fn entry(&self, containment: &Containment, name: &Path) -> Result<Held, Outside> {
+        containment.hold(self.named.join(name), self.at.join(name))
+    }
+
+    /// How a document or record names this file: `root`-relative with `/` between components, a link by
+    /// its own name, absolute and canonical outside `root` (ADR 0102).
+    pub fn shown(&self, root: &Path) -> ProjectPath {
+        ProjectPath::of(root, &self.at)
     }
 
     /// The bytes at `real`, read from the one handle that is checked: a bounded read refuses a regular
@@ -60,20 +75,20 @@ impl Held {
         specforge_common::fresh::replace_file(&self.real, contents.as_ref())
     }
 
-    /// A name the operation owns (ADR 0171): whatever is at `spelled` (a link, or a file left by an earlier run)
+    /// A name the operation owns (ADR 0171): whatever is at `at` (a link, or a file left by an earlier run)
     /// is unlinked, never its target, and the file is created new with `permissions`, set before the first byte
-    /// is written. A write that fails unlinks the name again. Opens `spelled`, not `real`: a link at an owned
+    /// is written. A write that fails unlinks the name again. Opens `at`, not `real`: a link at an owned
     /// name is replaced, not followed.
     pub fn create_owned(
         &self,
         contents: impl AsRef<[u8]>,
         permissions: std::fs::Permissions,
     ) -> std::io::Result<()> {
-        let mut file = specforge_common::fresh::create_fresh(&self.spelled)?;
+        let mut file = specforge_common::fresh::create_fresh(&self.at)?;
         file.set_permissions(permissions)
             .and_then(|()| file.write_all(contents.as_ref()))
             .inspect_err(|_| {
-                let _ = std::fs::remove_file(&self.spelled);
+                let _ = std::fs::remove_file(&self.at);
             })
     }
 
@@ -82,9 +97,9 @@ impl Held {
         Ok(std::fs::metadata(&self.real)?.permissions())
     }
 
-    /// Unlink the name (`spelled`): a link is removed, never its target. `NotFound` passes through.
+    /// Unlink the name (`at`): a link is removed, never its target. `NotFound` passes through.
     pub fn remove(&self) -> std::io::Result<()> {
-        std::fs::remove_file(&self.spelled)
+        std::fs::remove_file(&self.at)
     }
 
     /// Create `real`'s missing parent directories (they land inside: `real` did).
@@ -114,7 +129,7 @@ impl Held {
         Ok(())
     }
 
-    /// Unlink `real` itself: a file a change created there. [`Self::remove`] unlinks `spelled`,
+    /// Unlink `real` itself: a file a change created there. [`Self::remove`] unlinks `at`,
     /// which for a file created through a link would delete the link and keep the file.
     pub(crate) fn remove_created(&self) -> std::io::Result<()> {
         std::fs::remove_file(&self.real)
@@ -134,10 +149,16 @@ impl Containment {
     /// reader that names what it read (inference sources, analyze's named report).
     pub fn read(&self, named: &Path) -> Result<(Held, Vec<u8>), ReadFailure> {
         let held = self.resolve(named).map_err(ReadFailure::Outside)?;
-        match held.read_checked(self.root.is_some()) {
+        match self.read_held(&held) {
             Ok(bytes) => Ok((held, bytes)),
             Err(error) => Err(ReadFailure::Io { held, error }),
         }
+    }
+
+    /// `held`'s bytes, read from the one handle that is checked (a bounded read refuses a file with
+    /// several names, ADR 0146), without resolving it again.
+    pub fn read_held(&self, held: &Held) -> std::io::Result<Vec<u8>> {
+        held.read_checked(self.root.is_some())
     }
 }
 

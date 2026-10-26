@@ -52,9 +52,10 @@ fn an_owned_name_replaces_a_link_and_leaves_its_target() {
     std::fs::hard_link(root.join("target"), root.join("hard")).unwrap();
     let mut change = ProjectChange::new(&root, "cannot test");
     for name in ["soft", "hard"] {
-        // A symlink's `real` is its target: only `spelled` is the owned name.
+        // A symlink's `real` is its target: only `at` is the owned name.
         let held = Held {
-            spelled: root.join(name),
+            named: name.into(),
+            at: root.join(name),
             real: root.join(name),
         };
         change.stage_owned(held, b"new".to_vec(), permissions(0o644));
