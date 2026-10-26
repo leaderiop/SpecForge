@@ -324,6 +324,64 @@ fn vscode_client_asks_only_what_the_server_answers() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+/// The init and add pickers offer the builtins that declare kinds, each with its kinds, as
+/// `builtin-vocabulary.json` groups them (ADR 0268 D5): the client keeps the list because
+/// Initialize Project runs before a project exists, and this pin fails the moment a builtin gains
+/// or loses a kind.
+#[test]
+fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
+    use std::collections::BTreeMap;
+    let commands = vscode_sources()
+        .into_iter()
+        .find(|(name, _)| name == "commands.ts")
+        .expect("commands.ts")
+        .1;
+    // Each `label: "@specforge/…"` and the `description: "…"` that follows it (maybe on the next line).
+    let quoted_after = |text: &str, key: &str| -> Option<String> {
+        let rest = &text[text.find(key)? + key.len()..];
+        let rest = rest.trim_start().strip_prefix('"')?;
+        Some(rest[..rest.find('"')?].to_string())
+    };
+    let mut offered: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (at, _) in commands.match_indices("label: \"@specforge/") {
+        let tail = &commands[at..];
+        let label = quoted_after(tail, "label:").expect("a label");
+        let description = quoted_after(tail, "description:").expect("a description");
+        offered.insert(label, description.split(", ").map(str::to_string).collect());
+    }
+    let vocabulary: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            repo_root().join("crates/runtime/component/data/builtin-vocabulary.json"),
+        )
+        .expect("builtin-vocabulary.json"),
+    )
+    .expect("valid vocabulary JSON");
+    let mut declared: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (kind, builtin) in vocabulary["kinds"].as_object().expect("kinds") {
+        declared
+            .entry(builtin.as_str().expect("builtin name").to_string())
+            .or_default()
+            .insert(kind.clone());
+    }
+    assert_eq!(offered, declared, "the Initialize Project picker");
+
+    // The Add Extension picker lists the same builtins.
+    let add = &commands[commands
+        .find("\"specforge.addExtension\"")
+        .expect("the add command")..];
+    let add = &add[..add.find("{ placeHolder").expect("the add picker's options")];
+    let listed: BTreeSet<String> = add
+        .split('"')
+        .filter(|w| w.starts_with("@specforge/"))
+        .map(str::to_string)
+        .collect();
+    assert_eq!(
+        listed,
+        declared.keys().cloned().collect::<BTreeSet<_>>(),
+        "the Add Extension picker"
+    );
+}
+
 /// The tree and the graph show the session's graph (`specforge/graph`,
 /// ADR 0268 D1): no `specforge` process reads the disk for them, and the
 /// graph view counts no degree of its own (the host's rule drops self-edges).
