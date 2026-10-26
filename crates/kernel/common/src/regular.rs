@@ -1,7 +1,7 @@
 //! Reading a project file (ADR 0264): only a regular file, a link followed to one, and at most
 //! [`MAX_FILE_BYTES`]. A named pipe, a device, a socket or a directory is refused before it is opened (opening a
-//! pipe waits for a writer; reading a device never ends); a larger file is refused before it is read. Every project
-//! file SpecForge reads is read here; [`crate::fresh`] is where one is written.
+//! pipe waits for a writer; reading a device never ends); a larger file is refused before it is read. The project's
+//! spec, source and manifest reads go through here (a user-named plan file or credential file does not); [`crate::fresh`] is where one is written.
 
 use std::fs::File;
 use std::io::{self, Read as _};

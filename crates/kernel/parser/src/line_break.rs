@@ -1,12 +1,12 @@
 //! What a line break is in `.spec` text, read by one module (ADR 0266): a LF, with one CR directly before it part of
 //! it. The parse reads every line break as LF (a `"…"` through [`read`], a `"""…"""` and the header line through
-//! `str::lines`, the same rule) and the formatter formats [`read`] of its source. A lone CR is text. A writer that
+//! `str::lines`, the same rule) and the formatter formats [`read`] of its source. A lone CR is no line break: the parse refuses it as E001 (ADR 0276). A writer that
 //! changes part of a file reads and writes it in the file's [`LineBreak`].
 
 use std::borrow::Cow;
 
-/// `text` with each CR LF read as LF. A CR with no LF after it is text and stays; so does an escaped `\r`, which is
-/// two characters here. Borrowed when `text` holds no CR LF.
+/// `text` with each CR LF read as LF. A CR with no LF after it stays here (the parse refuses it, ADR 0276); so
+/// does an escaped `\r`, which is two characters here. Borrowed when `text` holds no CR LF.
 pub fn read(text: &str) -> Cow<'_, str> {
     if text.contains("\r\n") {
         Cow::Owned(text.replace("\r\n", "\n"))
