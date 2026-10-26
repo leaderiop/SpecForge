@@ -53,13 +53,13 @@ pub(crate) fn unusable(error: ReportError) -> OpError {
 /// The report at `path` (`--test-results`, MCP `test_results`), which must
 /// exist, read through `containment`: a name that lands outside is `outside_root` and nothing
 /// is opened, so the error never says whether a file outside exists. Messages name `path` as
-/// the caller spelled it (joined onto the bound's root when bounded and relative).
+/// the caller wrote it (ADR 0272).
 pub(crate) fn named(path: &Path, containment: &Containment) -> Result<Arc<TestReport>, OpError> {
     let held = containment.resolve(path)?;
     let bytes = held
         .read()
-        .map_err(|error| unusable(ReportError::unreadable(&held.at, &error)))?;
-    TestReport::parse(&held.at, &bytes)
+        .map_err(|error| unusable(ReportError::unreadable(&held.named, &error)))?;
+    TestReport::parse(&held.named, &bytes)
         .map(Arc::new)
         .map_err(unusable)
 }

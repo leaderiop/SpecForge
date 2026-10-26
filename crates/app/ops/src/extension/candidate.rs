@@ -147,7 +147,7 @@ impl LocalComponent {
             return Err(OpError::coded(
                 OpErrorKind::FileNotFound,
                 codes::E040,
-                format!("no extension binary at {}", held.at.display()),
+                format!("no extension binary at {}", held.named.display()),
             )
             .with_suggestion("name a .wasm component, or the extension's crate directory"));
         }
@@ -169,7 +169,7 @@ impl LocalComponent {
                     OpErrorKind::of_io(&error)
                 },
                 codes::E040,
-                format!("failed to read {}: {error}", held.at.display()),
+                format!("failed to read {}: {error}", held.named.display()),
             )),
         }
     }

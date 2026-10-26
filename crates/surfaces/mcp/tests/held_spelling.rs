@@ -21,7 +21,6 @@ fn refused(server: &mut McpServer, tool: &str, arguments: Value) -> Value {
     behavior = "provide_mcp_analyze_tool",
     verify = "a refusal of test_results names it as the call spelled it"
 )]
-#[ignore = "flipped by T3"]
 fn analyze_names_test_results_as_the_call_wrote_it() {
     let mut server = served();
     let error = refused(

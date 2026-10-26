@@ -336,7 +336,7 @@ fn save_report(file: &Held, report: &TestReport) -> Result<PathBuf, OpError> {
         OpError::coded(
             OpErrorKind::of_io(&e),
             codes::E056,
-            format!("failed to write {}: {e}", file.at.display()),
+            format!("failed to write {}: {e}", file.named.display()),
         )
     })?;
     Ok(file.at.clone())

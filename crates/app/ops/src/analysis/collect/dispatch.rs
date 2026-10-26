@@ -44,7 +44,7 @@ pub(super) fn read_report(
     if report.real.is_dir() {
         for path in json_files(&report.real).into_iter().filter(fresh) {
             let name = path.file_name().unwrap_or_default();
-            held.push(containment.resolve(&report.at.join(name))?);
+            held.push(report.entry(containment, Path::new(name))?);
         }
     } else if report.real.is_file() {
         held.push(report.clone());
@@ -55,7 +55,7 @@ pub(super) fn read_report(
                 OpError::coded(
                     OpErrorKind::SchemaMismatch,
                     codes::E045,
-                    format!("failed to read report {}: {e}", file.at.display()),
+                    format!("failed to read report {}: {e}", file.named.display()),
                 )
             })?;
             let shown = file.at.strip_prefix(root).unwrap_or(&file.at);

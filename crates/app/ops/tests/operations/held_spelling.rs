@@ -46,7 +46,6 @@ fn added(root: &Path, specifier: &str) -> specforge_ops::OpError {
     behavior = "provide_mcp_analyze_tool",
     verify = "a refusal of test_results names it as the call spelled it"
 )]
-#[ignore = "flipped by T3"]
 fn a_bounded_named_report_is_named_as_the_call_wrote_it() {
     let dir = tempfile::tempdir().unwrap();
     for name in ["none.json", "sub/../none.json"] {

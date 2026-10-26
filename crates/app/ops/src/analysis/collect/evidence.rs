@@ -180,12 +180,12 @@ impl<'m> Source<'m> {
             Source::Run { declared, .. } => format!(
                 "{} produced no report at {} (did the tests build?)",
                 collector.name,
-                declared.report.at.display()
+                declared.report.named.display()
             ),
             Source::Written(declared) => format!(
                 "no {} report at {}; run the tests to write one (`specforge collect` runs them)",
                 collector.name,
-                declared.report.at.display()
+                declared.report.named.display()
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
         }
@@ -241,16 +241,16 @@ fn run_command(
     if report.real.is_file() {
         report
             .remove()
-            .map_err(|e| format!("{}: {e}", report.at.display()))?;
+            .map_err(|e| format!("{}: {e}", report.named.display()))?;
     }
     for file in std::iter::once(report).chain(capture) {
         file.create_parent()
-            .map_err(|e| format!("{}: {e}", file.at.display()))?;
+            .map_err(|e| format!("{}: {e}", file.named.display()))?;
     }
     let mut kept = match capture {
         Some(held) => Some(
             held.create_fresh()
-                .map_err(|e| format!("{}: {e}", held.at.display()))?,
+                .map_err(|e| format!("{}: {e}", held.named.display()))?,
         ),
         None => None,
     };
@@ -266,7 +266,7 @@ fn run_command(
             kept.as_mut().map(|f| f as &mut dyn std::io::Write),
         )
         .map_err(|failure| match (failure, capture) {
-            (RunFailure::Capture(e), Some(held)) => format!("{}: {e}", held.at.display()),
+            (RunFailure::Capture(e), Some(held)) => format!("{}: {e}", held.named.display()),
             (RunFailure::Capture(e) | RunFailure::NotRun(e), _) => {
                 format!("failed to run `{}`: {e}", argv.join(" "))
             }

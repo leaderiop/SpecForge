@@ -390,7 +390,7 @@ fn hook_input(outcome: &Outcome, project: &specforge_common::ProjectRoot) -> Mig
 fn remove_record(record: &Held) -> Result<(), OpError> {
     match record.remove() {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-            Err(unwritable(&record.at, &e).prefixed("cannot migrate: "))
+            Err(unwritable(&record.named, &e).prefixed("cannot migrate: "))
         }
         _ => Ok(()),
     }
@@ -533,7 +533,7 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
             let backup = containment.resolve(&backup_of(&rewrite.path))?;
             let mode = source
                 .permissions()
-                .map_err(|e| unreadable(&source.at, &e).prefixed("cannot migrate: "))?;
+                .map_err(|e| unreadable(&source.named, &e).prefixed("cannot migrate: "))?;
             outcome.summary.backups.push(MigrationBackup {
                 original_path: rewrite.name.clone(),
                 backup_path: specforge_common::ProjectPath::of(project.dir(), &backup.at),

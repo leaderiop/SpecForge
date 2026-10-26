@@ -10,7 +10,7 @@
 //! `brief` and any export under a token budget leave it out unless asked
 //! for it. `dot` and `markdown` never carry a schema.
 
-use crate::containment::{Held, Outside};
+use crate::containment::Held;
 use crate::options::{Choice, OptionTable};
 use crate::schema_version::{NotAdmitted, VersionedSchema};
 use crate::view::{ProjectView, Select};
@@ -254,18 +254,15 @@ pub fn write_into(
         )));
     };
     let containment = directory.caller.containment();
-    // A refusal names the directory as the call spelled it, not joined onto the root.
-    let named = |name: &Path, outside: Outside| {
-        about(Outside::new(name, outside.landed().to_path_buf(), outside.root()).into())
-    };
+    // A refusal quotes the directory as the call wrote it (`Held::named`), not joined onto the root.
     let dir = containment
-        .resolve(&root.join(directory.name))
-        .map_err(|outside| named(directory.name, outside))?;
+        .resolve_from(root, directory.name)
+        .map_err(|outside| about(outside.into()))?;
     // The file too: it may itself be a link that leaves the project, and what is written is where
     // it lands (ADR 0092 D8, ADR 0104).
-    let file = containment
-        .resolve(&dir.at.join(request.format().file_name()))
-        .map_err(|outside| named(&directory.name.join(request.format().file_name()), outside))?;
+    let file = dir
+        .entry(containment, Path::new(request.format().file_name()))
+        .map_err(|outside| about(outside.into()))?;
     let exported = export(view, request)?;
     exported.try_map(|document| {
         file.create_parent()

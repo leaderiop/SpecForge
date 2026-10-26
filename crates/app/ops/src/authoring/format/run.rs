@@ -436,7 +436,7 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
                 .resolve(path)
                 .map_err(|outside| OpError::from(outside).about(FormatField::Paths))?;
             if names_nothing(&held.at) {
-                let shown = path.display().to_string();
+                let shown = held.named.display().to_string();
                 return Err(OpError::new(
                     OpErrorKind::FileNotFound,
                     crate::view::FILE_NOT_FOUND,

@@ -779,7 +779,8 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     read against the call's project: a relative one names a file under the project's
     root, and one that resolves outside it, by `..`, an absolute name or a
     symlink, is invalid_input on test_results and nothing is read, so the
-    error never says whether a file outside exists. The result MUST list each pass with its
+    error never says whether a file outside exists. A refusal of test_results
+    names it as the call spelled it, with no root joined on. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
     is an error or the coverage gate is below its minimum or unjudged,
     and, with `min`, a `gate` object saying where the gate landed. An extension pass that traps or answers what does not
