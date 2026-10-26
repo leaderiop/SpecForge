@@ -26,6 +26,7 @@ mod scan;
 mod session;
 mod sources;
 
+pub(crate) use crate::source_key::SourceKey;
 pub use gaps::{
     DirectoryGaps, GapItem, Gaps, GapsDocument, ScanFailureRow, SourceItem, directory_of, gaps,
 };
@@ -52,4 +53,3 @@ pub use session::{
     SOURCE_OUTSIDE_ROOT, SOURCE_ROOT_OUTSIDE_ROOT, SOURCE_UNREADABLE, SessionAction, SessionField,
     SessionOutcome, SessionRequest, SessionStep, UNKNOWN_SESSION, session,
 };
-pub(crate) use sources::SourceKey;

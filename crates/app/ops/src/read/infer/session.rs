@@ -9,8 +9,9 @@ use std::path::Path;
 use super::manifest::{
     InferenceManifest, InferenceSession, MANIFEST_FILENAME, SessionStatus, SourceFileEntry,
 };
-use super::sources::{ProjectFiles, SourceKey, SourceRead, content_hash};
+use super::sources::{ProjectFiles, SourceRead, content_hash};
 use crate::options::{Choice, OptionTable};
+use crate::source_key::SourceKey;
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind, Refusal, Writes};
 

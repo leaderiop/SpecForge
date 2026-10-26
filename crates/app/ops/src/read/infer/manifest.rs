@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use specforge_common::{Diagnostic, codes};
 
-use super::sources::normal_path;
+use crate::source_key::normal_path;
 use crate::{Containment, Held, OpError, OpErrorKind, Outside, ReadFailure, Writes};
 
 const CURRENT_VERSION: u32 = 1;
