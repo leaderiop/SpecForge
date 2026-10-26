@@ -272,10 +272,9 @@ fn dedent(text: &str) -> String {
             }
         } else if line.trim().is_empty() {
             result.push("");
-        } else if line.len() >= min_indent {
-            result.push(&line[min_indent..]);
         } else {
-            result.push(line);
+            // `get`: another line's indentation may be a multi-byte space, and `min_indent` counts bytes
+            result.push(line.get(min_indent..).unwrap_or(line));
         }
     }
 
@@ -332,4 +331,12 @@ fn find_error_descendant<'a>(node: Node<'a>) -> Option<Node<'a>> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod dedent_tests {
+    #[test]
+    fn a_multi_byte_space_in_the_indentation_does_not_split_a_character() {
+        assert_eq!(super::dedent("a\n b\n\u{a0}c"), "a\nb\n\u{a0}c");
+    }
 }
