@@ -244,12 +244,9 @@ impl ProjectChange {
         self.failed(cause, left)
     }
 
-    /// `file` as the operation names it: from the root, or as spelled when it is not under it.
+    /// `file` as the operation names it: its project path (ADR 0102).
     fn named(&self, file: &Path) -> String {
-        file.strip_prefix(&self.root)
-            .unwrap_or(file)
-            .display()
-            .to_string()
+        specforge_common::ProjectPath::of(&self.root, file).into_string()
     }
 
     /// The one wording of a failure (ADR 0155); `left` is what could not be put back, and the error's writes.

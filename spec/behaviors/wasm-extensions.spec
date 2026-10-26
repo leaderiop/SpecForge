@@ -545,7 +545,8 @@ behavior dispatch_collector "Dispatch Collector" {
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
-    directly inside a report directory, in path order) and passes the files
+    directly inside a report directory, in path order) and passes the files,
+    each named by its project path,
     to the collector's pure export as the protocol's CollectInput
     (`{"reports": [{"path", "content"}], "stdout"?}`, `stdout` being the
     captured standard output when the collector declares one, absent

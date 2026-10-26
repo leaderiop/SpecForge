@@ -7,7 +7,6 @@ use specforge_test_macros::test as specforge_test;
     behavior = "dispatch_collector",
     verify = "each report file reaches the collector by its project path, however it was named"
 )]
-#[ignore = "flipped by T6"]
 fn each_report_file_reaches_the_collector_by_its_project_path() {
     let fx = Fixture::new(vec![Runner::new("acme").proving("a", "t")]);
     fx.write("elsewhere/mine.json", "{}");

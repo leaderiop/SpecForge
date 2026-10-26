@@ -536,7 +536,7 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
                 .map_err(|e| unreadable(&source.named, &e).prefixed("cannot migrate: "))?;
             outcome.summary.backups.push(MigrationBackup {
                 original_path: rewrite.name.clone(),
-                backup_path: specforge_common::ProjectPath::of(project.dir(), &backup.at),
+                backup_path: backup.shown(project.dir()),
             });
             change.stage_owned(backup, rewrite.before.clone().into_bytes(), mode);
         }

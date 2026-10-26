@@ -15,8 +15,8 @@ use crate::registry::{KeyPin, LockedPin, METADATA_MISMATCH, Publisher, Registry,
 use crate::{OpError, OpErrorKind};
 
 impl<'a> Install<'a> {
-    /// A `.wasm` file read once, installed as `local:<path>`. The path is relative to `root` when
-    /// the file is under it, absolute otherwise. E072 when it declares no package name.
+    /// A `.wasm` file read once, installed as `local:<path>`: the file's project path ([`Held::shown`]: a link by
+    /// its own name, `/` between components, absolute outside `root`). E072 when it declares no package name.
     pub(crate) fn local(root: &Path, local: LocalFile) -> Result<Install<'a>, OpError> {
         let declared = local.binary.declaration();
         let name = super::super::candidate::package(declared)?;
@@ -26,7 +26,7 @@ impl<'a> Install<'a> {
         let pin = Pin {
             name,
             version,
-            source: LockSource::local(shown_path(root, &local.held.at))
+            source: LockSource::local(local.held.shown(root).into_string())
                 .map_err(|why| unrecordable(&local.held.named, &why))?,
             key_id: None,
             peers: declared.peers().to_vec(),
@@ -325,19 +325,4 @@ fn unrecordable(path: &Path, why: &str) -> OpError {
         ),
     )
     .with_suggestion("rename the file, then add it again")
-}
-
-/// `path` as the lock records it: relative to the project root when it is under it, absolute
-/// otherwise.
-fn shown_path(root: &Path, path: &Path) -> String {
-    let absolute = |p: &Path| {
-        std::path::absolute(p)
-            .map(|p| p.canonicalize().unwrap_or(p))
-            .unwrap_or_else(|_| p.to_path_buf())
-    };
-    let (root, path) = (absolute(root), absolute(path));
-    path.strip_prefix(&root)
-        .unwrap_or(&path)
-        .display()
-        .to_string()
 }

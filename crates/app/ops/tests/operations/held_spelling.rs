@@ -87,7 +87,6 @@ fn a_bounded_add_names_a_local_path_as_the_call_wrote_it() {
     behavior = "add_extension_to_existing_project",
     verify = "a local install is locked by its project path, a link by its own name"
 )]
-#[ignore = "flipped by T6"]
 fn a_local_install_records_its_project_path_a_link_by_its_own_name() {
     let dir = project(&[], &[]);
     let root = dir.path();

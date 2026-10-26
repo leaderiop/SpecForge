@@ -268,14 +268,14 @@ pub fn write_into(
         file.create_parent()
             .and_then(|()| file.replace(document))
             .map_err(|error| about(write_failure(root, &file, &error)))?;
-        Ok(ProjectPath::of(root, &file.at))
+        Ok(file.shown(root))
     })
 }
 
 /// A failed write of `file`: a name that is, or goes through, a file is invalid input; any other
 /// failure is the I/O error's kind.
 fn write_failure(root: &Path, file: &Held, error: &std::io::Error) -> OpError {
-    let named = ProjectPath::of(root, &file.at);
+    let named = file.shown(root);
     match error.kind() {
         std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::NotADirectory => OpError::new(
             OpErrorKind::InvalidInput,

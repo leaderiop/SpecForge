@@ -320,7 +320,8 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     latest compatible version.
     An installed extension MUST be enabled by its bare name; specforge.lock
     records the version the extension itself declares (its handshake), with
-    source "registry", or "local:<path>" for a local .wasm file, so peer
+    source "registry", or "local:<path>" for a local .wasm file (its project
+    path, a link by its own name), so peer
     and diamond checks compare real versions and update never replaces a
     local build from a registry.
     A relative local path is read from the project root, on the command line as

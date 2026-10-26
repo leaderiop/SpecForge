@@ -26,7 +26,7 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
 /// directly inside a directory, only those modified at or after `since`
 /// when given. Each file is held by `containment` before it is opened (one that
 /// lands outside is `outside_root`); a read that fails is E045. Paths are reported
-/// relative to `root`.
+/// as project paths of `root` ([`Held::shown`]).
 pub(super) fn read_report(
     report: &Held,
     root: &Path,
@@ -58,9 +58,8 @@ pub(super) fn read_report(
                     format!("failed to read report {}: {e}", file.named.display()),
                 )
             })?;
-            let shown = file.at.strip_prefix(root).unwrap_or(&file.at);
             Ok(CollectReportFile {
-                path: shown.display().to_string(),
+                path: file.shown(root).into_string(),
                 content,
             })
         })
