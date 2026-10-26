@@ -5,7 +5,7 @@ one set of files those checks read"). Amends ADR 0030 D1, D2 and D3 (check input
 the read), ADR 0047 D3 (one `CompiledProject::check`), ADR 0020 (`Rules::files` is gone), ADR 0019 (`RuleInput` carries
 the disk) and ADR 0106 D5 (the check inputs are what one check run read, read by the checks themselves rather than by
 `before_checks`). D5(2) is amended by [ADR 0118](0118-the-paths-a-field-names-are-read-once.md): a missing `file_exists` file's directory is listed again, by the suggestion, as a real read.
-Its rejected option 'module reads through the port' is reopened, and D1/D4 amended, by [ADR 0114](0114-environment-inputs-are-recorded-as-read.md) (`PlainDisk` lives next to the port and serves the environment load).
+Its rejected option 'module reads through the port' is reopened, and D1/D4 amended, by [ADR 0114](0114-environment-inputs-are-recorded-as-read.md) (`PlainDisk` lives next to the port and serves the environment load). **Extended by [ADR 0264](0264-a-project-file-is-read-bounded-and-only-when-regular.md) (round 28):** the disk's read reads only a regular file, at most 64 MiB.
 
 ## Context
 

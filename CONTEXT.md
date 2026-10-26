@@ -241,6 +241,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   hands a session to read its sources through (ADR 0145); it refuses a regular file with more than one name (ADR 0146), and the disk a bounded caller's format configuration is read through (ADR 0169).
 - **Replace file**: how a project file is written (`specforge_common::fresh::replace_file`, ADR 0144): a new file beside the name,
   renamed onto it, so the inode that held the name is never opened for writing. `create_fresh` is the same for a stream.
+- **Regular read**: how a project file's bytes are read (`specforge_common::regular`, ADR 0264): only a regular file, a link followed to one, at most 64 MiB (`MAX_FILE_BYTES`, the largest package a registry stores). A named pipe, a device, a socket or a directory is refused before it is opened, a larger file before it is read; each reader's code says so (E025, E028, E033, E069, `config_invalid`).
 - **Private replace**: how a file of the user's registry directory is written (`specforge_common::fresh::replace_private`, ADR 0193): missing directories 0700, a temporary created new at 0600, synced, renamed onto the name; a link at either name is replaced, never followed, and the file is 0600 whatever was there. A signing key that is there is never replaced.
 - **Caller**: what the surface that calls an operation lends it, one value (`specforge_ops::Caller`, ADR 0124): what the
   call may reach (**Containment**) and who can be asked (**Asking**). The CLI lends every path and its terminal when
@@ -249,7 +250,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   machine are passed beside it, not in it. Not the **host** (the process that loads extensions).
 - **Project file**: a file of the project an operation reads or writes. It is opened only as a `Held`
   (`specforge_ops::Containment::resolve`): at where its name landed (`real`), named as given (`spelled`), and replaced
-  atomically through a temp created new beside it, keeping its permissions (ADR 0104, ADR 0112, ADR 0128).
+  atomically through a temp created new beside it, keeping its permissions (ADR 0104, ADR 0112, ADR 0128), and read through the **regular read**.
 - **Owned name**: a project file name only one operation writes (a migration's backup, `<source>.spec.bak`): staged
   in the project change as owned, never read, created new at the name (whatever is there, a link or a file, is
   unlinked first, never its target) with the permissions it is staged with, and removed when the change is put back
