@@ -275,6 +275,43 @@ fn workflow_scope_returns_protocol() {
 
 #[specforge_test(
     behavior = "provide_infer_workflow_scope",
+    verify = "the infer prompt has the agent create entities with specforge.edit, never write .spec text"
+)]
+#[ignore = "flipped by T9"]
+fn the_infer_prompt_creates_entities_with_the_edit_tool() {
+    let mut state = make_state_with_kind("behavior", Some("guide text"));
+    for arguments in [
+        json!({}),
+        json!({"scope": "plan"}),
+        json!({"scope": "workflow"}),
+    ] {
+        let resp = infer(&mut state, arguments.clone());
+        let mut text = resp["result"]["messages"][0]["content"]["text"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{resp}"))
+            .to_string();
+        let content = prompt_payload(&resp);
+        for field in ["output_format", "validation"] {
+            text.push_str(content[field].as_str().unwrap_or_default());
+        }
+        assert!(text.contains("specforge.edit"), "{arguments}: {text}");
+        for written in [
+            "Write .spec",
+            "write .spec",
+            "writing .spec",
+            "Write a `.spec`",
+            "fix the .spec",
+        ] {
+            assert!(!text.contains(written), "{arguments}: {text}");
+        }
+        if arguments["scope"] == "workflow" {
+            assert!(content["tools"].to_string().contains("specforge.edit"));
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_infer_workflow_scope",
     verify = "the workflow lists the tools it names, as the tool table names them"
 )]
 fn workflow_scope_lists_tools_and_kinds() {

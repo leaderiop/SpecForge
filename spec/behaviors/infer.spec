@@ -483,6 +483,7 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   verify unit "workflow returns step-by-step protocol"
   verify unit "the workflow lists the tools it names, as the tool table names them"
   verify unit "workflow documents retry pattern"
+  verify unit "the infer prompt has the agent create entities with specforge.edit, never write .spec text"
 }
 
 behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
