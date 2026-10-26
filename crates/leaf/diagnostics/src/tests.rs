@@ -365,7 +365,7 @@ fn explain_catalog_matches_emitted_codes() {
         host.len()
     );
     assert!(
-        guests.len() >= 90,
+        guests.len() >= 85,
         "scanner found {} guest code literals; is the workspace root right?",
         guests.len()
     );

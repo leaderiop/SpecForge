@@ -514,9 +514,9 @@ catalog! {
     W002: Warning software,
         "Unreferenced type",
         "A `type` entity has no incoming references from any `behavior`, `port`, or other `type`. Reference the type where it's used, or remove it if it's dead.";
-    W003: Warning software,
+    W003: Warning governance,
         "Unenforced invariant",
-        "An `invariant` that nothing references: no behavior lists it in `invariants`, `requires`, `ensures` or `maintains`, so no code path is bound to preserve it. Reference it from the behaviors that must preserve it, or remove it if it no longer applies. `specforge analyze coverage` counts these invariants but does not report them again.";
+        "An `invariant` that nothing references: no behavior enforces it (`invariants`), no decision or constraint protects it, no failure mode threatens it and no axiom or property relies on it. Reference it where it is kept, or remove it if it no longer applies. `specforge analyze coverage` counts these invariants but does not report them again.";
     W004: Warning testing,
         "Untested testable entity",
         "A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements. Union types and entities marked `abstract true` (through a flag their kind declares) are exempt; a struct member named `verify` is a field, not an obligation.";

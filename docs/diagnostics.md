@@ -2198,13 +2198,13 @@ Level: warning
 ```
 W003: Unenforced invariant
 
-An `invariant` that nothing references: no behavior lists it in `invariants`,
-`requires`, `ensures` or `maintains`, so no code path is bound to preserve it.
-Reference it from the behaviors that must preserve it, or remove it if it no
+An `invariant` that nothing references: no behavior enforces it (`invariants`),
+no decision or constraint protects it, no failure mode threatens it and no axiom
+or property relies on it. Reference it where it is kept, or remove it if it no
 longer applies. `specforge analyze coverage` counts these invariants but does
 not report them again.
 
-Owner: @specforge/software
+Owner: @specforge/governance
 Level: warning
 ```
 
