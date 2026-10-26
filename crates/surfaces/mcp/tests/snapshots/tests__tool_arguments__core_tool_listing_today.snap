@@ -7513,7 +7513,7 @@ expression: listing
         },
         "status": {
           "default": "completed",
-          "description": "Final status (for end, `completed` unless asked; refused on another action): completed: the inference is done; paused: a later session continues it",
+          "description": "Final status (for end; refused on another action): completed: the inference is done; paused: a later session continues it",
           "enum": [
             "completed",
             "paused"
