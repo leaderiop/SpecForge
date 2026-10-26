@@ -127,6 +127,7 @@ behavior start_inference_session "Start Inference Session" {
   verify unit "start creates session with active status"
   verify unit "start rejects when another session is active"
   verify unit "start assigns unique session ID"
+  verify unit "start refuses a source root that is not a directory under the project root, and writes nothing"
 }
 
 behavior end_inference_session "End Inference Session" {

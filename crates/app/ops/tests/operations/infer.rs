@@ -441,6 +441,48 @@ fn a_source_root_outside_the_root_is_refused() {
 }
 
 #[specforge_test(
+    behavior = "start_inference_session",
+    verify = "start refuses a source root that is not a directory under the project root, and writes nothing"
+)]
+#[ignore = "flipped by T10"]
+fn a_source_root_that_is_no_directory_is_refused() {
+    let project = project(None, serde_json::json!({}));
+    for root in ["src/tiny.rs", "nope"] {
+        let error = step(
+            &project,
+            SessionStep::Start {
+                agent: None,
+                source_roots: Some(&[root.to_string()]),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.error.kind, OpErrorKind::InvalidInput, "{root}");
+        assert_eq!(error.error.code, SOURCE_UNREADABLE, "{root}");
+        assert_eq!(
+            error.error.message,
+            format!(
+                "'{root}' is not a directory: a source root is a directory under the project root"
+            )
+        );
+        assert_eq!(
+            error.subject,
+            Some(infer::SessionField::SourceRoots),
+            "{root}"
+        );
+        assert!(!project.root().join("specforge-infer.json").exists());
+    }
+    let src = ["src".to_string()];
+    step(
+        &project,
+        SessionStep::Start {
+            agent: None,
+            source_roots: Some(&src),
+        },
+    )
+    .unwrap();
+}
+
+#[specforge_test(
     invariant = "mcp_structured_error_responses",
     verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
 )]
