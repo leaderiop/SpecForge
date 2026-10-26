@@ -769,7 +769,7 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
   verify unit "tool results carry an object payload as structuredContent from 2025-06-18"
   verify unit "a 2025-03-26 session gets no structuredContent"
   verify unit "each core tool with an object result declares an outputSchema its structured results conform to"
-  verify unit "a failed call of a tool with an outputSchema carries no structuredContent"
+  verify unit "a failed call of any tool carries no structuredContent: its McpError is the text block"
   verify unit "a 2025-03-26 session is listed no outputSchema"
 }
 
