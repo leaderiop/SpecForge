@@ -258,14 +258,7 @@ impl Block {
             .as_ref()
             .map_or(self.header(), |doc| doc.start_line - 1);
         let last = self.close();
-        let before_blank = first > 0 && self.lines[first - 1].trim().is_empty();
-        let after_blank = last + 1 < self.lines.len() && self.lines[last + 1].trim().is_empty();
-        let (first, last) = match (before_blank, after_blank) {
-            (true, _) => (first - 1, last),
-            (false, true) => (first, last + 1),
-            _ => (first, last),
-        };
-        self.lines.drain(first..=last);
+        cut(&mut self.lines, first, last);
     }
 
     pub(super) fn remove(&mut self, first: usize, last: usize) {
@@ -277,6 +270,20 @@ impl Block {
         let new: Vec<String> = text.split('\n').map(String::from).collect();
         self.lines.splice(at..at, new);
     }
+}
+
+/// `lines[first..=last]` removed with one blank line beside them: the one above, else the one below. The empty last
+/// element a final newline leaves is no blank line, so the text keeps ending with one (ADR 0274).
+pub(super) fn cut<T: AsRef<str>>(lines: &mut Vec<T>, first: usize, last: usize) {
+    let blank = |line: usize| lines[line].as_ref().trim().is_empty();
+    let before_blank = first > 0 && blank(first - 1);
+    let after_blank = last + 2 < lines.len() && blank(last + 1);
+    let (first, last) = match (before_blank, after_blank) {
+        (true, _) => (first - 1, last),
+        (false, true) => (first, last + 1),
+        _ => (first, last),
+    };
+    lines.drain(first..=last);
 }
 
 /// Where a field goes: one-line values, then block fields, then triple-quoted text, each in the kind's declared

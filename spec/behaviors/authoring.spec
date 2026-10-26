@@ -205,7 +205,8 @@ behavior delete_entity "Delete an Entity" {
   category   mutation
   contract   """
     A delete edit removes the entity's block and its doc comment, as the parse
-    reads it: the // lines directly above the block with no blank line between.
+    reads it: the // lines directly above the block with no blank line between,
+    and one blank line beside it; the file keeps its final newline.
     The format header is never a doc comment and stays. Deleting an entity that is still referenced leaves the project
     with an error, so it is refused with E080 unless the edit asks to remove
     every reference to the entity in the same change. The references are every

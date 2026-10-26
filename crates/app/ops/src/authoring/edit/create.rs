@@ -241,14 +241,7 @@ fn unbind(text: &str, key: &str, id: &str) -> Option<String> {
         }
         let mut lines: Vec<&str> = out.split('\n').collect();
         let (first, last) = (import.span.start_line - 1, import.span.end_line - 1);
-        let before_blank = first > 0 && lines[first - 1].trim().is_empty();
-        let after_blank = last + 1 < lines.len() && lines[last + 1].trim().is_empty();
-        let (first, last) = match (before_blank, after_blank) {
-            (true, _) => (first - 1, last),
-            (false, true) => (first, last + 1),
-            _ => (first, last),
-        };
-        lines.drain(first..=last);
+        block::cut(&mut lines, first, last);
         out = lines.join("\n");
     }
     (out != text).then_some(out)

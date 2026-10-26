@@ -214,7 +214,6 @@ fn delete_with_unlink_references_leaves_a_word_a_string_list_holds() {
     behavior = "delete_entity",
     verify = "a delete keeps the file's final newline"
 )]
-#[ignore = "flipped by T4"]
 fn a_delete_keeps_the_files_final_newline() {
     let c = project(&[(
         "a.spec",
