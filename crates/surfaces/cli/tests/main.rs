@@ -39,6 +39,7 @@ mod format;
 mod format_corpus;
 mod format_paths;
 mod hard_links;
+mod hostile_files;
 mod init;
 mod init_enclosing;
 mod init_starter;

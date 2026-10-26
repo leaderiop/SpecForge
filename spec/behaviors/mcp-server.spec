@@ -81,6 +81,7 @@ behavior mcp_initialize "MCP Initialize" {
   verify integration "a client that names no projectRoot is served the project at or above the path specforge mcp was started with"
   verify unit "initialize and server/discover give the same capabilities and instructions"
   verify unit "initialize answers the negotiated revision, the server's capabilities, its name and version and its instructions, and no listing"
+  verify integration "specforge mcp answers initialize over a project whose specforge.lock is a named pipe, and doctor reports the lock"
   verify contract "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
 }
 

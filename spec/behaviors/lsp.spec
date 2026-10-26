@@ -59,6 +59,7 @@ behavior lsp_initialize "LSP Initialize" {
   verify unit "zero extensions produces structural-only capabilities"
   verify contract "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
   verify unit "initialize response includes server_info with name and version"
+  verify integration "the language server ends indexing over a project whose specforge.lock or a .spec file is a named pipe"
   verify unit "a workspace root inside a project opens the enclosing project"
 }
 
