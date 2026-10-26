@@ -16,6 +16,8 @@ mod reparse;
 
 use errors::{position_span, unclosed_error};
 
+pub use body::value_token;
+
 /// Process escape sequences in a string literal (after quote stripping).
 fn unescape(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
@@ -39,6 +41,16 @@ fn unescape(s: &str) -> String {
         }
     }
     result
+}
+
+/// The text a `"…"` token reads to: its inside, each escape read (`\"`, `\\`, `\n`, `\t`, `\r`; another `\x` is kept
+/// as written), never trimmed. A token without both quotes reads as written (the CST keeps an unclosed string out
+/// of every block, ADR 0063).
+pub(crate) fn string_text(raw: &str) -> String {
+    match raw.strip_prefix('"').and_then(|r| r.strip_suffix('"')) {
+        Some(inner) => unescape(inner),
+        None => raw.to_string(),
+    }
 }
 
 pub fn parse(source: &str, file_path: &str) -> SpecFile {
@@ -277,13 +289,7 @@ impl<'a> ParseContext<'a> {
     }
 
     fn unquote(&self, node: Node) -> String {
-        let text = self.text(node);
-        if text.starts_with('"') && text.ends_with('"') && text.len() >= 2 {
-            let inner = &text[1..text.len() - 1];
-            unescape(inner)
-        } else {
-            text.to_string()
-        }
+        string_text(self.text(node))
     }
 
     // --- Formal expressions (`metric expr { ... }`) ---------------------

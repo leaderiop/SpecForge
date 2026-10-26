@@ -103,8 +103,8 @@ impl<'a> ParseContext<'a> {
 
     fn parse_value(&mut self, node: Node) -> FieldValue {
         match node.kind() {
-            kind::STRING => FieldValue::String(self.unquote(node)),
-            kind::TRIPLE_QUOTED_STRING => FieldValue::String(self.parse_triple_quoted(node)),
+            kind::STRING => FieldValue::String(string_text(self.text(node))),
+            kind::TRIPLE_QUOTED_STRING => FieldValue::String(triple_text(self.text(node))),
             kind::INTEGER | kind::NEGATIVE_INTEGER => {
                 let text = self.text(node);
                 match text.parse::<i64>() {
@@ -133,12 +133,6 @@ impl<'a> ParseContext<'a> {
         }
     }
 
-    fn parse_triple_quoted(&self, node: Node) -> String {
-        let text = self.text(node);
-        let inner = &text[3..text.len() - 3];
-        dedent(inner)
-    }
-
     /// A list as written: every item with its text, token span and how it
     /// was written. Never judged here: what a list references, and whether
     /// its items suit the field, is the field's declared type's reading.
@@ -146,16 +140,8 @@ impl<'a> ParseContext<'a> {
         let mut items = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            let (text, written) = match child.kind() {
-                // `true` / `false` arrive as identifiers inside a list.
-                kind::IDENTIFIER => match self.text(child) {
-                    text @ ("true" | "false") => (text.to_string(), Written::Literal),
-                    text => (text.to_string(), Written::Bare),
-                },
-                kind::STRING => (self.unquote(child), Written::Quoted),
-                kind::SCHEME_REF_ID => (self.text(child).to_string(), Written::SchemeRef),
-                kind::INTEGER | kind::BOOLEAN => (self.text(child).to_string(), Written::Literal),
-                _ => continue,
+            let Some((written, text)) = value_token(child, self.source) else {
+                continue;
             };
             items.push(ListItem {
                 text,
@@ -298,6 +284,39 @@ fn dedent(text: &str) -> String {
     }
 
     result.join("\n")
+}
+
+/// The text a `"""…"""` token reads to: its inside dedented (the first line trimmed, the common indentation of the
+/// others dropped, trailing blank lines dropped).
+pub(crate) fn triple_text(raw: &str) -> String {
+    let inner = raw
+        .strip_prefix("\"\"\"")
+        .and_then(|r| r.strip_suffix("\"\"\""))
+        .unwrap_or(raw);
+    dedent(inner)
+}
+
+/// A value token as the parse reads it (ADR 0247): how it is written and the text the parse stores for it. A `"…"`
+/// is [`string_text`], a `"""…"""` is [`triple_text`], a bare word, scheme ref id or literal is its text; nothing is
+/// otherwise trimmed. `true` / `false` arrive as identifiers inside a list and are literals. `None` for every other
+/// node: a list, a nested block, an expression group, a type union, an array type, a bracket, a comma, a comment.
+/// The parse's field values and list items are built from it; the formatter's rewrite reads it. `source` is the
+/// text the node's tree was parsed from.
+pub fn value_token(node: Node<'_>, source: &str) -> Option<(Written, String)> {
+    let text = source.get(node.byte_range())?;
+    Some(match node.kind() {
+        kind::STRING => (Written::Quoted, string_text(text)),
+        kind::TRIPLE_QUOTED_STRING => (Written::Quoted, triple_text(text)),
+        kind::IDENTIFIER if matches!(text, "true" | "false") => {
+            (Written::Literal, text.to_string())
+        }
+        kind::IDENTIFIER => (Written::Bare, text.to_string()),
+        kind::SCHEME_REF_ID => (Written::SchemeRef, text.to_string()),
+        kind::INTEGER | kind::NEGATIVE_INTEGER | kind::BOOLEAN | kind::DATE_LITERAL => {
+            (Written::Literal, text.to_string())
+        }
+        _ => return None,
+    })
 }
 
 /// Depth-first search for an ERROR or MISSING node produced by the
