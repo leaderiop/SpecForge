@@ -148,8 +148,14 @@ impl<E: Editor> Reaction<E> {
             }
         }
         self.refresh_tokens_if_stale();
-        if applied.is_some() && self.state.blocking_read().client().lens_refresh {
-            self.editor.refresh_lenses();
+        if applied.is_some() {
+            let client = self.state.blocking_read().client();
+            if client.lens_refresh {
+                self.editor.refresh_lenses();
+            }
+            if client.graph_changed {
+                self.editor.graph_changed();
+            }
         }
         applied
     }

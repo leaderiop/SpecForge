@@ -35,6 +35,18 @@ pub trait Editor {
     /// Ask the editor to request its code lenses again (`workspace/codeLens/refresh`), without
     /// waiting for its answer: a count in one file changes when another gains a reference.
     fn refresh_lenses(&mut self);
+
+    /// Tell the editor the session's graph changed (`specforge/graphChanged`), without waiting:
+    /// the editor asks `specforge/graph` again if it shows it (ADR 0268 D2).
+    fn graph_changed(&mut self);
+}
+
+/// The `specforge/graphChanged` notification: no params.
+enum GraphChanged {}
+
+impl notification::Notification for GraphChanged {
+    type Params = ();
+    const METHOD: &'static str = crate::views::GRAPH_CHANGED;
 }
 
 /// A step of the workspace indexing, as the editor shows it.
@@ -169,6 +181,13 @@ impl Editor for ClientEditor {
         let client = self.client.clone();
         self.runtime.spawn(async move {
             let _ = client.code_lens_refresh().await;
+        });
+    }
+
+    fn graph_changed(&mut self) {
+        let client = self.client.clone();
+        self.runtime.spawn(async move {
+            client.send_notification::<GraphChanged>(()).await;
         });
     }
 }

@@ -1,8 +1,11 @@
 //! The requests only SpecForge's editor client asks (ADR 0268): the session's graph, the entity
 //! under the cursor, and the notification that follows a rebuild.
 
+use crate::recorder::graph_changed;
+use crate::served::Served;
 use crate::session::Session;
 use serde_json::{Value, json};
+use specforge_lsp::ClientSupport;
 use specforge_test_macros::test as spec;
 
 const TEXT: &str = "type user \"User\" {}\nbehavior login \"Log in\" {\n  contract \"returns an auth token\"\n  produces [logged_in]\n}\nevent logged_in \"Logged in\" {\n  payload user\n}\n";
@@ -103,4 +106,53 @@ async fn the_entity_request_names_what_the_cursor_names() {
 
     let reply = client.request("specforge/entity", at(1, 9)).await;
     assert_eq!(reply["result"]["id"], "login", "{reply}");
+}
+
+#[spec(
+    behavior = "session_graph_request",
+    verify = "a rebuild notifies only a client that declared specforgeGraphChanged"
+)]
+fn a_rebuild_notifies_only_a_client_that_declared_it() {
+    let grown = "behavior login \"Login\" {\n  contract \"x\"\n}\nbehavior b \"B\" {\n  depends_on [login]\n}\n";
+    for declared in [true, false] {
+        let mut served = Served::detached().client(ClientSupport {
+            graph_changed: declared,
+            ..Default::default()
+        });
+        let uri = served.uri("graph.spec");
+        served.open_document(&uri, "behavior login \"Login\" {\n  contract \"x\"\n}\n");
+        served.edit("graph.spec", grown);
+        assert_eq!(
+            graph_changed(&served.sent()),
+            declared,
+            "declared {declared}"
+        );
+    }
+}
+
+#[spec(
+    behavior = "session_graph_request",
+    verify = "a rebuild sends specforge/graphChanged to a client that declared it"
+)]
+#[tokio::test]
+async fn a_rebuild_sends_the_notification_over_the_wire() {
+    let (mut client, uri, _dir, _) = Session::with_extensions_as(
+        &["@specforge/software"],
+        "a.spec",
+        TEXT,
+        json!({"experimental": {"specforgeGraphChanged": true}}),
+    )
+    .await;
+    let typed = format!("{TEXT}type unsaved_one \"Unsaved\" {{}}\n");
+    client
+        .did_change(&uri, 2, vec![json!({"text": typed})])
+        .await;
+    let sent = client
+        .notification_within(
+            "specforge/graphChanged",
+            std::time::Duration::from_secs(5),
+            |_| true,
+        )
+        .await;
+    assert!(sent.is_some(), "no specforge/graphChanged within 5 s");
 }

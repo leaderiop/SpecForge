@@ -205,7 +205,7 @@ fn shapes_of_sent(sent: &[Sent]) -> Vec<Shape> {
             ),
             Sent::Progress(WorkDone::Begin { title }) => Shape::Begin(title.clone()),
             Sent::Progress(WorkDone::End { message }) => Shape::End(message.clone()),
-            Sent::TokensRefreshed | Sent::LensesRefreshed => {
+            Sent::TokensRefreshed | Sent::LensesRefreshed | Sent::GraphChanged => {
                 panic!("no client here declared refresh support")
             }
         })

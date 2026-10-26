@@ -25,6 +25,7 @@ pub enum Sent {
     Progress(WorkDone),
     TokensRefreshed,
     LensesRefreshed,
+    GraphChanged,
 }
 
 type Refusal = Box<dyn Fn(&[FileSystemWatcher]) -> bool>;
@@ -112,6 +113,10 @@ impl Editor for Recorder {
     fn refresh_lenses(&mut self) {
         self.push(Sent::LensesRefreshed);
     }
+
+    fn graph_changed(&mut self) {
+        self.push(Sent::GraphChanged);
+    }
 }
 
 // Readers over a record.
@@ -192,4 +197,9 @@ pub fn refreshed(sent: &[Sent]) -> bool {
 /// Whether the editor was asked to refresh its code lenses.
 pub fn lenses_refreshed(sent: &[Sent]) -> bool {
     sent.iter().any(|s| matches!(s, Sent::LensesRefreshed))
+}
+
+/// Whether the editor was told the session's graph changed.
+pub fn graph_changed(sent: &[Sent]) -> bool {
+    sent.iter().any(|s| matches!(s, Sent::GraphChanged))
 }
