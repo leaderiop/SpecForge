@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { fileUri } from "./paths";
 import { getGraphLayout, isGraphAutoUpdate } from "./config";
 import { graphChanged, sessionGraph } from "./lsp-client";
+import { symbolColor } from "./symbols";
 
 export class GraphWebviewPanel {
   private static instance: GraphWebviewPanel | undefined;
@@ -108,12 +109,18 @@ export class GraphWebviewPanel {
     this.panel.webview.postMessage({ type: "loading" });
 
     try {
-      const { graph, degrees } = await sessionGraph();
+      const { graph, kinds, degrees } = await sessionGraph();
+      const colors: Record<string, string> = {};
+      for (const [kind, symbolKind] of Object.entries(kinds)) {
+        colors[kind] = symbolColor(symbolKind);
+      }
       this.panel.webview.postMessage({
         type: "graphData",
         data: graph,
         // The host's count of each entity's edges to other entities (Graph::degree).
         degrees,
+        // Each kind's theme colour, from its declared symbol kind (ADR 0268 D4).
+        colors,
         layout: getGraphLayout(),
       });
     } catch (err) {
@@ -221,16 +228,19 @@ export class GraphWebviewPanel {
   const vscode = acquireVsCodeApi();
 
   // ===== Constants =====
-  const KIND_COLORS = {
-    behavior: '#4285F4', type: '#7B61FF', event: '#E65100',
-    invariant: '#EA4335', port: '#00ACC1',
-    feature: '#34A853', journey: '#43A047', deliverable: '#1E88E5',
-    milestone: '#8E24AA', module: '#607D8B', term: '#795548',
-    persona: '#009688', channel: '#FF7043', release: '#FF5722',
-    decision: '#FBBC04', constraint: '#FF9800', failure_mode: '#F44336',
-    property: '#9C27B0', axiom: '#673AB7', protocol: '#3F51B5',
-    refinement: '#5C6BC0', process: '#7986CB',
-  };
+  // Each kind's colour, resolved from the theme colour the extension names for its symbol kind.
+  let KIND_COLORS = {};
+  function resolveColors(colors) {
+    const probe = document.createElement('span');
+    document.body.appendChild(probe);
+    KIND_COLORS = {};
+    for (const [kind, css] of Object.entries(colors || {})) {
+      probe.style.color = '';
+      probe.style.color = css;
+      KIND_COLORS[kind.toLowerCase()] = getComputedStyle(probe).color || '#888';
+    }
+    probe.remove();
+  }
 
   // Group node dimensions
   const GW = 140, GH = 70, GRX = 12;
@@ -306,11 +316,14 @@ export class GraphWebviewPanel {
     return s.split('_').map(function(w) { return w[0].toUpperCase() + w.slice(1); }).join(' ');
   }
 
-  function hexRgba(hex, a) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  // color is a computed colour: rgb(r, g, b) or #rrggbb.
+  function hexRgba(color, a) {
+    const m = color.match(/\\d+(\\.\\d+)?/g);
+    if (color.startsWith('#')) {
+      return 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' +
+        parseInt(color.slice(5, 7), 16) + ',' + a + ')';
+    }
+    return 'rgba(' + m[0] + ',' + m[1] + ',' + m[2] + ',' + a + ')';
   }
 
   // Compute the intersection of a ray from the center of a rectangle to an
@@ -1681,6 +1694,7 @@ export class GraphWebviewPanel {
         loadingEl.classList.add('hidden');
         emptyEl.classList.add('hidden');
         errorEl.classList.add('hidden');
+        resolveColors(msg.colors);
         parseGraphData(msg.data, msg.degrees);
         egoCenter = null;
         egoExpanded.clear();

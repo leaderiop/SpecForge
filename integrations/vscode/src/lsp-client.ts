@@ -11,6 +11,7 @@ import {
 } from "vscode-languageclient/node";
 import { serverBinary, serverHint } from "./binary";
 import { getLspTrace } from "./config";
+import { symbolCodicon } from "./symbols";
 
 let client: LanguageClient | undefined;
 
@@ -33,31 +34,6 @@ class GraphChangedCapability implements StaticFeature {
   clear(): void {}
 }
 
-const kindIcons: Record<string, string> = {
-  behavior: "$(symbol-method)",
-  feature: "$(star-full)",
-  type: "$(symbol-class)",
-  event: "$(zap)",
-  invariant: "$(shield)",
-  port: "$(plug)",
-  journey: "$(map)",
-  milestone: "$(milestone)",
-  module: "$(package)",
-  term: "$(book)",
-  deliverable: "$(archive)",
-  decision: "$(law)",
-  constraint: "$(lock)",
-  failure_mode: "$(warning)",
-  persona: "$(person)",
-  channel: "$(broadcast)",
-  release: "$(tag)",
-  property: "$(beaker)",
-  axiom: "$(verified)",
-  protocol: "$(git-merge)",
-  refinement: "$(layers)",
-  process: "$(server-process)",
-};
-
 /**
  * Entity header format: `**kind** \`entity_id\``. The server's hover is
  * editor-neutral markdown; the header is the first line that matches, after
@@ -66,50 +42,11 @@ const kindIcons: Record<string, string> = {
 const entityHeaderRegex = /^\*\*(\w+)\*\*\s+`([^`]+)`/;
 
 /**
- * The codicon of each `vscode.SymbolKind` (every SymbolKind has a
- * `symbol-*` codicon), for kinds outside `kindIcons`: the server reports a
- * kind's declared `lsp_icon` as the SymbolKind of its workspace symbols.
- */
-const symbolKindIcons: Record<vscode.SymbolKind, string> = {
-  [vscode.SymbolKind.File]: "$(symbol-file)",
-  [vscode.SymbolKind.Module]: "$(symbol-module)",
-  [vscode.SymbolKind.Namespace]: "$(symbol-namespace)",
-  [vscode.SymbolKind.Package]: "$(symbol-package)",
-  [vscode.SymbolKind.Class]: "$(symbol-class)",
-  [vscode.SymbolKind.Method]: "$(symbol-method)",
-  [vscode.SymbolKind.Property]: "$(symbol-property)",
-  [vscode.SymbolKind.Field]: "$(symbol-field)",
-  [vscode.SymbolKind.Constructor]: "$(symbol-constructor)",
-  [vscode.SymbolKind.Enum]: "$(symbol-enum)",
-  [vscode.SymbolKind.Interface]: "$(symbol-interface)",
-  [vscode.SymbolKind.Function]: "$(symbol-function)",
-  [vscode.SymbolKind.Variable]: "$(symbol-variable)",
-  [vscode.SymbolKind.Constant]: "$(symbol-constant)",
-  [vscode.SymbolKind.String]: "$(symbol-string)",
-  [vscode.SymbolKind.Number]: "$(symbol-number)",
-  [vscode.SymbolKind.Boolean]: "$(symbol-boolean)",
-  [vscode.SymbolKind.Array]: "$(symbol-array)",
-  [vscode.SymbolKind.Object]: "$(symbol-object)",
-  [vscode.SymbolKind.Key]: "$(symbol-key)",
-  [vscode.SymbolKind.Null]: "$(symbol-null)",
-  [vscode.SymbolKind.EnumMember]: "$(symbol-enum-member)",
-  [vscode.SymbolKind.Struct]: "$(symbol-struct)",
-  [vscode.SymbolKind.Event]: "$(symbol-event)",
-  [vscode.SymbolKind.Operator]: "$(symbol-operator)",
-  [vscode.SymbolKind.TypeParameter]: "$(symbol-type-parameter)",
-};
-
-/**
- * The icon of an entity of `kind`: the static map for the shipped kinds;
- * otherwise the codicon of the SymbolKind the server reports for the
- * entity's workspace symbol (the symbol named `id` whose container is
- * `kind`). `undefined` when there is none.
+ * The icon of an entity of `kind`: the codicon of the SymbolKind the server reports for the entity's
+ * workspace symbol (the symbol named `id` whose container is `kind`), the kind's declared `lsp_icon`.
+ * `undefined` when there is none.
  */
 async function iconOf(kind: string, id: string): Promise<string | undefined> {
-  const known = kindIcons[kind];
-  if (known) {
-    return known;
-  }
   try {
     const symbols = await vscode.commands.executeCommand<
       vscode.SymbolInformation[] | undefined
@@ -117,7 +54,7 @@ async function iconOf(kind: string, id: string): Promise<string | undefined> {
     const symbol = symbols?.find(
       (s) => s.name === id && s.containerName === kind
     );
-    return symbol ? symbolKindIcons[symbol.kind] : undefined;
+    return symbol ? symbolCodicon(symbol.kind) : undefined;
   } catch {
     return undefined;
   }

@@ -1,64 +1,7 @@
 import * as vscode from "vscode";
 import { fileUri } from "./paths";
+import { symbolIcon } from "./symbols";
 import { GraphNode, SessionGraph, graphChanged, sessionGraph } from "./lsp-client";
-
-// --- Codicon mapping per entity kind ---
-
-const KIND_ICONS: Record<string, string> = {
-  behavior: "symbol-method",
-  feature: "symbol-class",
-  event: "symbol-event",
-  type: "symbol-struct",
-  invariant: "symbol-interface",
-  port: "symbol-interface",
-  journey: "symbol-misc",
-  deliverable: "symbol-package",
-  milestone: "symbol-ruler",
-  module: "symbol-namespace",
-  term: "symbol-text",
-  persona: "symbol-account",
-  channel: "symbol-broadcast",
-  release: "symbol-tag",
-  decision: "symbol-law",
-  constraint: "symbol-lock",
-  failure_mode: "symbol-warning",
-  property: "symbol-property",
-  axiom: "symbol-key",
-  protocol: "symbol-link",
-  refinement: "symbol-type-hierarchy",
-  process: "symbol-debug-step-over",
-};
-
-// Canonical ordering for entity kind groups in the tree
-const KIND_ORDER: string[] = [
-  "behavior",
-  "feature",
-  "event",
-  "type",
-  "invariant",
-  "port",
-  "journey",
-  "deliverable",
-  "milestone",
-  "module",
-  "term",
-  "persona",
-  "channel",
-  "release",
-  "decision",
-  "constraint",
-  "failure_mode",
-  "property",
-  "axiom",
-  "protocol",
-  "refinement",
-  "process",
-];
-
-function kindSortIndex(kind: string): number {
-  const idx = KIND_ORDER.indexOf(kind);
-  return idx >= 0 ? idx : KIND_ORDER.length;
-}
 
 function pluralizeKind(kind: string): string {
   if (kind.endsWith("y") && !kind.endsWith("ey")) {
@@ -184,9 +127,7 @@ export class EntityTreeProvider
       }
     }
 
-    const sortedKinds = [...this.groupedByKind.keys()].sort(
-      (a, b) => kindSortIndex(a) - kindSortIndex(b)
-    );
+    const sortedKinds = [...this.groupedByKind.keys()].sort();
 
     return sortedKinds.map(
       (kind) => new KindGroupItem(kind, this.groupedByKind.get(kind)!)
@@ -238,8 +179,7 @@ export class EntityTreeProvider
       label,
       vscode.TreeItemCollapsibleState.Collapsed
     );
-    const iconId = KIND_ICONS[element.kind] ?? "symbol-misc";
-    item.iconPath = new vscode.ThemeIcon(iconId);
+    item.iconPath = symbolIcon(this.graph?.kinds[element.kind]);
     item.contextValue = "entityKindGroup";
     return item;
   }
@@ -256,8 +196,7 @@ export class EntityTreeProvider
       item.description = entity.title;
     }
 
-    const iconId = KIND_ICONS[element.kind] ?? "symbol-misc";
-    item.iconPath = new vscode.ThemeIcon(iconId);
+    item.iconPath = symbolIcon(this.graph?.kinds[element.kind]);
     item.contextValue = "entity";
     item.tooltip = entity.title
       ? `${entity.kind}: ${entity.id}\n${entity.title}`

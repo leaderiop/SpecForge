@@ -344,7 +344,6 @@ fn vscode_tree_and_graph_read_the_language_server() {
 /// A kind's icon, colour and order come from its declared symbol kind
 /// (ADR 0268 D4): no source keeps a table keyed by three or more builtin kinds.
 #[test]
-#[ignore = "flipped by T8"]
 fn vscode_client_keeps_no_kind_table() {
     let kinds = manifest_domain_kinds();
     let mut problems = Vec::new();
