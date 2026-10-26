@@ -2,14 +2,13 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use specforge_graph::{Direction, Graph, Node, ValueShape};
+use specforge_graph::{Direction, Graph, Node, Obligation, ValueShape};
 use specforge_parser::{FieldMap, FieldValue};
 
 use super::text::{field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
-    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ObligationRecord,
-    ParamRecord,
+    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ParamRecord,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
 
@@ -113,14 +112,7 @@ pub(super) fn record(
                     }),
             })
             .collect(),
-        obligations: node
-            .obligations
-            .iter()
-            .map(|statement| ObligationRecord {
-                kind: statement.kind.clone(),
-                text: statement.description.clone(),
-            })
-            .collect(),
+        obligations: node.obligations.iter().map(Obligation::of).collect(),
         incoming,
         outgoing,
         linked,

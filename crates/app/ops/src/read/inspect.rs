@@ -6,9 +6,9 @@
 
 use specforge_common::Diagnostic;
 use specforge_emitter::context::Headline;
-use specforge_graph::{Members, Node};
+use specforge_graph::{Members, Node, Obligation};
 use specforge_project::coverage::{Status, Verdict};
-use specforge_registry::{KindRegistryEntry, ObligationRecord, Standing};
+use specforge_registry::{KindRegistryEntry, Standing};
 
 use crate::read::navigate::{References, is_about};
 use crate::view::{Entity, EntityField, ProjectView};
@@ -41,7 +41,7 @@ pub struct EntityFacts<'v> {
     pub standing: &'v Standing,
     /// Its `verify` statements, in declaration order: its record's in the
     /// view's entity snapshot (ADR 0019).
-    pub obligations: &'v [ObligationRecord],
+    pub obligations: &'v [Obligation],
     /// The references to it and the ones it makes (ADR 0016 D2), in graph
     /// edge order.
     pub references: References,
@@ -113,6 +113,6 @@ pub fn inspect<'v>(
 
 /// An obligation as MCP inspect and the context prompt list it:
 /// `"<kind> <text>"`.
-pub fn obligation_text(obligation: &ObligationRecord) -> String {
+pub fn obligation_text(obligation: &Obligation) -> String {
     format!("{} {}", obligation.kind, obligation.text)
 }
