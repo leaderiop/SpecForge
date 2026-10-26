@@ -61,9 +61,9 @@ fn a_raw_cr_lf_inside_a_quoted_text_reads_as_lf() {
 
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "an escaped CR and a lone CR inside a quoted text stay a CR"
+    verify = "an escaped CR inside a quoted text stays a CR, and a raw lone CR is a parse error"
 )]
-fn an_escaped_cr_and_a_lone_cr_inside_a_quoted_text_stay_a_cr() {
+fn an_escaped_cr_stays_a_cr_and_a_raw_lone_cr_is_a_parse_error() {
     let read = |source: &str| match parse(source, "t.spec").entities[0].fields.get("problem") {
         Some(FieldValue::String(text)) => text.clone(),
         other => panic!("{other:?}"),
@@ -71,8 +71,12 @@ fn an_escaped_cr_and_a_lone_cr_inside_a_quoted_text_stay_a_cr() {
     for source in both_layouts("feature f1 \"F1\"", "  problem \"a\\r\\nb\"\n") {
         assert_eq!(read(&source), "a\r\nb", "{source:?}");
     }
+    // A raw lone CR is a control character, refused with the rest (ADR 0276).
     for source in both_layouts("feature f1 \"F1\"", "  problem \"a␍b\"\n") {
-        assert_eq!(read(&source), "a\rb", "{source:?}");
+        let file = parse(&source, "t.spec");
+        assert_eq!(file.errors.len(), 1, "{source:?}");
+        assert!(file.errors[0].message.contains("U+000D"), "{source:?}");
+        assert!(file.entities.is_empty(), "{source:?}");
     }
 }
 

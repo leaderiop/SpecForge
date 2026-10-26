@@ -76,7 +76,10 @@ pub fn parse_incremental(
     let (mut file, tree) = parse_syntax(source, file_path, old_tree.as_ref());
     // The header is read with the file, so every consumer of a parse (check,
     // watch, the LSP, MCP) has the version and what it reports.
-    (file.format_version, file.format_diagnostics) = detect_format_version(source, file_path);
+    // A file read into no tree reports its one error: no header is checked.
+    if tree.is_some() {
+        (file.format_version, file.format_diagnostics) = detect_format_version(source, file_path);
+    }
     (file, tree)
 }
 
@@ -114,6 +117,14 @@ fn parse_syntax(
                 "brackets nested more than {MAX_NESTING} deep: a .spec file nests (), [] and {{}} at most {MAX_NESTING} levels"
             );
             let span = position_span(source, file_sym, at, at + 1);
+            return (unparsed(file_sym, message, span), None);
+        }
+        Err(CstError::Unprintable { at, c }) => {
+            let message = format!(
+                "a .spec file holds no control or bidirectional character but a tab and a line break: U+{:04X} here; delete it",
+                u32::from(c)
+            );
+            let span = position_span(source, file_sym, at, at + c.len_utf8());
             return (unparsed(file_sym, message, span), None);
         }
     };

@@ -164,7 +164,6 @@ fn format_writes_lf_inside_a_title_a_list_item_and_a_verify_text() {
     behavior = "format_with_parse_errors",
     verify = "a text holding a control character is left as written, with one E001"
 )]
-#[ignore = "flipped by T3"]
 fn a_text_holding_a_control_character_is_left_as_written() {
     let source = "feature f1 \"T\u{1b}[31mt\" {\n  problem    \"p\"\n}\n";
     let result = format_source(

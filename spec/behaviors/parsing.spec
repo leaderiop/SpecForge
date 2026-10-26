@@ -82,6 +82,10 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     Brackets ((), [] and {}, outside strings and comments) nest at most 32
     levels deep. A source nested deeper is read into no tree: its one
     syntax error is reported at the first bracket past the limit.
+    A source holding a control or bidirectional character other than a tab
+    and a line break (a carriage return only directly before a line feed) is
+    read into no tree: its one syntax error is reported at the first such
+    character, naming its code point.
   """
   requires {
     error_recovery_enabled "SourceParser is initialized with error-recovery mode enabled"
@@ -196,7 +200,7 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "parse string field values correctly"
   verify unit "a value token reads to the text the parse stores: a quoted one unescaped, a triple-quoted one dedented, neither trimmed"
   verify unit "a raw CR LF inside a quoted text reads as LF, as inside a triple-quoted one"
-  verify unit "an escaped CR and a lone CR inside a quoted text stay a CR"
+  verify unit "an escaped CR inside a quoted text stays a CR, and a raw lone CR is a parse error"
   verify unit "a type field named kind is an ordinary field"
   verify unit "a union block carries its title"
   verify unit "a block answers whether it is a union from its syntax, whatever its fields are named"

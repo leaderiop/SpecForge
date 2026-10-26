@@ -118,7 +118,6 @@ fn brackets_nested_past_the_limit_are_one_parse_error() {
     behavior = "recover_from_syntax_errors",
     verify = "a control or bidirectional character in the text is one parse error at it, and no tree is read"
 )]
-#[ignore = "flipped by T3"]
 fn a_control_character_in_the_text_is_one_parse_error_at_it() {
     // `§` stands for the character under test.
     let held = [
