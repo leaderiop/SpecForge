@@ -1,6 +1,6 @@
 # A block's doc comment is where the parse read it
 
-**Status:** accepted (2026-10-21, architecture round 22, plan 03). Amends [ADR 0148](0148-every-block-has-a-title.md)
+**Status:** accepted (2026-10-21, architecture round 22, plan 03). Extended by [ADR 0274](0274-a-closing-comment-run-is-the-bodys.md): a `use` statement's doc comment is the parse's, by D1's rule. Amends [ADR 0148](0148-every-block-has-a-title.md)
 D4 (the titles step lifts the doc comment the parse read) and its amendment of [ADR 0095](0095-the-format-header-is-read-and-rewritten-by-one-module.md)
 D3 (withdrawn: `header_row` is private again), [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md) D12 (the
 hoisted block goes above the first form's doc comment, below the format header) and

@@ -1,6 +1,6 @@
 # A member's comment lines are where the parse read them
 
-**Status:** accepted (2026-10-26, architecture round 27, plan 06). Extended by [ADR 0267](0267-a-values-comments-are-read-from-the-parse.md): the comments inside a member's value and trailing it are the parse's too. Reopens [ADR 0202](0202-a-blocks-doc-comment-is-where-the-parse-read-it.md)
+**Status:** accepted (2026-10-26, architecture round 27, plan 06). Amended by [ADR 0274](0274-a-closing-comment-run-is-the-bodys.md): D2, a new last member goes above a closing comment run. Extended by [ADR 0267](0267-a-values-comments-are-read-from-the-parse.md): the comments inside a member's value and trailing it are the parse's too. Reopens [ADR 0202](0202-a-blocks-doc-comment-is-where-the-parse-read-it.md)
 D5 by its "Reopen when" (a member's comment must be read from the parse); amends
 [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md) D2 (a second defect refusal beside
 `undeclared_change`) and [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md)'s Consequences (an unset removes

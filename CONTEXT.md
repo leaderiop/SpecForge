@@ -84,17 +84,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0187, amended).
 - **Untitled**: a block that becomes a node whose title is absent or only whitespace (`graph::title::owes_title`, ADR
   0225): E076 reports it, the titles step writes its title, and a typed create or retitle refuses to make one.
-- **Doc comment**: the whole-line `//` comments directly above a block's first line, no blank line between; a
+- **Doc comment**: the whole-line `//` comments directly above a block's first line, or a `use` statement's, no blank line between; a
   comment ending the line of the item above trails it, and the format header is never one. Where it is written is
-  the parse's (`specforge_parser::Entity::doc_span`): a typed delete removes it with its block, `specforge migrate`'s
+  the parse's (`specforge_parser::Entity::doc_span`, `ImportDeclaration::doc_span`): a typed delete removes it with its block or statement, `specforge migrate`'s
   titles step lifts it into a missing title, and the defaults hoist writes its block above it. It never reaches the
   graph (ADR 0148, ADR 0202).
 - **Member comment**: the whole-line `//` comments directly above a member of a block's body (a field, an entry of
   a block field, a verify statement), no blank line between; a comment ending the line of the item above trails it,
   and a `//` line inside a string is none. Where they are written is the parse's (`specforge_parser::Entity::comments_above`
   over `Entity::body_comments`): a typed unset, an unlink that empties a field and a remove-verify remove them with
-  their member, a new member goes above them, and the defaults hoist leaves a field with one as written. Like a doc
+  their member, a new member goes above them, a new last member above the closing comment run, and the defaults hoist leaves a field with one as written. Like a doc
   comment, it never reaches the graph (ADR 0202, ADR 0248).
+- **Closing comment run**: the whole-line `//` comments directly above a body's closing brace (a block's or a block
+  field's), no blank line between. They are the body's: a new last member goes above them (`Block::end_of_members`) and
+  no member's removal takes them (ADR 0274).
 - **Trailing comment**: a `//` comment on the row where a member (an entry, an opening brace) ends, after its value and
   annotations; it trails that member, never documents the one below. Where it is written is the parse's
   (`specforge_parser::Entity::trailing_comment`): a typed set or link keeps it on its row, an unset or an unlink that
