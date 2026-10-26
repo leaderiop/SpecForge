@@ -1311,8 +1311,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`ToolOutcome::Refused`, the only failure a tool outcome can be). A core tool's, the call target's, an
   explicit extension tool's and an extension command's alike: a command's refused args are `invalid_input`
   on the arg, its own error object the McpError its code names, any other failed run `internal_error` with
-  its output in `data` (`specforge_mcp`'s `extension_dispatch`). The CLI writes a command's error object
-  instead (ADR 0011, ADR 0252).
+  its output in `data` (`specforge_mcp`'s `extension_dispatch`), as the JSON text of its content and never as
+  `structuredContent`; a missing argument is `Missing required parameter: <name>` on every tool (ADR 0275). The CLI
+  writes a command's error object instead (ADR 0011, ADR 0252).
 - **Resource spec**: the single definition of a core MCP resource: one module under `specforge_mcp::resources`
   implementing `CoreResource` once (its URI or template, name, description, MIME type, what it changes with and its
   read of the project view); `CORE_RESOURCES` lists each once, seen as a `ResourceSpec` (ADR 0103). A graph view
