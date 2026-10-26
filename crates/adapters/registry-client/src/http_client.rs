@@ -250,6 +250,7 @@ fn body_of(resp: Response, limit: u64, timeout: Duration) -> Result<Vec<u8>, Unr
 
 /// The download of `metadata`'s binary, longer than [`PackageMetadata::download_limit`] allows (ADR 0250): the
 /// error both adapters give, so their text is one.
+#[cfg(any(test, feature = "testing"))]
 pub(crate) fn oversized(metadata: &PackageMetadata) -> RegistryError {
     unread(
         Unread::Over,
