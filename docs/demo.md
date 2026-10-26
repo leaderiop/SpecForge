@@ -1,10 +1,12 @@
 # Demo script
 
-A 10-minute walkthrough of the loop SpecForge closes: intent in a spec,
-checked like code, handed to an agent as a small graph, and proven by the
-project's own tests. It runs on `examples/shop`, a shopping cart with one
-spec file and one Rust file. Every output below was recorded from a real
-run.
+A 12-minute walkthrough of what SpecForge does: knowledge written as a spec,
+checked like code, handed to an agent as a small graph, refused when an edit
+breaks a rule, and proven by the project's own tests. Steps 1 to 5 run on
+`examples/shop`, a shopping cart with one spec file and one Rust file: the
+software use case, with the builtin `@specforge/software` extension. Step 6
+shows the same engine on a product plan, to make the point that SpecForge is
+not tied to software. Every output below was recorded from a real run.
 
 ## Before the demo
 
@@ -14,6 +16,9 @@ run.
 - To show the approval prompt, make sure the project isn't approved yet:
   remove its entry from `~/.specforge/collector-consent.json`, or run the demo
   with `SPECFORGE_CONSENT_FILE=/tmp/demo-consent.json`.
+- Delete any old `examples/shop/specforge-report.json` (it is git-ignored);
+  a report written by an older version is refused with E045 until
+  `specforge collect` rewrites it.
 - Keep `examples/shop/src/lib.rs` as committed: its last obligation is
   deliberately untested.
 
@@ -47,7 +52,7 @@ Undo the typo. `specforge format` keeps the files in one layout.
 
 ```console
 $ specforge export --format context
-{"schema_version":"1.0.0","nodes":[{"id":"add_item","kind":"behavior","title":"Add an item to the cart","contract":"Adding a named item puts it in the cart once","verify":[...]}, ...],"edges":[...]}
+{"schema_version":"2.0.0","nodes":[{"id":"add_item","kind":"behavior","title":"Add an item to the cart","contract":"Adding a named item puts it in the cart once","verify":[...]}, ...],"edges":[...]}
 ```
 
 About 1,000 bytes for the whole project: every entity's statements, members,
@@ -66,7 +71,7 @@ $ specforge export --format markdown
 
 ## behavior `add_item` — Add an item to the cart
 
-`cart.spec:12`
+`spec/cart.spec:12`
 
 **contract**
 
@@ -144,6 +149,32 @@ $ specforge analyze coverage
 Every obligation is backed by a passing test. A failing test shows up as
 A014, and a test whose `verify` text doesn't match the spec as A016.
 
+## 6. Same engine, another field (2 minutes)
+
+Nothing above is built into SpecForge: `behavior`, `invariant` and `verify`
+come from the `@specforge/software` extension. Load a different one and the
+same checks apply to a different field. In an empty directory:
+
+```console
+$ specforge init --extensions @specforge/product
+$ specforge link onboarding channels email
+error[E080]: the edit would leave the project with 1 error it does not have; nothing was written
+  error[E003]: unresolved reference 'email' in entity 'onboarding'
+```
+
+The journey can't name a channel that doesn't exist, and the edit is refused
+before anything is written. An agent editing over MCP gets the same refusal.
+Declare the channel and the edit goes through:
+
+```console
+$ specforge new channel email "Email newsletter" --in spec/hello.spec --description "The monthly newsletter" --status active
+$ specforge link onboarding channels email
+$ specforge product persona-channels developer
+Channels of persona 'developer':
+  cli
+  email
+```
+
 ## Afterwards
 
 `git checkout examples/shop/src/lib.rs` restores the untested obligation for
@@ -151,8 +182,12 @@ the next run.
 
 ## Keep out of a demo (for now)
 
-- Windows: not supported yet.
+- Windows: not verified yet.
 - jest, pytest and Playwright projects: no runner extension yet (vitest and
   cargo are supported).
-- `specforge analyze` on SpecForge's own spec: it honestly lists ~1,375
-  obligations without a test, which reads badly out of context.
+- A browser screen for business users, or a live connection to a CRM or a
+  quality system: neither exists yet (AG-UI and HTTP surfaces are planned).
+- Proof other than test results (a signed review, an executed procedure):
+  future work.
+- `specforge analyze` on SpecForge's own spec: it honestly lists over a
+  thousand obligations without a test, which reads badly out of context.

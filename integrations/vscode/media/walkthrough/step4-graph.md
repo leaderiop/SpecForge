@@ -1,6 +1,6 @@
 # Explore the Entity Graph
 
-The graph is the core product of SpecForge. Your `.spec` files are compiled into a **typed entity graph** where nodes are entities and edges are their relationships.
+The graph is SpecForge's memory: one source of truth. Your `.spec` files compile into a **typed graph** where nodes are entities and edges are the links between them. You, the editor and your AI agents all read the same graph.
 
 ## Opening the graph
 
@@ -13,34 +13,21 @@ Or run **SpecForge: Show Graph** from the Command Palette.
 
 ## What you will see
 
-The graph shows your entire specification as an interactive visualization:
+The graph starts with one group per entity kind (behaviors, features, types, and so on), each with its count:
 
-- **Nodes** are color-coded by entity kind (behaviors, features, types, etc.)
-- **Edges** are labeled relationships (Implements, DependsOn, Emits, etc.)
-- **Clusters** group entities by extension or module
+- **Click** a group to expand its entities, and again to collapse it
+- **Filter chips** at the top hide or show a kind
+- **Edges** are labeled with the field that made them (`features`, `types`, `produces`, ...)
 
 ### Node interactions
 
-- **Click** a node to select it and see its details
-- **Double-click** to navigate to the entity in the editor
-- **Right-click** for context menu (inspect, trace, copy JSON)
-
-## Layout algorithms
-
-Choose the layout that best fits your graph:
-
-| Layout | Best For |
-|--------|---------|
-| **Force** (default) | General exploration -- nodes repel, edges attract |
-| **Dagre** | Hierarchical relationships -- top-to-bottom flow |
-| **Concentric** | Seeing which entities are most connected |
-| **Grid** | Large flat graphs with many entities |
-
-Change the default in settings: search for `specforge.graph.defaultLayout`.
+- **Click** an entity to expand or collapse its neighbors
+- **Double-click** to go to the entity's definition in the editor
+- **Drag** to move a node
 
 ## Focus on a single entity
 
-Place your cursor on an entity ID in the editor and press `Alt+G` to focus that entity in the graph. This highlights the entity and its immediate neighbors, dimming everything else.
+Place your cursor on an entity ID in the editor and press `Alt+G` (**SpecForge: Focus Entity in Graph**). The graph centers on that entity and its immediate neighbors.
 
 ## Auto-update
 

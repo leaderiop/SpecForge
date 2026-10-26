@@ -1,20 +1,16 @@
 ---
 name: specforge-terms-dsl
-description: "Write term blocks in .spec DSL files (@specforge/product plugin). Each term declares a glossary entry as an individual entity with free-form snake_case IDs, containing definitions, aliases, context notes, and cross-references. Use when establishing precise domain vocabulary to prevent terminology drift."
+description: "Write term blocks in .spec files (the term kind is declared by the builtin @specforge/product extension). Each term declares a glossary entry as its own entity, with a snake_case ID, a definition, usage context, aliases, related terms and the module that owns it. Use when establishing precise vocabulary for any domain -- software, pharma, marketing, operations -- to prevent terminology drift."
 ---
 
 # SpecForge Terms DSL
 
-Rules and conventions for authoring **`term` blocks** in `.spec` files. Terms establish the ubiquitous language -- precise definitions that prevent terminology drift. Each term is an individual entity in the graph.
+> **Declared by `@specforge/product`**, a builtin extension. The `term` kind exists only in a project that loads it:
+> run `specforge extensions` first, and if it is not listed, do not write `term` blocks (add it with
+> `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
+> `specforge infer-guide term` prints the fields.
 
-**Requires:** `@specforge/product` plugin.
-
-## When to Use
-
-- Defining terms that have project-specific meanings
-- Resolving terminology ambiguity between team members
-- Documenting aliases (different words for the same concept)
-- Cross-referencing terms to the entities that use them
+Terms establish the shared language: precise definitions that two readers agree on.
 
 ## Block Syntax
 
@@ -24,83 +20,9 @@ term committed_write "committed write" {
     A write operation that has been acknowledged to the caller
     AND durably persisted to the primary datastore.
   """
-  aliases    ["persisted mutation", "durable write"]
-  see_also   [data_persistence, create_user]
-}
-
-term session "session" {
-  definition """
-    A materialized, mutable view of the in-memory graph
-    scoped to a single compilation unit. Not an HTTP session.
-  """
-}
-```
-
-## Fields Reference
-
-### Required
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Canonical term name (string after the entity ID). The preferred form. |
-| `definition` | string / triple-string | Precise meaning. Clear enough that two readers agree. |
-
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `aliases` | string[] @optional | Alternative forms that mean the same thing. |
-| `see_also` | EntityId[] @optional | Cross-references to related entities. |
-| `tags` | string[] @optional | Faceted filtering tags. |
-| `refs` | reference list | External references linked to this term. |
-
-## Relationships
-
-Terms participate in the graph as individual entities. The `see_also` field creates edges to referenced entities.
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| any entity | `see_also` | Cross-reference to related entity |
-
-### Incoming edges
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| (none by default) | -- | Terms are typically leaf nodes unless referenced by other entities |
-
-## Writing Rules
-
-1. **Individual entities** -- each term is a standalone entity with its own ID.
-2. **Snake_case IDs** -- derive from the term name (e.g., "committed write" -> `committed_write`).
-3. **Add terms when meaning is ambiguous** -- if two people might interpret a word differently, define it.
-4. **Definitions are self-contained** -- understandable without reading other definitions.
-5. **Use `aliases`** -- capture the different ways people say the same thing.
-6. **`see_also` references create graph edges** -- they link to entities and create compiler-tracked edges.
-7. **Skip obvious terms** -- "function", "variable", "database" do not need term entries.
-
-## Validation Rules
-
-| Code | Rule |
-|------|------|
-| E002 | No two terms share the same entity ID. |
-| E001 | Every ID in `see_also` must resolve to an existing entity. |
-| I010 | Orphan term -- term not referenced by any entity's description or contract text. |
-
-## Examples
-
-### Domain Terms
-
-```spec
-term committed_write "committed write" {
-  definition """
-    A write operation that has been acknowledged to the caller
-    AND durably persisted to the primary datastore. The write
-    is guaranteed to survive process restarts.
-  """
-  aliases ["persisted mutation", "durable write", "acknowledged write"]
-  see_also [data_persistence, create_user]
+  context  "Used in persistence guarantees and incident reports"
+  aliases  ["persisted mutation", "durable write"]
+  see_also [eventual_consistency]
 }
 
 term eventual_consistency "eventual consistency" {
@@ -111,31 +33,68 @@ term eventual_consistency "eventual consistency" {
 }
 ```
 
-### Technical Terms
+## Fields Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `definition` | string (required) | The precise meaning in this project. |
+| `context` | string | Where or how the term is used. |
+| `aliases` | string list | Other names for the same thing. |
+| `see_also` | reference list -> term | Related **terms** (another kind is E022). |
+| `module` | reference -> module | The module (bounded context) that owns the definition. |
+| `tags` | string list | Lowercase-hyphenated labels. |
+
+## Writing Rules
+
+1. **One entity per term** -- derive the ID from the term ("committed write" -> `committed_write`).
+2. **Add a term when meaning is ambiguous** -- if two people might read a word differently, define it.
+3. **Definitions are self-contained.**
+4. **Link it** -- a term with no edges (no `see_also`, no `module`, nothing pointing at it) is I010.
+5. **Link one way** -- two terms naming each other in `see_also` is a reference cycle (W061).
+6. **Skip obvious words** -- "function", "database", "email" need no entry.
+
+## Validation Rules
+
+| Code | Owner | Rule |
+|------|-------|------|
+| E006 | core | `definition` is missing. |
+| E022 | core | `see_also` names an entity that is not a term, or `module` one that is not a module. |
+| I010 | product | The term has no edges. |
+
+## Examples
+
+### Regulated Domain (pharma)
 
 ```spec
-term port_term "port" {
+term batch_record "batch record" {
   definition """
-    An interface boundary between the domain and the outside world.
-    Inbound ports define what the system offers; outbound ports
-    define what the system requires.
+    The complete, signed record of how one batch of product was made,
+    tested and released.
   """
-  aliases ["interface", "boundary"]
-  see_also [hexagonal_architecture]
+  aliases  ["BMR", "batch manufacturing record"]
+  see_also [deviation]
 }
 
+term deviation "deviation" {
+  definition "Any departure from an approved procedure or specification."
+}
+```
+
+### Owned by a Module
+
+```spec
 term result_type "Result type" {
   definition """
     A type that represents either success or failure with typed errors.
-    All port methods return Result types instead of throwing exceptions.
+    Every port method returns one instead of throwing.
   """
-  aliases ["ResultAsync", "Result monad"]
+  aliases ["Result monad"]
+  module  core_mod
 }
 ```
 
 ## What NOT to Do
 
-- Do not write terms without the `@specforge/product` plugin installed
-- Do not add standard programming terms that need no clarification
-- Do not use terms for implementation details that don't appear in spec entities
-- Do not duplicate term definitions -- each entity ID must be unique
+- Do not point `see_also` at behaviors, invariants or other non-term entities -- it takes terms only (E022)
+- Do not write `refs` on a term -- the kind does not declare it (W020)
+- Do not add standard terms that need no clarification

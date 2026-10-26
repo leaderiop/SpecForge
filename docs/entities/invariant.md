@@ -1,22 +1,17 @@
 # invariant
 
-> **Module:** `core`
+> **Declared by `@specforge/software`**, one of the builtin extensions. `invariant` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/software`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-An `invariant` declares a **runtime guarantee** — a property the system must never violate, regardless of input, load, or failure conditions. Invariants are the foundation of the traceability chain: behaviors reference them, decisions protect them, failure modes threaten them, and constraints scope them.
+An `invariant` states a guarantee that must never be broken, whatever the input, load or failure. It answers:
+**"What must ALWAYS be true?"**
 
-It answers: **"What must ALWAYS be true?"**
-
-Invariants are not features or behaviors. They are the non-negotiable truths of the system. When an invariant is violated, the system is broken — not degraded, not slow, but fundamentally wrong.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `data_persistence`, `email_uniqueness`, `audit_integrity`
+An invariant is not a feature or a behavior. When one is violated, the system is not degraded or slow: it is
+wrong. Behaviors enforce invariants; decisions, constraints and failure modes point at them.
 
 ## Syntax
 
@@ -30,93 +25,86 @@ invariant data_persistence "Data Persistence" {
 }
 ```
 
-An invariant lists no behaviors. The behaviors that enforce it name it in their `invariants` field (`invariants [data_persistence]`), and `trace data_persistence` lists them upstream.
+An invariant lists no behaviors. The behaviors that enforce it name it in their `invariants` field
+(`invariants [data_persistence]`), and `specforge trace data_persistence` lists them.
 
 ## Fields
+
+Every `invariant` has an id (the word after `invariant`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists and the extensions that enhance it add. A field no loaded extension declares is reported (W020).
 
 ### Required
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `guarantee` | string or triple-string | The precise statement of what the system guarantees. Uses RFC 2119 keywords (MUST, MUST NOT, SHALL). |
+| `guarantee` | string | The constraint this invariant guarantees holds at all times. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the identifier). Optional — auto-derived from identifier if omitted. |
-| `risk` | enum | `high`, `medium`, or `low`. Indicates the severity of consequences if this invariant is violated. |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this invariant. |
+| `risk` | enum: critical, high, medium, low | Impact level if this invariant is violated. |
+| `description` | string | Human-readable summary of this invariant. |
+| `refs` | string list | External references such as issue or document URIs. |
+| `expression` | string | Machine-checkable claim the prove pass must entail from the declared bounds (added by `@specforge/formal`). |
+
+## Verify kinds
+
+`@specforge/testing` makes `invariant` testable: write `verify <kind> "..."` lines in its body. The kinds it accepts are `unit`, `integration`, `property`, `performance`, `mutation`. A bare `verify "..."` has no kind. A kind outside this list is W009.
 
 ## Relationships
 
-### Incoming edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `axiom` | `AxiomAssumesInvariant` | "Axioms that assume this invariant" (via `assumes` field) |
-| `behavior` | `BehaviorEnforcesInvariant` | "Behaviors that enforce this invariant" (via `invariants` field) |
-| `constraint` | `ConstraintProtectsInvariant` | "Constraints that protect this invariant" (via `protects` field) |
-| `decision` | `DecisionProtectsInvariant` | "Decisions that protect this invariant" (via `invariants` field) |
-| `failure_mode` | `FailureModeTargetsInvariant` | "Failure modes that target this invariant" (via `invariant` field) |
-| `property` | `PropertyDependsOnInvariant` | "Properties that depend on this invariant" |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| incoming | `axiom` | `AxiomAssumesInvariant` | `assumes` on `axiom` | Axiom assumes an invariant as foundational truth |
+| incoming | [behavior](behavior.md) | `BehaviorEnforcesInvariant` | `invariants` on `behavior` | Invariants this behavior enforces |
+| incoming | [constraint](constraint.md) | `ConstraintProtectsInvariant` | `protects` on `constraint` | Constraint protects an invariant |
+| incoming | [decision](decision.md) | `DecisionProtectsInvariant` | `invariants` on `decision` | Decision protects an invariant |
+| incoming | [failure_mode](failure-mode.md) | `FailureModeTargetsInvariant` | `invariant` on `failure_mode` | Failure mode targets an invariant |
+| incoming | `property` | `PropertyDependsOnInvariant` | no field writes it | Property depends on an invariant |
 
-### Outgoing edges
+## Validation rules
 
-None. No extension declares an outgoing edge type for `invariant`.
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| W003 | warning | `@specforge/software` | Unenforced invariant |
+| W004 | warning | `@specforge/testing` | Untested testable entity |
+| W009 | warning | `@specforge/testing` | Disallowed verify kind |
 
-| Code | Rule |
-|------|------|
-| E002 | No two invariants may share the same ID across all `.spec` files. |
-| W003 | If no behavior references this invariant, emit "unused invariant" warning. |
-| W005 | If `risk: high` and no `failure_mode` references this invariant, emit "unmitigated high-risk invariant" warning. |
 
-## Design Guidance
+## Design guidance
 
-### Good Invariants
+### Good invariants
 
 Invariants should be:
-- **Falsifiable** — you can write a test that would detect a violation
-- **Universal** — they hold under all conditions, not just the happy path
-- **Implementation-independent** — they describe what is true, not how it's achieved
+- **Falsifiable**: you can write a test that would catch a violation
+- **Universal**: they hold under all conditions, not only the happy path
+- **Implementation-independent**: they say what is true, not how it is achieved
 
-### Examples of Good Invariants
+Examples: "No two active users share the same email address"; "All committed writes survive process restarts";
+"The audit log is append-only: no entry may be modified or deleted".
 
-- "No two active users share the same email address" (falsifiable, universal)
-- "All committed writes survive process restarts" (falsifiable, universal)
-- "The audit log is append-only — no entry may be modified or deleted" (falsifiable, universal)
+### Anti-patterns
 
-### Bad Invariants (anti-patterns)
-
-- "The system is fast" — not measurable, use a `constraint` instead
-- "Users can log in" — this is a behavior, not an invariant
-- "We use PostgreSQL" — this is a decision, not an invariant
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| incoming | `axiom` | `AxiomAssumesInvariant` | Axioms that assume this invariant |
-| incoming | [behavior](behavior.md) | `BehaviorEnforcesInvariant` | Behaviors that enforce this invariant |
-| incoming | [constraint](constraint.md) | `ConstraintProtectsInvariant` | Constraints that protect this invariant |
-| incoming | [decision](decision.md) | `DecisionProtectsInvariant` | Decisions that protect this invariant |
-| incoming | [failure_mode](failure-mode.md) | `FailureModeTargetsInvariant` | Failure modes that target this invariant |
-| incoming | `property` | `PropertyDependsOnInvariant` | Properties that depend on this invariant |
+- "The system is fast": not measurable; write a `constraint`
+- "Users can log in": an operation; write a `behavior`
+- "We use PostgreSQL": a choice; write a `decision`
 
 ## Examples
 
 ### Simple
 
 ```spec
-invariant email_uniqueness {
+invariant email_uniqueness "Email Uniqueness" {
   guarantee "No two active users share the same email address."
   risk medium
 }
 ```
 
-### Detailed
+### Audit trail
 
 ```spec
 invariant audit_integrity "Audit Trail Integrity" {
@@ -127,11 +115,12 @@ invariant audit_integrity "Audit Trail Integrity" {
     before returning success to the caller.
   """
   risk high
-  refs [gh.issue:15, jira.epic:PROJ-200]
+  refs [gh.issue:15]
+  verify integration "an update writes its audit entry before it returns"
 }
 ```
 
-### Low-Risk
+### Low risk
 
 ```spec
 invariant display_name_length "Display Name Length" {

@@ -1,0 +1,10 @@
+{
+  "name": "regulated-process",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/formal"
+  ]
+}

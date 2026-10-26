@@ -1,51 +1,84 @@
 # release
 
-A **release** groups deliverables and milestones for coordinated shipping. It answers "what ships together?" structurally.
-
-> **Plugin:** `@specforge/product`
-> **Testable:** no
-> **Supports verify:** no
+> **Declared by `@specforge/product`**, one of the builtin extensions. `release` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/product`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-Deliverables have individual versions and statuses, but multiple deliverables often ship together as a coordinated release. The release entity provides:
+A `release` groups the deliverables and milestones that ship together. It answers: **"What ships together?"**
 
-- **Grouping**: Which deliverables and milestones belong to this release
-- **Lifecycle**: planned -> in_progress -> released -> recalled
-- **Completion tracking**: Aggregate deliverable shipping status
-- **Version coordination**: Single version for the coordinated release
-- **Changelog**: Release-level change documentation
+Deliverables have their own versions and statuses; a release coordinates them under one version and one
+changelog, and `specforge product release-completion` reads how far its deliverables have shipped.
+
+## Syntax
+
+```spec
+release one_zero "1.0" {
+  version      "1.0.0"
+  status       in_progress
+  deliverables [web_dashboard, cli_tool]
+  milestones   [mvp_phase]
+  target_date  2026-09-01
+  owner        "release-team"
+  changelog    "First public release."
+}
+```
 
 ## Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `description` | string | no | What this release delivers |
-| `version` | string | no | SemVer 2.0.0 version (W093 if non-conforming) |
-| `status` | ReleaseStatus | no | planned, in_progress, released, recalled; absent: planned; another value is E061 |
-| `deliverables` | EntityId[] | no | Deliverables shipping in this release |
-| `milestones` | EntityId[] | no | Milestones targeted by this release |
-| `release_date` | date | no | The day the release shipped, written bare (`2026-06-01`); another value is E061 |
-| `changelog` | string | no | Free-text release notes |
-| `depends_on` | EntityId[] | no | Other releases that must ship first |
-| `owner` | string | no | Person or team responsible |
-| `contributors` | string[] | no | Additional participants |
-| `reason` | string | no | Expected when status=recalled (not checked) |
-| `tags` | string[] | no | Categorization tags |
+Every `release` has an id (the word after `release`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
+
+### Required
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | Semantic version identifier for this release. |
+
+### Optional
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Human-readable summary of this release. |
+| `status` | enum: planned, in_progress, released, recalled | Lifecycle state of the release; default `planned`. |
+| `deliverables` | reference list → `deliverable` | Deliverables included in this release. |
+| `milestones` | reference list → `milestone` | Milestones completed by this release. |
+| `target_date` | date (`YYYY-MM-DD`) | Planned release date. |
+| `release_date` | date (`YYYY-MM-DD`) | Actual date the release shipped. |
+| `changelog` | string | Summary of changes included in this release. |
+| `depends_on` | reference list → `release` | Prior releases that must ship before this one. |
+| `owner` | string | Person or team responsible for this release. |
+| `contributors` | string list | Additional people or teams contributing to this release. |
+| `reason` | string | Justification for the current status or a status change. |
+| `refs` | string list | External references such as issues, URLs, or documents. |
+| `tags` | string list | Freeform labels for filtering and categorization (a shared field of `@specforge/product`). |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `milestone` | `ReleaseCompletesMilestone` | "This release targets these milestones" (via `milestones` field) |
-| `release` | `ReleaseDependsOn` | "This release depends on these releases" (via `depends_on` field) |
-| `deliverable` | `ReleaseIncludesDeliverable` | "This release ships these deliverables" (via `deliverables` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [milestone](milestone.md) | `ReleaseCompletesMilestone` | `milestones` on `release` | Milestones completed by this release |
+| outgoing | [release](release.md) | `ReleaseDependsOn` | `depends_on` on `release` | Prior releases that must ship before this one |
+| outgoing | [deliverable](deliverable.md) | `ReleaseIncludesDeliverable` | `deliverables` on `release` | Deliverables included in this release |
+| incoming | [release](release.md) | `ReleaseDependsOn` | `depends_on` on `release` | Prior releases that must ship before this one |
 
-### Incoming edges
+## Validation rules
 
-Releases are top-level coordination entities with no incoming edges.
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
+
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
+| I080 | info | `@specforge/product` | Entity without owner |
+| I082 | info | `@specforge/product` | Release without deliverables |
+| I083 | info | `@specforge/product` | Release without milestones |
+| I089 | info | `@specforge/product` | Recalled release without reason |
+| W092 | warning | `@specforge/product` | Release dependency cycle |
+| W093 | warning | `@specforge/product` | Invalid release version format |
+
 
 ## Status lifecycle
 
@@ -53,44 +86,15 @@ Releases are top-level coordination entities with no incoming edges.
 planned -> in_progress -> released -> recalled
 ```
 
-- **planned**: Release is being prepared
-- **in_progress**: Deliverables are actively being built/shipped
-- **released**: All deliverables have shipped
-- **recalled**: Release was retracted (terminal, requires `reason`)
+- **planned**: being prepared
+- **in_progress**: deliverables are being built and shipped
+- **released**: everything has shipped (set `release_date`)
+- **recalled**: retracted; give a `reason` (I089)
 
-Transitions are not checked by the compiler.
-
-## Validation rules
-
-| Code | Severity | Condition |
-|------|----------|-----------|
-| W092 | warning | Circular release dependency |
-| W093 | warning | Non-SemVer `version` |
-| I080 | info | No `owner` |
-| I082 | info | No deliverables (no `deliverables`, or an empty list) |
-| I083 | info | No milestones (no `milestones`, or an empty list) |
-| I089 | info | Recalled release without a `reason` |
-
-## Queries
-
-| Query | Returns | Description |
-|-------|---------|-------------|
-| `queryReleaseDeliverables(id)` | `ReleaseDeliverablePayload` | Deliverables in this release |
-| `queryReleaseMilestones(id)` | `ReleaseMilestonePayload` | Milestones targeted by this release |
-| `queryReleaseCompletion(id)` | `ReleaseCompletionPayload` | Aggregate deliverable completion |
+The compiler does not check the order of transitions.
 
 ## Design guidance
 
-### When to create a release
-
-Create a release when multiple deliverables ship together and you need to:
-- Track coordinated completion across deliverables
-- Maintain a unified changelog
-- Validate that all deliverables are ready before shipping
-
-### Naming convention
-
-Use descriptive names that communicate the release purpose:
-- `alpha`, `beta`, `one_zero` -- phase-based
-- `q1_2026`, `sprint_42` -- time-based
-- `security_patch_jan` -- purpose-based
+Create a release when several deliverables ship together and you need to track their combined completion, keep
+one changelog, or check that all of them are ready before shipping. Name it for its purpose: `alpha`,
+`one_zero` (phase), `q1_2026` (time), `security_patch_jan` (purpose).

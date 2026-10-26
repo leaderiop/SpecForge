@@ -1,150 +1,57 @@
 # SpecForge Documentation
 
-This directory contains the entity model reference and design documentation for SpecForge. For a project overview, see the [root README](../README.md). For how the code is built, see [ARCHITECTURE.md](../ARCHITECTURE.md). For the entity model — core + plugins, edge types, validation rules, and design principles — see [entity-model.md](entity-model.md).
+SpecForge turns what an organisation knows (its things, how they relate, and the rules they must obey) into one typed, validated graph that people and AI agents read and change through standard protocols. The core knows no domain: **extensions** teach it one. Software specification is one of its biggest uses, not its definition.
 
-## Entity Reference
+New here? Start with the [root README](../README.md), then [what SpecForge is for](vision/README.md) and the [use cases](vision/use-cases.md).
 
-### Core (8 entities)
+## Understand it
 
-| Entity | ID Pattern | Purpose |
-|--------|-----------|---------|
-| [spec](entities/spec.md) | singleton | Project root configuration — name, infix, version, codegen settings |
-| [invariant](entities/invariant.md) | `INV-{infix}-{n}` | Runtime guarantee the system must never violate |
-| [behavior](entities/behavior.md) | `BEH-{infix}-{n}` | Behavioral contract for a single operation with RFC 2119 keywords |
-| [feature](entities/feature.md) | `FEAT-{infix}-{n}` | User-facing capability composed of behaviors |
-| [event](entities/event.md) | `EVT-{infix}-{n}` | Domain event emitted by a behavior, consumed by others |
-| [type](entities/type.md) | identifier | Data type definition — structs, unions, errors, commands |
-| [port](entities/port.md) | identifier | Interface contract — hexagonal architecture boundary |
-| [ref](entities/ref.md) | `scheme.kind:identifier` | External reference — typed link to issues, tickets, designs |
+| Page | What it explains |
+|---|---|
+| [Vision](vision/README.md) | Why SpecForge exists: the five parts (extensions, graph, validation, surfaces, AI) and the two ways to use it, as a product or as a harness |
+| [Use cases](vision/use-cases.md) | Software methods, product and marketing, regulated industries, any business: what works today and what is planned |
+| [Principles](vision/principles.md) | The eight principles a design decision is tested against |
+| [North star](vision/north-star.md) | The three horizons: the engine, the ecosystem, the harness |
+| [Extension model](extension-model.md) | How an extension teaches SpecForge a domain: kinds, fields, edges, rules, commands, collectors, providers |
+| [Entity model](entity-model.md) | The five structural keywords, the anatomy of an entity, the edge types of the builtin extensions |
+| [Model and formats](model/README.md) | What `specforge model` and the exports produce ([architecture](model/architecture.md), [formats](model/formats.md)) |
 
-### @specforge/product (5 entities)
+## Use it
 
-| Entity | ID Pattern | Purpose |
-|--------|-----------|---------|
-| [journey](entities/journey.md) | `identifier` | UX flow mapping a persona + surface to features |
-| [deliverable](entities/deliverable.md) | `identifier` | Shippable artifact bundling journeys and modules |
-| [milestone](entities/milestone.md) | `identifier` | Planning phase with scheduled features and exit criteria |
-| [module](entities/module.md) | `identifier` | Code package mapping features to ports |
-| [term](entities/term.md) | `identifier` | Structured vocabulary defining the project's ubiquitous language |
+| Guide | For |
+|---|---|
+| [Model your domain](guides/model-your-domain.md) | Turn any domain into a project: builtin extensions or your own, then let an agent work on it |
+| [Connect an agent](guides/connect-an-agent.md) | Serve a project to Claude or any MCP client; the validate-every-edit loop; LSP and VS Code |
+| [Zero to hero](guides/authoring-spec-files.md) | The `.spec` language end to end, with a tour of the builtin extensions |
+| [Spec writing flow](spec-writing-flow.md) | One method for writing a project with the builtin extensions, in order |
+| [Cookbook](guides/spec-cookbook.md) | Task recipes: "how do I model X?" |
+| [Best practices](guides/spec-best-practices.md) | Rules and named anti-patterns |
+| [Troubleshooting](guides/spec-troubleshooting.md) | Diagnostic codes and their fixes |
+| [Product getting started](guides/product-getting-started.md) | `@specforge/product`: personas, channels, journeys, features, milestones, releases |
+| [Formal verification](guides/formal-verification.md) | Machine-checkable bounds and claims proved with z3 |
+| [Rust test tracing](guides/rust-test-tracing.md), [vitest test tracing](guides/vitest-test-tracing.md) | Link tests to the obligations they prove: `specforge collect`, `analyze coverage` |
+| [Demo script](demo.md) | A walkthrough on `examples/shop`, then the same engine on a product plan |
 
-### @specforge/governance (3 entities)
+## Examples
 
-| Entity | ID Pattern | Purpose |
-|--------|-----------|---------|
-| [decision](entities/decision.md) | `ADR-{n}` | Architecture Decision Record — rationale for technical choices |
-| [constraint](entities/constraint.md) | `CON-{infix}-{n}` | Non-functional requirement with measurable thresholds |
-| [failure_mode](entities/failure-mode.md) | `FM-{infix}-{n}` | FMEA risk assessment tied to an invariant |
+[examples/](../examples/README.md) holds checked projects in several domains: a todo app and a shop (software), a product launch, a regulated batch-release procedure, a spec-driven development method, and a marketing plan built on a custom `@example/marketing` extension.
 
-### @specforge/formal (5 entity kinds + enhances @specforge/software)
+## Extend it
 
-| Entity | ID Pattern | Purpose |
-|--------|-----------|---------|
-| property | `identifier` | Temporal/behavioral assertion (safety/liveness/fairness) |
-| axiom | `identifier` | Assumed-true foundation (no proof required) |
-| protocol | `identifier` | Shared synchronization contract across events |
-| refinement | `identifier` | Abstract-to-concrete behavior mapping with condition deltas |
-| process | `identifier` | CSP-style communicating process with alphabet and composition |
+| Page | What it covers |
+|---|---|
+| [Extending SpecForge](guides/extending-specforge.md) | The tutorial: scaffold, declare, build and install a WASM extension |
+| [Extension SDK](extension-sdk.md) | The SDK reference |
+| [Extension protocol](extension-protocol.md) | The wire between the host and an extension, and how extensions reload |
+| [Extension inventory](extension-inventory.md) | The builtin starter set, kind by kind |
+| [Registry trust](registry-trust.md) | Publishing and installing signed extensions |
 
-Provides structured conditions (inline requires/ensures/maintains fields on behaviors), specification layering, event graph linting, and coverage tracking. Conditions are inline fields that reference invariants, not standalone entities. Contributes 8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E031, E041, E042, W029-W031, W035, W096, W110, W123, W126, W128, W131, W134; see [Diagnostic Codes](diagnostics.md)). Requires `warning_level=strict` in specforge.json.
+## Reference
 
-## Traceability Chain
+- [Quick reference](quick-reference.md): a one-page cheat sheet of commands, the structural keywords, and every builtin kind's fields and relations (generated).
+- [Entity pages](entities/): one page per builtin kind, plus the structural `spec` and `ref`.
+- [Diagnostic codes](diagnostics.md): every code with its meaning, owner and fix, generated from the catalog `specforge explain <CODE>` prints.
 
-### Core
+## For contributors
 
-```
-feature ──implements──→ behavior ──references──→ invariant
-  FEAT-XX-N              BEH-XX-N     │           INV-XX-N
-                                      │produces
-                                      ▼
-                                    event
-                                    EVT-XX-N
-
-                         type / port (code bridge)
-
-          any entity ──links_to──→ ref (external reference bridge)
-                                   scheme.kind:id
-```
-
-### Extended by @specforge/product
-
-```
-deliverable ──bundles──→ journey ──traces_to──→ feature (core)
-                │
-                │built_from
-                ▼
-              module ──provides──→ feature (core)
-                        │
-                        │defines_port
-                        ▼
-                      port (core)
-
-milestone ──schedules──→ feature (core) / deliverable
-```
-
-### Extended by @specforge/governance
-
-```
-decision ──protects──→ invariant (core)
-  ADR-N
-
-constraint ──constrains──→ behavior (core) / invariant (core)
-  CON-XX-N
-
-failure_mode ──mitigates──→ invariant (core)
-  FM-XX-N
-```
-
-**Full chain:** `deliverable -> journey -> feature -> behavior -> invariant`
-
-## Authoring Guides
-
-Learn to write `.spec` files:
-
-- **[Zero to Hero Tutorial](guides/authoring-spec-files.md)** — the guided, end-to-end learning path (orientation → core concepts → entity tour → a complete worked project).
-- **[Cookbook](guides/spec-cookbook.md)** — task-oriented recipes ("how do I model X?").
-- **[Best Practices](guides/spec-best-practices.md)** — prescriptive rules and named anti-patterns.
-- **[Troubleshooting](guides/spec-troubleshooting.md)** — diagnostic codes and how to fix them.
-- **[Product Getting Started](guides/product-getting-started.md)** — `@specforge/product` walkthrough.
-- **[Extending SpecForge](guides/extending-specforge.md)** — the extension-authoring tutorial: scaffold a Wasm extension, contribute kinds/fields/rules, write compiler passes, build and install.
-- **[Formal Verification](guides/formal-verification.md)** — machine-checkable bounds and claims: the expression language, `metric expr { }`, SMT-proven consistency and entailment, counterexamples, discharge linkage.
-- **[Worked Example: todo-app](../examples/todo-app/)** — a complete, validated reference project.
-- **[Rust test tracing](guides/rust-test-tracing.md)** and **[vitest test tracing](guides/vitest-test-tracing.md)** — link tests to the obligations they prove; `specforge collect` and `analyze coverage`.
-- **[Demo script](demo.md)** — a 10-minute walkthrough on `examples/shop`: spec, check, agent context, tests, coverage.
-
-## Quick Reference
-
-See **[quick-reference.md](quick-reference.md)** for a single-page cheat sheet covering every entity kind, edge type, and validation code.
-
-## AI Agent Token Economics
-
-AI coding agents spend 60-80% of their tokens on *discovery* — not *building*. SpecForge provides structured, machine-readable context that eliminates this waste:
-
-- **90-95% fewer tokens** for context gathering (spec graph query vs. 20-50 file reads)
-- **75-86% total token reduction** per agent task
-- **70% fewer rework cycles** (first-shot accuracy from precise contracts)
-- **Developer time savings exceed token savings by 10x** (~4,000 hours/year for a 100-dev org)
-
-Context files (CLAUDE.md, .cursor/rules, copilot-instructions.md) carry coding rules: conventions, commands, style. The spec, what the system must do, usually sits in Markdown (PRDs, spec-kit files). SpecForge replaces those Markdown specs with a **compiled, cross-referenced, validated** one; the coding rules stay in the context files.
-
-> Full analysis with citations: **[RES-18: AI Agent Token Economics](../spec/research/RES-18-ai-agent-token-economics.md)**
-
-## Research
-
-| ID | Title |
-|----|-------|
-| [RES-11a](../spec/research/RES-11a-spec-dsl-core-compiler.md) | Core compiler architecture |
-| [RES-13](../spec/research/RES-13-README.md) | Market landscape 2026 |
-| [RES-18](../spec/research/RES-18-ai-agent-token-economics.md) | **AI agent token economics — cost reduction analysis** |
-| [RES-19](../spec/research/RES-19-market-position-success-estimation.md) | **Market position & success estimation** |
-| [RES-25](../spec/research/RES-25-formal-methods-integration.md) | Formal methods integration |
-| [RES-26](../spec/research/RES-26-zero-entity-core-architecture.md) | Zero-entity core architecture |
-| [RES-27](../spec/research/RES-27-software-eng-entity-redesign.md) | Software engineering entity redesign |
-| [Extension Model](extension-model.md) | Extensions, providers, and generators architecture |
-
-## Vision
-
-Why SpecForge exists: the [manifesto](vision/README.md), the [principles](vision/principles.md) a design decision is tested against, and the [north star](vision/north-star.md).
-
-## Validation Codes
-
-Every diagnostic code, with its meaning, owner and fix, is listed in [Diagnostic Codes](diagnostics.md), generated from the catalog that `specforge explain <CODE>` prints.
+How the code is built: [ARCHITECTURE.md](../ARCHITECTURE.md) and [crates/README.md](../crates/README.md). Why it is built that way: the [decision records](adr/). How to contribute: [CONTRIBUTING.md](../CONTRIBUTING.md).

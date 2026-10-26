@@ -1,6 +1,8 @@
 # Create Your First SpecForge Project
 
-SpecForge lets you write structured `.spec` files that build **typed entity graphs** for AI agents. Instead of feeding prose to Claude or Copilot, you give them a precise graph of your system's behaviors, types, events, and relationships.
+SpecForge turns what you know (the things you work with, how they connect, and the rules they must obey) into one **checked graph** that you and your AI agents read and change. A change that breaks a rule is refused, whoever made it.
+
+SpecForge itself knows no field. **Extensions** teach it one. Software specs are the first use, so that's where this walkthrough starts.
 
 ## What happens when you initialize
 
@@ -10,23 +12,21 @@ Running **SpecForge: Initialize Project** creates:
 my-project/
   specforge.json          # Project config (like tsconfig.json)
   spec/
-    root.spec             # Spec root block with version
-    behaviors.spec        # Starter behavior entities
-    types.spec            # Starter type entities
+    hello.spec            # A first spec that checks clean
 ```
 
 ## Choose your extensions
 
-SpecForge is modular. Pick the extensions that match your domain:
+Each extension adds kinds of things you can write, and the rules that check them. These ship built in:
 
-| Extension | Entity Kinds | Best For |
+| Extension | What it declares | Use it for |
 |-----------|-------------|----------|
-| **@specforge/software** | behavior, invariant, event, type, port | Core software specs |
+| **@specforge/software** | behavior, invariant, event, type, port | Software specs |
 | **@specforge/product** | feature, journey, deliverable, milestone, module, term, persona, channel, release | Product planning |
-| **@specforge/governance** | decision, constraint, failure_mode | Architecture decisions |
-| **@specforge/formal** | property, axiom, protocol, refinement, process | Formal verification |
+| **@specforge/governance** | decision, constraint, failure_mode | Decisions and risks |
+| **@specforge/formal** | property, axiom, protocol, refinement, process | Rules proved by the z3 solver |
 
-Most projects start with **@specforge/software** and add more as needed.
+They're a starter set, not the limit: you can write your own extension for any domain (see *Extending SpecForge* in the repository docs).
 
 ## The specforge.json config
 
@@ -37,9 +37,11 @@ Your project config looks like this:
   "name": "my-project",
   "version": "0.1.0",
   "spec_root": "spec",
-  "extensions": ["@specforge/software"]
+  "extensions": ["@specforge/software", "@specforge/testing"]
 }
 ```
+
+`@specforge/testing` comes with `@specforge/software`: it adds the test tracing `specforge collect` uses.
 
 You can add or remove extensions at any time using the Command Palette:
 - **SpecForge: Add Extension** to install a new one

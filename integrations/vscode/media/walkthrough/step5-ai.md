@@ -1,16 +1,16 @@
 # Connect AI Agents
 
-SpecForge exists to give AI agents **structured context** instead of prose. The entity graph dramatically improves first-attempt accuracy from ~30% (prose) to 70-85% (structured graph).
+SpecForge has no AI inside. Your AI agent (Claude, Copilot, Cursor, or any other) is the worker: it reads the graph, drafts and edits specs, and SpecForge checks every change it makes. Instead of re-reading prose, the agent asks for the exact slice it needs.
 
 ## Export formats
 
-Three export formats serve different use cases:
+The VS Code command offers three export formats (the CLI also has `markdown`, a document a reviewer reads, and `dot`):
 
 | Format | Token Cost | Use Case |
 |--------|-----------|----------|
 | **graph** | Full | Complete JSON graph with all entities, edges, and metadata |
-| **context** | Medium | Optimized context window for Claude, Copilot, and other LLMs |
-| **brief** | Minimal | Summary with entity counts, key relationships, and coverage stats |
+| **context** | Medium | Every entity's fields and obligations without file and line, for an AI agent |
+| **brief** | Minimal | Each entity's id, kind and title |
 
 ### Exporting from VS Code
 
@@ -31,29 +31,34 @@ specforge export --format=context
 specforge export --format=brief
 ```
 
-## MCP Server for Claude
+## MCP Server for your agent
 
-SpecForge includes a built-in **Model Context Protocol (MCP)** server. Add `specforge mcp` to your agent's MCP configuration as a stdio command to give it direct access to your entity graph.
+SpecForge includes a built-in **Model Context Protocol (MCP)** server. Add `specforge mcp /path/to/your/project` to your agent's MCP configuration as a stdio command to give it direct access to your graph.
 
 ### How it works
 
-1. Your agent starts `specforge mcp` in the project folder
+1. Your agent starts `specforge mcp` for your project
 2. It can query your entities, relationships, and diagnostics
-3. Responses include structured entity data, not just text
+3. It can edit specs, and every edit is validated: a change that breaks a rule is refused with the exact diagnostic
+4. Responses include structured entity data, not just text
 
 ### Available MCP tools
 
-Claude can use tools like:
-- `specforge_inspect` -- get full details about an entity
-- `specforge_search` -- find entities by name or kind
-- `specforge_list` -- list all entities with filters
-- `specforge_trace` -- follow entity relationships through the graph
-- `specforge_coverage` -- check verification coverage
-- `specforge_query` -- run graph queries
+Your agent can use tools like:
+- `specforge.inspect` -- get full details about an entity
+- `specforge.search` -- find entities by name or kind
+- `specforge.list` -- list all entities with filters
+- `specforge.trace` -- follow entity relationships through the graph
+- `specforge.coverage` -- check verification coverage
+- `specforge.query` -- run graph queries
+- `specforge.validate` -- recompile and check the project
+- `specforge.edit` -- make a typed edit that is validated before it lands
+
+Extensions can add their own tools: with `@specforge/product` enabled, the agent also gets product queries such as features, journeys and milestones.
 
 ### Available MCP resources
 
-Claude can read resources like entity definitions, extension schemas, and project stats -- all via structured URIs.
+Your agent can read resources such as the whole graph, the schema, the diagnostics, or one entity's context -- all via `specforge://` URIs.
 
 ## Plan validation
 
@@ -70,4 +75,5 @@ This checks that the plan covers the right entities, respects dependencies, and 
 - Write more specs as your project grows
 - Use `specforge check` in CI to validate specs on every commit
 - Explore `specforge analyze coverage` to see which entities have verification
+- Teach SpecForge your own domain: `specforge extension init` scaffolds an extension that declares your kinds and rules
 - Run **SpecForge: Run Doctor** if anything seems off

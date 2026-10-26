@@ -1,22 +1,18 @@
 # decision
 
-> **Module:** `@specforge/governance`
+> **Declared by `@specforge/governance`**, one of the builtin extensions. `decision` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/governance`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `decision` is an **Architecture Decision Record (ADR)** — a documented rationale for a significant technical choice. Decisions capture the *why* behind the system's construction: what alternatives were considered, what was chosen, and what consequences follow.
+A `decision` records a significant choice and why it was made: the context, the choice, the alternatives and the
+consequences. In software it is an Architecture Decision Record (ADR); the same shape fits a pricing decision, a
+supplier choice or a change to a procedure. It answers: **"Why was this done this way?"**
 
-It answers: **"Why was this built this way?"**
-
-Decisions prevent knowledge loss. When a new team member asks "why do we use PostgreSQL instead of MongoDB?", the answer lives in `use_postgresql`, not in someone's memory.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `use_postgresql`, `event_sourcing_audit`, `migrate_grpc`
+Decisions keep knowledge from living only in someone's memory. They can point at what they protect (invariants),
+what they impose (constraints) and the features they affect.
 
 ## Syntax
 
@@ -24,20 +20,20 @@ Examples: `use_postgresql`, `event_sourcing_audit`, `migrate_grpc`
 decision use_postgresql "PostgreSQL over MongoDB" {
   status   accepted
   date     2025-03-01
+  deciders ["platform-team"]
 
   context """
-    We need a primary datastore. Team has SQL expertise.
-    Document model not needed — data is relational.
+    We need a primary datastore. The team has SQL expertise.
+    The data is relational; a document model is not needed.
   """
 
-  decision """
-    Use PostgreSQL with typed schemas.
-  """
+  decision "Use PostgreSQL with typed schemas."
+
+  alternatives ["MongoDB", "DynamoDB"]
 
   consequences [
-    "Migrations required for schema changes",
+    "Migrations are required for schema changes",
     "Strong ACID guarantees",
-    "Team can leverage existing SQL knowledge",
   ]
 
   invariants [data_persistence]
@@ -46,183 +42,112 @@ decision use_postgresql "PostgreSQL over MongoDB" {
 
 ## Fields
 
+Every `decision` has an id (the word after `decision`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
+
 ### Required
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | enum | Lifecycle status of the decision (see Status Lifecycle below). |
-| `context` | string or triple-string | The situation that motivated this decision. What forces are at play? |
-| `decision` | string or triple-string | The choice that was made. What are we doing? |
+| `status` | enum: proposed, accepted, deprecated, superseded | Current lifecycle status of the decision. |
+| `context` | string | Background and circumstances that motivated this decision. |
+| `decision` | string | The decision statement itself. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the entity ID). |
-| `number` | integer | Optional sequential number for display in reports (e.g., `number 1`). |
-| `date` | date | When the decision was made: one calendar day, written bare (`2026-03-01`); another value is E061. |
-| `consequences` | string list | Known consequences of this decision — both positive and negative. |
-| `invariants` | reference list | Invariants that this decision protects or enables. |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this decision. |
-
-## Status Lifecycle
-
-| Status | Meaning |
-|--------|---------|
-| `proposed` | Under discussion, not yet accepted. |
-| `accepted` | Approved and in effect. The system is built according to this decision. |
-| `deprecated` | Superseded by a newer decision. Still present for historical context. |
-| `superseded` | Replaced by another ADR. The `superseded_by` field should reference the replacement. |
+| `consequences` | string list | Expected outcomes and trade-offs resulting from this decision. |
+| `superseded_by` | reference → `decision` | Reference to a newer decision that replaces this one. |
+| `invariants` | reference list → `invariant` | Invariants that this decision protects. |
+| `refs` | string list | External references (URLs, documents, issue links). |
+| `description` | string | Free-form description of the decision. |
+| `date` | date (`YYYY-MM-DD`) | The day the decision was made or last updated. |
+| `authors` | string list | People who authored this decision record. |
+| `tags` | string list | Categorization tags for filtering and grouping. |
+| `alternatives` | string list | Alternative options that were considered. |
+| `reason` | string | Justification for why this option was chosen over alternatives. |
+| `deciders` | string list | People who approved or signed off on this decision. |
+| `affects_features` | reference list → `feature` | Product features affected by this decision (requires @specforge/product). |
+| `constraints` | reference list → `constraint` | Constraints imposed by this decision. |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `DecisionAffectsFeature` | "This decision affects these features" (via `affects_features` field) |
-| `constraint` | `DecisionImposesConstraint` | "This decision imposes these constraints" (via `constraints` field) |
-| `invariant` | `DecisionProtectsInvariant` | "This decision protects these invariants" (via `invariants` field) |
-| `decision` | `DecisionSupersedesDecision` | "This decision supersedes these decisions" (via `superseded_by` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [feature](feature.md) | `DecisionAffectsFeature` | `affects_features` on `decision` | Decision affects a product feature |
+| outgoing | [constraint](constraint.md) | `DecisionImposesConstraint` | `constraints` on `decision` | Decision imposes a constraint on the system |
+| outgoing | [invariant](invariant.md) | `DecisionProtectsInvariant` | `invariants` on `decision` | Decision protects an invariant |
+| outgoing | [decision](decision.md) | `DecisionSupersedesDecision` | `superseded_by` on `decision` | Decision supersedes a previous decision |
+| incoming | [decision](decision.md) | `DecisionSupersedesDecision` | `superseded_by` on `decision` | Decision supersedes a previous decision |
 
-### Incoming edges
+## Validation rules
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `decision` | `DecisionSupersedesDecision` | "Decisions that supersede this decision" (via `superseded_by` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E003 | Every ID in `invariants` must resolve to a declared entity. |
-| E002 | No two decisions may share the same ID. |
-| E061 | `status` must be one of the recognized decision statuses. |
+## Status lifecycle
 
-## Design Guidance
+```
+proposed -> accepted -> deprecated
+               |
+           superseded (name the replacement in superseded_by)
+```
 
-### Good Decisions
+## Design guidance
 
-Decisions should capture:
-- **Context** — what problem or force prompted this decision
-- **Alternatives considered** — what options were evaluated (can be in context or consequences)
-- **Rationale** — why this option was chosen over others
-- **Consequences** — both benefits and trade-offs
+### Good decisions
 
-### When to Write an ADR
+Capture the **context** (what forced the choice), the **alternatives** considered, the **reason** this one won,
+and the **consequences**, both benefits and trade-offs.
 
-Write a decision when:
-- Choosing between technologies (database, framework, language)
-- Making an architectural pattern choice (monolith vs. microservices, sync vs. async)
-- Establishing a convention that affects multiple components
-- Making a choice that would be expensive to reverse
+### When to write one
 
-### When NOT to Write an ADR
-
-Skip a decision for:
-- Trivial implementation choices (variable names, formatting)
-- Standard practices that don't need justification
-- Choices that are easily reversible with no consequences
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [feature](feature.md) | `DecisionAffectsFeature` | Features this decision affects |
-| outgoing | [constraint](constraint.md) | `DecisionImposesConstraint` | Constraints this decision imposes |
-| outgoing | [invariant](invariant.md) | `DecisionProtectsInvariant` | Invariants this decision protects |
-| outgoing | [decision](decision.md) | `DecisionSupersedesDecision` | Decisions this decision supersedes |
-| incoming | [decision](decision.md) | `DecisionSupersedesDecision` | Decisions that supersede this decision |
+Write a decision when choosing between technologies or suppliers, when setting a convention that affects many
+parts, or when a choice would be expensive to reverse. Skip trivial, standard or easily reversible choices.
 
 ## Examples
 
-### Technology Choice
-
-```spec
-decision use_postgresql "PostgreSQL over MongoDB" {
-  status   accepted
-  number   1
-  date     2025-03-01
-
-  context """
-    We need a primary datastore. Team has SQL expertise.
-    Document model not needed — data is relational.
-    ACID transactions are required for financial data integrity.
-  """
-
-  decision """
-    Use PostgreSQL 15+ with typed schemas and row-level security.
-  """
-
-  consequences [
-    "Migrations required for schema changes",
-    "Strong ACID guarantees",
-    "Team can leverage existing SQL knowledge",
-    "No native document storage — complex JSON queries are slower",
-  ]
-
-  invariants [data_persistence]
-  refs [gh.discussion:12]
-}
-```
-
-### Architectural Pattern
+### Architectural pattern
 
 ```spec
 decision event_sourcing_audit "Event Sourcing for Audit Trail" {
-  status   accepted
-  number   5
-  date     2025-06-15
+  status accepted
+  date   2025-06-15
 
   context """
     Regulatory requirements demand a complete, immutable audit trail
-    of all state changes. A traditional update-in-place model would
-    require separate audit logging with risk of drift.
+    of all state changes.
   """
 
-  decision """
-    Use event sourcing for the billing domain.
-    All state changes are stored as an append-only event log.
-    Current state is derived by replaying events.
-  """
+  decision "Use event sourcing for the billing domain: state changes are an append-only event log."
 
   consequences [
     "Complete audit trail by construction",
-    "Event replay enables point-in-time recovery",
     "Increased storage requirements",
-    "Eventually consistent read models required",
-    "Team needs training on event sourcing patterns",
   ]
 
-  invariants [audit_integrity, idempotent_orders]
+  invariants  [audit_integrity]
+  constraints [audit_retention]
 }
 ```
 
-### Proposed (Not Yet Accepted)
+### Superseded
 
 ```spec
-decision migrate_grpc "Migrate from REST to gRPC for Internal Services" {
-  status   proposed
-  number   12
+decision rest_internal "REST for Internal Services" {
+  status        superseded
+  date          2024-01-10
+  context       "We needed a simple protocol between internal services."
+  decision      "Use REST/JSON between internal services."
+  superseded_by migrate_grpc
+}
+
+decision migrate_grpc "gRPC for Internal Services" {
+  status   accepted
   date     2026-02-15
-
-  context """
-    Internal service-to-service communication uses REST/JSON.
-    Serialization overhead is measurable at current scale (>15% of p99 latency).
-    Type safety between services relies on manual OpenAPI maintenance.
-  """
-
-  decision """
-    Adopt gRPC with Protocol Buffers for all internal service communication.
-    External API remains REST/JSON.
-  """
-
-  consequences [
-    "~40% reduction in serialization latency (estimated)",
-    "Compile-time type safety between services",
-    "Requires protobuf tooling in CI",
-    "Debugging is harder — binary protocol requires specialized tools",
-    "Two API paradigms to maintain (external REST + internal gRPC)",
-  ]
+  context  "Serialization overhead is more than 15% of p99 latency."
+  decision "Use gRPC with Protocol Buffers between internal services; the external API stays REST."
 }
 ```

@@ -1,95 +1,109 @@
-# North Star
+# North star
 
-This is not a roadmap. There are no dates here. This is a description of the world we are building toward — the destination that guides every decision along the way.
-
----
-
-## The World We Are Building
-
-Every serious project has a `spec/` directory. Teams write `.spec` files the way they write `package.json` or `Cargo.toml` — not as documentation, but as compiled infrastructure. The spec files are checked into version control, validated in CI, and consumed by every AI agent that touches the project.
-
-AI agents of all kinds read the Graph Protocol before performing any task. A coding agent reads it before generating code. A compliance agent reads it before producing an audit trail. A PM agent reads it before writing a status report. A security agent reads it before assessing risk. A documentation agent reads it before producing API docs. The graph is the shared language between human intent and machine action.
-
-Extensions exist for domains nobody at SpecForge imagined. A maritime logistics team has `@specforge/shipping` and models container routes, port schedules, and customs declarations. A clinical research group has `@specforge/clinical-trials` and models protocols, endpoints, and patient cohorts. A game studio has `@specforge/game-design` and models quest systems, dialogue trees, and progression mechanics. None of these were planned by anyone at SpecForge. They emerged because the compiler is domain-agnostic and the extension format is open. The ecosystem sustains itself.
-
-When someone asks "how does this AI agent know what to do?", the answer is always the same: it reads the graph.
+This is not a roadmap and has no dates. It describes the world SpecForge is built toward, and marks plainly what
+exists today and what doesn't yet.
 
 ---
 
-## Three Horizons
+## The world we are building
 
-These are maturity stages, not calendar milestones. Each horizon builds on the last. Progress through them is measured by adoption patterns and ecosystem health, not dates.
+An organisation's knowledge lives in one checked graph. Its things, their links and their rules are written once,
+in `.spec` files under version control, and checked on every change.
+
+AI agents read that graph before they act and write to it through typed edits. A coding agent reads the spec
+before it builds. A product agent reads the plan before it writes the status report. A quality agent reads the
+procedures before it drafts a batch record. When an agent proposes a change that breaks a rule, the change is
+refused with the reason, and the agent fixes it. People spend their time on what the graph says is still open,
+not on re-reading everything the AI produced.
+
+Extensions exist for fields nobody at SpecForge planned: shipping, clinical trials, game design, a family
+business's own way of working. They are versioned and installed like libraries, from a registry anyone can publish
+to.
+
+When someone asks "how does this AI know what it's allowed to do?", the answer is: it reads the graph, and the
+graph is checked.
+
+---
+
+## Three horizons
+
+Maturity stages, not calendar milestones. Each builds on the last.
 
 ```
-  H1: The Compiler         H2: The Ecosystem        H3: The Standard
+  H1: The engine           H2: The ecosystem         H3: The harness
  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐
- │                    │  │                    │  │                    │
- │  Individual tool   │  │  Platform with     │  │  Open industry     │
- │  Local value       │─>│  20+ extensions      │─>│  standard          │
- │  One user, one     │  │  Org-wide value    │  │  Multiple          │
- │  project           │  │  Multiple agents   │  │  compilers         │
- │                    │  │                    │  │                    │
+ │ compiler, SDK,     │  │ domain extensions  │  │ a business runs on │
+ │ CLI, MCP, LSP,     │─>│ from many authors  │─>│ it: AI as worker,  │
+ │ builtin extensions │  │ (methods, pharma,  │  │ people review, new │
+ │ one team, one repo │  │ product, …)        │  │ doors for everyone │
  └────────────────────┘  └────────────────────┘  └────────────────────┘
   Competes with:          Competes with:          Competes with:
-  Inertia                 Fragmentation           Proprietary lock-in
+  prose and habit         every tool inventing    closed platforms that
+                          its own format          own your knowledge
 ```
 
-### H1: The Compiler
+### H1: The engine (today)
 
-SpecForge is an individual tool that provides local value. A developer installs it, writes a few `.spec` files, runs `specforge check`, and feeds the graph to an AI agent. The agent produces better results on the first attempt. The value is immediate, personal, and measurable: fewer corrections, less context waste, higher first-pass accuracy.
+This exists. The compiler and validator, the extension SDK and WASM runtime (`specforge extension init|build|validate`),
+the builtin extensions, the CLI, the MCP server, the LSP with its VS Code extension, the package registry, typed
+edits (`specforge new|set|unset|link|unlink|delete`), `collect` for test results, and the `infer` guides that help
+an agent write a spec from existing code.
 
-The user does not need their team to adopt SpecForge. They do not need organizational buy-in. One person, one project, one spec file — and the difference is visible. This is how all enduring developer tools begin: with individual value that spreads through demonstrated results.
+One person in one project gets value on day one, without asking their team. That is how lasting tools start.
 
-At this stage, SpecForge competes with inertia — the habit of dumping prose into context files and hoping agents figure it out. The product wins by being obviously better within fifteen minutes of first use.
+### H2: The ecosystem (starting)
 
-### H2: The Ecosystem
+Many extensions, written by many authors, for many fields:
 
-SpecForge is a platform with twenty or more domain extensions. Teams adopt it across their organizations. The Graph Protocol is consumed by multiple agent frameworks — not just coding assistants, but PM tools, compliance platforms, documentation generators, and infrastructure agents.
+- **Software methods as extensions.** GSD, BMAD, OpenSpec and SpecKit each have a vocabulary (milestones,
+  phases, stories, proposals, tasks) and rules. As extensions, their state becomes checked entities instead of
+  Markdown files. A GSD family (`@gsd/*`) is being designed; the others are not started.
+- **Regulated domains.** Pharma quality, medical devices, safety cases: procedures, deviations, approvals and
+  their evidence, with rules a regulator would recognise. Not built yet; anyone can start one with the SDK.
+- **Product and business vocabularies** beyond the builtin `@specforge/product`.
 
-Providers bridge SpecForge to external systems: issue trackers, design tools, CI pipelines, observability platforms. The spec graph becomes the connective tissue across tools that previously operated in isolation. Engineering managers, compliance leads, and product directors see cross-cutting traceability from a single source.
+The registry and `specforge publish` exist today. The extensions above are what is missing.
 
-Community extension authors build vocabularies for domains the core team never imagined. The extension registry grows organically. First-party extensions are the minority. The ecosystem is self-sustaining.
+### H3: The harness (planned)
 
-At this stage, SpecForge competes with fragmentation — the reality that every team invents its own context format and every agent framework invents its own schema. The platform wins by being the one graph protocol that works everywhere.
+A business runs on SpecForge. Its extensions are its domain, the graph is its memory, validation is its rulebook,
+and AI models are the workers. This needs pieces that don't exist yet:
 
-### H3: The Standard
-
-The Graph Protocol is an open industry standard. Multiple compilers produce it. Multiple agent platforms consume it natively. SpecForge is the reference implementation — the most complete, the most trusted, the most extensible — but the standard exists independently of any single tool.
-
-Organizations choose SpecForge the way they choose Terraform: because the ecosystem is deepest, the extensions are richest, and the tooling is most mature. But they are not locked in. The Graph Protocol is an open format. Alternative implementations exist and are welcomed.
-
-At this stage, SpecForge competes with proprietary lock-in — the risk that a dominant AI platform dictates its own context format and creates a walled garden. The standard wins by being open, composable, and vendor-neutral. If every agent platform agrees on the graph schema, the entire industry benefits — including SpecForge.
-
----
-
-## The Measure of Success
-
-One metric captures everything:
-
-**What percentage of AI agent tasks produce correct results on first attempt when the agent has access to a SpecForge graph?**
-
-Today, without structured context, that number is roughly 30%. Agents guess, hallucinate, miss constraints, and require human correction on most non-trivial tasks.
-
-With a validated spec graph, we believe that number reaches 70-85%. The agent knows the entities, their relationships, the constraints, the test status, and the traceability links. It does not need to discover anything. It reads the graph and acts.
-
-This metric applies to all agent types, all domains, all task complexities. Coding tasks. Compliance audits. Status reports. Documentation. Security reviews. The graph improves all of them because the problem is always the same: agents need structured context, not prose.
-
-If SpecForge reaches 100,000 projects and that number has not moved, we have failed — regardless of adoption. If SpecForge reaches 1,000 projects and that number has moved dramatically, we are on the right path. The metric is task accuracy, not vanity metrics.
+- **New doors.** AG-UI and HTTP surfaces, so a business user can work with the graph in a browser or another app
+  without an editor or an agent in between. Planned.
+- **Connections to the systems a business already has.** Today extensions are pure (they can't open files or the
+  network), and external reference schemes register but nothing reads them yet. Reading from a CRM, an issue
+  tracker or a quality system is future work.
+- **Evidence beyond tests.** Proof today means test results. A signed review, an executed procedure or an audit
+  record as evidence is future work.
 
 ---
 
-## What We Refuse To Become
+## The measure of success
 
-These are forward-looking rejections. As SpecForge grows, pressure will mount to become each of these things. Each pressure will come with reasonable-sounding arguments. We will resist all of them.
+One number, for any domain:
 
-**A code generator.** SpecForge provides context. Agents produce output. These are fundamentally different jobs. The moment SpecForge generates code, it competes with every AI coding tool instead of empowering all of them. The entire value of the Graph Protocol depends on SpecForge being neutral infrastructure, not an opinionated output producer. Extension renderers that emit spec-layer diagnostics — coverage reports, traceability matrices, validation summaries — are not output in this sense. They serve the compiler's own feedback loop, helping teams understand their graph. They are never application code, never deployed artifacts, never domain output.
+**What share of AI agent tasks come out right the first time when the agent has the checked graph?**
 
-**A test framework.** SpecForge traces tests and consumes results. How tests are written and run belongs to test runners — pytest, cargo test, vitest, JUnit. SpecForge belongs to the specification layer. The compiler never executes anything; each runner has its own extension that declares the one command that runs it, which `specforge collect` runs with the user's consent ([ADR 0002](../adr/0002-test-runner-extensions.md)). Consuming the runner's report closes the traceability loop without coupling the core to any specific test framework.
+We believe the graph moves this number a long way. That is a hypothesis, not a result: `evaluation/` holds a
+harness to measure it, and no run has been recorded yet. If SpecForge reaches a hundred thousand projects and that
+number hasn't moved, we have failed. If it reaches a thousand and the number has moved a lot, we are on the right
+path.
 
-**Enterprise-only.** A solo developer with no manager must choose SpecForge freely and find it valuable. Enterprise features emerge from individual adoption, not the reverse. If the free tier is not compelling on its own, the product is broken at its foundation. Enterprise value is a consequence of widespread adoption, never a prerequisite for it.
+---
 
-**Software-only.** The zero-entity core exists precisely because SpecForge must serve compliance teams, design teams, data teams, research teams, legal teams, and domains that do not exist yet. The compiler will never grow a hardcoded vocabulary for one industry. Every domain gets equal treatment through the extension system.
+## What we refuse to become
 
-**A proprietary format.** The Graph Protocol is an open schema. Anyone can produce it. Anyone can consume it. The spec format is documented and the compiler is open source. Proprietary lock-in would destroy the network effect that makes the standard valuable. The graph schema becomes more valuable as more tools produce and consume it — and that only works if it is open.
+Each of these will come with good-sounding arguments. We will resist them.
 
-**A walled garden.** Extensions are open. The registry is open. Community contributions are first-class citizens, not second-class add-ons. If the ecosystem cannot thrive without SpecForge's explicit permission, the architecture is wrong. The measure of a good platform is that it enables things its creators never imagined.
+- **A generator.** SpecForge provides checked knowledge; agents produce output. Reports that help you read the
+  graph are part of SpecForge; code, documents and anything shipped to your customers are not.
+- **An AI.** The check has no model inside, so its verdict can be trusted the same way twice. The brain is yours
+  to choose.
+- **A test framework.** SpecForge consumes test results; runners stay runners. A runner extension declares one
+  command, and `specforge collect` runs it only with your consent
+  ([ADR 0002](../adr/0002-test-runner-extensions.md)).
+- **Software-only.** The core has no domain so that every field gets equal treatment through extensions.
+- **Enterprise-only.** A solo user with no manager must be able to choose it and get value.
+- **A walled garden.** Extensions, the registry and the export format are open. If the ecosystem can't grow
+  without our permission, the design is wrong.

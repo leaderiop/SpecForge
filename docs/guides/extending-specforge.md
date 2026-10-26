@@ -1,8 +1,15 @@
 # Extending SpecForge — Zero to Production
 
 A guided, end-to-end tutorial that takes you from an empty directory to a shipped,
-installable extension: domain vocabulary, validation rules, and compiler passes —
-all authored in Rust, compiled to Wasm, and loaded by every SpecForge surface.
+installable extension: the kinds of your domain, their fields and links, the rules
+they must obey, commands, and compiler passes — authored in Rust, compiled to Wasm,
+and loaded by every SpecForge surface (CLI, MCP server, LSP).
+
+An extension is how SpecForge learns a domain. Without one, the compiler knows only
+the structural keywords (`spec`, `ref`, `use`, `defaults`); with yours installed, a
+project can write `procedure`, `campaign` or `greeting` blocks and get them checked.
+For the step-by-step method of picking or designing a domain model before you write
+code, start with [Model your domain](model-your-domain.md).
 
 This is the extension **tutorial**. Companion reading:
 
@@ -43,10 +50,11 @@ This is the extension **tutorial**. Companion reading:
 
 ## The bet: vocabulary over forks
 
-SpecForge's built-in entity kinds — `type`, `behavior`, `feature`, `invariant`,
-`event`, `port` — cover general software specification. The moment your domain
-talks about something else (hardware registers, compliance controls, financial
-instruments), you have three options:
+The compiler knows no domain. Every kind a project writes — the builtins'
+`behavior`, `feature` and `invariant` included — comes from an extension. The
+builtin extensions describe software and product work well. The moment your domain
+talks about something else (batch records, compliance controls, campaigns,
+hardware registers), you have three options:
 
 1. **Shoehorn** your domain into existing kinds. Loses validation and tooling.
 2. **Fork the compiler.** Loses updates, splits the ecosystem.
@@ -54,16 +62,17 @@ instruments), you have three options:
    LSP, and MCP server all learn it at load time.
 
 SpecForge is built on option 3 — the protocol is the *only* mechanism for adding
-domain vocabulary. There is no bypass. The four built-in extensions
-(`@specforge/product`, `@specforge/software`, `@specforge/governance`,
-`@specforge/formal`) are not privileged; they ride the same protocol you are
-about to use.
+domain vocabulary. There is no bypass. The builtin extensions
+(`@specforge/software`, `@specforge/product`, `@specforge/governance`,
+`@specforge/formal`, `@specforge/testing` and the runner extensions) are not
+privileged; they ride the same protocol you are about to use.
 
 ## What an extension can contribute
 
 | Contribution | What it gives the graph |
 |---|---|
 | **Entity kinds** | New first-class nouns (`greeting`, `compliance_control`) with fields, constraints, and verify support |
+| **Shared fields and enhancements** | A field every kind of yours gets, or fields and verify kinds added to another extension's kinds |
 | **Edges** | Typed relationships between kinds, with visual styling for diagrams |
 | **Validation rules** | Structural checks the compiler runs on every build |
 | **Compiler passes** | Analysis that runs during `specforge analyze`, receiving the resolved graph and returning diagnostics |
@@ -147,7 +156,7 @@ scaffolds all of this for you.
 Three things happened:
 
 1. **`greeting` is now a keyword.** Any `.spec` file in a project with this
-   extension installed can write `greeting hello { style "warm" }`, and the
+   extension installed can write `greeting hello { style warm }`, and the
    parser, resolver, and validators all understand it.
 2. **`style` is a constrained enum field.** The compiler rejects values outside
    `warm | formal` at compile time — before your rule engine ever runs.
@@ -225,7 +234,7 @@ The host checks each rule's shape when your extension loads (and in
 
 ```spec
 behavior publish "Publish" {
-  title "Publish"
+  contract "Given a valid graph, the system MUST write the output files."
 
   requires {
     graph_valid "the graph compiles without errors"
@@ -307,8 +316,10 @@ Design notes, so your passes age well:
   (id, kind, [field texts](../extension-sdk.md#field-text), edge counts)
   plus the resolved edge list —
   checks that reason about *structure* (symmetry, presence, cycles, coverage)
-  are its sweet spot. Semantic verification (SMT-backed `analyze --prove`) is
-  a separate, future rung of the formality ladder.
+  are its sweet spot. Semantic verification is the host's SMT-backed
+  `analyze --prove`, which reads the fields an extension declares with a
+  proof role (`f.proof_role("bound")` / `"claim"`; see the
+  [Formal Verification Guide](formal-verification.md)).
 - **Codes are yours.** Pick a prefix your extension owns and stay consistent;
   document your codes the way `@specforge/formal` does
   ([Entity Model → diagnostics](../entity-model.md)).
@@ -391,20 +402,22 @@ URI.
 ## Build to Wasm
 
 ```console
-$ cargo build --release --target wasm32-wasip2
+$ specforge extension build          # runs cargo build --release --target wasm32-wasip2
+$ specforge extension validate       # loads the component and reports its declaration's diagnostics
 ```
 
-The scaffold's `.cargo/config.toml` already pins the target, so plain
-`cargo build --release` works too. The artifact lands in
+Plain cargo works too: the scaffold's `.cargo/config.toml` pins the target, so
+`cargo build --release` builds the same component. The artifact lands in
 `target/wasm32-wasip2/release/<your_ext>.wasm`.
 
 ## Install into a project
 
 ```console
-$ specforge add ./target/wasm32-wasip2/release/my-ext.wasm
+$ specforge add ../my-ext          # the crate directory, or its .wasm file
 ```
 
-`specforge add` copies the module into the project and registers it in
+`specforge add` builds nothing: it takes the component your last build wrote
+(`target/wasm32-wasip2/release/my_ext.wasm`), copies it into the project and registers it in
 `specforge.json`. From that moment, `check`, `analyze`, `watch`, the LSP, and
 the MCP server all load your vocabulary.
 
@@ -486,14 +499,21 @@ command tests in `extensions/product/src/tests.rs`.
 
 # Act VI — Where to go next
 
-- **Host API (v2 pass ABI).** Passes currently receive an entity snapshot and
-  return diagnostics. The next ABI revision adds host-query functions —
-  `query`, `read_file`, `emit_diagnostic` — so passes can pull data on demand
-  instead of receiving it all up front.
-- **`specforge analyze --prove`.** The formal ladder's top rung: contracts
-  become verification conditions discharged by an SMT backend. Design
-  groundwork is in [RES-25](../../spec/research/RES-25-sources/).
-- **Publish.** `cargo publish` your SDK extension crate; the SDK
+- **Host functions (planned).** Passes, commands and validators receive what
+  they need in their call's input and return an answer; an extension cannot
+  read files, query on demand or reach the network. A typed host-import
+  surface (`query`, `read_file`, `emit_diagnostic`) is designed but not built
+  ([Extension Protocol → Host Functions](../extension-protocol.md#host-functions)).
+  So an extension cannot connect to a live business system today.
+- **Proofs.** Give your kinds bounds and claims with `proof_role`, and
+  `specforge analyze --prove` checks them with z3
+  ([Formal Verification Guide](formal-verification.md)). Design groundwork for
+  richer proofs is in [RES-25](../../spec/research/RES-25-sources/).
+- **Let an agent use it.** Your kinds, rules and commands reach an agent over
+  MCP the moment the extension is installed: see [Connect an agent](connect-an-agent.md).
+- **Publish.** `specforge publish` uploads your built extension to the registry
+  that serves its scope, signed (see [registry trust](../registry-trust.md));
+  others install it with `specforge add @you/my-ext@0.1.0`. The SDK
   (`specforge-extension-sdk`, with its macros and `specforge-protocol-types`) is on crates.io at the
   version `specforge --version` prints; `specforge extension init` names it.
 

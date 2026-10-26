@@ -1,107 +1,81 @@
 ---
 name: specforge-invariants-dsl
-description: "Write invariant blocks in .spec DSL files. Each invariant declares a runtime guarantee with free-form snake_case IDs, a guarantee statement using RFC 2119 keywords, a risk level (low/medium/high/critical), verify statements (property/unit/mutation), and optional maintains blocks for formal properties. Use when defining what must ALWAYS be true in the system."
+description: "Write invariant blocks in .spec files (the invariant kind is declared by the builtin @specforge/software extension). Each invariant declares a rule that must always hold, with a snake_case ID, a guarantee statement using RFC 2119 keywords, a risk level (critical/high/medium/low), verify obligations (with @specforge/testing) and an optional machine-checkable expression (with @specforge/formal). Use when defining what must ALWAYS be true."
 ---
 
 # SpecForge Invariants DSL
 
-Rules and conventions for authoring **`invariant` blocks** in `.spec` files. Invariants are the foundation of the traceability chain -- they declare non-negotiable runtime guarantees.
+> **Declared by `@specforge/software`**, a builtin extension. The `invariant` kind exists only in a project that loads
+> it: run `specforge extensions` first, and if it is not listed, do not write `invariant` blocks (add it with
+> `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
+> `@specforge/testing`; `expression` needs `@specforge/formal`. `specforge infer-guide invariant` prints the fields.
 
-**Requires:** `@specforge/software` plugin.
+Invariants declare non-negotiable guarantees. Behaviors name the invariants they enforce; decisions, constraints and
+failure modes (from `@specforge/governance`) point at the invariants they protect or threaten.
 
-## When to Use
-
-- Defining a runtime guarantee the system must never violate
-- Naming a guarantee that behaviors enforce (they list it in their `invariants`)
-- Establishing risk levels for failure mode analysis
-- Adding formal properties via `maintains` blocks
-- Creating the invariants that behaviors will reference
+Typed edit: `specforge new invariant <id> "<title>" --in spec/<file>.spec --guarantee "…" --risk high`.
 
 ## Block Syntax
 
 ```spec
 invariant data_persistence "Data Persistence" {
   guarantee """
-    All committed writes survive process restarts.
+    All committed writes MUST survive process restarts.
     No acknowledged write may be silently dropped.
   """
   risk high
 
-  maintains {
-    write_durability   "every ACKed write is fsync'd before response"
-    crash_recovery     "WAL replay restores all committed state"
-  }
-
-  verify property "committed writes survive simulated crash"
+  verify property "committed writes survive a simulated crash"
   verify unit     "WAL replay restores all entries"
 }
 ```
 
 ## Fields Reference
 
-### Required
+| Field | Type | Declared by | Description |
+|-------|------|-------------|-------------|
+| `guarantee` | string (required) | software | What must always hold. |
+| `risk` | enum `critical` `high` `medium` `low` | software | Impact if violated. |
+| `description` | string | software | Human-readable summary. |
+| `refs` | string list | software | Declared `ref` IDs (`gh.issue:15`). |
+| `expression` | string | formal | Machine-checkable claim `specforge analyze --prove` must entail; without it, W040. |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
-| `guarantee` | string / triple-string | Precise statement of what the system guarantees. Uses RFC 2119 keywords. |
+### Verify kinds
 
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `risk` | enum | `low`, `medium`, `high`, or `critical`. Severity if violated. |
-| `maintains` | block | Frame invariants -- formal properties that must hold before AND after any operation. |
-| `verify` | verify statement(s) | Test specifications: `verify {kind} "{description}"`. Kinds: property, unit, mutation. |
-| `refs` | reference list | External references linked to this invariant. |
-
-### Verify Kinds for Invariants
-
-| Kind | Meaning |
-|------|---------|
-| `property` | Property-based testing to verify guarantee holds |
-| `unit` | Unit test verifying enforcement mechanism |
-| `mutation` | Mutation testing to verify detection of violations |
+With `@specforge/testing`: `unit`, `integration`, `property`, `performance`, `mutation` (another kind is W009).
 
 ## Relationships
 
-### Incoming edges (entities that reference this invariant)
+An invariant lists no behaviors: the behaviors that enforce it name it in their `invariants` field (an `enforced_by`
+list on the invariant is E079), and `specforge trace <invariant>` lists them.
 
-An invariant lists no behaviors: the behaviors that enforce it name it in their `invariants` field, and `trace <invariant>` lists them upstream.
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `BehaviorEnforcesInvariant` | Behavior enforces this invariant (via the behavior's `invariants` field) |
-| `decision` | `protects` | Decision protects this invariant |
-| `failure_mode` | `mitigates` | Failure mode threatens this invariant |
-| `constraint` | `constrains` | Quality requirement protects this invariant |
-
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `ref` | `links_to` | External references linked to this invariant |
+| From | Field on the other entity | Declared by |
+|------|---------------------------|-------------|
+| behavior | `invariants` | software |
+| decision | `invariants` | governance |
+| constraint | `protects` | governance |
+| failure_mode | `invariant` | governance |
+| axiom | `assumes` | formal |
 
 ## Writing Rules
 
-1. **One guarantee per invariant** -- do not combine unrelated guarantees in a single block.
-2. **Falsifiable** -- you must be able to write a test that detects a violation.
-3. **Universal** -- the guarantee holds under all conditions, not just the happy path.
+1. **One guarantee per invariant** -- do not combine unrelated guarantees.
+2. **Falsifiable** -- a test must be able to detect a violation.
+3. **Universal** -- it holds under all conditions, not just the happy path.
 4. **Implementation-independent** -- describe what is true, not how it is achieved.
-5. **Use RFC 2119 keywords** -- MUST, MUST NOT, SHALL in the guarantee text.
-6. **Write the relation on the behavior** -- a behavior lists the invariants it enforces in `invariants`; an invariant never lists behaviors (E079).
-7. **Every high-risk invariant needs a failure_mode** -- or `W005` warning fires.
-8. **Add `maintains` for formal properties** -- enables automated consistency checking.
-9. **Add `verify` statements** -- invariants are testable (property, unit, mutation).
+5. **Reference it from a behavior** -- an invariant no behavior enforces is W003.
+6. **Add `verify`** -- or W004 fires (with `@specforge/testing`).
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E002 | No duplicate invariant IDs across all `.spec` files. |
-| W003 | Unused invariant -- not referenced by any behavior. |
-| W005 | Unmitigated high-risk invariant -- `risk: high` or `risk: critical` with no `failure_mode`. |
-| W040 | Invariant without formal property -- has prose guarantee but no `maintains` block. |
+| Code | Owner | Rule |
+|------|-------|------|
+| E002 | core | Two invariants share an ID. |
+| E006 | core | `guarantee` is missing. |
+| E061 | core | `risk` outside its enum. |
+| W003 | software | No behavior enforces the invariant. |
+| W004 | testing | No `verify` obligation. |
+| W040 | formal | No `expression` (reported by `specforge analyze`). |
 
 ## Examples
 
@@ -110,13 +84,13 @@ An invariant lists no behaviors: the behaviors that enforce it name it in their 
 ```spec
 invariant email_uniqueness "Email Uniqueness" {
   guarantee "No two active users share the same email address."
-  risk medium
+  risk      medium
 
   verify property "concurrent user creation preserves email uniqueness"
 }
 ```
 
-### With Formal Properties
+### Critical, with an expression (needs `@specforge/formal`)
 
 ```spec
 invariant audit_trail_integrity "Audit Trail Integrity" {
@@ -126,19 +100,12 @@ invariant audit_trail_integrity "Audit Trail Integrity" {
     Every state-changing operation MUST produce an audit entry
     before returning success to the caller.
   """
-  risk critical
+  risk       critical
+  expression "audit_entries_after >= audit_entries_before"
 
-  maintains {
-    append_only        "no UPDATE or DELETE operations on audit table"
-    complete_coverage  "every state-changing behavior produces an audit entry"
-    ordering_preserved "audit entries ordered by wall-clock time"
-  }
-
-  verify property "audit log is append-only under concurrent writes"
-  verify unit     "state-changing operation produces audit entry"
-  verify mutation "tampering with audit entry is detected"
-
-  refs [gh.issue:15, jira.epic:PROJ-200]
+  verify property "the audit log is append-only under concurrent writes"
+  verify unit     "a state-changing operation produces an audit entry"
+  verify mutation "tampering with an audit entry is detected"
 }
 ```
 
@@ -147,10 +114,10 @@ invariant audit_trail_integrity "Audit Trail Integrity" {
 ```spec
 invariant display_name_length "Display Name Length" {
   guarantee "User display names MUST be between 1 and 100 characters."
-  risk low
+  risk      low
 
-  verify unit "names within bounds accepted"
-  verify unit "names outside bounds rejected"
+  verify unit "names within bounds are accepted"
+  verify unit "names outside bounds are rejected"
 }
 ```
 
@@ -158,6 +125,5 @@ invariant display_name_length "Display Name Length" {
 
 - Do not use an invariant for something that is a behavior ("Users can log in" is a behavior)
 - Do not use an invariant for a technology choice ("We use PostgreSQL" is a decision)
-- Do not use an invariant for a performance target ("The system is fast" is a constraint)
-- Do not leave a high-risk invariant without a behavior that lists it in `invariants` -- name the enforcement mechanism
-- Do not skip the `risk` field when a failure_mode will reference this invariant
+- Do not use an invariant for a quantified limit ("p99 < 200ms" is a constraint)
+- Do not write a `maintains` block on an invariant -- `maintains` is a behavior field (formal)

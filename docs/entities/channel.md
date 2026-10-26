@@ -1,159 +1,103 @@
 # channel
 
-> **Module:** `@specforge/product`
+> **Declared by `@specforge/product`**, one of the builtin extensions. `channel` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/product`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `channel` declares an **interaction medium** — a first-class entity modeling how users interact with the system. Channels are graph-addressable nodes that journeys reference to describe the medium through which an interaction flow occurs.
+A `channel` is the medium through which people reach what you offer: a web app, an API, a phone line, a shop
+counter. It answers: **"Where does the interaction happen?"**
 
-It answers: **"Where does the interaction happen?"**
-
-While journeys describe *how* users interact and personas describe *who* they are, channels describe *through what medium* the interaction occurs. Declaring channels as entities (rather than bare identifiers or config enums) enables unreferenced detection, interaction model validation, and graph queries across the product model.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `web`, `cli`, `api`, `storefront`, `mobile`
+Journeys name the channels they use. Because channels are entities, the graph can answer "which features reach
+this channel?" (`specforge product channel-features`) and flag a channel no journey uses (I047).
 
 ## Syntax
 
 ```spec
 channel web "Web Application" {
-  description "Browser-based web application accessed via HTTPS."
+  description       "Browser-based web application accessed over HTTPS."
   interaction_model request_response
-  tags ["digital"]
+  url               "https://app.example.com"
+  tags              ["digital"]
 }
 ```
 
 ## Fields
 
+Every `channel` has an id (the word after `channel`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
+
 ### Required
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `description` | string or triple-string | What this channel is and how users access it. |
-| `interaction_model` | InteractionModel enum | The communication pattern: `request_response`, `event_driven`, `batch`, `streaming`, `bidirectional`, `manual`. Another value is E061. |
+| `description` | string | Human-readable summary of this channel. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the entity ID). |
-| `url` | string | Canonical documentation, API endpoint, or configuration URL for this channel. Informational only — no URL format validation in v1. |
-| `status` | ChannelStatus enum | Lifecycle state: `active`, `deprecated`. Another value is E061. Absent status treated as `active` for incremental adoption. |
-| `reason` | string | Rationale for deprecation (expected when `status=deprecated`, checked by I070). |
-| `tags` | string list | Free-form tags for categorization. |
+| `interaction_model` | enum: request_response, event_driven, batch, streaming, bidirectional, manual | How users interact through this channel. |
+| `url` | string | URL or endpoint for this channel. |
+| `status` | enum: active, deprecated | Lifecycle state; default `active`. |
+| `reason` | string | Justification for the current status or a status change. |
+| `tags` | string list | Freeform labels for filtering and categorization (a shared field of `@specforge/product`). |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-None. Channels are leaf nodes in the product graph.
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| incoming | [journey](journey.md) | `JourneyUsesChannel` | `channels` on `journey` | Communication or distribution channels used in this journey |
 
-### Incoming edges
+## Validation rules
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `journey` | `JourneyUsesChannel` | "Journeys that use this channel" (via `channels` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| I047 | info | `@specforge/product` | Unreferenced channel |
+| I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
+| I070 | info | `@specforge/product` | Deprecated channel missing reason |
 
-| Code | Level | Rule |
-|------|-------|------|
-| E003 | error | Journey `channels` entries must resolve to declared entities (E022 when the target isn't a channel). |
-| E061 | error | A value outside the field's vocabulary. |
-| I047 | info | Channel not referenced by any journey (unreferenced channel). |
-| I070 | info | Deprecated channel without a `reason`. |
 
-## Design Guidance
+## Design guidance
 
-### InteractionModel Selection
+### Interaction model
 
-| Model | Use When | Example |
+| Model | Use when | Example |
 |-------|----------|---------|
-| `request_response` | User sends a request, system responds synchronously | Web form submission, REST API call |
-| `event_driven` | System pushes updates to the user asynchronously | WebSocket notifications, push notifications |
-| `batch` | User submits work to be processed later | File upload for processing, scheduled reports |
-| `streaming` | Continuous data flow from system to user | Live dashboards, log tailing |
-| `bidirectional` | Real-time two-way communication | Chat, collaborative editing |
-| `manual` | No digital interaction — physical or paper-based | Storefront counter, paper forms |
+| `request_response` | The user asks, the system answers | Web form, REST call |
+| `event_driven` | The system pushes updates | Push notifications |
+| `batch` | Work is submitted and processed later | File upload, scheduled report |
+| `streaming` | Data flows continuously | Live dashboard |
+| `bidirectional` | Real-time two-way exchange | Chat, collaborative editing |
+| `manual` | No digital interaction | Shop counter, paper form |
 
-### Channel vs. Deployment Environment
+### Channel vs. environment
 
-Channels describe **interaction mediums**, not deployment targets:
-- `web` is a channel (how users interact)
-- "production" is a deployment environment (where code runs)
-- `api` is a channel (how machines interact)
-- "staging" is a deployment environment
-
-### When to Declare a Channel
-
-Declare a channel when:
-- Users interact with the system through a distinct medium
-- The interaction model differs from existing channels
-- Multiple journeys share the same medium
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| incoming | [journey](journey.md) | `JourneyUsesChannel` | Journeys that use this channel |
+A channel is how people interact (`web`, `api`), not where code runs ("production", "staging").
 
 ## Examples
 
-### Web Channel
-
-```spec
-channel web "Web Application" {
-  description """
-    Browser-based web application accessed via HTTPS.
-    Supports modern browsers (Chrome, Firefox, Safari, Edge).
-    Responsive design for desktop and tablet viewports.
-  """
-  interaction_model request_response
-  url "https://app.example.com"
-  tags ["digital", "primary"]
-}
-```
-
-### CLI Channel
-
-```spec
-channel cli "Command-Line Interface" {
-  description """
-    Terminal-based interface for power users and automation.
-    Supports piped output, JSON formatting, and shell completion.
-  """
-  interaction_model request_response
-  url "https://docs.example.com/cli"
-  tags ["digital", "developer"]
-}
-```
-
-### Deprecated Channel
+### Deprecated
 
 ```spec
 channel legacy_api "Legacy REST API v1" {
-  description "Original REST API, superseded by v2 GraphQL endpoint."
+  description "Original REST API, superseded by the v2 endpoint."
   interaction_model request_response
-  url "https://api.example.com/v1"
   status deprecated
-  reason "Replaced by GraphQL API (channel: graphql_api) — sunset date 2026-12-31"
+  reason "Replaced by the v2 API; sunset on 2026-12-31"
 }
 ```
 
-### Non-Software Channel
+### Outside software
 
 ```spec
-channel storefront "Physical Storefront" {
-  description """
-    A brick-and-mortar retail location where customers interact
-    with staff face-to-face. No digital interface — all interactions
-    are manual and recorded by staff into the system afterward.
-  """
+channel shop_counter "Shop Counter" {
+  description "Customers deal with staff face to face; staff record the sale afterwards."
   interaction_model manual
   tags ["physical", "retail"]
 }

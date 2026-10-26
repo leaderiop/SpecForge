@@ -1,13 +1,17 @@
 # Registry trust model (v1)
 
-How SpecForge keeps `specforge add` / `specforge update` trustworthy when
+Extensions are how SpecForge learns a domain, so installing one is installing
+the vocabulary and rules your graph is checked against. This page says how
+SpecForge keeps `specforge add` / `specforge update` trustworthy when
 installing third-party extensions from a registry, what the system guarantees,
 and what it deliberately does not (yet).
 
 ## Configuring a registry
 
-SpecForge ships **no built-in registry** (ADR 0004 N1). A project lists the
-registries it trusts in `specforge.json`:
+SpecForge configures **no registry by default** (ADR 0004 N1). It ships a
+reference registry server you run yourself (`specforge-registry`,
+`crates/surfaces/registry-server`). A project lists the registries it trusts in
+`specforge.json`:
 
 ```json
 {
