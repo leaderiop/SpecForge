@@ -1421,19 +1421,6 @@ Owner: @specforge/product
 Level: info
 ```
 
-## I062
-
-```
-I062: Non-standard module family
-
-A `module`'s `family` isn't one of the standard families: core, platform,
-extension, integration, advisory. Custom families are allowed; use a standard
-one if it fits.
-
-Owner: @specforge/product
-Level: info
-```
-
 ## I063
 
 ```
@@ -3362,6 +3349,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E053 | (nothing) |
 | E060 | (nothing) |
 | I006 | (nothing) |
+| I062 | (nothing) |
 | I053 | [E061](#e061) |
 | I086 | [E061](#e061) |
 | I087 | [E061](#e061) |

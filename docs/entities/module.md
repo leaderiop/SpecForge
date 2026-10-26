@@ -29,7 +29,7 @@ With `@specforge/software` loaded, a module can also list the ports it consumes 
 
 ### Families
 
-`family` is one bare word. Five are standard; any other is accepted with an I062 note.
+`family` is one bare word of your own; the five below are suggestions.
 
 | Value | Meaning |
 |-------|---------|
@@ -78,7 +78,6 @@ Core checks every entity whatever its kind: references must resolve (E003), ids 
 | Code | Level | Declared by | Rule |
 |------|-------|-------------|------|
 | E007 | error | `@specforge/product` | Module dependency cycle |
-| I062 | info | `@specforge/product` | Non-standard module family |
 | I067 | info | `@specforge/product` | Module without features |
 | I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
 | W044 | warning | `@specforge/product` | Unreferenced module |

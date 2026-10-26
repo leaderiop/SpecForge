@@ -84,7 +84,7 @@ are suggestions, not problems.
 | **I059 / I060 / I066 / I069 / I070 / I089** | An entity has a `deferred`/`blocked`/`deprecated`/`recalled` status but no `reason`/`blockers` explaining it. |
 | **I057** | A `blocked` milestone has no `depends_on`. |
 | **I048 / I050 / I054 / I055 / I067 / I082 / I083** | A feature without acceptance criteria, a journey with `flow []`, without a persona or channels, a module without features, a release without deliverables or milestones. |
-| **I061 / I062 / I068** | A deliverable `version` that isn't semver, a module `family` outside core/platform/extension/integration/advisory, a tag that isn't lowercase-hyphenated. |
+| **I061 / I068** | A deliverable `version` that isn't semver, a tag that isn't lowercase-hyphenated. |
 | **I080 / I081** | A feature, milestone, deliverable or release without `owner`; a feature without `effort`. |
 
 ---

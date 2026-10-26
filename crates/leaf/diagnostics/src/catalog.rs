@@ -346,9 +346,6 @@ catalog! {
     I061: Info product,
         "Deliverable version not semver",
         "A `deliverable`'s `version` isn't a Semantic Versioning 2.0.0 version (for example `v1.0`, `1.0` or `latest`). Use `MAJOR.MINOR.PATCH`, optionally with a pre-release tag (`1.0.0-alpha.1`) or build metadata (`1.0.0+build.42`).";
-    I062: Info product,
-        "Non-standard module family",
-        "A `module`'s `family` isn't one of the standard families: core, platform, extension, integration, advisory. Custom families are allowed; use a standard one if it fits.";
     I063: Info product,
         "Done feature depends on an unfinished feature",
         "A `feature` has `status: done` but a feature its `depends_on` names is not done. Reported once per such dependency, by the `lifecycle` pass of @specforge/product. Finish the dependency (or mark it done), or set the feature back to `in_progress`.";
