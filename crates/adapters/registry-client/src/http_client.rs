@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use specforge_registry_wire::reply::{self, Failure};
 use specforge_registry_wire::{
     ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
-    SearchResults, TokenVerified, VersionList, address::Call, form,
+    SearchResults, Timestamp, TokenVerified, VersionList, address::Call, form,
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
@@ -191,7 +191,7 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         let url = registry.url.address(&Call::AuthVerify);
         let request = self
             .client

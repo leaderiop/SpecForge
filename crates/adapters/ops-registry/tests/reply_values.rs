@@ -193,7 +193,7 @@ fn a_version_list_holding_no_semver_version_is_r009_not_fewer_versions() {
     behavior = "authenticate_registry_request",
     verify = "a token check whose expiry is not an RFC 3339 timestamp is refused with R009 and login keeps nothing"
 )]
-#[ignore = "flipped by T5"]
+
 fn a_token_expiry_that_is_no_timestamp_is_r009_and_login_keeps_nothing() {
     let fake = serve(vec![(
         VERIFY,

@@ -12,11 +12,13 @@ pub mod code;
 pub mod form;
 pub mod reply;
 pub mod signature;
+mod timestamp;
 
 pub use address::RegistryRoot;
 
 pub use code::ErrorCode;
 pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex};
+pub use timestamp::Timestamp;
 
 use serde::{Deserialize, Serialize};
 use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Sha256, Version};
@@ -192,8 +194,8 @@ pub struct TokenVerified {
     /// The scope the token may publish into; `None` is every scope.
     pub scope: Option<String>,
     pub label: String,
-    /// RFC 3339; `None` never expires.
-    pub expires_at: Option<String>,
+    /// An RFC 3339 instant (ADR 0265); `None` never expires.
+    pub expires_at: Option<Timestamp>,
 }
 
 /// `POST {root}/v1/admin/tokens` body (an admin token authenticates it). `account` is required; the other fields are optional.
@@ -469,7 +471,7 @@ mod tests {
                 valid: true,
                 scope: None,
                 label: "ci".into(),
-                expires_at: Some("2027-01-01T00:00:00+00:00".into()),
+                expires_at: Some(Timestamp::parse("2027-01-01T00:00:00+00:00").unwrap()),
             },
             json!({"valid": true, "scope": null, "label": "ci", "expires_at": "2027-01-01T00:00:00+00:00"}),
         );
@@ -660,7 +662,6 @@ mod tests {
         type = "TokenVerified",
         verify = "a token check whose expires_at is not an RFC 3339 timestamp does not read"
     )]
-    #[ignore = "flipped by T5"]
     fn a_token_expiry_is_an_rfc_3339_timestamp() {
         let check = |expires_at: serde_json::Value| {
             serde_json::from_value::<TokenVerified>(

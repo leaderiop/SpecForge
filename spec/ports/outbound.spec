@@ -87,6 +87,8 @@ port RegistryClient "Registry Client" {
   method download(metadata: PackageMetadata, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>
   method search(query: SearchQuery, registry: RegistryConfig, credential: RegistryCredential) -> Result<SearchHit[], RegistryError>
   method publish(package: DeclaredPackage, wasm: u8[], manifest: string, signature: PackageSignature, registry: RegistryConfig, credential: RegistryCredential) -> Result<PublishReceipt, RegistryError>
+  // authenticate answers the token's expiry as an RFC 3339 timestamp when the registry tracks one;
+  // another text is R009.
   method authenticate(registry: RegistryConfig, credential: RegistryCredential) -> Result<string, RegistryError>
   verify integration "RegistryClient contract is satisfied"
 }

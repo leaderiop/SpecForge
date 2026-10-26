@@ -1319,6 +1319,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     missing_source_diagnosed "An unset variable is R010 and an unreadable token file R011, before any request"
     unauthorized_diagnosed   "A 401 is R001 naming how to log in again; a 403 is R002 with permission guidance"
     tokens_never_logged      "Raw tokens are never logged, printed or stored in specforge.json"
+    expiry_is_a_timestamp    "A token check's expiry is an RFC 3339 timestamp, else R009 and login keeps nothing; a kept expiry is RFC 3339, so doctor and R-AUTH-020 read an instant, never text"
     authenticated_emitted    "registry_authenticated event fires on successful authentication"
   }
   contract   """
@@ -1340,7 +1341,10 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
     request fails (R004 or R005) with retry guidance; an add of a version
     already installed asks no registry (configure_registries). A raw
     token MUST never be logged, printed, shown in a diagnostic, or stored
-    in specforge.json.
+    in specforge.json. A token check's expiry is read as an RFC 3339
+    timestamp where the reply is read: another is not the protocol's
+    (R009), and login then keeps nothing; a credential store holding an
+    expiry that is not one is unreadable (R012) (ADR 0265).
   """
   verify unit "token resolved from environment variable"
   verify unit "token resolved from token file"

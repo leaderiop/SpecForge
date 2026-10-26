@@ -1,5 +1,6 @@
 use sha2::{Digest, Sha256};
 use specforge_package::Scope;
+use specforge_registry_wire::Timestamp;
 
 use crate::db::{Database, TokenRecord};
 use crate::ownership::Account;
@@ -42,11 +43,12 @@ pub fn validate_bearer(db: &Database, auth_header: &str) -> Option<TokenRecord> 
     let hash = hash_token(token);
     let record = db.validate_token(&hash)?;
     // Expired tokens are invalid: the caller sees a plain 401.
-    if let Some(expires_at) = &record.expires_at {
-        let deadline = chrono::DateTime::parse_from_rfc3339(expires_at).ok()?;
-        if chrono::Utc::now() > deadline {
-            return None;
-        }
+    if let Some(expires_at) = &record.expires_at
+        && Timestamp::parse(expires_at)
+            .ok()?
+            .is_past(chrono::Utc::now())
+    {
+        return None;
     }
     Some(record)
 }

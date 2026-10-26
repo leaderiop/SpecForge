@@ -7,7 +7,8 @@ use specforge_registry_client::{
     RegistryClient, RegistryConfig, RegistryCredential, RegistryError, SigningKey,
 };
 use specforge_registry_wire::{
-    PackageMetadata, PackageSignature, RegistryRoot, SignedContent, address::Call as WireCall,
+    PackageMetadata, PackageSignature, RegistryRoot, SignedContent, Timestamp,
+    address::Call as WireCall,
 };
 
 // ---------------------------------------------------------------------------
@@ -421,7 +422,7 @@ impl RegistryClient for WrongReceipt {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         self.0.authenticate(registry, credential)
     }
 }

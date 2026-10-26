@@ -6,7 +6,7 @@ use specforge_package::{DeclaredPackage, Sha256, Version, VersionRequirement};
 use specforge_protocol_types::{DeclaredCategory, ExtensionDeclaration};
 use specforge_registry_wire::{
     DEFAULT_SEARCH_LIMIT, ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
-    SearchQuery, SignedContent,
+    SearchQuery, SignedContent, Timestamp,
 };
 
 use crate::SigningKey;
@@ -481,7 +481,7 @@ impl RegistryClient for MemoryClient {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<Option<String>, RegistryError> {
+    ) -> Result<Option<Timestamp>, RegistryError> {
         self.begin(
             Call {
                 credential: Some(credential.clone()),

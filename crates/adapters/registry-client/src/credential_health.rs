@@ -4,6 +4,7 @@
 use crate::credentials::{CredentialEntry, CredentialStore};
 use serde::Serialize;
 use specforge_common::codes;
+use specforge_registry_wire::Timestamp;
 use std::path::Path;
 
 /// How serious a credential line is.
@@ -86,21 +87,17 @@ pub fn credential_health(
                 else {
                     continue;
                 };
-                let line = match assess_expiry(Some(expires_at), now) {
-                    Some(TokenExpiry::ExpiringSoon(days)) => CredentialLine {
+                let line = match assess_expiry(expires_at, now) {
+                    TokenExpiry::ExpiringSoon(days) => CredentialLine {
                         level: CredentialLevel::Warning,
                         text: format!(
                             "registry '{root}': token expires in {days} day(s) — re-login soon"
                         ),
                     },
                     // An expired token already failed `credential`.
-                    Some(TokenExpiry::Valid) | Some(TokenExpiry::Expired) => CredentialLine {
+                    TokenExpiry::Valid | TokenExpiry::Expired => CredentialLine {
                         level: CredentialLevel::Ok,
                         text: format!("registry '{root}': token ok"),
-                    },
-                    None => CredentialLine {
-                        level: CredentialLevel::Ok,
-                        text: format!("registry '{root}': token ok (expires {expires_at})"),
                     },
                 };
                 lines.push(line);
@@ -126,20 +123,14 @@ enum TokenExpiry {
 /// Within 7 days of expiry (or past it) a token is worth flagging.
 const EXPIRY_WARNING_DAYS: i64 = 7;
 
-fn assess_expiry(
-    expires_at: Option<&str>,
-    now: chrono::DateTime<chrono::Utc>,
-) -> Option<TokenExpiry> {
-    let deadline = chrono::DateTime::parse_from_rfc3339(expires_at?)
-        .ok()?
-        .with_timezone(&chrono::Utc);
-    let days = (deadline - now).num_days();
+fn assess_expiry(expires_at: &Timestamp, now: chrono::DateTime<chrono::Utc>) -> TokenExpiry {
+    let days = expires_at.days_after(now);
     if days < 0 {
-        Some(TokenExpiry::Expired)
+        TokenExpiry::Expired
     } else if days <= EXPIRY_WARNING_DAYS {
-        Some(TokenExpiry::ExpiringSoon(days))
+        TokenExpiry::ExpiringSoon(days)
     } else {
-        Some(TokenExpiry::Valid)
+        TokenExpiry::Valid
     }
 }
 
@@ -154,22 +145,14 @@ mod tests {
     #[test]
     fn expiry_buckets() {
         let now = chrono::Utc::now();
-        let stamp = |days| at(days).to_rfc3339();
-        assert_eq!(
-            assess_expiry(Some(&stamp(-2)), now),
-            Some(TokenExpiry::Expired)
-        );
+        let stamp = |days| Timestamp::of(at(days));
+        assert_eq!(assess_expiry(&stamp(-2), now), TokenExpiry::Expired);
         // num_days truncates elapsed sub-second precision, so allow ±1 day.
         assert!(matches!(
-            assess_expiry(Some(&stamp(3)), now),
-            Some(TokenExpiry::ExpiringSoon(2)) | Some(TokenExpiry::ExpiringSoon(3))
+            assess_expiry(&stamp(3), now),
+            TokenExpiry::ExpiringSoon(2) | TokenExpiry::ExpiringSoon(3)
         ));
-        assert_eq!(
-            assess_expiry(Some(&stamp(30)), now),
-            Some(TokenExpiry::Valid)
-        );
-        assert_eq!(assess_expiry(None, now), None);
-        assert_eq!(assess_expiry(Some("not-a-date"), now), None);
+        assert_eq!(assess_expiry(&stamp(30), now), TokenExpiry::Valid);
     }
 
     #[test]
@@ -302,7 +285,6 @@ mod tests {
         behavior = "run_doctor_check",
         verify = "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
     )]
-    #[ignore = "flipped by T5"]
     fn a_stored_expiry_that_is_no_timestamp_makes_the_store_unreadable() {
         let dir = tempfile::TempDir::new().unwrap();
         std::fs::write(

@@ -151,7 +151,8 @@ type PublishReceipt "Publish Receipt" {
   verify unit "PublishReceipt is the JSON a registry answers a publish with"
 }
 
-// POST {root}/v1/auth/verify.
+// POST {root}/v1/auth/verify. expires_at is an RFC 3339 timestamp; a check
+// holding another does not read (R009).
 type TokenVerified "Token Verified" {
   valid      boolean
   scope      string @optional
@@ -275,7 +276,8 @@ type RegistryPublished "Registry Published" {
 // One entry of ~/.specforge/credentials.json, keyed by registry root:
 // where that registry's token comes from. Never in specforge.json. At most
 // one of token_env and token_file is set; with neither, login stored the
-// secret (in a 0600 file under ~/.specforge/secrets/).
+// secret (in a 0600 file under ~/.specforge/secrets/). expires_at, when kept,
+// is RFC 3339; an entry holding another makes the file unreadable (R012).
 type RegistryCredential "Registry Credential" {
   root       string @readonly @unique
   token_env  string @optional

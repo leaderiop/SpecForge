@@ -718,7 +718,8 @@ behavior run_doctor_check "Run Doctor Check" {
     MUST carry its verdict (no
     error-level finding), and specforge doctor --format json and
     specforge.doctor MUST return the same report (the CLI adds the user's
-    credentials; a credential store that cannot be read is one unusable credential). Each peer requirement the compile reports unsatisfied
+    credentials; a credential store that cannot be read is one unusable credential,
+    and so is one holding a token expiry that is not RFC 3339). Each peer requirement the compile reports unsatisfied
     (E027, E073) MUST be an error finding with the remedy its diagnostic
     suggests: doctor and check judge peers by one rule over the loaded
     extensions (ADR 0041), so a peer a builtin or a .wasm file entry
