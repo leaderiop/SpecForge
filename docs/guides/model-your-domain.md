@@ -72,7 +72,7 @@ SDK does the rest. You need Rust with the `wasm32-wasip2` target (`rustup target
 specforge extension init --name @acme/marketing --dir marketing-ext
 ```
 
-That scaffolds a crate that builds as-is. Replace its `contribute` body with your model. Here is the shape of
+That scaffolds `marketing-ext/marketing/`, a crate that builds as-is. Replace its `contribute` body with your model. Here is the shape of
 the marketing extension (shortened; the full file is `examples/marketing/extension/src/lib.rs`):
 
 ```rust

@@ -91,7 +91,7 @@ That scaffolds a ready-to-build project:
 
 ```text
 my-ext/
-├── Cargo.toml              # cdylib; depends on specforge-extension-sdk
+├── Cargo.toml              # cdylib, its own workspace; depends on specforge-extension-sdk
 ├── .cargo/config.toml      # pins wasm32-wasip2
 └── src/lib.rs              # a working extension: builds and describes as-is
 ```
@@ -514,8 +514,10 @@ command tests in `extensions/product/src/tests.rs`.
 - **Publish.** `specforge publish` uploads your built extension to the registry
   that serves its scope, signed (see [registry trust](../registry-trust.md));
   others install it with `specforge add @you/my-ext@0.1.0`. The SDK
-  (`specforge-extension-sdk`, with its macros and `specforge-protocol-types`) is on crates.io at the
-  version `specforge --version` prints; `specforge extension init` names it.
+  (`specforge-extension-sdk`, with its macros and `specforge-protocol-types`) is on crates.io at a
+  released specforge's version, the one `specforge --version` prints and `specforge extension init`
+  names; a build from after the last release: [Building against an unreleased
+  SDK](../extension-sdk.md#building-against-an-unreleased-sdk).
 
 The source of truth for everything in this guide:
 [`docs/extension-sdk.md`](../extension-sdk.md) and

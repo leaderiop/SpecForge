@@ -63,7 +63,8 @@ crate-type = ["cdylib"]
 specforge-extension-sdk = "0.2.0"
 ```
 
-That is an outside author's crate, and what `specforge extension init` writes. A builtin in
+That is an outside author's crate. `specforge extension init` writes this dependency line, in a crate that
+is a workspace of its own (`[workspace]`), so it builds inside another cargo workspace. A builtin in
 `extensions/` names the SDK by path instead:
 
 ```toml

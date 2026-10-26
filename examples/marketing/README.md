@@ -180,4 +180,5 @@ clone checks without building. (`specforge add <file>.wasm` is the other way to 
 component: it copies it under `.specforge/extensions/` and records it in `specforge.lock`.)
 
 Inside this repository the crate takes the SDK by path; outside it, depend on the published
-`specforge-extension-sdk` at your specforge's version, as `extension init` writes it.
+`specforge-extension-sdk` at your specforge's version, as `extension init` writes it (a build from after
+the last release: [Building against an unreleased SDK](../../docs/extension-sdk.md#building-against-an-unreleased-sdk)).
