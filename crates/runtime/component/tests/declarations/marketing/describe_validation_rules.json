@@ -1,0 +1,49 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "no_outgoing_edges",
+      "code": "E901",
+      "constraint": null,
+      "edge_type": "CampaignTargetsAudience",
+      "field": null,
+      "message_template": "campaign '{id}' targets no audience",
+      "severity": "error",
+      "target_kind": "campaign",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "E902",
+      "constraint": null,
+      "edge_type": "MessageObeysBrandRule",
+      "field": null,
+      "message_template": "message '{id}' cites no brand rule",
+      "severity": "error",
+      "target_kind": "message",
+      "wasm_function": null
+    },
+    {
+      "check": "custom",
+      "code": "E903",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "campaign '{id}' ends ({value}) before it starts",
+      "severity": "error",
+      "target_kind": "campaign",
+      "wasm_function": "validate__e903"
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W901",
+      "constraint": null,
+      "edge_type": "MessageObeysBrandRule",
+      "field": null,
+      "message_template": "brand rule '{id}' is obeyed by no message",
+      "severity": "warning",
+      "target_kind": "brand_rule",
+      "wasm_function": null
+    }
+  ]
+}

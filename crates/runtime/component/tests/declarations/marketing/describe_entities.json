@@ -1,0 +1,250 @@
+{
+  "category": "entities",
+  "items": [
+    {
+      "description": "A rule from the brand book that every message must obey",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The rule, as a writer would read it",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "headline": true,
+          "inverse_of": null,
+          "name": "rule",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Why the rule exists",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "why",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "brand_rule",
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
+    },
+    {
+      "description": "A group of people a campaign speaks to",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "Who they are",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "headline": true,
+          "inverse_of": null,
+          "name": "description",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "How many people, roughly",
+          "edge": null,
+          "field_type": "integer",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "size",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "audience",
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
+    },
+    {
+      "description": "Something we say: a headline and its copy",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "headline": true,
+          "inverse_of": null,
+          "name": "headline",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "body",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The brand rules this message was checked against",
+          "edge": "MessageObeysBrandRule",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "obeys",
+          "required": false,
+          "target_kind": "brand_rule"
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "message",
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
+    },
+    {
+      "description": "A push on one channel, to some audiences, with some messages, between two dates",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The measurable outcome",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "headline": true,
+          "inverse_of": null,
+          "name": "goal",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "email",
+            "social",
+            "search",
+            "events",
+            "partners"
+          ],
+          "field_type": "enum",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "channel",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "date",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "starts",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "date",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "ends",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "In euros",
+          "edge": null,
+          "field_type": "integer",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "budget",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": "CampaignTargetsAudience",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "audiences",
+          "required": false,
+          "target_kind": "audience"
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": "CampaignUsesMessage",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "messages",
+          "required": false,
+          "target_kind": "message"
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "campaign",
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
+    }
+  ]
+}

@@ -95,7 +95,6 @@ fn the_fixtures_are_the_fixtures_directory() {
     behavior = "load_extension_manifests",
     verify = "every example's extension crate is listed once, by its directory under examples/"
 )]
-#[ignore = "flipped by T6"]
 fn every_examples_extension_is_a_committed_blob() {
     let examples = specforge_repo_root::repo_root().join("examples");
     let mut on_disk: Vec<String> = std::fs::read_dir(examples)

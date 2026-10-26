@@ -10,9 +10,9 @@ refused when an AI agent tries to write it.
 
 ```
 examples/marketing/
-  extension/        the extension: one Rust file, built to a WebAssembly component
-  marketing.wasm    that component, built and committed, so a fresh clone works as is
-  specforge.json    the project: it loads marketing.wasm
+  extension/        the extension: one Rust file, and under wasm/ the WebAssembly component
+                    built from it, committed so a fresh clone works as is
+  specforge.json    the project: it loads extension/wasm/marketing.wasm
   spec/             the plan: brand rules, audiences, messages, campaigns
 ```
 
@@ -161,21 +161,23 @@ Build and check it (needs Rust and the `wasm32-wasip2` target):
 ```bash
 specforge extension build --dir examples/marketing/extension     # cargo build --release --target wasm32-wasip2
 specforge extension validate --dir examples/marketing/extension  # loads it and checks the declaration
-cp examples/marketing/extension/target/wasm32-wasip2/release/example_marketing.wasm examples/marketing/marketing.wasm
 ```
 
 The component is about 350 KB. The project loads it through a `.wasm` file entry in
 `specforge.json`, a path relative to the project root:
 
 ```json
-"extensions": ["@example/marketing=marketing.wasm"]
+"extensions": ["@example/marketing=extension/wasm/marketing.wasm"]
 ```
 
-The name before `=` must be the name the component declares. Because the build output under
-`extension/target/` is not committed, the built component is copied to `marketing.wasm` and
-committed: a fresh clone checks the project without building anything. After changing
-`lib.rs`, rebuild and copy it again. (`specforge add <file>.wasm` is the other way to install
-a component: it copies it under `.specforge/extensions/` and records it in `specforge.lock`.)
+The name before `=` must be the name the component declares. In this repository the component
+is a committed blob, like the builtins: after changing `lib.rs`, run
+`cargo run -p xtask --bin revendor`. It rebuilds `extension/wasm/marketing.wasm` reproducibly
+and records what it was built from in `extension/wasm/inputs.json`; `cargo gate` fails until you
+do. In a project of your own, build with `specforge extension build` and point the entry at
+the output under `extension/target/`, or copy it next to the project and commit it so a fresh
+clone checks without building. (`specforge add <file>.wasm` is the other way to install a
+component: it copies it under `.specforge/extensions/` and records it in `specforge.lock`.)
 
 Inside this repository the crate takes the SDK by path; outside it, depend on the published
 `specforge-extension-sdk` at your specforge's version, as `extension init` writes it.

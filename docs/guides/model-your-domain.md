@@ -172,7 +172,7 @@ specforge add ./marketing-ext       # the crate directory, or the .wasm file
 ```
 
 That copies the component into the project and names it in `specforge.json`. While you iterate, the config
-can point at the built file instead (`"@example/marketing=marketing.wasm"` in the example). Now
+can point at the built file instead (`"@example/marketing=extension/wasm/marketing.wasm"` in the example). Now
 `specforge model` shows your kinds, and `.spec` files can use them:
 
 ```text

@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "spec_root": "spec",
   "extensions": [
-    "@example/marketing=marketing.wasm"
+    "@example/marketing=extension/wasm/marketing.wasm"
   ]
 }

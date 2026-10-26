@@ -1,4 +1,5 @@
-//! Every wasm component this repository commits, where each is built from, and what an SDK
+//! Every wasm component this repository commits (the builtins, the fixtures, and each example
+//! project's own extension), where each is built from, and what an SDK
 //! blob answers on the wire. Test support (feature `testing`): the declaration snapshots and
 //! their tests, `xtask build-blobs` and `xtask revendor` read it, and every test that loads
 //! a fixture blob names it here. `revendor` and the vocabulary's drift test also read the
@@ -116,12 +117,20 @@ pub const BRIDGE: CommittedBlob = CommittedBlob {
 /// The fixtures, in the order [`COMMITTED`] lists them after the builtins.
 pub const FIXTURES: [CommittedBlob; 4] = [GREET, DOCREF, PROBE, BRIDGE];
 
-/// Each example project's own extension (none listed yet).
-pub const EXAMPLES: [CommittedBlob; 0] = [];
+/// `@example/marketing`: the marketing example project's own extension (ADR 0281).
+pub const MARKETING: CommittedBlob = CommittedBlob {
+    name: "@example/marketing",
+    crate_dir: "examples/marketing/extension",
+    artifact: "marketing.wasm",
+    guest: Guest::Sdk { legacy_keys: &[] },
+};
 
-/// Every committed blob: the builtins in [`BUILTINS`] order, then [`FIXTURES`].
+/// Each example project's own extension, in the order [`COMMITTED`] lists them after the fixtures.
+pub const EXAMPLES: [CommittedBlob; 1] = [MARKETING];
+
+/// Every committed blob: the builtins in [`BUILTINS`] order, then [`FIXTURES`], then [`EXAMPLES`].
 pub const COMMITTED: &[CommittedBlob] = &{
-    let mut out = [GREET; BUILTINS.len() + FIXTURES.len()];
+    let mut out = [GREET; BUILTINS.len() + FIXTURES.len() + EXAMPLES.len()];
     let mut i = 0;
     while i < BUILTINS.len() {
         out[i] = CommittedBlob {
@@ -136,6 +145,11 @@ pub const COMMITTED: &[CommittedBlob] = &{
     while j < FIXTURES.len() {
         out[BUILTINS.len() + j] = FIXTURES[j];
         j += 1;
+    }
+    let mut k = 0;
+    while k < EXAMPLES.len() {
+        out[BUILTINS.len() + FIXTURES.len() + k] = EXAMPLES[k];
+        k += 1;
     }
     out
 };

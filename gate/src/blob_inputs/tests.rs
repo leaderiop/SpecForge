@@ -112,7 +112,6 @@ fn a_key_names_the_repo_path_it_hashes() {
 }
 
 #[test]
-#[ignore = "flipped by T6"]
 fn a_change_to_an_examples_extension_feeds_its_blob() {
     assert_eq!(
         fed_by(
