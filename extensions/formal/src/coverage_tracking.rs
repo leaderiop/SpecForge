@@ -1,4 +1,4 @@
-use crate::{non_empty, BEHAVIOR_KIND, INVARIANT_KIND};
+use crate::{non_empty, BEHAVIOR_KIND};
 use specforge_coverage as coverage;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
@@ -8,9 +8,11 @@ use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
 /// undischarged set of the discharge funnel (W035); one note per item whose
 /// every obligation a passing recorded test names, naming those tests
 /// (I008); and each behavior's specification depth (I014, see
-/// [`depth_findings`]). Items are invariants and the entities that count
-/// toward coverage (entities W004 exempts that declare nothing are not
-/// items). "Proven" is @specforge/testing's rule (`specforge-coverage`, ADR
+/// [`depth_findings`]). Items are the entities that count toward coverage as
+/// the host counts them: the pass entity read through
+/// `coverage::Entity::from`, unaltered (ADR 0269); no kind is an item by kind
+/// alone, and entities W004 exempts that declare nothing are not items.
+/// "Proven" is @specforge/testing's rule (`specforge-coverage`, ADR
 /// 0004 D2-f) over the recorded test results and the entailed claims in the
 /// pass input, so W035 never disagrees with `specforge analyze coverage`.
 /// Whether an entity is exempt is the host's call, read from the snapshot
@@ -26,10 +28,7 @@ pub(crate) fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut findings = Vec::new();
     let mut proven: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
     for e in &input.entities {
-        let entity = coverage::Entity {
-            testable: e.testable || e.kind == INVARIANT_KIND,
-            ..coverage::Entity::from(e)
-        };
+        let entity = coverage::Entity::from(e);
         if !entity.counts_toward_coverage() {
             continue;
         }
@@ -78,7 +77,7 @@ pub(crate) fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
             preview(&undischarged)
         );
         findings.push(PassDiagnostic::warning("W035", message).with_suggestion(
-            "link a test to each obligation by its text (`verify = \"...\"`) and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015)",
+            "link a test to each obligation by its text (`verify = \"...\"`) and run `specforge collect`; `specforge analyze coverage` then lists each item that declares no obligation (A001) and, once results are recorded, each obligation no passing test names (A015)",
         ));
     }
     findings

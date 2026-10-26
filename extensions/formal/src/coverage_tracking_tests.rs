@@ -9,8 +9,10 @@ fn input(json: serde_json::Value) -> PassInput {
 fn coverage_tracking_lists_what_the_coverage_rule_does_not_prove() {
     let input = input(serde_json::json!({
         "entities": [
-            // An invariant (always an item) nothing proves.
-            {"id": "inv1", "kind": "invariant", "verify_kinds": ["unit"], "verify_texts": ["holds"]},
+            // An invariant of a testable kind (what the host sends with
+            // @specforge/testing) nothing proves.
+            {"id": "inv1", "kind": "invariant", "testable": true,
+             "verify_kinds": ["unit"], "verify_texts": ["holds"]},
             // Proven by a passing test that names its obligation.
             {"id": "b1", "kind": "behavior", "testable": true,
              "verify_kinds": ["unit"], "verify_texts": ["works"]},
@@ -56,7 +58,7 @@ fn coverage_tracking_lists_what_the_coverage_rule_does_not_prove() {
 #[test]
 fn coverage_tracking_silent_when_everything_is_proven() {
     let input = input(serde_json::json!({
-        "entities": [{"id": "inv1", "kind": "invariant",
+        "entities": [{"id": "inv1", "kind": "invariant", "testable": true,
                       "verify_kinds": ["property"], "verify_texts": ["holds"]}],
         "test_results": {"results": {}},
         "proved_claims": ["inv1"]
@@ -68,7 +70,6 @@ fn coverage_tracking_silent_when_everything_is_proven() {
     behavior = "fa_track_coverage_discharge",
     verify = "an entity the host does not count toward coverage is no W035 or I008 item, whatever its kind"
 )]
-#[ignore = "flipped by T2"]
 fn an_entity_the_host_does_not_count_is_no_coverage_item() {
     // Invariants of a kind nothing makes testable (no @specforge/testing):
     // the host counts neither, so neither is an item.
@@ -94,7 +95,6 @@ fn an_entity_the_host_does_not_count_is_no_coverage_item() {
     behavior = "fa_track_coverage_discharge",
     verify = "W035 says analyze coverage lists an unproven obligation only once results are recorded"
 )]
-#[ignore = "flipped by T2"]
 fn w035_points_at_what_analyze_coverage_lists() {
     let input = input(serde_json::json!({
         "entities": [{"id": "inv1", "kind": "invariant", "testable": true,
