@@ -168,8 +168,13 @@ fn command_adapter(
 /// The one arg rule's refusal as the McpError a core tool's own reading makes:
 /// `invalid_input` on the arg it names (the first missing one, for several),
 /// the rule's message (the CLI's), the close arg or value as
-/// `data.suggestion` (ADR 0252 D2).
+/// `data.suggestion` (ADR 0252 D2); a missing one in every tool's sentence (ADR 0275 D2).
 fn refused_args(error: &ArgError) -> McpError {
+    if let ArgError::Missing { names } = error
+        && let Some(first) = names.first()
+    {
+        return crate::args::missing(first);
+    }
     let argument = match error {
         ArgError::Missing { names } => names.first(),
         ArgError::NotOneOf { name, .. }

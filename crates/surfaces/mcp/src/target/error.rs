@@ -62,9 +62,7 @@ impl From<TargetError> for McpError {
                 "this tool acts on the project the server serves; path cannot name another project",
             ),
             TargetError::Outside(outside) => McpError::from(OpError::from(outside)),
-            TargetError::PathRequired => {
-                McpError::new(ErrorCode::InvalidInput, "Missing required parameter: path")
-            }
+            TargetError::PathRequired => crate::args::missing("path"),
             TargetError::InvalidArgument { message, .. } => {
                 McpError::new(ErrorCode::InvalidInput, message)
             }

@@ -3,7 +3,7 @@ use specforge_test::prelude::*;
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
+    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
 )]
 fn refused_args_names_the_arg_each_refusal_is_about() {
     let name = || "arg".to_string();
@@ -78,7 +78,11 @@ fn refused_args_names_the_arg_each_refusal_is_about() {
         let refused = refused_args(&error);
         assert_eq!(refused.code, ErrorCode::InvalidInput, "{error:?}");
         assert_eq!(refused.argument.as_deref(), Some(argument), "{error:?}");
-        assert_eq!(refused.message, error.message(), "{error:?}");
+        let message = match &error {
+            ArgError::Missing { .. } => format!("Missing required parameter: {argument}"),
+            _ => error.message(),
+        };
+        assert_eq!(refused.message, message, "{error:?}");
         let found = refused.data.as_ref().and_then(|d| d["suggestion"].as_str());
         assert_eq!(found, suggestion, "{error:?}");
     }

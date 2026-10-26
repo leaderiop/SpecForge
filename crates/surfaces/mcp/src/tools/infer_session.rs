@@ -170,10 +170,9 @@ fn foreign(args: &Args) -> Result<(), Box<McpError>> {
 
 /// The argument `value` holds, or the refusal that it is missing.
 fn required<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, Box<McpError>> {
-    value.as_deref().ok_or_else(|| {
-        let message = format!("Missing required parameter: {name}");
-        Box::new(McpError::new(ErrorCode::InvalidInput, message).with_argument(name))
-    })
+    value
+        .as_deref()
+        .ok_or_else(|| Box::new(crate::args::missing(name)))
 }
 
 /// What a recorded step replies.

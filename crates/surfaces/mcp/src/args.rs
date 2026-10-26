@@ -505,7 +505,7 @@ impl Given<'_> {
 }
 
 /// `Missing required parameter: {name}`, on `name`.
-fn missing(name: &str) -> McpError {
+pub(crate) fn missing(name: &str) -> McpError {
     McpError::new(
         ErrorCode::InvalidInput,
         format!("Missing required parameter: {name}"),

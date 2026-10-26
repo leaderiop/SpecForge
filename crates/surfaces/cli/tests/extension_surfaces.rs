@@ -156,7 +156,7 @@ fn the_cli_and_mcp_answer_one_command_alike() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
+    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
 )]
 fn one_mistake_is_one_message_in_each_surfaces_shape() {
     let dir = setup_product_project();
@@ -184,7 +184,23 @@ fn one_mistake_is_one_message_in_each_surfaces_shape() {
         assert_eq!(cli["code"], "INVALID_INPUT", "{argv:?}: {cli}");
         let mcp = &response["result"]["structuredContent"];
         assert_eq!(mcp["code"], "invalid_input", "{argv:?}: {response}");
-        assert_eq!(mcp["message"], cli["message"], "{argv:?}");
+        if cli["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("missing required arg")
+        {
+            // A missing argument is every MCP tool's sentence, not the arg rule's (ADR 0275 D2).
+            assert_eq!(
+                mcp["message"], "Missing required parameter: milestone",
+                "{argv:?}"
+            );
+            assert_eq!(
+                cli["message"], "missing required arg 'milestone'",
+                "{argv:?}"
+            );
+        } else {
+            assert_eq!(mcp["message"], cli["message"], "{argv:?}");
+        }
     }
 }
 
