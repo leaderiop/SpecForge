@@ -13,21 +13,23 @@ use specforge_parser::{Annotation, FieldMap, FieldValue, MethodDecl, Parameter, 
 use crate::Node;
 use crate::field_form::{FieldJson, spell, write_fields};
 
-/// One `verify` statement as every output writes it. An entity's statements are its own
-/// member (`Node::obligations`, ADR 0094); `verify` is reserved syntax (ADR 0002) whose meaning
-/// the extensions supply.
+/// One `verify` statement as every output writes it and `specforge.edit` reads it (ADR 0273): its
+/// kind, absent for a bare `verify "…"` (test `!kind.is_empty()`, not an `Option`), and its text. An
+/// entity's statements are its own member (`Node::obligations`, ADR 0094); `verify` is reserved syntax
+/// (ADR 0002) whose meaning the extensions supply.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
-#[shape(define = "VerifyStatement")]
+#[shape(define = "Obligation")]
 pub struct Obligation {
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub kind: String,
-    pub description: String,
+    pub text: String,
 }
 
 impl Obligation {
     pub fn of(statement: &VerifyStatement) -> Self {
         Self {
             kind: statement.kind.clone(),
-            description: statement.description.clone(),
+            text: statement.description.clone(),
         }
     }
 }

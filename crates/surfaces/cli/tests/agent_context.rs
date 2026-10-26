@@ -65,8 +65,8 @@ fn assert_one_agent_context(project: TestProject) {
             .map(|o| {
                 format!(
                     "{} {}",
-                    o["kind"].as_str().unwrap(),
-                    o["description"].as_str().unwrap()
+                    o["kind"].as_str().unwrap_or(""),
+                    o["text"].as_str().unwrap()
                 )
             })
             .collect();

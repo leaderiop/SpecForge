@@ -53,7 +53,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
     (ADR 0064): text as a string, an expression group as its conjuncts in
     their display form, one per line, an integer or boolean as a JSON
     scalar, a list as an array, a block as an object of its entries; an entity's
-    verify statements as {kind, description} objects under the node's own
+    verify statements as {kind?, text} objects, the kind absent for a bare verify, under the node's own
     `verify`, beside its fields; its methods as {name, params, returns}
     under its own `methods` (a parameter as {name, type, optional?,
     annotations?}); the annotations written after its fields under its own

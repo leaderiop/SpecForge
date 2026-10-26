@@ -387,10 +387,7 @@ fn contract_export() {
     );
     let alpha = find(&context["nodes"], "id", "alpha");
     assert_eq!(alpha["contract"], "MUST work");
-    assert_eq!(
-        alpha["verify"],
-        json!([{"kind": "unit", "description": "works"}])
-    );
+    assert_eq!(alpha["verify"], json!([{"kind": "unit", "text": "works"}]));
     assert!(
         alpha["fields"].get("contract").is_none(),
         "context lifts the contract, not repeats it: {alpha}"
@@ -2221,10 +2218,7 @@ fn contract_context_resource() {
     assert_eq!(content["uri"], "specforge://context");
     let alpha = find(&context["nodes"], "id", "alpha");
     assert_eq!(alpha["contract"], "MUST work");
-    assert_eq!(
-        alpha["verify"],
-        json!([{"kind": "unit", "description": "works"}])
-    );
+    assert_eq!(alpha["verify"], json!([{"kind": "unit", "text": "works"}]));
     assert_eq!(context["edges"].as_array().unwrap().len(), 1);
     // context_format_returned: what export --format=context returns.
     let export = tool(

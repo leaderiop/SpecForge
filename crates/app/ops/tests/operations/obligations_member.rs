@@ -34,7 +34,7 @@ fn a_field_named_verify_is_exported_beside_the_statements() {
     assert_eq!(node["fields"]["name"], "string", "{node}");
     assert_eq!(
         node["verify"],
-        json!([{"kind": "unit", "description": "Payload schema is valid"}]),
+        json!([{"kind": "unit", "text": "Payload schema is valid"}]),
         "{node}"
     );
 }
