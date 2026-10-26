@@ -247,7 +247,8 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
 
 /// Read a lock file from disk.
 pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
-    let content = std::fs::read_to_string(path).map_err(|e| unreadable(path, &e))?;
+    let content =
+        specforge_common::regular::read_to_string(path).map_err(|e| unreadable(path, &e))?;
     parse_lock_file(path, &content)
 }
 

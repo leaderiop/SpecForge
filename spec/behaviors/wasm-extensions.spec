@@ -898,7 +898,7 @@ behavior read_lock_file "Read Lock File" {
   }
   contract   """
     When a specforge.lock file exists, the system MUST use the versions and
-    hashes it records. A lock file that exists and can't be read or parsed is
+    hashes it records. A lock file that exists and can't be read (not a regular file, over 64 MiB) or parsed is
     E033, naming one remedy whatever made it unreadable (fix specforge.lock, or
     delete it and install the extensions again with specforge add): no installed extension loads from it (each is E028 naming the
     lock), and add, update and remove refuse to change what is installed

@@ -18,7 +18,6 @@ fn over_ceiling(path: &Path) {
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn a_bounded_read_refuses_a_named_pipe_at_once() {
     let (_dir, root) = scene();
     let pipe = root.join("p");
@@ -48,7 +47,6 @@ fn a_bounded_read_refuses_a_named_pipe_at_once() {
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn an_unbounded_read_refuses_a_link_to_a_device() {
     let (_dir, root) = scene();
     let link = root.join("dev");
@@ -61,7 +59,6 @@ fn an_unbounded_read_refuses_a_link_to_a_device() {
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn every_held_read_refuses_a_file_over_the_ceiling() {
     let (_dir, root) = scene();
     let big = root.join("big");

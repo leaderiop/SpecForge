@@ -45,7 +45,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
     directory, and one above the spec root (whichever step of the
     cascade names it) are all no source. An @scope/name import names an
     extension (I004 when it is not installed). A .spec file discovery
-    finds that cannot be read (not UTF-8, no permission) MUST produce an
+    finds that cannot be read (not UTF-8, no permission, not a regular file, over 64 MiB) MUST produce an
     E025 naming its path, in a compile and after every update, and is
     left out of the graph; it is still a source, so an import of it
     reports nothing more and a re-export from it no W027. An editor

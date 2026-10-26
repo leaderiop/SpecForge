@@ -10,6 +10,7 @@ use "types/zero-entity-core"
 port FileSystem "File System" {
   direction outbound
   category  "io/filesystem"
+  // a regular file only, at most 64 MiB (ADR 0264)
   method readFile(path: string) -> Result<string, EmitterError>
   method writeFile(path: string, content: string) -> Result<void, EmitterError>
   method listFiles(pattern: string) -> Result<string[], EmitterError>

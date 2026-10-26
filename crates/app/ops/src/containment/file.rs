@@ -2,7 +2,7 @@
 //! `real`, where the name landed, so the file checked is the file opened; what messages, documents
 //! and `Writes` name is `spelled`. Every project file an operation reads or writes is opened here.
 
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
 
 use super::{Containment, Held, Outside};
@@ -10,24 +10,22 @@ use super::{Containment, Held, Outside};
 impl Held {
     /// The bytes at `real`. A missing file is the caller's `NotFound` (E054, E045, `None`...).
     pub fn read(&self) -> std::io::Result<Vec<u8>> {
-        std::fs::read(&self.real)
+        specforge_common::regular::read(&self.real)
     }
 
     /// The bytes at `real`, read from the one handle that is checked: a bounded read refuses a regular
     /// file with more than one name (ADR 0146), which another name outside the bound could have made.
     fn read_checked(&self, bounded: bool) -> std::io::Result<Vec<u8>> {
-        let mut file = std::fs::File::open(&self.real)?;
+        let file = specforge_common::regular::open(&self.real)?;
         if bounded {
             refuse_if_linked(&file)?;
         }
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(bytes)
+        specforge_common::regular::read_from(file)
     }
 
     /// The bytes at `real`, or `None` for a file that is not there (`NotFound`); any other error passes.
     pub fn read_if_there(&self) -> std::io::Result<Option<Vec<u8>>> {
-        match std::fs::read(&self.real) {
+        match specforge_common::regular::read(&self.real) {
             Ok(bytes) => Ok(Some(bytes)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e),
@@ -36,7 +34,7 @@ impl Held {
 
     /// The text at `real`.
     pub fn read_to_string(&self) -> std::io::Result<String> {
-        std::fs::read_to_string(&self.real)
+        specforge_common::regular::read_to_string(&self.real)
     }
 
     /// Create `real`, refusing one that exists (`AlreadyExists`); never through a link at the name.

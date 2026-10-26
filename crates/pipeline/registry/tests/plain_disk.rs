@@ -31,7 +31,6 @@ fn within<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Option<T
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn a_named_pipe_is_refused_without_waiting_for_a_writer() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("p");
@@ -52,7 +51,6 @@ fn a_named_pipe_is_refused_without_waiting_for_a_writer() {
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn a_link_to_a_device_is_refused() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("dev");
@@ -62,7 +60,6 @@ fn a_link_to_a_device_is_refused() {
 }
 
 #[test]
-#[ignore = "flipped by T4"]
 fn a_file_over_the_ceiling_is_refused_unread() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("big");

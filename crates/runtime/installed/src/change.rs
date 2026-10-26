@@ -162,7 +162,7 @@ impl Change<'_> {
         let _ = std::fs::remove_dir_all(&staging);
 
         let lock_path = installed.lock_path();
-        let lock_before = std::fs::read(&lock_path).ok();
+        let lock_before = specforge_common::regular::read(&lock_path).ok();
         let created = Absent::of(installed);
         let mut journal = Journal::default();
         let mut changed = BTreeSet::new();
@@ -181,7 +181,9 @@ impl Change<'_> {
 
         match outcome {
             Ok(()) => {
-                if writes_lock.is_some() && std::fs::read(&lock_path).ok() != lock_before {
+                if writes_lock.is_some()
+                    && specforge_common::regular::read(&lock_path).ok() != lock_before
+                {
                     changed.insert(lock_path);
                 }
                 journal.finish(installed, &staging);
@@ -325,7 +327,7 @@ fn remove_empty_scope(installed: &Installed, package_dir: &Path) {
 
 /// Put the lock at `path` back to `before`: its bytes, or gone when it was not there.
 fn restore_bytes(path: &Path, before: Option<&[u8]>, left: &mut Vec<PathBuf>) {
-    let now = std::fs::read(path).ok();
+    let now = specforge_common::regular::read(path).ok();
     if now.as_deref() == before {
         return;
     }
@@ -352,7 +354,7 @@ fn apply_step(
         Step::Install { name, module } => {
             let dir = installed.package_dir(name);
             let target = installed.module_path(name);
-            let before = std::fs::read(&target).ok();
+            let before = specforge_common::regular::read(&target).ok();
 
             let staged = staging.join(i.to_string());
             std::fs::create_dir_all(&staged).map_err(|e| {

@@ -82,7 +82,12 @@ behavior load_extension_manifests "Load Extension Manifests" {
     not load as a component, declares another name than the one written,
     declares the name of a builtin (only the builtin loads under a builtin's
     name), or declares an extension another entry already loads (whatever the
-    entry's own text) MUST produce E028 naming the entry.
+    entry's own text) MUST produce E028 naming the entry. A module, a .wasm
+    file entry, specforge.json and specforge.lock are read only when each is
+    a regular file (a link is followed to one) of at most 64 MiB; a named
+    pipe, a device, a socket or a directory is refused before it is opened
+    and a larger file before it is read: E028 for a module or file entry,
+    E069 for the config, E033 for the lock, never a wait or an unbounded read.
     Each entry's outcome MUST record where the load takes its extension from
     (builtin, the lock entry's source, file:<path>, or unknown; a repeated
     entry, the one it repeats') and whether it loaded, with or without a

@@ -151,8 +151,10 @@ impl<'s> Compiled<'s> {
             };
             let same = match document {
                 Some(doc) => doc.text() == &*compiled,
-                None => std::fs::read_to_string(self.state.files().file_path(file))
-                    .is_ok_and(|disk| disk == *compiled),
+                None => {
+                    specforge_common::regular::read_to_string(&self.state.files().file_path(file))
+                        .is_ok_and(|disk| disk == *compiled)
+                }
             };
             if same {
                 EditorText::Compiled

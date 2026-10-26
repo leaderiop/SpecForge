@@ -70,7 +70,6 @@ fn load_failure(root: &Path, entry: &str, runtime: InProcessRuntime) -> (bool, S
     behavior = "read_lock_file",
     verify = "a specforge.lock that is not a regular file, or is over 64 MiB, is E033 at once, never waited on or read whole"
 )]
-#[ignore = "flipped by T4"]
 fn a_lock_that_is_a_named_pipe_is_e033_at_once() {
     let dir = TempDir::new().unwrap();
     let lock = dir.path().join("specforge.lock");
@@ -88,7 +87,6 @@ fn a_lock_that_is_a_named_pipe_is_e033_at_once() {
     behavior = "read_lock_file",
     verify = "a specforge.lock that is not a regular file, or is over 64 MiB, is E033 at once, never waited on or read whole"
 )]
-#[ignore = "flipped by T4"]
 fn a_lock_over_the_ceiling_is_e033_unread() {
     let dir = TempDir::new().unwrap();
     over_ceiling(&dir.path().join("specforge.lock"));
@@ -103,7 +101,6 @@ fn a_lock_over_the_ceiling_is_e033_unread() {
     behavior = "load_extension_manifests",
     verify = "a .wasm file entry or an installed module that is not a regular file, or is over 64 MiB, is E028 at once, never waited on or read whole"
 )]
-#[ignore = "flipped by T4"]
 fn a_file_entry_that_is_a_named_pipe_is_e028_at_once() {
     let dir = TempDir::new().unwrap();
     let wasm = dir.path().join("x.wasm");
@@ -120,7 +117,6 @@ fn a_file_entry_that_is_a_named_pipe_is_e028_at_once() {
     behavior = "load_extension_manifests",
     verify = "a .wasm file entry or an installed module that is not a regular file, or is over 64 MiB, is E028 at once, never waited on or read whole"
 )]
-#[ignore = "flipped by T4"]
 fn an_installed_module_linked_to_a_device_is_unreadable_not_changed() {
     let dir = TempDir::new().unwrap();
     let runtime = || InProcessRuntime::new().with(extension("@acme/a"));

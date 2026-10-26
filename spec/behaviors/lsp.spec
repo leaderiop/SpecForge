@@ -936,13 +936,13 @@ behavior complete_keywords "Complete Keywords" {
     and, on the cursor's line, on a verify line being typed (lex_spec_text),
     nothing after the kind, and nothing when the kind takes no verify
     statements. The registered kinds come from the
-    environment (CONTEXT: Environment), which is loaded before any .spec
-    file is read, so keyword completion MUST name them as soon as the
-    environment is loaded, while the workspace is still being indexed.
+    environment (CONTEXT: Environment), which the session hands over before
+    it reads any .spec file, so keyword completion MUST name them as soon as
+    the environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
   verify unit "a kind keyword's completion documents the kind with its description and inference guide"
-  verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
+  verify unit "the registered kinds are handed to keyword completion before any .spec file is read"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "nothing is suggested after the kind of a verify statement being typed"
