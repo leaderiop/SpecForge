@@ -246,6 +246,30 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
 }
 
 #[specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "an open field's list filter matches any word it is given"
+)]
+#[ignore = "flipped by T2"]
+fn an_open_filter_matches_any_word_it_is_given() {
+    let g = G::default()
+        .node("kit", "deliverable", json!({"artifact_type": "press_kit"}))
+        .node("shop", "channel", json!({"interaction_model": "in_person"}))
+        .node("crew", "module", json!({"family": "workstream"}));
+    assert_eq!(
+        ids_of("deliverables", json!({"artifact_type": "press_kit"}), &g),
+        ["kit"]
+    );
+    assert_eq!(
+        ids_of("channels", json!({"interaction_model": "in_person"}), &g),
+        ["shop"]
+    );
+    assert_eq!(
+        ids_of("modules", json!({"family": "workstream"}), &g),
+        ["crew"]
+    );
+}
+
+#[specforge_test(
     behavior = "surface_list_command_contract",
     verify = "sort by priority with tie-break by ID is deterministic"
 )]

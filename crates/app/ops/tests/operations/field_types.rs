@@ -568,3 +568,50 @@ fn the_lists_take_every_value_check_admits() {
         assert_eq!(ids, [format!("{kind}_{field}_{last}")], "{kind} --{field}");
     }
 }
+
+/// A product launch in its own words (plan 03, ADR 0279).
+const OWN_WORDS: &str = r#"module marketing "Marketing" {
+  family workstream
+}
+
+channel retail "Retail partners" {
+  description       "d"
+  interaction_model in_person
+}
+
+deliverable press_kit "Press kit" {
+  artifact_type press_kit
+  modules       [marketing]
+}
+"#;
+
+#[specforge_test(
+    behavior = "accept_a_projects_own_words",
+    verify = "check and the lists take a project's own words for an artifact type, an interaction model and a family"
+)]
+#[ignore = "flipped by T4 after the re-vendor"]
+fn a_project_writes_its_own_words_for_what_it_delivers_and_how_it_reaches_people() {
+    let (_project, compiled) = project_enabling(&["@specforge/product"], OWN_WORDS);
+    let (_ok, diags) = check(&compiled);
+    let flagged: Vec<_> = diags
+        .iter()
+        .filter(|d| d["code"] == "E061" || d["code"] == "I062")
+        .collect();
+    assert!(flagged.is_empty(), "{flagged:?}");
+    for (list, field, word, id) in [
+        ("deliverables", "artifact_type", "press_kit", "press_kit"),
+        ("channels", "interaction_model", "in_person", "retail"),
+        ("modules", "family", "workstream", "marketing"),
+    ] {
+        let (exit_code, listed) =
+            command_document(&compiled, "product", list, json!({ field: word }));
+        assert_eq!(exit_code, 0, "{list} --{field} {word}");
+        let ids: Vec<&str> = listed[list]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, [id], "{list} --{field}");
+    }
+}
