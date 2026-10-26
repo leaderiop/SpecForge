@@ -323,7 +323,7 @@ type McpStatsResult "Mcp Stats Result" {
   declared_count     integer
   /// declared_count over testable_count, in percent (0 when nothing is testable).
   declared_pct       float
-  /// Testable entities proven, in percent; absent without recorded test results.
+  /// Testable entities proven, in percent (0 when nothing is testable); absent without recorded test results.
   proof_pct          float @optional
   diagnostic_summary McpDiagnosticSummary
   verify unit "McpStatsResult schema is valid"

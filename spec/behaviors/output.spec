@@ -233,7 +233,9 @@ behavior compute_project_statistics "Compute Project Statistics" {
     it MUST be reported as 0%, not as a division error. When the project
     has recorded test results (specforge-report.json), stats also reports
     the proof percentage: the share of testable entities the coverage
-    rule proves, the analyze coverage --min gate's figure. Without
+    rule proves, the analyze coverage --min gate's figure, except that
+    it is 0% when testable_entity_count is zero, as the declared
+    percentage (the gate passes such a project). Without
     results it is absent; a report that exists but cannot be read is an
     error.
     specforge stats --format json prints the statistics document

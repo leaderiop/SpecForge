@@ -32,8 +32,9 @@ pub struct Stats {
     /// is testable): declared intent.
     pub declared_pct: f64,
     /// The share of testable entities proven, in percent: the
-    /// `analyze coverage --min` gate's figure. Absent without recorded
-    /// test results.
+    /// `analyze coverage --min` gate's figure, except that it is 0 when
+    /// nothing is testable, as `declared_pct` (the gate passes such a
+    /// project). Absent without recorded test results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_pct: Option<f64>,
     /// What the view's surface reports for the project, by severity
@@ -81,7 +82,13 @@ fn tally(view: &ProjectView, coverage: &Summary, diagnostics: &[Diagnostic]) -> 
     } else {
         0.0
     };
-    let proof_pct = coverage.test_results.as_ref().map(|_| coverage.proof_pct());
+    let proof_pct = coverage.test_results.as_ref().map(|_| {
+        if testable_count > 0 {
+            coverage.proof_pct()
+        } else {
+            0.0
+        }
+    });
 
     Stats {
         entity_count: graph.node_count(),

@@ -123,7 +123,6 @@ fn stats_human_format_lists_all_kinds() {
     behavior = "compute_project_statistics",
     verify = "with nothing testable, stats reports the declared and the proof percentages alike"
 )]
-#[ignore = "flipped by T4"]
 fn nothing_testable_is_0_percent_declared_and_proven() {
     let dir = TestProject::new().without_config().files(&[
         (
