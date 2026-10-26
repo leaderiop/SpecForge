@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { startClient, stopClient } from "./lsp-client";
 import { registerCommands } from "./commands";
-import { SpecForgeCodeLensProvider } from "./codelens";
 import { registerEntityTree } from "./entity-tree";
 import { registerOnboarding } from "./onboarding";
 import {
@@ -27,15 +26,6 @@ export async function activate(
 
   const commands = registerCommands(context);
   context.subscriptions.push(...commands);
-
-  const codeLensProvider = new SpecForgeCodeLensProvider();
-  context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider(
-      { language: "specforge" },
-      codeLensProvider
-    )
-  );
-  context.subscriptions.push(codeLensProvider);
 
   // Entity Explorer sidebar
   registerEntityTree(context);

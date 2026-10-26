@@ -219,11 +219,6 @@
           "default": "off",
           "description": "Trace LSP communication (for debugging)."
         },
-        "specforge.codeLens.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show reference counts and verify status above entities."
-        },
         "specforge.graph.defaultLayout": {
           "type": "string",
           "enum": [

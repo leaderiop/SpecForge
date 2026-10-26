@@ -12,10 +12,6 @@ export function getLspTrace(): string {
   return getConfig().get<string>("lsp.trace", "off");
 }
 
-export function isCodeLensEnabled(): boolean {
-  return getConfig().get<boolean>("codeLens.enabled", true);
-}
-
 export function getGraphLayout(): string {
   return getConfig().get<string>("graph.defaultLayout", "force");
 }

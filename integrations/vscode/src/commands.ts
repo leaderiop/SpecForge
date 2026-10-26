@@ -290,6 +290,17 @@ export function registerCommands(
       );
     }),
 
+    // The command the language server's references lens names (ADR 0249 D2).
+    vscode.commands.registerCommand(
+      "specforge.findReferences",
+      (uri: string, at: { line: number; character: number }) =>
+        vscode.commands.executeCommand(
+          "editor.action.findReferences",
+          vscode.Uri.parse(uri),
+          new vscode.Position(at.line, at.character)
+        )
+    ),
+
     vscode.commands.registerCommand("specforge.focusInGraph", (entityId?: string) => {
       const word = entityId ?? (() => {
         const editor = vscode.window.activeTextEditor;
