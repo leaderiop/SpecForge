@@ -2,7 +2,7 @@
 // reads every line of it as a field, so its parse errors, if any, would be
 // reported like any other.
 type Money "Money" {
-  amount   Decimal @min
+  amount   number @min
   currency "USD"
   meta     string
 }

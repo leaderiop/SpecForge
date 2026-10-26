@@ -2,13 +2,13 @@
 source: crates/surfaces/cli/tests/refusal_wire.rs
 expression: out
 ---
-$ specforge set user status active
+$ specforge set authenticate_user status active
 [exit 1]
 [stdout]
 [stderr]
 error[file_unwritable]: cannot apply the edits: failed to write spec/hello.spec: Permission denied (os error 13); nothing was written
 
-$ specforge set user status active --format json
+$ specforge set authenticate_user status active --format json
 [exit 1]
 [stdout]
 {
