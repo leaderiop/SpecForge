@@ -182,6 +182,17 @@ iface Store "Store" {
     assert!(other.is_empty(), "{other:?}");
 }
 
+/// A function type's `fn` keyword is no type name: only the names inside it are checked.
+#[test]
+fn a_function_type_reports_only_the_names_inside_it() {
+    let source = "iface Exit \"Exit\" {\n  method register(handler: fn()) -> Result<(), string>\n  method map(f: fn(Missing) -> string)\n}\n";
+    let (_, diagnostics) = build(source, derived());
+
+    let found: Vec<String> = e004s(&diagnostics).into_iter().map(|(m, _, _)| m).collect();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("'Missing'"), "{found:?}");
+}
+
 #[specforge_test(
     behavior = "link_derived_references",
     verify = "a name that resolves to an entity of another kind creates no edge"

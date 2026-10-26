@@ -242,6 +242,8 @@ pub(crate) fn unknown_type_names<'v>(
         .flat_map(names)
         .filter(|(name, _, _)| {
             Some(Sym::new(name)) != own
+                // `fn` is a function type's keyword (`fn(A) -> B`), not a name.
+                && *name != "fn"
                 && !PRIMITIVE_TYPES.contains(name)
                 && !kind_of(name).is_some_and(|k| target.admits(k.as_str()))
         })
