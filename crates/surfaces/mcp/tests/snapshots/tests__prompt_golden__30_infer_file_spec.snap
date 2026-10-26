@@ -52,10 +52,6 @@ expression: "shape(&reply, dir.path())"
       },
       {
         "inference_guide": "[guide]",
-        "kind": "invariant"
-      },
-      {
-        "inference_guide": "[guide]",
         "kind": "event"
       },
       {
@@ -77,6 +73,10 @@ expression: "shape(&reply, dir.path())"
       {
         "inference_guide": "[guide]",
         "kind": "failure_mode"
+      },
+      {
+        "inference_guide": "[guide]",
+        "kind": "invariant"
       }
     ],
     "match_mode": "none",

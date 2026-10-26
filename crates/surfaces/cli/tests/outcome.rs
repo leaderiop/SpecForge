@@ -139,7 +139,7 @@ fn verdicts() {
 
     let dangling = rv1(None);
     dangling.write("spec/dangling.spec",
-        "behavior dangling \"D\" {\n  category core\n  contract \"The system MUST work\"\n  invariants [missing]\n}\n",
+        "behavior dangling \"D\" {\n  category core\n  contract \"The system MUST work\"\n  ports [missing]\n}\n",
     );
     let check_fails = exit(&dangling, &["check"]);
 

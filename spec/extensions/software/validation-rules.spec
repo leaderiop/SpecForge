@@ -56,25 +56,6 @@ behavior se_validate_unreferenced_types "W002: Unreferenced Types" {
   verify integration "a primitive or generic wrapper name references no type"
 }
 
-behavior se_validate_unused_invariants "W003: Unused Invariants" {
-  category query
-  contract """
-    Detect invariant entities that nothing references: no behavior lists
-    them in `invariants`, `requires`, `ensures` or `maintains`. This is the
-    only unreferenced-invariant finding; `analyze coverage` counts them without
-    reporting them again.
-  """
-  requires {
-    graph_built "entity graph is fully constructed with all edges"
-  }
-  ensures {
-    unused_detected   "invariant nothing references produces W003"
-    referenced_passes "invariant with incoming reference edge produces no diagnostic"
-  }
-  verify unit "invariant nothing references produces W003"
-  verify unit "invariant with incoming reference edge passes"
-}
-
 behavior se_validate_unreferenced_ports "W005: Unreferenced Ports" {
   category query
   contract """

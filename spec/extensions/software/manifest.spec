@@ -36,7 +36,6 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
   verify unit "manifest declares exactly 15 edge types"
   verify unit "the handshake's protocol major is the host's"
   verify unit "the declaration declares entities, edges, enhancements and validation_rules"
-  verify unit "the only peer is @specforge/product, and it is optional"
   verify unit "product and governance are its peers, both optional"
   verify unit "software declares behavior, event, type and port, and governance as an optional peer"
 }

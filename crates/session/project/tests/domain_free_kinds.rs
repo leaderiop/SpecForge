@@ -26,7 +26,6 @@ fn reported(project: TestProject) -> Vec<(String, String)> {
     behavior = "ge_declare_manifest",
     verify = "a project that loads governance and not software declares invariants, and W003 reports the one nothing references"
 )]
-#[ignore = "flipped by T7"]
 fn governance_alone_declares_invariant() {
     let pairs = reported(
         TestProject::new()
@@ -62,7 +61,6 @@ fn governance_alone_declares_invariant() {
     behavior = "ge_declare_manifest",
     verify = "governance and formal load together without software"
 )]
-#[ignore = "flipped by T7"]
 fn rules_and_lifecycles_check_without_software() {
     let pairs = reported(
         TestProject::new()

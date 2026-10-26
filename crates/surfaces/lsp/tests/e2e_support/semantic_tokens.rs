@@ -153,12 +153,14 @@ fn decode_tokens(init: &Value, data: &[Value]) -> Vec<(u64, u64, u64, String)> {
 )]
 #[tokio::test]
 async fn e2e_semantic_tokens_declaration_uses_kind_semantic_token() {
-    // @specforge/software declares port -> interface, invariant -> property;
-    // @specforge/formal declares axiom -> constant, which no legend carries.
+    // @specforge/software declares port -> interface, @specforge/governance
+    // invariant -> property; @specforge/formal declares axiom -> constant,
+    // which no legend carries.
     let text = "port repo \"Repo\" {\n}\n\ninvariant always \"Always\" {\n}\n\naxiom excluded \"Excluded\" {\n}\n";
     let (mut client, uri, _dir, init) = Session::with_extensions_as(
         &[
             "@specforge/software",
+            "@specforge/governance",
             "@specforge/testing",
             "@specforge/formal",
         ],

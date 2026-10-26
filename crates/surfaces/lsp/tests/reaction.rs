@@ -235,7 +235,7 @@ fn lsp_initialize_contract() {
     // server announces how many extensions and entity kinds it loaded.
     let build = registries_for(&extensions);
     let kinds = build.kinds();
-    assert!(kinds.len() >= 5, "software alone declares five kinds");
+    assert!(kinds.len() >= 4, "software alone declares four kinds");
     let mut served = Served::at(project_with(&extensions)).open(&[]);
     assert!(
         logs(served.opening()).contains(&format!(

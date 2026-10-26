@@ -47,12 +47,13 @@ expression: snapshot
           "entity_kinds": [
             "constraint",
             "decision",
-            "failure_mode"
+            "failure_mode",
+            "invariant"
           ],
           "name": "@specforge/governance",
           "source": "builtin",
           "status": "loaded",
-          "validation_rules": 0,
+          "validation_rules": 1,
           "version": "1.0.0"
         },
         {
@@ -60,14 +61,13 @@ expression: snapshot
           "entity_kinds": [
             "behavior",
             "event",
-            "invariant",
             "port",
             "type"
           ],
           "name": "@specforge/software",
           "source": "builtin",
           "status": "loaded",
-          "validation_rules": 10,
+          "validation_rules": 8,
           "version": "1.0.0"
         }
       ],

@@ -10,24 +10,7 @@ expression: "digest(&load(&runtime, &[name]))"
     }
   ],
   "commands": [],
-  "diagnostics": [
-    {
-      "code": "E027",
-      "message": "extension '@specforge/formal' requires peer dependency '@specforge/software' ^1.0 which is not installed"
-    },
-    {
-      "code": "I004",
-      "message": "extension '@specforge/formal': entity enhancement targets unknown kind 'behavior' (extension may not be installed)"
-    },
-    {
-      "code": "I004",
-      "message": "extension '@specforge/formal': entity enhancement targets unknown kind 'event' (extension may not be installed)"
-    },
-    {
-      "code": "I004",
-      "message": "extension '@specforge/formal': entity enhancement targets unknown kind 'invariant' (extension may not be installed)"
-    }
-  ],
+  "diagnostics": [],
   "edges": {
     "AxiomAssumesInvariant": {
       "description": "Axiom assumes an invariant as foundational truth",
@@ -716,7 +699,7 @@ expression: "digest(&load(&runtime, &[name]))"
   },
   "graph_inputs": {
     "absent_targets": {
-      "axiom.assumes": "invariant (@specforge/software)",
+      "axiom.assumes": "invariant (@specforge/governance)",
       "refinement.abstract_entity": "behavior (@specforge/software)",
       "refinement.concrete_entity": "behavior (@specforge/software)"
     },
@@ -854,18 +837,6 @@ expression: "digest(&load(&runtime, &[name]))"
   "manifest_surfaces": [],
   "rules": [
     {
-      "check": "no_incoming_edges",
-      "code": "W123",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "property '{id}' is not referenced by any behavior — it may be unused",
-      "owner": "@specforge/formal",
-      "severity": "Warning",
-      "target_kind": "property",
-      "wasm_function": null
-    },
-    {
       "check": "field_value_constraint",
       "code": "W124",
       "constraint": {
@@ -907,18 +878,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/formal",
       "severity": "Warning",
       "target_kind": "axiom",
-      "wasm_function": null
-    },
-    {
-      "check": "no_incoming_edges",
-      "code": "W128",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "protocol '{id}' is not referenced by any event — it may be unused",
-      "owner": "@specforge/formal",
-      "severity": "Warning",
-      "target_kind": "protocol",
       "wasm_function": null
     },
     {

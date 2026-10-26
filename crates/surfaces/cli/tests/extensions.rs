@@ -1629,7 +1629,7 @@ fn extensions_list_each_extensions_kinds_and_entities() {
         .map(|k| k.as_str().unwrap())
         .collect();
     assert!(
-        kinds.contains(&"behavior") && kinds.contains(&"invariant"),
+        kinds.contains(&"behavior") && kinds.contains(&"port"),
         "{kinds:?}"
     );
     assert!(!kinds.contains(&"feature"), "{kinds:?}");

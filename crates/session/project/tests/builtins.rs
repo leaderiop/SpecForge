@@ -79,9 +79,9 @@ fn governance_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/governance");
     assert_eq!(manifest.name(), "@specforge/governance");
     assert_eq!(manifest.version(), "1.0.0");
-    assert_eq!(manifest.entities.len(), 3);
+    assert_eq!(manifest.entities.len(), 4);
     assert_eq!(manifest.edges.len(), 11);
-    assert_eq!(manifest.validation_rules.len(), 0);
+    assert_eq!(manifest.validation_rules.len(), 1);
     assert_eq!(
         manifest.peers().len(),
         2,
@@ -97,7 +97,7 @@ fn governance_extension_loads_via_protocol() {
         "must depend on product (declares edges to feature)"
     );
     assert!(manifest.declares(DeclaredCategory::Entities));
-    assert!(!manifest.declares(DeclaredCategory::ValidationRules));
+    assert!(manifest.declares(DeclaredCategory::ValidationRules));
 
     let diags = declaration_diagnostics(&manifest);
     assert!(diags.is_empty(), "declaration errors: {:?}", diags);
@@ -147,16 +147,16 @@ fn testing_extension_makes_software_kinds_testable() {
 
 #[specforge_test_macros::test(
     behavior = "se_declare_manifest",
-    verify = "the only peer is @specforge/product, and it is optional"
+    verify = "product and governance are its peers, both optional"
 )]
 fn software_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/software");
     assert_eq!(manifest.name(), "@specforge/software");
     assert_eq!(manifest.version(), "1.0.0");
-    assert_eq!(manifest.entities.len(), 5);
+    assert_eq!(manifest.entities.len(), 4);
     assert_eq!(manifest.edges.len(), 15);
     // W004/W009 moved to @specforge/testing (ADR 0002).
-    assert_eq!(manifest.validation_rules.len(), 10);
+    assert_eq!(manifest.validation_rules.len(), 8);
     assert_eq!(manifest.enhancements.len(), 2);
     assert!(
         manifest
@@ -165,10 +165,10 @@ fn software_extension_loads_via_protocol() {
             .all(|k| !k.supports_verify && !k.testable),
         "software declares no test vocabulary"
     );
-    assert_eq!(manifest.peers().len(), 1);
+    assert_eq!(manifest.peers().len(), 2);
     assert!(
-        manifest.peers()[0].optional,
-        "product is an optional peer: software works without it"
+        manifest.peers().iter().all(|p| p.optional),
+        "product and governance are optional peers: software works without them"
     );
     assert!(manifest.handshake.sandbox_policy.is_some());
     assert!(manifest.declares(DeclaredCategory::Entities));
@@ -192,7 +192,8 @@ fn formal_extension_loads_via_protocol() {
     );
     // behavior, event, and invariant (its `expression` claim, ADR 0009).
     assert_eq!(manifest.enhancements.len(), 3);
-    assert_eq!(manifest.peers().len(), 1);
+    assert_eq!(manifest.peers().len(), 2);
+    assert!(manifest.peers().iter().all(|p| p.optional));
     assert!(manifest.declares(DeclaredCategory::Entities));
     assert!(manifest.declares(DeclaredCategory::ValidationRules));
 
@@ -585,11 +586,11 @@ fn product_declares_its_lifecycle_passes() {
 }
 
 #[specforge_test_macros::test(
-    behavior = "se_validate_unused_invariants",
+    behavior = "ge_validate_unused_invariants",
     verify = "invariant nothing references produces W003"
 )]
 #[specforge_test_macros::test(
-    behavior = "se_validate_unused_invariants",
+    behavior = "ge_validate_unused_invariants",
     verify = "invariant with incoming reference edge passes"
 )]
 fn check_reports_an_unreferenced_invariant_as_w003() {

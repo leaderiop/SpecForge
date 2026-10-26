@@ -625,74 +625,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "source_extension": "@specforge/software",
       "target_kind": null
     },
-    "invariant.description": {
-      "derived_from": null,
-      "description": "Human-readable summary of this invariant",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "description",
-      "field_type": "String",
-      "file_reference": false,
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "invariant",
-      "normative": false,
-      "proof_role": null,
-      "required": false,
-      "source_extension": "@specforge/software",
-      "target_kind": null
-    },
-    "invariant.guarantee": {
-      "derived_from": null,
-      "description": "The constraint this invariant guarantees holds at all times",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "guarantee",
-      "field_type": "String",
-      "file_reference": false,
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "invariant",
-      "normative": true,
-      "proof_role": null,
-      "required": true,
-      "source_extension": "@specforge/software",
-      "target_kind": null
-    },
-    "invariant.refs": {
-      "derived_from": null,
-      "description": "External references such as issue or document URIs",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "refs",
-      "field_type": "StringList",
-      "file_reference": false,
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "invariant",
-      "normative": false,
-      "proof_role": null,
-      "required": false,
-      "source_extension": "@specforge/software",
-      "target_kind": null
-    },
-    "invariant.risk": {
-      "derived_from": null,
-      "description": "Impact level if this invariant is violated",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "risk",
-      "field_type": "Enum([\"critical\", \"high\", \"medium\", \"low\"])",
-      "file_reference": false,
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "invariant",
-      "normative": false,
-      "proof_role": null,
-      "required": false,
-      "source_extension": "@specforge/software",
-      "target_kind": null
-    },
     "port.category": {
       "derived_from": null,
       "description": "Classification of this port, a word or a path (e.g. http, io/filesystem)",
@@ -866,7 +798,8 @@ expression: "digest(&load(&runtime, &[name]))"
   },
   "graph_inputs": {
     "absent_targets": {
-      "behavior.features": "feature (@specforge/product)"
+      "behavior.features": "feature (@specforge/product)",
+      "behavior.invariants": "invariant (@specforge/governance)"
     },
     "derived_references": [
       {
@@ -903,10 +836,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "event.description": "string",
       "event.payload": "reference",
       "event.refs": "string_list",
-      "invariant.description": "string",
-      "invariant.guarantee": "string",
-      "invariant.refs": "string_list",
-      "invariant.risk": "enum (critical, high, medium, low)",
       "port.category": "string",
       "port.description": "string",
       "port.direction": "enum (inbound, outbound, bidirectional)",
@@ -962,25 +891,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "supports_verify": false,
       "testable": false
     },
-    "invariant": {
-      "allowed_verify_kinds": [],
-      "contract_target": true,
-      "declares_types": false,
-      "description": "A system-wide constraint that must always hold true",
-      "dot_color": "#C62828",
-      "dot_fillcolor": "#FFEBEE",
-      "dot_shape": "diamond",
-      "has_body_parser": false,
-      "kind_name": "invariant",
-      "lifecycle_field": null,
-      "lsp_icon": "Property",
-      "open_fields": false,
-      "semantic_token": "property",
-      "singleton": false,
-      "source_extension": "@specforge/software",
-      "supports_verify": false,
-      "testable": false
-    },
     "port": {
       "allowed_verify_kinds": [],
       "contract_target": false,
@@ -1023,18 +933,6 @@ expression: "digest(&load(&runtime, &[name]))"
   "manifest_surfaces": [],
   "rules": [
     {
-      "check": "custom",
-      "code": "E004",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "port '{id}' method '{field}' references unknown type '{value}'",
-      "owner": "@specforge/software",
-      "severity": "Error",
-      "target_kind": "port",
-      "wasm_function": "validate__port_methods"
-    },
-    {
       "check": "no_incoming_edges",
       "code": "W002",
       "constraint": null,
@@ -1044,18 +942,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "@specforge/software",
       "severity": "Warning",
       "target_kind": "type",
-      "wasm_function": null
-    },
-    {
-      "check": "no_incoming_edges",
-      "code": "W003",
-      "constraint": null,
-      "edge_type": null,
-      "field": null,
-      "message_template": "invariant '{id}' is not enforced by any behavior",
-      "owner": "@specforge/software",
-      "severity": "Warning",
-      "target_kind": "invariant",
       "wasm_function": null
     },
     {
@@ -1116,18 +1002,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "",
       "severity": "Error",
       "target_kind": "behavior",
-      "wasm_function": null
-    },
-    {
-      "check": "missing_required_field",
-      "code": "E006",
-      "constraint": null,
-      "edge_type": null,
-      "field": "guarantee",
-      "message_template": "invariant '{id}' is missing required field 'guarantee'",
-      "owner": "",
-      "severity": "Error",
-      "target_kind": "invariant",
       "wasm_function": null
     },
     {

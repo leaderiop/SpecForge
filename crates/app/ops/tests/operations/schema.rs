@@ -277,7 +277,7 @@ mod published {
     }
 
     /// The kinds @specforge/software registers.
-    const SOFTWARE_KINDS: [&str; 5] = ["behavior", "event", "invariant", "port", "type"];
+    const SOFTWARE_KINDS: [&str; 4] = ["behavior", "event", "port", "type"];
 
     /// The format `name` is, as `--format` parses it.
     fn format_named(name: &str) -> Format {

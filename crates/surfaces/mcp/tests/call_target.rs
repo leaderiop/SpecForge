@@ -541,7 +541,7 @@ fn a_tool_of_the_served_project_refuses_another_projects_path() {
 fn a_path_inside_the_served_project_names_the_served_project() {
     let dir = TempDir::new().unwrap();
     let config = json!({"name": "a", "version": "0.1.0", "spec_root": "spec",
-        "extensions": ["@specforge/software"]});
+        "extensions": ["@specforge/software", "@specforge/governance"]});
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     fs::create_dir_all(dir.path().join("spec")).unwrap();
     fs::write(

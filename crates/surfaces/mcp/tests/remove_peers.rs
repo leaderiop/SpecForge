@@ -12,7 +12,7 @@ use specforge_test::prelude::*;
 )]
 fn remove_extension_refuses_a_builtin_another_requires_with_e027_unless_forced() {
     let mut served = TestProject::new()
-        .enabling(&["@specforge/software", "@specforge/formal"])
+        .enabling(&["@specforge/testing", "@specforge/cargo-test"])
         .file("main.spec", "")
         .serve_components();
     let config = served.root().join("specforge.json");
@@ -21,7 +21,7 @@ fn remove_extension_refuses_a_builtin_another_requires_with_e027_unless_forced()
     let resp = call_tool(
         &mut served,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software"}),
+        json!({"name": "@specforge/testing"}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["diagnostic"]["code"], "E027", "{error}");
@@ -29,7 +29,7 @@ fn remove_extension_refuses_a_builtin_another_requires_with_e027_unless_forced()
         error["diagnostic"]["message"]
             .as_str()
             .unwrap()
-            .contains("@specforge/formal"),
+            .contains("@specforge/cargo-test"),
         "{error}"
     );
     assert_eq!(
@@ -41,9 +41,9 @@ fn remove_extension_refuses_a_builtin_another_requires_with_e027_unless_forced()
     let resp = call_tool(
         &mut served,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software", "force": true}),
+        json!({"name": "@specforge/testing", "force": true}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let after: Value = serde_json::from_slice(&std::fs::read(&config).unwrap()).unwrap();
-    assert_eq!(after["extensions"], json!(["@specforge/formal"]));
+    assert_eq!(after["extensions"], json!(["@specforge/cargo-test"]));
 }

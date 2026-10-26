@@ -651,7 +651,7 @@ fn export_of_a_sub_path_leaves_the_project_cache_alone() {
     let root = root_buf.as_path();
     let first = cli(&tmp, &["export", "--path", s(root), "--format", "graph"]);
     assert_eq!(first.code, Some(0), "{}", first.stderr);
-    assert_eq!(cached_kinds(root), 5);
+    assert_eq!(cached_kinds(root), 4);
 
     // The sub-path is the project it is in: it versions against, and records
     // in, the project's cache, and writes none of its own.
@@ -659,7 +659,7 @@ fn export_of_a_sub_path_leaves_the_project_cache_alone() {
     let run = cli(&tmp, &["export", "--path", s(&sub), "--format", "graph"]);
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert!(!run.stderr.contains("W053"), "{}", run.stderr);
-    assert_eq!(cached_kinds(root), 5);
+    assert_eq!(cached_kinds(root), 4);
     assert!(
         !sub.join(".specforge").exists(),
         "nothing is cached under the sub-path"
@@ -803,7 +803,7 @@ fn contract_read_views() {
     // project's, and keeps the root's cache.
     assert_eq!(cli(&tmp, &["export", "--path", s(root)]).code, Some(0));
     assert_eq!(cli(&tmp, &["export", "--path", s(&sub)]).code, Some(0));
-    assert_eq!(cached_kinds(root), 5);
+    assert_eq!(cached_kinds(root), 4);
 }
 
 /// What a CLI run printed, for a snapshot: its exit code and both streams,

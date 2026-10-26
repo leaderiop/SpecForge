@@ -237,9 +237,9 @@ fn init_with_a_builtin_that_requires_another_passes_check() {
         .bare_command(&[
             "init",
             "--name",
-            "needs-software",
+            "needs-testing",
             "--extensions",
-            "@specforge/formal",
+            "@specforge/cargo-test",
             "--format",
             "json",
         ])
@@ -255,8 +255,8 @@ fn init_with_a_builtin_that_requires_another_passes_check() {
         .collect();
     let position = |name: &str| installed.iter().position(|e| *e == name);
     assert!(
-        position("@specforge/software") < position("@specforge/formal")
-            && position("@specforge/software").is_some(),
+        position("@specforge/testing") < position("@specforge/cargo-test")
+            && position("@specforge/testing").is_some(),
         "{installed:?}"
     );
 

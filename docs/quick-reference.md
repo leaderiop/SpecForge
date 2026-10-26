@@ -134,13 +134,13 @@ Every other kind, field and relation below is generated from the builtin extensi
 > @specforge/product — A communication or distribution channel for the product
 
 Required: `description`
-Optional: `interaction_model` (enum: request_response, event_driven, batch, streaming, bidirectional, manual), `reason`, `status` (enum: active, deprecated), `tags`, `url`
+Optional: `interaction_model` (identifier), `reason`, `status` (enum: active, deprecated), `tags`, `url`
 Written on the other side (derived, never a field here): journey `channels` (`JourneyUsesChannel`)
 
 ### deliverable
 > @specforge/product — A shippable unit of work with dependencies and milestones
 
-Required: `artifact_type` (enum: cli, service, library, web_app, mobile_app, api, extension, documentation, package)
+Required: `artifact_type` (identifier)
 Optional: `contributors`, `depends_on`, `description`, `journeys`, `milestones`, `modules`, `owner`, `reason`, `status` (enum: draft, in_progress, shipped, deprecated), `tags`, `version`
 Writes: `depends_on` → deliverable (`DeliverableDependsOn`), `journeys` → journey (`DeliverableSupportsJourney`), `milestones` → milestone (`DeliverableTrackedByMilestone`), `modules` → module (`DeliverableContainsModule`)
 Written on the other side (derived, never a field here): release `deliverables` (`ReleaseIncludesDeliverable`)
@@ -212,13 +212,6 @@ Optional: `category` (identifier), `channel`, `channel_type` (identifier), `cont
 Writes: `follows_protocol` → protocol (`EventFollowsProtocol`) (from @specforge/formal), `participates_in` → process (`EventParticipatesInProcess`) (from @specforge/formal), `payload` → type (`EventCarriesPayloadType`)
 Written on the other side (derived, never a field here): behavior `consumes` (`BehaviorConsumesEvent`), behavior `produces` (`BehaviorProducesEvent`)
 
-### invariant
-> @specforge/software — A system-wide constraint that must always hold true
-
-Required: `guarantee`
-Optional: `description`, `expression`, `refs`, `risk` (enum: critical, high, medium, low), `tags`
-Written on the other side (derived, never a field here): behavior `invariants` (`BehaviorEnforcesInvariant`, read here as `enforced_by`), constraint `protects` (`ConstraintProtectsInvariant`), decision `invariants` (`DecisionProtectsInvariant`), failure_mode `invariant` (`FailureModeTargetsInvariant`), axiom `assumes` (`AxiomAssumesInvariant`)
-
 ### port
 > @specforge/software — An interface boundary between system components
 
@@ -255,6 +248,13 @@ Writes: `affects_features` → feature (`DecisionAffectsFeature`), `constraints`
 Required: `cause`, `effect`, `severity` (enum: critical, high, medium, low)
 Optional: `affected_behaviors`, `description`, `detection` (enum: certain, likely, moderate, unlikely, undetectable), `invariant`, `mitigation`, `occurrence` (enum: certain, likely, occasional, unlikely, rare), `post_detection` (enum: certain, likely, moderate, unlikely, undetectable), `post_mitigation`, `post_occurrence` (enum: certain, likely, occasional, unlikely, rare), `post_severity` (enum: critical, high, medium, low), `refs`, `risk`, `rpn`, `tags`, `threatens_features`
 Writes: `affected_behaviors` → behavior (`FailureModeAffectsBehavior`), `invariant` → invariant (`FailureModeTargetsInvariant`), `threatens_features` → feature (`FailureModeThreatensFeature`)
+
+### invariant
+> @specforge/governance — A rule that must always hold
+
+Required: `guarantee`
+Optional: `description`, `expression`, `refs`, `risk` (enum: critical, high, medium, low), `tags`
+Written on the other side (derived, never a field here): behavior `invariants` (`BehaviorEnforcesInvariant`, read here as `enforced_by`), constraint `protects` (`ConstraintProtectsInvariant`), decision `invariants` (`DecisionProtectsInvariant`), failure_mode `invariant` (`FailureModeTargetsInvariant`), axiom `assumes` (`AxiomAssumesInvariant`)
 
 ### axiom
 > @specforge/formal — An assumed-true foundational assertion

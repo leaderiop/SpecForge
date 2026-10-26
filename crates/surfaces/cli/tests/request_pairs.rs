@@ -502,7 +502,7 @@ const PAIRS: &[Pair] = &[
 
 /// `rv1` with a behavior that has a category, an invariant link and two verify lines, and the invariants.
 fn edit_project() -> TestProject {
-    rv1().file(
+    rv1().raw_config(r#"{"name":"repro","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing"]}"#).file(
         "spec/more.spec",
         "behavior delta \"Delta\" {\n  category   command\n  invariants [rule_one]\n  contract   \"The system MUST do delta\"\n  verify unit \"delta works\"\n}\n\ninvariant rule_one \"Rule One\" {\n  guarantee \"One MUST hold\"\n}\n\ninvariant rule_two \"Rule Two\" {\n  guarantee \"Two MUST hold\"\n}\n",
     )

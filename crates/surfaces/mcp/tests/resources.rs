@@ -144,10 +144,7 @@ fn schema_resource_returns_the_graph_protocol_schema() {
         schema["extensions"],
         json!([{"name": "@specforge/software", "version": "1.0.0"}])
     );
-    assert_eq!(
-        kind_names(&schema),
-        ["behavior", "event", "invariant", "port", "type"]
-    );
+    assert_eq!(kind_names(&schema), ["behavior", "event", "port", "type"]);
     let consumes = schema["edge_types"]
         .as_array()
         .unwrap()

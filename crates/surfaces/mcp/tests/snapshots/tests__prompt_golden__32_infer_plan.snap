@@ -86,7 +86,7 @@ expression: "shape(&reply, dir.path())"
       },
       {
         "existing_count": 1,
-        "extension": "@specforge/software",
+        "extension": "@specforge/governance",
         "kind": "invariant"
       },
       {

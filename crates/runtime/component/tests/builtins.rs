@@ -106,7 +106,10 @@ fn builtin_handshakes_survive_sdk_migration() {
     let expectations = [
         (
             "@specforge/software",
-            &[("@specforge/product", true)][..],
+            &[
+                ("@specforge/product", true),
+                ("@specforge/governance", true),
+            ][..],
             true,
         ),
         (
@@ -129,11 +132,10 @@ fn builtin_handshakes_survive_sdk_migration() {
             declaration.declares(DeclaredCategory::Entities),
             "{name}: entities"
         );
-        // Governance declares no validation rules: its value checks are
+        // Governance's one rule is W003 (ADR 0280); its value checks are
         // E061 on its enum fields (ADR 0071).
-        assert_eq!(
+        assert!(
             declaration.declares(DeclaredCategory::ValidationRules),
-            name != "@specforge/governance",
             "{name}: validation rules"
         );
         let peer_deps = value["peer_dependencies"].as_array().unwrap();

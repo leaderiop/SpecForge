@@ -7,7 +7,7 @@ pub const BUILTINS: [&str; 3] = [
     "@specforge/governance",
 ];
 
-/// 5 software entity kinds: behavior, invariant, event, type, port
+/// 4 software entity kinds: behavior, event, type, port
 pub const SOFTWARE: &str = r#"
 behavior parse_input "Parse Input" {
     contract "The system MUST parse all valid input"
@@ -17,10 +17,6 @@ behavior parse_input "Parse Input" {
 
 behavior emit_output "Emit Output" {
     contract "The system MUST emit structured output"
-}
-
-invariant graph_acyclic "Graph Acyclicity" {
-    guarantee "The dependency graph MUST be acyclic"
 }
 
 event input_parsed "Input Parsed" {
@@ -65,8 +61,12 @@ term spec_file "Spec File" {
 }
 "#;
 
-/// 3 governance entity kinds: decision, constraint, failure_mode
+/// 4 governance entity kinds: invariant, decision, constraint, failure_mode
 pub const GOVERNANCE: &str = r#"
+invariant graph_acyclic "Graph Acyclicity" {
+    guarantee "The dependency graph MUST be acyclic"
+}
+
 decision use_treesitter "Use Tree-Sitter" {
     status accepted
     context "Need a robust parser"

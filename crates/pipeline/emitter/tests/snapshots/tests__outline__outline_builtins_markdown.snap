@@ -8,17 +8,19 @@ expression: "drawn(&manifests, opts)"
 
 | Extension | Version | Entities | Edges | Rules | Enhances |
 |-----------|---------|----------|-------|-------|----------|
-| @specforge/product | 1.0.0 | 9 | 20 | 47 | — |
-| @specforge/software | 1.0.0 | 5 | 15 | 10 | module (+2), milestone (+1) |
-| @specforge/governance | 1.0.0 | 3 | 11 | 0 | — |
+| @specforge/product | 1.0.0 | 9 | 20 | 46 | — |
+| @specforge/software | 1.0.0 | 4 | 15 | 8 | module (+2), milestone (+1) |
+| @specforge/governance | 1.0.0 | 4 | 11 | 1 | — |
 | @specforge/formal | 1.0.0 | 5 | 10 | 12 | behavior (+7), event (+3), invariant (+1) |
 
 ## Dependencies
 
 - @specforge/software → @specforge/product (^1.0, optional)
+- @specforge/software → @specforge/governance (^1.0, optional)
 - @specforge/governance → @specforge/software (^1.0, optional)
 - @specforge/governance → @specforge/product (^1.0, optional)
-- @specforge/formal → @specforge/software (^1.0)
+- @specforge/formal → @specforge/software (^1.0, optional)
+- @specforge/formal → @specforge/governance (^1.0, optional)
 - @specforge/formal → @specforge/product (^1.0, optional, transitive, unused)
 
 ## Enhancements
@@ -27,36 +29,34 @@ expression: "drawn(&manifests, opts)"
 - @specforge/software enhances @specforge/product/milestone: +1 fields (behaviors)
 - @specforge/formal enhances @specforge/software/behavior: +7 fields (requires, ensures, maintains, satisfies, sync, abstract, refines)
 - @specforge/formal enhances @specforge/software/event: +3 fields (follows_protocol, participates_in, sync)
-- @specforge/formal enhances @specforge/software/invariant: +1 fields (expression)
+- @specforge/formal enhances @specforge/governance/invariant: +1 fields (expression)
 
 ## Cross-Extension Edges
 
 - BehaviorImplementsFeature (@specforge/software.behavior → @specforge/product.feature)
-- DecisionProtectsInvariant (@specforge/governance.decision → @specforge/software.invariant)
+- BehaviorEnforcesInvariant (@specforge/software.behavior → @specforge/governance.invariant)
 - ConstraintEnforcedByBehavior (@specforge/governance.constraint → @specforge/software.behavior)
 - ConstraintConstrainsBehavior (@specforge/governance.constraint → @specforge/software.behavior)
-- ConstraintProtectsInvariant (@specforge/governance.constraint → @specforge/software.invariant)
-- FailureModeTargetsInvariant (@specforge/governance.failure_mode → @specforge/software.invariant)
 - ConstraintGovernsFeature (@specforge/governance.constraint → @specforge/product.feature)
 - DecisionAffectsFeature (@specforge/governance.decision → @specforge/product.feature)
 - FailureModeThreatensFeature (@specforge/governance.failure_mode → @specforge/product.feature)
 - FailureModeAffectsBehavior (@specforge/governance.failure_mode → @specforge/software.behavior)
-- AxiomAssumesInvariant (@specforge/formal.axiom → @specforge/software.invariant)
-- PropertyDependsOnInvariant (@specforge/formal.property → @specforge/software.invariant)
+- AxiomAssumesInvariant (@specforge/formal.axiom → @specforge/governance.invariant)
+- PropertyDependsOnInvariant (@specforge/formal.property → @specforge/governance.invariant)
 - BehaviorRefinesBehavior (@specforge/formal.behavior → @specforge/software.behavior)
 - RefinementRefinesAbstract (@specforge/formal.refinement → @specforge/software.behavior)
 - RefinementRefinesConcrete (@specforge/formal.refinement → @specforge/software.behavior)
 
 ## Extensions
 
-### @specforge/product (9 entities, 20 edges, 47 rules)
+### @specforge/product (9 entities, 20 edges, 46 rules)
 
 **Entity kinds**: feature, journey, deliverable, milestone, module, term, persona, channel, release
 
 **Contributes**: entities, edges, shared_fields, validation_rules, surfaces, passes
 
-**Validation rules**: W041, W042, W044, I010, I046, I047, E007, E015, E052, W045, W092, W093, I048, I062, I061, I050, I068, I068, I068, I068, I068, I068, I068, I068, I068, W049, I059, W057, I060, I066, I069, I070, I057, I089, W043, W046, I067, I055, I082, I083, I048, I054, I080, I080, I080, I080, I081 (47 total)
-  Severity breakdown: 3 errors, 10 warnings, 34 info
+**Validation rules**: W041, W042, W044, I010, I046, I047, E007, E015, E052, W045, W092, W093, I048, I061, I050, I068, I068, I068, I068, I068, I068, I068, I068, I068, W049, I059, W057, I060, I066, I069, I070, I057, I089, W043, W046, I067, I055, I082, I083, I048, I054, I080, I080, I080, I080, I081 (46 total)
+  Severity breakdown: 3 errors, 10 warnings, 33 info
 
 **Surfaces**: 40 CLI commands, 0 MCP tools, 0 MCP resources
 
@@ -97,7 +97,7 @@ expression: "drawn(&manifests, opts)"
 | Field | Type | Required | Source | Edge | Target |
 |-------|------|----------|--------|------|--------|
 | description | string | no | @specforge/product | — | — |
-| artifact_type | enum | yes | @specforge/product | — | — |
+| artifact_type | identifier | yes | @specforge/product | — | — |
 | status | enum | no | @specforge/product | — | — |
 | journeys | reference_list | no | @specforge/product | DeliverableSupportsJourney | journey |
 | modules | reference_list | no | @specforge/product | DeliverableContainsModule | module |
@@ -168,7 +168,7 @@ expression: "drawn(&manifests, opts)"
 | Field | Type | Required | Source | Edge | Target |
 |-------|------|----------|--------|------|--------|
 | description | string | yes | @specforge/product | — | — |
-| interaction_model | enum | no | @specforge/product | — | — |
+| interaction_model | identifier | no | @specforge/product | — | — |
 | url | string | no | @specforge/product | — | — |
 | status | enum | no | @specforge/product | — | — |
 | reason | string | no | @specforge/product | — | — |
@@ -191,14 +191,14 @@ expression: "drawn(&manifests, opts)"
 | reason | string | no | @specforge/product | — | — |
 | refs | string_list | no | @specforge/product | — | — |
 
-### @specforge/software (5 entities, 15 edges, 10 rules)
+### @specforge/software (4 entities, 15 edges, 8 rules)
 
-**Entity kinds**: behavior, invariant, event, type, port
+**Entity kinds**: behavior, event, type, port
 
 **Contributes**: entities, edges, enhancements, validation_rules
 
-**Validation rules**: W001, W002, W003, W005, W006, W007, W008, W010, E004, E010 (10 total)
-  Severity breakdown: 2 errors, 8 warnings
+**Validation rules**: W001, W002, W005, W006, W007, W008, W010, E010 (8 total)
+  Severity breakdown: 1 errors, 7 warnings
 
 **Enhances**:
 - @specforge/product/module: +2 fields (ports, ports_defined)
@@ -223,17 +223,6 @@ expression: "drawn(&manifests, opts)"
 | diagnostic | identifier | no | @specforge/software | — | — |
 
 *Enhanced by @specforge/formal*: +7 fields (requires, ensures, maintains, satisfies, sync, abstract, refines)
-
-#### invariant (Invariant)
-
-| Field | Type | Required | Source | Edge | Target |
-|-------|------|----------|--------|------|--------|
-| guarantee | string | yes | @specforge/software | — | — |
-| risk | enum | no | @specforge/software | — | — |
-| description | string | no | @specforge/software | — | — |
-| refs | string_list | no | @specforge/software | — | — |
-
-*Enhanced by @specforge/formal*: +1 fields (expression)
 
 #### event (Event)
 
@@ -269,11 +258,14 @@ expression: "drawn(&manifests, opts)"
 | description | string | no | @specforge/software | — | — |
 | refs | string_list | no | @specforge/software | — | — |
 
-### @specforge/governance (3 entities, 11 edges, 0 rules)
+### @specforge/governance (4 entities, 11 edges, 1 rules)
 
-**Entity kinds**: decision, constraint, failure_mode
+**Entity kinds**: decision, constraint, failure_mode, invariant
 
-**Contributes**: entities, edges
+**Contributes**: entities, edges, validation_rules
+
+**Validation rules**: W003 (1 total)
+  Severity breakdown: 1 warnings
 
 #### decision (Decision)
 
@@ -334,6 +326,17 @@ expression: "drawn(&manifests, opts)"
 | threatens_features | reference_list | no | @specforge/governance | FailureModeThreatensFeature | feature |
 | affected_behaviors | reference_list | no | @specforge/governance | FailureModeAffectsBehavior | behavior |
 
+#### invariant (Invariant)
+
+| Field | Type | Required | Source | Edge | Target |
+|-------|------|----------|--------|------|--------|
+| guarantee | string | yes | @specforge/governance | — | — |
+| risk | enum | no | @specforge/governance | — | — |
+| description | string | no | @specforge/governance | — | — |
+| refs | string_list | no | @specforge/governance | — | — |
+
+*Enhanced by @specforge/formal*: +1 fields (expression)
+
 ### @specforge/formal (5 entities, 10 edges, 12 rules)
 
 **Entity kinds**: property, axiom, protocol, refinement, process
@@ -346,7 +349,7 @@ expression: "drawn(&manifests, opts)"
 **Enhances**:
 - @specforge/software/behavior: +7 fields (requires, ensures, maintains, satisfies, sync, abstract, refines)
 - @specforge/software/event: +3 fields (follows_protocol, participates_in, sync)
-- @specforge/software/invariant: +1 fields (expression)
+- @specforge/governance/invariant: +1 fields (expression)
 
 #### property (Property)
 
@@ -405,4 +408,4 @@ expression: "drawn(&manifests, opts)"
 ## Summary
 
 - **4** extensions, **22** entity kinds, **56** edge types
-- **69** validation rules, **15** cross-extension edges, **5** enhancements
+- **67** validation rules, **13** cross-extension edges, **5** enhancements

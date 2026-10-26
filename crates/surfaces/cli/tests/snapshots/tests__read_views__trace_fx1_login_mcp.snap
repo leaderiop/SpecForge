@@ -27,16 +27,6 @@ expression: "normalized(value, root)"
     },
     {
       "depth": 1,
-      "edge_label": "invariants",
-      "edge_type": "BehaviorEnforcesInvariant",
-      "expected_kind": "invariant",
-      "from": "login",
-      "from_kind": "behavior",
-      "required": false,
-      "status": "missing"
-    },
-    {
-      "depth": 1,
       "edge_label": "ports",
       "edge_type": "BehaviorUsesPort",
       "expected_kind": "port",

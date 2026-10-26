@@ -989,7 +989,7 @@ fn add_dry_run_prints_the_plan_and_writes_nothing() {
 
     // A builtin that requires another: the plan names both, dependencies first.
     let human = Cli::on(&dir)
-        .command(&["add", "--dry-run", "@specforge/formal", "greet.wasm"])
+        .command(&["add", "--dry-run", "@specforge/cargo-test", "greet.wasm"])
         .current_dir(dir.root())
         .output()
         .unwrap();
@@ -999,23 +999,23 @@ fn add_dry_run_prints_the_plan_and_writes_nothing() {
     assert_eq!(
         lines,
         [
-            "would enable builtin @specforge/software (required by @specforge/formal)",
-            "would enable builtin @specforge/formal",
+            "would enable builtin @specforge/testing (required by @specforge/cargo-test)",
+            "would enable builtin @specforge/cargo-test",
             "would install @sdk/greet v0.1.0 (local:greet.wasm)",
         ],
         "{text}"
     );
 
-    let json = Cli::on(&dir)
-        .command(&["add", "--dry-run", "@specforge/formal", "--format", "json"])
-        .output()
-        .unwrap();
+    let args: Vec<&str> = "add --dry-run @specforge/cargo-test --format json"
+        .split(' ')
+        .collect();
+    let json = Cli::on(&dir).command(&args).output().unwrap();
     assert!(json.status.success(), "{json:?}");
     let document: Value = serde_json::from_slice(&json.stdout).unwrap();
     assert_eq!(document["added"][0]["action"], "planned", "{document}");
     assert_eq!(
         document["added"][0]["peers_enabled"],
-        json!(["@specforge/software"]),
+        json!(["@specforge/testing"]),
         "{document}"
     );
     assert!(document.get("files_written").is_none(), "{document}");

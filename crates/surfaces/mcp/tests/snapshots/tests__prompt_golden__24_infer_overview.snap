@@ -205,18 +205,6 @@ expression: "shape(&reply, dir.path())"
         "kind": "behavior"
       },
       {
-        "description": "A system-wide constraint that must always hold true",
-        "extension": "@specforge/software",
-        "fields": [
-          "description",
-          "guarantee*",
-          "refs",
-          "risk"
-        ],
-        "inference_guide": "[guide]",
-        "kind": "invariant"
-      },
-      {
         "description": "A significant occurrence in the system that triggers reactions",
         "extension": "@specforge/software",
         "fields": [
@@ -324,6 +312,18 @@ expression: "shape(&reply, dir.path())"
         ],
         "inference_guide": "[guide]",
         "kind": "failure_mode"
+      },
+      {
+        "description": "A rule that must always hold",
+        "extension": "@specforge/governance",
+        "fields": [
+          "description",
+          "guarantee*",
+          "refs",
+          "risk"
+        ],
+        "inference_guide": "[guide]",
+        "kind": "invariant"
       }
     ],
     "output_format": "Create entities with specforge.edit, one `create` edit per entity (kind, id, title, a `file` under the spec/ directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",

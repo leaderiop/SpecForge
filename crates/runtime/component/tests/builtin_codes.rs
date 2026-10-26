@@ -51,7 +51,7 @@ fn builtin_rules_use_their_own_codes() {
         }
     }
     assert!(
-        checked >= 80,
+        checked >= 75,
         "only {checked} builtin rules were read; do the builtins still declare their rules?"
     );
     assert!(

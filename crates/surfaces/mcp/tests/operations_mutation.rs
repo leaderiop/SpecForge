@@ -2149,35 +2149,35 @@ fn served_project(extensions: &[&str], files: &[(&str, &str)]) -> (McpServer, te
     verify = "remove_extension with a path to another project checks that project's dependents and entities"
 )]
 fn remove_on_another_project_checks_that_projects_dependents() {
-    // The served project enables formal, which requires software; the
-    // other enables software alone.
+    // The served project enables cargo-test, which requires testing; the
+    // other enables testing alone.
     let (mut server, served) = served_project(
-        &["@specforge/software", "@specforge/formal"],
+        &["@specforge/testing", "@specforge/cargo-test"],
         &[("main.spec", "")],
     );
     let other = within(served.path(), tempfile::TempDir::new().unwrap());
     std::fs::write(
         other.path().join("specforge.json"),
-        json!({"name": "o", "version": "0.1.0", "extensions": ["@specforge/software"]}).to_string(),
+        json!({"name": "o", "version": "0.1.0", "extensions": ["@specforge/testing"]}).to_string(),
     )
     .unwrap();
     std::fs::write(other.path().join("main.spec"), "").unwrap();
 
-    // Nothing in the other project requires software: it can go.
+    // Nothing in the other project requires testing: it can go.
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"path": other.path().to_str().unwrap(), "name": "@specforge/software", "dry_run": true}),
+        json!({"path": other.path().to_str().unwrap(), "name": "@specforge/testing", "dry_run": true}),
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert!(payload["extension"].is_string(), "{payload}");
 
-    // In the served project formal still requires it.
+    // In the served project cargo-test still requires it.
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software", "dry_run": true}),
+        json!({"name": "@specforge/testing", "dry_run": true}),
     );
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["diagnostic"]["code"], "E027", "{error}");
