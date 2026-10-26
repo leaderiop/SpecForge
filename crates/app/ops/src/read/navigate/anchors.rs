@@ -18,6 +18,13 @@ use crate::{OpError, Refusal};
 /// The source anchors manifest's file, at the project root.
 const ANCHORS_FILENAME: &str = "specforge-anchors.json";
 
+/// The field of a file query a refusal can be about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileAnchorsField {
+    /// The source-code path asked for.
+    FilePath,
+}
+
 /// What the anchors manifest anchors to the source files `file_path` names
 /// (`McpSpecForSourceResult`; the infer prompt's file scope lists its `entities`).
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
@@ -161,15 +168,25 @@ impl<'a> CoveredItems<'a> {
 /// Which entities belong to the source files `file_path` names: the manifest's anchors in them, under
 /// [`match_file`], each with its entity's kind when the view's graph declares the id. The tightest
 /// non-empty mode wins: exact matches, else those under the query or ending with it. Rows are in
-/// manifest order. No file is opened but the manifest: `file_path` is compared as text. A missing
-/// manifest anchors nothing; one that cannot be used is E071; a view with no root is `no_project`.
-pub fn anchors_of_file(view: &ProjectView<'_>, file_path: &str) -> Result<FileAnchors, OpError> {
+/// manifest order. `file_path` is read from the project root as a named spec file is (an absolute path
+/// under the root is that path, a `..` applied where it stands: [`ProjectView::source_root`], ADR 0253),
+/// then compared as text; one whose key lies outside the project root, or that names nothing, is
+/// `not_a_source_path`, about [`FileAnchorsField::FilePath`]. No file is opened but the manifest. A
+/// missing manifest anchors nothing; one that cannot be used is E071; a view with no root is
+/// `no_project`.
+pub fn anchors_of_file(
+    view: &ProjectView<'_>,
+    file_path: &str,
+) -> Result<FileAnchors, Refusal<FileAnchorsField>> {
+    let query = view
+        .source_root(file_path)
+        .map_err(|error| error.about(FileAnchorsField::FilePath))?;
     let manifest = manifest(view)?;
     let mut exact = Vec::new();
     let mut loose = Vec::new();
     let mut under = false;
     for anchor in manifest.anchors {
-        match match_file(file_path, &anchor.file) {
+        match match_file(query.as_str(), &anchor.file) {
             FileMatch::Exact => exact.push(anchor),
             FileMatch::Directory => {
                 under = true;
@@ -283,7 +300,7 @@ mod tests {
         let fixture = Assembled::new();
         let path = fixture.root().join(ANCHORS_FILENAME);
         std::fs::write(&path, r#"{"version":1,"anchors":[{"entity_id":"x"}]}"#).unwrap();
-        let invalid = anchors_of_file(&fixture.view(), "x").unwrap_err();
+        let invalid = anchors_of_file(&fixture.view(), "x").unwrap_err().error;
         assert_eq!(invalid.kind, crate::OpErrorKind::SchemaMismatch);
         assert!(
             invalid
@@ -295,7 +312,7 @@ mod tests {
 
         std::fs::remove_file(&path).unwrap();
         std::fs::create_dir(&path).unwrap();
-        let unreadable = anchors_of_file(&fixture.view(), "x").unwrap_err();
+        let unreadable = anchors_of_file(&fixture.view(), "x").unwrap_err().error;
         assert_eq!(unreadable.kind, crate::OpErrorKind::Internal);
         assert!(
             unreadable

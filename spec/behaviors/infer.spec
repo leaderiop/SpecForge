@@ -499,8 +499,9 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
     file rule MCP navigation and the LSP share, with each one's kind,
     line and symbol, and each kind's guide
     (compute_inference_guide). The list is the one
-    specforge.find_spec_for_source returns for the same path. With no
-    project served the file scope names a file of no project: it is the
+    specforge.find_spec_for_source returns for the same path; a file: path
+    whose key lies outside the project root is the same refusal, on scope.
+    With no project served the file scope names a file of no project: it is the
     no-project refusal (precondition_failed), as every core prompt read
     that names a file is. The payload is tagged with its scope (file).
   """

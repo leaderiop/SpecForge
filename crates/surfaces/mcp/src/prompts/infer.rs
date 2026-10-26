@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_ops::read::infer::{self, InferencePlanRequest, PlanDocument};
-use specforge_ops::read::navigate::{AnchoredEntity, FileMatch, anchors_of_file};
+use specforge_ops::read::navigate::{AnchoredEntity, FileAnchorsField, FileMatch, anchors_of_file};
 
 use crate::args::Arguments;
 use crate::prompt::{CorePrompt, Prompted};
@@ -32,6 +32,14 @@ impl ArgumentOf<KindGuideField> for Prompt {
     fn argument(field: KindGuideField) -> Option<&'static str> {
         match field {
             KindGuideField::Kind => Some("scope"),
+        }
+    }
+}
+
+impl ArgumentOf<FileAnchorsField> for Prompt {
+    fn argument(field: FileAnchorsField) -> Option<&'static str> {
+        match field {
+            FileAnchorsField::FilePath => Some("scope"),
         }
     }
 }
@@ -240,7 +248,8 @@ fn validation() -> String {
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> Outcome {
     // The entities anchored to the file: the anchors read view's answer, the one
     // specforge.find_spec_for_source gives.
-    let found = anchors_of_file(project, file_path).map_err(McpError::from)?;
+    let found = anchors_of_file(project, file_path)
+        .map_err(|refusal| Box::new(<Prompt as ArgumentOf<FileAnchorsField>>::refused(refusal)))?;
 
     let guide = infer::guide(project);
     let kinds = guide

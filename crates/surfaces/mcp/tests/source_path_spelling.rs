@@ -57,7 +57,6 @@ fn assert_leaves(error: &Value, argument: &str, named: &str) {
     );
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test(
     invariant = "mcp_served_project_consistency",
     verify = "a path an MCP request names resolves inside the served project, whatever its spelling"
@@ -117,7 +116,6 @@ fn every_source_path_argument_reads_one_table_of_spellings() {
     }
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test(
     behavior = "provide_mcp_find_spec_for_source_tool",
     verify = "a file_path outside the project root is refused as invalid_input on file_path"

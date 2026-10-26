@@ -8,7 +8,7 @@ use specforge_ops::OpErrorKind;
 use specforge_ops::read::infer::{
     self, Recorded, SessionField, SessionRequest, SessionStep, session,
 };
-use specforge_ops::read::navigate::{FileMatch, anchors_of_file};
+use specforge_ops::read::navigate::{FileAnchorsField, FileMatch, anchors_of_file};
 use specforge_project::{Environment, ExtensionLoad};
 
 use crate::view_support::{Assembled, Viewed, config_read};
@@ -149,7 +149,6 @@ fn a_marked_file_behind_a_link_that_leaves_is_refused_where_it_lands() {
     );
 }
 
-#[ignore = "flipped by T4"]
 #[specforge_test_macros::test(
     behavior = "read_a_named_source_path",
     verify = "every spelling of a source-code path under the project root reads as its key"
@@ -168,6 +167,12 @@ fn the_anchors_read_their_query_from_the_project_root() {
     assert_eq!(found(file.to_str().unwrap()).unwrap(), FileMatch::Exact);
     assert_eq!(found(dir.to_str().unwrap()).unwrap(), FileMatch::Directory);
     for outside in ["../x.rs", "/elsewhere/a.rs", ""] {
-        assert!(found(outside).is_err(), "{outside:?}");
+        let refusal = anchors_of_file(&project.view(), outside).unwrap_err();
+        assert_eq!(
+            refusal.subject,
+            Some(FileAnchorsField::FilePath),
+            "{outside:?}"
+        );
+        assert_eq!(refusal.error.code, "not_a_source_path", "{outside:?}");
     }
 }

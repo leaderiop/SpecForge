@@ -126,8 +126,12 @@ fn a_rootless_view_is_no_project() {
     let project = anchored(&[("alpha", "src/a.rs")]);
     let view = project.rootless_view();
     let file = anchors_of_file(&view, "src/a.rs").unwrap_err();
-    assert_eq!(file.kind, specforge_ops::OpErrorKind::PreconditionFailed);
-    assert_eq!(file.code, "no_project");
+    assert_eq!(
+        file.error.kind,
+        specforge_ops::OpErrorKind::PreconditionFailed
+    );
+    assert_eq!(file.error.code, "no_project");
+    assert_eq!(file.subject, None);
     let entity = anchors_of_entity(&view, "alpha").unwrap_err();
     assert_eq!(entity.error.code, "no_project");
     assert_eq!(entity.subject, None);
@@ -164,7 +168,7 @@ fn an_anchors_manifest_outside_the_project_is_not_read() {
 
     let file = anchors_of_file(&project.view(), "x").unwrap_err();
     let entity = anchors_of_entity(&project.view(), "OUTSIDE").unwrap_err();
-    for error in [&file, &entity.error] {
+    for error in [&file.error, &entity.error] {
         assert_eq!(error.kind, specforge_ops::OpErrorKind::InvalidInput);
         assert_eq!(error.code, "E071");
         assert!(

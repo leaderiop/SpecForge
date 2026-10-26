@@ -626,9 +626,12 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
     and returns {file_path, match_mode, entities, count}: the anchors of
     the project's specforge-anchors.json whose file the path names,
     compared as text component by component (./a and a\b are a and a/b; a
-    substring is no match), the tightest non-empty mode winning (exact,
-    else directory, else suffix_path; none when nothing matches), in
-    manifest order, each with the entity's kind when the graph declares
+    substring is no match) after the path is read from the project root as a
+    named spec file is (its absolute path under the root is that path); a path
+    whose key lies outside the project root, or that names nothing, is refused
+    as invalid_input on file_path. The tightest non-empty mode wins (exact,
+    else directory, else suffix_path; none when nothing matches); the rows
+    are in manifest order, each with the entity's kind when the graph declares
     it. No anchors manifest is an empty list. An anchors manifest that
     cannot be read or parsed is refused with E071. The infer prompt's file
     scope lists the same entities.

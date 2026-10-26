@@ -1,11 +1,11 @@
 use crate::target::Project;
 use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
-use specforge_ops::read::navigate;
+use specforge_ops::read::navigate::{self, FileAnchorsField};
 
 use crate::args::Arguments;
+use crate::refusal::ArgumentOf;
 use crate::reply::Answered;
 use crate::target::ProjectRef;
-use crate::tool::McpError;
 
 /// `specforge.find_spec_for_source`'s arguments.
 #[derive(Debug, Arguments)]
@@ -21,6 +21,14 @@ pub use specforge_ops::read::navigate::FileAnchors as Reply;
 /// one file rule (`specforge_ops::read::navigate::anchors_of_file`).
 pub(crate) struct Tool;
 
+impl ArgumentOf<FileAnchorsField> for Tool {
+    fn argument(field: FileAnchorsField) -> Option<&'static str> {
+        match field {
+            FileAnchorsField::FilePath => Some("file_path"),
+        }
+    }
+}
+
 impl CoreTool for Tool {
     const NAME: &'static str = "specforge.find_spec_for_source";
     const DESCRIPTION: &'static str = "Find specforge entities anchored to a source file";
@@ -34,7 +42,7 @@ impl CoreTool for Tool {
 
     fn call(project: ProjectRef<'_>, args: Args) -> Answered<Reply> {
         let found =
-            navigate::anchors_of_file(&project.view(), &args.file_path).map_err(McpError::from)?;
+            navigate::anchors_of_file(&project.view(), &args.file_path).map_err(Self::refused)?;
         Ok(found.into())
     }
 }
