@@ -34,7 +34,6 @@ fn titles_at(lenses: &[Value], line: u64) -> Vec<&str> {
     verify = "a lens counts an entity's references and verify statements as the compile reads them"
 )]
 #[tokio::test]
-#[ignore = "flipped by T3"]
 async fn a_lens_counts_what_the_compile_reads() {
     let (mut client, uri, _dir) =
         Session::with_extensions(&["@specforge/software"], "a.spec", TEXT).await;

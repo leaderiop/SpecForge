@@ -34,6 +34,9 @@ pub fn initialize_result() -> InitializeResult {
                 resolve_provider: Some(true),
                 ..Default::default()
             })),
+            code_lens_provider: Some(CodeLensOptions {
+                resolve_provider: None,
+            }),
             document_symbol_provider: Some(OneOf::Left(true)),
             workspace_symbol_provider: Some(OneOf::Left(true)),
             semantic_tokens_provider: Some(

@@ -271,6 +271,13 @@ impl LanguageServer for Backend {
         .await
     }
 
+    async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+        self.answering("textDocument/codeLens", |state| {
+            Ok(answers::code_lenses(state, &params.text_document.uri))
+        })
+        .await
+    }
+
     async fn symbol(
         &self,
         params: WorkspaceSymbolParams,

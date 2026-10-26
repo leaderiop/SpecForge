@@ -43,8 +43,8 @@ behavior lsp_initialize "LSP Initialize" {
     standard LSP token type (it is sent before extensions load, so any
     standard type a KindRegistryEntry.semantic_token names is already in
     it), completion trigger characters, rename support, code action kinds,
-    and document sync kind (INCREMENTAL). The server MUST report support for workspace symbol search
-    and document symbol outline. The initialization response MUST NOT
+    and document sync kind (INCREMENTAL). The server MUST report support for workspace symbol search,
+    document symbol outline and code lenses. The initialization response MUST NOT
     hardcode any domain-specific capabilities — all capabilities beyond
     structural defaults MUST derive from loaded extensions. The workspace
     (rootUri, else the first workspace folder) MUST open the project it is
