@@ -200,15 +200,26 @@ export function registerCommands(
       });
       if (!name) return;
 
-      const uri = vscode.Uri.joinPath(
-        workspaceFolder.uri,
-        "spec",
-        `${name}.spec`
-      );
-      await vscode.workspace.fs.writeFile(
-        uri,
-        Buffer.from(`// ${name}\n\n`)
-      );
+      // The spec root is the project's own setting (default: the folder itself).
+      let specRoot = ".";
+      try {
+        const raw = await vscode.workspace.fs.readFile(
+          vscode.Uri.joinPath(workspaceFolder.uri, "specforge.json")
+        );
+        const root = JSON.parse(Buffer.from(raw).toString("utf8")).spec_root;
+        if (typeof root === "string") specRoot = root;
+      } catch {
+        // no readable specforge.json: the folder itself
+      }
+      const uri = vscode.Uri.joinPath(workspaceFolder.uri, specRoot, `${name}.spec`);
+      try {
+        await vscode.workspace.fs.stat(uri);
+        vscode.window.showErrorMessage(`${name}.spec already exists.`);
+        return;
+      } catch {
+        // stat failed: the file is not there
+      }
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(`// ${name}\n\n`));
       const doc = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(doc);
     }),
