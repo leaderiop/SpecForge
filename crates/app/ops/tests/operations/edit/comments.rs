@@ -14,7 +14,6 @@ const FIRST: &str = "behavior bh_two \"B2\" {\n  verify \"Example:\n// the calle
 
 const PRODUCES: &str = "  produces [ev_one]\n";
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_field",
     verify = "unset keeps a // line inside the string above the field"
@@ -28,7 +27,6 @@ fn unset_keeps_a_comment_line_inside_a_string_above_the_field() {
     }
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_link",
     verify = "unlink of the last item keeps a // line inside the string above the list"
@@ -40,7 +38,6 @@ fn unlink_keeps_a_comment_line_inside_a_string_above_the_list() {
     assert!(is_canonical(&c, &text));
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_obligation",
     verify = "remove-verify keeps a // line inside the string above the statement"
@@ -60,7 +57,6 @@ fn remove_verify_keeps_a_comment_line_inside_a_string_above_the_statement() {
     assert!(is_canonical(&c, &text));
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "delete_entity",
     verify = "delete with unlink_references keeps a // line inside a string above a reference"
@@ -79,7 +75,6 @@ fn delete_keeps_a_comment_line_inside_a_string_above_a_reference() {
     );
 }
 
-#[ignore = "flipped by T3"]
 #[specforge_test_macros::test(
     behavior = "edit_entity_field",
     verify = "set of an absent field never writes inside the string above the first field"

@@ -75,8 +75,8 @@ behavior edit_entity_field "Edit an Entity Field" {
     project's format configuration past its key, and inserts an absent field
     at its rank (one-line values, then
     block fields, then triple-quoted text, in the kind's declared order). An
-    unset edit leaves the field holding none: it removes the field and the comment lines directly above it, or, over
-    a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
+    unset edit leaves the field holding none: it removes the field and the comment lines directly above it, as the
+    parse reads them (a `//` line inside a string is none), or, over a file default, writes `[]` for a list and `{}` for a block field; a field of one value with a default cannot
     hold none and is refused. A second unset changes nothing. A
     dotted `field.entry` path edits one entry of a block field the kind
     declares; its field is refused as any field is, a field that is not a declared block field, or a path whose

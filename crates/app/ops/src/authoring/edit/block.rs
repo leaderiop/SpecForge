@@ -191,13 +191,12 @@ impl Block {
         }
     }
 
-    /// The first line of the comment lines directly above member line `line` (`line` itself when there are none),
-    /// climbing no higher than the line below the header.
-    fn with_comments_above(&self, mut line: usize) -> usize {
-        while line > self.header() + 1 && self.lines[line - 1].trim_start().starts_with("//") {
-            line -= 1;
-        }
-        line
+    /// The first line of the comment lines the parse read directly above member line `line` (`line` itself when
+    /// there are none; 0-based, as `lines`). Never above the block's opening brace: a comment on its row trails it.
+    fn with_comments_above(&self, line: usize) -> usize {
+        self.entity()
+            .comments_above(line + 1)
+            .map_or(line, |run| run.start_line - 1)
     }
 
     /// The block removed, with its doc comment as the parse read it (never the format header) and one blank line
