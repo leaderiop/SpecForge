@@ -129,7 +129,7 @@ feature code_actions "Code Actions" {
 feature outline_and_symbol_search "Outline and Symbol Search" {
   status   done
   // Owned here (behaviors/lsp.spec):
-  //   outline_view, workspace_symbol_search
+  //   outline_view, workspace_symbol_search, session_graph_request
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
   //   provide_extension_defined_lsp_icons
   problem  """

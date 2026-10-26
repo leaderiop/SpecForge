@@ -718,6 +718,33 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
   verify contract "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
 }
 
+behavior session_graph_request "Session Graph Request" {
+  features   [outline_and_symbol_search]
+  category   query
+  invariants [zero_domain_knowledge_core, lsp_response_latency]
+  ports      [LspProtocol]
+  contract   """
+    The LSP MUST answer specforge/graph, a request with no params, with
+    the session's graph as specforge export --format=graph --no-schema
+    writes the project (the open buffers included; while a rebuild runs,
+    the last complete compile) and the symbol kind of each kind its nodes
+    hold, and each node's degree: its edges to and from other entities,
+    an edge from an entity to itself counting for nothing (Graph::degree,
+    the graph's one self-edge rule). It MUST answer specforge/entity, at a
+    text document position, with the graph node of the entity
+    Cursor::target names there, and null where the cursor names no entity:
+    a word in a string or a comment, a keyword, a field name. After each
+    applied change, a client that declared the experimental capability
+    specforgeGraphChanged MUST be sent specforge/graphChanged; no other
+    client is sent it.
+  """
+  verify integration "the graph request answers the session's graph, an unsaved buffer's entities included, with each kind's symbol kind"
+  verify integration "the entity request answers the node the cursor names, and nothing for a word in a string"
+  verify integration "the graph request answers each entity's degree, an entity naming only itself at 0"
+  verify unit "a rebuild notifies only a client that declared specforgeGraphChanged"
+  verify integration "a rebuild sends specforge/graphChanged to a client that declared it"
+}
+
 // Delegates to behaviors/incremental.spec pipeline: watch_file_system_for_changes ->
 // debounce_file_changes -> invalidate_changed_files -> rebuild_affected_subgraph ->
 // emit_incremental_diagnostics

@@ -40,6 +40,7 @@ mod rename;
 mod semantic_tokens;
 mod served;
 mod session;
+mod session_graph;
 mod snippets;
 mod stale;
 mod state;

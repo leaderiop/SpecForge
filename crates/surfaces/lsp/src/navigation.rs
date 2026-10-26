@@ -482,6 +482,32 @@ mod tests {
     }
 
     #[spec(
+        behavior = "provide_extension_defined_lsp_icons",
+        verify = "default SymbolKind::Object when lsp_icon not specified"
+    )]
+    #[ignore = "flipped by T3"]
+    fn a_kind_without_an_lsp_icon_is_an_object() {
+        let mut registry = KindRegistry::new();
+        assert_eq!(
+            symbol_kind_from_entity("gadget", &registry),
+            SymbolKind::OBJECT
+        );
+        for icon in [None, Some("Sparkle".to_string())] {
+            let mut entry = specforge_registry::KindRegistryEntry {
+                kind_name: "gadget".into(),
+                ..Default::default()
+            };
+            entry.declared.lsp_icon = icon.clone();
+            registry.register(entry);
+            assert_eq!(
+                symbol_kind_from_entity("gadget", &registry),
+                SymbolKind::OBJECT,
+                "{icon:?}"
+            );
+        }
+    }
+
+    #[spec(
         invariant = "lsp_utf16_positions",
         verify = "a fix is offered whole or not at all: never over a buffer typed since, nor a file with no compiled text"
     )]
