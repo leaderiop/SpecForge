@@ -229,10 +229,11 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "guests",
-        proves: "each guest's tests pass and it is clippy-clean for wasm and native",
+        proves: "each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "extensions/**",
+            "examples/*/extension/**",
             "crates/**",
             "integrations/rust/**",
             "Cargo.toml",

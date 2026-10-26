@@ -27,8 +27,8 @@ root-layout       hook       always
                              the tracked top-level entries are the root list's (gate/src/root_layout.rs)
 builtins          quick      computed: a file some blob's inputs.json records
                              every committed blob was built from the sources it recorded
-guests            quick      extensions/**, crates/**, integrations/rust/**, Cargo.toml
-                             each guest's tests pass and it is clippy-clean for wasm and native
+guests            quick      extensions/**, examples/*/extension/**, crates/**, integrations/rust/**, Cargo.toml
+                             each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm
 audit             quick      **/Cargo.lock
                              no lockfile holds an unsound or yanked dependency
 build             quick      computed: a workspace member; the root manifest, lockfile or nextest config [compiles]

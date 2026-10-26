@@ -363,6 +363,26 @@ fn quick_runs_the_builtins_check_when_a_recorded_input_changes() {
 }
 
 #[test]
+fn quick_runs_the_guests_when_an_examples_extension_changes() {
+    assert_ne!(
+        selection(
+            "guests",
+            Mode::Quick,
+            &["examples/marketing/extension/src/lib.rs"]
+        ),
+        Selection::Skip
+    );
+    assert_eq!(
+        selection(
+            "guests",
+            Mode::Quick,
+            &["examples/marketing/spec/brand.spec"]
+        ),
+        Selection::Skip
+    );
+}
+
+#[test]
 fn the_list_is_pinned() {
     insta::assert_snapshot!(render_list());
 }

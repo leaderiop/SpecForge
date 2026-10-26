@@ -213,8 +213,18 @@ pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         ),
     ];
     let mut failures = Vec::new();
-    for manifest in guests_of(ctx.repo) {
-        for (what, before, after) in passes {
+    // An example project's extension gets the wasm clippy pass only: it has no tests and no native use.
+    let examples = crate::repo::expand(&ctx.repo.root, "examples/*/extension/Cargo.toml");
+    let runs = guests_of(ctx.repo)
+        .into_iter()
+        .map(|manifest| (manifest, &passes[..]))
+        .chain(
+            examples
+                .into_iter()
+                .map(|manifest| (manifest, &passes[1..2])),
+        );
+    for (manifest, passes) in runs {
+        for &(what, before, after) in passes {
             let mut cmd = ctx.cmd("cargo");
             cmd.env("CARGO_TARGET_DIR", &target)
                 .env("SPECFORGE_REPORT", &reports);
