@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_graph::{AnnotationJson, FieldJson, Members, MethodJson};
+use specforge_graph::{AnnotationJson, FieldJson, Members, MethodJson, Obligation};
 
 use crate::args::{Arguments, EntityIds};
 use crate::prompt::{CorePrompt, Prompted};
@@ -60,7 +60,8 @@ pub struct Payload {
     pub methods: Vec<MethodJson>,
     pub upstream_entities: Vec<String>,
     pub downstream_entities: Vec<String>,
-    pub verify_expectations: Vec<String>,
+    /// Its obligations, as the graph export writes them.
+    pub verify_expectations: Vec<Obligation>,
     /// The entity IDs the request named as structural constraints.
     pub structural_constraints: Vec<String>,
     /// Each of them, whether or not an edge connects it to `entity_id`.
@@ -119,11 +120,7 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
         .iter()
         .map(|r| r.peer.to_string())
         .collect();
-    let verify_expectations: Vec<String> = facts
-        .obligations
-        .iter()
-        .map(specforge_ops::read::inspect::obligation_text)
-        .collect();
+    let verify_expectations = facts.obligations.to_vec();
 
     // Structural constraints: entities the caller wants in the context even
     // when no edge connects them to this one.

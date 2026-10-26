@@ -457,7 +457,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.inspect tool that
     accepts entity_id (required). The tool MUST return full entity details
-    including kind, fields, contract text, references, verify declarations,
+    including kind, fields, contract text, references, its obligations as the graph export writes them,
     coverage status, and related diagnostics. Its testable field is the
     testability of the entity's kind, the standing the LSP hover shows; a
     separate declared field says whether the entity declares at least one

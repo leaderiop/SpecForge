@@ -214,8 +214,9 @@ type McpInspectResult "Mcp Inspect Result" {
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
-  /// Its verify texts; absent when it declares none.
-  verify_declarations string[]     @optional
+  /// Its obligations, each its kind (absent for a bare verify) and its text, as the graph export
+  /// writes them and specforge.edit reads them; absent when it declares none.
+  verify_declarations Obligation[] @optional
   /// Whether the entity counts (exempt, not_testable) and, when it does, how
   /// it is proven, as specforge.coverage's row says.
   coverage_status     CoverageStatus
@@ -1024,7 +1025,8 @@ type McpContextPromptResult "Context Prompt Result" {
   methods                        MethodJson[] @optional
   upstream_entities              string[]
   downstream_entities            string[]
-  verify_expectations            string[]
+  /// Its obligations, as the graph export writes them.
+  verify_expectations            Obligation[]
   /// The entity IDs the request named as structural constraints.
   structural_constraints         string[]
   /// Each of them, whether or not an edge connects it to entity_id.

@@ -251,8 +251,11 @@ fn facts_carry_the_node_kind_entry_headline_and_obligations() {
     );
     assert_eq!(facts.obligations.len(), 1);
     assert_eq!(
-        specforge_ops::read::inspect::obligation_text(&facts.obligations[0]),
-        "unit a known user logs in"
+        facts.obligations[0],
+        specforge_graph::Obligation {
+            kind: "unit".into(),
+            text: "a known user logs in".into()
+        }
     );
     let fields: Vec<&str> = facts
         .node

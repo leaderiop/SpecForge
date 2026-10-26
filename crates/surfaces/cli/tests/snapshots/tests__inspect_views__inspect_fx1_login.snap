@@ -50,6 +50,9 @@ expression: "normalized(result, root)"
   "testable": true,
   "title": "Log in",
   "verify_declarations": [
-    "unit a known user logs in"
+    {
+      "kind": "unit",
+      "text": "a known user logs in"
+    }
   ]
 }

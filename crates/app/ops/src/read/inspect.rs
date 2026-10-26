@@ -39,8 +39,8 @@ pub struct EntityFacts<'v> {
     /// snapshot (ADR 0019), `testable`, `obligated()`, `exempt()`.
     /// Independent of the recorded report.
     pub standing: &'v Standing,
-    /// Its `verify` statements, in declaration order: its record's in the
-    /// view's entity snapshot (ADR 0019).
+    /// Its `verify` statements, in declaration order: the records every output
+    /// writes (ADR 0273), borrowed from the view's entity snapshot (ADR 0019).
     pub obligations: &'v [Obligation],
     /// The references to it and the ones it makes (ADR 0016 D2), in graph
     /// edge order.
@@ -109,10 +109,4 @@ pub fn inspect<'v>(
             .filter(|d| is_about(graph, d, entity_id))
             .collect(),
     })
-}
-
-/// An obligation as MCP inspect and the context prompt list it:
-/// `"<kind> <text>"`.
-pub fn obligation_text(obligation: &Obligation) -> String {
-    format!("{} {}", obligation.kind, obligation.text)
 }

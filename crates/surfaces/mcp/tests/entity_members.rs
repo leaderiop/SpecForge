@@ -87,7 +87,6 @@ fn prompt_payload(server: &mut Served, id: &str) -> Value {
     behavior = "provide_mcp_inspect_tool",
     verify = "inspect writes each obligation as its kind, absent for a bare verify, and its text"
 )]
-#[ignore = "flipped by T4"]
 fn inspect_writes_each_obligation_as_its_kind_and_its_text() {
     let mut server = served();
     let want = json!([{"kind": "unit", "text": "tests pass"}, {"text": "unit tests pass"}]);
@@ -101,7 +100,6 @@ fn inspect_writes_each_obligation_as_its_kind_and_its_text() {
     behavior = "provide_mcp_inspect_tool",
     verify = "an obligation inspect writes, given to remove_verify, removes that verify line"
 )]
-#[ignore = "flipped by T4"]
 fn an_inspected_obligation_is_the_one_remove_verify_removes() {
     let mut server = served();
     let inspected = tool(&mut server, "specforge.inspect", json!({"entity_id": "b3"}));
@@ -135,7 +133,6 @@ fn an_inspected_obligation_is_the_one_remove_verify_removes() {
     behavior = "inspect_entity_facts",
     verify = "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
 )]
-#[ignore = "flipped by T4"]
 fn every_reply_writes_an_obligation_as_the_graph_export_does() {
     let mut server = served();
     let queried = tool(
@@ -149,7 +146,7 @@ fn every_reply_writes_an_obligation_as_the_graph_export_does() {
         "specforge.export",
         json!({"format": "context"}),
     );
-    let in_context = exported["entities"]
+    let in_context = exported["nodes"]
         .as_array()
         .and_then(|all| all.iter().find(|e| e["id"] == "b3"))
         .map(|e| e["verify"].clone());

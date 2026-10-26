@@ -58,20 +58,8 @@ fn assert_one_agent_context(project: TestProject) {
         }
         assert_eq!(node.get("annotations"), payload.get("annotations"), "{id}");
         assert_eq!(node.get("methods"), payload.get("methods"), "{id}");
-        let stated: Vec<String> = node["verify"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(|o| {
-                format!(
-                    "{} {}",
-                    o["kind"].as_str().unwrap_or(""),
-                    o["text"].as_str().unwrap()
-                )
-            })
-            .collect();
         assert_eq!(
-            serde_json::to_value(&stated).unwrap(),
+            node.get("verify").cloned().unwrap_or_else(|| json!([])),
             payload["verify_expectations"],
             "{id}"
         );

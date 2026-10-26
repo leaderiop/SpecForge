@@ -2599,6 +2599,21 @@ expression: listing
           ],
           "type": "object"
         },
+        "Obligation": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
         "ParameterJson": {
           "additionalProperties": false,
           "properties": {
@@ -2737,7 +2752,7 @@ expression: listing
         },
         "verify_declarations": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/Obligation"
           },
           "type": "array"
         }
