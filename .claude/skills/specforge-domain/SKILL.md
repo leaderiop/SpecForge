@@ -88,8 +88,9 @@ Planned or in progress -- say so, never imply they work:
    target kind each field declares.
 3. **Graph** -- in memory, rebuilt on each compile, incrementally under `specforge watch` and `specforge-lsp`. No database.
 4. **Validation** -- structural checks (unknown kind E024, missing required field E006, wrong value E061, unresolved
-   reference E003, wrong target kind E022, ...) plus each loaded extension's rules. `specforge explain <code>` and
-   `docs/diagnostics.md` list every code with its owner.
+   reference E003, wrong target kind E022, ...) plus each loaded extension's rules. `specforge explain <code>` explains
+   every code (the catalog's anywhere, an extension's own inside the project that loads it); `docs/diagnostics.md`
+   lists the catalog's.
 5. **Surfaces** -- the same graph behind every door.
 
 ## Extension model

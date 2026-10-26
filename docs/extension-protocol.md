@@ -283,11 +283,15 @@ Returns both declarative rules (pattern-based, evaluated by the host) and custom
       "severity": "warning",
       "message_template": "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}",
       "check": "custom",
-      "wasm_function": "validate__verify_kind_allowlist"
+      "wasm_function": "validate__verify_kind_allowlist",
+      "description": "A verify statement whose kind the entity's kind does not allow."
     }
   ]
 }
 ```
+
+`description` (optional) is what the code means; the host shows it where its catalog has no entry for the code
+(`specforge explain`, the hover).
 
 The host credits the fields to the answering extension and reads the kind's owner from its kind registry (ADR 0096).
 

@@ -335,7 +335,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 ### Declarative rules
 
-`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
+`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `description(..)` (what the code means; `specforge explain` and the hover show it), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
 
 | `CheckKind` | Reads |
 |---|---|
