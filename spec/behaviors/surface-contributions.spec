@@ -166,6 +166,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     wasm_sandbox_integrity,
     extension_isolation,
     extensions_run_in_their_loading_runtime,
+    mcp_structured_error_responses,
   ]
   category   command
   types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
@@ -180,7 +181,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the caller"
     surface_command_dispatched_emitted "Over MCP, a surface_command_dispatched event records the command and its exit code once its export returns; the CLI has no event sink"
-    args_normalized_by_the_host        "Both surfaces send the export the args normalized by one rule before it runs: an absent arg takes its declared default, an unset flag is false, each value is its declared type, no undeclared arg is passed; a value the rule refuses is INVALID_INPUT, the same error object on both surfaces, and the export is not called"
+    args_normalized_by_the_host        "Both surfaces send the export the args normalized by one rule before it runs: an absent arg takes its declared default, an unset flag is false, each value is its declared type, no undeclared arg is passed; a value the rule refuses is refused with the rule's message on both surfaces (INVALID_INPUT on the command line, invalid_input naming the arg over MCP), and the export is not called"
     evidence_carried                   "The CommandInput carries what the project's recorded test report proves: absent without a report, unreadable with the reason when the report cannot be used, else the obligations, proven obligations and failing tests of every entity that counts toward coverage, scored by the coverage rule specforge stats reports"
     one_operation                      "Both surfaces run a command through one operation over the project view: it normalizes the given args, attaches the project root, the evidence and the host's date, and calls the export; a surface reads its arguments in and renders the outcome"
   }
@@ -201,8 +202,8 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     export with its arguments as the args, normalized by the rule the
     command line applies (its declared defaults, false for an unset flag,
     each value its declared type; an argument the rule refuses is an
-    isError result carrying the INVALID_INPUT object the CLI writes, and
-    the export is not called), over the served graph, always
+    isError result carrying invalid_input on that argument, with the
+    message the CLI writes, and the export is not called), over the served graph, always
     asking for json: a JSON object the command prints on success (with
     nothing on stderr) is the tool result's structured content too, and
     a failure that prints one JSON object on stderr and nothing on stdout
@@ -254,7 +255,6 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "under --format json a command whose export trapped prints one JSON error object"
   verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
   verify unit "the host and the SDK normalize a command's args by the same rule"
-  verify unit "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
   verify unit "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
   verify unit "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
   verify unit "over MCP a command that fails without one error object is internal_error carrying its exit code, stdout and stderr"

@@ -26,7 +26,6 @@ fn failed_run(exit_code: i32, stdout: &str, stderr: &str) -> (Value, Logged) {
     behavior = "dispatch_surface_command",
     verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes, and the export is not called"
 )]
-#[ignore = "flipped by T2"]
 fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
         json!({"id": "pair", "title": "Pair", "description": "Two required args",

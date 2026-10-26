@@ -9,6 +9,7 @@
 use serde_json::{Value, json};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommand, RunError};
 use specforge_protocol_types::CommandOutput;
+use specforge_protocol_types::command_args::ArgError;
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::events::McpEvent;
@@ -132,10 +133,10 @@ fn mcp_tool_adapter(
 /// A command's run as a tool result, and its dispatch event when its export
 /// returned (whatever its exit code). The run is `specforge <ext> <command>`
 /// over the call's project, always asked for json: the tool has no format
-/// argument (ADR 0011 A). Args the rule refuses are the command's own
-/// `INVALID_INPUT` object, the one the CLI writes; an export that did not
-/// answer is a structured MCP error carrying its E028 (ADR 0013 D4); no
-/// dispatch is recorded for either.
+/// argument (ADR 0011 A). Args the rule refuses are `invalid_input` on the arg
+/// ([`refused_args`], ADR 0252); an export that did not answer is a
+/// structured MCP error carrying its E028 (ADR 0013 D4); no dispatch is
+/// recorded for either.
 fn command_adapter(
     project: &ProjectRef<'_>,
     command: &ExtensionCommand,
@@ -158,9 +159,34 @@ fn command_adapter(
             };
             (output_result(output), Some(event))
         }
-        Err(RunError::Args(refused)) => (ToolOutcome::failed(refused.to_json()), None),
+        Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
         Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
         Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
+    }
+}
+
+/// The one arg rule's refusal as the McpError a core tool's own reading makes:
+/// `invalid_input` on the arg it names (the first missing one, for several),
+/// the rule's message (the CLI's), the close arg or value as
+/// `data.suggestion` (ADR 0252 D2).
+fn refused_args(error: &ArgError) -> McpError {
+    let argument = match error {
+        ArgError::Missing { names } => names.first(),
+        ArgError::NotOneOf { name, .. }
+        | ArgError::NotInteger { name, .. }
+        | ArgError::NotString { name, .. }
+        | ArgError::NotBool { name, .. }
+        | ArgError::Unknown { name, .. } => Some(name),
+    };
+    let mut refused = McpError::new(ErrorCode::InvalidInput, error.message());
+    if let Some(argument) = argument {
+        refused = refused.with_argument(argument);
+    }
+    match error.suggestion() {
+        Some(close) => {
+            refused.with_data_field("suggestion", json!(format!("did you mean '{close}'?")))
+        }
+        None => refused,
     }
 }
 
@@ -238,3 +264,6 @@ fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
 fn elapsed_ms(started: std::time::Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
+
+#[cfg(test)]
+mod tests;

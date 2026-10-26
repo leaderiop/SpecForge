@@ -407,8 +407,8 @@ that does not know the field ignores it). The host reads the declaration by one 
   declared arg the caller set, as its type (an integer or a flag may come as the string a command line
   gives); an absent arg its default; an unset flag `false` (a flag is never required). A missing
   required arg, a value of another type or below the minimum, or an undeclared argument is refused
-  before the export runs, as one `{"code": "INVALID_INPUT", "message", "suggestion"?}` object on both
-  surfaces.
+  before the export runs, as one `{"code": "INVALID_INPUT", "message", "suggestion"?}` object on the
+  command line and as `invalid_input` naming the arg over MCP.
 - **The MCP tool** of a command is `specforge.<short>.<id>`; its `inputSchema` states each arg's type,
   values, minimum, default and description, `required` lists the required args that are not flags, and
   `additionalProperties` is `false`.

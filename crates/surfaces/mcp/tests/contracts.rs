@@ -1451,7 +1451,7 @@ fn contract_dispatch_surface_command() {
 
     // args_normalized_by_the_host: the export gets the args the command
     // line would send, each its declared type; an argument the declaration
-    // refuses is the command's INVALID_INPUT object, and it does not run.
+    // refuses is invalid_input on that argument, and it does not run.
     let resp = call_tool(
         &mut server,
         "specforge.probe.probe",
@@ -1459,16 +1459,12 @@ fn contract_dispatch_surface_command() {
     );
     assert_eq!(tool_json(&resp)["args"], json!({"port": port}), "{resp}");
     assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
-    for (arguments, message) in [
-        (json!({"port": "x"}), "port must be an integer, got 'x'"),
-        (json!({"dir": "/"}), "unknown argument 'dir'"),
-    ] {
+    for (arguments, argument) in [(json!({"port": "x"}), "port"), (json!({"dir": "/"}), "dir")] {
         let resp = call_tool(&mut server, "specforge.probe.probe", arguments.clone());
-        assert_eq!(resp["result"]["isError"], true, "{arguments}: {resp}");
+        let error = crate::tool_errors::mcp_error(&resp);
         assert_eq!(
-            resp["result"]["structuredContent"],
-            json!({"code": "INVALID_INPUT", "message": message}),
-            "{arguments}"
+            (&error["code"], &error["argument"]),
+            (&json!("invalid_input"), &json!(argument))
         );
     }
     assert_eq!(events(&server, "surface_command_dispatched").len(), 2);

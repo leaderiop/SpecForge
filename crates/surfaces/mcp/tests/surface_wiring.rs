@@ -1402,54 +1402,6 @@ fn mcp_sends_a_commands_export_the_args_its_derivation_normalizes() {
 }
 
 #[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
-)]
-fn over_mcp_a_refused_argument_is_the_commands_invalid_input_object() {
-    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    for (arguments, error) in [
-        (
-            json!({}),
-            json!({"code": "INVALID_INPUT", "message": "missing required arg 'style'"}),
-        ),
-        (
-            json!({"style": "xml"}),
-            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'xml'"}),
-        ),
-        (
-            json!({"style": "jsno"}),
-            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'jsno'",
-                "suggestion": "json"}),
-        ),
-        (
-            json!({"style": "md", "limit": "x"}),
-            json!({"code": "INVALID_INPUT", "message": "limit must be an integer, got 'x'"}),
-        ),
-        (
-            json!({"style": "md", "bogus": 1}),
-            json!({"code": "INVALID_INPUT", "message": "unknown argument 'bogus'"}),
-        ),
-        (
-            json!({"style": "md", "verbos": true}),
-            json!({"code": "INVALID_INPUT", "message": "unknown argument 'verbos'",
-                "suggestion": "verbose"}),
-        ),
-    ] {
-        let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
-        let result = &resp["result"];
-        assert_eq!(result["isError"], true, "{arguments}: {resp}");
-        assert_eq!(result["structuredContent"], error, "{arguments}");
-        assert_eq!(
-            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap(),
-            error,
-            "{arguments}"
-        );
-    }
-    assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
-    assert!(events(&server, "surface_command_dispatched").is_empty());
-}
-
-#[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
     verify = "an explicit extension tool named as a core tool is not listed, with I017"
 )]
