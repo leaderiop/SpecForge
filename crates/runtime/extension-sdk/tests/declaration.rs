@@ -37,6 +37,13 @@ fn reports() -> ContributionsBuilder {
         p.phase("check")
             .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
     });
+    b.rule("W950", |r| {
+        r.check(CheckKind::MissingRequiredField)
+            .target_kind("report")
+            .field("title")
+            .message_template("report '{id}' has no title")
+            .description("A report without a title cannot be listed: give it one.");
+    });
     b
 }
 
@@ -129,6 +136,10 @@ fn the_guest_serves_its_declaration() {
     assert_eq!(loaded, declared);
     assert_eq!(declared.surfaces.commands[0].id, "list");
     assert_eq!(declared.passes[0].name, "audit");
+    assert_eq!(
+        declared.validation_rules[0].description.as_deref(),
+        Some("A report without a title cannot be listed: give it one.")
+    );
     assert!(declared.declares(DeclaredCategory::Entities));
     for category in DeclaredCategory::ALL {
         assert_eq!(
