@@ -731,6 +731,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
     default_fallback_used     "Specifiers with no matching scope fall back to the default registry"
     no_registry_refused       "A name no scope_filter matches, with no default registry, is refused with R-OPS-001 before any network call"
     network_error_diagnosed   "Network errors produce ExtensionError diagnostic with retry guidance"
+    versions_are_versions     "A version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
     registry_resolved_emitted "registry_resolved event fires on successful resolution"
     address_from_root         "Each call goes to the registry's root, then the protocol's version prefix and the call's path; the server mounts the same routes"
   }
@@ -749,6 +750,10 @@ behavior resolve_registry_source "Resolve Registry Source" {
     Every call MUST go to the configured registry's root followed by the
     protocol's version prefix (/v1) and the call's path; the server MUST
     mount the same routes (ADR 0075).
+    A version list is read as SemVer versions where the reply is read: a
+    list holding another is not the protocol's (R009), never read as fewer
+    versions (ADR 0265); the reference server lists no stored version that
+    is no SemVer version.
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
@@ -762,6 +767,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "a scope_filter that is not a scope sends none of its scope's names to another registry"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, no_registry_refused, network_error_diagnosed, registry_resolved_emitted, address_from_root"
   verify unit "a version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
+  verify unit "a registry lists no stored version that is no SemVer version"
 }
 
 behavior search_registry "Search Registry" {

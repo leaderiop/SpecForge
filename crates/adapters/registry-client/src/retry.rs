@@ -112,7 +112,7 @@ impl<C: RegistryClient> RegistryClient for Retrying<C> {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.sent(|| self.inner.versions(name, registry, credential))
     }
 

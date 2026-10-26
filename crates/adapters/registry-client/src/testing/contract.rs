@@ -75,7 +75,11 @@ pub fn assert_client_contract(
         .versions(&tool, registry, None)
         .expect("K3: versions");
     versions.sort();
-    assert_eq!(versions, ["1.0.0", "1.1.0"], "K3: the published versions");
+    assert_eq!(
+        versions,
+        [Version::new(1, 0, 0), Version::new(1, 1, 0)],
+        "K3: the published versions"
+    );
 
     // K4
     let (declaration, wasm) = &declarations[1];

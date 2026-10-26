@@ -82,7 +82,7 @@ impl RegistryClient for HttpRegistryClient {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         let credential = credential.filter(|c| c.is_for(registry));
         let address = registry.url.address(&Call::Package(name));
         let body: VersionList = self.get(&address, credential, name.as_str())?;

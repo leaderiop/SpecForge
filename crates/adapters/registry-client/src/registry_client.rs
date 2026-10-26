@@ -133,16 +133,16 @@ impl From<RegistryError> for Diagnostic {
 /// [`crate::HttpRegistryClient`] and, in tests, `crate::testing::MemoryClient`; both are held to
 /// `crate::testing::assert_client_contract`.
 pub trait RegistryClient: Send + Sync {
-    /// Every version `registry` publishes of `name`, as served (not parsed). `NotFound` when the registry
-    /// answers that it has no such package (its 404 with `NOT_FOUND`); an answer no registry gives is
-    /// `InvalidReply`. A read carries `credential` as `Authorization: Bearer` when given; a registry that
+    /// Every version `registry` publishes of `name`, as SemVer versions in its order. `NotFound` when the
+    /// registry answers that it has no such package (its 404 with `NOT_FOUND`); an answer no registry gives,
+    /// a list holding a version that is no SemVer version among them, is `InvalidReply`. A read carries `credential` as `Authorization: Bearer` when given; a registry that
     /// requires one answers `Unauthorized` without it.
     fn versions(
         &self,
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError>;
+    ) -> Result<Vec<Version>, RegistryError>;
 
     /// What `registry` stores for `name@version`, its `wasm_url` absolute, as its URL's
     /// serialization. `NotFound` when the registry

@@ -81,7 +81,7 @@ port RegistryClient "Registry Client" {
   // them the same way. A registry refuses a publish into a scope another
   // account owns (Forbidden), and the in-memory client refuses it the same
   // way. A download is held to the size_bytes its reply declares, at most
-  // 64 MiB.
+  // 64 MiB. versions answers SemVer versions; a list holding another is R009.
   method versions(name: PackageName, registry: RegistryConfig, credential: RegistryCredential) -> Result<string[], RegistryError>
   method metadata(name: PackageName, version: string, registry: RegistryConfig, credential: RegistryCredential) -> Result<PackageMetadata, RegistryError>
   method download(metadata: PackageMetadata, registry: RegistryConfig, credential: RegistryCredential) -> Result<u8[], RegistryError>

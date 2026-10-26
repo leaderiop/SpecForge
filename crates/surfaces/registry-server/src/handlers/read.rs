@@ -26,6 +26,11 @@ pub(super) async fn get_package_versions(
             .expect("package versions query panicked")
     }
     .map_err(|e| ApiError::internal(ErrorCode::DbError, e))?;
+    // A stored row no client could read is not served (ADR 0036), as the search handler skips it.
+    let versions: Vec<Version> = versions
+        .iter()
+        .filter_map(|text| Version::parse(text).ok())
+        .collect();
 
     if versions.is_empty() {
         return Err(ApiError::not_found(format!(
@@ -34,7 +39,7 @@ pub(super) async fn get_package_versions(
     }
 
     Ok(Json(VersionList {
-        name: package.to_string(),
+        name: package,
         versions,
     }))
 }

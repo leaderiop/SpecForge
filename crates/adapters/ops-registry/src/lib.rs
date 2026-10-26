@@ -444,10 +444,7 @@ impl Registry for ConfiguredRegistry {
                 ),
                 other => failure(other),
             })?;
-        Ok(published
-            .iter()
-            .filter_map(|text| Version::parse(text).ok())
-            .collect())
+        Ok(published)
     }
 
     fn search(

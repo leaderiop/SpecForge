@@ -67,7 +67,7 @@ fn a_rate_limited_call_is_sent_again_after_the_backoff() {
 
     let versions = retrying.versions(&name(), &registry(), None).unwrap();
 
-    assert_eq!(versions, ["1.0.0"]);
+    assert_eq!(versions, [specforge_package::Version::new(1, 0, 0)]);
     assert_eq!(secs(&waits), [1, 2]);
     assert_eq!(count(&client, CallKind::Versions), 3);
 }

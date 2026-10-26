@@ -67,7 +67,7 @@ mod tests {
     )]
     fn an_answer_is_its_wire_type_or_not_a_registrys() {
         let list: VersionList = read(200, br#"{"name":"@a/b","versions":[]}"#).unwrap();
-        assert_eq!(list.name, "@a/b");
+        assert_eq!(list.name.as_str(), "@a/b");
         for (status, text) in [
             (200, &b"<html>"[..]),
             (201, br#"{"name":"@a/b"}"#.as_slice()),

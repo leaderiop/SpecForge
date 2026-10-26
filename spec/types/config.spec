@@ -60,8 +60,10 @@ type RegistryConfig "One entry of specforge.json's registries. url is the regist
 // specforge-registry-server and specforge-registry-client.
 
 // GET {root}/v1/packages/{name}: every version not yanked, oldest first.
+// name is a package name and each version a SemVer version; a list holding
+// another does not read (R009).
 type VersionList "Version List" {
-  name     string
+  name     PackageName
   versions string[]
   verify unit "VersionList is the JSON a registry serves for a package's versions"
   verify unit "a version list holding a version that is no SemVer version does not read"

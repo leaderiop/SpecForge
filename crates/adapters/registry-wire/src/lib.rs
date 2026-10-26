@@ -23,9 +23,12 @@ use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Sha256, Version};
 
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Its name and versions are values (ADR 0265): a list holding a version that is no SemVer version is not this
+/// body (R009), as a search hit holding one is not.
 pub struct VersionList {
-    pub name: String,
-    pub versions: Vec<String>,
+    pub name: PackageName,
+    pub versions: Vec<Version>,
 }
 
 /// `GET {root}/v1/packages/{name}/{version}`: what a registry stores for one version.
@@ -307,8 +310,8 @@ mod tests {
     fn a_version_list_is_this_json() {
         is_this_json(
             &VersionList {
-                name: "@acme/tool".into(),
-                versions: vec!["1.0.0".into(), "1.1.0".into()],
+                name: PackageName::parse("@acme/tool").unwrap(),
+                versions: vec![Version::new(1, 0, 0), Version::new(1, 1, 0)],
             },
             json!({"name": "@acme/tool", "versions": ["1.0.0", "1.1.0"]}),
         );
@@ -639,7 +642,6 @@ mod tests {
         type = "VersionList",
         verify = "a version list holding a version that is no SemVer version does not read"
     )]
-    #[ignore = "flipped by T4"]
     fn a_version_list_holds_semver_versions() {
         for bad in [
             json!({"name": "@acme/tool", "versions": ["1.0.0", "not-a-version"]}),

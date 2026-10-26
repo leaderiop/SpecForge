@@ -251,16 +251,17 @@ impl RegistryClient for MemoryClient {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.read(CallKind::Versions, registry, name.to_string(), credential)?;
         let state = self.state.lock().unwrap();
-        let versions: Vec<String> = state
+        let versions: Vec<Version> = state
             .registries
             .get(&key_of(registry))
             .into_iter()
             .flatten()
             .filter(|m| m.name == name.as_str())
-            .map(|m| m.version.clone())
+            // A stored row no client could read is not listed (ADR 0036), as the server skips it.
+            .filter_map(|m| Version::parse(&m.version).ok())
             .collect();
         if versions.is_empty() {
             return Err(RegistryError::NotFound {

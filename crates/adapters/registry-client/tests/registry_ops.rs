@@ -364,7 +364,7 @@ impl RegistryClient for WrongReceipt {
         name: &PackageName,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
-    ) -> Result<Vec<String>, RegistryError> {
+    ) -> Result<Vec<Version>, RegistryError> {
         self.0.versions(name, registry, credential)
     }
 

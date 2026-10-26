@@ -172,7 +172,6 @@ fn a_name_or_version_that_is_not_one_is_r009_not_another_package() {
     behavior = "resolve_registry_source",
     verify = "a version list holding a version that is no SemVer version is refused with R009, never read as fewer versions"
 )]
-#[ignore = "flipped by T4"]
 fn a_version_list_holding_no_semver_version_is_r009_not_fewer_versions() {
     for versions in [
         serde_json::json!(["1.0.0", "not-a-version"]),
