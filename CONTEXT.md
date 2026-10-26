@@ -954,7 +954,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   name, to an entity the graph declares; or, when no anchor names that entity, whose name is the entity's id
   (`specforge_ops::read::navigate` `CoveredItems`, ADR 0199). Inference gaps are the items that are not covered. An
   anchor to an entity the graph does not declare covers nothing.
-- **Obligation**: one `verify` statement on an entity, its own member beside its methods (ADR 0094), never a field. **Proven** when a passing test names its
+- **Obligation**: one `verify` statement on an entity, its own member beside its methods (ADR 0094), never a field. Every output writes it as one record, its kind (absent for a bare `verify "…"`) and its text (`specforge_graph::Obligation`); `specforge.edit` reads the same record (ADR 0273). **Proven** when a passing test names its
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing. Where each is written is the parse's
   (`Entity::obligation_spans`), never the graph's; an entry named `verify` inside a block field is a field, not an
   obligation (ADR 0187, amended).

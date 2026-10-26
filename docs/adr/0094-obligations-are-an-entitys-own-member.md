@@ -1,6 +1,6 @@
 # Obligations are an entity's own member
 
-**Status:** accepted (2026-10-15, round 10, plan 01). Extended by [ADR 0222](0222-what-an-entity-holds-is-written-once.md): the node's methods and annotations are written beside its `verify`. Amends [ADR 0002](0002-test-runner-extensions.md) (placement of
+**Status:** U2 extended by [ADR 0273](0273-an-obligation-is-one-record-on-every-surface.md): each `verify` item is `{kind?, text}`. accepted (2026-10-15, round 10, plan 01). Extended by [ADR 0222](0222-what-an-entity-holds-is-written-once.md): the node's methods and annotations are written beside its `verify`. Amends [ADR 0002](0002-test-runner-extensions.md) (placement of
 `verify` statements; W158 for W020), [ADR 0019](0019-one-entity-snapshot-per-compile.md) (field text has no statement row),
 [ADR 0064](0064-a-declared-field-type-decides-one-wire-form.md) (D5 restored: the graph node's own `verify`; `FieldJson`
 without `VerifyStatement`) and [ADR 0032](0032-one-graph-build.md) (the incremental check compares
