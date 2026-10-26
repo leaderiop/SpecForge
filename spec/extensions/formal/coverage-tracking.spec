@@ -95,7 +95,7 @@ behavior fa_emit_coverage_item_covered_info "I008: Coverage Item Covered by Test
   types    [CoverageTrackingItem]
   contract """
     When the coverage_tracking pass (specforge analyze) finds a coverage
-    item (an invariant or a testable entity) whose every obligation a
+    item (an entity that counts toward coverage) whose every obligation a
     passing recorded test names, under @specforge/testing's coverage
     rule, emit an I008 info diagnostic naming the tests that prove it.
     An item proven only by an entailed formal claim is not reported,

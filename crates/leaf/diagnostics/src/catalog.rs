@@ -291,7 +291,7 @@ catalog! {
         "The `.spec` file's declared format version is older than the compiler's current format version. Run `specforge migrate` to upgrade the file to the current format.";
     I008: Info formal,
         "Coverage item proven by tests",
-        "`specforge analyze`'s `coverage_tracking` pass found a coverage item (an invariant or a testable entity) whose every `verify` obligation a passing recorded test names, under @specforge/testing's coverage rule. The message names those tests. An item proven only by an entailed claim is not reported. Nothing to do.";
+        "`specforge analyze`'s `coverage_tracking` pass found a coverage item (an entity that counts toward coverage: its kind is testable and it owes or declares obligations) whose every `verify` obligation a passing recorded test names, under @specforge/testing's coverage rule. The message names those tests. An item proven only by an entailed claim is not reported. Nothing to do.";
     I009: Info formal,
         "No unmitigated event cycle",
         "`specforge analyze`'s `event_graph_analyze` pass found no unmitigated cycle in the event flow graph: no cycle through two or more behaviors (E034) and no behavior re-producing an event it consumes (W032), unless a member declares `sync`. Reported once, when behaviors produce or consume events. The analysis is structural; cycles that depend on runtime conditions are not analyzed. Nothing to do.";
@@ -582,7 +582,7 @@ catalog! {
         "`specforge analyze`'s `event_graph_analyze` pass found an `event` that a behavior produces and that declares no `sync` constraint, so nothing bounds how many of its messages can accumulate. Declare `sync` on the event: a timeout, a buffer limit or its delivery semantics.";
     W035: Warning formal,
         "Undischarged coverage items",
-        "One or more coverage items (invariants and testable entities) are not proven under @specforge/testing's coverage rule: some obligation has no passing recorded test that names it, and no entailed formal claim discharges it. Link a test to each obligation by its text and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015).";
+        "One or more coverage items are not proven under @specforge/testing's coverage rule. An item is an entity that counts toward coverage, as `specforge stats` and `specforge analyze coverage` count it: some obligation has no passing recorded test that names it and no entailed formal claim discharges it, or it declares none. Link a test to each obligation by its text and run `specforge collect`; `specforge analyze coverage` then lists each item that declares no obligation (A001) and, once results are recorded, each unproven obligation (A015).";
     W039: Warning formal,
         "Repeated precondition",
         "`specforge analyze`'s `condition_check` pass found a `behavior` whose `requires` names the same condition more than once. The repeat states nothing its first occurrence does not, so it is redundant. Remove it. Conditions are names and prose, so a precondition implied by a different one is not detected.";

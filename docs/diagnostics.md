@@ -1146,11 +1146,11 @@ Level: info
 ```
 I008: Coverage item proven by tests
 
-`specforge analyze`'s `coverage_tracking` pass found a coverage item (an
-invariant or a testable entity) whose every `verify` obligation a passing
-recorded test names, under @specforge/testing's coverage rule. The message names
-those tests. An item proven only by an entailed claim is not reported. Nothing
-to do.
+`specforge analyze`'s `coverage_tracking` pass found a coverage item (an entity
+that counts toward coverage: its kind is testable and it owes or declares
+obligations) whose every `verify` obligation a passing recorded test names,
+under @specforge/testing's coverage rule. The message names those tests. An item
+proven only by an entailed claim is not reported. Nothing to do.
 
 Owner: @specforge/formal
 Level: info
@@ -2493,11 +2493,13 @@ Level: warning
 ```
 W035: Undischarged coverage items
 
-One or more coverage items (invariants and testable entities) are not proven
-under @specforge/testing's coverage rule: some obligation has no passing
-recorded test that names it, and no entailed formal claim discharges it. Link a
-test to each obligation by its text and run `specforge collect`; `specforge
-analyze coverage` lists what is unproven (A001, A015).
+One or more coverage items are not proven under @specforge/testing's coverage
+rule. An item is an entity that counts toward coverage, as `specforge stats` and
+`specforge analyze coverage` count it: some obligation has no passing recorded
+test that names it and no entailed formal claim discharges it, or it declares
+none. Link a test to each obligation by its text and run `specforge collect`;
+`specforge analyze coverage` then lists each item that declares no obligation
+(A001) and, once results are recorded, each unproven obligation (A015).
 
 Owner: @specforge/formal
 Level: warning
