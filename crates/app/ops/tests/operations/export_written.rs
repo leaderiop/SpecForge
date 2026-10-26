@@ -248,7 +248,6 @@ fn a_directory_that_is_a_file_is_invalid_input() {
     );
 }
 
-#[ignore = "flipped by T5"]
 #[test]
 fn a_refused_directory_is_named_as_the_call_spelled_it() {
     let project = project();

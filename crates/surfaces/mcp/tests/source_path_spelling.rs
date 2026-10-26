@@ -130,7 +130,6 @@ fn a_file_path_outside_the_project_is_refused_on_file_path() {
     assert_eq!(error["argument"], "file_path", "{error}");
 }
 
-#[ignore = "flipped by T5"]
 #[test]
 fn render_names_a_refused_out_dir_as_the_call_spelled_it() {
     let mut server = served();
