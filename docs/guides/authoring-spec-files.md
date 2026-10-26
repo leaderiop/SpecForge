@@ -1,7 +1,7 @@
 # Authoring `.spec` Files — Zero to Hero
 
-A guided, end-to-end tutorial that takes you from never having seen a `.spec` file to
-authoring a complete, validated specification an AI agent can consume.
+By the end of this tutorial you can write `.spec` files, read every diagnostic the compiler
+gives you, and build a small project whose graph an AI agent can read and change safely.
 
 This is the **tutorial**. Three companion guides go deeper once you've finished:
 
@@ -12,8 +12,9 @@ This is the **tutorial**. Three companion guides go deeper once you've finished:
 And for looking things up: **[Quick Reference](../quick-reference.md)** (cheat sheet) and
 **[Entity Model](../entity-model.md)** (full field/edge/diagnostic reference).
 
-> 💡 **Every code block in this guide compiles.** The worked example lives at
-> [`examples/todo-app/`](../../examples/todo-app/) — clone it and run `specforge check`.
+> 💡 **Every `spec` block in this guide parses**, and a test holds it to that
+> (`crates/kernel/parser/tests/guide_spec_blocks.rs`). The blocks of Acts III and IV are excerpts of
+> [`examples/todo-app/`](../../examples/todo-app/): open it and run `specforge check` to see them compile together.
 
 ---
 
@@ -28,8 +29,9 @@ And for looking things up: **[Quick Reference](../quick-reference.md)** (cheat s
   - [Your first real entity, end to end](#your-first-real-entity-end-to-end)
   - [The edit → check → fix loop](#the-edit--check--fix-loop)
   - [Cross-linking: turning entities into a graph](#cross-linking-turning-entities-into-a-graph)
-- [Act III — The entity tour](#act-iii--the-entity-tour)
-  - [Which entity should I use?](#which-entity-should-i-use)
+  - [Editing without a text editor](#editing-without-a-text-editor)
+- [Act III — A tour of the builtin extensions](#act-iii--a-tour-of-the-builtin-extensions)
+  - [Which kind should I use?](#which-kind-should-i-use)
   - [`@specforge/software`](#specforgesoftware)
   - [`@specforge/product`](#specforgeproduct)
   - [`@specforge/governance`](#specforgegovernance)
@@ -43,27 +45,37 @@ And for looking things up: **[Quick Reference](../quick-reference.md)** (cheat s
 
 ## What SpecForge is (and is not)
 
-SpecForge compiles `.spec` files into a **validated, typed entity graph** that AI agents
-and tools consume instead of re-reading your whole codebase. You write structured
-declarations of intent — behaviors, types, features, guarantees — and the compiler checks
-that they're consistent, then exports them as an open JSON schema (the *Graph Protocol*).
+SpecForge turns what you know about a domain — its things, how they relate, and the rules they
+must obey — into **one typed, validated graph**. You write that knowledge in `.spec` files. The
+compiler checks it and serves it to people and AI agents through the CLI, MCP and the LSP.
+
+**The language is domain-free; the kinds you write come from your extensions.** The grammar knows
+only five structural keywords: `spec`, `ref`, `use`, `defaults` and the reserved `define`. Every
+other keyword — `behavior`, `feature`, `invariant`, `persona` — exists only because an installed
+extension declares it, with its fields, its links and its rules.
+
+This tutorial uses the **builtin extensions** (`@specforge/software`, `@specforge/product`,
+`@specforge/governance`, `@specforge/formal`, `@specforge/testing`) because they ship with
+SpecForge and describe a software project well. They are a starter set, not the base. A clinic,
+a marketing team or a GxP quality unit would install other extensions and write other kinds the
+same way — see [Model your domain](model-your-domain.md).
 
 If you've used these tools, the analogy helps — but note the difference:
 
 | Like… | …in that | Unlike, because SpecForge… |
 |-------|----------|----------------------------|
 | **Gherkin/Cucumber** | structured, human-readable intent | builds a *typed graph*; tests stay in your test runner |
-| **TypeSpec / Protobuf** | a compiled schema language | spans requirements → behavior → architecture, not just APIs |
-| **Terraform HCL** | declarative, validated, version-controlled | describes *intent for agents*, not infrastructure to apply |
+| **TypeSpec / Protobuf** | a compiled schema language | takes its vocabulary from extensions, not a fixed schema |
+| **Terraform HCL** | declarative, validated, version-controlled | describes knowledge for people and agents, not infrastructure to apply |
 
 **SpecForge is NOT:**
 
-- ❌ a code generator — agents produce code; SpecForge gives them context.
-- ❌ a test framework — it *traces* tests and consumes their results. The compiler never executes anything; `specforge collect` runs your runner's declared command only with your consent.
+- ❌ a code generator — agents produce the work; SpecForge gives them the facts and refuses changes that break the rules.
+- ❌ a test framework — it *traces* tests and reads their results. The compiler never runs anything; `specforge collect` runs a runner's declared command only with your consent.
 - ❌ a documentation format — the value is the *compiler*, not prose with conventions.
 
-Here's the smallest meaningful `.spec` file. You'll understand every line by the end of
-Act II:
+Here's the smallest meaningful `.spec` file in a project with `@specforge/software` and
+`@specforge/testing`. You'll understand every line by the end of Act II:
 
 ```spec
 spec "hello" {
@@ -78,13 +90,12 @@ behavior greet_user "Greet a user by name" {
 
 ## The mental model: the graph is the product
 
-This is the single most important idea in the guide. Internalize it and everything else
-follows.
+This is the single most important idea in the guide.
 
-> 💡 **Mental model.** You are not writing documents. You are declaring **nodes** (entities
-> like a behavior or a type) and **edges** (references between them, like a behavior that
-> *enforces* an invariant). The compiler assembles these into a graph, validates it, and
-> exports it. **An agent's accuracy is proportional to how well-connected that graph is.**
+> 💡 **Mental model.** You are not writing documents. You are declaring **nodes** (entities,
+> like a behavior or a persona) and **edges** (references between them, like a behavior that
+> *enforces* an invariant). The compiler assembles them into a graph, validates it, and serves
+> it. **An agent's accuracy is proportional to how well-connected that graph is.**
 
 From the project's [principles](../vision/principles.md):
 
@@ -96,33 +107,35 @@ From the project's [principles](../vision/principles.md):
 > compiler." It catches dangling references, unreferenced entities, missing test coverage, cycles, and
 > contradictions — every error caught at compile time is a round-trip saved with an agent.
 
-The practical consequence, which we'll repeat throughout: **maximize edges.** A behavior
-with `invariants`, `types`, `ports`, and `produces` filled in is far more valuable than one
-with only a prose `contract`. The references *are* the product.
+The practical consequence, which we'll repeat throughout: **maximize edges.** An entity whose
+reference fields are filled in is far more valuable than one with only prose. The references
+*are* the product.
 
 ## The five-minute win
 
-> ⏱️ **~5 minutes.** Goal: install, create a project, and see a validated graph. Don't try
-> to understand everything yet — just get green output.
+> ⏱️ **~5 minutes.** Goal: create a project and see a validated graph. Don't try to understand
+> everything yet — just get green output.
 
 ```bash
 # 1. Create and enter a project directory
 mkdir hello-spec && cd hello-spec
 
-# 2. Scaffold a project (interactive extension selection; pick @specforge/software)
-specforge init
+# 2. Scaffold a project with the extensions whose kinds you will write
+specforge init --extensions @specforge/software,@specforge/product
 
 # 3. Validate the starter spec
 specforge check
 #   => 0 errors
 
-# 4. Export the graph an agent would consume
-specforge export --format=context
+# 4. Export the graph an agent would read
+specforge export --format context
 ```
 
-`specforge init` writes a `specforge.json` config and a starter `spec/hello.spec`.
-`specforge check` validates it. `specforge export` emits the graph. Three commands, and you
-have a validated specification.
+`specforge init` writes a `specforge.json` config and a starter `spec/hello.spec` (enabling
+`@specforge/software` also enables `@specforge/testing`, which gives kinds their `verify`
+statements). Without `--extensions`, `init` enables nothing and the starter uses structural syntax
+only. `specforge check` validates. `specforge export` emits the graph. Three commands, and you have
+a validated project.
 
 > ✅ **Checkpoint:** you have a project that compiles. Now let's understand what you wrote.
 
@@ -132,10 +145,9 @@ have a validated specification.
 
 ## Anatomy of a `.spec` file
 
-Every entity in SpecForge has the same universal shape. The compiler itself knows *no*
-domain words — `behavior`, `type`, etc. all come from extensions — but they all parse as:
+Every entity has the same shape, whatever extension declares its kind:
 
-```spec
+```text
 keyword  name  "Optional Title"  {
   field  value
 }
@@ -148,34 +160,41 @@ behavior greet_user "Greet a user by name" {
 //  │        │            │
 //  │        │            └─ optional title (string); auto-derived from name if omitted
 //  │        └─ entity name: letters/digits/underscores, 2–60 chars, globally unique
-//  └─ keyword: which kind of entity (contributed by an installed extension)
+//  └─ keyword: which kind of entity (declared by an installed extension)
 
   contract "Given a name, the system MUST return a greeting."
 //  │        └─ a string value
 //  └─ field key
 
   verify unit "returns a greeting"
-//  └─ a verify declaration: kind + description
+//  └─ a verify statement: kind + description (from @specforge/testing)
 }
 ```
 
-**Field value kinds** you'll use constantly:
+**Field values** take the form their field's declared type asks for:
 
 ```spec
-behavior field_value_kinds "Field Value Kinds" {
-  // Field value kinds you'll use constantly:
+ref gh.issue:42 "Tasks need unique ids"
 
-  status   draft                      // bare: a word from the field's set
-  category auth                       // bare: an identifier field (a tag)
+invariant task_id_uniqueness "Task ID Uniqueness" {
+  guarantee "No two tasks may share the same id."
+}
 
-  contract """                        // triple-quoted multi-line string
-    Multi-line text.
+feature task_management "Task Management" {
+  status     in_progress                 // enum: one word from the field's set, bare
+  problem    "Users lose track of work." // string: text, quoted
+  acceptance ["A user can create a task", "A user can mark a task done"]  // string list: opaque texts
+}
+
+behavior create_task "Create a task" {
+  category   command                     // identifier: one bare word (a tag)
+  contract """
+    Multi-line text, triple-quoted.
     Indentation is stripped sensibly.
   """
-
-  invariants [data_persistence]       // reference list → creates graph EDGES (compiler-checked)
-  acceptance ["fast", "secure"]       // string list → opaque values (not checked)
-  refs       [gh.issue:42]            // a scheme ref ID links its `ref` entity
+  invariants [task_id_uniqueness]        // reference list: graph EDGES, compiler-checked
+  features   [task_management]
+  refs       [gh.issue:42]               // a scheme ref id links its `ref` entity
 }
 ```
 
@@ -183,20 +202,35 @@ behavior field_value_kinds "Field Value Kinds" {
 > words and references bare, text quoted. `specforge format` writes every value so, and
 > `specforge check` warns (W159) on the other form (ADR 0147).
 > Every item of a `reference_list` field (and the value of a `reference` field) must resolve to
-> a real entity or you get an error. A `string_list` field's items are opaque
-> quoted strings; only a scheme ref ID (`gh.issue:42`) links its `ref`.
-> Reference fields build the graph; string lists don't.
+> a real entity of the kind the field names, or you get an error. A `string_list` field's items are
+> opaque quoted strings. Reference fields build the graph; string lists don't.
 
-**Comments** are line-only (`//`). **Imports** wire files together:
+**Comments** are line-only (`//`). References resolve across the whole project, so `use` is
+optional: it records that a file depends on another (an `imports` edge), and a path that names no
+file is E025.
 
 ```spec
-use "types/user"                     // import a file (the .spec extension is implicit)
+use "types/user"                           // import a file (the .spec extension is implicit)
 use { User, UserRole } from "types/user"   // selective import
+```
+
+**File defaults** state a field once for every block of one kind in the same file:
+
+```spec
+defaults behavior {
+  features [task_management]
+}
+
+behavior complete_task "Complete a task" {
+  category command
+  contract "Given a task id, the system MUST mark the task done."
+}
 ```
 
 ## Your first real entity, end to end
 
-Let's build something real and watch the compiler help us. Create `spec/tasks.spec`:
+Let's build something real and watch the compiler help us. In a project with
+`@specforge/software`, create `spec/tasks.spec`:
 
 ```spec
 spec "first-steps" {
@@ -228,9 +262,8 @@ Notice the edge: `create_task` lists `types [Task]`, which creates a
 
 ## The edit → check → fix loop
 
-The core skill in SpecForge isn't memorizing fields — it's reading diagnostics and
-iterating. Let's practice deliberately. **Break it on purpose:** change the behavior's
-`types` to reference a type that doesn't exist:
+The core skill isn't memorizing fields — it's reading diagnostics and iterating. **Break it on
+purpose:** change the behavior's `types` to reference a type that doesn't exist:
 
 ```spec
 behavior create_task "Create a task" {
@@ -246,15 +279,20 @@ specforge check
 ```
 ```
 [E003] Error: unresolved reference 'Tsak' in entity 'create_task'
-   ╭─[ tasks.spec ]
-   │  types    [Tsak]
-   │           ──┬─
-   │             ╰── 'Tsak' does not resolve to any entity
+   ╭─[ spec/tasks.spec:9:13 ]
+   │
+ 9 │   types    [Tsak]
+   │             ──┬─
+   │               ╰───
+   │
+   │ Help: did you mean 'Task'?
+───╯
 ```
 
 Read it like a pair programmer: **code** (`E003`), **message** (unresolved reference),
-**span** (which line). Fix the typo, re-run, get `0 errors`. That loop —
-*edit → check → read → fix* — is how you author specs.
+**span** (file, line and column), **help** (the likely fix). Fix the typo, re-run, get `0 errors`.
+That loop — *edit → check → read → fix* — is how you author specs, and it is the same loop an AI
+agent runs over MCP.
 
 > 💡 Run `specforge explain E003` for a full description of any diagnostic code. The
 > compiler reports **all** errors at once (it doesn't stop at the first), so you can fix in
@@ -262,11 +300,11 @@ Read it like a pair programmer: **code** (`E003`), **message** (unresolved refer
 
 **Severity levels:**
 
-| Level | Symbol | Meaning |
-|-------|--------|---------|
+| Level | Example | Meaning |
+|-------|---------|---------|
 | Error | `E003` | Blocks compilation. Must fix. |
-| Warning | `W001` | A likely problem (unreferenced, missing coverage). Doesn't block. |
-| Info | `I010` | Advice. Always reported; `--severity info` shows only it. |
+| Warning | `W002` | A likely problem (unreferenced, missing coverage). Doesn't block. |
+| Info | `I080` | Advice. Always reported; `--severity info` shows only it. |
 
 Use `specforge check --strict` in CI to treat warnings as errors.
 
@@ -293,21 +331,38 @@ behavior create_task "Create a task" {
 
 Now `specforge trace task_id_uniqueness` shows the behavior that upholds it, and
 `specforge query create_task --depth 1` returns the behavior *plus* its type and invariant.
-That neighborhood — delivered in a few KB — is what an agent reads instead of grepping your
-repo.
+That neighborhood — a few KB — is what an agent reads instead of searching your files.
+
+## Editing without a text editor
+
+You can also change the graph with typed edits, which check the result before they write:
+
+```bash
+specforge new invariant task_id_uniqueness "Task ID Uniqueness" \
+  --guarantee "No two tasks may share the same id." --in spec/tasks.spec
+specforge link create_task invariants task_id_uniqueness
+specforge set create_task category command
+specforge link create_task invariants no_such_thing
+#   error[E080]: the edit would leave the project with 1 error it does not have; nothing was written
+```
+
+An edit that would add an error is refused and nothing is written (E080). The MCP tool
+`specforge.edit` applies the same edits for an agent, several at once, all or nothing — see
+[Connect an agent](connect-an-agent.md).
 
 > ✅ **Checkpoint:** you can author linked entities and self-correct from diagnostics.
-> You're past "config file" and into "graph." Now let's meet the full vocabulary.
+> You're past "config file" and into "graph." Now let's meet the builtin vocabulary.
 
 ---
 
-# Act III — The entity tour
+# Act III — A tour of the builtin extensions
 
-Vocabulary comes from **extensions**. Four ship as builtins. This tour goes deep on the two
-you'll start with — `@specforge/software` and `@specforge/product` — and gives you a
-complete-but-brief look at `@specforge/governance` and `@specforge/formal`.
+The kinds in this act are what the four builtin extensions declare — 22 kinds between them.
+This tour goes deep on the two most projects start with — `@specforge/software` and
+`@specforge/product` — and gives a brief look at `@specforge/governance` and `@specforge/formal`.
+`specforge model` lists the kinds, fields and links of whatever extensions *your* project enables.
 
-## Which entity should I use?
+## Which kind should I use?
 
 | You're describing… | Use | Extension |
 |--------------------|-----|-----------|
@@ -325,7 +380,7 @@ complete-but-brief look at `@specforge/governance` and `@specforge/formal`.
 | A shippable artifact | **deliverable** | product |
 | A versioned bundle | **release** | product |
 | A glossary definition | **term** | product |
-| Why a technical choice was made | **decision** | governance |
+| Why a choice was made | **decision** | governance |
 | A non-functional requirement | **constraint** | governance |
 | A risk (FMEA) | **failure_mode** | governance |
 | A temporal/safety property | **property** | formal |
@@ -334,8 +389,11 @@ complete-but-brief look at `@specforge/governance` and `@specforge/formal`.
 | Abstract→concrete mapping | **refinement** | formal |
 | A communicating process | **process** | formal |
 
+If none fits, the answer is not to bend one: install or write an extension that declares the
+kind you need ([Extending SpecForge](extending-specforge.md)).
+
 > 💡 **One concept per entity.** "Create a task and email the user" is *two* behaviors. If
-> you're tempted to cram, split instead — see the [God-entity anti-pattern](spec-best-practices.md#anti-patterns).
+> you're tempted to cram, split instead — see the [God-entity anti-pattern](spec-best-practices.md#the-god-entity).
 
 Each subsection below follows the same shape: **use when → minimal example → key fields →
 ✅/❌ → links to.**
@@ -363,7 +421,7 @@ behavior create_task "Create a task" {
 }
 ```
 
-**Key fields:** `contract` (the heart — use RFC 2119 MUST/SHOULD/MAY); `category` (routing
+**Key fields:** `contract` (required — use RFC 2119 MUST/SHOULD/MAY); `category` (routing
 tag); and the edge-creating lists `invariants`, `types`, `ports`, `produces`, `consumes`,
 `features`.
 
@@ -435,7 +493,7 @@ port TaskRepository "Persistence boundary for tasks" {
 ```
 
 Conventions: `{Entity}Repository` (persistence), `{Service}Gateway` (external), `{Domain}API`
-(inbound).
+(inbound). A method naming a type no entity declares is E004.
 
 **Links to:** used by behaviors (`ports [...]`).
 
@@ -452,7 +510,7 @@ invariant task_id_uniqueness "Task ID Uniqueness" {
 }
 ```
 
-> ⚠️ The builtin `invariant` has **no** `enforced_by` or `maintains` field. The link to a
+> ⚠️ `invariant` has **no** `enforced_by` or `maintains` field. The link to a
 > behavior lives on the *behavior* (`invariants [...]`); `enforced_by` is just the name of
 > the inverse edge. (`maintains`/`requires`/`ensures` are added to *behaviors* by
 > `@specforge/formal`.)
@@ -464,7 +522,8 @@ implementation-independent.
 ## `@specforge/product`
 
 > Several product kinds require fields: `persona`/`channel` require `description`, `feature`
-> requires `problem`, `journey` requires `flow`, `term` requires `definition`.
+> requires `problem`, `journey` requires `flow`, `term` requires `definition`, `deliverable`
+> requires `artifact_type`, `release` requires `version`.
 
 ### feature
 
@@ -512,15 +571,15 @@ journey capture_and_complete "Capture and complete a task" {
 ```spec
 persona individual "Individual user" {
   description     "A person managing their own personal to-do list."
-  technical_level beginner
+  technical_level beginner          // expert | advanced | intermediate | beginner | non_technical
   status          active            // active | deprecated
-  goals       ["Capture tasks quickly"]
+  goals        ["Capture tasks quickly"]
   key_features [task_management]
 }
 
 channel cli "Command-line interface" {
   description       "A terminal CLI for managing tasks."
-  interaction_model sync
+  interaction_model request_response // request_response | event_driven | batch | streaming | bidirectional | manual
   status            active
 }
 ```
@@ -565,11 +624,11 @@ term task "task" {
 ### release
 
 A versioned bundle of deliverables/milestones. `version` is required and must be semver
-(else `W093`). Covered in the [Cookbook](spec-cookbook.md).
+(else `W093`). See [Getting started with `@specforge/product`](product-getting-started.md).
 
 ## `@specforge/governance`
 
-Three kinds for architecture governance. (Concise coverage — one example each.)
+Three kinds for decisions, quality bars and risks. (Concise coverage — one example each.)
 
 ```spec
 decision sqlite_storage "SQLite for local storage" {
@@ -605,7 +664,7 @@ failure_mode lost_task "Task acknowledged but not persisted" {
 ## `@specforge/formal`
 
 Five kinds for formal methods; requires `@specforge/software` as a peer and *enhances* its
-entities (adds `requires`/`ensures`/`maintains`/`satisfies` to behaviors).
+kinds (adds `requires`/`ensures`/`maintains`/`satisfies` to behaviors, `expression` to invariants).
 
 ```spec
 property no_lost_completion "Completion is never lost" {
@@ -616,16 +675,17 @@ property no_lost_completion "Completion is never lost" {
 
 // a behavior then declares it satisfies the property:
 behavior complete_task "Complete a task" {
-  // …
+  category  command
+  contract  "Given a task id, the system MUST mark the task done."
   satisfies [no_lost_completion]
 }
 ```
 
 The other four — `axiom`, `protocol`, `refinement`, `process` — are summarized in the
-[Quick Reference](../quick-reference.md). A `refinement` example is in the
-[Cookbook](spec-cookbook.md).
+[Quick Reference](../quick-reference.md), with examples in the [Cookbook](spec-cookbook.md).
+Machine-checkable bounds and claims are in the [Formal Verification Guide](formal-verification.md).
 
-> ✅ **Checkpoint:** you know the full vocabulary and can pick the right tool. Time to build
+> ✅ **Checkpoint:** you know the builtin vocabulary and can pick the right kind. Time to build
 > something complete.
 
 ---
@@ -634,7 +694,7 @@ The other four — `axiom`, `protocol`, `refinement`, `process` — are summariz
 
 > ⏱️ **~20 minutes.** We build the **todo-app** from scratch, growing the spec one layer at
 > a time and validating at each step. The finished project is at
-> [`examples/todo-app/`](../../examples/todo-app/) — clone it to follow along or check your
+> [`examples/todo-app/`](../../examples/todo-app/) — open it to follow along or check your
 > work.
 
 We'll author in the order recommended by [spec-writing-flow.md](../spec-writing-flow.md):
@@ -647,7 +707,7 @@ We'll author in the order recommended by [spec-writing-flow.md](../spec-writing-
 ```json
 { "name": "todo-app", "version": "0.1.0", "spec_root": "spec",
   "extensions": ["@specforge/software", "@specforge/product",
-                 "@specforge/governance", "@specforge/formal"] }
+                 "@specforge/governance", "@specforge/formal", "@specforge/testing"] }
 ```
 ```spec
 spec "todo-app" { version "0.1.0" }
@@ -662,7 +722,7 @@ Define the `Task`, its `TaskStatus` union, command payloads, error types, and ev
 payloads. (See the file in the example.) After adding it, `specforge check` reports
 warnings like `W002` ("type not referenced by any behavior") — **expected**, because nothing
 uses these types yet. The warnings will clear as we add behaviors. This is the graph telling
-you about dangling nodes.
+you about unconnected nodes.
 
 ### Step 3 — Guarantees (`spec/invariants/task.spec`)
 
@@ -676,13 +736,12 @@ invariant task_id_uniqueness "Task ID Uniqueness" {
 
 ### Step 4 — Boundaries (`spec/ports/task_repository.spec`) and events
 
-Add the `TaskRepository` outbound port and the `task_created` / `task_completed` events
-(each importing the types it needs with `use`).
+Add the `TaskRepository` outbound port and the `task_created` / `task_completed` events.
 
 ### Step 5 — Behavior (`spec/behaviors/task.spec`)
 
-This is where it all connects. Each behavior imports the files it references and fills in
-edges:
+This is where it all connects. Each behavior fills in its edges; the `use` lines record which
+files this one depends on:
 
 ```spec
 use "types/task"
@@ -709,13 +768,14 @@ behavior create_task "Create a Task" {
 ```
 
 Once behaviors reference the types, ports, events, and invariants, the earlier `W002`
-unreferenced warnings disappear. **The graph is now connected.**
+warnings disappear. **The graph is now connected.** (The example's file states the `ports` and
+`features` every behavior shares once, in a `defaults behavior { … }` block.)
 
 ### Step 6 — Product layer
 
 Add the `feature`, `persona`, `channel`, `journey`, `module`, `milestone`, `deliverable`,
 and `term` (see `spec/features/` and `spec/product/` in the example). The behaviors already
-point up to `task_management` via `features [...]`, so the feature isn't an unreferenced.
+point up to `task_management` via `features [...]`, so the feature is referenced.
 
 ### Step 7 — Governance & formal taste
 
@@ -724,14 +784,14 @@ via `satisfies`). Final validation:
 
 ```bash
 specforge check
-#   => 0 errors, 0 warnings, 0 infos
+#   => 0 errors, 0 warnings, 3 infos   (I080: three entities without an owner)
 ```
 
 ### See what an agent sees
 
 ```bash
 specforge stats
-#   Entities: 30   Edges: 35   Declared: 100% of 9 testable
+#   Entities: 30 … Edges: 42 … Declared: 100% of 16 testable
 
 specforge trace task_management
 ```
@@ -739,20 +799,21 @@ specforge trace task_management
 {
   "entity_id": "task_management", "entity_kind": "feature",
   "upstream": [
-    { "entity_id": "create_task",   "entity_kind": "behavior", "edge_label": "features" },
-    { "entity_id": "capture_and_complete", "entity_kind": "journey", "edge_label": "features" },
-    { "entity_id": "individual",    "entity_kind": "persona",  "edge_label": "key_features" },
-    { "entity_id": "core",          "entity_kind": "module",   "edge_label": "features" }
+    { "entity_id": "capture_and_complete", "entity_kind": "journey",  "edge_label": "features", "depth": 1 },
+    { "entity_id": "complete_task",        "entity_kind": "behavior", "edge_label": "features", "depth": 1 },
+    { "entity_id": "core",                 "entity_kind": "module",   "edge_label": "features", "depth": 1 },
+    { "entity_id": "individual",           "entity_kind": "persona",  "edge_label": "key_features", "depth": 1 }
   ]
 }
 ```
 
-From one feature, the graph reaches the behaviors that implement it, the journey that
-exercises it, the persona who wants it, and the module that houses it — then onward to the
-types, ports, events, and invariants below. That traceable neighborhood, exported as a few
-KB of JSON, is what replaces an agent's expensive codebase exploration.
+(Shortened: the real output lists every upstream entity, each with a `status`.) From one feature,
+the graph reaches the behaviors that implement it, the journey that exercises it, the persona
+who wants it, and the module that houses it — then onward to the types, ports, events, and
+invariants below. That traceable neighborhood, a few KB of JSON, is what replaces an agent's
+expensive exploration.
 
-> ✅ **Checkpoint:** you've shipped a complete, validated, multi-entity spec project.
+> ✅ **Checkpoint:** you've built a complete, validated, multi-entity project.
 
 ---
 
@@ -766,11 +827,13 @@ You can now author and validate real specs. To go from competent to expert:
 - **[Cookbook](spec-cookbook.md)** — copy-paste recipes for common modeling tasks.
 - **[Troubleshooting](spec-troubleshooting.md)** — every common diagnostic code, what
   triggers it, and how to fix it.
+- **[Model your domain](model-your-domain.md)** — the same method for kinds that are not software.
+- **[Connect an agent](connect-an-agent.md)** — let Claude or any MCP client read and edit the graph.
 - **[spec-writing-flow.md](../spec-writing-flow.md)** — the phased authoring flow in depth.
 - **[Quick Reference](../quick-reference.md)** & **[Entity Model](../entity-model.md)** —
   the full field/edge/diagnostic reference of record.
 - The per-kind **skills** under `.claude/skills/specforge-*-dsl/` carry the deepest
-  field-by-field guidance for each entity kind.
+  field-by-field guidance for each builtin kind.
 
 And the commands you'll lean on as you author:
 
@@ -781,7 +844,7 @@ specforge check --severity info   # only the info-level advice
 specforge explain W004            # what does a code mean?
 specforge trace <id>              # traceability chain for an entity
 specforge query <id> --depth 2    # neighborhood at a zoom level
-specforge model                   # render the logical data model
+specforge model                   # the kinds, fields and links your extensions declare
 specforge format                  # auto-format .spec files
 ```
 

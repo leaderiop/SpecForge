@@ -1,181 +1,71 @@
 ---
 name: specforge-spec-block
-description: "Write the spec block (a graph entity; the project's configuration is specforge.json). Declares project identity (name, version), installed plugins, provider configurations, persona/surface definitions, coverage settings, and meta-schema define blocks. Use when initializing a new SpecForge project or modifying project-level configuration."
+description: "Write the spec block, the project's root entity (one of the five structural keywords of the core grammar), and know where configuration really lives: specforge.json holds the project name, version, spec_root, the extensions to load, providers and registries. Use when initializing a SpecForge project in any domain, changing which extensions a project loads, or editing the root spec block."
 ---
 
 # SpecForge Spec Block
 
-> **Note:** `specforge.json` is the project's configuration; the `spec` block is a graph entity only and configures nothing (no extension, provider or setting is read from it).
+> **Structural, not from an extension.** `spec` is one of the five keywords the core grammar knows (`spec`, `ref`,
+> `use`, `define`, `defaults`). It is a graph entity only: **it configures nothing**. No extension, provider or setting
+> is read from it. Configuration is `specforge.json`.
 
-Rules and conventions for authoring the **`spec` block** in a source file under the spec root (by convention `specforge.spec`). The spec block is a singleton -- exactly one per project -- that declares project identity and configuration.
+## Where configuration lives: `specforge.json`
 
-## When to Use
+`specforge init` writes it. The keys an agent touches most:
 
-- Adding or removing plugins (`@specforge/product`, `@specforge/governance`)
-- Configuring providers for external references (GitHub, Jira, Figma)
-- Defining personas and surfaces for journey validation
-- Configuring test coverage thresholds
-- Adding meta-schema `define` blocks for custom entity types
+| Key | What it does |
+|-----|--------------|
+| `name`, `version` | Project identity and `.spec` format version. |
+| `spec_root` | Directory of the `.spec` sources (default: the project root). |
+| `extensions` | The extensions to load: a builtin or installed `@scope/name`, or a `.wasm` component file. **This list decides which entity kinds exist.** |
+| `exclude` | `.spec` files under the spec root that are not sources. |
+| `providers` | Ref schemes (registered only: no host reader yet). |
+| `registries` | Package registries for `add`, `update`, `search`, `publish`. |
+| `strict` | Treat warnings as errors. |
 
-## Block Syntax
+Change the extension list with commands, not by hand:
+
+```bash
+specforge init --extensions @specforge/product,@specforge/governance   # a new project
+specforge add @specforge/software                                       # load one more
+specforge remove @specforge/governance
+specforge extensions                                                    # what is enabled, locked and loaded
+```
+
+## The `spec` Block
 
 ```spec
-spec "project-name" {
-  version "1.0"
-
-  plugins [
-    "@specforge/product",
-    "@specforge/governance",
-  ]
-
-  providers {
-    gh "main" {
-      package "@specforge/gh"
-      repo    "org/repo"
-    }
-  }
-
-  persona admin      "System Administrator"
-  persona developer  "API Integrator"
-
-  surface web  "Web Dashboard"
-  surface cli  "Command Line"
-
-  test_dirs ["tests/", "src/**/*.test.*"]
-
-  coverage {
-    threshold                95
-    reports                  ["specforge-report.json"]
-    require_violation_tests  true
-    fail_on_unknown_ids      true
-  }
-
-  define research {
-    id_prefix   "RES"
-    attributes {
-      outcome     enum [adr, behavior, deferred, rejected]
-      related_adr ref? decision
-      date        string
-    }
-  }
+spec "clinic-operations" {
+  version "0.1.0"
 }
 ```
 
-## Fields Reference
-
-### Required
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Project name (string after `spec`). Used in generated output headers. |
-| `version` | string | Format version of `.spec` files. Compiler checks compatibility. |
-
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `infix` | string | Legacy 2-4 uppercase letter code. Optional -- entity IDs use free-form identifiers. |
-| `plugins` | string list | Installed plugin packages. |
-| `providers` | block | Provider configurations for ref validation. |
-| `persona` | sub-block(s) | Persona definitions for capability validation. |
-| `surface` | sub-block(s) | Surface definitions for capability validation. |
-| `test_dirs` | string list | Glob patterns for test directories. |
-| `coverage` | block | Test coverage configuration. |
-| `define` | sub-block(s) | Meta-schema for user-defined entity types. |
-
-## Relationships
-
-The `spec` block does not participate in the traceability chain. It is configuration, not a traced entity.
+The name after `spec` is the block's ID (2-60 characters, E014). Write one `spec` block per project, by convention in
+`specforge.spec` or `main.spec` under the spec root. Fields beyond `version` are free-form descriptive text; none of
+them change how the project compiles.
 
 ## Writing Rules
 
-1. **One spec block per project** -- lives in a source file under the spec root (by convention `specforge.spec`).
-2. **Plugins are string lists** -- use the full package name: `"@specforge/product"`, not `product`.
-3. **Providers support aliases** -- multiple instances of the same provider use different alias names.
-4. **Persona and surface are inline** -- declared directly in the spec block, not in separate files.
-5. **Define blocks are for custom entities** -- only use when the extension-provided entity types are insufficient.
+1. **One `spec` block per project.**
+2. **Never configure in it** -- `extensions [...]`, `providers {...}`, `persona`/`surface` lines or `coverage {...}`
+   inside `spec` do nothing (or fail to parse). Use `specforge.json` and the extensions' own kinds.
+3. **Personas and channels are entities** -- with `@specforge/product` loaded, write `persona` and `channel` blocks.
+4. **No `define` blocks** -- `define` is reserved but registers nothing (W143). A new entity kind comes from an
+   extension: `specforge extension init` scaffolds one.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E002 | Exactly one `spec` block across all `.spec` files. |
-| I003 | Project `version` older than compiler version. |
-
-## Examples
-
-### Minimal
-
-```spec
-spec "my-api" {
-  version "1.0"
-}
-```
-
-### Software + Product
-
-```spec
-spec "my-service" {
-  version "1.0"
-
-  plugins [
-    "@specforge/software",
-    "@specforge/product",
-  ]
-
-  persona admin      "System Administrator"
-  persona developer  "API Integrator"
-
-  surface web  "Web Dashboard"
-  surface api  "REST API"
-}
-```
-
-### Full Configuration
-
-```spec
-spec "healthcare-platform" {
-  version "1.0"
-
-  plugins [
-    "@specforge/software",
-    "@specforge/product",
-    "@specforge/governance",
-  ]
-
-  providers {
-    gh "platform" {
-      package "@specforge/gh"
-      repo    "healthorg/platform"
-    }
-    jira "clinical" {
-      package "@specforge/jira"
-      project "CLIN"
-      server  "https://healthorg.atlassian.net"
-    }
-  }
-
-  persona clinician  "Healthcare Provider"
-  persona patient    "Patient User"
-  persona admin      "System Administrator"
-
-  surface web     "Web Portal"
-  surface mobile  "Mobile App"
-  surface api     "HL7 FHIR API"
-
-  test_dirs ["tests/", "services/**/tests/"]
-
-  coverage {
-    threshold                95
-    require_violation_tests  true
-    fail_on_unknown_ids      true
-  }
-}
-```
+| Code | Owner | Rule |
+|------|-------|------|
+| E001 | core | Sub-blocks such as `persona admin "..."` or `coverage { ... }` inside `spec` do not parse. |
+| E014 | core | The spec name is shorter than 2 or longer than 60 characters. |
+| E069 | core | `specforge.json` is unusable. |
+| I002 | core | No extensions configured: structural-only mode (only `spec`, `ref`, `use`, `define`, `defaults`). |
+| W143 | core | A `define` block. |
 
 ## What NOT to Do
 
-- Do not declare more than one `spec` block per project
-- Do not declare more than one `spec` block across all files
-- Do not reference entity IDs from within the spec block -- it is configuration only
-- Do not put `use` directives inside the spec block -- `use` is file-level, not block-level
+- Do not list extensions in the `spec` block -- `specforge.json` `extensions` (via `specforge add`) is what loads them
+- Do not declare personas, surfaces, coverage or test directories in the `spec` block
+- Do not write `define` blocks to invent kinds -- write or install an extension
+- Do not put `use` directives inside the spec block -- `use` is file-level

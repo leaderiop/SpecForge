@@ -62,6 +62,10 @@ pub const PROJECTS: &[&str] = &[
     "integrations/rust/spec",
     "examples/todo-app",
     "examples/shop",
+    "examples/product-launch",
+    "examples/regulated-process",
+    "examples/spec-driven-method",
+    "examples/marketing",
 ];
 
 /// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`).
@@ -305,6 +309,16 @@ mod tests {
                 ("integrations/rust/spec", "integrations/rust/spec"),
                 ("examples/todo-app", "examples/todo-app/spec"),
                 ("examples/shop", "examples/shop/spec"),
+                ("examples/product-launch", "examples/product-launch/spec"),
+                (
+                    "examples/regulated-process",
+                    "examples/regulated-process/spec"
+                ),
+                (
+                    "examples/spec-driven-method",
+                    "examples/spec-driven-method/spec"
+                ),
+                ("examples/marketing", "examples/marketing/spec"),
             ]
         );
     }

@@ -1,152 +1,70 @@
-# Model Command Architecture
+# Model command architecture
 
-## Data Flow
+What you get: where the `specforge model` code lives and how it turns the loaded extensions' declarations into a
+drawing. For how to use the command, see [README.md](README.md).
 
-```
-GraphProtocolSchema (ProjectView::schema)  +  extension declarations (theme colours)
-        |
-        v
-  model::export(schema, declarations, options)        -- the one call
-        |  build the ModelIntermediate (ERD-oriented IR), colour it,
-        |  select (extension, kinds, root+depth), trim fields
-        v
-  Markdown | Mermaid | DOT | JSON (the IR, serialized) | DBML  -> String
-```
-
-The `GraphProtocolSchema` is the input. It already contains:
-- `entity_kinds: Vec<SchemaEntityKind>` with name, source_extension, testable, fields
-- `edge_types: Vec<SchemaEdgeType>` with label, source_extension, source_kinds, target_kinds
-- `extensions: Vec<SchemaExtensionInfo>` with name, version
-
-The `ModelIntermediate` enriches this with:
-- Cardinality inference (from field types)
-- Synthetic `id` primary key per entity
-- Field classification (primary key, foreign key, data)
-- Extension grouping metadata
-
-## Crate Locations
+## Data flow
 
 ```
-crates/pipeline/emitter/
-  src/
-    model/
-      mod.rs           -- ModelOptions, ModelRoot, export(); the IR (pub(crate)) and the format dispatch
-      build.rs         -- builds the ModelIntermediate from the schema and the declarations
-      markdown.rs      -- Markdown renderer
-      mermaid.rs       -- Mermaid erDiagram renderer
-      dot.rs           -- DOT schema-level renderer (HTML-like labels)
-      json.rs          -- ERD JSON renderer
-      dbml.rs          -- DBML renderer
-      cardinality.rs   -- Cardinality inference from field types
-      filter.rs        -- the selection and the field level (private)
-
-crates/surfaces/cli/
-  src/
-    model.rs           -- CLI command handler (clap args -> ModelOptions -> ops::read::model::model -> stdout, notices on stderr, a refusal as error[CODE])
-
-crates/surfaces/mcp/
-  src/
-    tools/
-      model.rs         -- MCP tool handler (JSON args -> ModelOptions -> ops::read::model::model -> text, notices in _meta.diagnostics)
+ProjectView (the compiled project)
+   |  versioned_schema(): the Graph Protocol schema, the same one `specforge schema` prints
+   |  registries().declarations(): each loaded extension's declaration (for its theme colour)
+   v
+specforge_ops::read::model::model(view, options)          -- the one operation, CLI and MCP alike
+   |  refuses an --extension the project does not load (extension_not_found)
+   |  refuses a --root no loaded extension declares (unknown_kind)
+   |  reports a --kinds name the project does not know (I020)
+   v
+specforge_emitter::model::export(schema, declarations, options) -> String
+   |  ModelIntermediate::of(schema)        build the IR: one entity per kind, a synthetic `id` first,
+   |                                       one relationship per (edge type, source kind, target kind)
+   |  .with_theme_colors(declarations)     each extension's declared theme_color
+   |  .selected(options)                   --extension, --kinds, --root/--depth; recount the extensions
+   |  .with_fields(options.fields)         none | keys | all
+   v
+markdown | mermaid | dot | json | dbml renderer
 ```
 
-## Key Types
+`export` is total: a name the schema does not have selects nothing. Refusing or reporting such a name is the
+operation's job.
 
-```rust
-/// ERD-oriented intermediate representation.
-/// Built from GraphProtocolSchema, consumed by all five renderers.
-pub struct ModelIntermediate {
-    pub schema_version: String,
-    pub extensions: Vec<ModelExtension>,
-    pub entities: Vec<ModelEntity>,
-    pub relationships: Vec<ModelRelationship>,
-}
+## Where the code is
 
-pub struct ModelExtension {
-    pub name: String,
-    pub version: String,
-    pub entity_count: usize,
-    pub edge_count: usize,
-    /// The manifest's `theme_color` (`with_theme_colors`); not serialized.
-    pub color: Option<String>,
-}
+| Path | Holds |
+|------|-------|
+| [`crates/pipeline/emitter/src/model/mod.rs`](../../crates/pipeline/emitter/src/model/mod.rs) | `ModelOptions`, `ModelRoot`, `ModelFormat`, `GroupBy`, `FieldLevel`; the IR types; `export` |
+| [`build.rs`](../../crates/pipeline/emitter/src/model/build.rs) | Builds the IR from the schema |
+| [`cardinality.rs`](../../crates/pipeline/emitter/src/model/cardinality.rs) | Cardinality from the fields that write an edge |
+| [`filter.rs`](../../crates/pipeline/emitter/src/model/filter.rs) | The selection and the field level |
+| `markdown.rs`, `mermaid.rs`, `dot.rs`, `json.rs`, `dbml.rs` (same directory) | One renderer per format |
+| [`crates/app/ops/src/read/model.rs`](../../crates/app/ops/src/read/model.rs) | The operation both surfaces call |
+| [`crates/surfaces/cli/src/model.rs`](../../crates/surfaces/cli/src/model.rs) | The CLI command: arguments to `ModelOptions`, output on stdout, notices on stderr |
+| [`crates/surfaces/mcp/src/tools/model.rs`](../../crates/surfaces/mcp/src/tools/model.rs) | The MCP tool `specforge.model`: the same options, notices in `_meta.diagnostics` |
 
-pub struct ModelEntity {
-    pub name: String,
-    pub extension: String,
-    pub description: Option<String>,
-    pub fields: Vec<ModelField>,
-}
+## The intermediate representation
 
-pub struct ModelField {
-    pub name: String,
-    pub field_type: FieldType,  // the protocol's FieldType (ADR 0034)
-    pub required: bool,
-    pub description: Option<String>,
-    pub default_value: Option<String>,
-    pub enum_values: Option<Vec<String>>,
-    pub is_primary_key: bool,
-    pub references: Option<String>,  // target entity name for reference fields
-}
+The IR types are private to the emitter (`pub(crate)`); the JSON format serializes them as they are.
 
-pub struct ModelRelationship {
-    pub name: String,        // edge type label
-    pub source: String,      // source entity kind
-    pub target: String,      // target entity kind
-    pub cardinality: Cardinality,
-    pub source_field: Option<String>,  // field on source that declares this edge
-    pub description: Option<String>,
-}
+- `ModelIntermediate`: the schema version, the extensions (name, version, entity and edge counts, colour), the
+  entities and the relationships.
+- `ModelEntity`: a kind's name, its extension, its description, its declared `dot_color`, its fields, and the
+  extensions that enhance it (`enhanced_by`).
+- `ModelField`: name, `FieldType` (the protocol's ten types), required, description, default, enum values,
+  whether it is the synthetic key, the kind it references, the extension that contributed it when that is not
+  the kind's own (`contributed_by`), and its edge (`contribution`, as `EdgeLabel -> target`).
+- `ModelRelationship`: the edge label, source and target kinds, cardinality (`1:1`, `1:N`, `N:1`, `N:M`) and the
+  field that writes it.
 
-pub enum Cardinality {
-    OneToOne,
-    OneToMany,
-    ManyToOne,
-    ManyToMany,
-}
+## Cardinality
 
-pub struct ModelOptions {
-    pub format: ModelFormat,
-    pub group_by: GroupBy,
-    pub fields: FieldLevel,
-    pub extension: Option<String>,
-    pub kinds: Vec<String>,
-    pub root: Option<ModelRoot>,
-}
+`infer_cardinality` looks for the field carrying the edge's label: on the source, a `reference_list` gives N:M and
+a single `reference` gives N:1 (1:1 when the target has a single `reference` back with the same label); with no
+field on the source, a single `reference` on the target gives 1:N. With no field on either side the builder uses
+N:M.
 
-pub struct ModelRoot {
-    pub kind: String,
-    pub depth: Option<usize>,
-}
+## Related commands
 
-pub enum ModelFormat { Markdown, Mermaid, Dot, Json, Dbml }
-pub enum GroupBy { Extension, None }
-pub enum FieldLevel { None, Keys, All }
-```
-
-## Cardinality Inference Algorithm
-
-For each edge type in the schema:
-
-1. Find the source entity kind (from `edge_type.source_kinds`)
-2. Search the source entity's fields for one where `field.edge == edge_type.label`
-3. Based on the field type:
-   - `reference` -> `ManyToOne` (many source entities can point to one target)
-   - `reference_list` -> `ManyToMany` (many source entities can point to many targets)
-4. If no matching field found -> default to `ManyToMany` (safest assumption)
-
-The `ManifestField` struct has `edge: Option<String>` and `target_kind: Option<String>` which provide the link between fields and edge types.
-
-## Integration Points
-
-### With existing `specforge schema`
-
-`specforge schema` outputs the raw `GraphProtocolSchema` as JSON. `specforge model` consumes the same schema but transforms it into an ERD-oriented IR before rendering. They share the same input but produce fundamentally different outputs.
-
-### With existing `specforge export --format=dot`
-
-The existing DOT format in `dot.rs` renders **instances** (actual entities and edges). The model DOT renderer renders the **schema** (entity kinds as record-like nodes, edge types as labeled arrows). These are complementary.
-
-### With MCP
-
-The `specforge.model` MCP tool and `specforge model` call the same operation, `specforge_ops::read::model::model`, over the project view. It refuses a `root` no loaded extension declares (`unknown_kind`) and an `extension` the project does not load (`extension_not_found`), reports a kind of `kinds` the project does not know (I020), and draws the rest with `model::export`.
+- `specforge schema` prints the Graph Protocol schema the model is built from, as JSON, unchanged.
+- `specforge export --format dot` draws the **instances** (your entities and their edges); `specforge model
+  --format dot` draws the **schema** (kinds and edge types).
+- `specforge outline` draws the extensions themselves: their peers, enhancements and contributions.

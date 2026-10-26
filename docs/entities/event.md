@@ -1,207 +1,133 @@
 # event
 
-> **Module:** `core`
+> **Declared by `@specforge/software`**, one of the builtin extensions. `event` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/software`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-An `event` declares a **domain or system event** — something the system announces when a significant state change occurs. Events are the contracts between producers and consumers: a behavior emits an event, and other behaviors (possibly in different bounded contexts or services) react to it.
+An `event` is something the system announces when a significant state change happens. It answers:
+**"What does the system announce?"**
 
-It answers: **"What does the system announce?"**
-
-Events make the system's reactive behavior explicit and traceable. Without events, the connections between "user created" and "welcome email sent" are hidden in implementation code. With events, the compiler can trace the full chain: behavior produces event, event consumed by behavior, that behavior references invariants, etc.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `user_created`, `email_changed`, `order_placed`
+Events make the reactive links explicit. Without them, the link between "user created" and "welcome email
+sent" is hidden in code. With them, the graph holds the chain: a behavior produces the event, other behaviors
+consume it, and `specforge trace` follows it.
 
 ## Syntax
 
 ```spec
-use "types/user"
-use "behaviors/user-crud"
+type UserCreatedPayload "User Created Payload" {
+  userId    string
+  email     string
+  timestamp timestamp
+}
 
 event user_created "User Created" {
-  channel   "users.created"
-
-  payload {
-    userId    string
-    email     string
-    role      UserRole
-    timestamp timestamp
-  }
+  channel  "users.created"
+  payload  UserCreatedPayload
+  category users
 }
 ```
 
+An event lists no behaviors. The behaviors name it, in `produces` (they emit it) and `consumes` (they react to
+it). Its data shape is a [type](type.md), named in `payload`.
+
 ## Fields
 
-### Required
-
-None. An event lists no behaviors: the behaviors name it, in `produces` (they emit it) and `consumes` (they react to it), and `trace <event>` lists them upstream.
+Every `event` has an id (the word after `event`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists and the extensions that enhance it add. A field no loaded extension declares is reported (W020).
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the identifier). Optional — auto-derived from identifier if omitted. |
-| `payload` | block | The event data shape — fields with types. Defines the contract between producer and consumers. |
-| `channel` | string | Logical channel, topic, or queue name. Used for AsyncAPI generation and documentation. |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this event. |
+| `channel` | string | Communication channel this event is published on. |
+| `channel_type` | identifier (one bare word) | Transport mechanism for the channel (e.g. queue, topic, stream). |
+| `category` | identifier (one bare word) | Classification of this event (e.g. domain, integration, system). |
+| `payload` | reference → `type` | Type definition describing this event's data shape. |
+| `description` | string | Human-readable summary of this event. |
+| `refs` | string list | External references such as issue or document URIs. |
+| `contract` | string | Delivery or ordering guarantees for this event. |
+| `follows_protocol` | reference list → `protocol` | Synchronization protocol this event follows (added by `@specforge/formal`). |
+| `participates_in` | reference list → `process` | Processes this event participates in (added by `@specforge/formal`). |
+| `sync` | block | Synchronization bound: barrier, timeout or delivery (added by `@specforge/formal`). |
 
-### Payload Fields
+## Verify kinds
 
-Payload fields follow the same syntax as `type` fields:
-
-```spec
-payload {
-  fieldName  fieldType
-  fieldName  fieldType  @annotation
-}
-```
-
-Supported annotations: `@readonly`, `@optional`.
+`@specforge/testing` makes `event` testable: write `verify <kind> "..."` lines in its body. The kinds it accepts are `integration`, `unit`, `deadlock_free`, `liveness`. A bare `verify "..."` has no kind. A kind outside this list is W009.
 
 ## Relationships
 
-### Incoming edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `BehaviorConsumesEvent` | "Behaviors that consume this event" (via `consumes` field) |
-| `behavior` | `BehaviorProducesEvent` | "Behaviors that emit this event" (via `produces` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [type](type.md) | `EventCarriesPayloadType` | `payload` on `event` | Type definition describing this event's data shape |
+| outgoing | `protocol` | `EventFollowsProtocol` | `follows_protocol` on `event` | Event follows a synchronization protocol |
+| outgoing | `process` | `EventParticipatesInProcess` | `participates_in` on `event` | Event participates in a process |
+| incoming | [behavior](behavior.md) | `BehaviorConsumesEvent` | `consumes` on `behavior` | Events this behavior reacts to |
+| incoming | [behavior](behavior.md) | `BehaviorProducesEvent` | `produces` on `behavior` | Events produced as a result of this behavior |
 
-### Outgoing edges
+## Validation rules
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `type` | `EventCarriesPayloadType` | "This event has as its payload these types" (via `payload` field) |
-| `protocol` | `EventFollowsProtocol` | "This event follows these protocols" (via `follows_protocol` field) |
-| `process` | `EventParticipatesInProcess` | "This event participates in these processes" (via `participates_in` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| W004 | warning | `@specforge/testing` | Untested testable entity |
+| W007 | warning | `@specforge/software` | Event never produced |
+| W009 | warning | `@specforge/testing` | Disallowed verify kind |
 
-| Code | Rule |
-|------|------|
-| E002 | No two events may share the same ID. |
-| W007 | If no behavior produces the event, emit "event never produced" warning. |
 
-## Design Guidance
+## Design guidance
 
-### Good Events
+### Good events
 
 Events should:
-- **Describe what happened, not what to do** — "UserCreated" not "SendWelcomeEmail"
-- **Be past tense** — "OrderPlaced", "PaymentProcessed", "SessionExpired"
-- **Carry sufficient data** — consumers should not need to call back to the producer
-- **Be immutable** — once published, the payload never changes
+- **Describe what happened, not what to do**: "UserCreated", not "SendWelcomeEmail"
+- **Be past tense**: "OrderPlaced", "PaymentProcessed", "SessionExpired"
+- **Carry enough data**: consumers should not need to call back to the producer
+- **Be immutable**: once published, the payload never changes
 
-### Event vs. Behavior
+### Event vs. behavior
 
 | Event | Behavior |
 |-------|----------|
 | Describes what *happened* | Describes what the system *does* |
 | Past tense ("UserCreated") | Imperative ("Create User") |
-| Published after a state change | Defines the operation that causes the state change |
-| Consumed by other behaviors | Referenced by features |
+| Published after a state change | Defines the operation that causes it |
+| Consumed by behaviors | Implements features |
 
-### Event Payload Design
+### Payload design
 
-Payloads should include:
-- **Identity** — enough to identify the affected entity (e.g., `userId`)
-- **Key data** — the data consumers need without round-tripping (e.g., `email`, `role`)
-- **Timestamp** — when the event occurred
-- **Minimal but sufficient** — don't include the entire entity; include what consumers need
-
-### Cross-Context Events
-
-Events are the primary mechanism for traceability across bounded contexts. When a behavior in the "Users" context produces `user_created`, and a behavior in the "Notifications" context consumes it, the compiler can trace the full chain even though the contexts are otherwise independent.
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [type](type.md) | `EventCarriesPayloadType` | Types this event has as its payload |
-| outgoing | `protocol` | `EventFollowsProtocol` | Protocols this event follows |
-| outgoing | `process` | `EventParticipatesInProcess` | Processes this event participates in |
-| incoming | [behavior](behavior.md) | `BehaviorConsumesEvent` | Behaviors that consume this event |
-| incoming | [behavior](behavior.md) | `BehaviorProducesEvent` | Behaviors that emit this event |
+A payload type should hold the identity of the affected entity (`userId`), the data consumers need without a
+round trip, and a timestamp. Keep it minimal but sufficient.
 
 ## Examples
 
-### Simple Event
+### Event chain
 
 ```spec
-event user_created "User Created" {
-  channel   "users.created"
-
-  payload {
-    userId    string
-    email     string
-    role      UserRole
-    timestamp timestamp
-  }
+type OrderPlacedPayload "Order Placed Payload" {
+  orderId     string
+  customerId  string
+  totalAmount number
+  timestamp   timestamp
 }
-```
-
-### Event Without Consumers (Yet)
-
-```spec
-event email_changed "User Email Changed" {
-  channel   "users.email-changed"
-
-  payload {
-    userId    string
-    oldEmail  string
-    newEmail  string
-    timestamp timestamp
-  }
-
-  // No behavior produces it yet — will emit a W007 warning.
-  // This is fine during early development.
-}
-```
-
-### Cross-Service Event
-
-```spec
-use "behaviors/order-processing"
 
 event order_placed "Order Placed" {
-  channel   "orders.placed"
-
-  payload {
-    orderId     string
-    customerId  string
-    items       OrderItem[]
-    totalAmount number
-    currency    string
-    timestamp   timestamp
-  }
-
-  refs [mermaid:order-event-flow]
+  channel "orders.placed"
+  payload OrderPlacedPayload
 }
-```
 
-The behavior `place_order` lists `order_placed` in `produces`. Four behaviors list it in `consumes`: `begin_fulfillment` (Fulfillment service: begin picking), `charge_payment` (Billing service: charge payment), `send_order_confirm` (Notification service: send confirmation) and `log_order_audit` (Audit service: log order event).
-
-### Event Chain (A Consumer Produces the Next Event)
-
-```spec
 event payment_processed "Payment Processed" {
-  channel   "billing.payment-processed"
+  channel "billing.payment-processed"
+}
 
-  payload {
-    orderId       string
-    paymentId     string
-    amount        number
-    currency      string
-    paymentMethod string
-    timestamp     timestamp
-  }
+behavior charge_payment "Charge Payment" {
+  consumes [order_placed]
+  produces [payment_processed]
+  contract "When an order is placed, the system MUST charge the customer's payment method once."
+  verify integration "one order_placed yields exactly one charge"
 }
 ```
-
-The behavior `charge_payment` lists `order_placed` in `consumes` and `payment_processed` in `produces`; `complete_fulfillment` and `send_payment_confirm` list `payment_processed` in `consumes`.

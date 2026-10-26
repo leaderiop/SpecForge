@@ -1,207 +1,145 @@
 # deliverable
 
-> **Module:** `@specforge/product`
+> **Declared by `@specforge/product`**, one of the builtin extensions. `deliverable` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/product`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `deliverable` declares a **shippable artifact** that maps journeys to modules. Deliverables represent what actually ships to users — apps, services, CLIs, extensions — bridging the UX layer (journeys) to the code layer (modules).
+A `deliverable` is something that ships: an app, a service, a CLI, a document, a package. It bundles the
+journeys it serves and the modules it is built from. It answers: **"What ships to users?"**
 
-It answers: **"What ships to users?"**
-
-Deliverables complete the top of the traceability chain: `deliverable -> journey -> feature -> behavior -> invariant`. They make release planning explicit by bundling journeys into named artifacts with clear module dependencies.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `web_dashboard`, `cli_tool`, `rest_api`
+Deliverables make release planning explicit: `release -> deliverable -> journey -> feature`. The artifact need
+not be code: `artifact_type documentation` covers a policy framework or a procedure manual.
 
 ## Syntax
 
 ```spec
-use "journeys/admin-users"
-use "journeys/developer-api"
-use "modules/core"
-use "modules/email"
-use "product/milestones"
-
 deliverable user_mgmt_mvp "User Management MVP" {
-  artifact_type cli
+  artifact_type web_app
   status        in_progress
   journeys      [create_user_web, create_user_api]
-  modules       [core_mod, email_mod]
+  modules       [core_mod]
   milestones    [mvp_phase]
   version       "0.1.0"
+  owner         "platform-team"
 }
 ```
 
 ## Fields
 
-All fields are optional at the type level.
+Every `deliverable` has an id (the word after `deliverable`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
+
+### Required
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `artifact_type` | enum: cli, service, library, web_app, mobile_app, api, extension, documentation, package | Kind of artifact produced. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the entity ID). |
-| `artifact_type` | ArtifactType | The artifact kind: `cli`, `service`, `library`, `web_app`, `mobile_app`, `api`, `extension`, `documentation`, `package`. Another value is E061. |
-| `status` | DeliverableStatus | Lifecycle state: `draft`, `in_progress`, `shipped`, `deprecated`. Absent: `draft`. Another value is E061. |
-| `journeys` | EntityId[] | The UX journeys this deliverable ships. Creates `DeliverableSupportsJourney` edges. |
-| `modules` | EntityId[] | The modules this deliverable is built from. Creates `DeliverableContainsModule` edges. |
-| `milestones` | EntityId[] | Milestones this deliverable is tracked against. Creates `DeliverableTrackedByMilestone` edges. |
-| `depends_on` | EntityId[] | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E052. |
-| `version` | string | Semantic Versioning 2.0.0 string (e.g., `1.0.0`, `1.0.0-alpha.1`, `1.0.0+build.42`). |
-| `reason` | string | Rationale for current status (required context for `deprecated` status, checked by I066). |
-| `tags` | string[] | Free-form tags for categorization. |
+| `description` | string | Human-readable summary of the deliverable. |
+| `status` | enum: draft, in_progress, shipped, deprecated | Lifecycle state; default `draft`. |
+| `journeys` | reference list → `journey` | User journeys this deliverable supports. |
+| `modules` | reference list → `module` | Modules included in this deliverable. |
+| `version` | string | Semantic version of this deliverable. |
+| `milestones` | reference list → `milestone` | Milestones this deliverable is tracked under. |
+| `depends_on` | reference list → `deliverable` | Other deliverables that must ship before this one. |
+| `reason` | string | Justification for the current status or a status change. |
+| `owner` | string | Person or team responsible for this deliverable. |
+| `contributors` | string list | Additional people or teams contributing to this deliverable. |
+| `tags` | string list | Freeform labels for filtering and categorization (a shared field of `@specforge/product`). |
 
 ## Relationships
 
-### Outgoing edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `module` | `DeliverableContainsModule` | "This deliverable contains these modules" (via `modules` field) |
-| `deliverable` | `DeliverableDependsOn` | "This deliverable depends on these deliverables" (via `depends_on` field) |
-| `journey` | `DeliverableSupportsJourney` | "This deliverable ships these journeys" (via `journeys` field) |
-| `milestone` | `DeliverableTrackedByMilestone` | "This deliverable is tracked by these milestones" (via `milestones` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [module](module.md) | `DeliverableContainsModule` | `modules` on `deliverable` | Modules included in this deliverable |
+| outgoing | [deliverable](deliverable.md) | `DeliverableDependsOn` | `depends_on` on `deliverable` | Other deliverables that must ship before this one |
+| outgoing | [journey](journey.md) | `DeliverableSupportsJourney` | `journeys` on `deliverable` | User journeys this deliverable supports |
+| outgoing | [milestone](milestone.md) | `DeliverableTrackedByMilestone` | `milestones` on `deliverable` | Milestones this deliverable is tracked under |
+| incoming | [deliverable](deliverable.md) | `DeliverableDependsOn` | `depends_on` on `deliverable` | Other deliverables that must ship before this one |
+| incoming | [release](release.md) | `ReleaseIncludesDeliverable` | `deliverables` on `release` | Deliverables included in this release |
 
-### Incoming edges
+## Validation rules
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `deliverable` | `DeliverableDependsOn` | "Deliverables that depend on this deliverable" (via `depends_on` field) |
-| `release` | `ReleaseIncludesDeliverable` | "Releases that ship this deliverable" (via `deliverables` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| E052 | error | `@specforge/product` | Deliverable dependency cycle |
+| I061 | info | `@specforge/product` | Deliverable version not semver |
+| I066 | info | `@specforge/product` | Deprecated deliverable missing reason |
+| I068 | info | `@specforge/product` | Tag not lowercase-hyphenated |
+| I080 | info | `@specforge/product` | Entity without owner |
+| W043 | warning | `@specforge/product` | Deliverable without journeys |
+| W046 | warning | `@specforge/product` | Deliverable without modules |
 
-| Code | Level | Rule |
-|------|-------|------|
-| E052 | error | Circular deliverable dependency — `depends_on` edges form a cycle. |
-| E061 | error | A value outside the field's vocabulary. |
-| W043 | warning | Deliverable with no journeys (no `journeys`, or an empty list). |
-| W046 | warning | Deliverable with no modules (no `modules`, or an empty list). |
-| I061 | info | `version` present but not semver. |
-| I066 | info | Deprecated deliverable without a `reason`. |
-| I080 | info | No `owner`. |
 
 ## Queries
 
-| Query | Method | Description |
-|-------|--------|-------------|
-| Deliverable traceability | `queryDeliverableTraceability` | Transitive features via journey and module paths. |
-| Deliverable completion | `queryDeliverableCompletion` | Aggregate milestone completion across referenced milestones. |
-| Deliverable dependents | `queryDeliverableDependents` | Other deliverables that depend on this one. |
-| Deliverable priority | `queryDeliverablePriority` | Derived priority from constituent milestones and journeys (max-priority). |
-| Deliverable personas | `queryDeliverablePersonas` | Deduplicated personas served by this deliverable, traversed via deliverable→journey→persona edges. |
+`@specforge/product` also declares commands that read deliverables from the graph, on the CLI and, under the same
+names, as MCP tools:
 
-## Design Guidance
+| Command | Answers |
+|---------|---------|
+| `specforge product deliverable-traceability` | The features a deliverable reaches |
+| `specforge product deliverable-completion` | Deliverable completion |
+| `specforge product deliverable-dependents` | Deliverables that depend on a given deliverable |
+| `specforge product deliverable-priority` | A deliverable's derived priority |
+| `specforge product deliverable-personas` | The personas a deliverable serves (via journeys) |
 
-### Deliverable Granularity
+## Design guidance
 
-A deliverable should be:
-- **Shippable** — something you can deploy, publish, or release to users
-- **Self-contained** — bundles all journeys needed for its use case
-- **Persona-scoped** — targets specific user personas
+### Granularity
 
-### Status Lifecycle
+A deliverable should be **shippable** (you can deploy, publish or hand it over), **self-contained** (it bundles
+the journeys its use case needs) and **aimed** at specific personas.
+
+### Status lifecycle
 
 ```
 draft -> in_progress -> shipped
                 |
-            deprecated (requires reason)
+            deprecated (give a reason)
 ```
 
-When `status` is `deprecated`, omitting `reason` emits I066.
+A `deprecated` deliverable without a `reason` is I066.
 
-### Deliverable vs. Journey
-
-| Deliverable | Journey |
-|-------------|---------|
-| "Web Dashboard" | "Create a New User" |
-| What ships | What a user can do |
-| Groups journeys by artifact | Groups features by persona + channel |
-| Has module dependencies | Has feature dependencies |
-
-### Deliverable vs. Module
+### Deliverable vs. module
 
 | Deliverable | Module |
 |-------------|--------|
-| "User Management MVP" / "Housing Policy Framework" | "@myservice/core" / "Advisory Workstream" |
+| "User Management MVP" / "Housing Policy Framework" | "core" / "Advisory Workstream" |
 | What users or stakeholders receive | What implementers build |
 | Maps journeys to modules | Maps features to dependencies |
-| Shippable artifact or outcome | Structural component |
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [module](module.md) | `DeliverableContainsModule` | Modules this deliverable contains |
-| outgoing | [deliverable](deliverable.md) | `DeliverableDependsOn` | Deliverables this deliverable depends on |
-| outgoing | [journey](journey.md) | `DeliverableSupportsJourney` | Journeys this deliverable ships |
-| outgoing | [milestone](milestone.md) | `DeliverableTrackedByMilestone` | Milestones this deliverable is tracked by |
-| incoming | [deliverable](deliverable.md) | `DeliverableDependsOn` | Deliverables that depend on this deliverable |
-| incoming | [release](release.md) | `ReleaseIncludesDeliverable` | Releases that ship this deliverable |
 
 ## Examples
 
-### Web Application
+### CLI tool
 
 ```spec
-use "journeys/admin-users"
-use "journeys/admin-reports"
-use "modules/core"
-use "modules/reporting"
-use "product/milestones"
-
-deliverable web_dashboard "Web Dashboard" {
-  artifact_type web_app
-  status        in_progress
-  journeys      [create_user_web, create_user_api, export_reports]
-  modules       [core_mod, reporting_mod]
-  milestones    [mvp_phase]
-  refs          [jira.epic:PROJ-100]
-}
-```
-
-### CLI Tool
-
-```spec
-use "journeys/developer-api"
-use "modules/core"
-use "modules/cli-utils"
-
 deliverable cli_tool "CLI Tool" {
   artifact_type cli
   status        shipped
   version       "1.0.0"
-  journeys      [search_records_cli, lint_specs_cli]
+  journeys      [search_records_cli]
   modules       [core_mod, cli_utils_mod]
 }
 ```
 
-### Non-Software: Policy Framework
+### Outside software: a policy framework
 
 ```spec
-use "journeys/policy-review"
-use "modules/advisory"
-
 deliverable housing_policy "Housing Policy Framework" {
   artifact_type documentation
   status        draft
   journeys      [review_policy_draft, submit_public_comment]
   modules       [advisory_workstream]
-}
-```
-
-### Minimal Deliverable
-
-```spec
-use "journeys/api-integration"
-
-deliverable rest_api "REST API Service" {
-  artifact_type api
-  journeys [api_integration]
 }
 ```

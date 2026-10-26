@@ -1,19 +1,16 @@
 ---
 name: specforge-refs-dsl
-description: "Write ref external reference declarations in .spec DSL files. Supports one-line (ref gh.issue:42 \"Title\") and block syntax with provider-specific metadata. Also covers inline refs in entity refs fields. Use when linking spec entities to external resources like GitHub issues, Jira tickets, Figma designs, or diagrams."
+description: "Write ref external reference declarations in .spec files. `ref` is one of the five structural keywords of the core grammar, available in every project whatever extensions it loads. Covers the one-line form (ref gh.issue:42 \"Title\"), the block form with metadata, and naming declared refs in an entity's refs list or in prose. Use when linking entities of any domain to outside resources: issues, tickets, designs, SOPs, documents."
 ---
 
 # SpecForge Refs DSL
 
-Rules and conventions for authoring **`ref` declarations** in `.spec` files. Refs are typed links to external resources -- the bridge between the compiler-checked spec world and external issue trackers, design tools, and documentation.
+> **Structural, not from an extension.** `ref` is one of the five keywords the core grammar knows (`spec`, `ref`,
+> `use`, `define`, `defaults`), so it works in every project. The `refs` *field* on an entity exists only when that
+> entity's extension declares it -- check with `specforge infer-guide <kind>`.
 
-## When to Use
-
-- Linking spec entities to GitHub issues, PRs, or discussions
-- Linking to Jira tickets, epics, or stories
-- Referencing Figma designs or Mermaid diagrams
-- Declaring external references that multiple entities share
-- Adding provider-specific metadata to external links
+A `ref` is a typed link to something outside the graph: an issue, a ticket, a design frame, a procedure document.
+It becomes a node; entities point at it.
 
 ## Block Syntax
 
@@ -22,34 +19,37 @@ Rules and conventions for authoring **`ref` declarations** in `.spec` files. Ref
 ```spec
 ref gh.issue:42 "Track login timeout bug"
 ref jira.epic:PROJ-123 "Q2 auth overhaul"
-ref mermaid:user-flow "User registration sequence"
+ref docs.sop:QA-017 "Batch release procedure"
 ```
 
-### Block Syntax (rare -- for metadata)
+### Block Form (for metadata)
 
 ```spec
-ref gh.issue:42 "Track login timeout bug" {
-  labels   ["bug", "auth"]
+ref gh.issue:99 "Performance regression in search" {
+  labels   ["performance", "search"]
   priority high
 }
 ```
 
-### Inline References (in entity `refs` fields)
+### Naming a ref from an entity
 
 ```spec
-behavior create_user "Create User" {
-  contract "..."
-  refs [gh.issue:42, jira.epic:PROJ-123]
+ref gh.issue:42 "Track login timeout bug"
+
+behavior fix_login_timeout "Fix Login Timeout" {
+  category command
+  contract """
+    A login MUST complete or fail within 5 seconds.
+    See [gh.issue:42] for the original report.
+  """
+  refs [gh.issue:42]
+
+  verify unit "a stalled identity provider fails the login after 5 seconds"
 }
 ```
 
-### Inline References in Prose
-
-```spec
-contract """
-  See [gh.issue:42] for the original requirements.
-"""
-```
+An item of a `refs` list must be a declared `ref` (otherwise E003). A `[gh.issue:42]` inside prose is text for
+readers and editors; it creates no edge.
 
 ## ID Pattern
 
@@ -57,117 +57,46 @@ contract """
 scheme.kind:identifier
 ```
 
-- `scheme` -- provider name (e.g., `gh`, `jira`, `figma`, `mermaid`)
-- `kind` -- resource type within provider (e.g., `issue`, `pr`, `epic`, `frame`)
-- `identifier` -- provider-specific locator (e.g., `42`, `PROJ-123`, `abc123`)
+- `scheme` -- the source (`gh`, `jira`, `figma`, `docs`)
+- `kind` -- the resource type within it (`issue`, `pr`, `epic`, `frame`, `sop`)
+- `identifier` -- the locator (`42`, `PROJ-123`, `abc123`)
 
-Some providers have only scheme and identifier (no kind): `mermaid:user-flow`.
+All three parts are required: `mermaid:user-flow` (no kind) does not parse.
 
-## Fields Reference
+## Providers (what is and is not built)
 
-### Required
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `scheme` | identifier | Provider scheme (part of the ID, not a separate field). |
-| `identifier` | string | Provider-specific resource locator (part of the ID). |
-
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Human-readable description (string after the ref ID). |
-| Provider-specific fields | varies | Any fields inside a block are validated by the provider. |
+`specforge.json` can list `providers`, and an extension can register a ref scheme. Today that registers the scheme
+only: there is no host reader yet, so SpecForge does not fetch, sync or check the linked resource. A ref is a typed,
+named link -- not a live connection to GitHub, Jira or any other system. `specforge providers` lists what is
+configured.
 
 ## Relationships
 
-### Incoming edges
+| From | Field | Meaning |
+|------|-------|---------|
+| any entity whose kind declares `refs` | `refs` | the entity links to this resource (`links_to` edge) |
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| any entity | `links_to` | Entity references this external resource (via `refs` field) |
-
-### Outgoing edges
-
-None. Refs are leaf nodes -- they do not reference other spec entities.
+Refs are leaf nodes: they reference nothing.
 
 ## Writing Rules
 
-1. **Use scheme-based IDs** -- `gh.issue:42` not raw URLs, because they are compiler-aware and provider-validated.
-2. **One-line for most refs** -- block syntax is only needed for provider-specific metadata.
-3. **Declare refs at the file level** -- then reference them in entity `refs` fields.
-4. **Use inline `[gh.issue:42]` in prose** -- for in-context navigation.
-5. **Configure providers in `specforge.json` (`providers`)** -- refs using `gh.*` require a `gh` provider configuration.
-6. **Ref IDs are globally unique** -- no two refs share the same scheme.kind:identifier.
+1. **Use scheme IDs, not raw URLs** -- `gh.issue:42`, not `https://github.com/...`.
+2. **Declare once, reference many times** -- one `ref` per resource, named from every entity that needs it.
+3. **Ref IDs are unique** -- one declaration per `scheme.kind:identifier`.
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E002 | No duplicate ref IDs across all `.spec` files. |
-| E011 | Invalid ref target format -- provider validates identifier pattern. |
-| E012 | Unknown provider kind -- kind not registered by the provider. |
-| W012 | Orphan ref -- declared but never referenced by any entity's `refs` field. |
-| I005 | Unknown provider scheme -- scheme not registered by any installed provider. |
-
-## Examples
-
-### Simple Refs
-
-```spec
-ref gh.issue:42 "Track login timeout bug"
-ref jira.epic:PROJ-123 "Q2 Authentication Overhaul"
-ref mermaid:user-flow "User registration sequence diagram"
-ref figma.frame:abc123 "Login page redesign"
-```
-
-### Multiple Providers
-
-```spec
-// GitHub for issues and PRs
-ref gh.issue:42 "Login timeout bug"
-ref gh.pr:187 "Fix login timeout"
-
-// Jira for epics and stories
-ref jira.epic:PROJ-123 "Q2 Auth Overhaul"
-ref jira.story:PROJ-456 "Implement SSO"
-
-// Figma for designs
-ref figma.frame:abc123 "Login page redesign"
-```
-
-### Behavior with Refs
-
-```spec
-behavior create_user "Create User" {
-  invariants [data_persistence, email_uniqueness]
-
-  contract """
-    When a valid CreateUserCommand is received,
-    the system MUST create a user record with unique email.
-    See [gh.issue:42] for the original requirements.
-  """
-
-  refs [gh.issue:42, jira.epic:PROJ-123]
-
-  verify unit "insert user, retrieve by ID, assert equal"
-}
-```
-
-### Block Syntax with Metadata
-
-```spec
-ref gh.issue:99 "Performance regression in search" {
-  labels   ["performance", "search"]
-  priority critical
-  assignee "alice"
-}
-```
+| Code | Owner | Rule |
+|------|-------|------|
+| E001 | core | The ID is not `scheme.kind:identifier`. |
+| E002 | core | The same ref declared twice. |
+| E003 | core | A `refs` item names no declared ref. |
+| W012 | core | A ref nothing points at. |
+| I005 | core | A scheme no configured provider registers. |
 
 ## What NOT to Do
 
-- Do not use raw URLs instead of scheme-based IDs -- use `gh.issue:42` not `https://github.com/...`
-- Do not use refs for internal cross-references between spec entities -- use entity IDs directly
-- Do not declare refs without referencing them from at least one entity -- or `W012` orphan warning fires
-- Do not use schemes without configuring the provider in `specforge.json` (`providers`) -- unknown schemes emit `I005`
-- Do not put the kind in the identifier -- `gh.issue:42` not `gh:issue-42`
+- Do not use refs for links between entities of the graph -- reference the entity's ID directly
+- Do not name an undeclared ref in a `refs` list -- declare it first (E003)
+- Do not claim a ref is synced with the outside tool -- providers have no reader yet
+- Do not put the kind in the identifier -- `gh.issue:42`, not `gh:issue-42`

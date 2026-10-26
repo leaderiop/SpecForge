@@ -1,10 +1,11 @@
 # Formal Verification Guide
 
-SpecForge can *prove* things about your spec — not just lint it. The
-`specforge analyze --prove` pass parses machine-checkable bounds and
+SpecForge can *prove* some things about your graph — not just lint it.
+The `specforge analyze --prove` pass reads machine-checkable bounds and
 claims, verifies them with the [z3](https://github.com/Z3Prover/z3) SMT
 solver, and reports contradictions, unproven claims, and counterexamples
-with exact source locations.
+with exact source locations. It works on numbers with units (a latency
+budget, a memory ceiling, a dose limit), whatever domain they come from.
 
 - Layer 1 — **Consistency**: your declared bounds must be satisfiable.
 - Layer 2 — **Entailment**: your formal claims must follow from the
@@ -16,10 +17,11 @@ reports solver availability in its summary and checks nothing.
 ## Bounds and claims are declared
 
 The prove pass names no kind and no field. It reads the fields an
-extension declares with a **proof role** (`proof_role` in the manifest,
-ADR 0009): a **bound** is a fact the solver assumes, and a **claim** must
-follow from the bounds. A field without a role is never read. The
-builtins declare:
+extension declares with a **proof role** (`proof_role` in its declaration,
+`f.proof_role("bound")` with the SDK; ADR 0009): a **bound** is a fact the solver assumes, and a **claim** must
+follow from the bounds. A field without a role is never read, so your
+own extension can give its kinds bounds and claims the same way. The
+builtin extensions declare:
 
 | Field | Kind | Extension | Role |
 |---|---|---|---|
@@ -41,7 +43,7 @@ latency < 100ms
 peak_memory + cache_size <= 64MB
 not (retries == 0 or timeout > 30s)
 latency > 10ms and latency < 1s
-coverage >= 95%
+coverage >= 95.0
 ```
 
 Precedence, loosest to tightest: `or`, `and`, comparisons
@@ -54,9 +56,10 @@ constraints bounding the same identifier are checked against each other.
 **Units.** Numeric literals may carry a unit suffix. Units are
 normalized before solving: time to milliseconds (`ms` `s` `us` `ns`),
 data to bytes (`B` `KB` `MB` `GB` and `KiB` `MiB` `GiB`). `100ms` vs
-`1s` compares correctly. Unknown units (`reqs`, `fps`) compare raw;
-percent (`%`) is dimensionless. Mixing dimensions on one variable is
-undefined — don't.
+`1s` compares correctly. Unknown units (`reqs`, `fps`) compare raw.
+There is no percent sign: `95%` inside `expr { }` is a syntax error
+(E001), so write a percentage as a plain number (`coverage >= 95.0`).
+Mixing dimensions on one variable is undefined — don't.
 
 ## Declaring bounds: constraints and axioms
 
@@ -157,9 +160,13 @@ analyze/prove — declared bounds and claims verified with an SMT solver
 - `E046` — contradiction; the unsat core names the **minimal** set of
   bounds that conflict, across files, each with its location.
 - `W139` — unproven claim with counterexample.
-- The `prove` summary reports `entities_with_bounds`, `axioms` (the bound
-  conjuncts), `claims`, `claims_proved`, `claims_unproved`, `satisfiable`,
-  and `unsatisfiable`.
+- The `prove` summary reports `entities_with_bounds`, `axioms` and
+  `conjuncts` (the bound conjuncts), `claims`, `claims_proved`,
+  `claims_unproved`, `satisfiable`, `unsatisfiable`,
+  `skipped_prose_lines`, and the solver it used (`solver`,
+  `solver_available`, `solver_runtime_failure`).
+- Contradictory bounds prove every claim vacuously: fix an `E046` before
+  you trust a `claims_proved` count.
 
 Every code is documented: `specforge explain E046`.
 

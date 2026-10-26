@@ -1,6 +1,6 @@
 # Getting Started with @specforge/product
 
-The `@specforge/product` extension adds 9 planning entity kinds to SpecForge: **feature**, **journey**, **deliverable**, **milestone**, **module**, **term**, **persona**, **channel**, and **release**. Together they model the full product planning lifecycle.
+`@specforge/product` is a builtin extension: it teaches SpecForge 9 planning kinds — **feature**, **journey**, **deliverable**, **milestone**, **module**, **term**, **persona**, **channel**, and **release** — and about 40 commands that answer planning questions over them. Few of its words are about code (`module` and a deliverable's `artifact_type` lean towards software), so a marketing team launching a campaign or a clinic planning a new service can use it too. Together the kinds model the planning lifecycle: who it is for, what they need, how they get it, and when it ships.
 
 ## Quick start
 
@@ -16,16 +16,21 @@ Or add to an existing project:
 specforge add @specforge/product
 ```
 
-### 2. Define your personas
+### 2. Define your personas and channels
 
-Start by declaring who uses your product:
+Start by declaring who uses your product, and where they meet it:
 
-```specforge
+```spec
 persona developer "Developer" {
   description "Software engineer building features"
   technical_level expert
   goals ["Ship features quickly", "Maintain code quality"]
-  tags [primary]
+  tags ["primary"]
+}
+
+channel web "Web" {
+  description       "The browser application"
+  interaction_model request_response
 }
 ```
 
@@ -33,7 +38,7 @@ persona developer "Developer" {
 
 Features describe what your product does in problem/solution terms:
 
-```specforge
+```spec
 feature user_auth "User Authentication" {
   problem  "Users cannot access personalized content without identity"
   solution "OAuth2 login flow with email/password fallback"
@@ -45,7 +50,7 @@ feature user_auth "User Authentication" {
     "User can sign in with Google OAuth",
     "User can sign in with email/password",
   ]
-  tags [auth, mvp]
+  tags ["auth", "mvp"]
 }
 ```
 
@@ -53,10 +58,10 @@ feature user_auth "User Authentication" {
 
 Journeys describe how personas interact with features:
 
-```specforge
+```spec
 journey sign_in "Sign In" {
   persona  developer
-  channels [web_app]
+  channels [web]
   features [user_auth]
   priority high
   flow [
@@ -70,7 +75,7 @@ journey sign_in "Sign In" {
 
 ### 5. Schedule into milestones
 
-```specforge
+```spec
 milestone mvp "Minimum Viable Product" {
   status      in_progress
   features    [user_auth]
@@ -84,9 +89,19 @@ milestone mvp "Minimum Viable Product" {
 }
 ```
 
-### 6. Define deliverables
+### 6. Define modules and deliverables
 
-```specforge
+```spec
+module auth_module "Authentication" {
+  family   core
+  features [user_auth]
+}
+
+module web_frontend "Web frontend" {
+  family   core
+  features [user_auth]
+}
+
 deliverable web_app "Web Application" {
   artifact_type web_app
   status        draft
@@ -99,7 +114,7 @@ deliverable web_app "Web Application" {
 
 ### 7. Coordinate releases
 
-```specforge
+```spec
 release v1 "Version 1.0" {
   version      "1.0.0"
   status       planned
@@ -164,11 +179,11 @@ Add `owner` and `contributors` to any feature, milestone, deliverable, or releas
 ## CLI commands
 
 The commands are `@specforge/product`'s own (`specforge product <command>`, or
-`specforge product:<command>`); `specforge product --help` lists them.
+`specforge product:<command>`); `specforge product --help` lists all of them. The most used:
 
 | Command | Description |
 |---------|-------------|
-| `features` | List features (`--status`, `--priority`, `--offset`, `--limit`) |
+| `features` | List features (`--status`, `--priority`, `--tags`, `--sort-by`, `--offset`, `--limit`) |
 | `journeys` | List journeys |
 | `deliverables` | List deliverables (`--status`) |
 | `milestones` | List milestones (`--status`) |
@@ -186,6 +201,15 @@ The commands are `@specforge/product`'s own (`specforge product <command>`, or
 | `bulk-status` | Status breakdown per kind |
 | `health` | Composite health score |
 
+The rest answer finer questions: `deliverable-traceability`, `feature-deliverables`,
+`persona-channels`, `deliverable-personas`, `deliverable-completion`, `release-completion`,
+`deliverable-priority`, `unscheduled-features`, `owner-workload`, `feature-ordering`,
+`critical-path`, `module-depth`, `module-coupling`, `deliverable-dependents`,
+`coverage-matrix`, `channel-coverage-matrix`, `feature-overlap`, `term-graph`,
+`term-clusters`, `term-density`, `milestone-timeline`, `milestone-velocity` and
+`weighted-milestone-completion`.
+
 Every command takes `--path <dir>` (the project, default `.`) and `--format human|json`
-(default `human`), and is auto-promoted to the MCP tool `specforge.product.<id>`
-(`specforge.product.milestone_completion`).
+(default `human`), and is served to agents as the MCP tool `specforge.product.<id>`
+(`specforge.product.milestone_completion`), so an agent can ask the same questions — see
+[Connect an agent](connect-an-agent.md).

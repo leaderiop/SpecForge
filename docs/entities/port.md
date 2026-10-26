@@ -1,271 +1,130 @@
 # port
 
-> **Module:** `core`
+> **Declared by `@specforge/software`**, one of the builtin extensions. `port` is one example of an entity kind, not part of
+> SpecForge's core: the core grammar knows only `spec`, `ref`, `use`, `define` and `defaults`, and every other kind,
+> with its fields, edges and rules, comes from an extension ([extension model](../extension-model.md)). Enable this
+> one with `specforge add @specforge/software`. The fields, edges and rules below are read from its declaration.
 
 ## Purpose
 
-A `port` declares an **interface contract** — a set of operations that a component provides or requires. Ports define the boundaries between the domain and the outside world: databases, APIs, message brokers, external services. They are the "holes" in the hexagonal architecture that adapters plug into.
-
-It answers: **"What contracts exist between components?"**
-
-Ports are Phase 2 entities. The v1 parser recognizes the syntax but treats method signatures as opaque until code generation is implemented. When codegen is active, ports produce language-specific interfaces: TypeScript interfaces with `ResultAsync`, Python ABCs with `Result`, Go interfaces with `context.Context`.
-
-## ID Pattern
-
-```
-identifier
-```
-
-Examples: `UserRepository`, `EmailService`, `PaymentGateway`, `NotificationPort`
-
-By convention, ports typically use PascalCase, but any valid identifier is accepted.
+A `port` states an interface contract: the operations a component offers or needs. Ports mark the boundary
+between the domain and the outside world (databases, APIs, message brokers, external services). In hexagonal
+architecture they are the sockets adapters plug into. It answers: **"What contracts exist between components?"**
 
 ## Syntax
 
 ```spec
-use "types/user"
+type User "User" {
+  id    string @readonly
+  email string
+}
+
+type CreateUserCommand "Create User Command" {
+  email string
+}
+
+type DuplicateEmailError "Duplicate Email Error" {
+  email string
+}
+
+type UserNotFoundError "User Not Found Error" {
+  id string
+}
 
 port UserRepository "User Repository" {
   direction outbound
   category  "persistence/user"
+  types     [User]
 
   method create(cmd: CreateUserCommand) -> Result<User, DuplicateEmailError>
   method findById(id: string) -> Result<User, UserNotFoundError>
-  method findByEmail(email: string) -> Result<User?, never>
-  method update(id: string, cmd: UpdateUserCommand) -> Result<User, DuplicateEmailError | UserNotFoundError>
+  method findByEmail(email: string) -> Result<Option<User>, never>
   method delete(id: string) -> Result<void, UserNotFoundError>
 }
 ```
 
-## Fields
+### Methods
 
-### Required
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | identifier | The port name (the identifier after `port`). |
-| `direction` | enum | `inbound` or `outbound`. See Direction below. |
-| `methods` | method list | One or more method signatures defining the port's operations. |
-
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `category` | string | Organizational category for grouping related ports (e.g., `"persistence/user"`, `"messaging"`, `"external/payment"`). |
-| `refs` | reference list | External references (issues, tickets, diagrams) linked to this port. |
+A port's body holds `method name(param: Type, ...) -> ReturnType` lines. Every type a parameter or return names
+must be a declared [type](type.md) or a primitive (E004). Generic arguments (`Result<A, B>`, `Option<T>`) and lists
+(`T[]`) are checked inside. `never` marks an error channel that cannot happen.
 
 ### Direction
 
 | Direction | Meaning | Examples |
 |-----------|---------|----------|
-| `inbound` | The outside world calls into the system. The port defines what the system offers. | `UserAPI`, `WebhookHandler`, `CLICommands` |
-| `outbound` | The system calls out to the world. The port defines what the system requires. | `UserRepository`, `EmailService`, `PaymentGateway` |
+| `inbound` | The outside world calls in; the port is what the system offers ("driving" port) | `UserAPI`, `WebhookHandler` |
+| `outbound` | The system calls out; the port is what the system needs ("driven" port) | `UserRepository`, `PaymentGateway` |
+| `bidirectional` | Calls go both ways | a socket session |
 
-In hexagonal architecture terms:
-- **Inbound** ports are "driving" ports (primary adapters connect to these)
-- **Outbound** ports are "driven" ports (secondary adapters implement these)
+## Fields
 
-### Method Signatures
+Every `port` has an id (the word after `port`) and a title (the quoted string after the id, required: E076). The fields below are the ones its declaration lists. A field no loaded extension declares is reported (W020).
 
-```ebnf
-method_decl  = "method" , identifier , "(" , [ param_list ] , ")" , "->" , return_type ;
-param_list   = param , { "," , param } ;
-param        = identifier , ":" , type_expr ;
-return_type  = type_expr ;
-type_expr    = identifier [ "?" ] [ "<" , type_expr , { "," , type_expr } , ">" ]
-             | type_expr , "|" , type_expr ;
-```
+### Required
 
-Common patterns:
-- `Result<Success, Error>` — operation that can fail with a typed error
-- `Result<Success, ErrorA | ErrorB>` — multiple possible error types
-- `Type?` — nullable return (may return null/nil/None)
-- `void` — no return value
-- `never` — error channel is impossible (operation cannot fail)
+| Field | Type | Description |
+|-------|------|-------------|
+| `direction` | enum: inbound, outbound, bidirectional | Whether this port is inbound, outbound, or bidirectional. |
+
+### Optional
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `category` | string | Classification of this port, a word or a path (e.g. http, io/filesystem). |
+| `methods` | block | Method signatures exposed by this port interface. |
+| `types` | reference list → `type` | Types named in this port's method signatures (derived from its methods). |
+| `description` | string | Human-readable summary of this port. |
+| `refs` | string list | External references such as issue or document URIs. |
+
+## Verify kinds
+
+`@specforge/testing` makes `port` testable: write `verify <kind> "..."` lines in its body. The kinds it accepts are `integration`, `unit`. A bare `verify "..."` has no kind. A kind outside this list is W009.
 
 ## Relationships
 
-### Incoming edges
+A relation is written once, on the field that owns it; the other side is derived (ADR 0150). For an incoming edge the field is on the other entity.
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `BehaviorUsesPort` | "Behaviors that use this port" (via `ports` field) |
-| `module` | `ModuleConsumesPort` | "Modules that consume this port" (via `ports` field) |
-| `module` | `ModuleDefinesPort` | "Modules that define this port" (via `ports_defined` field) |
+| Direction | Entity | Edge | Written as | Meaning |
+|-----------|--------|------|------------|---------|
+| outgoing | [type](type.md) | `PortReferencesType` | `types` on `port` | Port names a type in a method parameter or return type |
+| incoming | [behavior](behavior.md) | `BehaviorUsesPort` | `ports` on `behavior` | Port interfaces this behavior interacts with |
+| incoming | [module](module.md) | `ModuleConsumesPort` | `ports` on `module` | Port interfaces this module consumes |
+| incoming | [module](module.md) | `ModuleDefinesPort` | `ports_defined` on `module` | Port interfaces this module defines |
 
-### Outgoing edges
+## Validation rules
 
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `type` | `PortReferencesType` | "This port references these types" (via `types` field) |
+Core checks every entity whatever its kind: references must resolve (E003), ids are unique across the project (E002), required fields are present (E006), each value has its field's type, an enum value being one the field lists (E061), and every block has a title (E076). The rules below are the ones extensions declare for this kind; [diagnostics.md](../diagnostics.md) has every code.
 
-## Validation Rules
+| Code | Level | Declared by | Rule |
+|------|-------|-------------|------|
+| E004 | error | `@specforge/software` | Unknown type in port method |
+| W004 | warning | `@specforge/testing` | Untested testable entity |
+| W005 | warning | `@specforge/software` | Unreferenced port |
+| W009 | warning | `@specforge/testing` | Disallowed verify kind |
 
-| Code | Rule |
-|------|------|
-| E002 | No two ports may share the same identifier. |
-| E001 | Every type name used in method signatures must resolve to a declared type or be a primitive. |
 
-## Design Guidance
+## Design guidance
 
-### Port Naming
+### Naming
 
 | Pattern | Convention | Examples |
 |---------|-----------|----------|
 | Repository | `{Entity}Repository` | `UserRepository`, `OrderRepository` |
 | External service | `{Service}Service` or `{Service}Gateway` | `EmailService`, `PaymentGateway` |
-| API surface | `{Domain}API` or `{Domain}Port` | `UserAPI`, `SearchPort` |
-| Event bus | `{Domain}EventBus` or `EventPublisher` | `OrderEventBus`, `EventPublisher` |
+| API surface | `{Domain}API` | `UserAPI`, `SearchAPI` |
+| Event bus | `{Domain}EventBus` | `OrderEventBus` |
 
-### Result Types
+### Result types
 
-All port methods should return `Result<Success, Error>` types, not throw exceptions. This makes error handling explicit and type-safe. The specific `Result` implementation depends on the target language:
+Return `Result<Success, Error>` rather than throwing: the error cases become part of the contract.
 
-| Language | Result Type |
-|----------|-------------|
-| TypeScript | `ResultAsync<T, E>` (from hex-di, neverthrow, or Effect) |
-| Python | `Result[T, E]` (from result library) |
-| Go | `(T, error)` (idiomatic Go error handling) |
-
-### Port vs. Type
-
-| Port | Type |
-|------|------|
-| Defines operations (methods) | Defines data shape (fields) |
-| Has a direction (inbound/outbound) | Has no direction |
-| Generates interfaces | Generates structs/classes |
-| "What can the system do?" | "What data does the system use?" |
-
-### Port vs. Behavior
+### Port vs. behavior
 
 | Port | Behavior |
 |------|----------|
-| The interface contract (signature) | The behavioral contract (semantics) |
-| "This method exists with this signature" | "When this method is called, MUST do X" |
-| No MUST/SHOULD/MAY — just type signatures | MUST/SHOULD/MAY define obligation levels |
-| Implementation-level | Specification-level |
+| The interface contract (signature) | The behavioral contract (meaning) |
+| "This method exists with this signature" | "When this method is called, the system MUST do X" |
+| Type signatures only | MUST/SHOULD/MAY obligations |
 
-A behavior references the invariants that the port's implementation must uphold. The port defines the shape; the behavior defines the rules.
-
-## Related Entities
-
-| Direction | Entity | Edge | Meaning |
-|-----------|--------|------|---------|
-| outgoing | [type](type.md) | `PortReferencesType` | Types this port references |
-| incoming | [behavior](behavior.md) | `BehaviorUsesPort` | Behaviors that use this port |
-| incoming | [module](module.md) | `ModuleConsumesPort` | Modules that consume this port |
-| incoming | [module](module.md) | `ModuleDefinesPort` | Modules that define this port |
-
-## Examples
-
-### Outbound: Database
-
-```spec
-use "types/user"
-
-port UserRepository "User Repository" {
-  direction outbound
-  category  "persistence/user"
-
-  method create(cmd: CreateUserCommand) -> Result<User, DuplicateEmailError>
-  method findById(id: string) -> Result<User, UserNotFoundError>
-  method findByEmail(email: string) -> Result<User?, never>
-  method update(id: string, cmd: UpdateUserCommand) -> Result<User, DuplicateEmailError | UserNotFoundError>
-  method delete(id: string) -> Result<void, UserNotFoundError>
-  method list(page: integer, pageSize: integer) -> Result<UserPage, never>
-}
-```
-
-### Outbound: External Service
-
-```spec
-use "types/email"
-
-port EmailService "Email Service" {
-  direction outbound
-  category  "external/email"
-
-  method send(to: string, template: EmailTemplate, data: EmailData) -> Result<void, EmailDeliveryError>
-  method sendBulk(recipients: BulkEmailRequest) -> Result<BulkEmailResult, EmailDeliveryError>
-}
-```
-
-### Inbound: API Surface
-
-```spec
-use "types/user"
-
-port UserAPI "User API" {
-  direction inbound
-  category  "api/user"
-
-  method createUser(cmd: CreateUserCommand) -> Result<User, DuplicateEmailError>
-  method getUser(id: string) -> Result<User, UserNotFoundError>
-  method updateUser(id: string, cmd: UpdateUserCommand) -> Result<User, DuplicateEmailError | UserNotFoundError>
-  method deleteUser(id: string) -> Result<void, UserNotFoundError>
-  method listUsers(query: UserQuery) -> Result<UserPage, never>
-}
-```
-
-### Outbound: Message Broker
-
-```spec
-use "types/order"
-
-port OrderEventBus "Order Event Bus" {
-  direction outbound
-  category  "messaging/order"
-
-  method publish(event: OrderEvent) -> Result<void, PublishError>
-  method subscribe(channel: string, handler: EventHandler) -> Result<Subscription, SubscriptionError>
-}
-```
-
-## Code Generation Output
-
-### TypeScript
-
-```typescript
-// src/generated/ports/user-repository.ts (auto-generated)
-import type { ResultAsync } from "@hex-di/core";
-import type { User, CreateUserCommand, DuplicateEmailError, UserNotFoundError } from "../types/user";
-
-export interface UserRepository {
-  create(cmd: CreateUserCommand): ResultAsync<User, DuplicateEmailError>;
-  findById(id: string): ResultAsync<User, UserNotFoundError>;
-  findByEmail(email: string): ResultAsync<User | null, never>;
-}
-```
-
-### Python
-
-```python
-# src/generated/ports/user_repository.py (auto-generated)
-from abc import ABC, abstractmethod
-from result import Result
-from ..types.user import User, CreateUserCommand, DuplicateEmailError, UserNotFoundError
-
-class UserRepository(ABC):
-    @abstractmethod
-    async def create(self, cmd: CreateUserCommand) -> Result[User, DuplicateEmailError]: ...
-
-    @abstractmethod
-    async def find_by_id(self, id: str) -> Result[User, UserNotFoundError]: ...
-```
-
-### Go
-
-```go
-// internal/generated/ports/user_repository.go (auto-generated)
-package ports
-
-import (
-    "context"
-    "myservice/internal/generated/types"
-)
-
-type UserRepository interface {
-    Create(ctx context.Context, cmd types.CreateUserCommand) (types.User, error)
-    FindByID(ctx context.Context, id string) (types.User, error)
-}
-```
+The port defines the shape; the behaviors that list it in `ports` define the rules.

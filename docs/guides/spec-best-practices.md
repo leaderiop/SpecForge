@@ -8,6 +8,11 @@ The throughline: **the graph is the product, and validation is the value.** A sp
 in proportion to how well-connected and how validated it is — not how much prose it
 contains.
 
+The principles hold for any extension's kinds. The examples use the builtin software and
+product kinds (`behavior`, `feature`, …) because most readers know them; read "behavior" as
+"the kind that does the work" in your own domain — a procedure step, a campaign action, a
+treatment.
+
 ---
 
 ## Best practices
@@ -53,7 +58,9 @@ the [God-entity anti-pattern](#the-god-entity).
 
 ### 4. Always declare at least one `verify`
 
-**Do:** add a `verify` line to every behavior, invariant, and port.
+**Do:** add a `verify` line to every entity of a testable kind (with the builtins: behavior,
+invariant, port, type, event, constraint, failure_mode). `verify` statements come from
+`@specforge/testing`, which `@specforge/software` enables.
 
 **Why:** the `verify` declaration is the *intent* layer of traceability. A testable entity
 with no `verify` raises a coverage warning (e.g. `W004`) and gives agents no signal about how
@@ -166,7 +173,8 @@ list* was meant.
 created, no error is raised, and the graph is silently poorer.
 
 **Do instead:** drop the quotes for entity references: `invariants [task_id_uniqueness]`.
-Reserve quotes for opaque values (`acceptance ["…"]`, `refs ["gh.issue:42"]`).
+Reserve quotes for opaque values (`acceptance ["…"]`); a scheme ref id links its `ref`
+bare (`refs [gh.issue:42]`).
 
 ### Reinventing vocabulary
 
@@ -176,9 +184,10 @@ field because "there's no entity for it."
 **Why it's wrong:** you lose validation, edges, and queryability that a real entity kind
 provides.
 
-**Do instead:** use the right builtin entity, or — if the concept is genuinely new to a
-domain — author an extension. [Principle 7](../vision/principles.md): extensions over
-built-ins, always.
+**Do instead:** use the right kind an installed extension declares, or — if the concept is
+genuinely new — declare it in an extension of your own ([Model your domain](model-your-domain.md),
+[Extending SpecForge](extending-specforge.md)). [Principle 7](../vision/principles.md):
+extensions over built-ins, always.
 
 ---
 

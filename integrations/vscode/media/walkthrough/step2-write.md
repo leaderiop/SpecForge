@@ -1,23 +1,29 @@
 # Write Your First Entity
 
-SpecForge uses a clean DSL with a consistent syntax: every entity is a **keyword + ID + title + fields** block.
+Every entity, in any domain, has the same shape: a **keyword + ID + title + fields** block. It reads like a filled-in form. The keyword names the kind, and an extension declares which kinds exist; this example uses `@specforge/software`.
 
 ## Basic syntax
 
 ```specforge
+type credentials "User credentials" {
+  status draft
+  verify "rejects an empty email"
+}
+
 behavior login_user "User Login" {
   status   approved
+  category auth
   contract "Given valid credentials, when user submits, then session is created"
-  types    [UserCredentials, Session]
+  types    [credentials]
 
   verify unit "validates credentials format"
-  verify integration "creates session in database"
+  verify integration "creates a session"
 }
 ```
 
 ### Key elements
 
-- **Keyword** -- the entity kind (`behavior`, `feature`, `event`, etc.)
+- **Keyword** -- the entity kind (`behavior`, `feature`, `event`, etc.), declared by an extension. The core language itself has only five structural keywords: `spec`, `ref`, `use`, `define`, `defaults`
 - **ID** -- a unique identifier (letters, digits, underscores, 2-60 chars)
 - **Title** -- a human-readable name in quotes
 - **Fields** -- key-value pairs, reference lists, and verify statements
@@ -25,7 +31,7 @@ behavior login_user "User Login" {
 
 ## Snippet prefixes
 
-Type a prefix and press **Tab** to expand a full entity template:
+Type a prefix and press **Tab** to expand a full entity template. There's one per kind the builtin extensions declare:
 
 ### @specforge/software
 | Prefix | Entity Kind |
@@ -80,15 +86,17 @@ Entities reference each other through field lists. The compiler automatically bu
 
 ```specforge
 feature checkout "Checkout Flow" {
-  status  approved
+  status  accepted
   problem "Users abandon carts due to complex checkout"
 }
 
 behavior process_payment "Process Payment" {
   status   approved
+  category payments
+  contract "Given a valid card, when the user pays, then the order is paid"
   features [checkout]
-  types    [PaymentRequest, PaymentResult]
+  verify unit "rejects an expired card"
 }
 ```
 
-This creates an **Implements** edge from `process_payment` to `checkout` in the entity graph.
+This creates a `features` edge from `process_payment` to `checkout` in the graph (`feature` comes from `@specforge/product`). If `checkout` didn't exist, the check would fail with E003, unresolved reference.

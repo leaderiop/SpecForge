@@ -1,5 +1,15 @@
 # SpecForge domain terms
 
+**SpecForge** is a domain-free engine that turns what an organisation knows (its things, their relationships and
+the rules they must obey) into one typed, validated graph that people and AI agents read and change through
+standard protocols. It has five parts: **extensions** (WASM packages that declare entity kinds, fields, edges,
+rules and commands), **the graph** (every entity and link, compiled from `.spec` files), **validation** (the
+extensions' rules plus structural checks, on every compile and every edit), **surfaces** (CLI, MCP, LSP and the
+registry; AG-UI and HTTP planned) and the **AI models** that drive it from outside. The core grammar knows only
+the structural keywords `spec`, `ref`, `use`, `define` and `defaults`; every other kind exists because an
+extension declares it. Software specification is one use of SpecForge, through the builtin extensions, not its
+definition.
+
 Terms the code, the specs and the docs use with one meaning. Architecture decisions are in
 `docs/adr/`; ADR 0004 records the one-project migration these terms come from.
 

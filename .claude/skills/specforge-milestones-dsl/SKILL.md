@@ -1,32 +1,28 @@
 ---
 name: specforge-milestones-dsl
-description: "Write milestone blocks in .spec DSL files (@specforge/product plugin). Each milestone declares a planning phase with free-form snake_case IDs, status lifecycle, feature scheduling, and exit criteria. Use when defining when things ship and what must be true before a phase is complete."
+description: "Write milestone blocks in .spec files (the milestone kind is declared by the builtin @specforge/product extension). Each milestone declares a planning phase with a snake_case ID, a status lifecycle, the features it must deliver, exit criteria, dates, blockers and dependencies on other milestones. Use when defining when things ship and what must be true before a phase is complete, for any kind of project."
 ---
 
 # SpecForge Milestones DSL
 
-Rules and conventions for authoring **`milestone` blocks** in `.spec` files. Milestone phases provide the temporal dimension -- when things ship -- with verifiable exit criteria.
+> **Declared by `@specforge/product`**, a builtin extension. The `milestone` kind exists only in a project that loads
+> it: run `specforge extensions` first, and if it is not listed, do not write `milestone` blocks (add it with
+> `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
+> `specforge infer-guide milestone` prints the fields.
 
-**Requires:** `@specforge/product` plugin.
-
-## When to Use
-
-- Defining planning phases (MVP, v2, etc.) with verifiable exit criteria
-- Scheduling features and deliverables into release milestones
-- Connecting planning to the compiler-validated traceability chain
+Milestones give the plan its time dimension, with exit criteria that say when a phase is done.
 
 ## Block Syntax
 
 ```spec
-use "features/user-management"
-use "features/auth"
-
 milestone mvp "Phase 1: Core" {
   status        in_progress
+  owner         "product-team"
   features      [user_management, password_authentication]
+  start_date    2026-04-01
   target_date   2026-06-30
   exit_criteria [
-    "All exit criteria met",
+    "Every MVP feature is done",
     "specforge check --strict passes",
   ]
 }
@@ -34,123 +30,70 @@ milestone mvp "Phase 1: Core" {
 
 ## Fields Reference
 
-### Required
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (string after the entity ID). |
+| `status` | enum `planned` `in_progress` `completed` `blocked` | Lifecycle; absent means `planned`. |
+| `features` | reference list -> feature | Features this phase must deliver. Missing: W049. |
+| `modules` | reference list -> module | Modules scoped to this phase. |
+| `depends_on` | reference list -> milestone | Phases that must complete first (a cycle is E015). |
+| `exit_criteria` | string list | How completion is verified (a `completed` milestone without them is W057). |
+| `start_date` / `target_date` | date | A bare calendar day, `2026-06-30` (another value is E061). |
+| `blockers` | string list | What blocks progress (a `blocked` milestone without them is I060). |
+| `priority` | enum `critical` `high` `medium` `low` | Importance. |
+| `owner` | string | Person or team responsible (otherwise I080). |
+| `contributors` | string list | Others contributing. |
+| `reason` | string | Why the status is what it is. |
+| `description` | string | Summary. |
+| `refs` | string list | Declared `ref` IDs. |
+| `tags` | string list | Lowercase-hyphenated labels. |
 
-### Optional
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `status` | MilestoneStatus | Phase status: `planned`, `in_progress`, `completed`, `blocked`. Absent: `planned`. Another value is E061. |
-| `features` | reference list | Features scheduled for this phase. |
-| `modules` | reference list | Module dependencies for this phase. |
-| `depends_on` | reference list | Other milestones that must complete before this phase. Forms a DAG validated by E015 (cycle detection). |
-| `exit_criteria` | string list | Exit criteria for phase completion. Completed milestones without criteria emit W057. |
-| `target_date` | date @optional | Target completion day, written bare (`YYYY-MM-DD`). Another value is E061. |
-| `priority` | Priority @optional | Importance level: `critical`, `high`, `medium`, `low`. |
-| `reason` | string @optional | Rationale for current status (expected when `blocked`, checked by I060). |
-| `tags` | string[] @optional | Faceted filtering tags. |
-| `refs` | reference list | External references linked to this milestone phase. |
-
-**Note:** If `@specforge/software` is installed, milestones gain a `behaviors` field (reference list -> behavior) via entity_enhancement, with `MilestoneBehavior` edges.
-
-### Status Values
-
-| Value | Meaning |
-|-------|---------|
-| `planned` | Not yet started |
-| `in_progress` | Actively being worked on |
-| `completed` | All features done, exit criteria met |
-| `blocked` | Cannot proceed (should include `reason` and `depends_on`) |
+With `@specforge/software` loaded, a milestone also takes `behaviors` (reference list -> behavior).
 
 ## Relationships
 
-### Outgoing edges
-
-| To | Edge Type | Meaning |
-|----|-----------|---------|
-| `feature` | `MilestoneFeature` | Phase schedules these features |
-| `module` | `MilestoneModule` | Phase includes these modules |
-| `milestone` | `MilestoneDependsOn` | Phase depends on these phases completing first |
-| `ref` | `links_to` | External references linked to this phase |
-
-### Incoming edges
-
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `milestone` | `MilestoneDependsOn` | Another phase depends on this phase |
-| `deliverable` | `DeliverableMilestone` | A deliverable tracks against this milestone |
+| Field | Target |
+|-------|--------|
+| `features` | feature |
+| `modules` | module |
+| `depends_on` | milestone |
+| `behaviors` | behavior (software) |
+| a deliverable's `milestones`, a release's `milestones` | this milestone |
 
 ## Writing Rules
 
 1. **Verifiable criteria** -- "specforge check --strict passes", "coverage >= 90%", not vague goals.
-2. **Progressive phases** -- each phase builds on previous ones.
-3. **Import feature files** -- `use` the files that declare referenced features.
+2. **Progressive phases** -- each phase builds on the previous ones through `depends_on`.
+3. **A blocked milestone says why** -- `blockers`, plus `depends_on` when it waits for another phase.
 
 ## Validation Rules
 
-| Code | Level | Rule |
+| Code | Owner | Rule |
 |------|-------|------|
-| E015 | error | Circular milestone dependency -- `depends_on` edges between milestones form a cycle. |
-| W049 | warning | Empty milestone -- no features AND no modules. |
-| W057 | warning | Completed milestone without exit criteria. |
-| E061 | error | A value outside the field's vocabulary (`status`, `priority`). |
-| I051 | info | Milestone features not reachable from milestone modules (gap). |
-| I057 | info | Blocked milestone without a `depends_on` reference. |
-| I060 | info | Blocked milestone without a `reason`. |
-| I064 | info | Milestone temporal inconsistency (depends on a later-dated milestone). |
-| I075 | info | Exit criterion not anchored to a graph entity (prose-only). |
+| E061 | core | `status`, `priority` or a date outside its form. |
+| E015 | product | `depends_on` cycle. |
+| W049 | product | No `features`. |
+| W057 | product | `completed` without `exit_criteria`. |
+| W154 | product | `completed` while a feature it names is not done or deprecated. |
+| I057 | product | `blocked` without `depends_on`. |
+| I060 | product | `blocked` without `blockers`. |
+| I064 | product | Due before a milestone it depends on. |
+| I080 | product | No `owner`. |
 
 ## Examples
-
-### Active Phase
-
-```spec
-milestone mvp "MVP" {
-  status        in_progress
-  depends_on    [foundation]
-  features      [user_management, password_authentication, basic_search]
-  priority      high
-
-  exit_criteria [
-    "All MVP features verified",
-    "Coverage >= 90%",
-    "Zero open E-level diagnostics",
-  ]
-
-  refs [jira.epic:PROJ-001]
-}
-```
 
 ### Planned Phase
 
 ```spec
-milestone search_analytics "Search & Analytics" {
+milestone search_analytics "Search and Analytics" {
   status        planned
+  owner         "search-team"
   depends_on    [mvp]
-  features      [full_text_search, analytics_dashboard]
+  features      [full_text_search]
   target_date   2026-09-30
 
   exit_criteria [
     "Full-text search returns results in < 200ms",
-    "Analytics dashboard renders within 3 seconds",
-  ]
-}
-```
-
-### Completed Phase
-
-```spec
-milestone foundation "Foundation" {
-  status        completed
-  features      [project_scaffold]
-
-  exit_criteria [
-    "Project scaffold complete",
-    "CI/CD pipeline operational",
+    "The analytics dashboard renders within 3 seconds",
   ]
 }
 ```
@@ -159,16 +102,17 @@ milestone foundation "Foundation" {
 
 ```spec
 milestone external_integration "External Integration" {
-  status        blocked
-  depends_on    [mvp]
-  features      [third_party_sync]
-  reason        "Waiting on partner API access credentials"
+  status     blocked
+  owner      "platform-team"
+  depends_on [mvp]
+  features   [third_party_sync]
+  blockers   ["Partner API credentials not issued yet"]
+  reason     "Waiting on the partner's security review"
 }
 ```
 
 ## What NOT to Do
 
-- Do not write milestones without the `@specforge/product` plugin installed
-- Do not set vague criteria like "system is ready" -- use measurable, automatable checks
-- Do not reference features from other files without a `use` import
-- Do not use status values outside the enum (`planned`, `in_progress`, `completed`, `blocked`)
+- Do not set vague criteria like "the system is ready" -- use measurable, automatable checks
+- Do not use status values outside the enum (`active`, `done` are E061)
+- Do not quote dates -- write them bare (`2026-06-30`)

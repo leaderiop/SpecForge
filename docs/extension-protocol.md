@@ -1,10 +1,12 @@
 # Extension Protocol
 
-The Extension Protocol defines how extensions communicate with the SpecForge host through a Wasm-based bidirectional interface. An extension declares itself: the host reads its declaration from the binary, and no file beside it.
+The Extension Protocol is how an extension teaches SpecForge a domain. SpecForge's compiler knows no domain: the grammar has five structural keywords (`spec`, `ref`, `use`, `defaults` and the reserved `define`), and every other kind a project writes — the builtin `behavior` and `feature` as much as a third party's `procedure` or `campaign` — enters through this protocol. An extension is a Wasm component; it declares itself, and the host reads that declaration from the binary, never from a file beside it.
+
+Most authors never see the wire: the [extension SDK](extension-sdk.md) builds the declaration and serves every call from Rust ([tutorial](guides/extending-specforge.md)). This page is the reference underneath, for the host's side and for a guest written in another language.
 
 ## Overview
 
-Extensions are Wasm modules that the host loads, interrogates, and invokes at runtime. The protocol has four phases: **handshake**, **describe**, **operate**, and **disconnect**. The host drives all interactions. Extensions never call the host unprompted.
+Extensions are Wasm components that the host loads, interrogates, and invokes at runtime. The protocol has three phases: **handshake**, **describe** and **operate**; the host may drop and reload an extension at any time (see [Reloading extensions](#reloading-extensions)). The host drives all interactions. Extensions never call the host: they answer the call they are given, with the input it carries.
 
 This design upholds Principle 2 (the compiler knows nothing about your domain) by ensuring that all domain vocabulary enters the compiler through a single, uniform protocol. The host does not know what an extension will contribute until it asks.
 
@@ -33,7 +35,7 @@ Host                                Extension (.wasm)
  |-- cmd__validate(args) --------------->|  (on demand)
  |<-- result -----------------------------|
  |                                        |
- |-- (disconnect) ---------------------->|  (graceful)
+ |-- (reload: specforge.json changed) -->|  (from the top)
 ```
 
 ## Discovery Protocol
@@ -588,10 +590,12 @@ the answer. See [the SDK guide](extension-sdk.md).
 
 ## Host Functions
 
-The protocol is bidirectional in design: the host drives the conversation
-(calling exports on the Wasm module), and extensions may call back into the
-host through imported functions to read the graph, emit diagnostics, and
-access files.
+The protocol was designed to be bidirectional: the host drives the
+conversation (calling exports on the Wasm module), and extensions would call
+back into the host through imported functions to read the graph, emit
+diagnostics, and access files. None of that is built. In particular an
+extension cannot read a business system, a file or the network: what it
+knows is what the call hands it.
 
 > **Status: not callable from guests today.** The old extism-era import
 > surface was removed with the component-model cutover. Guests are
@@ -685,122 +689,46 @@ naming the limit, and the extension's next call gets a fresh instance under the 
 non-empty `allowed_paths`, which older SDKs wrote), a surface's `sandbox` override, and a limit
 above its ceiling are W153 at load.
 
-## Hot Plug and Unplug
+## Reloading extensions
 
-Extensions can connect and disconnect at runtime without restarting the host. This enables live extension management in the LSP and MCP server contexts.
+The LSP and the MCP server keep a project loaded between requests. When `specforge.json`,
+`specforge.lock` or an extension's module changes on disk, they load the environment again from the
+first step (ADR 0159): every extension is loaded, handshaken and described afresh, the registries are
+rebuilt, and the extensions' MCP tools and resources are registered again. Subscribed MCP clients
+hear what changed, as a diagnostics delta. The CLI loads the
+environment once per command.
 
-### Connect
+There is no partial, typeless mode. While an extension is not enabled or does not load:
 
-Connection follows the full lifecycle: load, handshake, describe, register.
+- An entity whose keyword no loaded extension declares is **E024** (unknown entity kind); a failed
+  load is **E028**.
+- A reference field that targets a kind no enabled extension declares, an enhancement of such a kind,
+  or an `@scope/name` import of a known extension that isn't installed is **I004** (extension not
+  installed).
+- Its rules, passes, commands, MCP tools and resources are simply absent.
 
-```
-1. Host loads .wasm binary from extension directory
-2. Host calls __handshake(host_version)
-3. Host validates protocol_version compatibility
-4. Host checks peer_dependencies are satisfied
-5. Host calls __describe(category) for every declared category, once
-6. The registry build checks the declarations and registers them in KindRegistry, FieldRegistry, EdgeRegistry
-7. Extension is now "connected"
-8. Host calls cmd__*, validate__*, mcp__* exports as needed
-```
-
-### Disconnect
-
-When an extension disconnects (removed, crashed, or explicitly unloaded), the host performs graceful degradation:
-
-**Entities** from the disconnected extension become untyped nodes in the graph. They retain their IDs, fields, and connections, but lose:
-- Field validation (unknown fields accepted)
-- Type checking on reference targets
-- Entity-specific DOT/LSP metadata
-
-**Edges** declared by the disconnected extension remain in the graph as untyped connections. They retain source and target, but lose label semantics.
-
-**Validation rules** from the disconnected extension stop firing. No false positives from rules that reference entity kinds that no longer have type information.
-
-**Surfaces** (CLI commands, MCP tools, MCP resources) from the disconnected extension are removed from the registry. Calls to those surfaces return "extension not available" errors.
-
-**Enhancements** contributed to other extensions' entity kinds are removed. Enhanced fields on those entity kinds revert to unrecognized fields (accepted but not validated).
-
-### Reconnect
-
-When a previously disconnected extension reconnects, the host repeats the full lifecycle from step 1. All entities and edges from the extension regain their type information. Validation rules resume. Surfaces become available again.
-
-This matches SpecForge's existing soft reference philosophy. An entity referencing another entity from an uninstalled extension produces an `I004` info diagnostic rather than an error. The same principle applies at runtime: disconnection degrades gracefully, reconnection restores full semantics.
-
-### Disconnect Diagnostics
-
-When the host detects entities or references that belong to a disconnected extension, it emits `I004`:
-
-```
-info[I004]: Unknown entity 'create_user' in field 'behaviors'
-  |
-3 |   behaviors [create_user]
-  |              ^^^^^^^^^^^ extension '@specforge/software' not connected
-  |
-  = help: The extension may have been disconnected. Reconnect it to restore validation.
-```
+Install it again (`specforge add`) and the next load restores all of it.
 
 ## Lifecycle Summary
 
 ```
-                    ┌─────────────────────────────────────────┐
-                    │               HOST                       │
-                    │                                         │
-   ┌────────────┐  │  ┌──────────┐   ┌──────────────────┐   │
-   │  .wasm     │──┼─>│  LOAD    │──>│  __handshake()   │   │
-   │  binary    │  │  └──────────┘   │  -> metadata     │   │
-   └────────────┘  │                 │  -> flags        │   │
-                    │                 │  -> sandbox      │   │
-                    │                 │  -> peers        │   │
-                    │                 └────────┬─────────┘   │
-                    │                          │              │
-                    │                          v              │
-                    │                 ┌──────────────────┐   │
-                    │                 │  __describe()    │   │
-                    │                 │  per category    │   │
-                    │                 │  -> entities     │   │
-                    │                 │  -> edges        │   │
-                    │                 │  -> rules        │   │
-                    │                 │  -> surfaces     │   │
-                    │                 └────────┬─────────┘   │
-                    │                          │              │
-                    │                          v              │
-                    │                 ┌──────────────────┐   │
-                    │                 │  REGISTER        │   │
-                    │                 │  KindRegistry    │   │
-                    │                 │  FieldRegistry   │   │
-                    │                 │  EdgeRegistry    │   │
-                    │                 └────────┬─────────┘   │
-                    │                          │              │
-                    │                          v              │
-                    │                 ┌──────────────────┐   │
-                    │                 │  CONNECTED       │   │
-                    │                 │  cmd__*          │   │
-                    │                 │  validate__*     │   │
-                    │                 │  mcp__*          │   │
-                    │                 │  __pass_*        │   │
-                    │                 │  collect__*      │   │
-                    │                 │  scan__*         │   │
-                    │                 └────────┬─────────┘   │
-                    │                          │              │
-                    │                          v              │
-                    │                 ┌──────────────────┐   │
-                    │                 │  DISCONNECT      │   │
-                    │                 │  - entities ->   │   │
-                    │                 │    untyped nodes │   │
-                    │                 │  - rules stop   │   │
-                    │                 │  - surfaces     │   │
-                    │                 │    removed      │   │
-                    │                 └────────┬─────────┘   │
-                    │                          │              │
-                    │                          v              │
-                    │                 ┌──────────────────┐   │
-                    │                 │  RECONNECT       │   │
-                    │                 │  (repeat from    │   │
-                    │                 │   LOAD)          │   │
-                    │                 └──────────────────┘   │
-                    │                                         │
-                    └─────────────────────────────────────────┘
+  .wasm component
+        │
+        v
+  LOAD ──> __handshake(host_version)      name, version, protocol_version,
+        │                                 peers, sandbox_policy, providers
+        v
+  __describe(category), each once        entities, edges, shared_fields, enhancements,
+        │                                 validation_rules, surfaces, collectors,
+        │                                 analyzers, passes, feature_flags
+        v
+  REGISTER                               KindRegistry, FieldRegistry, EdgeRegistry
+        │
+        v
+  OPERATE (on demand)                    cmd__*, mcp__*, __pass_*, collect__*,
+        │                                 validate__*, scan__*, migration hook
+        v
+  RELOAD when specforge.json, specforge.lock or a module changes: from LOAD
 ```
 
 ## Wasm Export Naming Conventions
@@ -822,7 +750,7 @@ All extension exports follow a strict naming convention that the host uses to di
 
 ## Design Principles
 
-The Extension Protocol embodies three SpecForge principles:
+The Extension Protocol embodies two SpecForge principles:
 
 **Principle 2 (zero domain knowledge in core):** The host never hardcodes knowledge of what extensions will contribute. It discovers everything through `__handshake` and `__describe`.
 

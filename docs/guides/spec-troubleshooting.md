@@ -1,6 +1,10 @@
 # SpecForge Troubleshooting
 
 A symptom-first reference for the diagnostics you'll hit most while authoring `.spec` files.
+Core codes (parse errors, unresolved references, typed-edit refusals) hold in every project; the
+kind-specific ones below (`W001` "behavior implements no feature", `W041` "unreferenced feature", …) come
+from the builtin extensions that declare those kinds, and your own extensions add codes in
+`E900`–`E998`, `W900`–`W998` and `I900`–`I998`. `specforge explain <CODE>` names each code's owner.
 Find the code or symptom, read the cause, apply the fix. For a guided introduction see the
 **[tutorial](authoring-spec-files.md)**; for the complete diagnostic catalog see
 **[entity-model.md](../entity-model.md)**.
@@ -35,8 +39,10 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 | **E003** | `unresolved reference 'X' in entity 'Y'` | A reference list points at an entity that doesn't exist (often a typo or a missing `use`). | Correct the name, or `use` the file that defines it. |
 | **E006** | `entity 'X' is missing required field 'F'` | A required field is absent (e.g. `constraint` without `description`, `feature` without `problem`, `persona`/`channel` without `description`, `journey` without `flow`, `term` without `definition`). | Add the required field. |
 | **E022** | `reference 'X' in field 'F' of 'Y' targets a 'A', but this field expects 'B'` | A reference points to the wrong *kind* of entity (e.g. `term.see_also` pointing at a behavior — it only accepts terms). | Point the field at an entity of the expected kind. |
-| **E024** | `unknown entity kind 'K' for entity 'X'` | You used a keyword from an extension that isn't installed. | `specforge add @specforge/<ext>`, or fix the keyword. |
-| **W061** | reference cycle | A reference chain forms a cycle (A → B → A). | Break the cycle — references must form a DAG. |
+| **E024** | `unknown entity kind 'K' for entity 'X'` | No enabled extension declares that keyword (the grammar itself knows only `spec`, `ref`, `use`, `defaults`). | `specforge add` the extension that declares it (`specforge extensions` lists what each enabled one declares), or fix the keyword. |
+| **E061** | `field 'status' of feature 'X' is declared enum (…), but was given …` | A value outside the field's vocabulary (status, priority, effort, artifact_type, technical_level, interaction_model, FMEA ratings, property_type, …). | Use one of the values the message lists; the suggestion names the closest. |
+| **E061** (date) | a date field that is no calendar day | A decision `date`, milestone `target_date` / `start_date` or release `release_date` that is not one calendar day. | Write one calendar day, `YYYY-MM-DD`, bare. |
+| **E080** | `the edit would leave the project with N error(s) it does not have; nothing was written` | A typed edit (`specforge new`/`set`/`link`/…, or MCP `specforge.edit`) would add an error. | Fix what it lists first (create the target, give the required field), or make both changes in one `specforge.edit` call. |
 
 ---
 
@@ -48,8 +54,11 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | Code | Symptom | Cause | Fix |
 |------|---------|-------|-----|
 | **W001** | `behavior 'X' does not implement any feature` | The behavior has no `features [...]` edge. | Add `features [some_feature]` (or accept it if intentional during early authoring). |
+| **W020** | `unrecognized field 'F' on entity 'X' of kind 'K'` | The kind declares no such field (often a field another kind has, or one an enhancing extension adds that isn't enabled). | Fix the name; `specforge model` lists every kind's fields. |
+| **W158** | `entity 'X' of kind 'K' declares verify statements, which its kind does not accept` | `verify` lines on a kind that takes none, or `@specforge/testing` isn't enabled. | Remove them, or enable `@specforge/testing`. |
 | **W002** | `type 'X' is not referenced by any behavior, port, or type` | Unreferenced type. | Reference it from a behavior/port, or remove it. |
 | **W003** (software) | `invariant 'X' is not enforced by any behavior` | No behavior lists this invariant. | Add the invariant to an enforcing behavior's `invariants [...]`. |
+| **W061** | reference cycle | A reference chain forms a cycle (A → B → A). | Break the cycle — references must form a DAG. |
 | **W113** (import) | `circular import detected: a.spec -> b.spec` | A `use` chain forms a cycle. | Break the cycle, or extract shared entities into a third file both import. |
 | **W005** | `port 'X' is not referenced by any behavior` | Unreferenced port. | Add it to a behavior's `ports [...]`, or remove it. |
 | **W006** | `behavior 'X' has no category` | Missing `category` (agents use it for task routing). | Add `category command` / `query` / `handler` / etc. |
@@ -59,7 +68,6 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W045 / W092** | `<feature/release> dependency cycle detected` | Cyclic `depends_on`. | Break the cycle. |
 | **W043 / W046** | `deliverable 'X' supports no journeys` / `contains no modules` | The deliverable lists no journeys / no modules. | Add `journeys [...]` / `modules [...]`. |
 | **W049** | `milestone 'X' has no features — it may be empty` | The milestone has no `features` field (modules don't count). | Add `features [...]`. |
-| **E061** | `field 'status' of feature 'X' is declared enum (…), but was given …` | A value outside the field's vocabulary (status, priority, effort, artifact_type, technical_level, interaction_model, FMEA ratings, property_type, …). | Use one of the values the message lists; the suggestion names the closest. |
 | **W093** | `release 'X' has invalid version format` | `version` is not valid semver. | Use a semver string like `1.0.0`, `2.1.0-rc.1`, or `1.0.0+build.5`. |
 
 ---
@@ -76,7 +84,6 @@ are suggestions, not problems.
 | **I059 / I060 / I066 / I069 / I070 / I089** | An entity has a `deferred`/`blocked`/`deprecated`/`recalled` status but no `reason`/`blockers` explaining it. |
 | **I057** | A `blocked` milestone has no `depends_on`. |
 | **I048 / I050 / I054 / I055 / I067 / I082 / I083** | A feature without acceptance criteria, a journey with `flow []`, without a persona or channels, a module without features, a release without deliverables or milestones. |
-| **E061 on a date field** | A decision `date`, milestone `target_date` / `start_date` or release `release_date` that is no calendar day: write one calendar day, `YYYY-MM-DD`, bare. |
 | **I061 / I062 / I068** | A deliverable `version` that isn't semver, a module `family` outside core/platform/extension/integration/advisory, a tag that isn't lowercase-hyphenated. |
 | **I080 / I081** | A feature, milestone, deliverable or release without `owner`; a feature without `effort`. |
 
@@ -112,7 +119,7 @@ than `0` turns it on even when the output is not a terminal. When both are set,
 1. `specforge check` — read every diagnostic, top to bottom.
 2. Fix errors first (they block); then warnings, top down.
 3. For an unreferenced warning, decide: add the missing edge, or delete the dead entity.
-4. For an enum/required-field error, consult the [tutorial entity tour](authoring-spec-files.md#act-iii--the-entity-tour) or [quick reference](../quick-reference.md) for valid values.
+4. For an enum/required-field error, read the values E061's message lists, run `specforge model` (every kind's fields), or consult the [tutorial's tour of the builtin extensions](authoring-spec-files.md#act-iii--a-tour-of-the-builtin-extensions) or the [quick reference](../quick-reference.md) for valid values.
 5. Re-run until clean. Use `--strict` to confirm CI will pass.
 
 ---

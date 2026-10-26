@@ -6,7 +6,7 @@ use crate::KindRegistry;
 use crate::entity::EntityRecord;
 
 /// E013: entity IDs that collide with reserved words. Documented in
-/// entity-model.md ("Reserved Words") long before it was enforced.
+/// entity-model.md ("Anatomy of an entity").
 pub(super) fn reserved(entities: &[EntityRecord], kinds: &KindRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for entity in entities {
