@@ -33,14 +33,12 @@ specforge export --format=brief
 
 ## MCP Server for Claude
 
-SpecForge includes a built-in **Model Context Protocol (MCP)** server that auto-starts when you open a SpecForge project. This gives Claude direct access to your entity graph.
+SpecForge includes a built-in **Model Context Protocol (MCP)** server. Add `specforge mcp` to your agent's MCP configuration as a stdio command to give it direct access to your entity graph.
 
 ### How it works
 
-When `specforge.mcp.autoStart` is enabled (the default):
-
-1. The MCP server starts alongside the language server
-2. Claude can query your entities, relationships, and diagnostics
+1. Your agent starts `specforge mcp` in the project folder
+2. It can query your entities, relationships, and diagnostics
 3. Responses include structured entity data, not just text
 
 ### Available MCP tools
@@ -71,5 +69,5 @@ This checks that the plan covers the right entities, respects dependencies, and 
 
 - Write more specs as your project grows
 - Use `specforge check` in CI to validate specs on every commit
-- Explore `specforge coverage` to see which entities have verification
+- Explore `specforge analyze coverage` to see which entities have verification
 - Run **SpecForge: Run Doctor** if anything seems off

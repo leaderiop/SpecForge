@@ -237,7 +237,6 @@ fn vscode_hover_trusts_only_the_graph_command() {
 /// setting is read, every view is registered, every `node` script runs a
 /// file that exists.
 #[test]
-#[ignore = "flipped by T9"]
 fn vscode_manifest_declares_only_what_the_extension_provides() {
     let manifest = vscode_manifest();
     let sources = vscode_sources();

@@ -19,15 +19,3 @@ export function getGraphLayout(): string {
 export function isGraphAutoUpdate(): boolean {
   return getConfig().get<boolean>("graph.autoUpdate", true);
 }
-
-export function isFormatOnSave(): boolean {
-  return getConfig().get<boolean>("format.onSave", false);
-}
-
-export function isMcpAutoStart(): boolean {
-  return getConfig().get<boolean>("mcp.autoStart", true);
-}
-
-export function getExplorerGroupBy(): string {
-  return getConfig().get<string>("entityExplorer.groupBy", "kind");
-}
