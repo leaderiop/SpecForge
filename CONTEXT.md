@@ -95,6 +95,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   over `Entity::body_comments`): a typed unset, an unlink that empties a field and a remove-verify remove them with
   their member, a new member goes above them, and the defaults hoist leaves a field with one as written. Like a doc
   comment, it never reaches the graph (ADR 0202, ADR 0248).
+- **Trailing comment**: a `//` comment on the row where a member (an entry, an opening brace) ends, after its value and
+  annotations; it trails that member, never documents the one below. Where it is written is the parse's
+  (`specforge_parser::Entity::trailing_comment`): a typed set or link keeps it on its row, an unset or an unlink that
+  empties the field removes it with the member (ADR 0267).
+- **Value comment**: a `//` comment inside a member's value (a list's items', a block field's members'); the parse
+  answers `Entity::holds_comment`. A typed edit keeps such a value as written when it reads the same, else refuses
+  `not_editable` (ADR 0267). Neither reaches the graph.
 - **Migration step**: a rewrite `specforge migrate` applies to every source it changes, whatever the file's format
   version, after the header rewrite (`specforge_migrate`'s `titles` and `defaults`).
   The plan reads the environment the judge compiles in: the defaults step hoists only what `FileDefaults` applies

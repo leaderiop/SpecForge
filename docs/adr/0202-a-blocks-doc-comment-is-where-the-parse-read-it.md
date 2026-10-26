@@ -6,7 +6,7 @@ D3 (withdrawn: `header_row` is private again), [ADR 0149](0149-a-file-states-a-k
 hoisted block goes above the first form's doc comment, below the format header) and
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md)'s Consequences (a delete removes the block's doc comment). Reopened by
 [ADR 0248](0248-a-members-comment-lines-are-where-the-parse-read-them.md): D5, a member's comment lines are the
-parse's too.
+parse's too; D5 reopened further by [ADR 0267](0267-a-values-comments-are-read-from-the-parse.md): a comment inside or trailing a member's value.
 
 ## Context
 
