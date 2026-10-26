@@ -9,7 +9,6 @@ use std::fs;
     behavior = "scaffold_wasm_extension_project",
     verify = "a scaffold inside a cargo workspace is a workspace of its own"
 )]
-#[ignore = "flipped by T3"]
 fn a_scaffold_inside_a_cargo_workspace_is_a_workspace_of_its_own() {
     let dir = TestProject::new().without_config();
     fs::write(dir.root().join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();

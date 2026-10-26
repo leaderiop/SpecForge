@@ -1,7 +1,7 @@
 //! The extension project `specforge extension init` writes.
 //!
 //! The generated project mirrors `fixtures/greet-extension`: a cdylib crate
-//! depending on `specforge-extension-sdk` at this specforge's version (the SDK
+//! that is a workspace of its own (ADR 0277), depending on `specforge-extension-sdk` at this specforge's version (the SDK
 //! shares the workspace version, ADR 0238), built as a `wasm32-wasip2`
 //! component, with a `src/lib.rs` skeleton that builds and describes out of
 //! the box.
@@ -65,6 +65,9 @@ pub(crate) fn scaffold(dir: &Path, name: &str) -> Result<(), String> {
 name = "{crate_name}"
 version = "0.1.0"
 edition = "2021"
+
+# Its own workspace: [profile.release] and .cargo/config.toml apply to a workspace's root.
+[workspace]
 
 [lib]
 crate-type = ["cdylib"]
@@ -228,6 +231,7 @@ mod tests {
         assert!(cargo.contains(r#"name = "my-ext""#));
         assert!(cargo.contains("crate-type = [\"cdylib\"]"));
         assert!(cargo.contains("specforge-extension-sdk"));
+        assert!(cargo.contains("\n[workspace]\n"), "{cargo}");
         assert!(cargo.contains("[profile.release]") && cargo.contains("opt-level = \"z\""));
 
         let config = std::fs::read_to_string(project.join(".cargo/config.toml")).unwrap();

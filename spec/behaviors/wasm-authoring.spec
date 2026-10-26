@@ -29,7 +29,8 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   contract """
     When specforge extension init is invoked, the system MUST scaffold a
     new extension crate written with specforge-extension-sdk: a Cargo.toml
-    depending on specforge-extension-sdk at the version of the specforge that
+    that is a workspace of its own (it builds inside another cargo workspace
+    unedited), depending on specforge-extension-sdk at the version of the specforge that
     scaffolds it (the SDK shares that version), which builds, unedited, into a
     component the host loads, a src/lib.rs whose #[extension(name, version,
     short, description)] declares the extension and whose
