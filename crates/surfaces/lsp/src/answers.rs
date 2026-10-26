@@ -465,15 +465,16 @@ pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
     let navigator = compiled.navigator();
     let entries = outline(&navigator, &state.key_of(uri)).ok()?;
     let plural = |n: usize, one: &str| format!("{n} {one}{}", if n == 1 { "" } else { "s" });
+    let written = navigator.tokens_by_target();
     let mut lenses = Vec::new();
     for entry in entries {
         let Some(range) = compiled.range(&entry.name) else {
             continue;
         };
         let id = entry.id.as_str();
-        let references = navigator
-            .tokens(id, false)
-            .unwrap_or_default()
+        let references = written
+            .get(id)
+            .map_or(&[][..], Vec::as_slice)
             .iter()
             .filter(|o| compiled.location(&o.span).is_some())
             .count();
