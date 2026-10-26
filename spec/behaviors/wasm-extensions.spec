@@ -917,6 +917,7 @@ behavior read_lock_file "Read Lock File" {
   verify unit "missing lock entry triggers resolution"
   verify unit "an unreadable lock file is E033 and is never replaced by a change"
   verify unit "a lock file that can't be read names one remedy, whatever made it unreadable"
+  verify unit "a specforge.lock that is not a regular file, or is over 64 MiB, is E033 at once, never waited on or read whole"
   verify unit "add, update and remove refuse an unreadable lock with one refusal and the lock's own remedy"
   verify unit "every surface refuses an unreadable lock as pinned: one code and one remedy on the CLI and over MCP"
   verify unit "a lock entry whose source is no local path the lock can record is E033, and the message shows no control character"

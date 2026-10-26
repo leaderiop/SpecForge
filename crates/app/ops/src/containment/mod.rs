@@ -211,6 +211,8 @@ pub(crate) fn landing(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod disk_tests;
 #[cfg(test)]
+mod regular_tests;
+#[cfg(test)]
 mod replace_tests;
 #[cfg(test)]
 mod tests;

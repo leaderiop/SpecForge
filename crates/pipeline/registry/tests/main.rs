@@ -7,6 +7,7 @@ mod build;
 mod checks;
 mod command_routes;
 mod declarations;
+mod plain_disk;
 mod registry_build;
 mod rules;
 mod support;

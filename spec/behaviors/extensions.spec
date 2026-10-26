@@ -143,6 +143,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "two .wasm file entries each run their own component in either order, when one declares the other's entry text"
   verify unit "an entry whose declaration can't be read is E028 saying so and naming what failed"
   verify unit "a .wasm file entry that cannot be read is E028 saying it cannot be read"
+  verify unit "a specforge.json that is not a regular file, or is over 64 MiB, is E069 at once, never waited on or read whole"
+  verify unit "a .wasm file entry or an installed module that is not a regular file, or is over 64 MiB, is E028 at once, never waited on or read whole"
   verify unit "an entry refused at any step of its load leaves nothing loaded"
   verify unit "an entry's declaration is read once, with one handshake"
   verify unit "a .wasm file entry's load warnings name the extension it declares"
