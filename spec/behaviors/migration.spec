@@ -264,6 +264,7 @@ behavior hoist_file_defaults "Hoist File Defaults" {
   verify unit "a kind where a block lacks the field is left as written"
   verify unit "an identifier, a quoted or a multi-line list is never hoisted"
   verify unit "a line with a comment on or above it is left as written"
+  verify unit "a // line inside a string above a list is no comment"
   verify unit "a kind that has defaults is left as written"
   verify unit "a hoist that saves no line is not written"
   verify unit "the block goes after the imports or before the first form"

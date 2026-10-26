@@ -139,6 +139,24 @@ fn a_line_with_a_comment_on_or_above_it_is_left_as_written() {
     }
 }
 
+#[ignore = "flipped by T4"]
+#[specforge_test(
+    behavior = "hoist_file_defaults",
+    verify = "a // line inside a string above a list is no comment"
+)]
+fn a_comment_line_inside_a_string_above_a_list_is_no_comment() {
+    let text = blocks(6, |_| {
+        "  contract \"\"\"\n    Example:\n    // the caller writes this\"\"\"\n  ports [R]\n"
+            .to_string()
+    });
+    let after = migrated(&text);
+    assert!(
+        after.starts_with("defaults behavior {\n  ports [R]\n}\n"),
+        "{after}"
+    );
+    assert_eq!(after.matches("// the caller writes this\"\"\"").count(), 6);
+}
+
 #[specforge_test(
     behavior = "hoist_file_defaults",
     verify = "a kind that has defaults is left as written"

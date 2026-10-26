@@ -16,6 +16,9 @@ use specforge_protocol_types::FieldType;
 mod site;
 mod verbs;
 
+#[cfg(test)]
+mod tests;
+
 pub use site::{Site, order};
 pub use verbs::{link, retitle, set, unset, verify};
 

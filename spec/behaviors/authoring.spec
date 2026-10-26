@@ -123,6 +123,8 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "every member edit of a union is refused as one not_editable, before its field is read"
   verify unit "retitle and delete take a union"
   verify unit "retitle refuses a blank title before anything is planned, as create does"
+  verify unit "unset keeps a // line inside the string above the field"
+  verify unit "set of an absent field never writes inside the string above the first field"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -152,6 +154,7 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "link and unlink refuse a field.entry path as an entry of a block field"
   verify unit "unlink of an inherited single reference is refused as unset is"
   verify unit "a link and its unlink leave a block as it was"
+  verify unit "unlink of the last item keeps a // line inside the string above the list"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {
@@ -180,6 +183,7 @@ behavior edit_entity_obligation "Edit an Entity Obligation" {
   verify unit "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
   verify unit "--verify names the obligation the entity writes in either reading of its prefix"
   verify unit "specforge link --verify and specforge.edit add_verify write one obligation from one text"
+  verify unit "remove-verify keeps a // line inside the string above the statement"
 }
 
 behavior delete_entity "Delete an Entity" {
@@ -208,6 +212,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references refuses a reference no typed edit writes"
   verify unit "delete with unlink_references refuses a type name a derived field reads"
   verify unit "delete with unlink_references removes a use binding that imports it"
+  verify unit "delete with unlink_references keeps a // line inside a string above a reference"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
@@ -249,4 +254,5 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "an edit planned while the checks are skipped is compared with the checked report"
   verify unit "the report names what the edits change taken together"
   verify unit "a create links the names the project already writes for its ID"
+  verify unit "a block an edit leaves unreadable is refused edit_unreadable; one unreadable before it, block_unreadable"
 }
