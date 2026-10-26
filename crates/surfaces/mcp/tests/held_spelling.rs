@@ -40,7 +40,6 @@ fn analyze_names_test_results_as_the_call_wrote_it() {
     behavior = "provide_mcp_add_extension_tool",
     verify = "a refusal of a local path in specifiers names it as the call spelled it"
 )]
-#[ignore = "flipped by T4"]
 fn add_extension_names_a_local_path_as_the_call_wrote_it() {
     let mut server = served();
     let missing = refused(

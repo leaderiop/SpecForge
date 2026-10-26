@@ -206,7 +206,7 @@ fn run_build(path: &Path, format: OutputFormat, terminal: &Terminal) -> Exit {
         path,
         crate::caller::of(false, format, terminal).containment(),
     ) {
-        Ok(component) => component.path,
+        Ok(component) => component.held.named,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
 

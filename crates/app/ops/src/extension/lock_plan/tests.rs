@@ -113,7 +113,11 @@ fn local(runtime: &InProcessRuntime, bytes: &[u8], file: &str) -> Install<'stati
     Install::local(
         Path::new("/nowhere"),
         LocalFile {
-            path: Path::new("/nowhere").join(file),
+            held: crate::Held {
+                named: Path::new("/nowhere").join(file),
+                at: Path::new("/nowhere").join(file),
+                real: Path::new("/nowhere").join(file),
+            },
             binary: installable,
         },
     )

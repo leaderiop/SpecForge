@@ -61,7 +61,6 @@ fn a_bounded_named_report_is_named_as_the_call_wrote_it() {
     behavior = "provide_mcp_add_extension_tool",
     verify = "a refusal of a local path in specifiers names it as the call spelled it"
 )]
-#[ignore = "flipped by T4"]
 fn a_bounded_add_names_a_local_path_as_the_call_wrote_it() {
     let dir = project(&[], &[("ext/Cargo.toml", "[package]\nname = \"e\"\n")]);
     let root = dir.path();

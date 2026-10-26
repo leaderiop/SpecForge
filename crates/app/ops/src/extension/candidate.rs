@@ -17,7 +17,7 @@ use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::Loaded;
 
 use super::NOT_FOUND;
-use crate::{Containment, Held, OpError, OpErrorKind, ReadFailure};
+use crate::{Containment, Held, OpError, OpErrorKind};
 
 /// What `bytes` declare, loaded as every environment loads an extension (under
 /// a candidate name, then unloaded): E028 "not a loadable SpecForge
@@ -129,20 +129,25 @@ pub fn target_dir(krate: &Path) -> PathBuf {
 /// `.wasm` there). The one reader of an extension a request names by path: add, init, publish, extension validate and
 /// the CLI build (ADR 0172).
 ///
-/// Every refusal of the disk is E040, one message per cause, naming the path as the caller spelled it (a crate
-/// directory's built component joined on), never where a link lands: nothing there (`file_not_found`), no built
+/// Every refusal of the disk is E040, one message per cause, naming the path as the caller wrote it (a crate
+/// directory's built component under it), never where a link lands: nothing there (`file_not_found`), no built
 /// component or several (`precondition_failed`), a file that cannot be read. A name that leaves the containment is
 /// `OUTSIDE_ROOT`; bounded, a file with more than one name is refused too (ADR 0146).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalComponent {
-    /// The component read, named as the caller named it.
-    pub path: PathBuf,
+    /// The component read: `held.named` is the path as the caller wrote it (a crate directory's built component
+    /// under it), `held.at` where the lock records it.
+    pub held: Held,
     pub bytes: Vec<u8>,
 }
 
 impl LocalComponent {
     pub fn read(path: &Path, containment: &Containment) -> Result<LocalComponent, OpError> {
-        let held = containment.resolve(path)?;
+        Self::of(containment.resolve(path)?, containment)
+    }
+
+    /// The component `held` names (a `.wasm` file, or a crate directory), read.
+    fn of(held: Held, containment: &Containment) -> Result<LocalComponent, OpError> {
         if !held.real.exists() {
             return Err(OpError::coded(
                 OpErrorKind::FileNotFound,
@@ -151,18 +156,14 @@ impl LocalComponent {
             )
             .with_suggestion("name a .wasm component, or the extension's crate directory"));
         }
-        let named = if held.real.is_dir() {
+        let held = if held.real.is_dir() {
             built(&held, containment)?
         } else {
-            held.at.clone()
+            held
         };
-        match containment.read(&named) {
-            Ok((held, bytes)) => Ok(LocalComponent {
-                path: held.at,
-                bytes,
-            }),
-            Err(ReadFailure::Outside(outside)) => Err(outside.into()),
-            Err(ReadFailure::Io { held, error }) => Err(OpError::coded(
+        match containment.read_held(&held) {
+            Ok(bytes) => Ok(LocalComponent { held, bytes }),
+            Err(error) => Err(OpError::coded(
                 if error.kind() == std::io::ErrorKind::InvalidInput {
                     OpErrorKind::InvalidInput
                 } else {
@@ -175,23 +176,28 @@ impl LocalComponent {
     }
 }
 
-/// The crate directory's built component, named under `held.at`: the crate's own, else the only `.wasm` in its
+/// The crate directory's built component, held under `krate`: the crate's own, else the only `.wasm` in its
 /// release directory. E040 when there is none or several.
-fn built(held: &Held, containment: &Containment) -> Result<PathBuf, OpError> {
-    let shown = target_dir(&held.at).join(WASM_TARGET).join(CARGO_RELEASE);
+fn built(krate: &Held, containment: &Containment) -> Result<Held, OpError> {
     // Where the build lands, judged by the containment before it is listed.
-    let release = containment.resolve(&shown)?.real;
-    let manifest = containment
-        .read(&held.at.join("Cargo.toml"))
+    let release = krate.entry(
+        containment,
+        &target_dir(Path::new(""))
+            .join(WASM_TARGET)
+            .join(CARGO_RELEASE),
+    )?;
+    let manifest = krate
+        .entry(containment, Path::new("Cargo.toml"))
         .ok()
-        .and_then(|(_, bytes)| String::from_utf8(bytes).ok());
+        .and_then(|manifest| containment.read_held(&manifest).ok())
+        .and_then(|bytes| String::from_utf8(bytes).ok());
     if let Some(name) = manifest.as_deref().and_then(crate_name) {
         let file = format!("{}.wasm", name.replace('-', "_"));
-        if release.join(&file).is_file() {
-            return Ok(shown.join(file));
+        if release.real.join(&file).is_file() {
+            return Ok(release.entry(containment, Path::new(&file))?);
         }
     }
-    let mut names: Vec<String> = std::fs::read_dir(&release)
+    let mut names: Vec<String> = std::fs::read_dir(&release.real)
         .into_iter()
         .flatten()
         .filter_map(|entry| entry.ok()?.file_name().into_string().ok())
@@ -204,17 +210,17 @@ fn built(held: &Held, containment: &Containment) -> Result<PathBuf, OpError> {
             codes::E040,
             format!(
                 "no built component in {}: build the extension first",
-                shown.display()
+                release.named.display()
             ),
         )
         .with_suggestion(format!("cargo build --release --target {WASM_TARGET}"))),
-        1 => Ok(shown.join(&names[0])),
+        1 => Ok(release.entry(containment, Path::new(&names[0]))?),
         _ => Err(OpError::coded(
             OpErrorKind::PreconditionFailed,
             codes::E040,
             format!(
                 "{} holds several components ({}): name the component to use",
-                shown.display(),
+                release.named.display(),
                 names.join(", ")
             ),
         )),
@@ -245,37 +251,41 @@ fn crate_name(text: &str) -> Option<String> {
 /// reading it again.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocalFile {
-    pub path: PathBuf,
+    /// The component read ([`LocalComponent::held`]).
+    pub held: Held,
     pub binary: Installable,
 }
 
 impl LocalFile {
-    /// Read the extension `path` names ([`LocalComponent::read`]: a `.wasm`
+    /// Read the extension `path` names, a relative one against `base` ([`LocalComponent::read`]: a `.wasm`
     /// file, or a crate directory's built component) and what it declares,
     /// as [`Installable::read`] checks it. E040 when nothing is at `path`
     /// (the hint is the specifier forms: an add argument that is no builtin's
     /// name, `git+` URL or package reference is read as a path, so a
     /// mistyped name lands here), when a directory holds no built component
-    /// or several, or when the file cannot be read. `path` is the component
+    /// or several, or when the file cannot be read. `held` is the component
     /// read, so the lock records `local:<that component>`.
     ///
-    /// `path` is read through `containment` (ADR 0104): what is opened is what
-    /// landed, so a name that leaves the containment is `OUTSIDE_ROOT`
-    /// whichever way it is spelled. Messages and the recorded path name the
-    /// joined path.
+    /// `path` is read through `containment` (ADR 0104): what is opened is
+    /// what landed, so a name that leaves the containment is `OUTSIDE_ROOT`
+    /// whichever way it is spelled. Messages name the path as written.
     pub fn read(
         runtime: &dyn WasmRuntime,
+        base: &Path,
         path: &Path,
         containment: &Containment,
     ) -> Result<LocalFile, OpError> {
-        let component =
-            LocalComponent::read(path, containment).map_err(|error| match error.kind {
+        let component = containment
+            .resolve_from(base, path)
+            .map_err(OpError::from)
+            .and_then(|held| LocalComponent::of(held, containment))
+            .map_err(|error| match error.kind {
                 OpErrorKind::FileNotFound => error.with_suggestion(super::names::SPECIFIER_FORMS),
                 _ => error,
             })?;
         Ok(LocalFile {
             binary: Installable::read(runtime, Module::new(component.bytes))?,
-            path: component.path,
+            held: component.held,
         })
     }
 }
@@ -302,10 +312,13 @@ mod tests {
         std::fs::write(release.join("other.wasm"), b"x").unwrap();
         std::fs::write(release.join("my_ext.wasm"), b"y").unwrap();
         let read = LocalComponent::read(dir.path(), &unbounded).unwrap();
-        assert_eq!(read.path, release.join("my_ext.wasm"));
+        assert_eq!(read.held.at, release.join("my_ext.wasm"));
         assert_eq!(read.bytes, b"y");
         let file = release.join("other.wasm");
-        assert_eq!(LocalComponent::read(&file, &unbounded).unwrap().path, file);
+        assert_eq!(
+            LocalComponent::read(&file, &unbounded).unwrap().held.at,
+            file
+        );
         let error = LocalComponent::read(&dir.path().join("missing.wasm"), &unbounded).unwrap_err();
         assert_eq!(error.code, "E040");
         assert_eq!(error.kind, OpErrorKind::FileNotFound);
@@ -328,15 +341,41 @@ mod containment_tests {
         let runtime = testing::candidates();
         let bound = Containment::within(&base.join("proj"));
 
-        let error = LocalFile::read(&runtime, &base.join("outside.wasm"), &bound).unwrap_err();
+        let error = LocalFile::read(
+            &runtime,
+            &base.join("proj"),
+            &base.join("outside.wasm"),
+            &bound,
+        )
+        .unwrap_err();
         assert_eq!(error.code, OUTSIDE_ROOT, "{error:?}");
-        let error = LocalFile::read(&runtime, Path::new("../outside.wasm"), &bound).unwrap_err();
+        let error = LocalFile::read(
+            &runtime,
+            &base.join("proj"),
+            Path::new("../outside.wasm"),
+            &bound,
+        )
+        .unwrap_err();
         assert_eq!(error.code, OUTSIDE_ROOT, "{error:?}");
-        let inside = LocalFile::read(&runtime, Path::new("inside.wasm"), &bound).unwrap();
-        assert_eq!(inside.path, base.join("proj/inside.wasm"));
+        let inside = LocalFile::read(
+            &runtime,
+            &base.join("proj"),
+            Path::new("inside.wasm"),
+            &bound,
+        )
+        .unwrap();
+        assert_eq!(inside.held.at, base.join("proj/inside.wasm"));
         // Unbounded: the same outside file is read.
         let unbounded = Containment::unbounded();
-        assert!(LocalFile::read(&runtime, &base.join("outside.wasm"), &unbounded).is_ok());
+        assert!(
+            LocalFile::read(
+                &runtime,
+                Path::new(""),
+                &base.join("outside.wasm"),
+                &unbounded
+            )
+            .is_ok()
+        );
     }
 
     #[cfg(unix)]
@@ -350,7 +389,13 @@ mod containment_tests {
         let runtime = testing::candidates();
 
         let bound = Containment::within(&base.join("proj"));
-        let error = LocalFile::read(&runtime, Path::new("linked.wasm"), &bound).unwrap_err();
+        let error = LocalFile::read(
+            &runtime,
+            &base.join("proj"),
+            Path::new("linked.wasm"),
+            &bound,
+        )
+        .unwrap_err();
         assert_eq!(error.code, "E040", "{error:?}");
         assert!(
             error.message.contains("it has 2 names"),
@@ -361,6 +406,7 @@ mod containment_tests {
         assert!(
             LocalFile::read(
                 &runtime,
+                Path::new(""),
                 &base.join("proj/linked.wasm"),
                 &Containment::unbounded()
             )
@@ -385,8 +431,10 @@ mod containment_tests {
         // The binary is found through the link when nothing is bounded.
         assert!(LocalComponent::read(&krate, &Containment::unbounded()).is_ok());
         let bound = Containment::within(&base.join("proj"));
-        let error = LocalFile::read(&runtime, &krate, &bound).unwrap_err();
+        let error = LocalFile::read(&runtime, &base.join("proj"), &krate, &bound).unwrap_err();
         assert_eq!(error.code, OUTSIDE_ROOT, "{error:?}");
-        assert!(LocalFile::read(&runtime, &krate, &Containment::unbounded()).is_ok());
+        assert!(
+            LocalFile::read(&runtime, Path::new(""), &krate, &Containment::unbounded()).is_ok()
+        );
     }
 }

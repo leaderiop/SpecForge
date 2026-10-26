@@ -188,7 +188,7 @@ fn each_string_is_read_in_order_and_refused_named_among_several() {
 }
 
 #[test]
-fn a_relative_local_path_is_joined_onto_the_base() {
+fn a_relative_local_path_is_read_from_the_base_and_named_as_written() {
     let runtime = runtime();
     let scratch = tempfile::tempdir().unwrap();
     let base = scratch.path().join("sub");
@@ -198,16 +198,16 @@ fn a_relative_local_path_is_joined_onto_the_base() {
         base: &base,
         containment: &UNBOUNDED,
     };
-    let names = Names::read(&["a.wasm", "/abs/b.wasm"], place).unwrap();
-    assert_eq!(names.wanted[0].source, Source::Local(base.join("a.wasm")),);
-    assert_eq!(names.wanted[1].source, Source::Local("/abs/b.wasm".into()));
+    let names = Names::read(&["a.wasm", "b.wasm"], place).unwrap();
+    assert_eq!(names.wanted[0].source, Source::Local("a.wasm".into()));
+    assert_eq!(names.wanted[1].source, Source::Local("b.wasm".into()));
     let named = names.name_each(&runtime, &mut no_packages).err();
-    // The second file does not exist: refused named among several, naming the path as given.
+    // The second file does not exist under the base: refused named among several, naming the path as written.
     let error = named.unwrap();
     assert_eq!(error.code, "E040");
     assert_eq!(
         error.message,
-        "adding '/abs/b.wasm': no extension binary at /abs/b.wasm"
+        "adding 'b.wasm': no extension binary at b.wasm"
     );
 }
 

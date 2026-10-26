@@ -26,8 +26,8 @@ impl<'a> Install<'a> {
         let pin = Pin {
             name,
             version,
-            source: LockSource::local(shown_path(root, &local.path))
-                .map_err(|why| unrecordable(&local.path, &why))?,
+            source: LockSource::local(shown_path(root, &local.held.at))
+                .map_err(|why| unrecordable(&local.held.named, &why))?,
             key_id: None,
             peers: declared.peers().to_vec(),
         };

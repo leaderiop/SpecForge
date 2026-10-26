@@ -372,7 +372,8 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     .wasm path, or the component a crate directory names, that resolves outside
     the project the call installs into (through .., an absolute name or a
     symlink) MUST be refused as invalid_input on specifiers, nothing installed
-    (ADR 0092 D7, closed by ADR 0098, applied where the file is read by ADR 0104). A registry specifier with no registry configured in
+    (ADR 0092 D7, closed by ADR 0098, applied where the file is read by ADR 0104). A refusal of
+    a local path names it as the call spelled it. A registry specifier with no registry configured in
     specforge.json MUST make no network call and MUST return an E063 error
     whose suggestion names the registries key. The tool MUST run the add
     specforge add runs: a builtin is enabled offline with its required
