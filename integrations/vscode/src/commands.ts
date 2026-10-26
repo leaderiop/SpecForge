@@ -35,7 +35,7 @@ export function registerCommands(
         [
           {
             label: "@specforge/software",
-            description: "behavior, invariant, event, type, port",
+            description: "behavior, event, type, port",
             picked: true,
           },
           {
@@ -45,7 +45,7 @@ export function registerCommands(
           },
           {
             label: "@specforge/governance",
-            description: "decision, constraint, failure_mode",
+            description: "invariant, decision, constraint, failure_mode",
           },
           {
             label: "@specforge/formal",
