@@ -65,6 +65,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   applied where it stands (the named spec file's mint), or refused once (`not_a_source_path`, in the named spec file's
   sentence shape) when its key lies outside the project root or it names nothing; the reader opens no file
   (`ProjectView::source_path`, ADR 0253).
+- **Recorded source path**: a source-code path a manifest records (an anchor's `file`, an inference index entry's
+  `path`, a source root): read from the project root into its key by the reader a named source path uses, an absolute
+  path under the root being that path and a `..` applied where it stands; one whose key lies outside the root, or that
+  names nothing, is no key (it covers nothing, is deleted, is not walked; navigation still lists such an anchor by its
+  text) (`SourceKey::read`, ADR 0271).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
   text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
 - **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
@@ -935,7 +940,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `specforge.infer_session` is its adapter.
 - **Inference sources**: the files inference covers: under the inference manifest's source roots (the project
   root when none), each file an enabled analyzer claims by its extension, keyed by the source path rule
-  (root-relative, `/`-separated, no `..`). They are walked by the shared discovery policy
+  (root-relative, `/`-separated, no `..`), every recorded path read as a recorded source path. They are walked by the shared discovery policy
   (`specforge_common::walk_files`): no symlinked directory, no hidden name, no nested project, and the default
   skipped directories united with any analyzer's `excluded_dirs`. A source root, a file or an indexed path that lands
   outside the project root is none of them and is never read. Progress, gaps, the `inferred` lint and the mark read

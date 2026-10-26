@@ -2,6 +2,8 @@
 
 **Amended by [ADR 0272](0272-a-held-path-keeps-the-callers-spelling.md) (round 28):** D3 is applied to every held path: a message quotes `Held::named`.
 
+**Reopened by [ADR 0271](0271-a-recorded-source-path-has-one-reader.md) (round 28):** its reopen clause (a recorded path read from a root) is met: the reader is `SourceKey::read`, shared by requests and records.
+
 **Status:** accepted (2026-10-26, architecture round 27, plan 11). Reopens [ADR 0195](0195-a-spec-file-a-request-names-is-read-into-its-source-key-once.md) "Left alone: `match_file`, infer's `SourceKey`" and amends [ADR 0092](0092-a-path-an-mcp-request-names-resolves-inside-the-served-project.md) D5 (an ops operation no longer keeps its own outside refusal), [ADR 0113](0113-inference-sources-are-walked-by-the-shared-discovery-policy.md) D1/D5 (a request's source path is read by the project view) and [ADR 0140](0140-source-anchors-are-a-read-view.md) D1 (`anchors_of_file` refuses a path outside the project).
 
 ## Context
