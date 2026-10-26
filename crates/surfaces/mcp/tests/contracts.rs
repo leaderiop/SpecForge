@@ -2678,9 +2678,8 @@ fn contract_diagnostics_notification() {
             "end_col": 2,
         },
         "suggestion": "rename one of the entities to avoid the collision",
-        "file": "test.spec",
-        "line": 3,
-        "column": 1,
+        "data": {"kind": "subject", "entity": "alpha"},
+        "file": "test.spec", "line": 3, "column": 1,
     });
     let changed = |added: Value, removed: Value| {
         json!({

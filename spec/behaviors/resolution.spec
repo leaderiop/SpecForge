@@ -164,7 +164,10 @@ behavior link_entity_references "Link Entity References" {
     reference, whether or not a loaded extension declares that kind; it
     still links, so navigation and rename reach it. A quoted reference is
     written at its ID, inside its quotes: its E003, E022 or I004 is there,
-    and so is the token navigation reads (ADR 0218).
+    and so is the token navigation reads (ADR 0218). Every diagnostic the
+    build reports about one declaration (E076, E081, E002, W060, I005)
+    names the declaration's ID in its data, so it is about that ID's entity
+    even when the build drops the block.
   """
   verify unit "reference list IDs create graph edges"
   verify unit "unresolvable reference produces E003"
@@ -184,6 +187,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a quoted reference is written at its ID, inside its quotes"
   verify unit "cross-file duplicate entity ID produces E002 naming the first declaration"
   verify unit "same ID different kind across files warns W060 with both kinds named"
+  verify unit "a declaration's graph-build diagnostics name its entity in their data"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

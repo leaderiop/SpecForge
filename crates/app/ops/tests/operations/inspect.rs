@@ -189,7 +189,6 @@ fn diagnostics_are_those_about_the_entity() {
     behavior = "inspect_entity_facts",
     verify = "a duplicate declaration's diagnostics are about its entity"
 )]
-#[ignore = "flipped by T2"]
 fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
     let p = compile(
         &["@specforge/software"],
@@ -200,7 +199,7 @@ fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
             ),
             (
                 "b.spec",
-                "behavior create_task \"Again\" {\n  category query\n}\n\
+                "behavior create_task {\n  category query\n  category command\n}\n\
                  invariant create_task \"Other kind\" {\n  guarantee \"g\"\n}\n",
             ),
         ],
@@ -213,7 +212,7 @@ fn a_duplicate_declarations_diagnostics_are_about_its_entity() {
         .map(|d| d.code)
         .collect();
     codes.sort();
-    assert_eq!(codes, ["E002", "W060"]);
+    assert_eq!(codes, ["E002", "E076", "E081", "W060"]);
 }
 
 #[test]

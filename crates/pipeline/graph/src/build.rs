@@ -1,7 +1,7 @@
 use crate::defaults::{FileDefaults, is_defaults_block};
 use crate::delta::{self, GraphDelta, NodeChange};
 use crate::{Graph, Node, title};
-use specforge_common::{Diagnostic, SourceSpan, Sym, codes, structural};
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes, structural};
 use specforge_parser::{Entity, FieldValue, REF_SCHEME_FIELD, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
@@ -74,7 +74,8 @@ pub struct Applied {
 /// The graph of a set of parsed `.spec` files and what building it
 /// reported (E001, E002, E077, E078, E081, W060, W143, W161, I005,
 /// then E003/I004 and W061 from linking), kept current one whole file at a
-/// time.
+/// time. Each diagnostic about one declaration names it in its data (`Subject`), so it is about its id even
+/// when the block is dropped; W143's define block declares nothing and names nothing.
 ///
 /// The rule, written once: files are taken in path order; each entity ID is
 /// the node of its first declaration that is not a `define` block (W143). A
@@ -330,7 +331,8 @@ struct Declarations<'a> {
 /// format version header reports first, then per file and entity W143 / E076 / E081 / E002 / W060, then I005. It is also first-writer-wins:
 /// `seen` is keyed on (kind, id), so a second declaration of a kind is E002
 /// naming the first of that kind; `winners` is keyed on the raw ID, so a
-/// declaration of another kind is W060. Placement reads `winners`.
+/// declaration of another kind is W060. Placement reads `winners`. Each diagnostic about one declaration names
+/// it in its data (`Subject`); W143 names nothing.
 fn declarations<'a>(
     files: impl Iterator<Item = &'a SpecFile> + Clone,
     config: &GraphConfig,
@@ -378,6 +380,7 @@ fn declarations<'a>(
                         ),
                     )
                     .with_span(entity.span.clone())
+                    .with_data(about(entity))
                     .with_suggestion("rename one of the entities to avoid the collision"),
                 );
                 continue;
@@ -396,6 +399,7 @@ fn declarations<'a>(
                         ),
                     )
                     .with_span(entity.span.clone())
+                    .with_data(about(entity))
                     .with_suggestion("use distinct IDs for entities of different kinds"),
                 );
                 continue;
@@ -420,7 +424,8 @@ fn declarations<'a>(
                                 scheme, entity.id.raw
                             ),
                         )
-                        .with_span(entity.span.clone()),
+                        .with_span(entity.span.clone())
+                        .with_data(about(entity)),
                     );
                 }
             }
@@ -470,6 +475,14 @@ pub(crate) fn is_define_block(entity: &Entity) -> bool {
     entity.kind.raw == structural::DEFINE
 }
 
+/// What a diagnostic about the declaration `entity` names as its subject: its id, whether or not the build
+/// places the block (a duplicate is no node; its id's node is the first declaration).
+pub(crate) fn about(entity: &Entity) -> DiagnosticData {
+    DiagnosticData::Subject {
+        entity: entity.id.raw.as_str().to_owned(),
+    }
+}
+
 /// E081: each later entry of a key `entity` writes twice, at any depth (ADR 0215); its node keeps the first.
 fn repeated_field_errors(entity: &Entity) -> impl Iterator<Item = Diagnostic> + '_ {
     entity.fields.repeats().into_iter().map(move |r| {
@@ -482,6 +495,7 @@ fn repeated_field_errors(entity: &Entity) -> impl Iterator<Item = Diagnostic> + 
             ),
         )
         .with_span(r.later.value_span.clone().unwrap_or_else(|| entity.span.clone()))
+        .with_data(about(entity))
         .with_suggestion(
             "delete this line, or give every value in the first: a list takes all its items in one [...]",
         )

@@ -49,7 +49,7 @@ type ReferenceCycleData "W061: the reference cycle's entities, in path order." {
   verify unit "ReferenceCycleData schema is valid"
 }
 
-type SubjectData "A diagnostic an extension pass raised about entity." {
+type SubjectData "A diagnostic about entity that its span cannot name: an extension pass's, or one the graph build reports about a declaration (E002, W060, E076, E081, I005)." {
   kind   "subject" @literal
   entity string
   verify unit "SubjectData schema is valid"

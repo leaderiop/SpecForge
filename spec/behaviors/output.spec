@@ -524,7 +524,8 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
     Inspect MUST answer one entity's facts: its node and kind entry, its
     headline statement (the field text of the field its extension declares
     headline and normative, whatever its written shape), its standing and obligations, its references in both
-    directions, and the diagnostics about it: those its data names it in,
+    directions, and the diagnostics about it: those its data names it in (a duplicate
+    declaration's included),
     else those inside its block, never one whose message merely quotes it or
     whose id contains its id. Its coverage is the coverage view's verdict and
     status for its row. An entity the graph lacks is E003, entity_not_found, naming the
