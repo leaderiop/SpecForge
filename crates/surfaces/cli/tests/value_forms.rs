@@ -258,3 +258,43 @@ fn new_names_a_date_fields_value_as_a_calendar_day() {
         help.stdout
     );
 }
+
+/// 05-D1, D2: format keeps a padded value, check reports it before and after, and a typed edit of the block works.
+#[specforge_test_macros::test(
+    behavior = "format_spec_files",
+    verify = "format keeps a padded value, and check reports it after as before"
+)]
+#[ignore = "flipped by T4"]
+fn format_keeps_a_padded_value_and_check_reports_it_after_as_before() {
+    let text = "event ev_one \"E1\" {\n}\n\nbehavior bh_one \"B\" {\n  status   \" draft\"\n  produces [\" ev_one \"]\n}\n";
+    let dir = project("spec/hello.spec", text);
+    let cli = Cli::on(&dir);
+    let codes = |cli: &Cli| -> Vec<String> {
+        cli.document(&["check"])
+            .json
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let (codes_before, export_before) = (
+        codes(&cli),
+        cli.run(&["export", "--format", "json"]).exits(0).stdout,
+    );
+    assert!(codes_before.iter().any(|c| c == "E003"), "{codes_before:?}");
+    assert!(codes_before.iter().any(|c| c == "E061"), "{codes_before:?}");
+
+    cli.run(&["format", "--check"]).exits(0);
+    cli.run(&["format"]).exits(0);
+
+    let written = std::fs::read_to_string(dir.root().join("spec/hello.spec")).unwrap();
+    assert_eq!(written, text);
+    assert_eq!(
+        cli.run(&["export", "--format", "json"]).exits(0).stdout,
+        export_before
+    );
+    assert_eq!(codes(&cli), codes_before);
+    cli.run(&["set", "bh_one", "contract", "new", "--dry-run"])
+        .exits(0);
+}

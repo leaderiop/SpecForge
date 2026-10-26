@@ -96,3 +96,31 @@ fn every_block_of_the_todo_app_is_retitled_and_given_a_verify_line_without_a_str
         }
     }
 }
+
+/// 05-D2: a block holding a padded value, which format keeps, takes every verb.
+#[specforge_test_macros::test(
+    behavior = "validate_typed_edit",
+    verify = "a block holding a padded value takes a typed edit"
+)]
+#[ignore = "flipped by T4"]
+fn a_block_holding_a_padded_value_takes_a_typed_edit() {
+    const PADDED: &str = "invariant done_stamped \"Done Stamped\" {\n  guarantee \"done tasks carry a time\"\n}\n\n\
+        invariant extra_rule \"Extra Rule\" {\n  guarantee \"something else\"\n}\n\n\
+        behavior list_tasks \"List Tasks\" {\n  category   \" query\"\n  invariants [\" done_stamped \"]\n  \
+        contract   \"When asked, the system MUST list.\"\n}\n";
+    let c = project(&[("p.spec", PADDED)]);
+    let (add, _) = verify("list_tasks", "lists every task");
+    for edit in [
+        set(
+            "list_tasks",
+            "contract",
+            one("When asked, the system MUST list all."),
+        ),
+        link("list_tasks", "invariants", "extra_rule"),
+        add,
+    ] {
+        let text = after(&c, "p.spec", std::slice::from_ref(&edit));
+        assert!(text.contains("category   \" query\""), "{edit:?}: {text}");
+        assert!(text.contains("\" done_stamped \""), "{edit:?}: {text}");
+    }
+}

@@ -92,6 +92,7 @@ invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
   """
   risk      high
   verify property "format(spec) parses to an identical entity graph as spec"
+  verify property "format(spec) under the project's field forms stores the same values and references as spec"
   verify unit "formatting does not alter entity IDs, field values, or reference lists"
 }
 

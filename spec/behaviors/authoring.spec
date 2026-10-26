@@ -239,6 +239,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   """
   verify unit "a graph change no edit declares is beyond the declaration"
   verify unit "every verb's graph change is what it declares"
+  verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"

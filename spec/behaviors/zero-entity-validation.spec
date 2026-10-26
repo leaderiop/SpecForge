@@ -487,6 +487,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a value a defaults block writes in the other form is W159 once, at the default"
   verify unit "a quoted number or boolean, a literal on a text field and a whole value on a list field are W159"
   verify unit "a list item's W159 writes the whole list in its field's form"
+  verify unit "a quoted number's W159 writes the number it reads to"
   verify unit "a multi-line text on a list field is W159, naming each line as an item"
   verify unit "a quoted calendar day on a date field is W159, written bare"
   verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"

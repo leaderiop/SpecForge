@@ -6,7 +6,7 @@ use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 use std::collections::{BTreeSet, HashMap};
 
-fn forms() -> FieldForms {
+pub(super) fn forms() -> FieldForms {
     let mut declared = HashMap::new();
     for (kind, field, ty) in [
         ("behavior", "category", FieldType::Identifier),
@@ -17,6 +17,7 @@ fn forms() -> FieldForms {
         ("behavior", "types", FieldType::ReferenceList),
         ("behavior", "tags", FieldType::StringList),
         ("type", "description", FieldType::String),
+        ("type", "types", FieldType::ReferenceList),
     ] {
         declared.insert(
             (kind.to_string(), field.to_string()),
@@ -161,4 +162,60 @@ fn a_number_a_boolean_a_literal_and_a_whole_value_on_a_list_are_written_in_their
 fn a_multi_line_text_on_a_list_field_is_left_as_written() {
     let text = "behavior b \"B\" {\n  tags \"\"\"\n    one\n    two\n  \"\"\"\n}\n";
     assert_eq!(fmt_forms(text), text);
+}
+
+/// 05-D1: the parse keeps a padded value, so format does.
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a padded value is kept as written, as check reads it"
+)]
+#[ignore = "flipped by T4"]
+fn a_padded_value_is_kept_as_written() {
+    let text = "behavior b \"B\" {\n  category \" cart\"\n  due      \" 2026-03-01\"\n  types    [\" a \", b]\n}\n";
+    assert_eq!(fmt_forms(text), text);
+}
+
+/// 05-D5: the parse dedents a one-word `"""` to the word, so W159 names it and format writes it.
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "format writes a value in another form exactly where W159's rule names one"
+)]
+#[ignore = "flipped by T4"]
+fn a_multi_line_word_is_written_in_its_fields_form() {
+    let once = fmt_forms(
+        "behavior b \"B\" {\n  category \"\"\"\n    cart\n  \"\"\"\n  tags \"\"\"\n    x\n  \"\"\"\n}\n",
+    );
+    assert_eq!(
+        once,
+        "behavior b \"B\" {\n  category cart\n  tags     [\"x\"]\n}\n"
+    );
+    assert_eq!(fmt_forms(&once), once);
+}
+
+/// 05-D4: the parse reads `true` in a list as a literal, so W159 says quote it and format does.
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "format writes a value in another form exactly where W159's rule names one"
+)]
+#[ignore = "flipped by T4"]
+fn a_bare_true_item_on_a_members_kind_is_quoted() {
+    assert_eq!(
+        fmt_forms("type T \"T\" {\n  types [true, b]\n}\n"),
+        "type T \"T\" {\n  types [\"true\", b]\n}\n"
+    );
+}
+
+/// 05-D3: a quoted number is written as the number it reads to, as `set` writes it.
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a quoted number is written as the number it reads to"
+)]
+#[ignore = "flipped by T3"]
+fn a_quoted_number_is_written_as_the_number_it_reads_to() {
+    for (given, written) in [("+3", "3"), (" 3", "3"), ("007", "7")] {
+        assert_eq!(
+            fmt_forms(&format!("behavior b \"B\" {{\n  points \"{given}\"\n}}\n")),
+            format!("behavior b \"B\" {{\n  points {written}\n}}\n")
+        );
+    }
 }
