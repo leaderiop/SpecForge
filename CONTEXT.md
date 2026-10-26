@@ -1274,6 +1274,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the invocation, resolve the call target, run the handler (which records its own events), record the
   completion, answer with the kind's envelope; every record goes through the server's event sink. Each kind is one adapter; a refusal without `isError` (resources, prompts) is a JSON-RPC
   error whose data is its McpError (`specforge_mcp::surface_call`, ADR 0024).
+- **Tool refusal**: how any MCP tool says it failed: an `isError` result carrying one McpError
+  (`ToolOutcome::Refused`, the only failure a tool outcome can be). A core tool's, the call target's, an
+  explicit extension tool's and an extension command's alike: a command's refused args are `invalid_input`
+  on the arg, its own error object the McpError its code names, any other failed run `internal_error` with
+  its output in `data` (`specforge_mcp`'s `extension_dispatch`). The CLI writes a command's error object
+  instead (ADR 0011, ADR 0252).
 - **Resource spec**: the single definition of a core MCP resource: one module under `specforge_mcp::resources`
   implementing `CoreResource` once (its URI or template, name, description, MIME type, what it changes with and its
   read of the project view); `CORE_RESOURCES` lists each once, seen as a `ResourceSpec` (ADR 0103). A graph view
