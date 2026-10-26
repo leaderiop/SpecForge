@@ -157,7 +157,7 @@ fn command_adapter(
                 exit_code: output.exit_code,
                 duration_ms: elapsed_ms(started),
             };
-            (output_result(output), Some(event))
+            (output_result(command, output), Some(event))
         }
         Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
         Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
@@ -248,35 +248,51 @@ fn own_error(error: CommandError) -> McpError {
     }
 }
 
-/// An auto-promoted command's output as a tool result. The command was
-/// asked for json (ADR 0011): a JSON object on stdout, and nothing on
-/// stderr, is the result's structured payload; a failure that wrote one
-/// error object on stderr, and nothing on stdout, is its [`own_error`].
-/// Otherwise its stdout, then its stderr when it wrote any; a nonzero
-/// exit code fails the call.
-fn output_result(output: CommandOutput) -> ToolOutcome {
-    let object = |text: &str| match serde_json::from_str::<Value>(text) {
-        Ok(object @ Value::Object(_)) => Some(object),
-        _ => None,
-    };
-    let failed = output.exit_code != 0;
-    if !failed
-        && output.stderr.is_empty()
-        && let Some(payload) = object(&output.stdout)
-    {
-        return ToolOutcome::ok(payload);
-    }
-    if failed
-        && output.stdout.is_empty()
+/// A command's failed run as an McpError (ADR 0252 D3, D4): its one error
+/// object on stderr, nothing on stdout, is its [`own_error`]; any other output
+/// is `internal_error` "command <export>() of '<extension>' exited <n>[: <stderr>]"
+/// carrying `data.{exit_code, stdout, stderr}`.
+fn failed_run(command: &ExtensionCommand, output: CommandOutput) -> McpError {
+    if output.stdout.is_empty()
         && let Ok(error) = serde_json::from_str::<CommandError>(&output.stderr)
     {
-        return own_error(error).into();
+        return own_error(error);
+    }
+    let shown = output.stderr.trim();
+    let mut message = format!(
+        "command {}() of '{}' exited {}",
+        command.export(),
+        command.extension(),
+        output.exit_code
+    );
+    if !shown.is_empty() {
+        message = format!("{message}: {shown}");
+    }
+    McpError::new(ErrorCode::InternalError, message).with_data(json!({
+        "exit_code": output.exit_code,
+        "stdout": output.stdout,
+        "stderr": output.stderr,
+    }))
+}
+
+/// An auto-promoted command's output as a tool result. The command was
+/// asked for json (ADR 0011): a JSON object on stdout, and nothing on
+/// stderr, is the result's structured payload; a nonzero exit code is a
+/// [`failed_run`]. Otherwise its stdout, then its stderr when it wrote any.
+fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutcome {
+    if output.exit_code != 0 {
+        return failed_run(command, output).into();
+    }
+    if output.stderr.is_empty()
+        && let Ok(payload @ Value::Object(_)) = serde_json::from_str::<Value>(&output.stdout)
+    {
+        return ToolOutcome::ok(payload);
     }
     let mut blocks = vec![output.stdout];
     if !output.stderr.is_empty() {
         blocks.push(output.stderr);
     }
-    ToolOutcome::texts(blocks, failed)
+    ToolOutcome::texts(blocks)
 }
 
 /// A failed extension call as an MCP error: the diagnostic the runtime

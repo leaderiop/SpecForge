@@ -1384,12 +1384,10 @@ fn contract_dispatch_surface_command() {
     }
 
     let resp = call_tool(&mut server, "specforge.probe.probe", json!({"port": port}));
-    // output_returned: its stdout, then its stderr; exit code 3 fails the
-    // call.
-    let result = &resp["result"];
-    assert_eq!(result["isError"], true, "{resp}");
-    assert_eq!(result["content"][1]["text"], "probed\n", "{resp}");
-    let out = tool_json(&resp);
+    // output_returned: a failed run's stdout and stderr are its McpError's data.
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["data"]["stderr"], "probed\n", "{resp}");
+    let out: Value = serde_json::from_str(error["data"]["stdout"].as_str().unwrap()).unwrap();
 
     // args_serialized: the args, the project root and the served graph.
     assert_eq!(out["args"], json!({"port": port}));
@@ -1457,7 +1455,8 @@ fn contract_dispatch_surface_command() {
         "specforge.probe.probe",
         json!({"port": port.to_string()}),
     );
-    assert_eq!(tool_json(&resp)["args"], json!({"port": port}), "{resp}");
+    let text = crate::tool_errors::mcp_error(&resp).to_string();
+    assert!(text.contains(&format!(r#"port\":{port}"#)), "{resp}");
     assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
     for (arguments, argument) in [(json!({"port": "x"}), "port"), (json!({"dir": "/"}), "dir")] {
         let resp = call_tool(&mut server, "specforge.probe.probe", arguments.clone());

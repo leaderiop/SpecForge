@@ -467,19 +467,6 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     assert_eq!(input["args"], args);
     assert!(input["cwd"].is_string(), "{input}");
     assert!(input["graph"]["nodes"].is_array(), "{input}");
-
-    // A failing command is a failed tool result carrying its stderr.
-    let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});
-    let (mut server, _ext, _dir) =
-        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", failing));
-    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
-    assert_eq!(
-        resp["result"],
-        json!({"content": [
-            {"type": "text", "text": ""},
-            {"type": "text", "text": "no tests found"}
-        ], "isError": true})
-    );
 }
 
 /// The `tools/call` result of `specforge.cmds.report` when its export
@@ -540,21 +527,6 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
         result,
         json!({"content": text(&["{}", "warning: stale"]), "isError": false})
     );
-
-    let error = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found"});
-    // A failure that wrote prose, or an array, is a failed text result.
-    for stderr in ["error: no tests found", "[\"a\"]"] {
-        let result = ran(2, "", stderr);
-        assert_eq!(
-            result,
-            json!({"content": text(&["", stderr]), "isError": true}),
-            "{stderr}"
-        );
-    }
-    // A failure's object beside stdout is not the error object alone.
-    let result = ran(1, "partial", &error.to_string());
-    assert_eq!(result["isError"], true, "{result}");
-    assert!(result.get("structuredContent").is_none(), "{result}");
 }
 
 #[specforge_test(

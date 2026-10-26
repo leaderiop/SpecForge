@@ -114,7 +114,6 @@ pub fn structured<R: Object + Serialize>(answered: Answered<R>) -> ToolOutcome {
             meta,
         }) => ToolOutcome::Done {
             payload: Payload::Json(serde_json::to_value(&reply).expect("a reply serializes")),
-            is_error: false,
             diagnostics,
             meta,
         },
@@ -131,7 +130,6 @@ pub fn text(answered: Answered<Text>) -> ToolOutcome {
             meta,
         }) => ToolOutcome::Done {
             payload: Payload::Text(vec![text]),
-            is_error: false,
             diagnostics,
             meta,
         },
@@ -162,7 +160,6 @@ pub(crate) fn conforming(
 ) -> ToolOutcome {
     let ToolOutcome::Done {
         payload: Payload::Json(value),
-        is_error: false,
         ..
     } = &outcome
     else {

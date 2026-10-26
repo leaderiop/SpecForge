@@ -209,9 +209,10 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     a failure that prints one JSON object on stderr and nothing on stdout
     is an isError result carrying the McpError its code names
     (INVALID_INPUT is invalid_input, ENTITY_NOT_FOUND is entity_not_found,
-    any other code internal_error), its entity and suggestion kept; any other output (an
-    array, a scalar, prose) is text blocks, isError when the exit code
-    is not zero. The extension renders both
+    any other code internal_error), its entity and suggestion kept; any other
+    failed output is internal_error carrying its exit code, stdout and
+    stderr; a successful run's output that is not one object (an array,
+    a scalar, prose) is text blocks. The extension renders both
     formats; the host knows no payload (ADR 0011). The export
     MUST be granted no capability: its WASI context preopens no
     directory and passes no environment, arguments, inherited stdio or

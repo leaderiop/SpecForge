@@ -145,7 +145,6 @@ fn a_commands_own_error_object_is_the_mcp_error_its_code_names() {
     behavior = "dispatch_surface_command",
     verify = "over MCP a command that fails without one error object is internal_error carrying its exit code, stdout and stderr"
 )]
-#[ignore = "flipped by T4"]
 fn a_command_that_fails_without_an_error_object_is_internal_error_with_its_output() {
     let (error, _) = failed_run(2, "", "no tests found");
     assert_eq!(error["code"], "internal_error", "{error}");
@@ -171,7 +170,6 @@ fn a_command_that_fails_without_an_error_object_is_internal_error_with_its_outpu
     invariant = "mcp_structured_error_responses",
     verify = "every refusal of every MCP tool kind is an isError result carrying one McpError that names the tool"
 )]
-#[ignore = "flipped by T4"]
 fn every_tool_kind_refuses_with_an_mcp_error() {
     // The twelve slugs of `McpErrorCode` (spec/types/mcp.spec).
     const CODES: [&str; 12] = [
@@ -228,8 +226,8 @@ fn every_tool_kind_refuses_with_an_mcp_error() {
             json!({"style": "md"}),
         ),
         (
-            "command, trap",
-            FakeExtension::new().with_panic("cmd__report"),
+            "command, export that does not answer",
+            FakeExtension::new(),
             REPORT,
             json!({"style": "md"}),
         ),
@@ -240,8 +238,8 @@ fn every_tool_kind_refuses_with_an_mcp_error() {
             json!({"strict": "yes"}),
         ),
         (
-            "explicit tool, trap",
-            FakeExtension::new().with_panic("mcp__check"),
+            "explicit tool, export that does not answer",
+            FakeExtension::new(),
             "specforge.cmds.check",
             json!({}),
         ),
