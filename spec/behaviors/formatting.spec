@@ -338,7 +338,7 @@ behavior apply_format_rules "Apply Format Rules" {
     decisions for each whitespace region: keep, replace, insert, or remove.
     Rules cover indentation, spacing, alignment, wrapping, blank lines,
     comments and imports. The formatted text ends every line with LF
-    (CRLF line endings become LF, inside string literals too) and ends with
+    (CRLF line endings become LF, inside string literals too, a title's, a list item's and a verify text's included) and ends with
     exactly one newline; no blank line opens or closes it, and a blank text
     formats to the empty text. A value is written in its field's form
     (ADR 0147), read as the parse reads it (a quoted text with its escapes read, a triple-quoted one dedented, never

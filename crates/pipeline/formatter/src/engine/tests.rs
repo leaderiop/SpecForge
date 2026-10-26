@@ -216,12 +216,18 @@ fn the_formatted_text_has_lf_endings_and_one_final_newline() {
     assert_eq!(fmt(""), "");
     assert_eq!(fmt("\n\n"), "");
     assert_eq!(fmt("// c\r\n"), "// c\n");
-    // A triple-quoted string's lines end in LF too (the parser reads it so).
-    let string = fmt("behavior a \"A\" {\r\n  contract \"\"\"\r\n    x\r\n  \"\"\"\r\n}");
-    assert!(
-        !string.contains('\r') && string.ends_with("}\n"),
-        "{string:?}"
-    );
+    // The formatter reads its source's line breaks as the parser does (ADR 0266): inside a string, a title,
+    // a list item and a verify text too.
+    for string in [
+        fmt("behavior a \"A\" {\r\n  contract \"\"\"\r\n    x\r\n  \"\"\"\r\n}"),
+        fmt("behavior a \"A\" {\r\n  contract \"x\r\ny\"\r\n}"),
+        fmt("behavior a \"A\r\nB\" {\r\n  verify unit \"x\r\ny\"\r\n}"),
+    ] {
+        assert!(
+            !string.contains('\r') && string.ends_with("}\n"),
+            "{string:?}"
+        );
+    }
 }
 
 // --- Behavior: apply_format_rules ---

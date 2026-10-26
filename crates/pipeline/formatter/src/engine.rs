@@ -21,8 +21,11 @@ pub struct FormatResult {
 /// parser reads it (`specforge_parser::cst`), a form the parser could not
 /// read whole kept as written, with one W142 spanning its lines. A value of
 /// an entity block is written in its field's form, read from `forms`
-/// (ADR 0147); with `FieldForms::default()` no value is rewritten.
+/// (ADR 0147); with `FieldForms::default()` no value is rewritten. Every CR LF of `source` is read as LF
+/// (ADR 0266), so the text written holds none.
 pub fn format_source(source: &str, config: &FormatConfig, forms: &FieldForms) -> FormatResult {
+    let read = specforge_parser::line_break::read(source);
+    let source = read.as_ref();
     let cst = match Cst::read(source, None) {
         Ok(cst) => cst,
         Err(_) => {
@@ -291,7 +294,6 @@ fn lines_keeping_strings(node: Node, source: &str) -> Vec<String> {
             let line_break = offset + piece.len();
             offset = line_break + 1;
             let inside = spans.iter().any(|&(a, b)| a < line_break && line_break < b);
-            let piece = piece.strip_suffix('\r').unwrap_or(piece);
             if inside {
                 piece.to_string()
             } else {
