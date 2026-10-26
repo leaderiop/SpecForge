@@ -51,6 +51,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "specforge extension init uses default name when --name not provided"
   verify unit "the scaffold's extension name is a package name"
   verify unit "the scaffold names the SDK at the version this specforge is built with"
+  verify unit "a scaffold inside a cargo workspace is a workspace of its own"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, declaration_created, skeleton_exports_created, build_target_configured, extension_project_scaffolded_emitted"
 }
 

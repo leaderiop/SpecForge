@@ -74,6 +74,7 @@ mod registry_dry_run;
 mod registry_text;
 mod remove_peers;
 mod request_pairs;
+mod scaffold_builds;
 mod schema_cache;
 mod schema_notices;
 mod stats;
