@@ -43,7 +43,6 @@ const OLD: &str = "// specforge-format: 0.9\n// The first.\nfeature f1 {\n  stat
     invariant = "migration_canonical_form",
     verify = "a migration writes a CRLF file in CRLF, as it migrates the same file in LF"
 )]
-#[ignore = "flipped by T7"]
 fn a_migration_writes_a_crlf_file_as_it_migrates_its_lf_reading() {
     let (lf, crlf) = (migrated(OLD), migrated(&OLD.replace('\n', "\r\n")));
     assert_ne!(lf, OLD, "the LF file is migrated");

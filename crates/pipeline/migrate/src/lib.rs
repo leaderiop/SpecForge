@@ -9,7 +9,7 @@ use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, ProjectPath, ProjectRoot, Severity, codes};
 use specforge_formatter::{FormatConfig, unified_diff};
 use specforge_graph::{EdgeChange, FieldForms, GraphDelta, ModifiedNodeChange, NodeAspect};
-use specforge_parser::{FormatVersion, detect_format_version, with_format_version};
+use specforge_parser::{FormatVersion, LineBreak, detect_format_version, with_format_version};
 use std::path::{Path, PathBuf};
 
 mod defaults;
@@ -174,7 +174,8 @@ impl MigrationRecord {
 
 /// Transform content to version `to`: the header when the file is below it, then every migration step (titles, then
 /// the defaults hoist), then the blocks they changed laid out with `config` and `forms` (ADR 0235). A step runs on
-/// any file it changes, whatever the file's version (ADR 0148 D5).
+/// any file it changes, whatever the file's version (ADR 0148 D5). The file is read and written in its line break
+/// (ADR 0266): the steps and the layout see LF, and the result is written back as the file was.
 fn transform_content(
     content: &str,
     from: &FormatVersion,
@@ -182,15 +183,19 @@ fn transform_content(
     forms: &FieldForms,
     config: &FormatConfig,
 ) -> String {
+    let line_break = LineBreak::of(content);
+    let content = line_break.lf(content);
     let stepped = if from < to {
         defaults::hoist_defaults(
-            &titles::add_titles(&with_format_version(content, to)),
+            &titles::add_titles(&with_format_version(&content, to)),
             forms,
         )
     } else {
-        defaults::hoist_defaults(&titles::add_titles(content), forms)
+        defaults::hoist_defaults(&titles::add_titles(&content), forms)
     };
-    layout::lay_out(content, &stepped, config, forms)
+    line_break
+        .write(&layout::lay_out(&content, &stepped, config, forms))
+        .into_owned()
 }
 
 /// `delta` without the changes the migration steps declare (`titles`: a title where the node had none), the

@@ -84,7 +84,8 @@ invariant migration_canonical_form "Migration Canonical Form" {
     afterwards, laid out by the formatter with its file's format
     configuration (looked up through the run's bound) and its project's
     field forms, before the plan is diffed, judged and written. No byte
-    outside those blocks changes but the format header, and a file no step
+    outside those blocks changes but the format header, a file whose every
+    line break is CR LF is written so (ADR 0266), and a file no step
     changes is left as it is.
   """
   risk      medium
