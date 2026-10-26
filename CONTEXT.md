@@ -664,7 +664,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   fetch, a re-pin as W156 once it is saved. A known-keys store that can't be read refuses the fetch, signed or not
   (R-TRUST-006). The
   check writes nothing to the terminal: a key change is put to the policy's **Asking**.
-- **Download limit**: the most bytes a registry download may be: the `size_bytes` its reply declares, at most 64 MiB (`MAX_PACKAGE_BYTES`, the reference server's upload limit), and 64 MiB when it declares none; every other registry answer is held to 64 MiB. A longer answer is refused (R009) as soon as its `Content-Length` or its bytes say so, and an answer still arriving after the client's timeout is R004 (ADR 0250).
+- **Download limit**: the most bytes a registry download may be: the `size_bytes` its reply declares, at most 64 MiB (`MAX_PACKAGE_BYTES` in `specforge-package`, the reference server's upload limit), and 64 MiB when it declares none; every other registry answer is held to 64 MiB. A longer answer is refused (R009) as soon as its `Content-Length` or its bytes say so, and an answer still arriving after the client's timeout is R004 (ADR 0250).
 - **Trust decision**: how a registry package's publisher is accepted, decided once from what the registry describes, before any
   download, for a dry run as for an install: the **expected key** first, for every package; unsigned with an expected key
   (R-TRUST-007), unsigned with none (R-TRUST-001 unless allowed), a denied key (R-TRUST-005, whatever the consent), the

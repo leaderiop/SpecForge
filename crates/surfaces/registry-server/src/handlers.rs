@@ -4,9 +4,10 @@ use axum::{
     response::Json,
     routing::{delete, get, post, put},
 };
+use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_package::{PackageName, Version};
+use specforge_registry_wire::TokenVerified;
 use specforge_registry_wire::address::{Endpoint, HEALTH};
-use specforge_registry_wire::{MAX_PACKAGE_BYTES, TokenVerified};
 use std::sync::Arc;
 
 use crate::state::AppState;

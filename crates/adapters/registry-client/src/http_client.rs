@@ -7,13 +7,14 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use serde::de::DeserializeOwned;
 use specforge_registry_wire::reply::{self, Failure};
 use specforge_registry_wire::{
-    ErrorCode, MAX_PACKAGE_BYTES, PackageMetadata, PackageSignature, PublishReceipt, SearchHit,
-    SearchQuery, SearchResults, TokenVerified, VersionList, address::Call, form,
+    ErrorCode, PackageMetadata, PackageSignature, PublishReceipt, SearchHit, SearchQuery,
+    SearchResults, TokenVerified, VersionList, address::Call, form,
 };
 
 use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{RegistryConfig, RegistryCredential};
 use specforge_package::DeclaredPackage;
+use specforge_package::MAX_PACKAGE_BYTES;
 use specforge_package::PackageName;
 use specforge_package::Version;
 

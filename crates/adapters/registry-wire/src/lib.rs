@@ -19,11 +19,7 @@ pub use code::ErrorCode;
 pub use signature::{PackageSignature, SignatureError, SignedContent, sha256_hex};
 
 use serde::{Deserialize, Serialize};
-use specforge_package::{PackageName, Version};
-
-/// The largest package binary a registry stores, and the most bytes any registry answer may be: the reference
-/// server's upload limit (ADR 0250). A client reads no more of an answer than this.
-pub const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024;
+use specforge_package::{MAX_PACKAGE_BYTES, PackageName, Version};
 
 /// `GET {root}/v1/packages/{name}`: every version a package publishes and has not yanked, oldest first.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -262,11 +258,6 @@ mod tests {
         assert_eq!(limit(0), MAX_PACKAGE_BYTES);
         assert_eq!(limit(10), 10);
         assert_eq!(limit(MAX_PACKAGE_BYTES + 1), MAX_PACKAGE_BYTES);
-    }
-
-    #[test]
-    fn the_package_ceiling_is_the_servers_upload_limit() {
-        assert_eq!(MAX_PACKAGE_BYTES, 64 * 1024 * 1024);
     }
 
     /// `value` serializes to `expected` and `expected` reads back as `value`.

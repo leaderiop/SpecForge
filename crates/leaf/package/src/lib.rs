@@ -25,3 +25,17 @@ pub use name::{
 pub use scope::{Scope, ScopeError};
 pub use semver::{Version, VersionReq};
 pub use upgrade::{Reach, upgrade_target};
+
+/// The largest package binary a registry stores (the reference server's upload limit), the most bytes any registry
+/// answer may be (ADR 0250) and the most bytes read from one project file (ADR 0264).
+pub const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_package_ceiling_is_the_servers_upload_limit() {
+        assert_eq!(MAX_PACKAGE_BYTES, 64 * 1024 * 1024);
+    }
+}
