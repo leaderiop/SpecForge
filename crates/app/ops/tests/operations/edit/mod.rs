@@ -24,6 +24,7 @@ mod skeleton;
 mod statements;
 mod unions;
 mod validate;
+mod value_comments;
 
 use crate::navigate::{Compiled, SOFTWARE, compile};
 use specforge_ops::Refusal;

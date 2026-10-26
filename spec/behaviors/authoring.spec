@@ -126,6 +126,9 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "unset keeps a // line inside the string above the field"
   verify unit "set of an absent field never writes inside the string above the first field"
   verify unit "a typed edit of a CRLF block holding a multi-line quoted text is planned, its text kept"
+  verify unit "set of a value holding a comment to what it holds writes nothing"
+  verify unit "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
+  verify unit "set keeps the comment trailing the value, annotations given or not"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -156,6 +159,8 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "unlink of an inherited single reference is refused as unset is"
   verify unit "a link and its unlink leave a block as it was"
   verify unit "unlink of the last item keeps a // line inside the string above the list"
+  verify unit "link and unlink keep the comment trailing the list"
+  verify unit "a link to a target already there writes nothing, whatever comment the list holds"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {
@@ -214,6 +219,7 @@ behavior delete_entity "Delete an Entity" {
   verify unit "delete with unlink_references refuses a type name a derived field reads"
   verify unit "delete with unlink_references removes a use binding that imports it"
   verify unit "delete with unlink_references keeps a // line inside a string above a reference"
+  verify unit "delete with unlink_references through a list holding a comment is refused naming the referrer and its file"
 }
 
 behavior validate_typed_edit "Validate a Typed Edit" {
