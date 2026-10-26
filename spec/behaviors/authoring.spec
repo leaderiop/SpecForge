@@ -15,7 +15,7 @@ behavior create_entity "Create an Entity" {
   contract   """
     A create edit names a kind, an id, a title and a file named from the project
     root, inside the spec root (wherever the spec root lies); every spelling of the file under the project root is that file (its source key; ADR 0195, ADR 0242). The block is written in the canonical form, after the last block of
-    its kind in the file, or at the end of the file; a file that does not exist
+    its kind in the file, or at the end of the file, in the file's line break; a file that does not exist
     is created, unless the later edits of the list leave it empty: a file that does not
     exist reads as empty, and a file the list leaves as it read is not written. The id MUST be an identifier of 2 to 60 characters that is not a
     reserved word (E013), and MUST NOT be taken, the kind MUST be declared, the title MUST NOT be blank (only whitespace; refused

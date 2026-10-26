@@ -29,7 +29,10 @@ fn a_typed_edit_of_a_crlf_block_holding_a_multi_line_text_is_planned() {
             panic!("{edit:?} refused: {}", r.error.message);
         });
         let written = planned.change().after().remove("tasks.spec").unwrap();
-        assert!(written.contains("\"a\nb\""), "{written:?}");
+        assert!(
+            written.replace("\r\n", "\n").contains("\"a\nb\""),
+            "{written:?}"
+        );
     }
 }
 
@@ -37,7 +40,6 @@ fn a_typed_edit_of_a_crlf_block_holding_a_multi_line_text_is_planned() {
     invariant = "typed_edit_canonical_form",
     verify = "a typed edit writes a CRLF file in CRLF, as it writes the same file in LF"
 )]
-#[ignore = "flipped by T6"]
 fn every_typed_edit_writes_a_crlf_file_as_it_writes_its_lf_reading() {
     let lf_project = project(&[("tasks.spec", TASKS)]);
     let crlf_project = project(&[("tasks.spec", &crlf(TASKS))]);

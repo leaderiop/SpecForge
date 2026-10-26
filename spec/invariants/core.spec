@@ -264,7 +264,8 @@ invariant typed_edit_canonical_form "Typed Edit Canonical Form" {
     default it reaches is left dead). Every block a typed edit
     touches MUST be format-clean afterwards, laid out with the project's
     format configuration, its multi-line values included, and no byte outside
-    the touched blocks changes.
+    the touched blocks changes; a file whose every line break is CR LF is
+    written so (ADR 0266).
   """
   risk      high
   verify property "every block a typed edit writes is unchanged by format"
