@@ -74,7 +74,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_parser::detect_format_version`, `SpecFile::format_version`) and the compile reports
   I007 (older) and E019 (newer, or a header that is not `MAJOR.MINOR`) on the header line, like any
   parser diagnostic; `specforge migrate` reads and rewrites it through the same module
-  (`with_format_version`), so a rewritten header stands where the parser reads it. It is
+  (`with_format_version`, a new header ended in the file's line break), so a rewritten header stands where the parser reads it. It is
   distinct from the Graph Protocol's schema version; it is never a block's doc comment.
 - **Title**: the string after a block's id in its header (`type Task "A unit of work" {`, `type S "States" = a |
   b`), the one human-readable label a node carries. Every block that becomes a node has one: E076 otherwise; a blank one (only
@@ -586,6 +586,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (bare, quoted, a scheme ref, a literal) and its text, a `"..."` with its escapes read and a `"""..."""` dedented,
   never otherwise trimmed (`specforge_parser::value_token`). The parse's field values and list items, W159 and
   format's rewrite read it, so a padded `" draft"` is kept as written and E061 reports it (ADR 0247).
+- **Line break**: a LF in `.spec` text, with a CR directly before it part of it (`specforge_parser::line_break`). The parse reads every one as LF, a quoted text's included; format writes LF; a typed edit and a migration write a file whose every break is CR LF in CR LF, any other file LF where they change it (`LineBreak`, ADR 0266). A lone CR is text.
 - **Field vocabulary**: the closed set of values an enum field takes, in their order, and the value an absent one
   counts as (its declared `default_value`), declared once by the extension that declares the field, as a `const`
   (`specforge_extension_sdk::Vocabulary`, through `FieldBuilder::vocabulary`, the only way to declare an enum).
@@ -1435,7 +1436,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   unset, retitle, link, unlink, add or remove a verify obligation, delete (`specforge_ops::authoring::edit::Edit`).
   A list of them is planned over the texts the project was compiled from (each edit reading what the ones before
   it left), each value written in its field's form (a multi-line one laid out with the file's format configuration, and left out when it restates its file's default)
-  and each touched block formatted; the plan is refused with E080
+  and each touched block formatted, in its file's line break; the plan is refused with E080
   when the edited project reports an **added error** (ADR 0211), an error the project's **checked report** did not (its report with every check run, even after an update that skipped them: `CompiledProject::checked_diagnostics`, ADR 0167) (the **edited project** being compiled from what the project holds: the text of each source it read, the E025 of each it could not read, the planned texts; it reads no source, `CompiledProject::edited`, ADR 0158), and is written as one project change (ADR 0151). It is also refused (`undeclared_change`) when the edited graph changes what its edits do not declare (a **declared change**, ADR 0198). A block the edit would leave unreadable is refused `edit_unreadable`, the edit's defect; `block_unreadable` names a block unreadable before it (ADR 0248). Its report names the net change of the list: the entities and the files its planned change answers (ADR 0184, amended).
   A delete with `unlink_references` removes every reference the graph build would link, found by the graph's finder
   in the planned texts (ADR 0163), and a `use` binding that imports it (ADR 0233); one written in a `defaults` block, an undeclared field or as a derived type name refuses it (`not_editable`, ADR 0156).
