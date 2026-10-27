@@ -81,3 +81,34 @@ fn a_writing_command_previews_and_applies_on_the_cli() {
     let (_, _, err) = record(&p, &revision, &["--format", "json"]);
     assert!(err.contains("\"code\":\"stale_revision\""), "{err}");
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a writing command's plan and the file it writes agree on the command line and over MCP"
+)]
+fn a_writing_commands_plan_agrees_on_both_surfaces() {
+    use specforge_mcp::testing::{Served, rpc};
+    let (cli_project, mcp_project) = (project(), project());
+    let revision = revision(&cli_project);
+    let (code, out, _) = record(&cli_project, &revision, &["--format", "json"]);
+    assert_eq!(code, 0, "{out}");
+    let cli: Value = serde_json::from_str(&out).unwrap();
+
+    let ops = json!([{"op": "set", "entity": "v1.0/03/U1", "field": "result", "value": "pass",
+                      "revision": revision}]);
+    let runtime: SharedRuntime = Arc::new(
+        GsdWrites::new()
+            .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
+            .runtime(),
+    );
+    let mut served = Served::initialized_in(mcp_project, runtime);
+    let reply = rpc::call_tool(&mut served, "specforge.core.record", json!({}));
+    let mcp: Value = serde_json::from_str(&rpc::tool_text(&reply)).unwrap();
+
+    assert_eq!(cli["plan"], mcp["plan"], "the same plan report");
+    assert_eq!(
+        cli_project.read("03-01.spec"),
+        std::fs::read_to_string(served.root().join("03-01.spec")).unwrap(),
+        "the same file"
+    );
+}

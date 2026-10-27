@@ -556,3 +556,45 @@ fn a_guard_that_already_objects_does_not_refuse_the_write_that_fixes_it() {
     assert_eq!(ran.refusal, None);
     assert_eq!(ran.wrote, ["m.spec"]);
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "an edit naming a revision for an entity the compile does not hold is refused"
+)]
+fn an_edit_naming_a_revision_for_an_entity_the_compile_does_not_hold_is_refused() {
+    use specforge_ops::authoring::edit::{Edit, Revised, run_revised};
+    let p = project();
+    let compile = compiled(&p, &Arc::new(GsdWrites::new().runtime()));
+    // `N` is made by the first edit of the batch: the compile has no file for the second to be at a revision of.
+    let batch = [
+        Revised::unrevised(Edit::Create {
+            kind: "uat_test".into(),
+            id: "N".into(),
+            title: "N".into(),
+            file: "n.spec".into(),
+            fields: Default::default(),
+            verify: Vec::new(),
+        }),
+        Revised {
+            edit: Edit::Retitle {
+                entity_id: "N".into(),
+                title: "M".into(),
+            },
+            revision: Some(revision(&p, "03-01.spec")),
+        },
+    ];
+    let error = run_revised(
+        &ProjectView::of(&compile),
+        &batch,
+        true,
+        &specforge_ops::authoring::apply::testing::origin(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
+    assert_eq!(error.error.code, "invalid_edit");
+    assert!(
+        error.error.message.contains("'N'"),
+        "{}",
+        error.error.message
+    );
+}

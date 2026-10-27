@@ -153,3 +153,28 @@ fn every_plan_op_reads_back_as_written() {
         serde_json::from_value(json!({"op": "unset", "entity": "t", "field": "f"})).unwrap();
     assert!(matches!(missing, PlanOp::Unset { revision, .. } if revision.is_empty()));
 }
+
+#[specforge_test_macros::test(
+    behavior = "apply_edit_plan",
+    verify = "a cite naming more than one thing is not a cite"
+)]
+fn a_cite_naming_more_than_one_thing_is_not_a_cite() {
+    for ok in [
+        json!({"entity": "a"}),
+        json!({"file": "b"}),
+        json!({"test": "c"}),
+    ] {
+        serde_json::from_value::<Cite>(ok.clone()).unwrap_or_else(|e| panic!("{ok}: {e}"));
+    }
+    for bad in [
+        json!({"entity": "a", "file": "b"}),
+        json!({"file": "b", "test": "c"}),
+        json!({"entity": "a", "extra": "b"}),
+        json!({}),
+    ] {
+        assert!(
+            serde_json::from_value::<Cite>(bad.clone()).is_err(),
+            "{bad}"
+        );
+    }
+}

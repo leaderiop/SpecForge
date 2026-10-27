@@ -201,8 +201,8 @@ pub(crate) fn named_revisions(
         let Some(revision) = &revised.revision else {
             continue;
         };
-        let file = match &revised.edit {
-            Edit::Create { file, .. } => Some(file.clone()),
+        let (file, subject) = match &revised.edit {
+            Edit::Create { file, id, .. } => (Some(file.clone()), id),
             Edit::Set { entity_id, .. }
             | Edit::Unset { entity_id, .. }
             | Edit::Append { entity_id, .. }
@@ -212,9 +212,19 @@ pub(crate) fn named_revisions(
             | Edit::Unlink { entity_id, .. }
             | Edit::AddVerify { entity_id, .. }
             | Edit::RemoveVerify { entity_id, .. }
-            | Edit::Delete { entity_id, .. } => file_of(view, entity_id),
+            | Edit::Delete { entity_id, .. } => (file_of(view, entity_id), entity_id),
         };
-        let Some(file) = file else { continue };
+        let Some(file) = file else {
+            // Nothing to compare the revision with: an entity an earlier `create` of the batch makes, or no entity.
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                "invalid_edit",
+                format!(
+                    "the edit names a revision, but '{}' is no entity of the compiled project, so it has no file at that revision",
+                    subject
+                ),
+            ));
+        };
         if let Some(known) = files.get(&file)
             && known != revision
         {

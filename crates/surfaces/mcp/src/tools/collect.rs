@@ -22,6 +22,8 @@ pub struct Args {
     runner: Option<String>,
     /// Run the test command first; it must have been approved with `specforge collect` in a terminal (otherwise the existing report is parsed)
     run: bool,
+    /// Plan a writing collector's edits and write none of them (the report is still recorded)
+    dry_run: bool,
 }
 
 pub(crate) struct Tool;
@@ -80,7 +82,7 @@ impl CoreTool for Tool {
         let applied = apply_collected(
             &view,
             std::mem::take(&mut outcome.plans),
-            false,
+            args.dry_run,
             project.caller(),
         )
         .map_err(|error| Box::new(McpError::from(error)))?;

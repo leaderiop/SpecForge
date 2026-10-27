@@ -28,9 +28,10 @@ pub struct PlanObligation {
     pub text: String,
 }
 
-/// What a verdict cites: an entity, a file or a test.
+/// What a verdict cites: an entity, a file or a test. An object naming more than one is no cite: it is not read as
+/// the first it names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum Cite {
     Entity { entity: String },
     File { file: String },

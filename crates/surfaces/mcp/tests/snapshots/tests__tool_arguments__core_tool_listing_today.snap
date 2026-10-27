@@ -7483,6 +7483,11 @@ expression: listing
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Plan a writing collector's edits and write none of them (the report is still recorded)",
+          "type": "boolean"
+        },
         "path": {
           "description": "Project root path (the served project if omitted)",
           "type": "string"

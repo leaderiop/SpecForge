@@ -75,3 +75,45 @@ fn a_writing_command_tool_is_a_mutation() {
     .unwrap();
     assert_eq!(inspected["fields"]["result"], "pass", "{inspected}");
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a writing collector's plan is previewed with dry_run over MCP"
+)]
+fn a_writing_collectors_plan_is_previewed_with_dry_run() {
+    let ops = json!([{"op": "create", "kind": "commit", "id": "c1", "title": "C", "file": "commits.spec",
+        "revision": "absent", "fields": {"phase": "03", "sha": "abc"}}]);
+    let answer = specforge_wasm::WasmCallResult::Ok(
+        json!({"entity_results": [], "plan": {"ops": ops}})
+            .to_string()
+            .into_bytes(),
+    );
+    let runtime: SharedRuntime = Arc::new(
+        GsdWrites::new()
+            .answering(CORE, "collect__git", answer)
+            .runtime(),
+    );
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&GSD_WRITES_EXTENSIONS)
+        .installing_enabled()
+        .file("m.spec", A)
+        .file("u.spec", U)
+        .file(".specforge/reports/git.json", "{}");
+    let mut server = Served::initialized_in(project, runtime);
+    let collect = |server: &mut Served, dry_run: bool| {
+        call_tool(
+            server,
+            "specforge.collect",
+            json!({"runner": "git", "dry_run": dry_run}),
+        )
+    };
+    let reply = collect(&mut server, true);
+    assert!(!tool_text(&reply).is_empty(), "{reply}");
+    assert!(
+        !server.root().join("commits.spec").exists(),
+        "dry_run wrote"
+    );
+    collect(&mut server, false);
+    assert!(server.root().join("commits.spec").exists());
+}
