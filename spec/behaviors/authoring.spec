@@ -364,6 +364,7 @@ behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
   verify unit "rollback restores exactly the files at their after digest"
   verify unit "a typed edit of a project with a writing command and no harness field takes the write lock"
   verify unit "a journal marked done is removed by the next writer and rolls nothing back"
+  verify unit "a journal naming a path outside the project root or a malformed digest is refused and restores nothing"
 }
 
 behavior refuse_human_only_write "Refuse a Human-Only Write" {

@@ -107,6 +107,22 @@ impl Record {
     }
 }
 
+/// Whether a rollback may touch `entry`: a source, the ledger or `.gitattributes` inside the project root (no
+/// absolute path, no `..`), whose `after` is a digest.
+fn restorable(entry: &Entry) -> bool {
+    use std::path::Component;
+    let path = std::path::Path::new(&entry.path);
+    let inside = path.components().all(|c| matches!(c, Component::Normal(_)))
+        && path.components().next().is_some();
+    let kind = entry.path.ends_with(".spec")
+        || entry.path == specforge_project::harness::LEDGER_FILE
+        || entry.path == ".gitattributes";
+    let digest = entry.after.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    });
+    inside && kind && digest
+}
+
 /// Roll back the interrupted write the journal at `sources`' project root records, if there is one: the files put
 /// back are the returned writes. Called under the write lock.
 pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Writes, OpError> {
@@ -119,6 +135,18 @@ pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Write
     // A journal that is not one (another format, a torn write) records nothing to put back.
     // A journal marked done records a finished write: it is only removed.
     if let Some(journal) = Journal::parse(&bytes).filter(|journal| !journal.done) {
+        // A journal is a file in the project directory, so it is not trusted: it restores only what a write puts there.
+        if let Some(entry) = journal.files.iter().find(|e| !restorable(e)) {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                crate::FILE_UNWRITABLE,
+                format!(
+                    "the write journal names '{}', which no write of this project records; \
+                     remove {JOURNAL_FILE} if you did not expect it",
+                    entry.path
+                ),
+            ));
+        }
         for entry in &journal.files {
             let held = caller.containment().resolve(&sources.path(&entry.path))?;
             let now = held.read_if_there().map_err(|e| {

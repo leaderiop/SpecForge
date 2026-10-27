@@ -119,3 +119,49 @@ fn a_journal_marked_done_is_removed_and_rolls_nothing_back() {
     assert_eq!(p.read("03-01.spec"), written, "a completed write stays");
     assert!(!p.root().join(".specforge/write-journal.json").exists());
 }
+
+#[specforge_test(
+    behavior = "roll_back_interrupted_write",
+    verify = "a journal naming a path outside the project root or a malformed digest is refused and restores nothing"
+)]
+fn a_journal_naming_a_path_outside_the_project_is_refused() {
+    let p = project();
+    let outside = tempfile::tempdir().unwrap();
+    let victim = outside.path().join("victim.spec");
+    std::fs::write(&victim, "secret\n").unwrap();
+    let runtime = Arc::new(GsdWrites::new().runtime());
+    let retitle = |p: &specforge_project::testing::TestProject| {
+        let compile = compiled(p, &runtime);
+        edit::run(
+            &ProjectView::of(&compile),
+            &[Edit::Retitle {
+                entity_id: "v1.0".into(),
+                title: "Uno".into(),
+            }],
+            false,
+            &specforge_ops::authoring::apply::testing::origin(),
+            specforge_ops::testing::caller(),
+        )
+    };
+    let absolute = victim.to_string_lossy().to_string();
+    let relative = format!(
+        "../{}/victim.spec",
+        outside.path().file_name().unwrap().to_string_lossy()
+    );
+    for (path, after) in [
+        (absolute, digest("secret\n")),
+        (relative, digest("secret\n")),
+        ("03-01.spec".to_string(), "sha256:short".to_string()),
+    ] {
+        p.write(
+            ".specforge/write-journal.json",
+            json!({"format": 1, "doing": "cannot apply the edits", "files": [
+                {"path": path, "before": "overwritten\n", "after": after},
+            ]})
+            .to_string(),
+        );
+        assert!(retitle(&p).is_err(), "{path} is refused");
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "secret\n");
+        assert_eq!(p.read("03-01.spec"), ONE);
+    }
+}
