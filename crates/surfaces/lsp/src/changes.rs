@@ -14,7 +14,10 @@ use specforge_project::{
 };
 use tower_lsp::lsp_types::{FileEvent, Url};
 
+use specforge_project::harness::LedgerOverlay;
+
 use crate::LspState;
+use crate::pending::Landing;
 use crate::publish::Publication;
 use crate::uri;
 
@@ -45,8 +48,9 @@ pub struct Plan(Step);
 enum Step {
     /// Reopen the session at this root (`Change::Open`), holding the buffers it held.
     Open(ProjectRoot),
-    /// Apply what the watched paths, or the catch-up, found changed on disk; never empty.
-    Disk(Changes),
+    /// Apply what the watched paths, or the catch-up, found changed on disk, and land the pending renames the
+    /// watched files finish (ADR 0289); never both empty.
+    Disk { changes: Changes, landing: Landing },
     /// Release the buffer of the document closed at this absolute path.
     Release(PathBuf),
     /// Hold these open buffers (by absolute path, the session keys them; never empty) as one
@@ -55,13 +59,18 @@ enum Step {
     Hold {
         buffers: Vec<Buffer>,
         edited: String,
+        /// The renames these buffers show: the checks read the ledger as they will have written it.
+        renames: Vec<Arc<LedgerOverlay>>,
     },
 }
 
 impl Step {
     /// The step for changes found on disk; `None` when there are none.
     fn on_disk(changes: Changes) -> Option<Step> {
-        (!changes.is_empty()).then_some(Step::Disk(changes))
+        (!changes.is_empty()).then_some(Step::Disk {
+            changes,
+            landing: Landing::none(),
+        })
     }
 }
 
@@ -101,7 +110,11 @@ impl Plan {
                     }
                 }
                 let edited = open.last().cloned()?;
+                let renames = state
+                    .pending()
+                    .showing(|key| Some(files.document(key)?.text().to_string()));
                 Step::Hold {
+                    renames,
                     // The buffer of each, as the path it was opened as.
                     buffers: open
                         .iter()
@@ -125,7 +138,18 @@ impl Plan {
                     .iter()
                     .map(|event| uri::path_of(&event.uri))
                     .collect();
-                Step::on_disk(session.changes(paths.iter().map(PathBuf::as_path)))?
+                let landing = Landing::of(
+                    state.pending(),
+                    events
+                        .iter()
+                        .map(|event| state.key_of(&event.uri))
+                        .collect(),
+                );
+                let changes = session.changes(paths.iter().map(PathBuf::as_path));
+                if changes.is_empty() && landing.is_empty() {
+                    return None;
+                }
+                Step::Disk { changes, landing }
             }
             Change::CatchUp => Step::on_disk(session.stale())?,
         };
@@ -147,7 +171,12 @@ impl Plan {
         let mut applied = Applied::default();
         match self.0 {
             Step::Open(root) => applied.opened(session.reopen(&root, runtime, loaded)),
-            Step::Disk(changes) => {
+            Step::Disk { changes, landing } => {
+                // The renames the saved files finish write their ledger first; the checks then read it.
+                if landing.land(session) {
+                    applied.record(session.recheck());
+                    applied.changed = true;
+                }
                 if let Some(update) = session.apply(&changes) {
                     applied.environment |= update.kind == UpdateKind::Environment;
                     applied.record(update);
@@ -156,7 +185,12 @@ impl Plan {
                 applied.touched.extend(changes.sources().iter().cloned());
             }
             Step::Release(path) => applied.close(session, &path),
-            Step::Hold { buffers, edited } => {
+            Step::Hold {
+                buffers,
+                edited,
+                renames,
+            } => {
+                session.overlay_ledger(renames);
                 // The syntax-only fast path (C4-07): no checks while an edited file does not parse.
                 let update = session.hold_with(&buffers, CheckMode::SyntaxOnlyIfParseErrors);
                 applied.record(update);

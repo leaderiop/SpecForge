@@ -59,6 +59,9 @@ pub struct ClientSupport {
     /// `experimental.specforgeGraphChanged`: only then is the editor sent `specforge/graphChanged`
     /// after a rebuild (ADR 0268 D2), a method no other client knows.
     pub graph_changed: bool,
+    /// `workspace.workspaceEdit.documentChanges`: an edit names the version of the buffer it applies to
+    /// (`documentChanges`), else it is a bare `changes` map (ADR 0289).
+    pub document_changes: bool,
 }
 
 impl ClientSupport {
@@ -96,6 +99,10 @@ impl ClientSupport {
                 .and_then(|t| t.code_action.as_ref())
                 .and_then(|c| c.resolve_support.as_ref())
                 .is_some_and(|r| r.properties.iter().any(|p| p == "edit")),
+            document_changes: workspace
+                .and_then(|w| w.workspace_edit.as_ref())
+                .and_then(|e| e.document_changes)
+                .unwrap_or(false),
             graph_changed: capabilities
                 .experimental
                 .as_ref()
@@ -370,22 +377,58 @@ pub fn rename(
     // compiled text, planned by the shared rename (the MCP tool's rules). A
     // rename is all or nothing: one that cannot be done whole is refused
     // with why.
-    let edits = match specforge_ops::authoring::rename::plan(
+    let plan = match specforge_ops::authoring::rename::plan(
         &compiled.navigator(),
         id.as_str(),
         new_name,
     ) {
-        Ok(plan) => plan.edits().to_vec(),
+        Ok(plan) => plan,
         Err(e) if e.error.kind == specforge_ops::OpErrorKind::EntityNotFound => return Ok(None),
         Err(e) => return Err(Error::invalid_params(e.error.message)),
     };
 
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
     // typed in since is not that text, so the rename waits for the compile (ContentModified).
-    compiled
-        .workspace_edit(edits)
-        .map(Some)
-        .map_err(|Unplaced(file)| content_modified(file.as_str()))
+    let edit = compiled
+        .workspace_edit(plan.edits().to_vec())
+        .map_err(|Unplaced(file)| content_modified(file.as_str()))?;
+    hold_ledger(state, id.as_str(), new_name, &plan);
+    Ok(Some(edit))
+}
+
+/// The server writes no source, so the ledger change of a rename the editor is about to apply is held until the
+/// rename lands on disk (ADR 0289, `crate::pending`). Nothing for a project that keeps no ledger.
+fn hold_ledger(
+    state: &LspState,
+    id: &str,
+    new_name: &str,
+    plan: &specforge_ops::authoring::rename::RenamePlan,
+) {
+    let Some(node) = state
+        .graph()
+        .nodes()
+        .into_iter()
+        .find(|n| n.id.raw.as_str() == id)
+    else {
+        return;
+    };
+    let mut files: Vec<String> = plan
+        .edits()
+        .iter()
+        .map(|edit| edit.span.file.to_string())
+        .collect();
+    files.sort();
+    files.dedup();
+    if let Some(pending) = crate::pending::PendingLedger::of(
+        state.compiled_project(),
+        plan.moved().to_vec(),
+        node.source_span.file.to_string(),
+        node.name().to_string(),
+        new_name.to_string(),
+        files,
+    ) {
+        state.pending().hold(pending);
+    }
 }
 
 /// The fixes offered for the published diagnostics of `file` overlapping `range` (the editor's own

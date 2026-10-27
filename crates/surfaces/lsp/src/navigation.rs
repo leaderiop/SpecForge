@@ -11,8 +11,9 @@ use specforge_ops::read::navigate::{Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
 use std::collections::HashMap;
 use tower_lsp::lsp_types::{
-    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Position, Range,
-    SymbolInformation, SymbolKind, TextEdit, Url, WorkspaceEdit,
+    CodeAction, CodeActionKind, DocumentChanges, DocumentSymbol, DocumentSymbolResponse, Location,
+    OneOf, OptionalVersionedTextDocumentIdentifier, Position, Range, SymbolInformation, SymbolKind,
+    TextDocumentEdit, TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::LspState;
@@ -208,19 +209,49 @@ impl Compiled<'_> {
         edits: impl IntoIterator<Item = specforge_ops::read::navigate::TextEdit>,
     ) -> Result<WorkspaceEdit, Unplaced> {
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+        // The files in the order their first edit came: a versioned edit lists them so.
+        let mut files: Vec<(Sym, Url)> = Vec::new();
         for edit in edits {
             let file = edit.span.file;
             let range = self.range(&edit.span).ok_or(Unplaced(file))?;
-            changes
-                .entry(self.uri(file.as_str()))
-                .or_default()
-                .push(TextEdit {
-                    range,
-                    new_text: edit.new_text,
-                });
+            let uri = self.uri(file.as_str());
+            if !changes.contains_key(&uri) {
+                files.push((file, uri.clone()));
+            }
+            changes.entry(uri).or_default().push(TextEdit {
+                range,
+                new_text: edit.new_text,
+            });
         }
+        if !self.state.client().document_changes {
+            return Ok(WorkspaceEdit {
+                changes: Some(changes),
+                ..Default::default()
+            });
+        }
+        // The client takes versioned edits (ADR 0289): each names the buffer it applies to, so an edit made since the
+        // answer is refused by the client instead of landing on moved text. A file with no open buffer is the disk's.
+        let edits = files
+            .into_iter()
+            .map(|(file, uri)| TextDocumentEdit {
+                text_document: OptionalVersionedTextDocumentIdentifier {
+                    version: self
+                        .state
+                        .files()
+                        .document(file.as_str())
+                        .and_then(|document| document.version()),
+                    uri: uri.clone(),
+                },
+                edits: changes
+                    .remove(&uri)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(OneOf::Left)
+                    .collect(),
+            })
+            .collect();
         Ok(WorkspaceEdit {
-            changes: Some(changes),
+            document_changes: Some(DocumentChanges::Edits(edits)),
             ..Default::default()
         })
     }

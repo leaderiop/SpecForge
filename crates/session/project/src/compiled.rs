@@ -75,6 +75,9 @@ pub struct CompiledProject {
     /// What reading the baseline gave at the last check (ADR 0287): held, so a typed edit or an update asks git
     /// nothing again. A new commit drops it.
     baseline: Option<Arc<crate::baseline::HeldBaseline>>,
+    /// Renames applied to the editor's buffers and not yet saved (ADR 0289): the checks read the ledger as they will
+    /// have written it. Empty but for a session of an editor.
+    ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
 }
 
 impl CompiledProject {
@@ -407,6 +410,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk: false,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -429,6 +433,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -456,6 +461,7 @@ impl CompiledProject {
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -502,6 +508,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -537,7 +544,8 @@ impl CompiledProject {
     /// from that snapshot.
     pub(crate) fn check(&mut self, reads: &mut impl Reads) {
         let env = Arc::clone(&self.env);
-        let graph = &self.graph;
+        let this = &*self;
+        let graph = &this.graph;
         let mut outcome = None;
         let held = self.baseline.clone();
         let mut baseline = None;
@@ -553,6 +561,15 @@ impl CompiledProject {
                 }),
             };
             let authored = env.entity_snapshot(graph);
+            let mut ledger = Vec::new();
+            let overlaid;
+            let disk: &dyn specforge_registry::Disk = if this.ledger_overlay.is_empty() {
+                disk
+            } else {
+                overlaid =
+                    crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
+                &overlaid
+            };
             let checked = env.checked(Some(graph), &authored, disk, &read.read);
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
@@ -566,6 +583,25 @@ impl CompiledProject {
             self.recorded = OnceLock::from(RecordedCoverage::of(entities));
             self.reported = OnceLock::new();
         }
+    }
+
+    /// The renames the editor applied to its buffers and has not saved (ADR 0289), in the order they were made.
+    /// Changing them owes the checks: the next update runs them. `true` when they changed.
+    pub(crate) fn overlay_ledger(
+        &mut self,
+        overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
+    ) -> bool {
+        let same = self.ledger_overlay.len() == overlay.len()
+            && self
+                .ledger_overlay
+                .iter()
+                .zip(&overlay)
+                .all(|(a, b)| Arc::ptr_eq(a, b));
+        if !same {
+            self.ledger_overlay = overlay;
+            self.checks_skipped = true;
+        }
+        !same
     }
 
     /// The checks are skipped for this state: none is reported, and the

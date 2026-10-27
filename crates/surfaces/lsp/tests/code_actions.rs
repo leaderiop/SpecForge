@@ -117,7 +117,6 @@ async fn actions_are_those_overlapping_the_requested_range() {
     assert!(between["result"].is_null(), "{between}");
 }
 
-#[ignore = "K5 T4"]
 #[spec(
     behavior = "land_rename_ledger",
     verify = "a fix names the version of the buffer it edits for a client that takes document changes"

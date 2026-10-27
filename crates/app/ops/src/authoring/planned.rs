@@ -84,14 +84,38 @@ impl PlannedChange {
         self.with_ledger(before, LedgerChange::default(), true)
     }
 
-    fn with_ledger(mut self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
+    /// This change writing only the ledger of a rename the editor applied to its buffers and has saved (ADR 0289): the
+    /// ledger as the rename leaves it, `after` being the project the buffers show.
+    pub(crate) fn landing_ledger(
+        self,
+        before: &CompiledProject,
+        after: &CompiledProject,
+        change: LedgerChange,
+    ) -> Self {
+        self.with_ledger_after(before, after.clone(), change, false)
+    }
+
+    fn with_ledger(self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
+        if before.root().is_none() || !before.declares_harness() {
+            return self;
+        }
+        let after = before.edited(&self.after());
+        self.with_ledger_after(before, after, change, force)
+    }
+
+    fn with_ledger_after(
+        mut self,
+        before: &CompiledProject,
+        after: CompiledProject,
+        change: LedgerChange,
+        force: bool,
+    ) -> Self {
         if before.root().is_none() || !before.declares_harness() {
             return self;
         }
         // Every write of this project takes the lock, the ledger changing or not.
         self.locked = before.serializes_writes();
         let current = before.root_file(LEDGER_FILE);
-        let after = before.edited(&self.after());
         let bytes = before.rewritten_ledger(&after, &current, &change, false);
         let unchanged = bytes == current
             || (current.is_empty()

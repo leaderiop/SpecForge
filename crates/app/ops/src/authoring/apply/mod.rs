@@ -4,6 +4,8 @@
 
 use crate::authoring::planned::PlannedChange;
 use crate::{Caller, OpError, Writes};
+use specforge_project::CompiledProject;
+use specforge_project::harness::LedgerChange;
 
 /// The surface a core operation was asked on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +56,25 @@ pub fn apply(
     caller: Caller<'_>,
 ) -> Result<Writes, OpError> {
     change.apply(caller)
+}
+
+/// Write the ledger change of a rename the editor applied to its buffers and has saved (ADR 0289): the ledger as the
+/// rename leaves it, `after` being the project the buffers show, under the write lock, over what the ledger holds
+/// now. The renamed files are the editor's to save, so this writes nothing else.
+pub fn land_ledger(
+    before: &CompiledProject,
+    after: &CompiledProject,
+    change: LedgerChange,
+    origin: &Origin,
+    caller: Caller<'_>,
+) -> Result<Writes, OpError> {
+    let planned = PlannedChange::new(
+        after.environment().sources().clone(),
+        "cannot write the ledger of a rename",
+        [],
+    )
+    .landing_ledger(before, after, change);
+    apply(&planned, origin, caller)
 }
 
 /// What tests write through (behind the `testing` feature): a core operation on the command line, nobody at a terminal.

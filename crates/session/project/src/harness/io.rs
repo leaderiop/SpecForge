@@ -27,34 +27,46 @@ pub fn lock(root: &Path) -> io::Result<File> {
     Ok(file)
 }
 
-/// The plain file system, except that the ledger holds the bytes a plan will write.
+/// A disk, except that the ledger holds the bytes a plan will write: the plain file system for a plan being
+/// judged ([`Self::new`]), the session's recording disk for a rename waiting to land ([`Self::over`]).
 pub struct Overlay<'a> {
     path: PathBuf,
     ledger: &'a [u8],
+    inner: &'a dyn Disk,
 }
 
 impl<'a> Overlay<'a> {
     pub fn new(root: &Path, ledger: &'a [u8]) -> Self {
+        Self::over(&PlainDisk, root, ledger)
+    }
+
+    /// `inner` with the ledger of the project at `root` holding `ledger`.
+    pub fn over(inner: &'a dyn Disk, root: &Path, ledger: &'a [u8]) -> Self {
         Overlay {
             path: root.join(LEDGER_FILE),
             ledger,
+            inner,
         }
     }
 }
 
 impl Disk for Overlay<'_> {
     fn exists(&self, path: &Path) -> bool {
-        path == self.path || PlainDisk.exists(path)
+        path == self.path || self.inner.exists(path)
     }
 
     fn list(&self, dir: &Path) -> Option<Vec<String>> {
-        PlainDisk.list(dir)
+        self.inner.list(dir)
     }
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         if path == self.path {
             return Ok(self.ledger.to_vec());
         }
-        PlainDisk.read(path)
+        self.inner.read(path)
+    }
+
+    fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.inner.read_ref(path)
     }
 }

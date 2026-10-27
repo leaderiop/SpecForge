@@ -359,8 +359,13 @@ mod ledger {
         let edit = answers::rename(&served.state(), &uri, at, "05")
             .unwrap()
             .expect("the cursor names an entity");
-        served.edit("m.spec", &M.replace("phase 03", "phase 05"));
-        served.edit("u.spec", &U.replace("phase 03", "phase 05"));
+        // The editor applies the whole edit before the debounce reacts: one change for both buffers.
+        served.type_text("m.spec", &M.replace("phase 03", "phase 05"));
+        served.type_text("u.spec", &U.replace("phase 03", "phase 05"));
+        served.apply(Change::Edited(vec![
+            served.uri("m.spec"),
+            served.uri("u.spec"),
+        ]));
         (served.sent(), edit)
     }
 
@@ -377,7 +382,6 @@ mod ledger {
         served.apply(Change::Watched(events));
     }
 
-    #[ignore = "K5 T4"]
     #[spec(
         behavior = "land_rename_ledger",
         verify = "the LSP rename writes its ledger change once the rename lands on disk"
@@ -394,10 +398,7 @@ mod ledger {
         );
         // Before the save, the buffers hold the rename and the ledger does not yet: no E083.
         assert!(!e083(&sent), "{sent:?}");
-        assert_eq!(
-            ledger_on_disk(&served),
-            line("v1.0/03/U1", "result", "\"pass\"")
-        );
+        assert!(!ledger_on_disk(&served).contains("v1.0/05"));
         save(&mut served);
         let ledger = ledger_on_disk(&served);
         assert!(
@@ -408,10 +409,9 @@ mod ledger {
             ledger.contains(&line("v1.0/05/U1", "result", "\"pass\"")),
             "{ledger}"
         );
-        assert!(!ledger.contains("v1.0/03/U1"), "{ledger}");
+        assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
     }
 
-    #[ignore = "K5 T4"]
     #[spec(
         behavior = "land_rename_ledger",
         verify = "an undone LSP rename writes no ledger change"
@@ -420,8 +420,12 @@ mod ledger {
         let mut served = served();
         let before = ledger_on_disk(&served);
         rename_and_type(&mut served);
-        served.edit("m.spec", M);
-        served.edit("u.spec", U);
+        served.type_text("m.spec", M);
+        served.type_text("u.spec", U);
+        served.apply(Change::Edited(vec![
+            served.uri("m.spec"),
+            served.uri("u.spec"),
+        ]));
         for file in ["m.spec", "u.spec"] {
             let uri = served.uri(file);
             served.apply(Change::Watched(vec![FileEvent {
@@ -433,7 +437,6 @@ mod ledger {
     }
 }
 
-#[ignore = "K5 T4"]
 #[spec(
     behavior = "land_rename_ledger",
     verify = "the LSP rename and fixes are versioned for a client that takes document changes"

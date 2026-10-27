@@ -1,6 +1,7 @@
 use crate::answers::ClientSupport;
 use crate::document::Document;
 use crate::files::{Files, Findings, Publish};
+use crate::pending::Pending;
 use crate::publish::Publication;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
@@ -28,6 +29,8 @@ pub struct LspState {
     format_notices: HashSet<String>,
     /// What the client declared at initialize that shapes an answer.
     client: ClientSupport,
+    /// The ledger changes of the renames answered and not yet landed (ADR 0289).
+    pending: Pending,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -56,6 +59,7 @@ impl LspState {
             shutdown: false,
             format_notices: HashSet::new(),
             client: ClientSupport::default(),
+            pending: Pending::default(),
         };
         state.last_token_signature = state.token_signature();
         state
@@ -64,6 +68,16 @@ impl LspState {
     /// What the client declared that shapes an answer.
     pub fn client(&self) -> ClientSupport {
         self.client
+    }
+
+    /// The ledger changes of the renames answered and not yet landed.
+    pub fn pending(&self) -> &Pending {
+        &self.pending
+    }
+
+    /// The compiled project readers see, for a pending rename to be planned on.
+    pub(crate) fn compiled_project(&self) -> &CompiledProject {
+        self.project()
     }
 
     /// Record what the client declared at initialize.
@@ -279,6 +293,8 @@ impl LspState {
     pub fn shutdown(&mut self) {
         self.shutdown = true;
         self.files.clear();
+        // A rename that has not landed is dropped: its values then read as renamed by hand (E083 names the old path).
+        self.pending = Pending::default();
         // Dropping the session frees its graph and its Wasm runtime.
         self.project = Project::Held(Box::new(ProjectSession::detached()));
         self.rekey();
