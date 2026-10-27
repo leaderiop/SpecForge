@@ -141,7 +141,6 @@ fn a_typed_link_writes_the_shortest_spelling() {
     behavior = "rename_entity_id",
     verify = "a rename keeps the scope and edits every segment naming the entity"
 )]
-#[ignore = "K2 T8"]
 fn a_rename_edits_every_segment_naming_it() {
     let source = format!(
         "{TWO_PHASES}\nplan 04-01 \"Next\" {{\n  phase v1.0/04\n  decisions [03/D-01]\n}}\n"
@@ -153,14 +152,13 @@ fn a_rename_edits_every_segment_naming_it() {
     assert!(text.contains("phase 05 \"Three\""), "{text}");
     assert!(text.contains("phase v1.0/05\n}"), "{text}");
     assert!(text.contains("decisions [05/D-01]"), "{text}");
-    assert_eq!(text.matches("phase v1.0/04").count(), 3, "{text}");
+    assert_eq!(text.matches("phase v1.0/04").count(), 2, "{text}");
 }
 
 #[specforge_test(
     behavior = "edit_entity_field",
     verify = "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
 )]
-#[ignore = "K2 T8"]
 fn a_move_keeps_every_reference_target() {
     let source = "\
 milestone v1.0 \"One\" {
@@ -200,7 +198,6 @@ plan 03-02 \"Plan\" {
     behavior = "create_entity",
     verify = "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
 )]
-#[ignore = "K2 T8"]
 fn a_create_keeps_every_reference_target() {
     // A project decision D-07, named from a plan of phase 05; a phase-05 D-07 would shadow it.
     let project = project(

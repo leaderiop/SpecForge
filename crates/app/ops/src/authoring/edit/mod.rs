@@ -8,6 +8,7 @@ mod block;
 mod create;
 mod declared;
 mod defaults;
+mod keep;
 mod outcome;
 mod path;
 mod skeleton;
@@ -437,10 +438,49 @@ impl<'v> Planner<'v> {
 
     fn apply(&mut self, edit: &Edit) -> Result<(), Refusal<EditField>> {
         let path = self.entity_path(edit)?;
+        let moves = self.moves(edit, &path);
         self.declared.edit(edit, &path);
-        for (old, new) in self.moves(edit, &path) {
-            self.declared.moved(&old, &new);
+        for (old, new) in &moves {
+            self.declared.moved(old, new);
         }
+        let creates = matches!(edit, Edit::Create { .. });
+        let before = (creates || !moves.is_empty()).then(|| self.snapshot());
+        self.apply_edit(edit, &path)?;
+        let Some(before) = before else {
+            return Ok(());
+        };
+        // A move or a create keeps what every other token names (ADR 0284).
+        let scopes = self.view.graph().scopes();
+        let (after, written, created) = match edit {
+            Edit::Create { kind, .. } => (
+                scopes.added(
+                    specforge_common::Sym::new(&path),
+                    specforge_common::Sym::new(kind),
+                    keep::parent(&path),
+                ),
+                None,
+                Some(path.as_str()),
+            ),
+            Edit::Set { field, .. } | Edit::Unset { field, .. } => (
+                keep::rekeyed(scopes, &moves),
+                Some((path.as_str(), field.as_str())),
+                None,
+            ),
+            _ => return Ok(()),
+        };
+        self.keep_targets(
+            &before,
+            &keep::Rekey {
+                after,
+                moves: &moves,
+                written,
+                created,
+            },
+        )
+    }
+
+    fn apply_edit(&mut self, edit: &Edit, path: &str) -> Result<(), Refusal<EditField>> {
+        let path = path.to_string();
         match edit {
             Edit::Set {
                 field,

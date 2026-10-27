@@ -41,8 +41,11 @@ pub const CAPTURED: &str = "name_captured";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {
+    /// The renamed entity's path, and the path it has afterwards (its scope's and the new name).
     pub old_id: String,
     pub new_id: String,
+    /// (old path, new path) of the entity and of each entity scoped under it.
+    moved: Vec<(String, String)>,
     /// One per occurrence: the token's span as navigation found it, relative to the project root; its
     /// text becomes the new ID.
     edits: Vec<TextEdit>,
@@ -51,6 +54,11 @@ pub struct RenamePlan {
 }
 
 impl RenamePlan {
+    /// (old path, new path) of the renamed entity and of each entity scoped under it (ADR 0284).
+    pub fn moved(&self) -> &[(String, String)] {
+        &self.moved
+    }
+
     pub fn edits(&self) -> &[TextEdit] {
         &self.edits
     }
@@ -85,11 +93,16 @@ pub fn plan(
         .map_err(|error| error.about(RenameField::NewId))?;
     let graph = nav.view().graph();
     let node = nav.view().entity(old_id, RenameField::OldId)?.node;
-    if graph.node(new_id).is_some() {
+    // The entity's path, and the path it has under its new name: a rename keeps the scope (ADR 0284).
+    let old_id = node.id.raw.as_str();
+    let new_path = node
+        .scope
+        .map_or_else(|| new_id.to_string(), |scope| format!("{scope}/{new_id}"));
+    if graph.node(&new_path).is_some() {
         return Err(OpError::new(
             OpErrorKind::Conflict,
             TAKEN,
-            format!("cannot rename '{old_id}': '{new_id}' exists"),
+            format!("cannot rename '{old_id}': '{new_path}' exists"),
         )
         .with_entity(old_id)
         .about(RenameField::NewId));
@@ -141,7 +154,7 @@ pub fn plan(
         )
         .into());
     }
-    let unparsed = unparsed(nav, [old_id, new_id]);
+    let unparsed = unparsed(nav, [node.name(), new_id]);
     if !unparsed.is_empty() {
         return Err(OpError::new(
             OpErrorKind::PreconditionFailed,
@@ -189,9 +202,17 @@ pub fn plan(
         format!("cannot rename '{old_id}'"),
         files,
     );
+    let under = format!("{old_id}/");
+    let mut moved = vec![(old_id.to_string(), new_path.clone())];
+    for member in graph.nodes() {
+        if let Some(rest) = member.id.raw.as_str().strip_prefix(&under) {
+            moved.push((member.id.raw.to_string(), format!("{new_path}/{rest}")));
+        }
+    }
     Ok(RenamePlan {
         old_id: old_id.to_string(),
-        new_id: new_id.to_string(),
+        new_id: new_path,
+        moved,
         edits,
         change,
     })
