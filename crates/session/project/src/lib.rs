@@ -29,6 +29,7 @@ mod ledger;
 pub mod passes;
 mod policy;
 pub mod providers;
+mod raises;
 mod session;
 mod setup;
 mod sources;
@@ -63,6 +64,7 @@ pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};
 use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
+pub use raises::Raises;
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{

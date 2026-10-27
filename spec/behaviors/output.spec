@@ -813,6 +813,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
+  verify unit "a raised severity only raises a code, before strict"
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
   verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
