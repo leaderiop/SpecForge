@@ -35,6 +35,7 @@ pub(crate) mod trace;
 pub(crate) mod validate;
 
 use serde_json::Value;
+use specforge_common::Codebook;
 
 use crate::events::{EventSink, McpEvent};
 use crate::lifecycle::Revision;
@@ -191,10 +192,12 @@ impl Surface for Tools {
         _: &Found<&'static dyn ToolSpec, ToolEntry>,
         invocation: &Invocation,
         outcome: ToolOutcome,
+        codes: &Codebook,
         id: Option<Value>,
     ) -> JsonRpcResponse {
         envelope(
             outcome.from_tool(&invocation.name),
+            codes,
             id,
             revision.sends_structured_content(),
         )

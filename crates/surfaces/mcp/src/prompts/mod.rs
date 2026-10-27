@@ -8,6 +8,7 @@ pub mod review;
 pub mod trace;
 
 use serde_json::Value;
+use specforge_common::Codebook;
 
 use crate::events::{EventSink, McpEvent};
 use crate::lifecycle::Revision;
@@ -115,6 +116,7 @@ impl Surface for Prompts {
         found: &Found<&'static dyn PromptSpec, std::convert::Infallible>,
         _: &Invocation,
         outcome: PromptOutcome,
+        _: &Codebook,
         id: Option<Value>,
     ) -> JsonRpcResponse {
         let spec = found.core_entry();

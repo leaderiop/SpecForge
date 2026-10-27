@@ -9,6 +9,7 @@ pub mod schema;
 mod view;
 
 use serde_json::Value;
+use specforge_common::Codebook;
 
 use crate::events::{EventSink, McpEvent};
 use crate::lifecycle::Revision;
@@ -105,6 +106,7 @@ impl Surface for Resources {
         _: &Found<&'static dyn ResourceSpec, ResourceEntry>,
         invocation: &Invocation,
         mut outcome: ReadOutcome,
+        _: &Codebook,
         id: Option<Value>,
     ) -> JsonRpcResponse {
         // A refusal names the URI read.
