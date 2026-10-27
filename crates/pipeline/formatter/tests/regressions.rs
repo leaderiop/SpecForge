@@ -201,3 +201,15 @@ fn format_writes_a_block_list_one_item_a_line() {
     );
     assert_eq!(fmt(&formatted), formatted, "idempotent");
 }
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a list of blocks is written one item a line, indented, with no commas"
+)]
+fn a_block_list_item_with_a_trailing_comment_stays_multi_line() {
+    let source = "thing t \"T\" {\n  r [ { a 1 // note\nb 2 } ]\n}\n";
+    let formatted = fmt(source);
+    assert!(formatted.contains("// note\n"), "{formatted}");
+    assert!(!formatted.contains("// note b"), "{formatted}");
+    assert_eq!(fmt(&formatted), formatted, "idempotent");
+}

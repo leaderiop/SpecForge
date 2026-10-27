@@ -419,11 +419,8 @@ fn block_list_value(
             .iter()
             .all(|l| !l.trim().is_empty() && !l.contains('\n'))
             && body.len() == count_kind(*item, kind::FIELD)
-            && !body.iter().any(|l| {
-                l.trim_end().ends_with('{')
-                    || l.trim().starts_with('#')
-                    || l.trim().starts_with("//")
-            })
+            && !body.iter().any(|l| l.trim_end().ends_with('{'))
+            && !item_has_comment(*item)
             && one_line.len() <= config.max_width;
         if body.is_empty() {
             lines.push(format!("{inner}{{}}"));
@@ -437,6 +434,15 @@ fn block_list_value(
     }
     lines.push(format!("{outer}]"));
     lines
+}
+
+/// Whether a comment sits anywhere under `node`: a trailing one would swallow the rest of a joined line.
+fn item_has_comment(node: Node) -> bool {
+    let mut cursor = node.walk();
+    let found = node
+        .children(&mut cursor)
+        .any(|c| c.kind() == kind::COMMENT || item_has_comment(c));
+    found
 }
 
 /// A body line `key   value` with the padding that aligns its key in a body dropped, for an item written on one line.
