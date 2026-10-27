@@ -68,8 +68,8 @@ fn check_and_trace_refusals_are_pinned_field_by_field() {
         specforge_project::testing::Assembled::over(RegistryBuild::default()).reporting(reported);
     let rootless = rootless.rootless_view();
     let no_root = |options: CheckOptions| {
-        let error = check(&rootless, &options).unwrap_err();
-        line(&error, None::<CheckField>)
+        let refusal = check(&rootless, &options).unwrap_err();
+        line(&refusal.error, None::<CheckField>)
     };
 
     let mut graph = Graph::new();

@@ -3,7 +3,7 @@ use crate::refusal::ArgumentOf;
 use crate::reply::{Answer, Answered, Text};
 use crate::target::ProjectRef;
 use crate::target::{AnyProject, Project};
-use crate::tool::{CoreTool, Effect, McpError, ToolGroup};
+use crate::tool::{CoreTool, Effect, ToolGroup};
 use specforge_ops::analysis::check::{
     CheckField, CheckOptions, check, parse_lint_profiles, parse_severity,
 };
@@ -19,6 +19,8 @@ pub struct Args {
     /// Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)
     #[arg(names = specforge_project::LINT_PROFILE_NAMES)]
     lint: Vec<String>,
+    /// Judge immutable and append-only history against the merge-base of this git revision and HEAD, for this call only
+    since: Option<String>,
 }
 
 /// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,
@@ -37,6 +39,7 @@ impl ArgumentOf<CheckField> for Tool {
         match field {
             CheckField::Severity => Some("severity_filter"),
             CheckField::LintProfiles => Some("lint"),
+            CheckField::Since => Some("since"),
         }
     }
 }
@@ -63,8 +66,9 @@ impl CoreTool for Tool {
             strict: args.strict,
             lint_profiles,
             severity,
+            since: args.since,
         };
-        let outcome = check(&project.view(), &options).map_err(McpError::from)?;
+        let outcome = check(&project.view(), &options).map_err(Self::refused)?;
         let shown: Vec<specforge_common::Diagnostic> =
             outcome.shown().into_iter().cloned().collect();
         Ok(Answer::new(Text(specforge_common::serialize_diagnostics(

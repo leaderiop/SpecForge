@@ -65,7 +65,6 @@ fn check_cache_is_gone() {
     behavior = "read_git_baseline",
     verify = "check since judges history against the merge-base and refuses an unknown revision"
 )]
-#[ignore = "K4 T11"]
 fn check_since_judges_against_the_merge_base() {
     let repo = fixture();
     git_repo(repo.root());

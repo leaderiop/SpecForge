@@ -59,7 +59,75 @@ pub fn declared(registries: &RegistryBuild) -> bool {
 /// notice that says why there is none.
 pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
 
+/// A revision the repository does not know.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownRevision(pub String);
+
 impl Baseline {
+    /// The baseline at the merge-base of `revision` and `HEAD` (`check --since`): `Ok(None)` when nothing declares
+    /// history or no port is installed, the I204 or W164 that says why there is none, and `UnknownRevision` for a
+    /// revision the repository does not name. The revision is resolved even when nothing declares history.
+    pub fn since(env: &Environment, revision: &str) -> Result<BaselineRead, UnknownRevision> {
+        let Some(history) = env.history() else {
+            return Ok(Ok(None));
+        };
+        let unreadable = |why: String| {
+            Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
+        };
+        let place = match history.locate(env.root()) {
+            Located::Repo(place) => place,
+            Located::NotARepository => {
+                return if declared(env.registries()) {
+                    Ok(Err(Diagnostic::new(
+                        codes::I204,
+                        "not in a git repository: nothing is judged against history",
+                    )))
+                } else {
+                    Err(UnknownRevision(revision.to_string()))
+                };
+            }
+            Located::Unavailable(why) => return Ok(Err(unreadable(why))),
+        };
+        let named = match history.commit(&place, revision) {
+            Ok(Some(sha)) => sha,
+            Ok(None) => return Err(UnknownRevision(revision.to_string())),
+            Err(error) => return Ok(Err(unreadable(error.to_string()))),
+        };
+        if !declared(env.registries()) {
+            return Ok(Ok(None));
+        }
+        let head = match history.commit(&place, "HEAD") {
+            Ok(Some(sha)) => sha,
+            Ok(None) => {
+                return Ok(Err(Diagnostic::new(
+                    codes::I204,
+                    "no commit yet: nothing is judged against history",
+                )));
+            }
+            Err(error) => return Ok(Err(unreadable(error.to_string()))),
+        };
+        let base = match history.merge_base(&place, &named, &head) {
+            Ok(Some(sha)) => sha,
+            Ok(None) if place.shallow => {
+                return Ok(Err(unreadable(format!(
+                    "the merge-base of {revision} and HEAD is not in this shallow clone: fetch more history (`fetch-depth: 0`)"
+                ))));
+            }
+            Ok(None) => {
+                return Ok(Err(Diagnostic::new(
+                    codes::I204,
+                    format!(
+                        "{revision} and HEAD share no commit: nothing is judged against history"
+                    ),
+                )));
+            }
+            Err(error) => return Ok(Err(unreadable(error.to_string()))),
+        };
+        Ok(Self::at(env, &*history, &place, &base)
+            .map(Some)
+            .map_err(unreadable))
+    }
+
     /// What a pass that names `kinds` in `baseline` receives as `previous`: the entities of those kinds, each field
     /// as the host reads it, a computed value under its written path.
     pub fn pass_view(&self, kinds: &[String]) -> specforge_protocol_types::PassBaseline {

@@ -40,6 +40,10 @@ pub(crate) struct Args {
             .try_map(|name| specforge_ops::analysis::check::parse_severity(&name))
     )]
     severity: Option<Severity>,
+
+    /// Judge immutable and append-only history against the merge-base of this git revision and HEAD
+    #[arg(long, value_name = "REV")]
+    since: Option<String>,
 }
 
 impl Args {
@@ -49,6 +53,7 @@ impl Args {
             strict: self.strict,
             lint_profiles: self.lint.clone(),
             severity: self.severity,
+            since: self.since.clone(),
         }
     }
 
@@ -89,6 +94,10 @@ fn run_in(
     };
     let outcome = match check(&ProjectView::of(&compiled), options) {
         Ok(outcome) => outcome,
+        // A revision git does not name is a usage error, as an unknown flag value is.
+        Err(error) if error.error.code == specforge_ops::analysis::check::UNKNOWN_REVISION => {
+            return Refusal::measuring(format).report(terminal, &error);
+        }
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
     let shown: Vec<Diagnostic> = outcome.shown().into_iter().cloned().collect();

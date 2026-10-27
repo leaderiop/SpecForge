@@ -14,6 +14,8 @@ pub struct FakeHistory {
     pub located: Located,
     pub head: Result<Option<Sha>, HistoryError>,
     pub files: Result<Vec<CommitFile>, HistoryError>,
+    /// Other revisions it knows by name: their commit and the files at it.
+    pub named: Vec<(String, Sha, Vec<CommitFile>)>,
     asked: AtomicUsize,
     any: AtomicUsize,
 }
@@ -32,6 +34,7 @@ impl FakeHistory {
             }),
             head: Ok(Some(Sha::new(sha))),
             files: Ok(files),
+            named: Vec::new(),
             asked: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
@@ -43,6 +46,7 @@ impl FakeHistory {
             located: Located::NotARepository,
             head: Ok(None),
             files: Ok(Vec::new()),
+            named: Vec::new(),
             asked: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
@@ -64,17 +68,27 @@ impl History for FakeHistory {
         self.any.fetch_add(1, Ordering::SeqCst);
         self.located.clone()
     }
-    fn commit(&self, _: &GitPlace, _: &str) -> Result<Option<Sha>, HistoryError> {
+    fn commit(&self, _: &GitPlace, revision: &str) -> Result<Option<Sha>, HistoryError> {
         self.any.fetch_add(1, Ordering::SeqCst);
-        self.head.clone()
+        if revision == "HEAD" {
+            return self.head.clone();
+        }
+        Ok(self
+            .named
+            .iter()
+            .find(|(name, ..)| name == revision)
+            .map(|(_, sha, _)| sha.clone()))
     }
     fn merge_base(&self, _: &GitPlace, a: &Sha, _: &Sha) -> Result<Option<Sha>, HistoryError> {
         self.any.fetch_add(1, Ordering::SeqCst);
         Ok(Some(a.clone()))
     }
-    fn files(&self, _: &GitPlace, _: &Sha, _: &Path) -> Result<Vec<CommitFile>, HistoryError> {
+    fn files(&self, _: &GitPlace, commit: &Sha, _: &Path) -> Result<Vec<CommitFile>, HistoryError> {
         self.any.fetch_add(1, Ordering::SeqCst);
         self.asked.fetch_add(1, Ordering::SeqCst);
+        if let Some((_, _, files)) = self.named.iter().find(|(_, sha, _)| sha == commit) {
+            return Ok(files.clone());
+        }
         self.files.clone()
     }
 }

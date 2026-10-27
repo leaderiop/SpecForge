@@ -22,6 +22,8 @@ pub struct CheckOptions {
     pub lint_profiles: Vec<LintProfile>,
     /// Show only this severity (after strict promotion). Never the verdict.
     pub severity: Option<Severity>,
+    /// Judge history against the merge-base of this revision and `HEAD` (`--since`) instead of `HEAD`.
+    pub since: Option<String>,
 }
 
 pub use specforge_common::Counts;
@@ -69,8 +71,12 @@ pub enum CheckField {
     Severity,
     /// The lint profiles.
     LintProfiles,
+    /// The revision history is judged since.
+    Since,
 }
 
+/// A `since` revision the repository does not name (`InvalidInput`).
+pub const UNKNOWN_REVISION: &str = "unknown_revision";
 /// A severity filter naming no severity (`InvalidInput`).
 pub const UNKNOWN_SEVERITY: &str = "unknown_severity";
 /// A lint profile naming no profile (`InvalidInput`).
@@ -144,18 +150,42 @@ fn unknown(code: &'static str, what: &str, requested: &str, names: &[&str]) -> O
 /// `options`: the policy applied and the verdict taken over all of it. The one
 /// refusal is of the project, so it is about no field: a lint profile on a view
 /// with no root.
-pub fn check(view: &ProjectView<'_>, options: &CheckOptions) -> Result<CheckOutcome, OpError> {
+pub fn check(
+    view: &ProjectView<'_>,
+    options: &CheckOptions,
+) -> Result<CheckOutcome, Refusal<CheckField>> {
     if view.root().is_none() && !options.lint_profiles.is_empty() {
-        return Err(OpError::no_project(NO_ROOT));
+        return Err(OpError::no_project(NO_ROOT).into());
     }
+    let since = options
+        .since
+        .as_deref()
+        .map(|revision| {
+            view.project().judged_since(revision).map_err(|unknown| {
+                Refusal::about(
+                    CheckField::Since,
+                    OpError::new(
+                        OpErrorKind::InvalidInput,
+                        UNKNOWN_REVISION,
+                        format!("unknown revision '{}'", unknown.0),
+                    ),
+                )
+            })
+        })
+        .transpose()?;
     let policy = DiagnosticPolicy {
         strict: options.strict,
         lint_profiles: options.lint_profiles.clone(),
     };
-    let reported = policy.apply(view.reported(), |profile| match profile {
-        LintProfile::Inferred => crate::read::infer::lint(view),
-        LintProfile::Pedantic => Vec::new(),
-    });
+    let reported = policy.apply(
+        since
+            .as_ref()
+            .map_or_else(|| view.reported(), |judged| view.reported_over(judged)),
+        |profile| match profile {
+            LintProfile::Inferred => crate::read::infer::lint(view),
+            LintProfile::Pedantic => Vec::new(),
+        },
+    );
     let counts = Counts::of(&reported);
     Ok(CheckOutcome {
         reported,
@@ -291,8 +321,8 @@ mod tests {
             ..CheckOptions::default()
         };
         let refused = check(&view, &options).unwrap_err();
-        assert_eq!(refused.code, "no_project");
-        assert_eq!(refused.kind, OpErrorKind::PreconditionFailed);
+        assert_eq!(refused.error.code, "no_project");
+        assert_eq!(refused.error.kind, OpErrorKind::PreconditionFailed);
         // Nothing that needs the root: a rootless view checks fine.
         let outcome = check(&view, &CheckOptions::default()).unwrap();
         assert_eq!(

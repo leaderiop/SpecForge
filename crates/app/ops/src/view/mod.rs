@@ -95,6 +95,16 @@ impl<'a> ProjectView<'a> {
         self.project
     }
 
+    /// [`Self::reported`] as it would be over `project` instead (the same surface additions).
+    pub fn reported_over(&self, project: &CompiledProject) -> Vec<Diagnostic> {
+        let mut diagnostics = self
+            .listed
+            .map(<[Diagnostic]>::to_vec)
+            .unwrap_or_else(|| project.diagnostics());
+        diagnostics.extend(self.also_reported.iter().cloned());
+        diagnostics
+    }
+
     /// The project's graph.
     pub fn graph(&self) -> &'a Graph {
         self.project.graph()

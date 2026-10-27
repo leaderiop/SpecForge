@@ -172,6 +172,19 @@ impl CompiledProject {
         project
     }
 
+    /// This project judged against the merge-base of `revision` and `HEAD` instead of `HEAD` (`check --since`):
+    /// the checks run again over a copy; this project keeps its own baseline.
+    pub fn judged_since(
+        &self,
+        revision: &str,
+    ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
+        let read = crate::baseline::Baseline::since(&self.env, revision)?;
+        let mut project = self.clone();
+        project.baseline = Some(Arc::new(read));
+        project.check(&mut Unrecorded::plain());
+        Ok(project)
+    }
+
     /// What `specforge check` reports for this project now: [`Self::diagnostics`], or, when the last
     /// update skipped the checks (the editor's typing fast path, ADR 0136 D4), that report with every
     /// check run now over a copy; this project keeps skipping them. What [`Self::edited`]'s report is

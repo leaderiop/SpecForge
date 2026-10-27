@@ -31,5 +31,8 @@ Options:
           
           [possible values: error, warning, info]
 
+      --since <REV>
+          Judge immutable and append-only history against the merge-base of this git revision and HEAD
+
   -h, --help
           Print help
