@@ -254,7 +254,6 @@ fn beyond_steps_drops_a_title_written_over_a_blank_one() {
     behavior = "add_missing_titles",
     verify = "a name holding a dash or a dot is its own title"
 )]
-#[ignore = "K1 T7"]
 fn a_name_holding_a_dash_or_a_dot_is_its_own_title() {
     assert_eq!(
         migrated("type v1.0 {\n  id string\n}\n"),
