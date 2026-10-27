@@ -61,6 +61,7 @@ mod schema_reflection;
 mod scoped_names;
 mod served;
 mod served_project;
+mod settings;
 mod source_links;
 mod source_path_spelling;
 mod stateless;

@@ -80,3 +80,13 @@ fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
     assert!(runtime.load("@acme/y", b"\0asm other").is_err());
     assert_eq!(runtime.declared_by("@acme/y", b"\0asm other"), None);
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "an instance restarted after a trap still carries the extension's settings"
+)]
+#[ignore = "K6 T7"]
+fn a_restarted_instance_keeps_its_settings() {
+    // After a trap the next call still carries them, on both adapters.
+    unimplemented!("K6 T7: apply_settings");
+}

@@ -422,3 +422,14 @@ fn runtime_with_trap() -> InProcessRuntime {
         }),
     )
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
+)]
+#[ignore = "K6 T7"]
+fn every_guest_call_but_describe_carries_its_settings() {
+    // Recorded inputs of pass, validator, command, collect, scan, migrate, resource and tool hold `settings`; handshake and
+    // describe do not; another extension's settings never appear.
+    unimplemented!("K6 T7: call_raw splice");
+}

@@ -140,3 +140,33 @@ fn no_unread_test_dirs_config_is_documented() {
         assert!(!text.contains("test_dirs"), "{doc} documents `test_dirs`");
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "schema --config holds every loaded setting and a valid file validates against it"
+)]
+#[ignore = "K6 T8"]
+fn the_project_config_schema_holds_every_loaded_setting() {
+    // properties for names, patternProperties for families, defaults; a valid file validates, an E086 one does not.
+    unimplemented!("K6 T8: schema --config");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the shipped schema types settings by extension in both copies"
+)]
+#[ignore = "K6 T8"]
+fn the_shipped_schema_types_settings_by_extension() {
+    for path in [
+        "schema/specforge.schema.json",
+        "integrations/vscode/schemas/specforge.schema.json",
+    ] {
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(repo_root().join(path)).unwrap())
+                .unwrap();
+        assert!(
+            doc["properties"]["settings"].is_object(),
+            "{path} types no settings"
+        );
+    }
+}

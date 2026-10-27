@@ -78,6 +78,7 @@ mod request_pairs;
 mod scaffold_builds;
 mod schema_cache;
 mod schema_notices;
+mod settings;
 mod stats;
 mod suggested_commands;
 mod support;

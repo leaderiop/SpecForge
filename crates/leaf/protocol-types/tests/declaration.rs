@@ -575,3 +575,26 @@ fn the_writer_and_history_keys_round_trip_and_stay_off_the_wire_when_unset() {
         (vec!["thing.s".into()], vec!["thing".into()])
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a settings category round-trips its three item kinds and an unknown kind costs that item"
+)]
+#[ignore = "K6 T3"]
+fn a_settings_category_round_trips() {
+    // The `settings` category holds setting, preset and secret items by `kind`; an item of an unknown kind or one that
+    // does not decode costs that item (W021), not the payload; an older guest is not asked for it.
+    assert!(DeclaredCategory::from_name("settings").is_some());
+    unimplemented!("K6 T3: SettingsItem round trip");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a feature flag reads as a bool setting and a flag and a setting of one name is refused"
+)]
+#[ignore = "K6 T3"]
+fn a_feature_flag_reads_as_a_bool_setting() {
+    // `feature_flags` [{name, default_enabled}] reads as a bool setting of that name and default; the same name
+    // declared as a flag and as a setting is refused (W021).
+    unimplemented!("K6 T3: FeatureFlagDescriptor -> a bool SettingDescriptor");
+}

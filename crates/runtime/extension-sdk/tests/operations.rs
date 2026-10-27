@@ -302,3 +302,13 @@ fn a_pass_is_routed_at_the_export_the_host_calls() {
     assert!(matches!(answer, Some(Ok(_))), "{answer:?}");
     assert!(b.dispatch_export("__pass_other", b"{}").is_none());
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the SDK reads a call's settings or the declared defaults and a tool handler never sees settings"
+)]
+#[ignore = "K6 T7"]
+fn the_sdk_reads_a_setting_or_its_declared_default() {
+    // In a pass and a command; no `settings` key gives defaults; a tool handler never sees `settings`.
+    unimplemented!("K6 T7: Settings::current");
+}

@@ -94,6 +94,7 @@ mod schema_notices;
 mod scopes;
 mod search;
 mod selection;
+mod settings;
 mod setup;
 mod stats;
 mod trace;

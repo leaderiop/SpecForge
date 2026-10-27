@@ -51,6 +51,8 @@ mod scopes;
 mod self_reference;
 mod session;
 mod settings;
+mod settings_declared;
+mod settings_rules;
 mod source_disk;
 mod source_hops;
 mod structural_checks;
