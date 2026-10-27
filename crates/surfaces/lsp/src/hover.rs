@@ -97,7 +97,8 @@ pub fn diagnostics(shown: &[&Diagnostic], declarations: &[ExtensionDeclaration])
 /// - **Refers to**: its references, grouped by field;
 /// - **Referenced by**: the references to it, grouped by the referencing
 ///   kind and field;
-/// - **Fields**: its field values but the headline;
+/// - **Fields**: its field values but the headline (`written` reads the word a span holds: an integer read from
+///   another word shows it beside its value);
 /// - **Methods**: its methods' signatures, one per line (ADR 0222);
 /// - **Obligations**: its `verify` statements, the review document's table (ADR 0273);
 /// - **Diagnostics**: the diagnostics about it that are not among those
@@ -106,6 +107,7 @@ pub fn entity(
     facts: &EntityFacts,
     coverage: &Result<EntityCoverage, OpError>,
     shown: &[&Diagnostic],
+    written: &dyn Fn(&SourceSpan) -> Option<String>,
 ) -> String {
     let node = facts.node;
     let title = node
@@ -194,7 +196,15 @@ pub fn entity(
             let key = entry.key.as_str();
             let annotations = facts.members.annotations.get(key).into_iter().flatten();
             let noted: String = annotations.map(|a| format!(" {}", a.spelled())).collect();
-            format!("- `{key}` = {}{noted}", format_field_value(&entry.value))
+            let value = format_field_value(&entry.value);
+            // An integer read from another word (`2-1`, `007`) shows the word beside its value (ADR 0283).
+            let value = match (&entry.value, entry.value_span.as_ref().and_then(written)) {
+                (FieldValue::Integer(n), Some(word)) if word != n.to_string() => {
+                    format!("{value} (written {word})")
+                }
+                _ => value,
+            };
+            format!("- `{key}` = {value}{noted}")
         })
         .collect();
     if !fields.is_empty() {

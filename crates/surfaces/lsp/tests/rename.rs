@@ -175,13 +175,13 @@ async fn rename_to_an_illegal_id_is_refused_with_why() {
             json!({
                 "textDocument": {"uri": uri},
                 "position": {"line": 0, "character": 10},
-                "newName": "log-in",
+                "newName": "log--in",
             }),
         )
         .await;
     assert!(refused["result"].is_null(), "{refused}");
     let message = refused["error"]["message"].as_str().unwrap_or_default();
-    assert!(message.contains("invalid entity ID 'log-in'"), "{refused}");
+    assert!(message.contains("invalid entity ID 'log--in'"), "{refused}");
 }
 
 /// A reserved word is no entity ID either: the editor gets the reason, and no edit.

@@ -46,7 +46,6 @@ fn an_all_digit_entity_name_is_a_name_to_the_editor() {
     behavior = "go_to_definition",
     verify = "go-to-definition follows a number written in a field that names entities"
 )]
-#[ignore = "K1 T6"]
 fn a_number_in_a_reference_field_navigates_to_its_entity() {
     let text = "ticket 10 \"A\" {\n}\nticket t \"B\" {\n  parent 10\n  deps [10]\n}\n";
     let served = Served::new(&[("main.spec", text)])
@@ -75,9 +74,8 @@ fn a_number_in_a_reference_field_navigates_to_its_entity() {
     behavior = "hover_information",
     verify = "hover shows an integer field's value beside the word it was written as when they differ"
 )]
-#[ignore = "K1 T6"]
 fn hover_shows_an_integer_field_value_beside_its_written_word() {
-    let text = "ticket t \"B\" {\n  points 2-1\n  more 5\n}\n";
+    let text = "ticket tt \"B\" {\n  points 2-1\n  more 5\n}\n";
     let served = Served::new(&[("main.spec", text)])
         .extension("@t/tickets", |c| {
             c.kind("ticket", |k| {
@@ -90,7 +88,7 @@ fn hover_shows_an_integer_field_value_beside_its_written_word() {
             });
         })
         .open(&["main.spec"]);
-    let hover = served.hover_on("main.spec", "t").expect("a hover");
+    let hover = served.hover_on("main.spec", "tt").expect("a hover");
     assert!(hover.contains("`points` = 1 (written 2-1)"), "{hover}");
     assert!(
         hover.contains("`more` = 5\n") || hover.ends_with("`more` = 5"),

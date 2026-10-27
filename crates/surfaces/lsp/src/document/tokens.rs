@@ -89,7 +89,10 @@ fn classify(
     match lexeme.kind {
         LexemeKind::Comment => return Some(("comment", 0)),
         LexemeKind::Str { .. } => return Some(("string", 0)),
-        LexemeKind::Number if matches!(role, Role::Value | Role::Item) => {
+        LexemeKind::Number
+            if matches!(role, Role::Value | Role::Item)
+                && !syntax.reference_position(text, i as u32, view.registries().field_forms()) =>
+        {
             return Some(("number", 0));
         }
         _ => {}
@@ -106,7 +109,9 @@ fn classify(
         },
         Role::Key => Some(("property", 0)),
         Role::VerifyKind => Some(("enumMember", 0)),
-        Role::Value | Role::Item | Role::ImportName if lexeme.is_name() => {
+        Role::Value | Role::Item | Role::ImportName
+            if lexeme.is_name() || lexeme.kind == LexemeKind::Number =>
+        {
             let fields = view.registries().fields();
             if syntax.reference_position(text, i as u32, view.registries().field_forms()) {
                 let token = view
@@ -123,6 +128,7 @@ fn classify(
             match fields.get(kind, syntax.text(text, key))?.field_type() {
                 FieldType::Enum | FieldType::Identifier => Some(("enumMember", 0)),
                 FieldType::Bool => Some(("keyword", 0)),
+                FieldType::Integer => Some(("number", 0)),
                 _ => None,
             }
         }

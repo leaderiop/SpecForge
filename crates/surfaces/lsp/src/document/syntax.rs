@@ -251,7 +251,10 @@ impl Syntax {
     /// names) and semantic tokens (what is a reference) share.
     pub(crate) fn reference_position(&self, text: &str, i: u32, forms: &FieldForms) -> bool {
         let lexeme = &self.lexemes[i as usize];
-        if !lexeme.is_name() {
+        // A number or date word in a value or item slot may name an entity too (`parent 10`, ADR 0283).
+        let word = lexeme.kind == LexemeKind::Number
+            && matches!(self.roles[i as usize], Role::Value | Role::Item);
+        if !lexeme.is_name() && !word {
             return false;
         }
         match self.roles[i as usize] {
@@ -270,6 +273,7 @@ impl Syntax {
                 };
                 let written = match lexeme.kind {
                     LexemeKind::RefId => Written::SchemeRef,
+                    LexemeKind::Number => Written::Literal,
                     _ => Written::Bare,
                 };
                 own && self

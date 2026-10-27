@@ -175,7 +175,20 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                 .ok()
                 .map(|facts| {
                     let coverage = specforge_ops::read::inspect::coverage(&view, &facts);
-                    hover::entity(&facts, &coverage, &shown)
+                    // The word a one-line span holds in the buffer, where the buffer is the compiled text.
+                    let written = |span: &specforge_common::SourceSpan| {
+                        compiled.range(span)?;
+                        let line = files
+                            .document(span.file.as_str())?
+                            .text()
+                            .lines()
+                            .nth(span.start_line.checked_sub(1)?)?;
+                        (span.start_line == span.end_line)
+                            .then(|| line.get(span.start_col - 1..span.end_col - 1))
+                            .flatten()
+                            .map(str::to_string)
+                    };
+                    hover::entity(&facts, &coverage, &shown, &written)
                 })
         }
         Some(Target::Field { kind, field }) => {
