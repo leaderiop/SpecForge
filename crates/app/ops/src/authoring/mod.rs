@@ -3,6 +3,7 @@
 //! navigation finds, ADR 0016), entity IDs (the rule a new ID is held to, ADR 0189), migrate, and the fixes offered for a diagnostic (ADR 0016). The group uses the base, the read views and the
 //! extension group. A plan's texts are written as one planned change (ADR 0184).
 
+pub mod apply;
 pub mod edit;
 pub mod entity_id;
 pub mod fix;

@@ -88,7 +88,8 @@ impl PlannedChange {
         if before.root().is_none() || !before.declares_harness() {
             return self;
         }
-        self.locked = true;
+        // Every write of this project takes the lock, the ledger changing or not.
+        self.locked = before.serializes_writes();
         let current = before.root_file(LEDGER_FILE);
         let after = before.edited(&self.after());
         let bytes = before.rewritten_ledger(&after, &current, &change, false);
@@ -100,7 +101,10 @@ impl PlannedChange {
         // A ledger that is written, or kept by `gc`, goes with its merge attribute.
         let attributes = (!unchanged || (force && !current.is_empty()))
             && gitattributes_with(&before.root_file(".gitattributes")).is_some();
-        if unchanged && !attributes {
+        // A write that moves or sets a value keeps its ledger part though the ledger reads the same now: under the
+        // lock the ledger may have changed, and the part is made again over what it holds.
+        let keeps = !change.moves.is_empty() || !change.set.is_empty();
+        if unchanged && !attributes && !keeps {
             return self;
         }
         let before = before.clone();
@@ -121,7 +125,11 @@ impl PlannedChange {
 
     /// Nothing to write.
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty() && self.ledger.is_none()
+        self.files.is_empty()
+            && !self
+                .ledger
+                .as_ref()
+                .is_some_and(|l| l.after != l.planned_on || l.attributes)
     }
 
     /// The files the change writes, relative to the project root, in key order.
@@ -208,7 +216,7 @@ impl PlannedChange {
     /// Write the change as one project change (ADR 0128), each file resolved through the caller's containment (ADR
     /// 0104): checked against the text it was planned on, then replaced or created; on any failure, every file
     /// already written is put back (one that cannot be is the error's writes). Returns the files it wrote.
-    pub fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
+    pub(crate) fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
         // A project with no harness field has no ledger to serialize: it gets no `.specforge/` from a write.
         let _lock = (self.locked || self.ledger.is_some())
             .then(|| specforge_project::harness::lock(self.sources.base()))
@@ -240,7 +248,9 @@ impl PlannedChange {
             } else {
                 (ledger.redo)(&now)
             };
-            change.stage(held, current, after);
+            if after != now {
+                change.stage(held, current, after);
+            }
             if ledger.attributes {
                 let held = caller
                     .containment()

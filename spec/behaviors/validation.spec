@@ -421,4 +421,5 @@ behavior record_harness_values "Record Harness Values" {
   verify unit "a union-merged ledger reads, and is I203 once"
   verify unit "a rename records its move and re-keys its lines"
   verify unit "two writers both land their lines"
+  verify unit "a rename planned on an unchanged ledger re-keys a line another writer added"
 }

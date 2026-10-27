@@ -9,6 +9,7 @@ use crate::args::Arguments;
 use crate::mutation::{FreshDiagnostics, Mutated, Mutation, MutationArgs, MutationReply, Written};
 use crate::refusal::ArgumentOf;
 use crate::target::ProjectRef;
+use specforge_ops::authoring::apply::Origin;
 use specforge_ops::authoring::rename::{RenameDocument, RenameField};
 use specforge_ops::read::navigate::Navigator;
 
@@ -84,6 +85,7 @@ impl CoreTool for Tool {
             &args.entity_id,
             &args.new_name,
             args.dry_run,
+            &Origin::mcp(),
             project.caller(),
         )
         .map_err(Self::failed)?;

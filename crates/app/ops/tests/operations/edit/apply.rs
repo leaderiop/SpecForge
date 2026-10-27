@@ -37,10 +37,11 @@ fn apply_writes_the_planned_files() {
     let root = root(&c);
     let before = files_under(&root);
     let planned = plan(&c, &unlink_both()).unwrap();
-    let writes = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap();
+    let writes = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
     assert_eq!(changed_since(&root, &before), ["a/one.spec", "b/two.spec"]);
     assert_eq!(
         crate::writes::listed(&writes, &root),
@@ -61,10 +62,11 @@ fn a_typed_edit_writes_the_same_bytes_and_report() {
         ["a/one.spec", "b/two.spec"]
     );
     assert_eq!(planned.report().entities, ["beta_one", "beta_two"]);
-    planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap();
+    specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
     for file in ["a/one.spec", "b/two.spec"] {
         let text = std::fs::read_to_string(root.join(file)).unwrap();
         assert!(!text.contains("invariants"), "{text}");
@@ -88,10 +90,11 @@ fn apply_writes_every_file_or_none() {
     let locked = root.join("b");
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
     let before = files_under(&root);
-    let error = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_eq!(error.code, specforge_ops::FILE_UNWRITABLE, "{error:?}");
     assert!(changed_since(&root, &before).is_empty());
@@ -111,10 +114,11 @@ fn apply_refuses_a_file_changed_since_the_plan() {
     )
     .unwrap();
     let before = files_under(&root);
-    let error = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
     assert_eq!(error.kind, OpErrorKind::Conflict);
     assert_eq!(error.code, specforge_ops::FILE_CHANGED);
     assert!(error.message.contains("one.spec"), "{}", error.message);
@@ -133,10 +137,11 @@ fn apply_writes_nothing_outside_the_containment() {
     std::fs::remove_file(root.join("a/one.spec")).unwrap();
     std::os::unix::fs::symlink(&target, root.join("a/one.spec")).unwrap();
     let containment = Containment::within(&root);
-    let error = planned
-        .change()
-        .apply(specforge_ops::testing::bounded(&containment))
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::bounded(&containment),
+    )
+    .unwrap_err();
     assert_eq!(error.code, specforge_ops::OUTSIDE_ROOT, "{error:?}");
     assert_eq!(
         std::fs::read_to_string(&target).unwrap(),
@@ -171,10 +176,11 @@ fn apply_creates_the_new_file_and_removes_it_on_failure() {
     let before = files_under(&root);
     let locked = root.join("b");
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
-    let error = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_eq!(error.code, specforge_ops::FILE_UNWRITABLE, "{error:?}");
     assert!(changed_since(&root, &before).is_empty());
@@ -183,10 +189,11 @@ fn apply_creates_the_new_file_and_removes_it_on_failure() {
         "the directory it made is gone"
     );
 
-    let writes = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap();
+    let writes = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
     assert!(root.join("fresh/gamma.spec").is_file());
     assert_eq!(
         crate::writes::listed(&writes, &root),
@@ -201,10 +208,11 @@ fn an_empty_plan_writes_nothing() {
     let before = files_under(&root);
     let planned = plan(&c, &[unlink("beta_one", "invariants", "nope")]).unwrap();
     assert!(planned.change().is_empty());
-    let writes = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap();
+    let writes = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
     assert!(writes.is_empty());
     assert!(changed_since(&root, &before).is_empty());
 }
@@ -226,10 +234,11 @@ fn an_edit_that_cannot_write_a_file_is_unwritable() {
         return; // permissions do not bind (root)
     }
     let before = files_under(&root);
-    let error = planned
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        planned.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
     assert_eq!(error.code, specforge_ops::FILE_UNWRITABLE, "{error:?}");
     assert_eq!(error.kind, OpErrorKind::PermissionDenied, "{error:?}");

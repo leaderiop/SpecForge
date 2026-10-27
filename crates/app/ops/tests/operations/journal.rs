@@ -44,6 +44,7 @@ fn an_interrupted_write_is_rolled_back_by_the_next() {
             title: "Uno".into(),
         }],
         false,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
     .unwrap();

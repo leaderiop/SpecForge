@@ -4,6 +4,7 @@
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::project::ProjectArg;
 use crate::terminal::{Terminal, outln};
+use specforge_ops::authoring::apply::Origin;
 use specforge_ops::authoring::harness;
 use specforge_ops::view::ProjectView;
 
@@ -42,6 +43,7 @@ impl Action {
         let collected = match harness::run(
             &view,
             args.dry_run,
+            &Origin::cli(terminal.facts().interactive),
             crate::caller::of(false, format, terminal),
         ) {
             Ok(collected) => collected,

@@ -382,6 +382,7 @@ fn a_harness_value_is_set_only_by_its_extension_or_a_peer() {
         &ProjectView::of(&compile),
         &[edit],
         true,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
     .unwrap_err();

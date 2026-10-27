@@ -6,6 +6,7 @@ use crate::notes::Notes;
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::project::ProjectArg;
 use crate::terminal::{Terminal, outln};
+use specforge_ops::authoring::apply::Origin;
 use specforge_ops::authoring::edit::{self, Edit, Input, Obligation};
 use specforge_ops::view::ProjectView;
 use specforge_ops::{OpError, OpErrorKind};
@@ -53,6 +54,7 @@ pub(crate) fn execute_on(
         &view,
         &edits,
         dry_run,
+        &Origin::cli(terminal.facts().interactive),
         crate::caller::of(false, format, terminal),
     ) {
         Ok(edited) => edited,

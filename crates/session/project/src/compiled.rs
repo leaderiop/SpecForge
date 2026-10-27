@@ -202,6 +202,12 @@ impl CompiledProject {
         !crate::harness::Harness::of(self.env.registries()).is_empty()
     }
 
+    /// Whether a write of this project is serialized by the write lock (ADR 0289): the project declares a field
+    /// whose ledger a write keeps true. Plain projects write without taking it.
+    pub fn serializes_writes(&self) -> bool {
+        self.declares_harness()
+    }
+
     /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's
     /// bytes, empty when it has none): [`Ledger::rewritten`](crate::harness::Ledger::rewritten) over the two graphs.
     /// With `keep_unseen`, a line of `current` for an entity

@@ -34,6 +34,7 @@ fn a_human_only_value_is_refused_in_an_agents_write() {
         &ProjectView::of(&compile),
         &[edit],
         true,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
     .unwrap_err();

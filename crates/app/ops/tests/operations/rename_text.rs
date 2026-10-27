@@ -19,10 +19,11 @@ fn apply_refuses_a_file_changed_since_the_plan() {
     std::fs::write(root.join("login.spec"), format!("\n{LOGIN}")).unwrap();
     let before = crate::writes::files_under(&root);
 
-    let error = plan
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        plan.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
 
     assert_eq!(error.kind, OpErrorKind::Conflict, "{error:?}");
     assert_eq!(error.code, specforge_ops::FILE_CHANGED, "{error:?}");
@@ -51,10 +52,11 @@ fn a_rename_that_cannot_write_a_file_is_unwritable() {
         return; // permissions do not bind (root)
     }
 
-    let error = plan
-        .change()
-        .apply(specforge_ops::testing::caller())
-        .unwrap_err();
+    let error = specforge_ops::authoring::apply::testing::apply(
+        plan.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
     assert_eq!(error.code, specforge_ops::FILE_UNWRITABLE, "{error:?}");

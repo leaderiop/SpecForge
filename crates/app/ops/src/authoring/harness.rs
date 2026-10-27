@@ -2,6 +2,7 @@
 //! entities and fields the project no longer holds and putting the rest in order. It never runs from `check` (I203
 //! only says it would change something).
 
+use crate::authoring::apply::{self, Origin};
 use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{Caller, OpError, Wrote};
@@ -36,6 +37,7 @@ impl Collected {
 pub fn run(
     view: &ProjectView<'_>,
     dry_run: bool,
+    origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Collected, OpError> {
     view.project_root()?;
@@ -45,6 +47,6 @@ pub fn run(
         [],
     )
     .rewriting_ledger(view.project());
-    let wrote = Wrote::unless_preview(dry_run, || change.apply(caller))?;
+    let wrote = Wrote::unless_preview(dry_run, || apply::apply(&change, origin, caller))?;
     Ok(Collected { change, wrote })
 }
