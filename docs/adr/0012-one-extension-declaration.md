@@ -1,6 +1,6 @@
 # One extension declaration
 
-**Status:** accepted (2026-10-05) Amended by ADR 0278 (a validation rule may carry a `description`).
+**Status:** accepted (2026-10-05) Amended by ADR 0278 (a validation rule may carry a `description`). Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): the `settings` category.
 
 An extension's declaration (who it is, and the kinds, fields, edges, rules, enhancements,
 surfaces, collectors, analyzers, passes and feature flags it contributes) was written once, in

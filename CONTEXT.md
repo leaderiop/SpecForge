@@ -1619,6 +1619,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the `History` port only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
+- **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
+  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288).
+- **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
+  severities upward only (ADR 0288).
+- **Gate**: a bool setting's list of codes; while it is false no source reports them (ADR 0288).
+- **Secret**: a declared environment variable an extension reads; the file may not hold it (E087) and no value
+  crosses into a guest, only whether it is set (ADR 0288).
+- **Origin**: where a setting's value came from, `SettingOrigin`: explicit, preset, default or unset (ADR 0288).
 - **Call containment**: the one **Containment** an MCP call reads and writes its project through, built when the call is
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.
