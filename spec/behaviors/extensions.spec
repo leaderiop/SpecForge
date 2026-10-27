@@ -169,6 +169,19 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 
+behavior load_extension_settings "Load Extension Settings" {
+  features   [extension_management]
+  invariants [zero_domain_knowledge_core]
+  category   command
+  ports      [WasmRuntime]
+  contract   """
+    An extension declares typed settings, presets and secrets (ADR 0288); specforge.json sets them. A project
+    that sets none reads, calls and reports as before, and the builtins declare none.
+  """
+  verify unit "a project without settings reads and calls as it did before settings existed"
+  verify unit "no builtin declares a feature flag or a setting"
+}
+
 behavior load_extension_declaration "Load Extension Declaration" {
   features   [extension_management]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]

@@ -141,3 +141,24 @@ fn no_builtin_declares_a_writer_or_history_flag() {
     }
     assert!(files > 20, "only {files} declaration files were found");
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "no builtin declares a feature flag or a setting"
+)]
+fn the_builtins_declare_no_settings() {
+    let declarations = pinned_builtin_declarations().unwrap();
+    for declaration in &declarations {
+        assert!(
+            declaration.feature_flags.is_empty(),
+            "{}",
+            declaration.name()
+        );
+    }
+    let text = serde_json::to_string(&declarations).unwrap();
+    assert!(
+        !text.contains("\"settings\""),
+        "a builtin declares settings"
+    );
+    assert!(declarations.len() > 5);
+}
