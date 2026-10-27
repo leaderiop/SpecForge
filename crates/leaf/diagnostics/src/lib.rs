@@ -14,13 +14,17 @@
 #[macro_use]
 mod catalog;
 mod code;
+mod codebook;
 mod extension;
+mod namespace;
 
 pub use catalog::{CATALOG, codes};
 #[doc(hidden)]
 pub use code::prefix_states;
 pub use code::{Code, GradedCode};
+pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace};
 pub use extension::{CodeMisuse, check_extension_code};
+pub use namespace::{CodeRef, code_namespace, qualify};
 
 /// One diagnostic code and what it means.
 #[derive(Debug, Clone, Copy)]

@@ -3,6 +3,7 @@
 //! checks them where they enter ([`check_extension_code`]); a misuse is
 //! W150, and the rule or finding is kept as the extension gave it.
 
+use crate::namespace::FIRST_PARTY;
 use crate::{Level, lookup, retired};
 
 /// Whether extension `extension` (its declared name) may report `code` at
@@ -45,9 +46,6 @@ pub fn check_extension_code(extension: &str, code: &str, level: Level) -> Result
         Some(_) => Err(CodeMisuse::PrefixContradictsLevel),
     }
 }
-
-/// The scope of the extensions the project ships and documents.
-const FIRST_PARTY: &str = "@specforge/";
 
 /// The prefix of a third-party code (`E900`-`E998`, `W900`-`W998`,
 /// `I900`-`I998`), when `code` is one.
@@ -94,6 +92,9 @@ pub enum CodeMisuse {
     /// A third-party code whose `E`/`W`/`I` prefix contradicts the level
     /// reported.
     PrefixContradictsLevel,
+    /// A third-party code that is not `[EWI]` and three digits (a `/`, an
+    /// `A` code): an extension reports only its local codes.
+    NotALocalCode,
 }
 
 /// The third-party ranges, as W150 states them.
@@ -124,6 +125,10 @@ impl std::fmt::Display for CodeMisuse {
             CodeMisuse::OutsideThirdPartyRange => {
                 write!(f, "a code outside its range; {OWN_RANGE}")
             }
+            CodeMisuse::NotALocalCode => write!(
+                f,
+                "not a local code; an extension reports E, W or I and three digits, and the host adds its namespace"
+            ),
             CodeMisuse::PrefixContradictsLevel => write!(
                 f,
                 "a code whose prefix contradicts the level reported; E states an error, W a warning and I an info"

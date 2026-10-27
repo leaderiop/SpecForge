@@ -3,6 +3,7 @@ use specforge_repo_root::repo_root;
 use specforge_test_macros::test as specforge_test;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod namespace;
 mod scan;
 
 use scan::{
