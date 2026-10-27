@@ -1,6 +1,6 @@
 # A field written twice is decided by the graph build
 
-**Status:** accepted (2026-10-22, architecture round 24, plan 03). Amends [ADR 0019](0019-one-entity-snapshot-per-compile.md) ("a name written twice has its last value") and extends [ADR 0182](0182-the-graph-answers-what-a-blocks-field-holds.md) D2 (a block's own entry is its first; the build keeps no other). Mirrors [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md) D5 (E078, a `defaults` block).
+**Status:** accepted (2026-10-22, architecture round 24, plan 03). Amends [ADR 0019](0019-one-entity-snapshot-per-compile.md) ("a name written twice has its last value") and extends [ADR 0182](0182-the-graph-answers-what-a-blocks-field-holds.md) D2 (a block's own entry is its first; the build keeps no other). Mirrors [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md) D5 (E078, a `defaults` block). Extended by [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md): inside a list item.
 
 ## Context
 

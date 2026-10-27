@@ -589,11 +589,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and every read view that asks what a field says (search, the headline; ADR 0019, ADR 0228): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; a
   block's keys by `", "`. An entity's `verify` statements are not a field and have no field text (ADR 0094). An empty value is `""`. Every written field has one, and none is null. It differs from the written value (`field_form::write`) only for an expression group, which every output writes one conjunct per line (ADR 0064, ADR 0115).
-- **Field type**: how the host reads a field's value, one of ten names an extension declares:
+- **Field type**: how the host reads a field's value, one of twelve names an extension declares:
   `string`, `integer`, `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
   vocabulary; an enum without values, or a default outside them, is W021), `identifier` (one word from an open set,
-  written bare; ADR 0147), `string_list`,
-  `reference`, `reference_list`, `block` (`specforge_protocol_types::FieldType`). The registry build
+  written bare; ADR 0147), `enum_list` (distinct words of its `enum_values`; ADR 0285), `string_list`,
+  `reference`, `reference_list`, `block`, `block_list` (`specforge_protocol_types::FieldType`). The registry build
   reads a declared type once, into the field's registry entry (`FieldRegistryEntry::new`, the only way
   to make one); every output names it by that one name — the schema and exports, the published JSON
   Schema, the model, the hover and E061 (ADR 0034). The older spellings (`_type` suffixes, `boolean`)
@@ -640,6 +640,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   expression group as its conjuncts one per line, lists as arrays, a block as
   an object; never a parse tree or a position. A value E061 admits is a value
   the published schema admits (ADR 0064).
+- **Typed block**: a `block` field that declares `members`, full field descriptors, recursively; each member is read,
+  checked and written as a field is (`FieldForm::members`). A `block` without members is an open map of named text
+  entries (ADR 0285).
+- **Block list**: a `block_list` field, a list of typed blocks written `[ { … } { … } ]`, one item a line, no commas
+  (`FieldValue::Blocks`). An item has no identity; it is addressed by its index (ADR 0285).
+- **Member path**: where a value sits inside a field. Declared, `requires.phase` (a reference edge's label, a
+  rule's `field`, a hover); written, `requires[1].phase`, the 0-based item of a block list (diagnostics, typed edits)
+  (`MemberPath`, ADR 0285).
+- **Member (of a block)**: a field a typed block declares. Not an entity's members (below), and not a type member (a
+  field written in a `type` entity, ADR 0282): a typed block's member is never a type expression.
+- **File base**: where a `file_reference` field's relative paths start, `spec` (the spec root, the default) or
+  `project` (the directory of `specforge.json`), declared by the field (`file_base`, ADR 0285; ADR 0118 D1 for the
+  default).
 - **Members**: what an entity holds besides its id, kind, title and obligations, as every output writes it
   (`specforge_graph::Members`, ADR 0222): its fields' values (`FieldJson`), the annotations written after them, by the
   field's name (an entry of a block field's by `outer.key`), and its methods (`MethodJson`: name, parameters with their

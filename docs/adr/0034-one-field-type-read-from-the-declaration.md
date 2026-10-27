@@ -1,6 +1,6 @@
 # One field type, read from the declaration
 
-**Status:** accepted (2026-10-07) Extended by [ADR 0234](0234-a-values-spelling-is-the-spellers.md) (`date`).
+**Status:** accepted (2026-10-07) Extended by [ADR 0234](0234-a-values-spelling-is-the-spellers.md) (`date`). Extended by [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md): `enum_list`, `block_list`.
 
 A field's type was defined once, `specforge_protocol_types::FieldType`, and copied twice on the host:
 `specforge_registry::ManifestFieldType` (with an enum's values inside) and the emitter's

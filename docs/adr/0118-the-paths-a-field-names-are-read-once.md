@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-16, architecture round 12, plan 07). Reopens [ADR 0031](0031-the-registry-build-checks-the-entities.md)
 D1's order and its rejected option "the structural checks as host rules", for E016 alone. Amends
 [ADR 0020](0020-rules-are-a-typed-set.md) D1's order and [ADR 0107](0107-the-checks-read-through-the-disk-they-are-given.md)
-D5(2).
+D5(2). Amended by [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md): D1, a relative path is the field's base's.
 
 ## Context
 
