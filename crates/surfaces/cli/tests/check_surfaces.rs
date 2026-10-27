@@ -4,7 +4,7 @@
 //! What each surface answers on the parity fixtures, pinned as insta
 //! snapshots before the two surfaces move onto one check operation: the
 //! CLI's exit code and JSON output, with and without `--strict`, its lint
-//! profile and build cache handling, and MCP validate's whole result for
+//! profile, and MCP validate's whole result for
 //! each argument set it takes. A later ticket that changes an answer on
 //! purpose updates its snapshot in the same diff.
 

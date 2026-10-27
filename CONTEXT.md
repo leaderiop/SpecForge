@@ -1178,7 +1178,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0027). A set the project decides (analysis passes, entity kinds) is not one.
 - **Check**: the operation that turns what a compile reported into what a surface reports: the
   diagnostic policy (lint profiles, then strict), the verdict (no error among everything reported),
-  the severity filter (what is shown, never the verdict) and the opt-in build-cache record
+  the severity filter (what is shown, never the verdict)
   (`specforge_ops::analysis::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
 - **Run verdict**: whether an operation that judges the project passed, failed, or could not judge it,

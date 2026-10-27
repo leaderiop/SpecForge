@@ -586,9 +586,9 @@ fn a_detached_session_has_no_inputs() {
 
 /// A project whose `specforge.json` names a module in another temp
 /// directory, and whose one `gadget` (the in-process passes extension, so
-/// build-cache and file-reference inputs both exist) names `docs`. The
+/// file-reference inputs exist) names `docs`. The
 /// paths of every input the session reaches, as a test spells them:
-/// config, lock, module, build cache, then each of `docs` resolved against
+/// config, lock, module, then each of `docs` resolved against
 /// the root (the spec root), and a sibling of the last in its directory.
 struct InputsLayout {
     project: TestProject,

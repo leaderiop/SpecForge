@@ -627,16 +627,16 @@ constraint product_cross_extension_integration_correctness "Cross-Extension Inte
 }
 
 constraint product_status_transition_correctness "Product Status Transition Correctness" {
-  description "Status transition validation must catch all invalid transitions and suppress when no build cache exists."
+  description "Status transition validation must catch all invalid transitions and suppress when there is no git baseline."
   category    reliability
   priority    critical
   metric      """
     Status transition validation (W087-W091) MUST fire if and only if
     the current status cannot be reached from the prior status via a
     valid transition. Zero false negatives (every invalid transition is
-    caught). Zero false positives when a build cache exists and
+    caught). Zero false positives when a git baseline exists and
     transitions are valid. All transition checks MUST be suppressed
-    when no build cache file (specforge-cache.json) exists. Terminal
+    when there is no git baseline. Terminal
     states MUST have zero outbound transitions.
   """
   constrains  [

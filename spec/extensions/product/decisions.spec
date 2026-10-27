@@ -1847,7 +1847,7 @@ decision pe_queries_as_derived_layer "Product Queries as Derived Convenience Lay
   ]
 }
 
-decision pe_status_transition_via_cache "Status Transitions via Explicit Build Cache" {
+decision pe_status_transition_via_cache "Status Transitions via the Git Baseline" {
   status       accepted
   date         2026-03-13
   context      """
@@ -1859,34 +1859,29 @@ decision pe_status_transition_via_cache "Status Transitions via Explicit Build C
     commitment where identical inputs always produce identical outputs.
   """
   decision     """
-    Status transition validation uses an explicit, opt-in build cache file
-    (specforge-cache.json) as a declared compiler input. The cache records
-    entity statuses from the previous successful build: product declares
-    `status` the lifecycle field of feature, milestone, deliverable,
-    persona, channel and release, and the host records the lifecycle field
-    of each kind that declares one, naming no field itself (ADR 0009).
-    When present,
-    W087-W091/W094 compare current status against cached status. When
-    absent, transition rules are suppressed and only vocabulary validity
-    (E061) is checked.
+    Status transition validation reads the git baseline (ADR 0287): the
+    project compiled at HEAD, handed to a pass as `previous`. It records
+    entity statuses from the previous commit. When there is a baseline,
+    W087-W091/W094 compare current status against the baseline status.
+    When there is none, transition rules are suppressed and only
+    vocabulary validity (E061) is checked.
 
-    The cache file is a deterministic, reproducible artifact: same spec
-    files always produce the same cache contents. It is NOT hidden compiler
-    state — it is a version-controllable file that teams explicitly choose
-    to maintain. This preserves deterministic compilation: identical inputs
-    (spec files + optional cache file) always produce identical outputs.
+    The baseline is a deterministic function of the commit and the
+    loaded extensions. It is NOT hidden compiler state — it is what git
+    already holds. This preserves deterministic compilation: identical
+    inputs (spec files + HEAD) always produce identical outputs.
 
-    CI pipelines that want transition checking commit the cache file.
-    Pipelines that want stateless builds simply omit it. Both modes are
-    first-class supported.
+    CI pipelines that want transition checking fetch enough history to
+    name HEAD or the merge-base. Pipelines that want stateless builds
+    run outside a repository. Both modes are first-class supported.
   """
   consequences [
-    "Transition validation requires explicit build cache (opt-in)",
-    "First build or cache-disabled workflows: only enum validity checked",
-    "Cache file is a declared input, not hidden compiler state",
-    "CI pipelines can commit cache for transition checking",
-    "Stateless builds remain fully deterministic without cache",
-    "Same spec files + same cache = same diagnostics (deterministic)",
+    "Transition validation requires the git baseline",
+    "No baseline (no repository, no commit yet): only enum validity checked",
+    "The baseline is a declared input, not hidden compiler state",
+    "CI pipelines can fetch history for transition checking",
+    "Stateless builds remain fully deterministic without a baseline",
+    "Same spec files + same HEAD = same diagnostics (deterministic)",
   ]
 }
 

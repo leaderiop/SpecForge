@@ -406,7 +406,7 @@ invariant pe_migration_backward_compat "Migration Backward Compatibility" {
 invariant pe_validation_deterministic "Validation Deterministic" {
   guarantee """
     Product validation MUST be deterministic: identical inputs (spec
-    files + optional cache file) always produce identical diagnostic
+    files + HEAD) always produce identical diagnostic
     output. No time-dependent diagnostics during specforge check.
   """
   risk      high
