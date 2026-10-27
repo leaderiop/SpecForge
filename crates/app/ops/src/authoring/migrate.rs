@@ -554,6 +554,8 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
     }
 
     // A kept migration made without backups removes the record, since a rollback after it would mix versions.
+    let _lock = crate::change::lock_if_harnessed(project.dir())
+        .map_err(|e| unwritable(project.dir(), &e).prefixed("cannot migrate: "))?;
     let written = if request.no_backup {
         change.commit_then(|| remove_record(&record))
     } else {

@@ -36,6 +36,8 @@ pub fn changed_files(root: &Path, before: &Snapshot, after: &Snapshot) -> Vec<Pa
         .keys()
         .chain(after.keys())
         .filter(|path| before.get(*path) != after.get(*path))
+        // The lock every write takes holds nothing.
+        .filter(|path| !path.ends_with(".specforge/write.lock"))
         .map(|path| {
             path.strip_prefix(root)
                 .unwrap_or_else(|_| panic!("{} is not under {}", path.display(), root.display()))

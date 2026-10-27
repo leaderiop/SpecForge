@@ -139,15 +139,6 @@ impl Failure {
         }
     }
 
-    /// A write of `path` failed with `error`.
-    fn write(path: PathBuf, error: &std::io::Error) -> Self {
-        Failure::Write {
-            path,
-            kind: OpErrorKind::of_io(error),
-            error: error.to_string(),
-        }
-    }
-
     /// The file that failed.
     pub fn path(&self) -> &Path {
         match self {
@@ -510,10 +501,18 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
             continue;
         }
         let written = match request.mode {
-            Mode::Write => match held.replace(&formatted) {
+            Mode::Write => match write_formatted(&outcome.root, held, &source, &formatted) {
                 Ok(()) => true,
                 Err(e) => {
-                    outcome.failures.push(Failure::write(target.clone(), &e));
+                    outcome.failures.push(Failure::Write {
+                        path: target.clone(),
+                        kind: e.kind,
+                        error: if e.code == crate::FILE_CHANGED {
+                            format!("{}: {}", e.code, e.message)
+                        } else {
+                            e.message
+                        },
+                    });
                     false
                 }
             },
@@ -527,4 +526,23 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
         });
     }
     Ok(outcome)
+}
+
+/// `formatted` over `source`, under the write lock and only if the file still holds `source`: a write that landed
+/// since it was read is kept (ADR 0289).
+fn write_formatted(
+    root: &Path,
+    held: crate::Held,
+    source: &str,
+    formatted: &str,
+) -> Result<(), OpError> {
+    let _lock =
+        crate::change::lock_if_harnessed(root).map_err(|e| crate::change::unwritable(root, &e))?;
+    let mut change = crate::change::ProjectChange::new(root, "cannot format");
+    change.stage(
+        held,
+        Some(source.as_bytes().to_vec()),
+        formatted.as_bytes().to_vec(),
+    );
+    change.commit().map(|_| ())
 }

@@ -324,3 +324,12 @@ pub(crate) fn unwritable(file: &Path, error: &std::io::Error) -> OpError {
 mod owned_tests;
 #[cfg(test)]
 mod tests;
+
+/// The project's write lock, for a project that has a `.specforge/` (a harness, a writing extension, a migration
+/// record): a project without one gets none made by a write (ADR 0289).
+pub(crate) fn lock_if_harnessed(root: &Path) -> std::io::Result<Option<std::fs::File>> {
+    root.join(".specforge")
+        .is_dir()
+        .then(|| specforge_project::harness::lock(root))
+        .transpose()
+}

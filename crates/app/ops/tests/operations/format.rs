@@ -8,7 +8,6 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::writes::project;
 
-#[ignore = "K5 T14"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "format does not overwrite a concurrent write"
