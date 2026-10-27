@@ -7,8 +7,8 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::find_close_match;
 use specforge_formatter::FormatConfig;
-use specforge_graph::Found;
 use specforge_graph::field_form::Reading;
+use specforge_graph::{Found, Scopes};
 use specforge_registry::FieldRegistryEntry;
 
 /// The edit names a field its kind does not declare.
@@ -19,10 +19,14 @@ const OTHER_SIDE: &str = "other_side";
 /// The entity an edit changes, and where it is.
 pub struct Site<'a> {
     pub view: &'a ProjectView<'a>,
+    /// Who is in which scope once the edits before this one are made (ADR 0284): what a written name resolves with.
+    pub scopes: &'a Scopes,
     /// The file, relative to the project root.
     pub key: &'a str,
     pub id: &'a str,
     pub kind: &'a str,
+    /// Which of the blocks the file declares with this name and kind is the entity's, in file order.
+    pub ordinal: usize,
     /// The format configuration of the entity's file, looked up once per plan (ADR 0169).
     pub config: FormatConfig,
 }
@@ -69,11 +73,10 @@ impl Site<'_> {
             );
         }
         let target = target.and_then(|id| {
-            let graph = self.view.graph();
-            let Found::One(path) = graph.find(id) else {
+            let Found::One(path) = self.scopes.resolve(None, id, &|_| true) else {
                 return None;
             };
-            Some((id, graph.node(path.as_str())?.kind.raw.as_str()))
+            Some((id, self.scopes.kind(path.as_str())?.as_str()))
         });
         let owners = self.view.registries().fields().owning_fields(
             self.kind,

@@ -67,15 +67,15 @@ impl Planner<'_> {
             .collect()
     }
 
-    // shortcut: the scopes before are the graph's, so an edit that follows another one of the same plan reads the
-    // project as it was before the plan; upgrade by keeping the scopes with the planned texts.
+    /// Respell the tokens of the plan's texts so they name what they named before the edit, reading the scopes the plan
+    /// has so far (`self.scopes`, which include the edits before this one) and `rekey.after`.
     pub(super) fn keep_targets(
         &mut self,
         before: &BTreeMap<String, String>,
         rekey: &Rekey<'_>,
     ) -> Result<(), Refusal<EditField>> {
         let inputs = self.view.registries().graph_inputs();
-        let scopes = self.view.graph().scopes();
+        let scopes = &self.scopes;
         let moved = |path: &str| -> String {
             match rekey.moves.iter().find(|(old, _)| old == path) {
                 Some((_, new)) => new.clone(),

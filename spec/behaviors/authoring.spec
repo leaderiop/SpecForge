@@ -136,6 +136,8 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set keeps the comment trailing the value, annotations given or not"
   verify unit "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
   verify unit "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
+  verify unit "a plan's edits read the project as the edits before them leave it"
+  verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -171,6 +173,7 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "link and unlink keep the comment trailing the list"
   verify unit "a link to a target already there writes nothing, whatever comment the list holds"
   verify unit "a typed edit writes the shortest spelling that resolves from its holder, and a scope field as a full path"
+  verify unit "a plan's edits read the project as the edits before them leave it"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {

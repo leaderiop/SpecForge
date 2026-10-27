@@ -5,10 +5,12 @@
 use super::path;
 use super::write::{NOT_EDITABLE, written};
 use super::{EditField, Input};
+use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{SourceSpan, codes};
 use specforge_formatter::FormatConfig;
 use specforge_graph::field_form::{self, FieldForm, Reading, spell};
+use specforge_graph::{Scopes, block_paths};
 use specforge_parser::{Entity, FieldEntry, FieldValue, SpecFile, parse};
 use specforge_protocol_types::FieldType;
 
@@ -66,28 +68,42 @@ fn commented(site: &Site<'_>, field: &str) -> Refusal<EditField> {
 }
 
 /// The block of `site` in `file`: the one declared with its name and kind. Several in one file (the same name in
-/// scopes of one file) are told apart by their order among those the graph holds there.
-// shortcut: the order is the graph's, so a plan that adds a same-named block above one edited later in it misplaces
-// the edit; upgrade by reading each block's scope field through `declared_path`.
+/// scopes of one file, or an E002 duplicate) are told apart by their order among those declared so: `site.ordinal`.
 fn position(file: &SpecFile, site: &Site<'_>) -> Option<usize> {
-    let same: Vec<usize> = (0..file.entities.len())
+    let same = same_named(file, site.name(), site.kind);
+    same.get(site.ordinal).or(same.last()).copied()
+}
+
+/// The blocks of `file` declared with `name` and `kind`, in order.
+fn same_named(file: &SpecFile, name: &str, kind: &str) -> Vec<usize> {
+    (0..file.entities.len())
         .filter(|&i| {
             let e = &file.entities[i];
-            e.id.raw.as_str() == site.name() && e.kind.raw.as_str() == site.kind
+            e.id.raw.as_str() == name && e.kind.raw.as_str() == kind
         })
-        .collect();
-    if same.len() < 2 {
-        return same.first().copied();
-    }
-    let graph = site.view.graph();
-    let mut held: Vec<_> = graph
-        .nodes_in_file(site.key)
-        .into_iter()
-        .filter(|n| n.name() == site.name() && n.kind.raw.as_str() == site.kind)
-        .collect();
-    held.sort_by_key(|n| n.source_span.start_line);
-    let ordinal = held.iter().position(|n| n.id.raw.as_str() == site.id);
-    ordinal.and_then(|n| same.get(n)).or(same.last()).copied()
+        .collect()
+}
+
+/// The ordinal (`Site::ordinal`) of the entity `(file key, path, kind)` in `text`: its rank among the blocks of its
+/// name and kind, counting every parsed one on both sides. The block is the first whose declared path, read against
+/// `scopes` (the project as the plan so far leaves it), is the entity's, so an E002 duplicate never shifts the target.
+pub fn ordinal(
+    view: &ProjectView<'_>,
+    scopes: &Scopes,
+    text: &str,
+    (key, path, kind): (&str, &str, &str),
+) -> usize {
+    let file = parse(text, key);
+    let name = if path.contains(':') {
+        path
+    } else {
+        path.rsplit('/').next().unwrap_or(path)
+    };
+    let same = same_named(&file, name, kind);
+    let paths = block_paths(&file, view.registries().graph_inputs(), scopes);
+    same.iter()
+        .position(|&i| paths[i].is_some_and(|p| p.as_str() == path))
+        .unwrap_or(0)
 }
 
 /// The lines of one entity's block, formatted, and what the parser reads in them.

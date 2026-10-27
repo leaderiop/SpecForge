@@ -24,11 +24,12 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use serde::{Deserialize, Serialize};
 use specforge_common::DiagnosticList;
+use specforge_common::Sym;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
-use specforge_graph::Found;
+use specforge_graph::{Found, Scopes};
 use specforge_parser::LineBreak;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// One typed edit. The MCP `specforge.edit` tool reads a list of them (`op` names the variant); each CLI verb
 /// builds one. Every edit of a member (set, unset, link, unlink, add or remove a verify statement) refuses a union
@@ -266,15 +267,20 @@ impl EditPlan {
     }
 }
 
-/// The part of the plan being made: the edited texts, and what the earlier edits created or deleted. The texts are LF:
-/// each file is read in its `LineBreak` and written back in it (ADR 0266).
+/// The part of the plan being made: the edited texts, and the project as the earlier edits leave it: who is in which
+/// scope, and in which file an entity the plan created or moved is. Every edit reads these, not the graph, so it sees
+/// what the edits before it made (ADR 0284). The texts are LF: each file is read in its `LineBreak` and written back
+/// in it (ADR 0266).
 struct Planner<'v> {
     view: &'v ProjectView<'v>,
     /// The plan's one configuration lookup, through the view's disk (ADR 0169).
     configs: Configs<'v>,
     texts: BTreeMap<String, String>,
-    created: BTreeMap<String, (String, String)>,
-    deleted: BTreeSet<String>,
+    /// The scopes once the edits so far are made.
+    scopes: Scopes,
+    /// The file of each path an edit of the plan created, moved to or deleted (`None`); any other path is the
+    /// graph's.
+    files: BTreeMap<String, Option<String>>,
     declared: declared::Declared,
 }
 
@@ -304,13 +310,22 @@ impl<'v> Planner<'v> {
         }
     }
 
-    /// The path `id` names: a path the plan created, else the graph's entity by its path or a unique short form;
+    /// The file of the entity at `path` as the plan leaves it.
+    fn file_of(&self, path: &str) -> Option<String> {
+        match self.files.get(path) {
+            Some(file) => file.clone(),
+            None => self
+                .view
+                .graph()
+                .node(path)
+                .map(|node| node.source_span.file.to_string()),
+        }
+    }
+
+    /// The path `id` names in the project as the plan leaves it: the entity by its path or a unique short form;
     /// refused when a short form names several. `id` itself when it names none (the caller refuses it).
     fn path_of(&self, id: &str) -> Result<String, Refusal<EditField>> {
-        if self.created.contains_key(id) {
-            return Ok(id.to_string());
-        }
-        match self.view.graph().find(id) {
+        match self.scopes.resolve(None, id, &|_| true) {
             Found::One(path) => Ok(path.to_string()),
             Found::Ambiguous(paths) => {
                 Err(crate::view::ambiguous(id, &paths).about(EditField::Entity))
@@ -321,21 +336,13 @@ impl<'v> Planner<'v> {
 
     fn locate(&self, id: &str) -> Result<Located, Refusal<EditField>> {
         let path = self.path_of(id)?;
-        if let Some((kind, key)) = self.created.get(&path) {
-            return Ok(Located {
-                key: key.clone(),
-                kind: kind.clone(),
-                path,
-            });
-        }
-        let graph = self.view.graph();
-        match graph.node(&path).filter(|_| !self.deleted.contains(&path)) {
-            Some(node) => Ok(Located {
-                key: node.source_span.file.to_string(),
-                kind: node.kind.raw.to_string(),
+        match self.scopes.kind(&path).zip(self.file_of(&path)) {
+            Some((kind, key)) => Ok(Located {
+                key,
+                kind: kind.to_string(),
                 path,
             }),
-            None => Err(crate::view::not_found(graph, id).about(EditField::Entity)),
+            None => Err(crate::view::not_found(self.view.graph(), id).about(EditField::Entity)),
         }
     }
 
@@ -353,12 +360,20 @@ impl<'v> Planner<'v> {
                 format!("no text was read for {}", located.key),
             )
         })?;
+        let config = self.config_of(&located.key);
         let site = block::Site {
             view: self.view,
+            scopes: &self.scopes,
             key: &located.key,
             id: &located.path,
             kind: &located.kind,
-            config: self.config_of(&located.key),
+            ordinal: block::ordinal(
+                self.view,
+                &self.scopes,
+                &text,
+                (&located.key, &located.path, &located.kind),
+            ),
+            config,
         };
         let new = change(&site, &text)?;
         if new != text {
@@ -404,33 +419,34 @@ impl<'v> Planner<'v> {
         let (Edit::Set { field, .. } | Edit::Unset { field, .. }) = edit else {
             return Vec::new();
         };
-        let graph = self.view.graph();
-        let Some(node) = graph.node(path) else {
+        let scopes = &self.scopes;
+        let Some(kind) = scopes.kind(path) else {
             return Vec::new();
         };
         let scoped_by = &self.view.registries().graph_inputs().scopes;
-        if scoped_by.get(node.kind.raw.as_str()) != Some(field) {
+        if scoped_by.get(kind.as_str()) != Some(field) {
             return Vec::new();
         }
         let scope = match edit {
             Edit::Set {
                 value: Input::One(written),
                 ..
-            } => match graph.find(written) {
+            } => match scopes.resolve(None, written, &|_| true) {
                 Found::One(found) => Some(found.to_string()),
                 _ => Some(written.clone()),
             },
             _ => None,
         };
+        let name = scopes.name(Sym::new(path));
         let new = match scope {
-            Some(scope) => format!("{scope}/{}", node.name()),
-            None => node.name().to_string(),
+            Some(scope) => format!("{scope}/{name}"),
+            None => name.to_string(),
         };
         let under = format!("{path}/");
         let mut moves = vec![(path.to_string(), new.clone())];
-        for member in graph.nodes() {
-            if let Some(rest) = member.id.raw.as_str().strip_prefix(&under) {
-                moves.push((member.id.raw.to_string(), format!("{new}/{rest}")));
+        for member in scopes.paths() {
+            if let Some(rest) = member.as_str().strip_prefix(&under) {
+                moves.push((member.to_string(), format!("{new}/{rest}")));
             }
         }
         moves
@@ -450,33 +466,38 @@ impl<'v> Planner<'v> {
             return Ok(());
         };
         // A move or a create keeps what every other token names (ADR 0284).
-        let scopes = self.view.graph().scopes();
         let (after, written, created) = match edit {
             Edit::Create { kind, .. } => (
-                scopes.added(
-                    specforge_common::Sym::new(&path),
-                    specforge_common::Sym::new(kind),
-                    keep::parent(&path),
-                ),
+                self.scopes
+                    .added(Sym::new(&path), Sym::new(kind), keep::parent(&path)),
                 None,
                 Some(path.as_str()),
             ),
             Edit::Set { field, .. } | Edit::Unset { field, .. } => (
-                keep::rekeyed(scopes, &moves),
+                keep::rekeyed(&self.scopes, &moves),
                 Some((path.as_str(), field.as_str())),
                 None,
             ),
             _ => return Ok(()),
         };
-        self.keep_targets(
-            &before,
-            &keep::Rekey {
-                after,
-                moves: &moves,
-                written,
-                created,
-            },
-        )
+        let rekey = keep::Rekey {
+            after,
+            moves: &moves,
+            written,
+            created,
+        };
+        self.keep_targets(&before, &rekey)?;
+        // The edits after this one read the project as it is now.
+        let files: Vec<_> = moves
+            .iter()
+            .map(|(old, new)| (new.clone(), self.file_of(old)))
+            .collect();
+        for (old, _) in &moves {
+            self.files.insert(old.clone(), None);
+        }
+        self.files.extend(files);
+        self.scopes = rekey.after;
+        Ok(())
     }
 
     fn apply_edit(&mut self, edit: &Edit, path: &str) -> Result<(), Refusal<EditField>> {
@@ -590,8 +611,8 @@ pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<
         view,
         configs: Configs::new(Forms::none(), &disk),
         texts: BTreeMap::new(),
-        created: BTreeMap::new(),
-        deleted: BTreeSet::new(),
+        scopes: view.graph().scopes().clone(),
+        files: BTreeMap::new(),
         declared: declared::Declared::default(),
     };
     for (n, edit) in edits.iter().enumerate() {

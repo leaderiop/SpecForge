@@ -99,6 +99,23 @@ pub(crate) fn declared_path(
     (Some(scope), Sym::new(&format!("{scope}/{}", entity.id.raw)))
 }
 
+/// The path each block of `file` declares against `scopes`, in file order: none for a `defaults` or `define` block. A
+/// duplicate declaration has its winner's path, so a typed edit finds a block by its path whatever the file holds.
+pub fn block_paths(
+    file: &SpecFile,
+    inputs: &GraphInputs,
+    scopes: &crate::Scopes,
+) -> Vec<Option<Sym>> {
+    let (defaults, _) = FileDefaults::of(file, &inputs.field_forms);
+    file.entities
+        .iter()
+        .map(|entity| {
+            (!is_defaults_block(entity) && !is_define_block(entity))
+                .then(|| declared_path(inputs, &defaults, scopes, entity).1)
+        })
+        .collect()
+}
+
 /// The one sweep over the files, in the iteration order they are given:
 /// every file's E001s and the I007 / E019 its
 /// format version header reports first, then per file and entity W143 / E076 / E081 / E002 / W060, then I005. It is

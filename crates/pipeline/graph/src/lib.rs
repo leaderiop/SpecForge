@@ -7,6 +7,7 @@
 
 mod build;
 mod declare;
+pub use declare::block_paths;
 mod defaults;
 pub use defaults::{FileDefaults, Held, written_fields};
 pub mod field_form;

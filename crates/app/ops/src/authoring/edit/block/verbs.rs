@@ -39,13 +39,12 @@ fn spelled(site: &Site<'_>, field: &str, reading: &Reading<'_>, text: &str) -> S
     ) {
         return text.to_string();
     }
-    let graph = site.view.graph();
-    let Found::One(target) = graph.find(text) else {
+    let Found::One(target) = site.scopes.resolve(None, text, &|_| true) else {
         return text.to_string();
     };
     let scope_field = site.view.registries().graph_inputs().scopes.get(site.kind);
     let from = (scope_field.map(String::as_str) != Some(field)).then(|| Sym::new(site.id));
-    graph.scopes().spell(from, target, &|_| true)
+    site.scopes.spell(from, target, &|_| true)
 }
 
 /// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that. A value holding a comment
@@ -202,8 +201,7 @@ pub fn link(
         ));
     };
     let target_text = spelled(site, field, &reading, target);
-    let graph = site.view.graph();
-    let target_path = match graph.find(target) {
+    let target_path = match site.scopes.resolve(None, target, &|_| true) {
         Found::One(path) => Some(path),
         _ => None,
     };
@@ -212,8 +210,7 @@ pub fn link(
         written == target
             || written == target_text
             || target_path.is_some_and(|path| {
-                graph
-                    .scopes()
+                site.scopes
                     .chain(Some(Sym::new(site.id)), written, &|_| true)
                     == Found::One(path)
             })

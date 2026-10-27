@@ -245,3 +245,156 @@ decision D-01 \"Choice\" {
     let text = after(&project, &[create("phase", "03", ("milestone", "v2.0"))]);
     assert!(text.contains("phase v1.0/03"), "{text}");
 }
+
+/// Phases `03` and `04` of `v1.0`, a milestone `v2.0`, and a plan of phase 03 that links `D-02`.
+const REFERRED: &str = "\
+milestone v1.0 \"One\" {
+}
+
+milestone v2.0 \"Two\" {
+}
+
+phase 03 \"Three\" {
+  milestone v1.0
+}
+
+phase 04 \"Four\" {
+  milestone v1.0
+}
+
+decision D-02 \"Other\" {
+  phase v1.0/03
+}
+
+plan 03-02 \"Plan\" {
+  phase v1.0/03
+  decisions [D-02]
+}
+";
+
+fn retitle(id: &str, title: &str) -> Edit {
+    Edit::Retitle {
+        entity_id: id.into(),
+        title: title.into(),
+    }
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "a plan's edits read the project as the edits before them leave it"
+)]
+fn two_scope_edits_of_one_plan_respell_against_each_other() {
+    let project = project(REFERRED);
+    // The decision moves to phase 04, then phase 04 to milestone v2.0: the plan's link follows both.
+    let text = after(
+        &project,
+        &[
+            set("v1.0/03/D-02", "phase", "v1.0/04"),
+            set("v1.0/04", "milestone", "v2.0"),
+        ],
+    );
+    assert!(text.contains("decisions [v2.0/04/D-02]"), "{text}");
+    assert!(text.contains("phase v2.0/04\n}"), "{text}");
+
+    // Reverse order: the phase moves first, then the decision joins it.
+    let text = after(
+        &project,
+        &[
+            set("v1.0/04", "milestone", "v2.0"),
+            set("v1.0/03/D-02", "phase", "v2.0/04"),
+        ],
+    );
+    assert!(text.contains("decisions [v2.0/04/D-02]"), "{text}");
+    assert!(!text.contains("[/v2.0"), "{text}");
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "a plan's edits read the project as the edits before them leave it"
+)]
+fn a_later_edit_addresses_a_moved_entity_by_its_new_path() {
+    let project = project(REFERRED);
+    let text = after(
+        &project,
+        &[
+            set("v1.0/03/D-02", "phase", "v1.0/04"),
+            retitle("v1.0/04/D-02", "Renamed"),
+        ],
+    );
+    assert!(
+        text.contains("decision D-02 \"Renamed\" {\n  phase v1.0/04"),
+        "{text}"
+    );
+}
+
+#[specforge_test(
+    behavior = "edit_entity_link",
+    verify = "a plan's edits read the project as the edits before them leave it"
+)]
+fn a_link_after_a_create_writes_the_shortest_spelling() {
+    let project = project(REFERRED);
+    let text = after(
+        &project,
+        &[
+            create("decision", "D-09", ("phase", "v1.0/03")),
+            Edit::Link {
+                entity_id: "v1.0/03/03-02".into(),
+                field: "decisions".into(),
+                target: "v1.0/03/D-09".into(),
+            },
+        ],
+    );
+    assert!(text.contains("decisions [D-02, D-09]"), "{text}");
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
+)]
+fn an_e002_duplicate_does_not_shift_the_edited_block() {
+    // The compile reports the duplicate (the fixture reports what it is given), as an edit's baseline.
+    let duplicate = specforge_common::Diagnostic::new(
+        specforge_common::codes::E002,
+        "duplicate entity ID 'v1.0/03/D-01' (first declared at a.spec:12:1)",
+    )
+    .with_span(specforge_common::SourceSpan {
+        file: specforge_common::Sym::new("a.spec"),
+        start_line: 16,
+        start_col: 1,
+        end_line: 18,
+        end_col: 2,
+    });
+    let project = project(
+        "\
+milestone v1.0 \"One\" {
+}
+
+phase 03 \"Three\" {
+  milestone v1.0
+}
+
+phase 04 \"Four\" {
+  milestone v1.0
+}
+
+decision D-01 \"First\" {
+  phase v1.0/03
+}
+
+decision D-01 \"Duplicate\" {
+  phase v1.0/03
+}
+
+decision D-01 \"Target\" {
+  phase v1.0/04
+}
+",
+    )
+    .reporting(vec![duplicate]);
+    let text = after(&project, &[retitle("v1.0/04/D-01", "Edited")]);
+    assert!(
+        text.contains("decision D-01 \"Edited\" {\n  phase v1.0/04"),
+        "{text}"
+    );
+    assert!(text.contains("\"Duplicate\""), "{text}");
+}

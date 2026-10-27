@@ -74,9 +74,11 @@ impl<'v> Skeletons<'v> {
         self.view.kinds().declared(kind).ok()?;
         let site = Site {
             view: self.view,
+            scopes: self.view.graph().scopes(),
             key: "skeleton.spec",
             id: ID,
             kind,
+            ordinal: 0,
             config: self.config.clone(),
         };
         let required: Vec<FieldInfo> = fields_of(self.view, kind)

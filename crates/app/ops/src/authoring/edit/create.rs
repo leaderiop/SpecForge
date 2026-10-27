@@ -57,7 +57,7 @@ impl Planner<'_> {
             return name.to_string();
         };
         // A scope that resolves to none keeps its written text in the path (ADR 0284).
-        let scope = match self.view.graph().find(scope) {
+        let scope = match self.scopes.resolve(None, scope, &|_| true) {
             Found::One(path) => path.to_string(),
             _ => scope.clone(),
         };
@@ -75,10 +75,7 @@ impl Planner<'_> {
     ) -> Result<(), Refusal<EditField>> {
         validate_id(id, self.view.registries().kinds()).map_err(|e| e.about(EditField::Id))?;
         let path = &self.new_path(kind, id, fields);
-        let graph = self.view.graph();
-        if (graph.node(path).is_some() && !self.deleted.contains(path))
-            || self.created.contains_key(path)
-        {
+        if self.scopes.contains(path) {
             return Err(OpError::new(
                 OpErrorKind::Conflict,
                 rename::TAKEN,
@@ -99,12 +96,20 @@ impl Planner<'_> {
         let file = file.as_str();
         let existing = self.text(file).unwrap_or_default();
         let parsed = parse(&existing, file);
+        let config = self.config_of(file);
         let site = Site {
             view: self.view,
+            scopes: &self.scopes,
             key: file,
             id: path,
             kind,
-            config: self.config_of(file),
+            // The new block goes after the last of its kind, so after every block of its name and kind.
+            ordinal: parsed
+                .entities
+                .iter()
+                .filter(|e| e.id.raw.as_str() == id && e.kind.raw.as_str() == kind)
+                .count(),
+            config,
         };
         let header = header(kind, id, title);
         let text = fill(
@@ -114,9 +119,7 @@ impl Planner<'_> {
             verify,
         )?;
         self.texts.insert(file.to_string(), text);
-        self.created
-            .insert(path.to_string(), (kind.to_string(), file.to_string()));
-        self.deleted.remove(path);
+        self.files.insert(path.to_string(), Some(file.to_string()));
         Ok(())
     }
 
@@ -125,9 +128,9 @@ impl Planner<'_> {
         id: &str,
         unlink_references: bool,
     ) -> Result<(), Refusal<EditField>> {
-        let located = self.locate(id)?;
+        self.locate(id)?;
         if unlink_references {
-            let (referrers, bound) = self.referrers(id, &located.kind)?;
+            let (referrers, bound) = self.referrers(id)?;
             for (referrer, field, list) in referrers {
                 self.declared.field(&referrer, &field);
                 self.on(&referrer, |site, text| {
@@ -151,8 +154,8 @@ impl Planner<'_> {
             block.delete();
             Ok(block.text())
         })?;
-        self.deleted.insert(id.to_string());
-        self.created.remove(id);
+        self.scopes.remove(Sym::new(id));
+        self.files.insert(id.to_string(), None);
         Ok(())
     }
 
@@ -161,19 +164,8 @@ impl Planner<'_> {
     /// `use` binding that imports it (ADR 0233). A token no typed edit writes
     /// refuses the delete, naming each place: an entry of a `defaults` block (ADR 0151 D5), a field its holder's kind
     /// does not declare, or a type name a derived field reads.
-    fn referrers(
-        &self,
-        id: &str,
-        kind: &str,
-    ) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
+    fn referrers(&self, id: &str) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
         let inputs = self.view.registries().graph_inputs();
-        let graph = self.view.graph();
-        // The entity being deleted is in the graph; one this plan created is not yet.
-        let scopes = if graph.scopes().contains(id) {
-            graph.scopes().clone()
-        } else {
-            graph.scopes().added(Sym::new(id), Sym::new(kind), None)
-        };
         let mut keys: BTreeSet<String> = self.texts.keys().cloned().collect();
         keys.extend(
             self.view
@@ -187,7 +179,7 @@ impl Planner<'_> {
             let Some(text) = self.text(&key) else {
                 continue;
             };
-            for token in written_tokens(&parse(&text, &key), inputs, &scopes) {
+            for token in written_tokens(&parse(&text, &key), inputs, &self.scopes) {
                 if token.target.as_str() != id {
                     continue;
                 }
