@@ -1,6 +1,6 @@
 # Extension calls are typed, in one module
 
-**Status:** accepted (2026-10-06)
+**Status:** accepted (2026-10-06) Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (`CommandOutput.plan`, `CollectOutput.plan`).
 
 The host performs ten operations on a loaded extension: the handshake and describe that read its
 declaration (ADR 0012), a command, an MCP tool, an MCP resource, a compiler pass, a collector, a

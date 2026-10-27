@@ -1619,6 +1619,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the `History` port only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
+- **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops
+  the host checks, plans with the typed edit engine, judges (E080, guard passes included) and applies all or nothing;
+  an extension never writes a file (ADR 0289).
+- **File revision**: `sha256:<hex>` of a file's bytes as the host compiled them, or `absent`; an op names the revision
+  of the file it writes, and a file that changed since is `stale_revision` (ADR 0289).
+- **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
+  takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
+- **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
+  non-interactive CLI are refused `human_only` (ADR 0289).
+- **Guard pass**: a pass of phase `guard`; it runs only when a write is judged, reads the project before the write as
+  `previous`, and its errors refuse the write (ADR 0289).
+- **Write lock**: `.specforge/write.lock`, held by every host write of a project that has a `.specforge/`.
+- **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
+  one that is pending (ADR 0289).
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises

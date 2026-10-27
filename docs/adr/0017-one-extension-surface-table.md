@@ -1,6 +1,6 @@
 # One extension surface table; the host normalizes command args
 
-**Status:** accepted (2026-10-06); D8's adapters are one module and D9's matching rule is the core resources' (ADR 0049); D7's `check` keeps E039 is keyed by a command's route ([ADR 0097](0097-an-extension-commands-name-is-judged-by-its-route.md)). D5 superseded by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md): over MCP a command tool's argument errors are `invalid_input` McpErrors naming the arg; the CLI keeps the object.
+**Status:** accepted (2026-10-06); D8's adapters are one module and D9's matching rule is the core resources' (ADR 0049); D7's `check` keeps E039 is keyed by a command's route ([ADR 0097](0097-an-extension-commands-name-is-judged-by-its-route.md)). D5 superseded by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md): over MCP a command tool's argument errors are `invalid_input` McpErrors naming the arg; the CLI keeps the object. Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (a writing command's tool is a mutation).
 
 An extension command is derived for each surface, and an extension surface was looked up five ways:
 

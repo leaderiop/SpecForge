@@ -1,6 +1,6 @@
 # A typed edit and a rename write one planned change
 
-**Status:** accepted (2026-10-21, architecture round 19, plan 07). Extended by [ADR 0287](0287-who-writes-a-field-is-declared.md) (a planned change carries its ledger rewrite under a lock). Amends [ADR 0164](0164-a-text-edit-is-one-shape.md)
+**Status:** accepted (2026-10-21, architecture round 19, plan 07). Extended by [ADR 0287](0287-who-writes-a-field-is-declared.md) (a planned change carries its ledger rewrite under a lock). Amends [ADR 0164](0164-a-text-edit-is-one-shape.md) Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (one apply step; a rename may be one op of several).
 (D2), [ADR 0116](0116-navigation-reads-the-text-the-project-was-compiled-from.md) (D3),
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) (the round-15 amendment) and
 [ADR 0124](0124-what-the-caller-lends-an-operation-is-one-value.md) (D2). Amended by round 20 plan 09 (2026-10-21):
