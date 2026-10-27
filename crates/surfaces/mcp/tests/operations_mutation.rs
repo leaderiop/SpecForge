@@ -640,7 +640,7 @@ fn rename_dry_run_returns_the_plan_and_changes_nothing() {
 #[test]
 fn rename_invalid_new_name() {
     let (mut server, _root) = server_with_token_project();
-    for bad in ["", "x", "has space", "token-unique"] {
+    for bad in ["", "x", "has space", "token--unique"] {
         let resp = call_tool(
             &mut server,
             "specforge.rename",
@@ -1571,7 +1571,7 @@ fn rename_invalid_name_format() {
     let resp3 = call_tool(
         &mut server,
         "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": "no-dashes"}),
+        json!({"entity_id": "alpha", "new_name": "no--dashes"}),
     );
     crate::tool_errors::mcp_error(&resp3);
 }
@@ -2110,8 +2110,8 @@ fn rename_refuses_an_illegal_entity_id() {
     let (mut server, root) = server_with_token_project();
     for bad in [
         "a".repeat(61),
-        "token-distinct".to_string(),
-        "9token".to_string(),
+        "token--distinct".to_string(),
+        "token-".to_string(),
     ] {
         let resp = call_tool(
             &mut server,

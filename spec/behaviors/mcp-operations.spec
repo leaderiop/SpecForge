@@ -157,8 +157,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     (1-based lines and byte columns). When dry_run is true, the tool MUST return
     the rename plan (affected files and TextEdit operations) without applying
     any changes. If the entity does not exist, the tool MUST return an error.
-    If new_name is not a legal entity ID (t_entity_id: 2-60 letters, digits
-    and underscores, starting with a letter or underscore) or is a reserved
+    If new_name is not a legal entity ID (t_entity_id: 2-60 characters, words of letters,
+    digits and underscores joined by single dashes or dots) or is a reserved
     word (E013), the tool MUST return a validation error. A new_name the project
     already writes for no entity (a type name, an unresolved reference) MUST be
     refused as a conflict naming new_name, the message naming each place: the

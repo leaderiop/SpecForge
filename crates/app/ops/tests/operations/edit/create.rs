@@ -118,7 +118,7 @@ fn new_refuses_a_taken_id() {
 #[test]
 fn new_refuses_an_invalid_id() {
     let c = tasks();
-    for id in ["a", "9lives", "has space"] {
+    for id in ["a", "a--b", "has space"] {
         let (code, _) = refused(&c, &[create("behavior", id, "tasks.spec", &[])]);
         assert_eq!(code, "invalid_name", "{id}");
     }
