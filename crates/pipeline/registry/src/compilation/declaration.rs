@@ -70,6 +70,28 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// Every kind `field` and its members (recursively) name, as (field or member path, the attribute naming it,
+/// the kind), in declared order (ADR 0285).
+fn target_kinds_of<'f>(
+    field: &'f FieldDescriptor,
+    path: &str,
+) -> Vec<(String, &'static str, &'f str)> {
+    let mut named: Vec<(String, &'static str, &'f str)> = Vec::new();
+    if let Some(kind) = &field.target_kind {
+        named.push((path.to_string(), "target_kind", kind));
+    }
+    named.extend(
+        field
+            .target_kinds
+            .iter()
+            .map(|kind| (path.to_string(), "target_kinds", kind.as_str())),
+    );
+    for member in &field.members {
+        named.extend(target_kinds_of(member, &format!("{path}.{}", member.name)));
+    }
+    named
+}
+
 /// Why the host can't derive `field`'s edges from `source`, or None when
 /// it can: a known source on a reference field with a target kind.
 fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'static str> {
@@ -77,8 +99,8 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
         return Some("expected 'type_expressions' or 'method_signatures'");
     }
     let reference = FieldType::parse(&field.field_type).is_some_and(FieldType::is_reference);
-    if !reference || field.target_kind.is_none() {
-        return Some("only a reference field with a target_kind derives edges");
+    if !reference || (field.target_kind.is_none() && field.target_kinds.len() < 2) {
+        return Some("only a reference field with a target_kind or target_kinds derives edges");
     }
     None
 }
@@ -149,13 +171,13 @@ pub(crate) fn consistency(
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
         for field in &kind.fields {
-            if let Some(target) = &field.target_kind
-                && let Some(why) = unresolved(target)
-            {
-                diagnostics.push(warn(format!(
-                    "extension '{}': field '{}' on kind '{}' references target_kind '{}' {}",
-                    name, field.name, kind_keyword, target, why
-                )));
+            for (path, role, target) in target_kinds_of(field, &field.name) {
+                if let Some(why) = unresolved(target) {
+                    diagnostics.push(warn(format!(
+                        "extension '{}': field '{}' on kind '{}' references {} '{}' {}",
+                        name, path, kind_keyword, role, target, why
+                    )));
+                }
             }
             if let Some(edge) = &field.edge
                 && !own_edge_labels.contains(edge.as_str())

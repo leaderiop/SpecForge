@@ -191,7 +191,9 @@ expression: listing
                             "string_list",
                             "reference",
                             "reference_list",
-                            "block"
+                            "block",
+                            "enum_list",
+                            "block_list"
                           ],
                           "type": "string"
                         },
@@ -1834,7 +1836,9 @@ expression: listing
                         "string_list",
                         "reference",
                         "reference_list",
-                        "block"
+                        "block",
+                        "enum_list",
+                        "block_list"
                       ],
                       "type": "string"
                     },

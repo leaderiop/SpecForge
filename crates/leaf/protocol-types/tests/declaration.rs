@@ -425,7 +425,6 @@ fn declares_reads_the_content() {
     behavior = "check_field_value_types",
     verify = "a field descriptor carries its members, target kinds, bounds and file base on the wire"
 )]
-#[ignore = "K3 T3"]
 fn a_field_declares_members_a_union_bounds_and_a_base() {
     let wire = json!({
         "name": "requires", "field_type": "block_list",
@@ -436,10 +435,15 @@ fn a_field_declares_members_a_union_bounds_and_a_base() {
         ],
     });
     let field: FieldDescriptor = serde_json::from_value(wire.clone()).unwrap();
-    assert_eq!(
-        serde_json::to_value(&field).unwrap()["members"],
-        wire["members"]
-    );
+    let [phase, score, path] = &field.members[..] else {
+        panic!("three members: {:?}", field.members);
+    };
+    assert_eq!(phase.target_kinds, ["phase", "milestone"]);
+    assert_eq!((score.minimum, score.maximum), (Some(0), Some(100)));
+    assert_eq!(path.file_base.as_deref(), Some("project"));
+    let written = serde_json::to_value(&field).unwrap();
+    let again: FieldDescriptor = serde_json::from_value(written).unwrap();
+    assert_eq!(again, field, "the attributes survive the wire");
 
     let older = json!({"name": "title", "field_type": "string"});
     let field: FieldDescriptor = serde_json::from_value(older.clone()).unwrap();

@@ -451,6 +451,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   verify unit "a registry entry names its type canonically, whatever spelling was declared"
   verify unit "an enum field without values, or whose default_value is not one of its values, is W021 and still registered"
   verify unit "a field declared with a vocabulary registers as an enum of its values, its absent value as its default"
+  verify unit "a block field's members register as forms, read by member path, with their bounds, base and targets"
   verify contract "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked, enums_checked"
 }
 

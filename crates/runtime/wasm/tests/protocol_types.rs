@@ -191,6 +191,11 @@ fn entity_kind_descriptor_full_round_trip() {
                 headline: false,
                 derived_from: None,
                 proof_role: None,
+                members: vec![],
+                target_kinds: vec![],
+                minimum: None,
+                maximum: None,
+                file_base: None,
             },
             FieldDescriptor {
                 name: "invariants".to_string(),
@@ -208,6 +213,11 @@ fn entity_kind_descriptor_full_round_trip() {
                 headline: false,
                 derived_from: None,
                 proof_role: None,
+                members: vec![],
+                target_kinds: vec![],
+                minimum: None,
+                maximum: None,
+                file_base: None,
             },
         ],
         testable: true,
@@ -267,6 +277,11 @@ fn field_descriptor_with_edge_and_target() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     let decoded: FieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -295,6 +310,11 @@ fn field_descriptor_with_enum_values() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("enum_values"));
@@ -320,6 +340,11 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(
@@ -375,6 +400,11 @@ fn shared_field_descriptor_is_field_descriptor() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&shared).unwrap();
     let decoded: SharedFieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -404,6 +434,11 @@ fn entity_enhancement_descriptor_round_trip() {
             headline: false,
             derived_from: None,
             proof_role: None,
+            members: vec![],
+            target_kinds: vec![],
+            minimum: None,
+            maximum: None,
+            file_base: None,
         }],
     };
     let json = serde_json::to_string(&enh).unwrap();

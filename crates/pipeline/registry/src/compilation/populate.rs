@@ -1,7 +1,7 @@
 use super::build::{BuildPart, Reported};
 use super::edge_types;
 use crate::{
-    EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
+    EdgeRegistry, FieldProblem, FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
     UnknownFieldType,
 };
 use specforge_common::{Diagnostic, DiagnosticData, codes};
@@ -89,12 +89,24 @@ fn resolve_scopes(
                 ),
             )
         };
+        if field.contains('.') {
+            diagnostics.push(refuse(
+                "is a member path: a scope is one kind, named by a field of the kind".into(),
+            ));
+            continue;
+        }
         let Some(entry) = fields.get(&kind, &field) else {
             diagnostics.push(refuse("is not one of its fields".into()));
             continue;
         };
         if entry.field_type() != FieldType::Reference {
             diagnostics.push(refuse("is not a single reference field".into()));
+            continue;
+        }
+        if entry.form().target_kinds().len() > 1 {
+            diagnostics.push(refuse(
+                "names several kinds with target_kinds: a scope is one kind".into(),
+            ));
             continue;
         }
         let Some(target) = entry.form().target_kind() else {
@@ -319,36 +331,24 @@ fn register_single_field(
                     ),
                 ));
             }
-            if entry.field_type() == FieldType::Enum {
-                if entry.enum_values().is_empty() {
-                    diagnostics.push(Reported::new(
-                        BuildPart::Registries,
-                        Diagnostic::new(
-                            codes::W021,
+            for problem in entry.problems() {
+                diagnostics.push(Reported::new(
+                    BuildPart::Registries,
+                    match problem {
+                        FieldProblem::UnknownMemberType { member, field_type } => Diagnostic::new(
+                            codes::W019,
                             format!(
-                                "extension '{}': field '{}' on kind '{}' is an enum that declares no values",
-                                source_extension, field.name, kind_name
+                                "extension '{source_extension}': unknown field type '{field_type}' for member '{member}' on kind '{kind_name}'"
                             ),
                         ),
-                    ));
-                } else if let Some(default) = field.default_value.as_deref()
-                    && !entry.enum_values().iter().any(|v| v == default)
-                {
-                    diagnostics.push(Reported::new(
-                        BuildPart::Registries,
-                        Diagnostic::new(
+                        FieldProblem::Refused { field, what } => Diagnostic::new(
                             codes::W021,
                             format!(
-                                "extension '{}': field '{}' on kind '{}' declares default_value '{}', which is not one of its values: {}",
-                                source_extension,
-                                field.name,
-                                kind_name,
-                                default,
-                                entry.enum_values().join(", ")
+                                "extension '{source_extension}': field '{field}' on kind '{kind_name}' {what}"
                             ),
                         ),
-                    ));
-                }
+                    },
+                ));
             }
             registry.register(entry);
         }

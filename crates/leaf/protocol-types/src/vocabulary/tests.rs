@@ -36,7 +36,18 @@ fn reference_and_list_types() {
         );
         assert_eq!(
             t.is_list(),
-            matches!(t, FieldType::StringList | FieldType::ReferenceList),
+            matches!(
+                t,
+                FieldType::StringList
+                    | FieldType::ReferenceList
+                    | FieldType::EnumList
+                    | FieldType::BlockList
+            ),
+            "{t}"
+        );
+        assert_eq!(
+            t.is_block(),
+            matches!(t, FieldType::Block | FieldType::BlockList),
             "{t}"
         );
     }
@@ -75,4 +86,14 @@ fn unknown_names_are_rejected() {
 fn date_is_a_field_type_with_no_older_spelling() {
     assert_eq!(FieldType::parse("date"), Some(FieldType::Date));
     assert_eq!(FieldType::parse("date_type"), None);
+}
+
+#[test]
+fn enum_list_block_list_and_file_base_are_new_names() {
+    assert_eq!(FieldType::parse("enum_list"), Some(FieldType::EnumList));
+    assert_eq!(FieldType::parse("block_list"), Some(FieldType::BlockList));
+    assert_eq!(FieldType::parse("enum_list_type"), None);
+    assert_eq!(FileBase::parse("project"), Some(FileBase::Project));
+    assert_eq!(FileBase::parse("spec"), Some(FileBase::Spec));
+    assert_eq!(FileBase::parse("root"), None);
 }

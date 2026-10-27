@@ -648,6 +648,20 @@ fn a_kind_declares_its_scope_field() {
             "itself",
             kind("leaf", "up", vec![field("up", "reference", Some("leaf"))]),
         ),
+        (
+            "a union of kinds",
+            kind(
+                "leaf",
+                "up",
+                vec![
+                    json!({"name": "up", "field_type": "reference", "target_kinds": ["root", "leaf"]}),
+                ],
+            ),
+        ),
+        (
+            "a member path",
+            kind("leaf", "up.x", vec![field("up", "reference", Some("root"))]),
+        ),
     ];
     for (what, leaf) in bad {
         let found = w021(&[root.clone(), leaf]);

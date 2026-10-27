@@ -1,8 +1,9 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, PassAnswer, PassInput, ScanRequest, ScanResponse, ValidationRuleDescriptor,
-    ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary, operations,
+    FieldType, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
+    ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
+    operations,
 };
 use specforge_protocol_types::{
     AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
@@ -132,6 +133,10 @@ impl FieldBuilder {
             t != FieldType::Enum,
             "an enum field is declared with FieldBuilder::vocabulary"
         );
+        assert!(
+            t != FieldType::EnumList,
+            "an enum list field is declared with FieldBuilder::enum_list"
+        );
         self.0.field_type = t.as_str().to_string();
         self
     }
@@ -188,6 +193,45 @@ impl FieldBuilder {
     }
     pub fn file_reference(&mut self) -> &mut Self {
         self.0.file_reference = true;
+        self
+    }
+    /// Where a [`Self::file_reference`] field's relative paths start (ADR 0285): the spec root by default.
+    pub fn file_base(&mut self, base: FileBase) -> &mut Self {
+        self.0.file_base = Some(base.as_str().to_string());
+        self
+    }
+    /// The kinds a reference field may name when it names more than one, exclusive with [`Self::target_kind`]
+    /// (ADR 0285).
+    pub fn target_kinds(&mut self, kinds: &[&str]) -> &mut Self {
+        self.0.target_kinds = kinds.iter().map(|k| k.to_string()).collect();
+        self
+    }
+    /// An integer field's least value, inclusive (ADR 0285).
+    pub fn minimum(&mut self, n: i64) -> &mut Self {
+        self.0.minimum = Some(n);
+        self
+    }
+    /// An integer field's greatest value, inclusive (ADR 0285).
+    pub fn maximum(&mut self, n: i64) -> &mut Self {
+        self.0.maximum = Some(n);
+        self
+    }
+    /// A member of a `block` or `block_list` field, declared as a field is (ADR 0285).
+    pub fn member(&mut self, name: &str, f: impl FnOnce(&mut FieldBuilder)) -> &mut Self {
+        let mut b = FieldBuilder::new(name);
+        f(&mut b);
+        self.0.members.push(b.0);
+        self
+    }
+    /// Declare the field an `enum_list` of `vocabulary`: a list of its values, each once (ADR 0285). A list has
+    /// no absent value, so the vocabulary declares none.
+    pub fn enum_list(&mut self, vocabulary: &Vocabulary) -> &mut Self {
+        assert!(
+            vocabulary.absent().is_none(),
+            "an enum list has no absent value"
+        );
+        self.0.field_type = FieldType::EnumList.as_str().to_string();
+        self.0.enum_values = vocabulary.values().iter().map(|v| v.to_string()).collect();
         self
     }
     /// Declare the field an `enum` of `vocabulary`: its values are the

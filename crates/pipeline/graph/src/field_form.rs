@@ -5,19 +5,24 @@
 //! published schema read it; nothing else decides a field value's form.
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap};
+use std::sync::Arc;
 
-use serde::Serialize;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_common::find_close_match;
 use specforge_common::shape::{Definitions, Shape};
-use specforge_parser::{FieldEntry, FieldMap, FieldValue, ListItem, Written};
-use specforge_protocol_types::FieldType;
+use specforge_parser::{FieldEntry, FieldValue, ListItem, Written};
+use specforge_protocol_types::{FieldType, FileBase};
 
 use crate::Graph;
 
+pub mod json;
+pub mod members;
+pub(crate) use json::write_fields;
+pub use json::{FieldJson, write};
 pub mod spell;
+pub use members::BlockMembers;
 pub use spell::{Place, Respell, Rewrite};
 
 /// What a field's value was written as, after the graph build coerced it:
@@ -78,10 +83,19 @@ impl ValueShape {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldForm {
     field_type: FieldType,
-    /// Empty unless `field_type` is `Enum`.
+    /// Empty unless `field_type` is `Enum` or `EnumList`.
     enum_values: Vec<String>,
-    /// The kind its references must name (the descriptor's `target_kind`), if it declares one.
-    target_kind: Option<String>,
+    /// The kinds its references must name (the descriptor's `target_kind` or `target_kinds`); empty when it
+    /// declares none.
+    targets: Vec<String>,
+    /// A typed `block` or `block_list`'s members; `None` for an open block and every other type.
+    members: Option<Arc<BlockMembers>>,
+    /// An integer's least and greatest value, inclusive.
+    bounds: (Option<i64>, Option<i64>),
+    /// Where a file field's relative paths start.
+    base: FileBase,
+    /// A member's `required`: present in each written item. The top level keeps E006's host rule.
+    required: bool,
 }
 
 /// Why a field does not take a value: the remedy E061 suggests, if any.
@@ -103,29 +117,90 @@ impl Refusal {
 }
 
 impl FieldForm {
-    /// `enum_values` are an enum's declared values; any other type drops them.
+    /// `enum_values` are an enum's or enum list's declared values; any other type drops them.
     pub fn new(field_type: FieldType, enum_values: Vec<String>) -> Self {
         let enum_values = match field_type {
-            FieldType::Enum => enum_values,
+            FieldType::Enum | FieldType::EnumList => enum_values,
             _ => Vec::new(),
         };
         Self {
             field_type,
             enum_values,
-            target_kind: None,
+            targets: Vec::new(),
+            members: None,
+            bounds: (None, None),
+            base: FileBase::Spec,
+            required: false,
         }
     }
 
     /// The same form, whose references must name `kind` entities (ADR 0117).
-    pub fn targeting(mut self, kind: &str) -> Self {
-        self.target_kind = Some(kind.to_string());
+    pub fn targeting(self, kind: &str) -> Self {
+        self.targeting_any(&[kind.to_string()])
+    }
+
+    /// The same form, whose references may name an entity of any of `kinds` (ADR 0285).
+    pub fn targeting_any(mut self, kinds: &[String]) -> Self {
+        self.targets = kinds.to_vec();
         self
     }
 
-    /// The kind its references must name, if its descriptor declares one. Whether a loaded
-    /// extension declares that kind is [`FieldForms::target`]'s answer.
+    /// The same form, typed by `members` (a `block` or `block_list`).
+    pub fn with_members(mut self, members: BlockMembers) -> Self {
+        self.members = Some(Arc::new(members));
+        self
+    }
+
+    /// The same form, whose integers lie within `minimum` and `maximum`, inclusive.
+    pub fn bounded(mut self, minimum: Option<i64>, maximum: Option<i64>) -> Self {
+        self.bounds = (minimum, maximum);
+        self
+    }
+
+    /// The same form, whose file paths start at `base`.
+    pub fn based(mut self, base: FileBase) -> Self {
+        self.base = base;
+        self
+    }
+
+    /// The same form, required in each written item of the block it is a member of.
+    pub fn requiring(mut self, required: bool) -> Self {
+        self.required = required;
+        self
+    }
+
+    /// The kind its references must name, if its descriptor declares exactly one. Whether a loaded
+    /// extension declares that kind is [`FieldForms::target`]'s answer. (A union is read from T6 on.)
     pub fn target_kind(&self) -> Option<&str> {
-        self.target_kind.as_deref()
+        match self.targets.as_slice() {
+            [kind] => Some(kind),
+            _ => None,
+        }
+    }
+
+    /// The kinds its references may name: one, or the union; empty when it declares none.
+    pub fn target_kinds(&self) -> &[String] {
+        &self.targets
+    }
+
+    /// A typed block's or block list's members; `None` for an open block and every other type.
+    pub fn members(&self) -> Option<&BlockMembers> {
+        self.members.as_deref()
+    }
+
+    /// An integer's least and greatest value, inclusive.
+    pub fn bounds(&self) -> (Option<i64>, Option<i64>) {
+        self.bounds
+    }
+
+    /// Where a file field's relative paths start.
+    pub fn base(&self) -> FileBase {
+        self.base
+    }
+
+    /// Whether a member is required in each written item.
+    pub fn required(&self) -> bool {
+        self.required
     }
 
     pub fn field_type(&self) -> FieldType {
@@ -155,7 +230,9 @@ impl FieldForm {
     /// - `block`: stored as written.
     pub fn coerce(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
         match (self.field_type, value) {
-            (FieldType::StringList | FieldType::ReferenceList, value) => coerce_list(value, span),
+            (FieldType::StringList | FieldType::ReferenceList | FieldType::EnumList, value) => {
+                coerce_list(value, span)
+            }
             (FieldType::Integer, FieldValue::String(s)) => s
                 .trim()
                 .parse::<i64>()
@@ -270,7 +347,10 @@ impl FieldForm {
                 ValueShape::Identifier | ValueShape::String => Ok(()),
                 _ => Err(Refusal::with("name one entity by its id")),
             },
-            FieldType::StringList | FieldType::ReferenceList => match shape {
+            FieldType::StringList
+            | FieldType::ReferenceList
+            | FieldType::EnumList
+            | FieldType::BlockList => match shape {
                 ValueShape::List | ValueShape::Variants => Ok(()),
                 _ => Err(Refusal::with("write a list: [a, b]")),
             },
@@ -310,7 +390,10 @@ impl FieldForm {
             FieldType::Integer => json!({"type": "integer"}),
             FieldType::Bool => json!({"type": "boolean"}),
             FieldType::Date => json!({"type": "string", "format": "date"}),
-            FieldType::StringList | FieldType::ReferenceList => {
+            FieldType::StringList
+            | FieldType::ReferenceList
+            | FieldType::EnumList
+            | FieldType::BlockList => {
                 json!({"type": "array", "items": {"type": "string"}})
             }
             FieldType::Block => {
@@ -638,99 +721,4 @@ impl Graph {
             }
         }
     }
-}
-
-/// A field value as every output writes it: the Graph Protocol's field
-/// value. Made only by [`write`]. Its shape (named `FieldJson`) is the schema
-/// of every value `write` can produce, declared or not: a string, an
-/// integer, a boolean, an array of strings, integers and booleans, or an object whose values are `FieldJson`.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct FieldJson(Value);
-
-impl From<FieldJson> for Value {
-    fn from(written: FieldJson) -> Self {
-        written.0
-    }
-}
-
-impl Shape for FieldJson {
-    const NAME: Option<&'static str> = Some("FieldJson");
-
-    fn body(defs: &mut Definitions) -> Value {
-        let this = defs.reference::<FieldJson>("FieldJson");
-        json!({"anyOf": [
-            {"type": "string"},
-            {"type": "integer"},
-            {"type": "boolean"},
-            {"type": "array", "items": {"anyOf": [
-                {"type": "string"},
-                {"type": "integer"},
-                {"type": "boolean"},
-            ]}},
-            {"type": "object", "additionalProperties": this},
-        ]})
-    }
-}
-
-/// `value` as every output writes it, whatever its field declares: text (a
-/// string, an identifier, a date) as a string; a type union as its members
-/// joined by `" | "`; an expression group as its conjuncts, each in its
-/// display form, joined by `"\n"` (the string form the prove pass reads, one
-/// comparison per line, ADR 0009); an integer and a boolean as JSON scalars;
-/// a list or variant list as an array of its items' text; a block
-/// as an object of its entries, each written by this function. Never the
-/// parser's tree, never a position. The field text of the same value
-/// (`specforge_registry::snapshot::field_text`) joins an expression group with `", "`.
-pub fn write(value: &FieldValue) -> FieldJson {
-    FieldJson(match value {
-        FieldValue::String(s) | FieldValue::Identifier(s) | FieldValue::Date(s) => {
-            Value::String(s.clone())
-        }
-        FieldValue::TypeUnion(types) => Value::String(
-            types
-                .iter()
-                .map(|m| m.text.as_str())
-                .collect::<Vec<_>>()
-                .join(" | "),
-        ),
-        FieldValue::Expression(conjuncts) => Value::String(
-            conjuncts
-                .iter()
-                .map(|e| e.to_string())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        ),
-        FieldValue::Integer(n) => Value::Number((*n).into()),
-        FieldValue::Boolean(b) => Value::Bool(*b),
-        FieldValue::List(items) => Value::Array(
-            items
-                .iter()
-                .map(|item| Value::String(item.text.clone()))
-                .collect(),
-        ),
-        FieldValue::VariantList(items) => Value::Array(
-            items
-                .iter()
-                .map(|m| Value::String(m.text.clone()))
-                .collect(),
-        ),
-        FieldValue::Block(inner) => Value::Object(
-            write_fields(inner)
-                .into_iter()
-                .map(|(key, written)| (key, written.0))
-                .collect::<Map<_, _>>(),
-        ),
-    })
-}
-
-/// Every field of `fields` written by [`write`], keyed by name: a key written twice is its first
-/// entry, the parse rule (ADR 0215 D5).
-pub(crate) fn write_fields(fields: &FieldMap) -> BTreeMap<String, FieldJson> {
-    let mut out = BTreeMap::new();
-    for entry in fields.entries() {
-        out.entry(entry.key.to_string())
-            .or_insert_with(|| write(&entry.value));
-    }
-    out
 }

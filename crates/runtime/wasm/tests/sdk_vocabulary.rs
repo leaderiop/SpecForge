@@ -19,6 +19,12 @@ fn extension() -> ContributionsBuilder {
             k.field(&format!("f_{t}"), |f| {
                 if *t == FieldType::Enum {
                     f.vocabulary(&Vocabulary::new(&["warm", "formal"]));
+                } else if *t == FieldType::EnumList {
+                    f.enum_list(&Vocabulary::new(&["warm", "formal"]));
+                } else if *t == FieldType::BlockList {
+                    f.field_type(*t).member("item", |m| {
+                        m.field_type(FieldType::String);
+                    });
                 } else {
                     f.field_type(*t);
                 }

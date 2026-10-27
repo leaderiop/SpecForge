@@ -134,6 +134,11 @@ fn example_value(field: &FieldRegistryEntry) -> String {
         FieldType::Reference => "ref_id".into(),
         FieldType::ReferenceList => "[ref_1, ref_2]".into(),
         FieldType::Block => "{\n  }".into(),
+        FieldType::EnumList => format!(
+            "[{}]",
+            field.enum_values().first().map_or("word", String::as_str)
+        ),
+        FieldType::BlockList => "[\n    { }\n  ]".into(),
     }
 }
 

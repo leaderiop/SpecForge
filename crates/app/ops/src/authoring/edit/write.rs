@@ -100,7 +100,7 @@ pub(super) fn items_given(
 ) -> Result<Vec<String>, Refusal<EditField>> {
     debug_assert!(matches!(
         field_type,
-        FieldType::ReferenceList | FieldType::StringList
+        FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList
     ));
     let split = field_type == FieldType::ReferenceList;
     let texts: &[String] = match input {
@@ -178,12 +178,18 @@ pub fn written(
                 let written: Vec<String> = items.iter().map(|i| spell::value(form, i)).collect();
                 (list(&written), Expect::Items(&items))
             }
-            FieldType::StringList => {
-                items = items_given(input, key, FieldType::StringList)?;
+            FieldType::StringList | FieldType::EnumList => {
+                items = items_given(input, key, form.field_type())?;
                 let written: Vec<String> = items.iter().map(|i| spell::value(form, i)).collect();
                 (list(&written), Expect::Items(&items))
             }
             FieldType::Block => return block(key, input, lead, config),
+            FieldType::BlockList => {
+                return Err(not_editable(
+                    EditField::Value,
+                    format!("'{key}' is a block list: edit its items with append, remove and set"),
+                ));
+            }
         },
     };
     if reads_back(key, &text, lead, &expect) {

@@ -21,8 +21,8 @@ pub use disk::{Asked, Disk, MemoryDisk, PlainDisk};
 
 // --- Core registries ---
 pub use registries::{
-    EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, UnknownFieldType,
+    EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldProblem, FieldRegistry, FieldRegistryEntry,
+    KindRegistry, KindRegistryEntry, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---

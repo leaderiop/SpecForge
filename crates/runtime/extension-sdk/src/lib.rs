@@ -25,7 +25,7 @@ pub use wit_bindgen as __wit_bindgen;
 /// constraint kinds — as the host's registry build reads it. `Custom` hands
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
-pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, FileBase};
 
 pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
@@ -528,7 +528,7 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, ConstraintKind, Contributions, ContributionsBuilder,
         EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder,
-        FieldType, KindBuilder, MigrationInput, PassAnswer, PassBuildCache, PassBuilder,
+        FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer, PassBuildCache, PassBuilder,
         PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassInput, PassOutput,
         PassSeverity, PassSpan, RuleBuilder, ScanRequest, ScanResponse, ScannedItem, TestResult,
         TestResults, TestStatus, Vocabulary,

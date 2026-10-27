@@ -380,7 +380,6 @@ fn malformed_attributes() -> specforge_protocol_types::ExtensionDeclaration {
     behavior = "registry_build_declaration_consistency",
     verify = "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
 )]
-#[ignore = "K3 T3"]
 fn the_registry_refuses_a_malformed_k3_attribute() {
     let registries = specforge_registry::build_registries(vec![malformed_attributes()]);
     let diagnostics: Vec<Diagnostic> = registries.diagnostics().cloned().collect();

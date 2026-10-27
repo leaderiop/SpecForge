@@ -206,7 +206,7 @@ fn dbml_type(ft: FieldType) -> &'static str {
         FieldType::Bool => "boolean",
         FieldType::Date => "date",
         FieldType::StringList | FieldType::ReferenceList => "text",
-        FieldType::Block => "json",
+        FieldType::Block | FieldType::BlockList | FieldType::EnumList => "json",
         // Enum fields render as the custom `Enum {entity}_{field}` type instead.
         FieldType::Enum => "varchar",
     }
