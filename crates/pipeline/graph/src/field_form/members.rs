@@ -354,3 +354,27 @@ pub(super) fn object_schema(
     }
     schema
 }
+
+impl FieldForm {
+    /// The type as messages and hover name it: the type's name, followed by its declared words
+    /// (`enum_list (threshold, jump)`), its bounds (`integer (1..4)`, `(1..)`, `(..4)`) or its members
+    /// (`block {kind, what}`).
+    pub fn label(&self) -> String {
+        let name = self.field_type().as_str();
+        let (minimum, maximum) = self.bounds();
+        if !self.enum_values().is_empty() {
+            return format!("{name} ({})", self.enum_values().join(", "));
+        }
+        if minimum.is_some() || maximum.is_some() {
+            let bound = |n: Option<i64>| n.map(|n| n.to_string()).unwrap_or_default();
+            return format!("{name} ({}..{})", bound(minimum), bound(maximum));
+        }
+        match self.members() {
+            Some(members) => {
+                let names: Vec<&str> = members.iter().map(|(n, _)| n).collect();
+                format!("{name} {{{}}}", names.join(", "))
+            }
+            None => name.to_string(),
+        }
+    }
+}

@@ -47,8 +47,9 @@ pub struct EntityAt<'d> {
     pub id: Option<&'d str>,
 }
 
-/// What completing at a cursor means.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// What completing at a cursor means. A `field` is the declared member path (`requires.phase`) of a field in a typed
+/// block or block list's item, or a field's name in an entity's own body (ADR 0285).
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompletionSite<'d> {
     /// A statement start at the top level: `use` and the registered kinds.
     Keywords { prefix: &'d str },
@@ -56,16 +57,25 @@ pub enum CompletionSite<'d> {
     Fields { kind: &'d str, prefix: &'d str },
     /// After `verify` in an entity's own body: the verify kinds its kind allows.
     VerifyKind { kind: &'d str, prefix: &'d str },
-    /// An item of the list a field holds (entity IDs only in a reference list).
+    /// A statement start in a block the cursor is inside of: the members of the field at `path` (entity kind
+    /// `kind`) not written yet, when that field declares members.
+    Members {
+        kind: &'d str,
+        path: String,
+        prefix: &'d str,
+    },
+    /// An item of the list a field holds (entity IDs only in a reference list); `written` are the items already
+    /// in it.
     ListItem {
         kind: &'d str,
-        field: &'d str,
+        field: String,
         prefix: &'d str,
+        written: Vec<&'d str>,
     },
     /// A field's single value (completed from the field's declared type).
     Value {
         kind: &'d str,
-        field: &'d str,
+        field: String,
         prefix: &'d str,
     },
     /// A string, a comment, a nested block, a header, a define block.
@@ -90,7 +100,7 @@ pub enum Target {
     /// An entity, and the range of the token that names it here.
     Entity { id: Sym, origin: Range },
     /// A field of the enclosing entity's kind: the cursor on its name, in
-    /// the entity's own body.
+    /// the entity's own body; `field` is its declared member path when the name is a typed block's member.
     Field { kind: String, field: String },
 }
 
@@ -226,12 +236,16 @@ impl<'d> Cursor<'d> {
                 .then(|| syntax.kind_of_frame(self.text, frame))
                 .flatten()
         };
-        // The field (its key) a value or list here belongs to, in the
-        // entity's own body.
-        let field = |key: Option<u32>| {
-            let key = key?;
-            let kind = syntax.kind_of_key(self.text, key)?;
-            Some((kind, syntax.text(self.text, key)))
+        // The field (its key) a value or list here belongs to: its kind and its declared member path.
+        let field = |key: Option<u32>| syntax.member_path(self.text, key?);
+        // A frame an entity's field or a block's member is written in.
+        let holds_members = |frame: Option<u32>| {
+            frame.is_some_and(|f| {
+                matches!(
+                    syntax.frames[f as usize].kind,
+                    FrameKind::Entity | FrameKind::Block
+                )
+            })
         };
         // A verify line being typed is a field to the grammar and to the
         // document; at the cursor it is the statement it is becoming (ADR 0241 D3).
@@ -249,27 +263,43 @@ impl<'d> Cursor<'d> {
             // After the kind being typed comes its description: nothing completes.
             Expect::AfterValue(ctx) if typed_verify(ctx.key) => None,
             Expect::Top => Some(CompletionSite::Keywords { prefix }),
-            Expect::Body | Expect::AfterValue(_) => {
-                kind_of(top).map(|kind| CompletionSite::Fields { kind, prefix })
-            }
+            Expect::Body | Expect::AfterValue(_) => match kind_of(top) {
+                Some(kind) => Some(CompletionSite::Fields { kind, prefix }),
+                None => top
+                    .filter(|&f| syntax.frames[f as usize].kind == FrameKind::Block)
+                    .and_then(|f| field(syntax.frames[f as usize].key))
+                    .map(|(kind, path)| CompletionSite::Members { kind, path, prefix }),
+            },
             Expect::VerifyKind => {
                 kind_of(top).map(|kind| CompletionSite::VerifyKind { kind, prefix })
             }
-            Expect::Value(ctx) if kind_of(top).is_some() => {
+            Expect::Value(ctx) if holds_members(top) => {
                 field(ctx.key).map(|(kind, field)| CompletionSite::Value {
                     kind,
                     field,
                     prefix,
                 })
             }
-            Expect::List => top.and_then(|list| {
-                let list = syntax.frames[list as usize];
-                kind_of(list.parent)?;
+            Expect::List => top.and_then(|frame| {
+                let list = syntax.frames[frame as usize];
+                if !holds_members(list.parent) {
+                    return None;
+                }
                 let (kind, field) = field(list.key)?;
+                let word = self.word_index();
+                let written = (0..syntax.lexemes.len())
+                    .filter(|&i| {
+                        syntax.roles[i] == Role::Item
+                            && syntax.frame_of[i] == Some(frame)
+                            && Some(i) != word
+                    })
+                    .map(|i| syntax.text(self.text, i as u32))
+                    .collect();
                 Some(CompletionSite::ListItem {
                     kind,
                     field,
                     prefix,
+                    written,
                 })
             }),
             _ => None,
@@ -491,11 +521,11 @@ impl<'d> Cursor<'d> {
             return Some(target);
         }
         if self.syntax.roles[word] == Role::Key
-            && let Some(kind) = self.syntax.kind_of_key(self.text, word as u32)
+            && let Some((kind, field)) = self.syntax.member_path(self.text, word as u32)
         {
             return Some(Target::Field {
                 kind: kind.to_string(),
-                field: self.syntax.text(self.text, word as u32).to_string(),
+                field,
             });
         }
         None

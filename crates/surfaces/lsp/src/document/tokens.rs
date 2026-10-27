@@ -126,8 +126,8 @@ fn classify(
                 return None;
             }
             let key = syntax.key_of[i]?;
-            let kind = syntax.kind_of_key(text, key)?;
-            match fields.get(kind, syntax.text(text, key))?.field_type() {
+            let (kind, path) = syntax.member_path(text, key)?;
+            match fields.get_path(kind, &path)?.1.field_type() {
                 FieldType::Enum | FieldType::Identifier => Some(("enumMember", 0)),
                 FieldType::Bool => Some(("keyword", 0)),
                 FieldType::Integer => Some(("number", 0)),

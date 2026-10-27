@@ -123,13 +123,10 @@ impl FieldRegistryEntry {
         &self.form
     }
 
-    /// The type as messages and hover name it: the type's name, followed by
-    /// an enum's declared values: `enum (low, medium, high)`.
+    /// The type as messages and hover name it ([`FieldForm::label`]): the type's name, followed by an enum's declared
+    /// values (`enum (low, medium, high)`), an integer's bounds or a block's members.
     pub fn type_label(&self) -> String {
-        match self.enum_values() {
-            [] => self.field_type().as_str().to_string(),
-            values => format!("{} ({})", self.field_type().as_str(), values.join(", ")),
-        }
+        self.form.label()
     }
 
     /// What the prove pass reads the field as, when it declares a known role.

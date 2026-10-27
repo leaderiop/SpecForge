@@ -66,7 +66,6 @@ fn labels(served: &Served, at: Position) -> Vec<String> {
     behavior = "autocomplete_entity_ids",
     verify = "completion inside a typed block offers its unwritten members, a member's values and an enum list's unwritten words"
 )]
-#[ignore = "K3 T11"]
 fn completion_and_hover_inside_a_typed_block() {
     let served = served(SOURCE);
     // After `{ phase 03 ` the member left to write is `provides`.
@@ -102,7 +101,6 @@ fn completion_and_hover_inside_a_typed_block() {
     behavior = "go_to_definition",
     verify = "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
 )]
-#[ignore = "K3 T11"]
 fn navigation_and_tokens_reach_a_block_member_reference() {
     let served = served(SOURCE);
     let uri = served.uri("main.spec");

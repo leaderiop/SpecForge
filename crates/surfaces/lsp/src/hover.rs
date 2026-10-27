@@ -294,34 +294,47 @@ fn coverage_line(facts: &EntityFacts, coverage: &Result<EntityCoverage, OpError>
     line
 }
 
-/// Returns markdown-formatted hover content for a field name within an entity block.
+/// Returns markdown-formatted hover content for a field name within an entity block, or, as `requires.phase`, for a
+/// member of a typed block (ADR 0285).
 pub fn hover_field_info(
     field_name: &str,
     entity_kind: &str,
     field_registry: &FieldRegistry,
 ) -> Option<String> {
-    let entry = field_registry.get(entity_kind, field_name)?;
+    let (declared, form) = field_registry.get_path(entity_kind, field_name)?;
+    let entry = field_registry.get(entity_kind, field_name.split('.').next()?)?;
 
-    let type_str = entry.type_label();
+    let type_str = form.label();
 
-    // First line: field name + type, with optional target kind on same line
-    let first_line = if let Some(ref target) = entry.declared().target_kind {
-        format!("**`{}`** : {} → **{}**", field_name, type_str, target)
-    } else {
+    // First line: field name + type, with the target kind, or the kinds of its union, on same line
+    let targets: Vec<&str> = declared
+        .target_kind
+        .iter()
+        .chain(&declared.target_kinds)
+        .map(String::as_str)
+        .collect();
+    let first_line = if targets.is_empty() {
         format!("**`{}`** : {}", field_name, type_str)
+    } else {
+        format!(
+            "**`{}`** : {} → **{}**",
+            field_name,
+            type_str,
+            targets.join(" | ")
+        )
     };
 
     let mut parts = vec![first_line];
 
-    if let Some(ref desc) = entry.declared().description {
+    if let Some(ref desc) = declared.description {
         parts.push(desc.clone());
     }
-    if let Some(ref default) = entry.declared().default_value {
+    if let Some(ref default) = declared.default_value {
         parts.push(format!("Absent, it counts as `{default}`."));
     }
 
     // Edge and required on same line
-    match (&entry.declared().edge, entry.declared().required) {
+    match (&declared.edge, declared.required) {
         (Some(edge_name), true) => {
             parts.push(format!("Edge `{}` · *required*", edge_name));
         }
