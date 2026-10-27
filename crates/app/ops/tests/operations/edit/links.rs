@@ -146,7 +146,6 @@ fn link_appends_to_a_list_written_as_one_value() {
     behavior = "edit_entity_link",
     verify = "unlink removes a single reference written as a number"
 )]
-#[ignore = "K1 T4"]
 fn unlink_removes_a_reference_written_as_a_number() {
     let events =
         "type 10 \"Ten\" {\n  id string\n}\n\nevent task_done \"Task Done\" {\n  payload 10\n}\n";

@@ -43,7 +43,7 @@ pub enum LexemeKind {
     /// Letters, digits and `_`, not starting with a digit; any non-ASCII
     /// byte continues it, so a word is never split. Where the grammar reads
     /// a bare word (a value, a list item, an entity's name or a `use`
-    /// binding, ADR 0285) it is the whole word, `AUTH-01`, `03`, `v1.0`,
+    /// binding, ADR 0283) it is the whole word, `AUTH-01`, `03`, `v1.0`,
     /// unless the word has the shape of a number or a date.
     Ident,
     /// `scheme.kind:id` (`gh.issue:42`, the grammar's `scheme_ref_id`): a
@@ -51,7 +51,7 @@ pub enum LexemeKind {
     RefId,
     /// A word starting with a digit, with an optional `.digits` part:
     /// `42`, `10ms`, `1.5`; a leading `-` is its own `Punct`. In a value or list item
-    /// slot (ADR 0285) it is a bare word with the shape of an integer or a date
+    /// slot (ADR 0283) it is a bare word with the shape of an integer or a date
     /// (`42`, `-5`, `007`, `2026-10-26`, [`is_number_word`]), whole, sign included.
     Number,
     /// `"…"` (with `\` escapes) or `"""…"""`, quotes included, read as the
@@ -303,7 +303,7 @@ fn next_form_line(text: &str, from: usize, max_indent: usize) -> Option<usize> {
 }
 
 /// The end of the bare word starting at `at`, the grammar's `_bare` (`-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*`,
-/// ADR 0285), or, with `minus` false, its `_name` (no leading `-`). `None` when none starts there. ASCII only:
+/// ADR 0283), or, with `minus` false, its `_name` (no leading `-`). `None` when none starts there. ASCII only:
 /// a non-ASCII byte ends it, and the caller sees the lexeme it cuts.
 pub(crate) fn word_end(bytes: &[u8], at: usize, minus: bool) -> Option<usize> {
     let word = |b: Option<&u8>| b.is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_');
@@ -326,19 +326,19 @@ pub(crate) fn word_end(bytes: &[u8], at: usize, minus: bool) -> Option<usize> {
     }
 }
 
-/// Whether `text` is one name as the grammar reads one where an entity is named (`_name`, ADR 0285): word
+/// Whether `text` is one name as the grammar reads one where an entity is named (`_name`, ADR 0283): word
 /// characters in runs joined by a single `-` or `.`, never starting with `-` (`AUTH-01`, `03`, `v1.0`).
 pub fn is_name(text: &str) -> bool {
     word_end(text.as_bytes(), 0, false) == Some(text.len())
 }
 
-/// Whether `text` is one bare value word as the grammar reads one (`_bare`, ADR 0285): a name, with one leading
+/// Whether `text` is one bare value word as the grammar reads one (`_bare`, ADR 0283): a name, with one leading
 /// `-` allowed (`-5`).
 pub fn is_bare_word(text: &str) -> bool {
     word_end(text.as_bytes(), 0, true) == Some(text.len())
 }
 
-/// What a bare word is by its shape alone: the parser's tag, which loses nothing (ADR 0285). The field's declared
+/// What a bare word is by its shape alone: the parser's tag, which loses nothing (ADR 0283). The field's declared
 /// type, which the parser never reads, decides what a word means.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LiteralShape {
@@ -614,7 +614,7 @@ pub fn nested_too_deep(text: &str) -> Option<usize> {
 /// The lexemes of `text`, in order, whitespace skipped. Text that starts
 /// inside a string is read as code: callers lex from a statement's start.
 /// Where the grammar reads a bare word (a field's value, a list item, an entity's name, a selective
-/// `use`'s binding), the word is one lexeme (ADR 0285); elsewhere `a-b` is `a`, `-`, `b`.
+/// `use`'s binding), the word is one lexeme (ADR 0283); elsewhere `a-b` is `a`, `-`, `b`.
 /// A string the grammar would not close is marked `Str { closed: false }`:
 /// a `"…"` ends at its first line's end, a `"""…"""` at the end of the line
 /// before the next line that starts a top-level form, else at the text's end.

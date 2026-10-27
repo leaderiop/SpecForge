@@ -1,5 +1,5 @@
 //! A name holding a dash or a dot, an all-digit name and a number in a reference field, as the editor reads them
-//! (ADR 0285, plan K1).
+//! (ADR 0283, plan K1).
 
 use specforge_extension_sdk::prelude::FieldType;
 use specforge_lsp::answers;

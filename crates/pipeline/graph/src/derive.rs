@@ -10,7 +10,7 @@
 
 use crate::{Edge, Graph, Reading};
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes};
-use specforge_parser::lex::{LexemeKind, lex};
+use specforge_parser::lex::{LexemeKind, is_name, lex};
 use specforge_parser::{FieldEntry, FieldValue, MethodDecl, Written};
 
 /// The type names that are no entity: what an unknown type name is checked against (E004, ADR 0282 D1), and what the
@@ -179,18 +179,27 @@ fn type_expressions<'v>(
 /// The names inside a type expression, each with where it is written: the identifiers of the language's lexer
 /// (`Result<A, B[]>` -> Result, A, B), at the expression's position plus the identifier's offset.
 fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>, &str)> {
-    lex(expression.text)
-        .into_iter()
-        .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
-        .map(move |lexeme| {
-            (
-                &expression.text[lexeme.start..lexeme.end],
-                expression
-                    .at
-                    .map(|at| within(at, expression.text, lexeme.start, lexeme.end)),
-                expression.owner,
-            )
-        })
+    // A value or bare item that is one word holding `-` or `.`, or starting with a digit (`Money-v2`, `2-1`, `v1.0`,
+    // `007`), is one name, as the grammar reads it (ADR 0283); a structured type expression keeps the lexer's identifiers.
+    let text = expression.text;
+    let whole = is_name(text)
+        && (text.contains(['-', '.']) || text.starts_with(|c: char| c.is_ascii_digit()));
+    let lexemes = if whole {
+        vec![(0, text.len())]
+    } else {
+        lex(text)
+            .into_iter()
+            .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
+            .map(|lexeme| (lexeme.start, lexeme.end))
+            .collect()
+    };
+    lexemes.into_iter().map(move |(start, end)| {
+        (
+            &text[start..end],
+            expression.at.map(|at| within(at, text, start, end)),
+            expression.owner,
+        )
+    })
 }
 
 /// The names `reference` links from one block of its kind, in written order, each with where it is written (`None`: a

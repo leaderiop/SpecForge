@@ -99,7 +99,7 @@ module.exports = grammar({
     entity_block: ($) =>
       seq(
         field("kind", $.identifier),
-        // An identifier, or a word holding a dash or a dot or starting with a digit (ADR 0285); both are
+        // An identifier, or a word holding a dash or a dot or starting with a digit (ADR 0283); both are
         // `identifier` nodes. A selective import's binding reads the same.
         field("name", choice($.identifier, alias($._name, $.identifier))),
         optional(field("title", $.string)),
@@ -367,7 +367,7 @@ module.exports = grammar({
 
     // The two words below are declared after `identifier` on purpose: of two tokens matching the same length,
     // the earlier rule wins, so a plain word stays an `identifier` (keywords come out of it) and only a longer
-    // word (`AUTH-01`, `03`, `v1.0`, `-5`) is one of these (ADR 0285).
+    // word (`AUTH-01`, `03`, `v1.0`, `-5`) is one of these (ADR 0283).
     // A bare value word: with `identifier`, exactly /-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/ — no doubled, leading
     // (except one `-`) or trailing separator.
     _bare: (_) => token(/-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),

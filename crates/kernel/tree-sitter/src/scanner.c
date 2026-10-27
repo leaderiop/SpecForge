@@ -129,7 +129,7 @@ static bool read_word(TSLexer *lexer, char word[WORD_MAX]) {
   return lexer->eof(lexer) || lexer->lookahead != '.';
 }
 
-// A name, as the lexer reads one where an entity is named (ADR 0285): word characters in runs joined by a single
+// A name, as the lexer reads one where an entity is named (ADR 0283): word characters in runs joined by a single
 // `-` or `.`, e.g. `AUTH-01`, `03.1`, `v1.0`. False when none starts here, or when a joining `-` or `.` is not
 // followed by a word character (the name then ends before it, and a `-` or `.` is no form's next lexeme).
 static bool read_name(TSLexer *lexer) {

@@ -386,7 +386,7 @@ behavior lex_spec_text "Lex Spec Text" {
     The lexer MUST read a .spec text, complete or half-typed, into the
     lexemes the grammar tokenizes: identifiers, scheme ref IDs (one lexeme),
     numbers, strings, comments and punctuation, without a parse. A bare
-    word (-?[A-Za-z0-9_]+ joined by single - or ., ADR 0285) is one lexeme
+    word (-?[A-Za-z0-9_]+ joined by single - or ., ADR 0283) is one lexeme
     in the four places the grammar reads one: a field's value, a list item,
     an entity's name (a union's name stays an identifier) and a selective
     use's binding; it is a number when it has the shape of an integer or a

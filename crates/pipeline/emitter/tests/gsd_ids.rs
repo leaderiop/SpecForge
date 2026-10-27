@@ -1,4 +1,4 @@
-//! Every export writes an entity id holding a dash or a dot as it was written (ADR 0285, plan K1).
+//! Every export writes an entity id holding a dash or a dot as it was written (ADR 0283, plan K1).
 
 use specforge_common::{SourceSpan, Sym};
 use specforge_emitter::EmitFormat;

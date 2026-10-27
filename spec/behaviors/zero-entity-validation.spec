@@ -447,14 +447,18 @@ behavior check_field_value_types "Check Field Value Types" {
     `field [value]` parses to), and a list mixing strings, integers and
     booleans the list of its items' text. A quoted integer or boolean on an
     integer or bool field MUST become that integer or boolean, a quoted calendar day on a date field MUST become that date, and an
-    integer or boolean on a string or enum field MUST become its text.
+    integer or boolean on a string or enum field MUST become its text. A bare word is read by its field's
+    declared type (ADR 0283): on a reference field a number, a date or `true` / `false` is the name it is
+    written as (`10`, `2026-10-26`), a negative number none; on an integer field `-?N(-N)*` is an integer
+    difference in checked 64-bit arithmetic (`2-1` is 1, `007` is 7) and a date is its difference
+    (`2026-10-26` is 1990), quoted or bare.
     Coercion MUST NOT produce a diagnostic.
 
     A stored value its declared type does not take MUST produce an E061
     error at the value's source span naming the field, the declared type
     and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
-    (suggesting the closest); an integer field an integer; a bool field
+    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a bool field
     true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no

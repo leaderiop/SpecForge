@@ -240,7 +240,6 @@ fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
     behavior = "check_field_value_types",
     verify = "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
 )]
-#[ignore = "K1 T4"]
 fn a_reference_field_names_a_gsd_entity() {
     let (graph, diags) = build_and_check(
         r#"ticket 03-02 "A" {

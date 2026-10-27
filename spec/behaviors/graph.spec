@@ -136,6 +136,10 @@ behavior link_derived_references "Link Derived References" {
       own) don't count.
       A list field written as one value is a list (ADR 0156): its word is
       no type name, to the linker and to the finder alike.
+      A value or bare list item that is one word holding `-` or `.`, or
+      starting with a digit (`Money-v2`), is one type name, whole, to the
+      edge, the finder and E004 alike (ADR 0283); inside `T[]` or `A | B`
+      the lexer's identifiers stay.
     - `method_signatures`: the names in the parameter and return types of
       the entity's methods.
 

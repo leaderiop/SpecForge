@@ -29,7 +29,7 @@ pub(crate) fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
 /// lexer reads whole.
 fn kind_of(node: &str, text: &str, name: bool) -> Option<LexemeKind> {
     Some(match node {
-        // A value or list item with the shape of a number or a date is read as one (ADR 0285); a name is a word.
+        // A value or list item with the shape of a number or a date is read as one (ADR 0283); a name is a word.
         kind::IDENTIFIER if !name && is_number_word(text) => LexemeKind::Number,
         kind::IDENTIFIER => LexemeKind::Ident,
         kind::SCHEME_REF_ID => LexemeKind::RefId,

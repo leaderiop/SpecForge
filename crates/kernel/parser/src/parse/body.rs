@@ -311,7 +311,7 @@ fn dedent(text: &str) -> String {
     result.join("\n")
 }
 
-/// A bare word as the parse stores it: tagged by its shape, losing nothing (ADR 0285). The field's declared type,
+/// A bare word as the parse stores it: tagged by its shape, losing nothing (ADR 0283). The field's declared type,
 /// which the parser never reads, decides what the word means.
 fn word_value(word: &str) -> FieldValue {
     match literal_shape(word) {

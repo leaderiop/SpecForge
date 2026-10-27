@@ -107,7 +107,7 @@ pub fn is_date(text: &str) -> bool {
 ///
 /// | declared | written |
 /// |---|---|
-/// | `integer` | a literal when `text` is an integer; else quoted (E061 reports it) |
+/// | `integer` | a literal when `text` is an integer or an integer difference (`2-1`); else quoted (E061 reports it) |
 /// | `bool` | a literal when `true` / `false`; else quoted (E061) |
 /// | `date` | a literal when [`is_date`]; else quoted (E061) |
 /// | `string_list` item | a scheme ref id as a scheme ref (it then names an entity, ADR 0093); else quoted |
@@ -117,7 +117,11 @@ pub fn is_date(text: &str) -> bool {
 pub fn form(form: &FieldForm, text: &str) -> Written {
     let field_type = form.field_type();
     match field_type {
-        FieldType::Integer if text.trim().parse::<i64>().is_ok() => Written::Literal,
+        FieldType::Integer
+            if text.trim().parse::<i64>().is_ok() || super::integer_difference(text).is_ok() =>
+        {
+            Written::Literal
+        }
         FieldType::Bool if matches!(text, "true" | "false") => Written::Literal,
         FieldType::Date if is_date(text) => Written::Literal,
         FieldType::StringList if text.contains(':') && is_entity_id(text) => Written::SchemeRef,

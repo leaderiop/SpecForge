@@ -313,7 +313,6 @@ fn word(text: &str) -> FieldValue {
     behavior = "check_field_value_types",
     verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
 )]
-#[ignore = "K1 T4"]
 fn a_declared_type_reads_a_bare_word() {
     let reference = FieldForm::new(FieldType::Reference, Vec::new());
     assert_eq!(read(&reference, word("03")), Ok(word("03")));

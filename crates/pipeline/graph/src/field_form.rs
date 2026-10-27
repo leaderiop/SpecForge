@@ -145,16 +145,32 @@ impl FieldForm {
     /// - `string_list`, `reference_list`: a list is stored as written; a
     ///   bare word, string, integer, boolean or date becomes the one-item
     ///   list `field [value]` parses to.
-    /// - `integer`: a quoted integer becomes the integer.
+    /// - `integer`: a quoted integer, a bare word that is an integer difference (`2-1`, `007`) or a date
+    ///   (`2026-10-26`, the difference `1990`) becomes the integer ([`integer_difference`]).
     /// - `bool`: a quoted or bare `true` / `false` becomes the boolean.
     /// - `date`: a quoted calendar day becomes the date.
     /// - `string`, `enum`: an integer or boolean becomes its text.
-    /// - `reference`, `block`: stored as written.
+    /// - `reference`: a number, date or boolean written bare becomes the name it is written as (`10`, `2026-10-26`);
+    ///   a negative number stays, for E061.
+    /// - `block`: stored as written.
     pub fn coerce(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
         match (self.field_type, value) {
             (FieldType::StringList | FieldType::ReferenceList, value) => coerce_list(value, span),
-            (FieldType::Integer, FieldValue::String(s)) => {
-                s.trim().parse::<i64>().ok().map(FieldValue::Integer)
+            (FieldType::Integer, FieldValue::String(s)) => s
+                .trim()
+                .parse::<i64>()
+                .ok()
+                .or_else(|| integer_difference(s).ok())
+                .map(FieldValue::Integer),
+            (FieldType::Integer, FieldValue::Identifier(s) | FieldValue::Date(s)) => {
+                integer_difference(s).ok().map(FieldValue::Integer)
+            }
+            (FieldType::Reference, FieldValue::Integer(n)) if *n >= 0 => {
+                Some(FieldValue::Identifier(n.to_string()))
+            }
+            (FieldType::Reference, FieldValue::Date(s)) => Some(FieldValue::Identifier(s.clone())),
+            (FieldType::Reference, FieldValue::Boolean(b)) => {
+                Some(FieldValue::Identifier(b.to_string()))
             }
             (FieldType::Bool, FieldValue::String(s) | FieldValue::Identifier(s)) => {
                 match s.as_str() {
@@ -186,10 +202,10 @@ impl FieldForm {
     /// | `string`, `enum` without values | text, a bare word, a date, a type union, an expression group |
     /// | `enum` | a string or bare word that is a declared value |
     /// | `identifier` | one word (letters, digits and `_`, starting with a letter or `_`), bare or quoted |
-    /// | `integer` | an integer |
+    /// | `integer` | an integer, a bare integer difference (`2-1`) or a date (a quoted one is unquoted) |
     /// | `bool` | `true` or `false` |
     /// | `date` | one calendar day, `YYYY-MM-DD`, that exists |
-    /// | `reference` | a bare word or a string |
+    /// | `reference` | a bare word, a number or a date written as a name, or a string; never one starting with `-` |
     /// | `string_list`, `reference_list` | a list, however its items were written |
     /// | `block` | a block |
     pub fn admit(&self, shape: ValueShape, text: &str) -> Result<(), Refusal> {
@@ -197,6 +213,9 @@ impl FieldForm {
         match self.field_type {
             FieldType::Integer => match shape {
                 ValueShape::Integer => Ok(()),
+                ValueShape::Identifier => {
+                    Err(integer_difference(text).err().unwrap_or_else(Refusal::none))
+                }
                 _ => Err(Refusal::none()),
             },
             FieldType::Bool => match shape {
@@ -248,6 +267,9 @@ impl FieldForm {
             FieldType::Reference => match shape {
                 ValueShape::Identifier | ValueShape::String => Ok(()),
                 s if s.is_list() => Err(single_value()),
+                ValueShape::Integer if text.starts_with('-') => {
+                    Err(Refusal::with("a name never starts with '-'"))
+                }
                 _ => Err(Refusal::with("name one entity by its id")),
             },
             FieldType::StringList | FieldType::ReferenceList => match shape {
@@ -287,6 +309,39 @@ impl FieldForm {
             }
         }
     }
+}
+
+/// The integer a bare word reads as: `-?N(-N)*`, each `N` digits, taken left to right as differences in checked
+/// `i64` (`2-1` is 1, `03-02` is 1, `007` is 7, `2026-10-26` is 1990). `Err` names the operand that is none, or
+/// the word when it leaves the `i64` range (ADR 0283).
+pub fn integer_difference(word: &str) -> Result<i64, Refusal> {
+    let (negative, rest) = match word.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, word),
+    };
+    let outside = || Refusal::with(&format!("'{word}' is outside {}..{}", i64::MIN, i64::MAX));
+    let mut total: Option<i64> = None;
+    for (i, term) in rest.split('-').enumerate() {
+        let n = if !term.is_empty() && term.bytes().all(|b| b.is_ascii_digit()) {
+            let n: i64 = term.parse().map_err(|_| outside())?;
+            if i == 0 && negative { -n } else { n }
+        } else if term.contains('.')
+            && term
+                .split('.')
+                .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return Err(Refusal::with(
+                "an integer has no fraction (there is no decimal type)",
+            ));
+        } else {
+            return Err(Refusal::with(&format!("'{term}' is no number")));
+        };
+        total = Some(match total {
+            None => n,
+            Some(t) => t.checked_sub(n).ok_or_else(outside)?,
+        });
+    }
+    total.ok_or_else(|| Refusal::with(&format!("'{word}' is no number")))
 }
 
 /// Whether `text` is one word: the grammar's identifier (letters, digits and

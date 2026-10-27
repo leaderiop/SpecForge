@@ -113,7 +113,7 @@ fn the_message_describes_the_value_by_its_shape() {
         "  points {\n    a \"x\"\n  }\n",
         "  points expr { a < 1 }\n",
         "  points string | int\n",
-        "  points 2026-10-07\n",
+        "  points AUTH-01\n",
         "  points [1, x]\n",
     ]
     .iter()
@@ -129,7 +129,7 @@ fn the_message_describes_the_value_by_its_shape() {
             "a block",
             "an expression",
             "string | int",
-            "2026-10-07",
+            "AUTH-01",
             "a list"
         ]
     );

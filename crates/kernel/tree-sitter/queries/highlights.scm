@@ -44,7 +44,7 @@
 (string) @string
 (triple_quoted_string) @string
 
-; Numbers, dates and booleans are words; their shape decides the colour (ADR 0285)
+; Numbers, dates and booleans are words; their shape decides the colour (ADR 0283)
 (integer) @number
 (field
   value: (identifier) @number

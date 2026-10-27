@@ -1,4 +1,4 @@
-//! The lexer's slot reader against the grammar over text a user could type mid-edit (ADR 0285).
+//! The lexer's slot reader against the grammar over text a user could type mid-edit (ADR 0283).
 
 use proptest::test_runner::TestRunner;
 use specforge_parser::lex::lex;

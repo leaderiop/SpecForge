@@ -1,4 +1,4 @@
-//! The slot reader (ADR 0285): where the grammar reads one bare word, the lexer reads one lexeme.
+//! The slot reader (ADR 0283): where the grammar reads one bare word, the lexer reads one lexeme.
 //!
 //! The base lexer cuts `AUTH-01` into `AUTH`, `-`, `01`. The grammar reads it whole in four places. The
 //! lexer's agreement with the grammar is `lexer_agrees_with_the_grammar` over the corpus, and

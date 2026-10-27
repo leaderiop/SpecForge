@@ -369,7 +369,6 @@ fn a_primitive_a_container_or_a_declared_type_is_no_e004() {
     behavior = "link_derived_references",
     verify = "a type name written whole may hold a dash or a dot: it links as one name and is one E004 when undeclared"
 )]
-#[ignore = "K1 T4"]
 fn a_type_name_holding_a_dash_links_whole_and_is_no_e004() {
     let source = "shape Money-v2 \"M\" {\n  id string\n}\nshape t \"T\" {\n  amount Money-v2\n}\nshape u \"U\" {\n  amount Nope-v2\n}\nshape w \"W\" {\n  amount 2-1\n}\n";
     let (graph, diagnostics) = build(source, derived());
