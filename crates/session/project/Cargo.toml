@@ -38,6 +38,8 @@ specforge-extension-sdk = { path = "../../runtime/extension-sdk", optional = tru
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-project = { path = ".", features = ["testing"] }
+# A real git, for the tests that commit.
+specforge-git = { path = "../../adapters/git" }
 # The corpus the reference-field guard reads.
 specforge-parser = { workspace = true, features = ["testing"] }
 # The builtins, loaded outside the extension load by the tests.

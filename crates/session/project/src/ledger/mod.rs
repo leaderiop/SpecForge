@@ -401,6 +401,8 @@ pub(crate) enum Reading {
     /// A directory's entries (the E016 suggestion lists a missing file's
     /// directory). Also reached by any file directly in it.
     Listing,
+    /// A file the git baseline is named by: reached as a file, watched by its directory's own entries.
+    Ref,
 }
 
 /// One run of reads the ledger records (ADR 0106 D4, ADR 0114). Reading needs

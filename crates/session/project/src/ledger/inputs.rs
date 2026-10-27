@@ -79,7 +79,7 @@ impl OnDisk {
             _ => in_canonical_dir(&path),
         };
         let pending = match class {
-            Class::Environment | Class::Check | Class::Hop(_) if root_exists => path
+            Class::Environment | Class::Check | Class::Ref | Class::Hop(_) if root_exists => path
                 .parent()
                 .and_then(|dir| Pending::toward(dir, &self.canonical_root)),
             _ => None,
@@ -162,6 +162,7 @@ impl SessionInputs {
             .chain(
                 disk.rows
                     .iter()
+                    .filter(|row| row.class != Class::Ref)
                     .filter_map(|row| row.class.directory(&row.path).map(canonical)),
             )
             .filter(|dir| dir.is_dir());
@@ -194,6 +195,20 @@ impl SessionInputs {
                     recursive: false,
                 };
                 if !covered && !watch_roots.contains(&watch) {
+                    watch_roots.push(watch);
+                }
+            }
+            // A ref's directory is watched for its own entries, unless a root covers it.
+            for row in disk.rows.iter().filter(|row| row.class == Class::Ref) {
+                let Some(dir) = row.class.directory(&row.path).map(canonical) else {
+                    continue;
+                };
+                let watch = WatchRoot {
+                    dir: dir.clone(),
+                    recursive: false,
+                };
+                let covered = roots.iter().any(|root| dir.starts_with(root));
+                if dir.is_dir() && !covered && !watch_roots.contains(&watch) {
                     watch_roots.push(watch);
                 }
             }

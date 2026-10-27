@@ -257,7 +257,7 @@ impl Stamps {
 fn note(changes: &mut Changes, class: &Class, path: &Path) {
     match class {
         Class::Environment => changes.environment.push(path.to_path_buf()),
-        Class::Check | Class::Listing => changes.check_inputs.push(path.to_path_buf()),
+        Class::Check | Class::Listing | Class::Ref => changes.check_inputs.push(path.to_path_buf()),
         Class::Hop(key) => changes.sources.push(key.clone()),
     }
 }

@@ -165,6 +165,9 @@ pub struct Environment {
     /// What this environment asks of version control, when it is not the process's default
     /// ([`history::default_history`]).
     history: Option<history::SharedHistory>,
+    /// Where the repository is, once a locate found one (a project outside one is asked again each check, so
+    /// `git init` is seen).
+    place: std::sync::OnceLock<history::Located>,
 }
 
 impl Environment {
@@ -182,6 +185,7 @@ impl Environment {
             runtime: None,
             root: None,
             history: None,
+            place: Default::default(),
         }
     }
 
@@ -189,6 +193,18 @@ impl Environment {
     pub fn with_history(mut self, history: history::SharedHistory) -> Self {
         self.history = Some(history);
         self
+    }
+
+    /// Where the repository of this project is, asked of `history`: a repository once found is kept.
+    pub(crate) fn place(&self, history: &dyn history::History) -> history::Located {
+        if let Some(found) = self.place.get() {
+            return found.clone();
+        }
+        let located = history.locate(self.root());
+        if matches!(located, history::Located::Repo(_)) {
+            let _ = self.place.set(located.clone());
+        }
+        located
     }
 
     /// The history port: this environment's own, else the process's default; none: no judgement against history.
@@ -307,6 +323,7 @@ impl Environment {
             runtime,
             root: None,
             history: None,
+            place: Default::default(),
         }
     }
 

@@ -36,6 +36,11 @@ impl Disk for RunDisk<'_, '_> {
         self.0
             .read(Reading::File, path, self.1, |path| self.1.read(path))
     }
+
+    fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.0
+            .read(Reading::Ref, path, self.1, |path| self.1.read(path))
+    }
 }
 
 impl RunDisk<'_, '_> {

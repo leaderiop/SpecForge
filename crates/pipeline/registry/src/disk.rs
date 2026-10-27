@@ -25,6 +25,11 @@ pub trait Disk {
     /// most 64 MiB is read (ADR 0264): anything else is an error naming what
     /// it is.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
+    /// [`Self::read`] of a file the git baseline is named by (`HEAD`, a ref, `packed-refs`): a session records it
+    /// as an input of its own kind, watched through its directory's own entries (ADR 0287).
+    fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.read(path)
+    }
 }
 
 /// The file system, nothing recorded: what a one-shot compile and every

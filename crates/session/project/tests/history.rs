@@ -336,26 +336,92 @@ fn a_renamed_scope_is_judged_through_its_move_record() {
     assert!(e084[0].message.contains("as 'v1.0/03/D-01'"), "{e084:?}");
 }
 
+/// A project over `@test/gsd` with a committed decision, in a real repository, opened as a session.
+fn committed_session(origin: &str) -> (TestProject, specforge_project::ProjectSession) {
+    let project = computed::project(&format!(
+        "decision D \"D\" {{\n  phase 03\n  origin {origin}\n}}\n"
+    ));
+    git_repo(project.root());
+    let runtime = Arc::new(gsd_history_runtime(json!([])));
+    let session = project.session_in(runtime);
+    (project, session)
+}
+
+fn git(root: &Path, args: &[&str]) {
+    let status = Command::new("git")
+        .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+        .args(args)
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "git {args:?}");
+}
+
 #[specforge_test(
     behavior = "watch_baseline_refs",
     verify = "a commit re-checks the session"
 )]
-#[ignore = "K4 T12"]
 fn a_commit_rechecks_the_session() {
-    // edit origin: E084; git commit: changes() names the ref as a check input; apply: E084 gone
-    unimplemented!(
-        "K4 T12: edit origin: E084; git commit: changes() names the ref as a check input; apply: E084 gone"
+    let _installed =
+        specforge_project::testing::history::install(Arc::new(specforge_git::GitCli::default()));
+    let (project, mut session) = committed_session("context");
+    let root = project.root().canonicalize().unwrap();
+    let e084 = |session: &specforge_project::ProjectSession| {
+        computed::with_code(&session.project().diagnostics(), "E084").len()
+    };
+    assert_eq!(e084(&session), 0);
+    // an edit of the committed value: E084
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace("origin context", "origin project"),
     );
+    let changes = session.changes([root.join("a.spec").as_path()]);
+    session.apply(&changes).expect("a source changed");
+    assert_eq!(e084(&session), 1);
+    // a commit: the ref is a check input, and the check judges against the new commit
+    git(&root, &["commit", "-q", "-am", "decide"]);
+    let branch = root.join(".git/refs/heads/main");
+    let changes = session.changes([branch.as_path()]);
+    assert_eq!(changes.check_inputs(), std::slice::from_ref(&branch));
+    assert!(changes.sources().is_empty(), "no source is read again");
+    session.apply(&changes).expect("a check input changed");
+    assert_eq!(e084(&session), 0);
 }
 
 #[specforge_test(
     behavior = "watch_baseline_refs",
     verify = "refs outside the root are watched by their directories own entries"
 )]
-#[ignore = "K4 T12"]
 fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
-    // in a linked worktree watch_roots holds the common dir and git dir with recursive false only
-    unimplemented!(
-        "K4 T12: in a linked worktree watch_roots holds the common dir and git dir with recursive false only"
+    let _installed =
+        specforge_project::testing::history::install(Arc::new(specforge_git::GitCli::default()));
+    let project = computed::project("decision D \"D\" {\n  phase 03\n  origin context\n}\n");
+    // The git directory lives outside the project (what a linked worktree's common directory is).
+    let elsewhere = tempfile::tempdir().unwrap();
+    let gitdir = elsewhere.path().join("g");
+    git(
+        project.root(),
+        &[
+            "init",
+            "-q",
+            "-b",
+            "main",
+            "--separate-git-dir",
+            gitdir.to_str().unwrap(),
+        ],
     );
+    git(project.root(), &["add", "-A"]);
+    git(project.root(), &["commit", "-q", "-m", "c"]);
+    let session = project.session_in(Arc::new(gsd_history_runtime(json!([]))));
+    let gitdir = gitdir.canonicalize().unwrap();
+    let root = project.root().canonicalize().unwrap();
+    let roots = session.inputs().watch_roots();
+    for watch in &roots {
+        assert_eq!(watch.recursive, watch.dir == root, "{roots:?}");
+    }
+    for dir in [gitdir.clone(), gitdir.join("refs/heads")] {
+        assert!(roots.iter().any(|r| r.dir == dir), "{dir:?} in {roots:?}");
+    }
 }

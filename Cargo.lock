@@ -3210,6 +3210,7 @@ dependencies = [
  "specforge-diagnostics",
  "specforge-emitter",
  "specforge-extension-sdk",
+ "specforge-git",
  "specforge-graph",
  "specforge-installed",
  "specforge-package",

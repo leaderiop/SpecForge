@@ -74,7 +74,7 @@ pub struct CompiledProject {
     checks_skipped: bool,
     /// What reading the baseline gave at the last check (ADR 0287): held, so a typed edit or an update asks git
     /// nothing again. A new commit drops it.
-    baseline: Option<Arc<crate::baseline::BaselineRead>>,
+    baseline: Option<Arc<crate::baseline::HeldBaseline>>,
 }
 
 impl CompiledProject {
@@ -180,7 +180,11 @@ impl CompiledProject {
     ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
         let read = crate::baseline::Baseline::since(&self.env, revision)?;
         let mut project = self.clone();
-        project.baseline = Some(Arc::new(read));
+        project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
+            stamp: None,
+            pinned: true,
+            read,
+        }));
         project.check(&mut Unrecorded::plain());
         Ok(project)
     }
@@ -462,17 +466,27 @@ impl CompiledProject {
         let env = Arc::clone(&self.env);
         let graph = &self.graph;
         let mut outcome = None;
-        let baseline = Arc::clone(
-            self.baseline
-                .get_or_insert_with(|| Arc::new(crate::baseline::Baseline::of_head(&env))),
-        );
+        let held = self.baseline.clone();
+        let mut baseline = None;
         reads.run_checks(|disk| {
+            // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
+            let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
+            let read = match held {
+                Some(held) if held.pinned || held.stamp == stamp => held,
+                _ => Arc::new(crate::baseline::HeldBaseline {
+                    read: crate::baseline::Baseline::of_head(&env),
+                    stamp,
+                    pinned: false,
+                }),
+            };
             let authored = env.entity_snapshot(graph);
-            let checked = env.checked(Some(graph), &authored, disk, &baseline);
+            let checked = env.checked(Some(graph), &authored, disk, &read.read);
+            baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             outcome = Some((checked.diagnostics, entities, checked.computed));
         });
         self.checks_skipped = false;
+        self.baseline = baseline;
         if let Some((diagnostics, entities, computed)) = outcome {
             self.check_diagnostics = diagnostics;
             self.computed = Arc::new(computed);

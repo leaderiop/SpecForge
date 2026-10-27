@@ -55,6 +55,19 @@ pub fn declared(registries: &RegistryBuild) -> bool {
         || registries.passes().iter().any(|p| !p.baseline().is_empty())
 }
 
+/// What the files a baseline is named by held, in a fixed order: a read's bytes, or why there were none.
+pub type RefStamp = Vec<Result<Vec<u8>, std::io::ErrorKind>>;
+
+/// A baseline read and the ref stamp it was read under: while the stamp holds, `HEAD` is the same commit and the
+/// read is reused with no process (a session; a typed edit).
+#[derive(Debug)]
+pub struct HeldBaseline {
+    pub stamp: Option<RefStamp>,
+    /// A `--since` copy: its baseline is the call's, whatever `HEAD` does.
+    pub pinned: bool,
+    pub read: BaselineRead,
+}
+
 /// What reading the baseline gave: the baseline, none (nothing declares history, or no port is installed), or the
 /// notice that says why there is none.
 pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
@@ -64,6 +77,32 @@ pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
 pub struct UnknownRevision(pub String);
 
 impl Baseline {
+    /// What the files `HEAD` is named by hold, read through `disk` (a session records each as a ref input): `HEAD`,
+    /// the loose ref it names, `packed-refs` and a reftable's list; outside a repository, the missing `.git`
+    /// (`git init` changes it). `None` when nothing declares history or no port is installed: nothing is read.
+    pub fn ref_stamp(env: &Environment, disk: &dyn specforge_registry::Disk) -> Option<RefStamp> {
+        if !declared(env.registries()) {
+            return None;
+        }
+        let history = env.history()?;
+        let read = |path: &Path| disk.read_ref(path).map_err(|e| e.kind());
+        let Located::Repo(place) = env.place(&*history) else {
+            return Some(vec![read(&env.root().join(".git"))]);
+        };
+        let head = read(&place.git_dir.join("HEAD"));
+        let named = head.as_ref().ok().and_then(|bytes| {
+            String::from_utf8_lossy(bytes)
+                .trim()
+                .strip_prefix("ref: ")
+                .map(|name| place.common_dir.join(name))
+        });
+        let mut stamp = vec![head];
+        stamp.extend(named.map(|path| read(&path)));
+        stamp.push(read(&place.common_dir.join("packed-refs")));
+        stamp.push(read(&place.common_dir.join("reftable").join("tables.list")));
+        Some(stamp)
+    }
+
     /// The baseline at the merge-base of `revision` and `HEAD` (`check --since`): `Ok(None)` when nothing declares
     /// history or no port is installed, the I204 or W164 that says why there is none, and `UnknownRevision` for a
     /// revision the repository does not name. The revision is resolved even when nothing declares history.
@@ -74,7 +113,7 @@ impl Baseline {
         let unreadable = |why: String| {
             Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
         };
-        let place = match history.locate(env.root()) {
+        let place = match env.place(&*history) {
             Located::Repo(place) => place,
             Located::NotARepository => {
                 return if declared(env.registries()) {
@@ -236,7 +275,7 @@ impl Baseline {
             Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
                 .with_suggestion("nothing is judged against history until git answers")
         };
-        let place = match history.locate(env.root()) {
+        let place = match env.place(&*history) {
             Located::Repo(place) => place,
             Located::NotARepository => {
                 return Err(Diagnostic::new(
