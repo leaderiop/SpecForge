@@ -280,6 +280,7 @@ fn init_with_a_local_extension_writes_five_files() {
     assert_eq!(
         changed,
         names(&[
+            ".gitattributes",
             ".gitignore",
             ".specforge/extensions/@sdk/greet/extension.wasm",
             "spec/hello.spec",
@@ -289,7 +290,7 @@ fn init_with_a_local_extension_writes_five_files() {
     );
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.init", 5, 0, true))
+        Some(completed("specforge.init", 6, 0, true))
     );
 }
 
@@ -308,7 +309,6 @@ fn init_beside_a_complete_gitignore_writes_two_files() {
         "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
     )
     .unwrap();
-
     let (reply, changed) = wrote(
         &mut server,
         &dir,
@@ -317,10 +317,10 @@ fn init_beside_a_complete_gitignore_writes_two_files() {
     );
 
     assert_ok(&reply);
-    assert_eq!(changed, names(&["spec/hello.spec", "specforge.json"]));
+    assert_eq!(changed[1..], names(&["spec/hello.spec", "specforge.json"]));
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.init", 2, 0, true))
+        Some(completed("specforge.init", 3, 0, true))
     );
 }
 
@@ -886,7 +886,7 @@ fn every_mutation_reply_lists_what_it_wrote() {
         init,
         json!({"path": n1.to_str().unwrap(), "name": "newone", "extensions": [greet_blob()]}),
     );
-    assert_eq!(files_written(&first).len(), 5);
+    assert_eq!(files_written(&first).len(), 6);
     let n2 = scratch.path().join("n2");
     std::fs::create_dir_all(&n2).unwrap();
     std::fs::write(

@@ -20,6 +20,7 @@ mod extension_authoring;
 mod extension_command;
 mod extensions;
 mod format;
+mod harness;
 mod infer_guide;
 mod infer_status;
 mod init;
@@ -127,6 +128,11 @@ enum Commands {
     Providers(providers::Args),
     /// Run the project's test runners and record which entities their tests prove
     Collect(collect::Args),
+    /// The harness ledger: specforge-harness records the values only a command's plan sets
+    Harness {
+        #[command(subcommand)]
+        action: harness::Action,
+    },
     /// Run health checks on installed extensions
     Doctor(doctor::Args),
     /// Start MCP server (JSON-RPC over stdio)
@@ -243,6 +249,7 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Logout(args) => args.run(terminal),
         Commands::Providers(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
+        Commands::Harness { action } => action.run(terminal),
         Commands::Doctor(args) => args.run(terminal),
         Commands::Mcp(args) => args.run(terminal),
         Commands::Completions { shell, project } => completions(shell, &project, terminal),

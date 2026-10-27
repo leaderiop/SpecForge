@@ -757,7 +757,7 @@ fn mcp_init_writes_what_cli_init_writes() {
     let files = files_under(&cli_root);
     assert_eq!(
         files.keys().collect::<Vec<_>>(),
-        [".gitignore", "spec/hello.spec"]
+        [".gitattributes", ".gitignore", "spec/hello.spec"]
     );
     assert_eq!(files, files_under(&mcp_root));
     assert_eq!(read_config(&cli_root), read_config(&mcp_root));

@@ -38,6 +38,7 @@ Commands:
   logout        Remove registry credentials
   providers     List configured providers
   collect       Run the project's test runners and record which entities their tests prove
+  harness       The harness ledger: specforge-harness records the values only a command's plan sets
   doctor        Run health checks on installed extensions
   mcp           Start MCP server (JSON-RPC over stdio)
   migrate       Migrate .spec files to the current format: the version header, a title for every block that has none, and the reference lists a file's blocks repeat moved into its `defaults`

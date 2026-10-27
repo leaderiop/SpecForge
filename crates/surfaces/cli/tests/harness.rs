@@ -6,7 +6,6 @@ use crate::support::{Cli, TestProject};
     behavior = "collect_harness_ledger",
     verify = "harness gc rewrites the ledger canonically and --dry-run writes nothing"
 )]
-#[ignore = "K4 T14"]
 fn harness_gc_rewrites_the_ledger_canonically() {
     let dir = TestProject::new()
         .without_config()

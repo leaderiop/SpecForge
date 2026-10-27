@@ -21,6 +21,7 @@ expression: snapshot
       "config_file": "specforge.json",
       "extensions_installed": [],
       "files_written": [
+        ".gitattributes",
         ".gitignore",
         "spec/hello.spec",
         "specforge.json"
@@ -31,6 +32,7 @@ expression: snapshot
       "version": "0.1.0"
     },
     "files": {
+      ".gitattributes": "/specforge-harness merge=union\n",
       ".gitignore": "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
       "spec/hello.spec": "// demo — starter spec file\n//\n// This file uses only structural syntax that the core compiler\n// understands without any extensions. Install extensions to unlock\n// domain-specific entity types.\n//\n// Try: specforge check\n\nspec \"demo\" {\n  version \"0.1.0\"\n}\n"
     },

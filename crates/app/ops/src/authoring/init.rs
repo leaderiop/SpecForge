@@ -71,6 +71,9 @@ pub const GITIGNORE: [&str; 3] = [
     ".specforge/",
 ];
 
+/// The line `.gitattributes` gets: two branches that each recorded a harness value merge by keeping both lines.
+pub const GITATTRIBUTES: [&str; 1] = ["/specforge-harness merge=union"];
+
 /// The field of an init's request a refusal can be about (ADR 0072).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InitField {
@@ -318,6 +321,18 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
             }),
         },
         Also {
+            path: dir.join(".gitattributes"),
+            stage: Box::new(move |file, change| {
+                let before = file
+                    .read_if_there()
+                    .map_err(|e| change::unreadable(Path::new(".gitattributes"), &e))?;
+                if let Some(after) = gitattributes_with(before.as_deref().unwrap_or_default()) {
+                    change.stage(file, before, after);
+                }
+                Ok(())
+            }),
+        },
+        Also {
             path: dir.join(STARTER_FILE),
             stage: Box::new(move |file, change| {
                 let there = file
@@ -443,9 +458,20 @@ fn canonical(starter: &str, dir: &Path, disk: &dyn Disk, forms: &FieldForms) -> 
 /// `.gitignore` with the missing [`GITIGNORE`] entries appended to `existing`, its bytes (a file that is not
 /// UTF-8 is appended to, never rewritten); `None` when it holds every entry.
 fn gitignore_with(existing: &[u8]) -> Option<Vec<u8>> {
+    lines_with(existing, &GITIGNORE)
+}
+
+/// `.gitattributes` with the missing [`GITATTRIBUTES`] line appended to `existing`; `None` when it holds it.
+pub(crate) fn gitattributes_with(existing: &[u8]) -> Option<Vec<u8>> {
+    lines_with(existing, &GITATTRIBUTES)
+}
+
+/// `existing` with each of `entries` it lacks appended on a line of its own; `None` when it holds them all.
+fn lines_with(existing: &[u8], entries: &[&str]) -> Option<Vec<u8>> {
     let held = String::from_utf8_lossy(existing);
-    let missing: Vec<&str> = GITIGNORE
-        .into_iter()
+    let missing: Vec<&str> = entries
+        .iter()
+        .copied()
         .filter(|entry| !held.lines().any(|l| l.trim() == *entry))
         .collect();
     if missing.is_empty() {

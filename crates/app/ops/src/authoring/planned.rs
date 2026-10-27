@@ -2,6 +2,7 @@
 //! [`PlannedChange`], which answers the affected files, the after texts, the text edits and the diff, and writes
 //! them as one project change (ADR 0128).
 
+use crate::authoring::init::gitattributes_with;
 use crate::change::ProjectChange;
 use crate::read::navigate::{SourceText, TextEdit};
 use crate::{Caller, OpError, OpErrorKind, Writes};
@@ -35,6 +36,8 @@ type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
 struct LedgerWrite {
     planned_on: Vec<u8>,
     after: Vec<u8>,
+    /// `.gitattributes` lacks the ledger's merge attribute: the write adds it.
+    attributes: bool,
     redo: Redo,
 }
 
@@ -68,32 +71,40 @@ impl PlannedChange {
     /// This change keeping the harness ledger true to the project `before` (ADR 0287): the ledger as the host would
     /// rewrite it for the edited project, `change` having moved or set values. Nothing when no extension declares a
     /// harness field or the ledger stays as it is.
-    pub(crate) fn keeping_ledger(mut self, before: &CompiledProject, change: LedgerChange) -> Self {
-        if before.root().is_none() {
+    pub(crate) fn keeping_ledger(self, before: &CompiledProject, change: LedgerChange) -> Self {
+        self.with_ledger(before, change, false)
+    }
+
+    /// This change writing the ledger canonically, whether or not an extension declares a harness field
+    /// (`specforge harness gc`).
+    pub(crate) fn rewriting_ledger(self, before: &CompiledProject) -> Self {
+        self.with_ledger(before, LedgerChange::default(), true)
+    }
+
+    fn with_ledger(mut self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
+        if before.root().is_none() || !(force || before.declares_harness()) {
             return self;
         }
-        let current = before.ledger_bytes();
+        let current = before.root_file(LEDGER_FILE);
         let after = before.edited(&self.after());
-        let Some(bytes) = before.rewritten_ledger(&after, &current, &change, false) else {
-            return self;
-        };
-        if bytes == current
+        let bytes = before.rewritten_ledger(&after, &current, &change, false);
+        let unchanged = bytes == current
             || (current.is_empty()
                 && Ledger::parse(&String::from_utf8_lossy(&bytes))
                     .ledger
-                    .is_empty())
-        {
+                    .is_empty());
+        // A ledger that is written, or kept by `gc`, goes with its merge attribute.
+        let attributes = (!unchanged || (force && !current.is_empty()))
+            && gitattributes_with(&before.root_file(".gitattributes")).is_some();
+        if unchanged && !attributes {
             return self;
         }
         let before = before.clone();
         self.ledger = Some(LedgerWrite {
             planned_on: current,
             after: bytes,
-            redo: Arc::new(move |current| {
-                before
-                    .rewritten_ledger(&after, current, &change, true)
-                    .unwrap_or_else(|| current.to_vec())
-            }),
+            attributes,
+            redo: Arc::new(move |current| before.rewritten_ledger(&after, current, &change, true)),
         });
         self
     }
@@ -111,10 +122,12 @@ impl PlannedChange {
 
     /// The files the change writes, relative to the project root, in key order.
     pub fn affected_files(&self) -> impl Iterator<Item = &str> {
-        self.files
-            .keys()
-            .map(String::as_str)
-            .chain(self.ledger.iter().map(|_| LEDGER_FILE))
+        self.files.keys().map(String::as_str).chain(
+            self.ledger
+                .iter()
+                .filter(|l| l.after != l.planned_on)
+                .map(|_| LEDGER_FILE),
+        )
     }
 
     /// Each file the change writes and the text it will hold, by path relative to the project root.
@@ -227,6 +240,15 @@ impl PlannedChange {
                 (ledger.redo)(&now)
             };
             change.stage(held, current, after);
+            if ledger.attributes {
+                let held = caller
+                    .containment()
+                    .resolve(&self.sources.path(".gitattributes"))?;
+                let current = held.read_if_there().ok().flatten();
+                if let Some(after) = gitattributes_with(current.as_deref().unwrap_or_default()) {
+                    change.stage(held, current, after);
+                }
+            }
         }
         change.commit()
     }

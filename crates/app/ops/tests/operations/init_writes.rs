@@ -39,7 +39,12 @@ fn init_writes_include_gitignore_only_when_it_changed() {
     let outcome = init(&fresh, &[]);
     assert_eq!(
         listed(&outcome.writes, &fresh),
-        [".gitignore", "spec/hello.spec", "specforge.json"]
+        [
+            ".gitattributes",
+            ".gitignore",
+            "spec/hello.spec",
+            "specforge.json"
+        ]
     );
     assert_eq!(
         changed_since(&fresh, &Snapshot::new()),
@@ -52,6 +57,11 @@ fn init_writes_include_gitignore_only_when_it_changed() {
     std::fs::write(
         beside.join(".gitignore"),
         "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
+    )
+    .unwrap();
+    std::fs::write(
+        beside.join(".gitattributes"),
+        "/specforge-harness merge=union\n",
     )
     .unwrap();
     let before = files_under(&beside);
@@ -124,6 +134,7 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
     assert_eq!(
         listed(&outcome.writes, &dir),
         [
+            ".gitattributes",
             ".gitignore",
             MODULE,
             "spec/hello.spec",

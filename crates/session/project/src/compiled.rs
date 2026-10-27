@@ -188,17 +188,23 @@ impl CompiledProject {
         project
     }
 
-    /// The bytes of `specforge-harness` on disk now; empty when there is none.
-    pub fn ledger_bytes(&self) -> Vec<u8> {
+    /// The bytes of the file `name` at the project root on disk now (`specforge-harness`, `.gitattributes`); empty
+    /// when there is none.
+    pub fn root_file(&self, name: &str) -> Vec<u8> {
         use specforge_registry::Disk;
         specforge_registry::PlainDisk
-            .read(&self.env.root().join(crate::harness::LEDGER_FILE))
+            .read(&self.env.root().join(name))
             .unwrap_or_default()
+    }
+
+    /// Whether an extension the project enables declares a harness field (ADR 0287).
+    pub fn declares_harness(&self) -> bool {
+        !crate::harness::Harness::of(self.env.registries()).is_empty()
     }
 
     /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's
     /// bytes, empty when it has none): [`Ledger::rewritten`](crate::harness::Ledger::rewritten) over the two graphs.
-    /// `None` when no extension declares a harness field. With `keep_unseen`, a line of `current` for an entity
+    /// With `keep_unseen`, a line of `current` for an entity
     /// neither project holds is kept (it is another writer's).
     pub fn rewritten_ledger<'a>(
         &'a self,
@@ -206,12 +212,9 @@ impl CompiledProject {
         current: &[u8],
         change: &crate::harness::LedgerChange,
         keep_unseen: bool,
-    ) -> Option<Vec<u8>> {
+    ) -> Vec<u8> {
         use crate::harness::{Harness, Ledger, View};
         let harness = Harness::of(self.env.registries());
-        if harness.is_empty() {
-            return None;
-        }
         let forms = self.env.registries().field_forms();
         let view = |project: &'a CompiledProject, keeps_gone| View {
             graph: project.graph(),
@@ -231,7 +234,7 @@ impl CompiledProject {
                 rewritten.insert(line.clone());
             }
         }
-        Some(rewritten.canonical().into_bytes())
+        rewritten.canonical().into_bytes()
     }
 
     /// This project judged against the merge-base of `revision` and `HEAD` instead of `HEAD` (`check --since`):

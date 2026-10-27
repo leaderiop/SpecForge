@@ -155,10 +155,25 @@ fn two_writers_both_land_their_lines() {
     behavior = "collect_harness_ledger",
     verify = "the first ledger write adds the union attribute"
 )]
-#[ignore = "K4 T14"]
 fn the_first_ledger_write_adds_the_union_attribute() {
-    // init and the first ledger write each add /specforge-harness merge=union once
-    unimplemented!(
-        "K4 T14: init and the first ledger write each add /specforge-harness merge=union once"
+    let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
+    project.write(
+        "specforge-harness",
+        format!(
+            "# specforge-harness 1\n{}",
+            line("v1.0/03/U1", "result", "\"pass\"")
+        ),
+    );
+    let attributes = || std::fs::read_to_string(project.root().join(".gitattributes")).ok();
+    assert_eq!(attributes(), None);
+    rename(&project, "v1.0/03", "05").unwrap();
+    assert_eq!(
+        attributes().as_deref(),
+        Some("/specforge-harness merge=union\n")
+    );
+    rename(&project, "v1.0/05", "06").unwrap();
+    assert_eq!(
+        attributes().as_deref(),
+        Some("/specforge-harness merge=union\n")
     );
 }
