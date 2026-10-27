@@ -56,3 +56,33 @@ fn an_interrupted_write_is_rolled_back_by_the_next() {
     assert!(p.read("m.spec").contains("\"Uno\""));
     assert!(!p.root().join(".specforge/write-journal.json").exists());
 }
+
+#[specforge_test(
+    behavior = "roll_back_interrupted_write",
+    verify = "a typed edit of a project with a writing command and no harness field takes the write lock"
+)]
+fn a_typed_edit_in_a_project_with_a_writing_command_and_no_ledger_is_locked() {
+    use specforge_project::testing::{OTHER, TestProject};
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[OTHER])
+        .installing_enabled()
+        .file("m.spec", "memo M \"M\" {}\n");
+    let compile = compiled(&p, &Arc::new(GsdWrites::new().runtime()));
+    edit::run(
+        &ProjectView::of(&compile),
+        &[Edit::Retitle {
+            entity_id: "M".into(),
+            title: "Uno".into(),
+        }],
+        false,
+        &specforge_ops::authoring::apply::testing::origin(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    assert!(p.read("m.spec").contains("\"Uno\""));
+    assert!(
+        p.root().join(".specforge/write.lock").exists(),
+        "the write took the lock"
+    );
+}

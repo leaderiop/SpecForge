@@ -167,6 +167,11 @@ fn ui() -> ContributionsBuilder {
 
 fn other() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(OTHER, "1.0.0"));
+    // A kind with no harness field: a project enabling only this one writes through a command, not a ledger.
+    c.raw_category(
+        DeclaredCategory::Entities,
+        json!([{"name": "memo", "keyword": "memo", "fields": [{"name": "note", "field_type": "string"}]}]),
+    );
     c.raw_category(
         DeclaredCategory::Surfaces,
         json!([{"commands": [command("record", true)]}]),

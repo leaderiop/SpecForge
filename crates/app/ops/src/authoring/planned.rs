@@ -96,8 +96,13 @@ impl PlannedChange {
         self.with_ledger_after(before, after.clone(), change, false)
     }
 
-    fn with_ledger(self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
-        if before.root().is_none() || !before.declares_harness() {
+    fn with_ledger(mut self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
+        if before.root().is_none() {
+            return self;
+        }
+        if !before.declares_harness() {
+            // No ledger to keep, but a writing command, collector or guard pass still serializes the write.
+            self.locked = before.serializes_writes();
             return self;
         }
         let after = before.edited(&self.after());
@@ -111,11 +116,14 @@ impl PlannedChange {
         change: LedgerChange,
         force: bool,
     ) -> Self {
-        if before.root().is_none() || !before.declares_harness() {
+        if before.root().is_none() {
             return self;
         }
         // Every write of this project takes the lock, the ledger changing or not.
         self.locked = before.serializes_writes();
+        if !before.declares_harness() {
+            return self;
+        }
         let current = before.root_file(LEDGER_FILE);
         let bytes = before.rewritten_ledger(&after, &current, &change, false);
         let unchanged = bytes == current
