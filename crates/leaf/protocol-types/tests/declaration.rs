@@ -213,6 +213,43 @@ fn a_category_that_does_not_parse_fails_naming_it() {
     );
 }
 
+/// A guest built before ADR 0286 still sends a rule's `description`: the key is ignored and reported (W138).
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a describe item key the protocol does not define produces W138"
+)]
+fn a_rule_description_a_guest_still_sends_is_reported() {
+    let declared = full();
+    let mut unknown = Vec::new();
+    let loaded = ExtensionDeclaration::from_wire(
+        declared.handshake.clone(),
+        |category| match category {
+            DeclaredCategory::ValidationRules => Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([{
+                    "code": "W901",
+                    "severity": "warning",
+                    "description": "The old rule description.",
+                    "message_template": "m",
+                    "check": "no_edges",
+                }]),
+            }),
+            other => answer(&declared, other),
+        },
+        |key| unknown.push(key),
+    )
+    .unwrap();
+    assert_eq!(loaded.validation_rules[0].code, "W901");
+    assert_eq!(
+        unknown,
+        [UnknownKey {
+            category: "validation_rules",
+            item: "W901".to_string(),
+            key: "description".to_string(),
+        }]
+    );
+}
+
 #[specforge_test_macros::test(
     behavior = "load_extension_declaration",
     verify = "a describe item key the protocol does not define produces W138"
