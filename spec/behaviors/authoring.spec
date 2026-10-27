@@ -303,3 +303,31 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
 }
+
+behavior apply_edit_plan "Apply an Edit Plan" {
+  invariants [typed_edit_atomicity]
+  category   mutation
+  contract   """
+    A command or a collector that declares `writes` may answer an edit plan (ADR 0289): typed operations the host
+    checks, plans with the typed edit engine, judges and applies all or nothing, the only writer. A project whose
+    extensions declare no writing command, no writing collector, no human-only value and no guard pass reads and
+    writes as it did before: a read-only command's input carries no revisions, its tool is announced read-only with
+    the schema its arguments derive, its help has no `--dry-run`, and a typed edit writes the same bytes.
+  """
+  verify unit "a read-only command's input carries no revisions"
+  verify unit "a read-only command's tool keeps its annotations and schema"
+  verify unit "a read-only command's help and output are unchanged"
+  verify unit "a typed edit writes the same bytes and report"
+}
+
+behavior refuse_stale_revision "Refuse a Stale Revision" {
+  invariants [typed_edit_atomicity]
+  category   validation
+  contract   """
+    An operation of an edit plan names the revision of its file: `sha256:<hex>` of the bytes the host compiled and
+    sent, or `absent` for a file it creates (ADR 0289). A plan whose file changed since is refused `stale_revision`
+    with the file, the revision planned on and the current one, and writes nothing; a plan that names no revision
+    (a core typed edit) is planned on the current compile, as before.
+  """
+  verify unit "a typed edit naming no revision is refused file_changed when its file changed since the compile"
+}

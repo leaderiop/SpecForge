@@ -9,5 +9,6 @@ mod handshake_conformance;
 mod load_declaration;
 mod protocol_host;
 mod protocol_types;
+mod read_only;
 mod runtime_contract;
 mod sdk_vocabulary;

@@ -49,6 +49,33 @@ fn apply_writes_the_planned_files() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "apply_edit_plan",
+    verify = "a typed edit writes the same bytes and report"
+)]
+fn a_typed_edit_writes_the_same_bytes_and_report() {
+    let c = two_dirs();
+    let root = root(&c);
+    let planned = plan(&c, &unlink_both()).unwrap();
+    assert_eq!(
+        planned.report().affected_files,
+        ["a/one.spec", "b/two.spec"]
+    );
+    assert_eq!(planned.report().entities, ["beta_one", "beta_two"]);
+    planned
+        .change()
+        .apply(specforge_ops::testing::caller())
+        .unwrap();
+    for file in ["a/one.spec", "b/two.spec"] {
+        let text = std::fs::read_to_string(root.join(file)).unwrap();
+        assert!(!text.contains("invariants"), "{text}");
+        assert!(text.starts_with("behavior beta_"), "{text}");
+    }
+    // A project with no harness field gets no `.specforge/` from a write.
+    let project = c.project.root().unwrap();
+    assert!(!project.join(".specforge").exists());
+}
+
+#[specforge_test_macros::test(
     behavior = "validate_typed_edit",
     verify = "a failed write puts every file back"
 )]
@@ -70,7 +97,10 @@ fn apply_writes_every_file_or_none() {
     assert!(changed_since(&root, &before).is_empty());
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "refuse_stale_revision",
+    verify = "a typed edit naming no revision is refused file_changed when its file changed since the compile"
+)]
 fn apply_refuses_a_file_changed_since_the_plan() {
     let c = two_dirs();
     let root = root(&c);
