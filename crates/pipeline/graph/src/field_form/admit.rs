@@ -55,8 +55,14 @@ impl FieldForm {
     }
 
     fn admit_entries(&self, entries: &serde_json::Map<String, Value>) -> Result<(), Refusal> {
-        let Some(members) = self.members() else {
-            return Ok(());
+        let Some(members) = self.members().filter(|m| !m.is_empty()) else {
+            // An open block: named entries, each a field value.
+            return match entries.iter().find(|(_, v)| !is_field_json(v)) {
+                None => Ok(()),
+                Some((name, _)) => Err(Refusal::with(&format!(
+                    "give '{name}' a string, a number, a boolean, a list or an object"
+                ))),
+            };
         };
         for (name, member) in entries {
             members
@@ -64,6 +70,30 @@ impl FieldForm {
                 .ok_or_else(|| Refusal::with(&format!("'{name}' is no member of this block")))?
                 .admitted(member)?;
         }
+        if let Some(missing) = members
+            .iter()
+            .find(|(name, form)| form.required() && !entries.contains_key(*name))
+        {
+            return Err(Refusal::with(&format!("give the member '{}'", missing.0)));
+        }
         Ok(())
+    }
+}
+
+/// Whether `value` is a field value as every output writes one (`FieldJson`'s shape): a string, an integer, a
+/// boolean, an array of strings, integers, booleans and objects, or an object of field values.
+fn is_field_json(value: &Value) -> bool {
+    let scalar = |v: &Value| match v {
+        Value::String(_) | Value::Bool(_) => true,
+        Value::Number(n) => n.is_i64() || n.is_u64(),
+        _ => false,
+    };
+    match value {
+        Value::Array(items) => items.iter().all(|item| match item {
+            Value::Object(entries) => entries.values().all(is_field_json),
+            other => scalar(other),
+        }),
+        Value::Object(entries) => entries.values().all(is_field_json),
+        other => scalar(other),
     }
 }

@@ -181,6 +181,7 @@ behavior load_extension_settings "Load Extension Settings" {
   verify unit "a project without settings reads and calls as it did before settings existed"
   verify unit "no builtin declares a feature flag or a setting"
   verify unit "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
+  verify unit "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
   verify unit "a settings category round-trips its three item kinds and an unknown kind costs that item"
   verify unit "a feature flag reads as a bool setting of its name and default"
   verify unit "a family matches its keys, closed or open, and an exact name beats it"

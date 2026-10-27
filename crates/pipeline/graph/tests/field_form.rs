@@ -529,3 +529,92 @@ fn a_member_is_respelled_by_its_form() {
         ("2", "2")
     );
 }
+
+/// The forms a setting can take: K3's types a project config can hold (ADR 0288).
+fn setting_forms() -> Vec<FieldForm> {
+    let members = |required: bool| {
+        BlockMembers::new(vec![
+            (
+                "model".to_string(),
+                FieldForm::new(FieldType::String, Vec::new()).requiring(required),
+            ),
+            (
+                "level".to_string(),
+                FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(1), Some(3)),
+            ),
+        ])
+    };
+    let words = vec!["low".to_string(), "high".to_string()];
+    vec![
+        FieldForm::new(FieldType::String, Vec::new()),
+        FieldForm::new(FieldType::Integer, Vec::new()),
+        FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(1), Some(3)),
+        FieldForm::new(FieldType::Bool, Vec::new()),
+        FieldForm::new(FieldType::Enum, words.clone()),
+        FieldForm::new(FieldType::StringList, Vec::new()),
+        FieldForm::new(FieldType::EnumList, words),
+        FieldForm::new(FieldType::Block, Vec::new()),
+        FieldForm::new(FieldType::Block, Vec::new()).with_members(members(true)),
+        FieldForm::new(FieldType::Block, Vec::new()).with_members(members(false)),
+        FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members(true)),
+    ]
+}
+
+/// JSON values of every shape, scalars first, then the lists and objects built from them.
+fn json_corpus() -> Vec<serde_json::Value> {
+    use serde_json::json;
+    let scalars = vec![
+        json!(null),
+        json!(true),
+        json!(false),
+        json!(0),
+        json!(2),
+        json!(-1),
+        json!(4),
+        json!(2.5),
+        json!(""),
+        json!("low"),
+        json!("high"),
+        json!("other"),
+    ];
+    let mut corpus = scalars.clone();
+    corpus.push(json!([]));
+    corpus.push(json!({}));
+    for a in &scalars {
+        corpus.push(json!([a]));
+        corpus.push(json!({"model": a}));
+        corpus.push(json!({"level": a}));
+        corpus.push(json!({"model": "m", "level": a}));
+        corpus.push(json!([{"model": a}]));
+        for b in &scalars {
+            corpus.push(json!([a, b]));
+        }
+    }
+    corpus.push(json!({"model": "m", "extra": 1}));
+    corpus.push(json!({"extra": "x"}));
+    corpus.push(json!([{"model": "m"}, {"level": 2}]));
+    corpus.push(json!(["low", "low"]));
+    corpus.push(json!(["low", "high"]));
+    corpus
+}
+
+#[specforge_test(
+    behavior = "load_extension_settings",
+    verify = "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
+)]
+fn json_admitted_by_a_form_conforms_to_its_schema() {
+    let mut agreed = 0;
+    for form in setting_forms() {
+        let schema = document(&form);
+        for value in json_corpus() {
+            let admitted = form.admit_json(&value).is_ok();
+            let conforms = shape::violations(&schema, &value).is_empty();
+            assert_eq!(
+                admitted, conforms,
+                "{value} on {form:?}: admit_json {admitted}, schema {conforms}"
+            );
+            agreed += usize::from(admitted);
+        }
+    }
+    assert!(agreed > 60, "{agreed} admitted pairs: the corpus is thin");
+}
