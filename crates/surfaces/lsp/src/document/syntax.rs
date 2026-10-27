@@ -6,7 +6,7 @@
 //! Nothing here names a kind or a field: kinds and fields are read as
 //! structure; the registries are consulted by the readers.
 
-use specforge_graph::FieldForms;
+use specforge_graph::{FieldForms, Reading};
 use specforge_parser::Written;
 use specforge_parser::lex::{Lexeme, LexemeKind};
 
@@ -235,13 +235,20 @@ impl Syntax {
         ))
     }
 
-    /// The kind a field (its key lexeme) belongs to, when the field is in
-    /// an entity's own body.
-    pub(crate) fn kind_of_key<'t>(&self, text: &'t str, key: u32) -> Option<&'t str> {
-        if !self.in_own_body(key) {
-            return None;
+    /// The kind and declared member path (`requires.phase`) of the field whose key lexeme is `key`: its own name in
+    /// an entity's body, else below the field whose value its block is (a block, or an item of a block list; ADR
+    /// 0285). `None` in a define block.
+    pub(crate) fn member_path<'t>(&self, text: &'t str, key: u32) -> Option<(&'t str, String)> {
+        let frame = self.frame_of[key as usize]?;
+        let name = self.text(text, key);
+        match self.frames[frame as usize].kind {
+            FrameKind::Entity => Some((self.kind_of_frame(text, frame)?, name.to_string())),
+            FrameKind::Block => {
+                let (kind, path) = self.member_path(text, self.frames[frame as usize].key?)?;
+                Some((kind, format!("{path}.{name}")))
+            }
+            _ => None,
         }
-        self.kind_of_frame(text, self.frame_of[key as usize]?)
     }
 
     /// Whether lexeme `i` is at a reference position: an entity header's
@@ -251,7 +258,10 @@ impl Syntax {
     /// names) and semantic tokens (what is a reference) share.
     pub(crate) fn reference_position(&self, text: &str, i: u32, forms: &FieldForms) -> bool {
         let lexeme = &self.lexemes[i as usize];
-        if !lexeme.is_name() {
+        // A number or date word in a value or item slot may name an entity too (`parent 10`, ADR 0283).
+        let word = lexeme.kind == LexemeKind::Number
+            && matches!(self.roles[i as usize], Role::Value | Role::Item);
+        if !lexeme.is_name() && !word {
             return false;
         }
         match self.roles[i as usize] {
@@ -261,7 +271,8 @@ impl Syntax {
                 let Some(key) = self.key_of[i as usize] else {
                     return false;
                 };
-                // A value written in a nested block is the block's.
+                // A value of a block's member is read by the member's declared form; an open block's entries are
+                // no reference position.
                 let own = match self.roles[i as usize] {
                     Role::Item => self.frame_of[i as usize].is_some_and(|list| {
                         self.frames[list as usize].parent == self.frame_of[key as usize]
@@ -270,11 +281,14 @@ impl Syntax {
                 };
                 let written = match lexeme.kind {
                     LexemeKind::RefId => Written::SchemeRef,
+                    LexemeKind::Number => Written::Literal,
                     _ => Written::Bare,
                 };
-                own && self
-                    .kind_of_key(text, key)
-                    .is_some_and(|kind| forms.reading(kind, self.text(text, key)).may_name(written))
+                own && self.member_path(text, key).is_some_and(|(kind, path)| {
+                    let reading = forms.reading_at(kind, &path);
+                    (!path.contains('.') || matches!(reading, Reading::Declared(_)))
+                        && reading.may_name(written)
+                })
             }
             _ => false,
         }

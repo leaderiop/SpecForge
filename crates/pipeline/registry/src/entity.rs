@@ -16,7 +16,11 @@ use crate::disk::Disk;
 /// is the rule engine or the wire build it with the `with_*` methods.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityRecord {
+    /// The entity's path: its scope's path and its name (ADR 0284).
     pub id: String,
+    /// The name it is declared with: `id` without its scope's path. What the identifier contract (E013, E014)
+    /// judges. Host-internal: never on the wire.
+    pub name: String,
     pub kind: String,
     pub span: SourceSpan,
     /// Every field the entity writes, once each, in source order, each with
@@ -46,7 +50,22 @@ pub struct EntityRecord {
 /// `@`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldRecord {
+    /// The field's name; on a member (see `members`) its written path, `requires[1].phase`.
     pub key: String,
+    /// The declared path the field's registered form is found at: `key` on a field, `requires.phase` on a member.
+    pub declared: String,
+    /// Every typed member written inside this field's block or block list (ADR 0285), depth first, each a record of
+    /// its own; empty on a member and on any other field. Host-internal: never on the wire.
+    pub members: Vec<FieldRecord>,
+    /// The written path of each required member this field's block or block list leaves unwritten
+    /// (`out_of_scope[0].why`). Host-internal: never on the wire.
+    pub missing: Vec<String>,
+    /// The entries this field's typed blocks hold that they declare no member for (W020). Host-internal: never on
+    /// the wire.
+    pub unknown: Vec<UnknownMember>,
+    /// The value as the export writes it, for a typed `block` or a `block_list` (a pass and a validator read it
+    /// beside the text, ADR 0285); `None` for every other field. Host-internal: never on the wire as a field.
+    pub written: Option<serde_json::Value>,
     pub text: String,
     pub annotations: Vec<String>,
     /// A list-shaped value's items, unjoined (each item's text), so a host
@@ -64,6 +83,18 @@ pub struct FieldRecord {
     /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
     pub rewrites: Vec<Rewrite>,
+}
+
+/// An entry of a typed block that the block declares no member for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownMember {
+    /// The written path of the block holding it (`constraints[1]`).
+    pub container: String,
+    /// The declared path of that block (`constraints`).
+    pub declared: String,
+    pub key: String,
+    /// Where its value is written.
+    pub span: Option<SourceSpan>,
 }
 
 /// Edge counts in one direction, to or from other entities: an edge from the entity to itself
@@ -152,6 +183,8 @@ pub struct RuleInput<'a> {
     pub entities: &'a [EntityRecord],
     pub edges: &'a [EdgeRecord],
     pub spec_root: &'a Path,
+    /// The directory holding `specforge.json`: where a file field declaring the `project` base starts its paths.
+    pub project_root: &'a Path,
     pub disk: &'a dyn Disk,
 }
 
@@ -161,6 +194,7 @@ impl std::fmt::Debug for RuleInput<'_> {
             .field("entities", &self.entities)
             .field("edges", &self.edges)
             .field("spec_root", &self.spec_root)
+            .field("project_root", &self.project_root)
             .finish_non_exhaustive()
     }
 }
@@ -170,6 +204,7 @@ impl EntityRecord {
     pub fn new(kind: &str, id: &str, span: &SourceSpan) -> Self {
         EntityRecord {
             id: id.to_string(),
+            name: id.to_string(),
             kind: kind.to_string(),
             span: span.clone(),
             fields: Vec::new(),
@@ -200,6 +235,11 @@ impl EntityRecord {
     pub fn with_list(mut self, key: &str, items: &[&str]) -> Self {
         self.fields.push(FieldRecord {
             key: key.to_string(),
+            declared: key.to_string(),
+            members: Vec::new(),
+            missing: Vec::new(),
+            unknown: Vec::new(),
+            written: None,
             text: items.join(", "),
             annotations: Vec::new(),
             items: Some(items.iter().map(|item| item.to_string()).collect()),
@@ -216,6 +256,11 @@ impl EntityRecord {
     pub fn with_value(mut self, key: &str, shape: ValueShape, text: &str) -> Self {
         self.fields.push(FieldRecord {
             key: key.to_string(),
+            declared: key.to_string(),
+            members: Vec::new(),
+            missing: Vec::new(),
+            unknown: Vec::new(),
+            written: None,
             text: text.to_string(),
             annotations: Vec::new(),
             items: shape.is_list().then(|| vec![text.to_string()]),

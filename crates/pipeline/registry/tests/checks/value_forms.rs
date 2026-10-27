@@ -66,6 +66,16 @@ fn a_bare_word_on_a_members_kind_is_not_w159() {
 
 #[spec(
     behavior = "check_field_value_types",
+    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+)]
+fn a_scalar_reference_holds_a_dashed_or_numeric_name_bare() {
+    assert!(
+        w159("ticket t1 \"T\" {\n  blocker D-01\n  blocker 10\n  blocker 03/D-01\n}\n").is_empty()
+    );
+}
+
+#[spec(
+    behavior = "check_field_value_types",
     verify = "a value E061 refuses is not W159"
 )]
 fn a_value_e061_refuses_is_not_w159() {

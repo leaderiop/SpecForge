@@ -17,7 +17,7 @@ fn parses_no_incoming_edges_pattern_from_manifest() {
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
     let rule = built.rules.iter().next().unwrap();
     assert_eq!(rule.check_kind(), CheckKind::NoIncomingEdges);
-    assert_eq!(rule.code(), "W100");
+    assert_eq!(rule.code(), "test/W100");
 }
 
 #[spec(
@@ -65,7 +65,7 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     assert_eq!(built.diagnostics.len(), 1);
     assert_eq!(
         built.diagnostics[0].message,
-        "extension '@test': rule 'W107': one_of constraint has an empty values list — every field value would be flagged as a violation — the rule can never fire and was not registered"
+        "extension '@test': rule 'test/W107': one_of constraint has an empty values list — every field value would be flagged as a violation — the rule can never fire and was not registered"
     );
 }
 
@@ -94,7 +94,7 @@ fn field_requiring_check_without_field_produces_warning() {
         assert_eq!(
             built.coded("W112")[0].message,
             format!(
-                "extension '@test': rule 'W108': check '{check}' requires a field but none is set — the rule can never fire and was not registered"
+                "extension '@test': rule 'test/W108': check '{check}' requires a field but none is set — the rule can never fire and was not registered"
             )
         );
     }
@@ -128,7 +128,7 @@ fn a_rule_keeps_its_declared_head() {
         ..Default::default()
     });
     let rule = built.rules.iter().next().unwrap();
-    assert_eq!(rule.code(), "W100");
+    assert_eq!(rule.code(), "test/W100");
     assert_eq!(rule.severity(), Severity::Error);
     assert_eq!(rule.describe()["message_template"], "test {id}");
     assert_eq!(rule.check_kind(), CheckKind::NoIncomingEdges);
@@ -149,7 +149,7 @@ fn parse_validation_rule_pattern_contract() {
         ignoring,
     ]);
     // ensures: valid patterns parsed (the one ignoring a property too)
-    assert_eq!(built.codes(), ["W100", "W300"]);
+    assert_eq!(built.codes(), ["test/W100", "test/W300"]);
     // ensures: unrecognized warned, naming the extension
     let w112 = built.coded("W112");
     assert_eq!(w112.len(), 1);
@@ -176,9 +176,9 @@ fn an_invalid_regex_is_w112_and_not_registered() {
     let w112 = built.coded("W112");
     assert_eq!(w112.len(), 1);
     assert!(
-        w112[0]
-            .message
-            .starts_with("extension '@test': rule 'W095': invalid regex pattern '(unclosed': "),
+        w112[0].message.starts_with(
+            "extension '@test': rule 'test/W095': invalid regex pattern '(unclosed': "
+        ),
         "{}",
         w112[0].message
     );
@@ -213,7 +213,7 @@ fn a_constraint_that_can_never_match_is_w112() {
         assert_eq!(
             built.coded("W112")[0].message,
             format!(
-                "extension '@test': rule 'W105': {why} — the rule can never fire and was not registered"
+                "extension '@test': rule 'test/W105': {why} — the rule can never fire and was not registered"
             )
         );
     }
@@ -252,7 +252,7 @@ fn a_conditional_rule_that_can_never_trigger_is_w112() {
         assert_eq!(
             built.coded("W112")[0].message,
             format!(
-                "extension '@test': rule 'I059': {why} — the rule can never fire and was not registered"
+                "extension '@test': rule 'test/I059': {why} — the rule can never fire and was not registered"
             )
         );
     }
@@ -289,7 +289,7 @@ fn a_custom_rule_without_a_wasm_function_is_w112() {
     assert!(built.rules.is_empty());
     assert_eq!(
         built.coded("W112")[0].message,
-        "extension '@test': rule 'E200': check 'custom' requires a wasm_function but none is set — the rule can never fire and was not registered"
+        "extension '@test': rule 'test/E200': check 'custom' requires a wasm_function but none is set — the rule can never fire and was not registered"
     );
 }
 
@@ -319,7 +319,7 @@ fn a_verify_kind_allowlist_without_values_is_w112() {
         assert!(built.rules.is_empty());
         assert_eq!(
             built.coded("W112")[0].message,
-            "extension '@test': rule 'W009': verify_kind_allowlist requires a constraint with values — every verify kind would be flagged — the rule can never fire and was not registered"
+            "extension '@test': rule 'test/W009': verify_kind_allowlist requires a constraint with values — every verify kind would be flagged — the rule can never fire and was not registered"
         );
     }
 }
@@ -373,11 +373,11 @@ fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
     assert_eq!(
         messages,
         [
-            "extension '@test': rule 'W004': check 'no_verify_statements' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
-            "extension '@test': rule 'W009': check 'verify_kind_allowlist' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
+            "extension '@test': rule 'test/W004': check 'no_verify_statements' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
+            "extension '@test': rule 'test/W009': check 'verify_kind_allowlist' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
         ]
     );
-    assert_eq!(built.codes(), ["W010", "W011"]);
+    assert_eq!(built.codes(), ["test/W010", "test/W011"]);
 }
 
 /// (check, edge_type, constraint, wasm_function, the properties W147 names)
@@ -524,7 +524,7 @@ fn a_property_its_check_does_not_read_is_w147() {
             .iter()
             .map(|property| {
                 format!(
-                    "extension '@test': rule 'W500': {property} is not read by check '{check}' — the rule was registered without it"
+                    "extension '@test': rule 'test/W500': {property} is not read by check '{check}' — the rule was registered without it"
                 )
             })
             .collect();
@@ -557,7 +557,7 @@ fn a_conditional_constraint_of_another_kind_is_w147_and_read_as_when_field_equal
 
     assert_eq!(
         built.coded("W147")[0].message,
-        "extension '@test': rule 'I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
+        "extension '@test': rule 'test/I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
     );
     let registered = built.rules.iter().next().unwrap();
     assert_eq!(
@@ -577,7 +577,7 @@ fn a_conditional_constraint_of_another_kind_is_w147_and_read_as_when_field_equal
     let built = one(allowlist);
     assert_eq!(
         built.coded("W147")[0].message,
-        "extension '@test': rule 'W009': constraint kind 'non_empty' is not read by check 'verify_kind_allowlist' (it reads one_of) — read as one_of"
+        "extension '@test': rule 'test/W009': constraint kind 'non_empty' is not read by check 'verify_kind_allowlist' (it reads one_of) — read as one_of"
     );
-    assert_eq!(built.codes(), ["W009"]);
+    assert_eq!(built.codes(), ["test/W009"]);
 }

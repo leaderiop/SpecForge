@@ -29,6 +29,7 @@ mod ledger;
 pub mod passes;
 mod policy;
 pub mod providers;
+mod raises;
 mod session;
 mod setup;
 mod sources;
@@ -63,6 +64,7 @@ pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};
 use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
+pub use raises::Raises;
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{
@@ -388,7 +390,7 @@ impl Environment {
     /// the relative paths the rules read. The one place a snapshot is
     /// taken from an environment.
     pub fn entity_snapshot(&self, graph: &GraphBuild) -> EntitySnapshot {
-        EntitySnapshot::of(graph, &self.registries, self.sources.dir())
+        EntitySnapshot::of(graph, &self.registries, self.sources.dir(), self.root())
     }
 
     /// Every check a compile runs over the entity snapshot `entities` of a

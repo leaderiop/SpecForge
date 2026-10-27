@@ -10,7 +10,10 @@ use specforge_cycles::cycles;
 use super::files;
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
 use super::{Origin, Rule};
-use crate::entity::{Direction, EntityRecord, RuleInput};
+use crate::entity::{Direction, EntityRecord, FieldRecord, RuleInput};
+use specforge_common::SourceSpan;
+use specforge_graph::field_form::declared_path;
+use specforge_protocol_types::FileBase;
 
 /// One variant per check kind; each carries what it reads, resolved.
 #[derive(Debug, Clone)]
@@ -40,8 +43,10 @@ pub(crate) enum Check {
     Cycle {
         edge_type: String,
     },
+    /// Every path `field` (a declared path) names exists under `base`.
     FileExists {
         field: String,
+        base: FileBase,
     },
     VerifyKindAllowlist {
         allowed: Vec<String>,
@@ -87,6 +92,10 @@ pub(crate) enum Obligations {
 struct Violation {
     field: Option<String>,
     value: Option<String>,
+    /// The whole message, when the template cannot say it (a host rule over a typed block's members).
+    message: Option<String>,
+    /// Where the violation is, when it is a member's value rather than the entity.
+    span: Option<SourceSpan>,
     /// The help the diagnostic carries, when the check found one.
     suggestion: Option<String>,
 }
@@ -94,9 +103,8 @@ struct Violation {
 impl Violation {
     fn value(value: impl Into<String>) -> Self {
         Violation {
-            field: None,
             value: Some(value.into()),
-            suggestion: None,
+            ..Default::default()
         }
     }
 }
@@ -110,12 +118,16 @@ pub(super) fn run(
     if let Check::Cycle { edge_type } = &rule.check {
         return cycle_rule(rule, edge_type, input);
     }
-    if let Check::FileExists { field } = &rule.check {
-        return missing_files(rule, field, input);
+    if let Check::FileExists { field, base } = &rule.check {
+        return missing_files(rule, field, *base, input);
     }
     let mut diagnostics = Vec::new();
     let mut failures = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
+        if let Some(violations) = member_violations(rule, record) {
+            diagnostics.extend(violations.into_iter().map(|v| report(rule, record, v)));
+            continue;
+        }
         let violation = match evaluate(rule, record, verdicts) {
             Ok(Some(violation)) => violation,
             Ok(None) => continue,
@@ -243,9 +255,79 @@ fn evaluate(
             Verdict::Fail { field, value } => Ok(Some(Violation {
                 field,
                 value,
-                suggestion: None,
+                ..Default::default()
             })),
         },
+    }
+}
+
+/// The violations of `rule` over the typed members of `record`'s blocks, when it names a member path (`requires.kind`,
+/// ADR 0285): one per item that breaks it, at the member's value. `None` for a rule over top-level fields.
+fn member_violations(rule: &Rule, record: &EntityRecord) -> Option<Vec<Violation>> {
+    let members = || record.fields.iter().flat_map(|f| f.members.iter());
+    let at = |m: &FieldRecord| Violation {
+        field: Some(m.key.clone()),
+        value: Some(m.text.clone()),
+        span: m.value_span.clone(),
+        ..Default::default()
+    };
+    match &rule.check {
+        Check::MissingField { field } if field.contains('.') => Some(
+            record
+                .fields
+                .iter()
+                .flat_map(|f| &f.missing)
+                .filter(|path| declared_path(path) == *field)
+                .map(|path| {
+                    let (container, member) = path.rsplit_once('.').unwrap_or(("", path));
+                    Violation {
+                        field: Some(path.clone()),
+                        message: (rule.origin == Origin::Host).then(|| {
+                            format!(
+                                "{} '{}' is missing required member '{member}' in {container}",
+                                record.kind, record.id
+                            )
+                        }),
+                        ..Default::default()
+                    }
+                })
+                .collect(),
+        ),
+        Check::FieldValue { field, constraint } if field.contains('.') => Some(
+            members()
+                .filter(|m| m.declared == *field)
+                .filter(|m| match constraint {
+                    ValueConstraint::NonEmpty => m.text.is_empty(),
+                    ValueConstraint::OneOf(allowed) => !allowed.contains(&m.text),
+                    ValueConstraint::Matches(regex) => !regex.is_match(&m.text),
+                })
+                .map(at)
+                .collect(),
+        ),
+        Check::ConditionalFieldRequired {
+            field,
+            when_field,
+            equals,
+        } if field.contains('.') || when_field.contains('.') => Some(
+            members()
+                .filter(|m| m.declared == *when_field && equals.contains(&m.text))
+                .filter_map(|when| {
+                    // The member the condition sits beside: the same block, the other member's name.
+                    let (container, _) = when.key.rsplit_once('.').unwrap_or(("", &when.key));
+                    let leaf = field.rsplit('.').next().unwrap_or(field);
+                    let sibling = format!("{container}.{leaf}");
+                    members()
+                        .find(|m| m.key == sibling)
+                        .is_none_or(|m| m.text.is_empty())
+                        .then(|| Violation {
+                            field: Some(sibling),
+                            span: when.value_span.clone(),
+                            ..Default::default()
+                        })
+                })
+                .collect(),
+        ),
+        _ => None,
     }
 }
 
@@ -274,15 +356,20 @@ fn report(rule: &Rule, record: &EntityRecord, violation: Violation) -> Diagnosti
         } => Some(allowed.join(", ")),
         _ => None,
     };
-    let message = interpolate(
-        &rule.template,
-        &record.id,
-        &record.kind,
-        field,
-        value,
-        allowed.as_deref(),
-    );
+    let message = violation.message.clone().unwrap_or_else(|| {
+        interpolate(
+            &rule.template,
+            &record.id,
+            &record.kind,
+            field,
+            value,
+            allowed.as_deref(),
+        )
+    });
     let mut diagnostic = diagnostic(rule, message, record);
+    if violation.span.is_some() {
+        diagnostic.span = violation.span;
+    }
     diagnostic.suggestion = violation.suggestion;
     diagnostic
 }
@@ -400,12 +487,18 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
 /// A `file_exists` rule over `input`: each path an entity it applies to names in `field` that
 /// does not exist, by entity id then path order, with a close sibling as the help
 /// ([`files::missing`], ADR 0118). `{value}` is the missing path.
-fn missing_files(rule: &Rule, field: &str, input: &RuleInput<'_>) -> Vec<Diagnostic> {
+fn missing_files(
+    rule: &Rule,
+    field: &str,
+    base: FileBase,
+    input: &RuleInput<'_>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
-        for missing in files::missing(record, field, input) {
+        for missing in files::missing(record, field, base, input) {
             let violation = Violation {
                 suggestion: missing.suggestion,
+                span: missing.span,
                 ..Violation::value(missing.path)
             };
             diagnostics.push(report(rule, record, violation));

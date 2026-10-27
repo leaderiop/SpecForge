@@ -5,7 +5,7 @@ D5 (navigation's tokens ask the graph's finder; its holders still read `Graph::w
 [ADR 0149](0149-a-file-states-a-kinds-shared-fields-once.md) D11 (a default no block takes is one token, held by none)
 and [ADR 0156](0156-a-delete-finds-references-by-the-one-reference-rule.md) D1 and D2 (the referrer scan is the finder;
 a derived type name refuses too), as ADR 0156's "Reopen when" foresaw. D2 amended by [ADR 0176](0176-the-finder-is-the-only-record-of-where-a-name-is-written.md): `Navigator::references` and the token at a position ask the finder too, which names the blocks that hold each token.
-Amended again by the round 18 amendment below (plan 11, citing ADR 0176): the finder reads each block as the build stores it; the derived names one block links are one function. D1 and D3 extended by [ADR 0233](0233-a-use-binding-is-a-finder-token.md): a `use` binding's imported name is a token, held by none; a delete removes it.
+Amended again by the round 18 amendment below (plan 11, citing ADR 0176): the finder reads each block as the build stores it; the derived names one block links are one function. D1 and D3 extended by [ADR 0233](0233-a-use-binding-is-a-finder-token.md): a `use` binding's imported name is a token, held by none; a delete removes it. Extended by [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (qualifier tokens; a token's target is a path).
 
 "Which written tokens name entity X" was answered by two walks that disagreed both ways:
 

@@ -64,13 +64,18 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
     duplicate_ids_diagnosed "Every duplicate entity ID has an E002 diagnostic emitted naming both declaration sites"
   }
   contract   """
-    The validator MUST detect entity IDs declared more than once across
-    all .spec files. Duplicate IDs MUST produce an E002 diagnostic that
-    names both declaration sites (file, line, column).
+    The validator MUST detect entity names declared more than once in one
+    scope across all .spec files; the same name in two scopes is two
+    entities. Duplicates MUST produce an E002 diagnostic that names both
+    declaration sites (file, line, column).
   """
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
+  verify unit "a project with no scoped kind keeps each id its name, each edge its written text, and E002 and W060 on the same declarations"
+  verify unit "a name repeated in another scope is another entity with another path"
+  verify unit "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
+  verify unit "an entity that writes no scope field is in the project scope"
   verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 }
 
@@ -236,10 +241,12 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "existing file reference passes silently"
   verify unit "multiple file references in same entity each validated independently"
   verify unit "relative path resolved from the spec root"
+  verify unit "a file reference is read from the spec root and suggests a close sibling there"
   verify unit "a field another kind declares as a file reference is not one on this kind"
   verify unit "a single path on a file-reference field is checked like a one-item list"
   verify unit "a bare word on a file-reference field is a path"
   verify integration "a compile checks a bare word on a file-reference field as a path"
+  verify unit "a file field declaring the project base reads its relative paths from the directory of specforge.json"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 }
 

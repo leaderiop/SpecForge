@@ -224,3 +224,22 @@ fn detect_breaking_contract() {
     // ensures: migration_record_emitted
     assert!(!changes.is_empty());
 }
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
+    verify = "added optional field detected as non-breaking"
+)]
+fn a_single_target_kind_widened_to_a_list_is_minor_and_narrowed_is_major() {
+    let mut single = sample_schema();
+    let mut field = optional_field("owner");
+    field.target_kind = Some("person".to_string());
+    single.entity_kinds[0].fields.push(field.clone());
+    let mut wide = sample_schema();
+    field.target_kind = None;
+    field.target_kinds = vec!["person".to_string(), "team".to_string()];
+    wide.entity_kinds[0].fields.push(field);
+
+    let bump = |old, new| diff(old, new).iter().map(SchemaChange::bump).max();
+    assert_eq!(bump(&single, &wide), Some(Bump::Minor));
+    assert_eq!(bump(&wide, &single), Some(Bump::Major));
+}

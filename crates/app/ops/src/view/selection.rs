@@ -3,9 +3,10 @@
 //! it covers (ADR 0190).
 
 use specforge_common::Diagnostic;
-use specforge_graph::{Graph, Node, Selected};
+use specforge_graph::{Found, Graph, Node, Selected};
 use specforge_registry::{EntityRecord, Standing};
 
+use super::entity::ambiguous;
 use super::{KindFilter, ProjectView, not_found};
 use crate::{OpError, OpErrorKind, Refusal};
 
@@ -66,7 +67,15 @@ impl<'a> ProjectView<'a> {
     /// The entity `id`, or [`not_found`] (E003, did-you-mean) about `named_by`.
     pub fn entity<F>(&self, id: &str, named_by: F) -> Result<Entity<'a>, Refusal<F>> {
         let graph = self.graph();
-        match graph.node(id).zip(self.entities().get(id)) {
+        let path = match graph.find(id) {
+            Found::One(path) => path,
+            Found::Ambiguous(paths) => return Err(ambiguous(id, &paths).about(named_by)),
+            Found::Mistyped(_) | Found::None(_) => return Err(not_found(graph, id).about(named_by)),
+        };
+        match graph
+            .node(path.as_str())
+            .zip(self.entities().get(path.as_str()))
+        {
             Some((node, (record, standing))) => Ok(Entity {
                 node,
                 record,

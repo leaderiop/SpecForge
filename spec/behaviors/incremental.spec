@@ -347,6 +347,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify property "incremental rebuild equals cold rebuild"
   verify unit "debug --verify-incremental performs cold rebuild comparison"
   verify unit "a rebuild whose diagnostics differ from a cold build is reported"
+  verify unit "an apply that moves a scope re-keys its members held in other files, equal to a cold build"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 }
 

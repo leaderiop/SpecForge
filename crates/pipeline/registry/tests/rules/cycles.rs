@@ -118,7 +118,7 @@ fn cycle_detection_finds_cycles_in_edge_type() {
     assert!(
         diagnostics
             .iter()
-            .all(|d| d.code == "E007" && d.span.is_some())
+            .all(|d| d.code == "test/E007" && d.span.is_some())
     );
 }
 
@@ -166,7 +166,7 @@ fn a_cycle_rule_without_an_edge_type_is_w112() {
     assert_eq!(w112.len(), 1, "{:?}", built.diagnostics);
     assert_eq!(
         w112[0].message,
-        "extension '@test': rule 'E009': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
+        "extension '@test': rule 'test/E009': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
     );
 }
 

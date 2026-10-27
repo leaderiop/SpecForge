@@ -86,6 +86,8 @@ pub struct TestExtension {
     /// What a `check`-phase pass `report` answers on every compile.
     reported: Vec<PassDiagnostic>,
     declares: Vec<Declare>,
+    /// Codes the extension's rules report: catalogued beside the passes'.
+    coded: Vec<String>,
 }
 
 impl Default for TestExtension {
@@ -109,6 +111,7 @@ impl TestExtension {
             obligated: Vec::new(),
             reported: Vec::new(),
             declares: Vec::new(),
+            coded: Vec::new(),
         }
     }
 
@@ -190,6 +193,13 @@ impl TestExtension {
         self
     }
 
+    /// Catalogue `code`, a code a rule declared with [`Self::declaring`]
+    /// reports: a third-party code is reported only once it is listed.
+    pub fn coding(mut self, code: &str) -> Self {
+        self.coded.push(code.to_string());
+        self
+    }
+
     /// Anything else, declared with the SDK builders: a provider, an
     /// analyzer, an inference guide, a command.
     pub fn declaring(
@@ -239,7 +249,7 @@ impl TestExtension {
             c.edge(label, |_| {});
         }
         for kind in &self.obligated {
-            c.rule("W004", |r| {
+            c.rule("W904", |r| {
                 r.check(CheckKind::NoVerifyStatements)
                     .target_kind(kind)
                     .field("verify")
@@ -257,6 +267,20 @@ impl TestExtension {
         }
         for declare in &self.declares {
             declare(&mut c);
+        }
+        // What the rules and passes report is catalogued unless a `declaring` closure did.
+        let mut reported_codes: Vec<&str> = (self.reported.iter().map(|d| d.code.as_str()))
+            .chain(self.coded.iter().map(String::as_str))
+            .chain((!self.obligated.is_empty()).then_some("W904"))
+            .collect();
+        reported_codes.sort_unstable();
+        reported_codes.dedup();
+        let listed: Vec<String> = c.declaration().codes.into_iter().map(|d| d.code).collect();
+        for code in reported_codes
+            .into_iter()
+            .filter(|c| !listed.iter().any(|l| l == c))
+        {
+            catalogue(&mut c, code);
         }
         c
     }
@@ -280,6 +304,15 @@ impl TestExtension {
         };
         &mut self.kinds[at]
     }
+}
+
+/// Catalogue `code` in `c`: a third-party code is reported only once its
+/// extension lists it.
+pub fn catalogue(c: &mut ContributionsBuilder, code: &str) {
+    c.code(code, |d| {
+        d.title("A test finding")
+            .explanation("A finding of the test extension.");
+    });
 }
 
 /// One in-process runtime serving `extensions`, each under its name.

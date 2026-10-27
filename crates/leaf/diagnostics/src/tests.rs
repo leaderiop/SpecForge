@@ -3,6 +3,7 @@ use specforge_repo_root::repo_root;
 use specforge_test_macros::test as specforge_test;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod namespace;
 mod scan;
 
 use scan::{
@@ -10,7 +11,6 @@ use scan::{
     is_literal_consumer, opens_table, walk,
 };
 
-/// Third-party extensions own E900–E998 / W900–W998 / I900–I998.
 /// The registry client's code areas (`R-RES-005`), catalogued as they
 /// are (ADR 0004 D6-c). The grammar is frozen: no new area, no new family.
 const REGISTRY_AREAS: &[&str] = &["AUTH", "LOGIN", "OPS", "RES", "TRUST"];
@@ -29,7 +29,10 @@ fn is_allowed_shape(code: &str) -> bool {
         && digits(&code[1..])
 }
 
-fn is_third_party(code: &str) -> bool {
+/// A code the repository's examples give an extension's local code (`E901`, a scaffold's `W900`): the
+/// 900s, so the scanners tell them from core's. A convention of the tests, not a rule of the product:
+/// an extension's codes are its own (ADR 0286).
+fn is_example_local_code(code: &str) -> bool {
     let b = code.as_bytes();
     if b.len() != 4 || !matches!(b[0], b'E' | b'W' | b'I') {
         return false;
@@ -76,9 +79,9 @@ fn catalog_is_sorted_unique_and_well_formed() {
                 entry.code,
                 REGISTRY_AREAS.join(", ")
             ));
-        } else if is_third_party(entry.code) {
+        } else if is_example_local_code(entry.code) {
             problems.push(format!(
-                "{}: the 900-998 range is reserved for third-party extensions",
+                "{}: the 900s are the examples' local codes, which the catalog never holds",
                 entry.code
             ));
         }
@@ -113,9 +116,11 @@ fn catalog_is_sorted_unique_and_well_formed() {
 /// owner reported; ownership decides, not the level it was reported at.
 #[specforge_test(
     invariant = "diagnostic_code_uniqueness",
-    verify = "an extension reports only its own catalogued codes, or third-party codes whose prefix states their level"
+    verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
 )]
 fn describes_reads_ownership_not_level() {
+    let book = Codebook::default();
+    let describes = |code: &str, origin: Option<&str>| book.describes(code, origin);
     // The host's own: described.
     assert_eq!(
         describes("E001", None).map(|e| e.title),
@@ -123,8 +128,8 @@ fn describes_reads_ownership_not_level() {
     );
     // A code the extension owns, whatever level `--strict` gave it.
     assert_eq!(
-        describes("W004", Some("@specforge/testing")).map(|e| e.code),
-        Some("W004")
+        describes("W004", Some("@specforge/testing")).map(|e| e.code.into_owned()),
+        Some("W004".to_string())
     );
     // A code another owner has: not described.
     assert!(describes("E001", Some("@acme/squat")).is_none());
@@ -171,7 +176,7 @@ fn code_constants_are_their_catalog_entries() {
 
 /// C3: hand-written docs cite only catalogued codes. `docs/diagnostics.md`
 /// is generated from the catalog, and ADRs are dated records that quote
-/// the codes of their time; the third-party ranges are never catalogued.
+/// the codes of their time; an extension's local code (E901) is never in the static catalog.
 #[test]
 fn hand_written_docs_cite_only_catalogued_codes() {
     let docs = repo_root().join("docs");
@@ -187,7 +192,7 @@ fn hand_written_docs_cite_only_catalogued_codes() {
         }
         let text = std::fs::read_to_string(&path).unwrap_or_default();
         for (line, code) in cited_codes(&text) {
-            if lookup(code).is_none() && !is_third_party(code) {
+            if lookup(code).is_none() && !is_example_local_code(code) {
                 problems.push(format!("docs/{rel}:{line} cites {code}"));
             }
         }
@@ -205,9 +210,9 @@ fn hand_written_docs_cite_only_catalogued_codes() {
 /// prefix/level pair does not compile. A code-shaped string literal in
 /// the host's production source (outside test items and comments) is
 /// that rule broken: `Code::catalogued("W999", ..)`, `"E003: ..."` in a
-/// message, `severity[E048]` in a format string. The third-party ranges
-/// (a scaffold's `W900`) are never catalogued and are not codes of
-/// the host's.
+/// message, `severity[E048]` in a format string. An example
+/// extension's local code (a scaffold's `W900`) is never catalogued and is not a code
+/// of the host's.
 #[test]
 fn host_source_names_codes_through_constants() {
     let files = host_source();
@@ -223,7 +228,7 @@ fn host_source_names_codes_through_constants() {
                 continue;
             }
             for (code, _) in code_literals(line) {
-                if !is_third_party(code) {
+                if !is_example_local_code(code) {
                     problems.push(format!(
                         "{rel}:{} writes {code} as text; name it `codes::{}`",
                         index + 1,

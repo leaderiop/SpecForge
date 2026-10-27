@@ -65,7 +65,10 @@ fn every_declared_rule_is_in_the_build_with_its_extension() {
     let build = build([software(), a, b]);
 
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
-    assert_eq!(rule_codes(&build), [("W900", "@ext/a"), ("W901", "@ext/b")]);
+    assert_eq!(
+        rule_codes(&build),
+        [("ext.a/W900", "@ext/a"), ("ext.b/W901", "@ext/b")]
+    );
     let w100 = nth(&build, 0);
     assert_eq!(w100.check_kind(), CheckKind::NoIncomingEdges);
     assert_eq!(w100.check_kind().as_str(), "no_incoming_edges");
@@ -98,26 +101,31 @@ fn the_extensions_rules_are_ordered_by_code() {
     assert_eq!(
         rule_codes(&build),
         [
-            ("W900", "@ext/a"),
-            ("W900", "@ext/b"),
-            ("W901", "@ext/b"),
-            ("W902", "@ext/a"),
+            ("ext.a/W900", "@ext/a"),
+            ("ext.a/W902", "@ext/a"),
+            ("ext.b/W900", "@ext/b"),
+            ("ext.b/W901", "@ext/b"),
         ]
     );
     assert_eq!(
         templates(&build),
-        ["W900: a100", "W900: b100", "W901: b200", "W902: a300"]
+        [
+            "ext.a/W900: a100",
+            "ext.a/W902: a300",
+            "ext.b/W900: b100",
+            "ext.b/W901: b200"
+        ]
     );
 
-    // Rules sharing a code keep load order.
+    // The namespace orders them: load order moves none.
     let swapped = crate::support::build([b, a]);
     assert_eq!(
         rule_codes(&swapped),
         [
-            ("W900", "@ext/b"),
-            ("W900", "@ext/a"),
-            ("W901", "@ext/b"),
-            ("W902", "@ext/a"),
+            ("ext.a/W900", "@ext/a"),
+            ("ext.a/W902", "@ext/a"),
+            ("ext.b/W900", "@ext/b"),
+            ("ext.b/W901", "@ext/b"),
         ]
     );
 
@@ -136,7 +144,10 @@ fn the_extensions_rules_are_ordered_by_code() {
         });
     });
     let with_e006 = crate::support::build([required]);
-    assert_eq!(rule_codes(&with_e006), [("W050", "@ext/c"), ("E006", "")]);
+    assert_eq!(
+        rule_codes(&with_e006),
+        [("ext.c/W050", "@ext/c"), ("E006", "")]
+    );
 }
 
 #[spec(
@@ -334,22 +345,16 @@ fn rule_collection_holds() {
     assert_eq!(
         rule_codes(&build),
         [
-            ("W900", "@ext/a"),
-            ("W900", "@ext/b"),
-            ("W901", "@ext/b"),
-            ("W902", "@ext/a"),
+            ("ext.a/W900", "@ext/a"),
+            ("ext.a/W902", "@ext/a"),
+            ("ext.b/W900", "@ext/b"),
+            ("ext.b/W901", "@ext/b"),
             ("E006", ""),
         ]
     );
 
-    // duplicates_warned: one W023 naming the code and both extensions.
-    let w023 = coded(&build, "W023");
-    assert_eq!(w023.len(), 1, "{:?}", diagnostics(&build));
-    assert_eq!(w023[0].severity, Severity::Warning);
-    for part in ["'W900'", "'@ext/a'", "'@ext/b'"] {
-        assert!(w023[0].message.contains(part), "{}", w023[0].message);
-    }
-    assert_eq!(codes(&build), ["W023"]);
+    // One local code from two extensions is two codes: no duplicate is reported.
+    assert!(codes(&build).is_empty(), "{:?}", codes(&build));
 
     // required_enforced: the required field has its E006 rule.
     let e006 = build.rules().iter().last().unwrap();
@@ -357,7 +362,7 @@ fn rule_collection_holds() {
     assert_eq!(e006.describe()["field"], "owner");
 
     // unloaded_targets_inert: the rule for `ghost` costs no diagnostic.
-    assert_eq!(diagnostics(&build).len(), 1, "{:?}", diagnostics(&build));
+    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
 
     // A code one extension repeats is not a duplicate across extensions.
     let repeated = crate::support::build([rules(
@@ -367,6 +372,6 @@ fn rule_collection_holds() {
             ("W900", "again", CheckKind::NoIncomingEdges),
         ],
     )]);
-    assert!(coded(&repeated, "W023").is_empty());
+    assert!(diagnostics(&repeated).is_empty());
     assert_eq!(repeated.rules().len(), 2);
 }

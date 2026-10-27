@@ -1,14 +1,14 @@
 //! Declared descriptor → [`Rule`]: its shape checked (W112 for a rule that
 //! cannot work as declared), its references resolved against the
-//! registries, then the host's E006 and E016 rules. ([`duplicate_codes`] is W023, which the
-//! registry build reports as a collision.)
+//! registries, then the host's E006 and E016 rules.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use specforge_common::{Diagnostic, Severity, codes};
-use specforge_diagnostics::{CodeMisuse, Level, check_extension_code};
+use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_protocol_types::{
-    CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
+    CheckKind, ConstraintKind, ExtensionDeclaration, FileBase, ValidationRuleDescriptor,
+    ValidationSeverity,
 };
 
 use super::check::{Check, EdgeScope, Obligations, ValueConstraint};
@@ -20,6 +20,7 @@ const VERIFY_FIELD: &str = "verify";
 pub(super) fn build(
     declarations: &[ExtensionDeclaration],
     registries: Registries<'_>,
+    codes: &Codebook,
 ) -> (Rules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut rules = Vec::new();
@@ -29,7 +30,7 @@ pub(super) fn build(
         // extension declares for several target kinds is reported once.
         let mut misused = HashSet::new();
         for descriptor in &declaration.validation_rules {
-            diagnostics.extend(code_misuse(extension, descriptor, &mut misused));
+            diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
                 let unread = ignore_unread(descriptor, &mut rule);
                 Ok((resolve(rule, registries)?, unread))
@@ -51,15 +52,16 @@ pub(super) fn build(
 }
 
 /// W150 when `extension` may not report `descriptor`'s code at its
-/// severity (`check_extension_code`), once per (code, severity) of an
-/// extension. The rule is registered as declared.
+/// severity (`Codebook::check`), once per (code, severity) of an extension.
+/// The rule is registered as declared, under the extension's namespace.
 fn code_misuse(
+    codes: &Codebook,
     extension: &str,
     descriptor: &ValidationRuleDescriptor,
     reported: &mut HashSet<(String, Level)>,
 ) -> Option<Diagnostic> {
-    let misuse = declared_level(extension, descriptor).err()?;
     let level = level_of(&descriptor.severity);
+    let misuse = codes.check(extension, &descriptor.code, level).err()?;
     if !reported.insert((descriptor.code.clone(), level)) {
         return None;
     }
@@ -71,21 +73,8 @@ fn code_misuse(
                 descriptor.code
             ),
         )
-        .with_suggestion(
-            "renumber the rule in the extension's range, or, for a first-party extension, \
-             catalogue the code",
-        ),
+        .with_suggestion(misuse.suggestion()),
     )
-}
-
-/// The level a declared rule reports at, when the host takes its code from `extension` (the
-/// verdict W150 reports otherwise, ADR 0026 D4): the one reading of a rule's severity.
-pub fn declared_level(
-    extension: &str,
-    rule: &ValidationRuleDescriptor,
-) -> Result<Level, CodeMisuse> {
-    let level = level_of(&rule.severity);
-    check_extension_code(extension, &rule.code, level).map(|()| level)
 }
 
 /// The diagnostic level a rule's declared severity is.
@@ -205,7 +194,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
             ),
         ));
     };
-    let fail = |why: &str| cannot_fire(extension, &r.code, why);
+    let fail = |why: &str| cannot_fire(extension, &qualify(extension, &r.code), why);
     let requires_field = || {
         r.field.clone().ok_or_else(|| {
             fail(&format!(
@@ -233,6 +222,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         },
         CheckKind::FileExists => Check::FileExists {
             field: requires_field()?,
+            base: FileBase::Spec,
         },
         CheckKind::FieldValueConstraint => {
             let Some(c) = r.constraint.as_ref() else {
@@ -261,7 +251,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                                 codes::W112,
                                 format!(
                                     "extension '{extension}': rule '{}': invalid regex pattern '{pattern}': {err}",
-                                    r.code
+                                    qualify(extension, &r.code)
                                 ),
                             ));
                         }
@@ -338,7 +328,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
     };
 
     Ok(Rule {
-        code: r.code.clone(),
+        code: qualify(extension, &r.code),
         severity: match r.severity {
             ValidationSeverity::Error => Severity::Error,
             ValidationSeverity::Warning => Severity::Warning,
@@ -390,6 +380,12 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
         && !specforge_common::structural::is_structural(kind)
     {
         return Ok(None);
+    }
+    // An extension's own `file_exists` rule reads its field's base too (ADR 0285).
+    if let (Check::FileExists { field, base }, Some(kind)) =
+        (&mut rule.check, rule.target.as_deref())
+    {
+        *base = base_of(registries, kind, field);
     }
     let reads_statements = matches!(
         rule.check,
@@ -478,21 +474,28 @@ fn host_rules(registries: Registries<'_>) -> Vec<Rule> {
     rules
 }
 
-/// One E006 rule per `required` field, owned by the host, by (kind, field).
+/// One E006 rule per `required` field or member of a typed block, owned by the host, by (kind, declared path): a
+/// member's rule reports each written item of its block that leaves it out (ADR 0285).
 fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut required: Vec<(String, String)> = registries
-        .fields
-        .iter()
-        .filter(|(_, _, entry)| entry.declared().required)
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
+    let mut required: Vec<(String, String)> = Vec::new();
+    for (kind, field, entry) in registries.fields.iter() {
+        entry.declared().for_each_path(field, &mut |path, d| {
+            if d.required {
+                required.push((kind.to_string(), path));
+            }
+        });
+    }
     required.sort();
     required
         .into_iter()
         .map(|(kind, field)| Rule {
             code: codes::E006.id().to_string(),
             severity: Severity::of(codes::E006),
-            template: format!("{kind} '{{id}}' is missing required field '{field}'"),
+            template: if field.contains('.') {
+                format!("{kind} '{{id}}' is missing required member '{field}'")
+            } else {
+                format!("{kind} '{{id}}' is missing required field '{field}'")
+            },
             target: Some(kind),
             message_field: Some(field.clone()),
             origin: Origin::Host,
@@ -503,59 +506,41 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
         .collect()
 }
 
-/// One E016 rule per `file_reference` field, owned by the host, by (kind, field): a
-/// `file_exists` rule over the field (ADR 0118).
+/// One E016 rule per `file_reference` field or member, owned by the host, by (kind, declared path): a
+/// `file_exists` rule over the field (ADR 0118), reading its paths from the base the field declares (ADR 0285).
 fn file_reference_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut referenced: Vec<(String, String)> = registries
-        .fields
-        .iter()
-        .filter(|(_, _, entry)| entry.declared().file_reference)
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
+    let mut referenced: Vec<(String, String)> = Vec::new();
+    for (kind, field, entry) in registries.fields.iter() {
+        entry.declared().for_each_path(field, &mut |path, d| {
+            if d.file_reference {
+                referenced.push((kind.to_string(), path));
+            }
+        });
+    }
     referenced.sort();
     referenced
         .into_iter()
-        .map(|(kind, field)| Rule {
-            code: codes::E016.id().to_string(),
-            severity: Severity::of(codes::E016),
-            template: "file reference '{value}' in entity '{id}' does not exist".to_string(),
-            target: Some(kind),
-            message_field: Some(field.clone()),
-            origin: Origin::Host,
-            check_kind: CheckKind::FileExists,
-            check: Check::FileExists { field },
-            declared: Declared::default(),
+        .map(|(kind, field)| {
+            let base = base_of(registries, &kind, &field);
+            Rule {
+                code: codes::E016.id().to_string(),
+                severity: Severity::of(codes::E016),
+                template: "file reference '{value}' in entity '{id}' does not exist".to_string(),
+                target: Some(kind),
+                message_field: Some(field.clone()),
+                origin: Origin::Host,
+                check_kind: CheckKind::FileExists,
+                check: Check::FileExists { field, base },
+                declared: Declared::default(),
+            }
         })
         .collect()
 }
 
-/// W023: a validation rule code a later extension declares again, once
-/// per repeat, naming the code, that extension and the first one. A code
-/// one extension repeats is not reported. Every declared rule counts,
-/// including one W112 rejects.
-pub(super) fn duplicate_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-    let mut first: HashMap<&str, &str> = HashMap::new();
-    let mut diagnostics = Vec::new();
-    for declaration in declarations {
-        for rule in &declaration.validation_rules {
-            match first.get(rule.code.as_str()) {
-                None => {
-                    first.insert(&rule.code, declaration.name());
-                }
-                Some(owner) if *owner != declaration.name() => {
-                    diagnostics.push(Diagnostic::new(
-                        codes::W023,
-                        format!(
-                            "validation rule code '{}' from '{}' duplicates code from '{}'",
-                            rule.code,
-                            declaration.name(),
-                            owner
-                        ),
-                    ));
-                }
-                Some(_) => {}
-            }
-        }
-    }
-    diagnostics
+/// The base the field or member `path` of `kind` declares; the spec root when it declares none.
+fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> FileBase {
+    registries
+        .fields
+        .get_path(kind, path)
+        .map_or(FileBase::Spec, |(_, form)| form.base())
 }

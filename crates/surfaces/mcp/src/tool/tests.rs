@@ -33,7 +33,12 @@ fn an_error_serializes_as_its_type() {
     let text = serde_json::to_value(&error).unwrap().to_string();
 
     // The isError result's text is the type, byte for byte.
-    let reply = envelope(ToolOutcome::Refused(Box::new(error.clone())), None, false);
+    let reply = envelope(
+        ToolOutcome::Refused(Box::new(error.clone())),
+        &specforge_common::Codebook::default(),
+        None,
+        false,
+    );
     let content = reply.result.as_ref().unwrap()["content"][0]["text"].clone();
     assert_eq!(content.as_str(), Some(text.as_str()));
 
@@ -198,4 +203,29 @@ fn an_unknown_entity_carries_its_e003() {
         json["message"],
         "unresolved entity 'ghost' — not found in graph"
     );
+}
+
+#[test]
+fn a_result_meta_titles_a_code_from_the_project_code_book() {
+    let mut codes = Codebook::default();
+    codes
+        .add(
+            "@sdk/greet",
+            vec![specforge_common::ExtensionCode {
+                local: "W901".into(),
+                title: "Greeting missing".into(),
+                explanation: "Add one.".into(),
+                docs: None,
+            }],
+        )
+        .unwrap();
+    let outcome = ToolOutcome::ok(json!({})).with_diagnostics(vec![Diagnostic::from_extension(
+        "@sdk/greet",
+        "sdk.greet/W901",
+        Severity::Warning,
+        "m",
+    )]);
+    let reply = envelope(outcome, &codes, None, false);
+    let meta = &reply.result.unwrap()["_meta"]["diagnostics"];
+    assert_eq!(meta[0]["title"], "Greeting missing", "{meta}");
 }

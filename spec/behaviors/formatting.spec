@@ -364,6 +364,7 @@ behavior apply_format_rules "Apply Format Rules" {
     format rules, they MUST be applied in extension load order.
   """
   verify unit "indentation rules normalize to configured indent style"
+  verify unit "format writes every bare word as it was written, a number-like word and a difference included"
   verify unit "spacing rules normalize single spaces between tokens"
   verify unit "alignment rules align field values within blocks"
   verify unit "statements keep their source order"
@@ -390,6 +391,7 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "an expression block's lines are indented one level inside it, whatever their indentation"
   verify property "two files differing only in whitespace produce identical output after formatting"
   verify unit "the formatted text has LF line endings and exactly one final newline"
+  verify unit "a list of blocks is written one item a line, indented, with no commas"
   verify contract "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
 }
 

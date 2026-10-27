@@ -66,7 +66,7 @@ type RegistryBuild "What the registry build derives from the loaded declarations
   graph_inputs GraphInputs            @readonly
   // Every diagnostic it reports, in one order: the declarations' own (E030,
   // W021, E073 and E027, W145), the registries' (E026, W018, W019, W021,
-  // I004, W017, the rule set's W150, W147 or W112, then W023), the custom
+  // I004, W017, the rule set's W150, W147 or W112), the custom
   // rules' probes (W112), then the surfaces' (E055, E039); each group
   // extension by extension in load order
   diagnostics  Diagnostic[]           @readonly
@@ -209,7 +209,7 @@ type FieldType "FieldType: how the host reads a field's value (FieldType in spec
   | "reference_list"
   | "block"
 
-type ValidationRulePattern "A validation rule as an extension declares it (the protocol's ValidationRuleDescriptor). The registry build turns it into a typed rule (specforge_registry::rules::Rule) carrying only what its check reads; constraint.pattern is a regex for field_value_constraint/matches and the condition field's name for conditional_field_required; description is what the code means (explain, the hover)." {
+type ValidationRulePattern "A validation rule as an extension declares it (the protocol's ValidationRuleDescriptor). The registry build turns it into a typed rule (specforge_registry::rules::Rule) carrying only what its check reads; constraint.pattern is a regex for field_value_constraint/matches and the condition field's name for conditional_field_required." {
   code             string          @readonly
   severity         string          @readonly
   message_template string
@@ -220,7 +220,6 @@ type ValidationRulePattern "A validation rule as an extension declares it (the p
   constraint       FieldConstraint @optional
   wasm_function    string          @optional
   target_extension string          @optional
-  description      string          @optional
   verify unit "ValidationRulePattern schema is valid"
 }
 

@@ -8,8 +8,8 @@
 //! diagnostics.
 
 use specforge_common::{Diagnostic, codes};
-use specforge_diagnostics::{Level, check_extension_code};
-use specforge_protocol_types::{PassBuildCache, PassInput, PassOutput, PassSeverity, TestResults};
+use specforge_diagnostics::{Codebook, Level, qualify};
+use specforge_protocol_types::{PassBuildCache, PassInput, PassOutput, PassSeverity};
 use specforge_wasm::ExtensionCalls;
 use std::collections::HashSet;
 
@@ -71,7 +71,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
     PassInput {
         entities: input.entities.pass_entities(),
         edges: input.entities.pass_edges(),
-        test_results: input.test_results.map(TestResults::from),
+        test_results: input.test_results.map(|r| r.results(input.entities)),
         proved_claims: input.proved_claims.map(sorted_ids),
         previous: input.previous.map(PassBuildCache::from),
     }
@@ -86,26 +86,37 @@ fn sorted_ids(claims: &std::collections::HashSet<String>) -> Vec<String> {
 
 /// The host diagnostics of `extension`'s pass `pass` answering `output`: in
 /// canonical order, a span-less one naming an entity of `entities` given
-/// that entity's span. A code the extension may not report at the severity
-/// it gave (`check_extension_code`) is reported once, as W150 after the
-/// findings; the findings themselves are kept as the pass gave them.
+/// that entity's span. Each finding's code is the extension's local code under
+/// its namespace (`acme.lint/W001`; a first-party extension's stays bare), so
+/// it never prints as core's or another extension's. A code the extension may
+/// not report at the severity it gave (`Codebook::check`) is reported once, as
+/// W150 after the findings; the findings themselves are kept.
 pub fn pass_findings(
     extension: &str,
     pass: &str,
     output: PassOutput,
     entities: &EntitySnapshot,
+    codes: &Codebook,
 ) -> Vec<Diagnostic> {
-    let mut misused = code_misuse(extension, pass, &output);
+    let mut misused = code_misuse(codes, extension, pass, &output);
     let mut findings = specforge_wasm::pass_diagnostics(extension, output, |id| {
         entities.get(id).map(|(record, _)| record.span.clone())
     });
+    for finding in &mut findings {
+        finding.code = qualify(extension, &finding.code);
+    }
     findings.append(&mut misused);
     findings
 }
 
 /// W150 for each distinct (code, severity) of `output` that `extension`
 /// may not report.
-fn code_misuse(extension: &str, pass: &str, output: &PassOutput) -> Vec<Diagnostic> {
+fn code_misuse(
+    codes_of: &Codebook,
+    extension: &str,
+    pass: &str,
+    output: &PassOutput,
+) -> Vec<Diagnostic> {
     let mut seen = HashSet::new();
     let mut diagnostics = Vec::new();
     for finding in &output.diagnostics {
@@ -114,7 +125,7 @@ fn code_misuse(extension: &str, pass: &str, output: &PassOutput) -> Vec<Diagnost
             PassSeverity::Warning => Level::Warning,
             PassSeverity::Info => Level::Info,
         };
-        let Err(misuse) = check_extension_code(extension, &finding.code, level) else {
+        let Err(misuse) = codes_of.check(extension, &finding.code, level) else {
             continue;
         };
         if !seen.insert((finding.code.as_str(), level)) {
@@ -128,10 +139,7 @@ fn code_misuse(extension: &str, pass: &str, output: &PassOutput) -> Vec<Diagnost
                     finding.code
                 ),
             )
-            .with_suggestion(
-                "renumber the diagnostic in the extension's range, or, for a first-party \
-                 extension, catalogue the code",
-            ),
+            .with_suggestion(misuse.suggestion()),
         );
     }
     diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
@@ -148,6 +156,7 @@ pub fn run_extension_passes<'p>(
     passes: impl IntoIterator<Item = &'p specforge_registry::DeclaredPass>,
     context: &PassContext,
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    codes: &Codebook,
 ) -> Vec<ExtensionPassReport> {
     let passes: Vec<&specforge_registry::DeclaredPass> = passes.into_iter().collect();
     if passes.is_empty() {
@@ -172,7 +181,13 @@ pub fn run_extension_passes<'p>(
             Ok(output) => {
                 let extra = output.summary.clone();
                 summary.extend(extra);
-                pass_findings(&declared.extension, &pass.name, output, context.entities)
+                pass_findings(
+                    &declared.extension,
+                    &pass.name,
+                    output,
+                    context.entities,
+                    codes,
+                )
             }
             Err(error) => {
                 summary.insert("failed".into(), true.into());

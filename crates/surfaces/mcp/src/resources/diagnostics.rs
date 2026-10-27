@@ -18,6 +18,7 @@ impl CoreResource for DiagnosticsResource {
         super::view::no_query(uri)?;
         Ok(ResourceText::json(specforge_common::serialize_diagnostics(
             &view.reported(),
+            view.registries().codes(),
         )))
     }
 }

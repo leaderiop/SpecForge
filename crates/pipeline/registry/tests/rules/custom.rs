@@ -110,7 +110,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     let diagnostics = built
         .rules
         .check(&over(&[entity("b1", "behavior", 1, 0)]), &verdicts);
-    assert_eq!(diagnostics[0].code, "E201");
+    assert_eq!(diagnostics[0].code, "test/E201");
     assert_eq!(diagnostics[0].severity, Severity::Error);
     assert_eq!(diagnostics[0].message, "behavior 'b1' custom check failed");
 }
@@ -153,14 +153,14 @@ fn a_function_failing_on_entities_is_one_w148_per_check() {
     assert_eq!(
         reported,
         [
-            ("E202", "behavior 'c' fails {field} ({value})"),
+            ("test/E202", "behavior 'c' fails {field} ({value})"),
             (
                 "W148",
-                "extension '@test': rule 'E202': wasm_function 'flaky' failed on 2 entities ('b': trap on b) — they were not checked"
+                "extension '@test': rule 'test/E202': wasm_function 'flaky' failed on 2 entities ('b': trap on b) — they were not checked"
             ),
             (
                 "W148",
-                "extension '@test': rule 'E203': wasm_function 'fragile' failed on 1 entity ('a': bad answer) — it was not checked"
+                "extension '@test': rule 'test/E203': wasm_function 'fragile' failed on 1 entity ('a': bad answer) — it was not checked"
             ),
         ]
     );
@@ -173,7 +173,7 @@ fn a_function_failing_on_entities_is_one_w148_per_check() {
     assert_eq!(
         diagnostics[1].data.as_deref(),
         Some(&DiagnosticData::CustomRuleFailures {
-            rule: "E202".into(),
+            rule: "test/E202".into(),
             function: "flaky".into(),
             failures: vec![
                 CustomRuleFailure {
@@ -237,14 +237,14 @@ fn a_function_that_cannot_answer_the_probe_is_w112_once() {
     assert_eq!(diagnostics[0].severity, Severity::Warning);
     assert_eq!(
         diagnostics[0].message,
-        "extension '@test': rule 'E301': wasm_function 'validate__absent' could not be resolved (no export 'validate__absent') — the rule will not fire"
+        "extension '@test': rule 'test/E301': wasm_function 'validate__absent' could not be resolved (no export 'validate__absent') — the rule will not fire"
     );
     assert_eq!(
         diagnostics[0].suggestion.as_deref(),
         Some("export 'validate__absent' from '@test', or fix the rule's wasm_function")
     );
     // The rule stays registered.
-    assert_eq!(built.codes(), ["E300", "E301", "E302"]);
+    assert_eq!(built.codes(), ["test/E300", "test/E301", "test/E302"]);
     // Without a runtime nothing is probed.
     built.build.probe(&NoVerdicts);
     assert!(built.build.diagnostics().all(|d| d.code != "W112"));

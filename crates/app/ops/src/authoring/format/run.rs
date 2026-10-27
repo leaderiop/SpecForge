@@ -313,7 +313,7 @@ impl Outcome {
             ok: self.ok(),
             all_clean: self.clean(),
             dry_run: !self.mode.writes(),
-            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            diagnostics: DiagnosticList::from(self.diagnostics.clone()),
             diffs: diffs.then(|| {
                 let of = |change| FileDiff::of(change, named(&change.path));
                 self.changes.iter().map(of).collect()

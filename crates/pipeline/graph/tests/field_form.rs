@@ -6,9 +6,11 @@ use std::borrow::Cow;
 
 use specforge_common::shape::{self, Definitions};
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::field_form::{self, FieldForm, FieldForms, FieldJson, ValueShape};
+use specforge_graph::field_form::{
+    self, BlockMembers, FieldForm, FieldForms, FieldJson, Reading, ValueShape,
+};
 use specforge_parser::{
-    FieldEntry, FieldMap, FieldValue, ListItem, TypeMember, Written, parse_expression,
+    BlockItem, FieldEntry, FieldMap, FieldValue, ListItem, TypeMember, Written, parse_expression,
 };
 use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
@@ -260,4 +262,270 @@ fn stored_is_the_coerced_value_or_the_value_as_written() {
     for e in [&list, &undeclared, &again] {
         assert!(matches!(forms.stored("k", e), Cow::Borrowed(_)), "{e:?}");
     }
+}
+
+/// A block of `members` (name, form) over a kind `k` field `f` of `form`.
+fn typed(form: FieldForm) -> FieldForms {
+    FieldForms::new(
+        [(("k".to_string(), "f".to_string()), form)].into(),
+        Default::default(),
+        Default::default(),
+    )
+}
+
+fn members() -> BlockMembers {
+    BlockMembers::new(vec![
+        (
+            "phase".to_string(),
+            FieldForm::new(FieldType::Reference, Vec::new()).requiring(true),
+        ),
+        (
+            "score".to_string(),
+            FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(0), Some(100)),
+        ),
+        (
+            "kind".to_string(),
+            FieldForm::new(FieldType::EnumList, vec!["cli".into(), "api".into()]),
+        ),
+    ])
+}
+
+fn map(entries: &[(&str, FieldValue)]) -> FieldMap {
+    let mut map = FieldMap::new();
+    for (key, value) in entries {
+        map.push_entry(FieldEntry {
+            key: Sym::new(key),
+            value: value.clone(),
+            annotations: Vec::new(),
+            value_span: Some(span()),
+        });
+    }
+    map
+}
+
+fn bare(text: &str) -> FieldValue {
+    FieldValue::Identifier(text.into())
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
+)]
+fn a_typed_block_is_stored_member_by_member() {
+    let span = span();
+    let block = FieldForm::new(FieldType::Block, Vec::new()).with_members(members());
+    let given = map(&[
+        ("phase", FieldValue::Integer(2)),
+        ("score", FieldValue::Identifier("03-02".into())),
+        ("kind", bare("cli")),
+    ]);
+    let Some(FieldValue::Block(stored)) =
+        block.coerce(&FieldValue::Block(given.clone()), Some(&span))
+    else {
+        panic!("a coerced block");
+    };
+    assert_eq!(stored.get("phase"), Some(&bare("2")));
+    assert_eq!(stored.get("score"), Some(&FieldValue::Integer(1)));
+    assert!(matches!(stored.get("kind"), Some(FieldValue::List(items)) if items.len() == 1));
+    assert!(
+        block
+            .coerce(&FieldValue::Block(stored), Some(&span))
+            .is_none(),
+        "idempotent"
+    );
+
+    let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
+    let Some(FieldValue::Blocks(items)) = list.coerce(&FieldValue::Block(given), Some(&span))
+    else {
+        panic!("one item");
+    };
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].fields.get("score"), Some(&FieldValue::Integer(1)));
+    assert_eq!(
+        list.coerce(&FieldValue::List(Vec::new()), Some(&span)),
+        Some(FieldValue::Blocks(Vec::new()))
+    );
+    assert!(
+        list.coerce(&FieldValue::Blocks(items), Some(&span))
+            .is_none()
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
+)]
+fn bounds_name_the_range_in_the_remedy() {
+    let both = FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(1), Some(5));
+    assert!(both.admit(ValueShape::Integer, "5").is_ok());
+    let low = both.admit(ValueShape::Integer, "0").unwrap_err();
+    assert_eq!(
+        low.suggestion.as_deref(),
+        Some("write a whole number from 1 to 5")
+    );
+    let min = FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(1), None);
+    assert_eq!(
+        min.admit(ValueShape::Integer, "0")
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("write a whole number of at least 1")
+    );
+    let max = FieldForm::new(FieldType::Integer, Vec::new()).bounded(None, Some(4));
+    assert_eq!(
+        max.admit(ValueShape::Integer, "9")
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("write a whole number of at most 4")
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "an enum list takes the declared words, each once, and a scalar is a one-item list"
+)]
+fn an_enum_list_refuses_an_unknown_and_a_repeated_word() {
+    let form = FieldForm::new(FieldType::EnumList, vec!["threshold".into(), "jump".into()]);
+    let words = |w: &[&str]| w.iter().map(|w| w.to_string()).collect::<Vec<_>>();
+    assert!(form.refuse_item(&words(&["jump", "threshold"])).is_none());
+    let given = words(&["thresold"]);
+    let (item, refusal) = form.refuse_item(&given).unwrap();
+    assert_eq!(item, "thresold");
+    assert_eq!(
+        refusal.suggestion.as_deref(),
+        Some("did you mean 'threshold'?")
+    );
+    let given = words(&["jump", "jump"]);
+    let (item, refusal) = form.refuse_item(&given).unwrap();
+    assert_eq!(item, "jump");
+    assert_eq!(
+        refusal.suggestion.as_deref(),
+        Some("'jump' is written twice: each value once")
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a block list takes a list of blocks and a typed block writes an object closed to its members"
+)]
+fn typed_forms_write_what_their_schema_admits() {
+    let span = span();
+    let item = |score: i64| BlockItem {
+        fields: map(&[("phase", bare("02")), ("score", FieldValue::Integer(score))]),
+        span: span.clone(),
+    };
+    let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
+    let block = FieldForm::new(FieldType::Block, Vec::new()).with_members(members());
+    let kinds = FieldForm::new(FieldType::EnumList, vec!["cli".into(), "api".into()]);
+    let bounded = FieldForm::new(FieldType::Integer, Vec::new()).bounded(Some(0), Some(100));
+    let cases: [(&FieldForm, FieldValue, bool); 6] = [
+        (&list, FieldValue::Blocks(vec![item(5), item(7)]), true),
+        (&block, FieldValue::Block(item(5).fields), true),
+        (
+            &kinds,
+            FieldValue::List(vec![ListItem {
+                text: "cli".into(),
+                span: span.clone(),
+                written: Written::Bare,
+            }]),
+            true,
+        ),
+        (&bounded, FieldValue::Integer(100), true),
+        (&bounded, FieldValue::Integer(101), false),
+        (
+            &list,
+            FieldValue::Blocks(vec![BlockItem {
+                fields: map(&[("score", FieldValue::Integer(1))]),
+                span: span.clone(),
+            }]),
+            false,
+        ),
+    ];
+    for (form, value, conforms) in cases {
+        let schema = document(form);
+        let written: serde_json::Value = field_form::write(&value).into();
+        assert_eq!(
+            shape::violations(&schema, &written).is_empty(),
+            conforms,
+            "{value:?}: {:?}",
+            shape::violations(&schema, &written)
+        );
+    }
+    assert!(list.admit(ValueShape::Blocks, "").is_ok());
+    assert_eq!(
+        list.admit(ValueShape::List, "")
+            .unwrap_err()
+            .suggestion
+            .as_deref(),
+        Some("write each item as a block: { name value }")
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
+)]
+fn the_walker_names_each_typed_member_by_its_path() {
+    let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
+    let forms = typed(list);
+    let span = span();
+    let entry = FieldEntry {
+        key: Sym::new("f"),
+        value: FieldValue::Blocks(vec![
+            BlockItem {
+                fields: map(&[("phase", bare("02")), ("other", bare("x"))]),
+                span: span.clone(),
+            },
+            BlockItem {
+                fields: map(&[("score", FieldValue::Integer(3))]),
+                span: span.clone(),
+            },
+        ]),
+        annotations: Vec::new(),
+        value_span: Some(span),
+    };
+    let paths: Vec<String> = forms
+        .walk("k", &entry)
+        .map(|m| m.path.to_string())
+        .collect();
+    assert_eq!(
+        paths,
+        ["f", "f[0].phase", "f[1].score"],
+        "an undeclared key is not yielded"
+    );
+    let declared: Vec<String> = forms.walk("k", &entry).map(|m| m.path.declared()).collect();
+    assert_eq!(declared, ["f", "f.phase", "f.score"]);
+    assert!(matches!(forms.reading_at("k", "f.score"),
+        Reading::Declared(form) if form.bounds() == (Some(0), Some(100))));
+    assert!(matches!(
+        forms.reading_at("k", "f.nope"),
+        Reading::Undeclared
+    ));
+    assert!(matches!(forms.reading_at("k", "f"), Reading::Declared(_)));
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
+)]
+fn a_member_is_respelled_by_its_form() {
+    let list = FieldForm::new(FieldType::BlockList, Vec::new()).with_members(members());
+    let forms = typed(list);
+    let quoted = FieldValue::String("2".into());
+    let entry = FieldEntry {
+        key: Sym::new("f"),
+        value: FieldValue::Blocks(vec![BlockItem {
+            fields: map(&[("phase", quoted), ("score", FieldValue::Integer(3))]),
+            span: span(),
+        }]),
+        annotations: Vec::new(),
+        value_span: Some(span()),
+    };
+    let rewrites = forms.rewrites("k", &entry, &span());
+    assert_eq!(rewrites.len(), 1, "{rewrites:?}");
+    assert_eq!(
+        (rewrites[0].text.as_str(), rewrites[0].value.as_str()),
+        ("2", "2")
+    );
 }

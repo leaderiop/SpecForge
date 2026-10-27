@@ -109,7 +109,10 @@ fn run_in(
 
     match format {
         OutputFormat::Json => {
-            let entries = specforge_common::diagnostics_json(&shown);
+            let entries = specforge_common::diagnostics_json(
+                &shown,
+                ProjectView::of(&compiled).registries().codes(),
+            );
             terminal.json(&entries);
         }
         OutputFormat::Human => {
@@ -175,6 +178,10 @@ mod tests {
             let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
             c.kind("gadget", |k| {
                 k.keyword("gadget");
+            });
+            c.code("E951", |d| {
+                d.title("Gadget fails the audit")
+                    .explanation("A gadget the audit pass rejects.");
             });
             c.pass("audit", |p| {
                 p.phase("check").run(|input: &PassInput| {
@@ -246,7 +253,10 @@ mod tests {
             Some(Arc::new(audit_extension())),
         )
         .diagnostics();
-        let audit: Vec<_> = reported.iter().filter(|d| d.code == "E951").collect();
+        let audit: Vec<_> = reported
+            .iter()
+            .filter(|d| d.code == "test.audit/E951")
+            .collect();
         assert_eq!(audit.len(), 1, "{reported:?}");
         assert_eq!(audit[0].severity, specforge_common::Severity::Error);
     }

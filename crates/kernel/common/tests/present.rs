@@ -1,6 +1,6 @@
 use specforge_common::{
-    Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, diagnostic_summary, render_diagnostics,
-    render_plain,
+    Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, diagnostic_summary, diagnostics_json,
+    render_diagnostics, render_plain, serialize_diagnostics,
 };
 use specforge_test::prelude::*;
 
@@ -94,7 +94,6 @@ fn print_diagnostics_contract() {
         4,
     );
     let formatted = specforge_common::format_diagnostic(&diag);
-
     assert!(
         formatted.contains("src/core.spec"),
         "must include file path"
@@ -137,7 +136,7 @@ fn diagnostics_serialized_as_json_array() {
             0,
         ),
     ];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
     let arr = parsed.as_array().expect("should be JSON array");
     assert_eq!(arr.len(), 2);
@@ -157,10 +156,9 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
         42,
         8,
     )];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let entry = &parsed[0];
-
     assert_eq!(entry["code"].as_str().unwrap(), "E001");
     assert_eq!(entry["severity"].as_str().unwrap(), "Error");
     assert_eq!(
@@ -184,7 +182,7 @@ fn suggestion_field_included_in_json_when_available() {
         "unresolved entity 'behavor'",
         "did you mean 'behavior'?",
     )];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed[0]["suggestion"].as_str().unwrap(),
@@ -202,7 +200,7 @@ fn json_diagnostics_output_is_valid_json() {
         diag_with_span("E001", Severity::Error, "bad ref", "test.spec", 1, 0),
         diag_with_suggestion("W002", Severity::Warning, "unused", "remove it"),
     ];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("must be valid JSON");
     assert!(parsed.is_array());
 }
@@ -298,10 +296,10 @@ fn exit_code_unaffected_by_format_flag() {
     )];
 
     // Serialize as JSON (simulating --format=json) — exit code unchanged
-    let _json = specforge_common::serialize_diagnostics(&diags_with_errors);
+    let _json = serialize_diagnostics(&diags_with_errors, &Default::default());
     assert_eq!(specforge_common::compute_exit_code(&diags_with_errors), 1);
 
-    let _json = specforge_common::serialize_diagnostics(&diags_no_errors);
+    let _json = serialize_diagnostics(&diags_no_errors, &Default::default());
     assert_eq!(specforge_common::compute_exit_code(&diags_no_errors), 0);
 
     // Format as text (default format) — exit code unchanged
@@ -328,7 +326,7 @@ fn suggestion_field_null_in_json_when_none() {
         1,
         0,
     )];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed[0]["suggestion"].is_null(), "{parsed}");
 }
@@ -351,7 +349,7 @@ fn span_is_nested_beside_the_flat_location() {
         specforge_common::codes::W113,
         "circular import detected: a.spec -> b.spec",
     );
-    let json = specforge_common::serialize_diagnostics(&[located, unlocated]);
+    let json = serialize_diagnostics(&[located, unlocated], &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // Nested, as `check` has always printed it, end positions included...
@@ -495,11 +493,12 @@ fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
             entity: "login".into(),
             field: "invariants".into(),
             did_you_mean: Some("token".into()),
+            candidates: Vec::new(),
         });
 
     // Without data the entry is byte for byte what it was before data existed.
     assert_eq!(
-        specforge_common::serialize_diagnostics(std::slice::from_ref(&plain)),
+        serialize_diagnostics(std::slice::from_ref(&plain), &Default::default()),
         concat!(
             r#"[{"code":"E003","title":"Unresolved reference","severity":"Error","#,
             r#""message":"unresolved reference 'tokn' in entity 'login'","#,
@@ -509,7 +508,7 @@ fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
     );
 
     // With it, the same entry plus `data`, tagged by kind.
-    let json = specforge_common::serialize_diagnostics(&[typed]);
+    let json = serialize_diagnostics(&[typed], &Default::default());
     let mut parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed[0]["data"],
@@ -523,7 +522,7 @@ fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
     );
     parsed[0].as_object_mut().unwrap().remove("data");
     let before: serde_json::Value =
-        serde_json::from_str(&specforge_common::serialize_diagnostics(&[plain])).unwrap();
+        serde_json::from_str(&serialize_diagnostics(&[plain], &Default::default())).unwrap();
     assert_eq!(parsed, before, "data is the only key it adds");
 }
 
@@ -571,7 +570,7 @@ fn the_entity_payloads_are_presented_under_data() {
             entity: "bad_one".into(),
         },
     );
-    let json = specforge_common::serialize_diagnostics(&[cycle.clone(), subject.clone()]);
+    let json = serialize_diagnostics(&[cycle.clone(), subject.clone()], &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed[0]["data"],
@@ -618,6 +617,7 @@ fn subject_data_is_tagged_and_names_its_entity() {
         entity: "holder".into(),
         field: "f".into(),
         did_you_mean: None,
+        candidates: Vec::new(),
     };
     assert_eq!(unresolved.entities(), ["holder"]);
     let import = DiagnosticData::UnresolvedImport {
@@ -642,8 +642,8 @@ fn a_squatted_code_is_not_described_as_core() {
     assert_eq!(squatted.origin(), Some("@acme/squat"));
     assert_eq!(host.origin(), None);
 
-    let json =
-        serde_json::to_value(specforge_common::diagnostics_json(&[squatted, own, host])).unwrap();
+    let all = [squatted, own, host];
+    let json = serde_json::to_value(diagnostics_json(&all, &Default::default())).unwrap();
     assert_eq!(json[0]["code"], "E001");
     assert_eq!(json[0]["title"], serde_json::Value::Null);
     assert_eq!(json[0]["origin"], "@acme/squat");

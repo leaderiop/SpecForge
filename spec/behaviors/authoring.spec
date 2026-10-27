@@ -63,6 +63,8 @@ behavior create_entity "Create an Entity" {
   verify integration "new --help after a field flag prints the kind's help"
   verify integration "new refuses a command line whose --path a field's value spells"
   verify unit "new writes into a spec root outside the project by the file check names"
+  verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
+  verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -134,6 +136,11 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
   verify unit "set keeps the comment trailing the value, annotations given or not"
   verify unit "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
+  verify unit "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
+  verify unit "a plan's edits read the project as the edits before them leave it"
+  verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
+  verify unit "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
+  verify unit "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -154,6 +161,7 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "link on the other side of a relation names the owning field of the target's kind"
   verify unit "a reference list's items are split at commas however they are given"
   verify unit "link appends the target and keeps the items as written"
+  verify unit "unlink removes a single reference written as a number"
   verify unit "unlink of the last item removes the field"
   verify unit "link of an inherited field copies the default"
   verify unit "an own field equal to the default is removed"
@@ -167,6 +175,8 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "unlink of the last item keeps a // line inside the string above the list"
   verify unit "link and unlink keep the comment trailing the list"
   verify unit "a link to a target already there writes nothing, whatever comment the list holds"
+  verify unit "a typed edit writes the shortest spelling that resolves from its holder, and a scope field as a full path"
+  verify unit "a plan's edits read the project as the edits before them leave it"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {

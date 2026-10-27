@@ -65,10 +65,7 @@ fn colliding_extensions_with(peer: bool, custom: bool) -> InProcessRuntime {
                     specforge_extension_sdk::DeclaredCategory::Edges,
                     serde_json::json!([{"label": "GadgetUses", "source_kind": "gadget", "target_kind": "gadget"}]),
                 );
-                c.raw_category(
-                    specforge_extension_sdk::DeclaredCategory::ValidationRules,
-                    serde_json::Value::Array(rules),
-                );
+                specforge_project::testing::declare_rules(&mut c, serde_json::Value::Array(rules));
                 c.raw_category(
                     specforge_extension_sdk::DeclaredCategory::Surfaces,
                     serde_json::json!([{"commands": [{
@@ -126,9 +123,6 @@ fn registry_diagnostics_keep_their_order() {
         "<W018>: warning[W018]: edge type 'GadgetUses' from '@test/beta' duplicates 'GadgetUses' from '@test/alpha' (first wins)",
         "<W112>: warning[W112]: extension '@test/alpha': unrecognized validation pattern kind 'no_such_check_alpha'",
         "<W112>: warning[W112]: extension '@test/beta': unrecognized validation pattern kind 'no_such_check_beta'",
-        // Both extensions declare rule W900 (05·R4 wired W023, after the
-        // rule-parse diagnostics).
-        "<W023>: warning[W023]: validation rule code 'W900' from '@test/beta' duplicates code from '@test/alpha'",
         "<E039>: error[E039]: command 'hello' of '@test/beta' is not routed: '@test/alpha' routes `specforge gadgets hello` first\n  help: rename one of the commands, or give one extension another short name (ext_short; the SDK's #[extension(short = \"...\")])",
         "main.spec:3:1: error[E002]: duplicate entity ID 'widget' (first declared at main.spec:1:1)\n  help: rename one of the entities to avoid the collision",
     ];
@@ -162,8 +156,7 @@ fn the_environment_reports_before_the_sources() {
         assert_eq!(
             codes,
             [
-                "W118", "E027", "E026", "W018", "W112", "W112", "W023", "W112", "E039", "E002",
-                "W148"
+                "W118", "E027", "E026", "W018", "W112", "W112", "W112", "E039", "E002", "W148"
             ]
         );
         let probe = diagnostics.iter().rfind(|d| d.code == "W112").unwrap();
@@ -197,7 +190,6 @@ fn the_environment_says_what_each_diagnostic_is_about() {
             (Collision, "W018"),
             (Rules, "W112"),
             (Rules, "W112"),
-            (Collision, "W023"),
             (Rules, "W112"),
             (Collision, "E039"),
         ]

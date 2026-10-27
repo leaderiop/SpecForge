@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-26, architecture round 29, plan 03). Amends
 [ADR 0071](0071-a-closed-field-vocabulary-is-declared-once.md) D6 and D7, and
-[ADR 0011](0011-extension-command-contract-and-the-product-surface.md) ("Only closed enums are validated").
+[ADR 0011](0011-extension-command-contract-and-the-product-surface.md) ("Only closed enums are validated"). Applied by [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md): a builtin `enum_list` closes words only when they fit any domain.
 
 `@specforge/product` closed a deliverable's `artifact_type` to nine software artifact kinds and a channel's
 `interaction_model` to six message-exchange patterns, so a product launch could not say it delivers a press kit or

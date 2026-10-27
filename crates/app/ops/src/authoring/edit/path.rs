@@ -1,5 +1,6 @@
-//! What an edit's field argument names (ADR 0151, amended by round 16 plan 09): a field of the entity's kind, or
-//! `field.entry`, one entry of a block field the kind declares. Every verb reads its argument here first; the kind's
+//! What an edit's field argument names (ADR 0151, amended by round 16 plan 09, ADR 0285): a field of the entity's
+//! kind, `field.entry`, one entry of an open block field the kind declares, or a member path into a typed block or
+//! block list (`completion.audit`, `requires[0].phase`). Every verb reads its argument here first; the kind's
 //! answers stay the registry's, asked through `Site::reading_toward` (ADR 0157 D4).
 
 use super::EditField;
@@ -14,8 +15,55 @@ use specforge_protocol_types::FieldType;
 pub enum FieldPath<'p, 'r> {
     /// A field the kind declares, or a member of a kind that takes any field (never `Reading::Undeclared`).
     Field { name: &'p str, reading: Reading<'r> },
-    /// `field.entry`: one entry of the block field `field`, which the kind declares.
+    /// `field.entry`: one entry of the open block field `field`, which the kind declares.
     Entry { field: &'p str, entry: &'p str },
+    /// A member path into the typed block or block list `field`: the segments after the field.
+    Member { field: &'p str, segs: Vec<Seg> },
+}
+
+/// One step of a member path after its field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Seg {
+    /// `.member`
+    Key(String),
+    /// `[i]`, base 10 without a leading zero (RFC 6901's array index).
+    Index(usize),
+}
+
+/// The field a path starts with: the part before its first `.` or `[`.
+pub fn top(path: &str) -> &str {
+    path.split(['.', '[']).next().unwrap_or(path)
+}
+
+/// `path` as its field and the steps after it; `None` when a name is not one identifier or an index is not
+/// a base-10 number without a leading zero.
+pub(super) fn segments(path: &str) -> Option<(&str, Vec<Seg>)> {
+    let field = top(path);
+    if !is_word(field) {
+        return None;
+    }
+    let mut rest = &path[field.len()..];
+    let mut segs = Vec::new();
+    while !rest.is_empty() {
+        if let Some(after) = rest.strip_prefix('.') {
+            let name = top(after);
+            if !is_word(name) {
+                return None;
+            }
+            segs.push(Seg::Key(name.to_string()));
+            rest = &after[name.len()..];
+        } else {
+            let after = rest.strip_prefix('[')?;
+            let (digits, tail) = after.split_once(']')?;
+            let plain = digits == "0" || (!digits.starts_with('0') && !digits.is_empty());
+            if !plain || !digits.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            segs.push(Seg::Index(digits.parse().ok()?));
+            rest = tail;
+        }
+    }
+    Some((field, segs))
 }
 
 /// `path` read against `site`'s kind. `target` is a link's or unlink's value: an undeclared field is then told as the
@@ -29,26 +77,40 @@ pub fn resolve<'p, 'r>(
     path: &'p str,
     target: Option<&str>,
 ) -> Result<FieldPath<'p, 'r>, Refusal<EditField>> {
-    let Some((field, entry)) = path.split_once('.') else {
+    let Some((field, segs)) = segments(path) else {
+        return Err(not_editable(
+            EditField::Field,
+            format!(
+                "'{path}' is not a field or a field.entry path: each part is one identifier (a member path into a block list is `field[0].member`, the index with no leading zero)"
+            ),
+        ));
+    };
+    if segs.is_empty() {
         let reading = site.reading_toward(path, target)?;
         return Ok(FieldPath::Field {
             name: path,
             reading,
         });
-    };
-    if !is_word(field) || !is_word(entry) {
-        return Err(not_editable(
-            EditField::Field,
-            format!("'{path}' is not a field or a field.entry path: each part is one identifier"),
-        ));
     }
     match site.reading_toward(field, target)? {
-        Reading::Declared(form) if form.field_type() == FieldType::Block => {
-            Ok(FieldPath::Entry { field, entry })
+        Reading::Declared(form) if form.members().is_some() => {
+            Ok(FieldPath::Member { field, segs })
         }
+        Reading::Declared(form) if form.field_type() == FieldType::Block => match segs.as_slice() {
+            [Seg::Key(_)] => Ok(FieldPath::Entry {
+                field,
+                entry: &path[field.len() + 1..],
+            }),
+            _ => Err(not_editable(
+                EditField::Field,
+                format!(
+                    "'{path}' is not a field or a field.entry path: '{field}' is an open block, its entries are `{field}.name`"
+                ),
+            )),
+        },
         _ => Err(not_editable(
             EditField::Field,
-            format!("'{field}' is not a block field, so it has no entry '{entry}'"),
+            format!("'{field}' is not a block field, so it has no member in '{path}'"),
         )),
     }
 }

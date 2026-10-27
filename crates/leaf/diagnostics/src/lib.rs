@@ -14,13 +14,17 @@
 #[macro_use]
 mod catalog;
 mod code;
+mod codebook;
 mod extension;
+mod namespace;
 
 pub use catalog::{CATALOG, codes};
 #[doc(hidden)]
 pub use code::prefix_states;
 pub use code::{Code, GradedCode};
-pub use extension::{CodeMisuse, check_extension_code};
+pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace};
+pub use extension::CodeMisuse;
+pub use namespace::{CodeRef, code_namespace, is_local_code, qualify};
 
 /// One diagnostic code and what it means.
 #[derive(Debug, Clone, Copy)]
@@ -90,21 +94,6 @@ pub fn lookup(code: &str) -> Option<&'static CodeEntry> {
         .map(|index| &CATALOG[index])
 }
 
-/// The catalog entry that describes a diagnostic of `code` reported by
-/// `origin` (the extension that reported it; `None` for the host's own): the
-/// entry when the host reported it, or when the entry's owner is that very
-/// extension. A code an extension squats (W150) is not described by its
-/// owner's entry: its title, explanation and docs link would be another
-/// diagnostic's. Ownership only, not level: a warning `--strict` promoted to
-/// an error keeps its description.
-pub fn describes(code: &str, origin: Option<&str>) -> Option<&'static CodeEntry> {
-    let entry = lookup(code)?;
-    match origin {
-        None => Some(entry),
-        Some(extension) => (entry.owner == extension).then_some(entry),
-    }
-}
-
 /// Greedy word wrap; never splits a word.
 pub fn wrap(text: &str, width: usize) -> String {
     let mut out = String::new();
@@ -171,11 +160,14 @@ prefix doesn't state the severity; no other family is accepted. Each entry's
 `Level` is the severity a diagnostic of that code has when it is reported;
 `specforge check --strict` raises warnings to errors afterwards. A code an
 extension reports at another level, or a code it does not own, is reported as
-W150. The ranges
-`E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
-extensions and never appear in this catalog; `specforge explain` run in a
-project explains them from the rules its extensions declare. `I999` is a core
-code.
+W150.
+
+A third-party extension's codes are not in this catalog. Each is
+`<namespace>/<letter><three digits>` (`acme.lint/W001`): the namespace is the
+extension's package name (`@gsd/core` is `gsd`, `@gsd/security` is
+`gsd.security`, a local `lint` is `lint`), and the extension catalogs its own
+codes in its `codes`. `specforge explain` run in a project explains them from
+the loaded extensions' `codes`.
 
 Regenerate this page after editing the catalog table:
 
@@ -205,6 +197,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("I086", Some("E061")),
     ("I087", Some("E061")),
     ("W011", None),
+    ("W023", Some("E039")),
     ("W024", None),
     ("W025", None),
     ("W026", None),

@@ -42,6 +42,7 @@ pub(super) fn unknown(
 
         for field in &entity.fields {
             let field_name = field.key.as_str();
+            diagnostics.extend(unknown_members(entity, field, fields));
             if fields.contains(kind, field_name) {
                 continue;
             }
@@ -104,6 +105,41 @@ pub(super) fn unknown(
     }
 
     diagnostics
+}
+
+/// W020 for each entry a typed block of `field` holds that the block declares no member for (ADR 0285): an open
+/// block (no declared members) takes any key and has none.
+fn unknown_members(
+    entity: &EntityRecord,
+    field: &FieldRecord,
+    fields: &FieldRegistry,
+) -> Vec<Diagnostic> {
+    field
+        .unknown
+        .iter()
+        .map(|unknown| {
+            let declared: Vec<&str> = fields
+                .get_path(&entity.kind, &unknown.declared)
+                .and_then(|(_, form)| form.members())
+                .map(|members| members.iter().map(|(name, _)| name).collect())
+                .unwrap_or_default();
+            let mut diagnostic = Diagnostic::new(
+                codes::W020,
+                format!(
+                    "block '{}' of {} '{}' has no member '{}'",
+                    unknown.container, entity.kind, entity.id, unknown.key
+                ),
+            )
+            .with_span(unknown.span.clone().unwrap_or_else(|| entity.span.clone()));
+            diagnostic.suggestion = Some(
+                match specforge_common::find_close_match(&unknown.key, declared.iter().copied()) {
+                    Some(close) => format!("did you mean '{close}'?"),
+                    None => format!("use one of: {}", declared.join(", ")),
+                },
+            );
+            diagnostic
+        })
+        .collect()
 }
 
 /// The ids a field's value lists: a list's items, or a single value's text.

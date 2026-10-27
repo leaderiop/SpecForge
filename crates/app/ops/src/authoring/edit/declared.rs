@@ -21,29 +21,31 @@ struct Change {
 }
 
 impl Declared {
-    /// What `edit` declares: `set` and `unset` their field (a `field.entry` path's field), `link` and `unlink` their
+    /// What `edit` about the entity at `path` declares: `set`, `unset`, `append` and `remove` their field (a `field.entry` or `field[i].member` path's field), `link` and `unlink` their
     /// field, `retitle` the title, `add_verify` and `remove_verify` the obligations, `create` and `delete` their
     /// entity whole.
-    pub(crate) fn edit(&mut self, edit: &Edit) {
+    pub(crate) fn edit(&mut self, edit: &Edit, path: &str) {
         match edit {
-            Edit::Set {
-                entity_id, field, ..
+            Edit::Set { field, .. }
+            | Edit::Unset { field, .. }
+            | Edit::Link { field, .. }
+            | Edit::Unlink { field, .. }
+            | Edit::Append { field, .. }
+            | Edit::Remove { field, .. } => self.field(path, super::path::top(field)),
+            Edit::Retitle { .. } => self.aspect(path, NodeAspect::Title),
+            Edit::AddVerify { .. } | Edit::RemoveVerify { .. } => {
+                self.aspect(path, NodeAspect::Obligations);
             }
-            | Edit::Unset { entity_id, field }
-            | Edit::Link {
-                entity_id, field, ..
-            }
-            | Edit::Unlink {
-                entity_id, field, ..
-            } => self.field(entity_id, field.split('.').next().unwrap_or(field)),
-            Edit::Retitle { entity_id, .. } => self.aspect(entity_id, NodeAspect::Title),
-            Edit::AddVerify { entity_id, .. } | Edit::RemoveVerify { entity_id, .. } => {
-                self.aspect(entity_id, NodeAspect::Obligations);
-            }
-            Edit::Create { id: entity_id, .. } | Edit::Delete { entity_id, .. } => {
-                self.whole.insert(entity_id.clone());
+            Edit::Create { .. } | Edit::Delete { .. } => {
+                self.whole.insert(path.to_string());
             }
         }
+    }
+
+    /// The entity at `old` is now at `new` (a move, ADR 0284): both ids are declared whole.
+    pub(crate) fn moved(&mut self, old: &str, new: &str) {
+        self.whole.insert(old.to_string());
+        self.whole.insert(new.to_string());
     }
 
     /// `field` of `id` may change (also a delete's referrer, ADR 0163).

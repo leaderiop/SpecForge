@@ -181,7 +181,12 @@ fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
         &[Buffer::new(&a, broken)],
         CheckMode::SyntaxOnlyIfParseErrors,
     );
-    let reported = |s: &ProjectSession| s.project().diagnostics().iter().any(|d| d.code == "I990");
+    let reported = |s: &ProjectSession| {
+        s.project()
+            .diagnostics()
+            .iter()
+            .any(|d| d.code.ends_with("/I990"))
+    };
     assert!(!reported(&session), "the typing fast path skips the checks");
 
     fs::write(&a, broken).unwrap(); // saved

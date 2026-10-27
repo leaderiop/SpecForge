@@ -89,7 +89,10 @@ fn classify(
     match lexeme.kind {
         LexemeKind::Comment => return Some(("comment", 0)),
         LexemeKind::Str { .. } => return Some(("string", 0)),
-        LexemeKind::Number if matches!(role, Role::Value | Role::Item) => {
+        LexemeKind::Number
+            if matches!(role, Role::Value | Role::Item)
+                && !syntax.reference_position(text, i as u32, view.registries().field_forms()) =>
+        {
             return Some(("number", 0));
         }
         _ => {}
@@ -106,23 +109,28 @@ fn classify(
         },
         Role::Key => Some(("property", 0)),
         Role::VerifyKind => Some(("enumMember", 0)),
-        Role::Value | Role::Item | Role::ImportName if lexeme.is_name() => {
+        Role::Value | Role::Item | Role::ImportName
+            if lexeme.is_name() || lexeme.kind == LexemeKind::Number =>
+        {
             let fields = view.registries().fields();
             if syntax.reference_position(text, i as u32, view.registries().field_forms()) {
-                let token = view
-                    .graph()
-                    .node(lexeme.text(text))
-                    .map_or("variable", |node| kind_token(view, node.kind.raw.as_str()));
+                let graph = view.graph();
+                let token = match graph.find(lexeme.text(text)) {
+                    specforge_graph::Found::One(path) => graph.node(path.as_str()),
+                    _ => None,
+                }
+                .map_or("variable", |node| kind_token(view, node.kind.raw.as_str()));
                 return Some((token, MOD_REFERENCE));
             }
             if role != Role::Value {
                 return None;
             }
             let key = syntax.key_of[i]?;
-            let kind = syntax.kind_of_key(text, key)?;
-            match fields.get(kind, syntax.text(text, key))?.field_type() {
+            let (kind, path) = syntax.member_path(text, key)?;
+            match fields.get_path(kind, &path)?.1.field_type() {
                 FieldType::Enum | FieldType::Identifier => Some(("enumMember", 0)),
                 FieldType::Bool => Some(("keyword", 0)),
+                FieldType::Integer => Some(("number", 0)),
                 _ => None,
             }
         }

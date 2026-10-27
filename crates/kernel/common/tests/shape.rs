@@ -461,11 +461,12 @@ fn every_derived_schema_accepts_what_serde_writes() {
             entity: "alpha".into(),
             field: "refines".into(),
             did_you_mean: None,
+            candidates: Vec::new(),
         });
     for list in [
-        DiagnosticList(vec![]),
-        DiagnosticList(vec![bare.clone()]),
-        DiagnosticList(vec![bare, spanned, with_data]),
+        DiagnosticList::from(vec![]),
+        DiagnosticList::from(vec![bare.clone()]),
+        DiagnosticList::from(vec![bare, spanned, with_data]),
     ] {
         accepts(&list);
     }
@@ -514,6 +515,22 @@ fn minimum_refuses_a_smaller_number() {
     assert_eq!(
         violations(&nested, &json!({"n": 3})),
         ["$.n: 3 is below the minimum 5"]
+    );
+}
+
+#[test]
+fn maximum_refuses_a_larger_number_and_unique_items_a_repeat() {
+    let schema = json!({"type": "integer", "maximum": 5});
+    assert!(violations(&schema, &json!(5)).is_empty());
+    assert_eq!(
+        violations(&schema, &json!(7)),
+        ["$: 7 is above the maximum 5"]
+    );
+    let unique = json!({"type": "array", "items": {"type": "string"}, "uniqueItems": true});
+    assert!(violations(&unique, &json!(["a", "b"])).is_empty());
+    assert_eq!(
+        violations(&unique, &json!(["a", "a"])),
+        ["$: items are not unique"]
     );
 }
 

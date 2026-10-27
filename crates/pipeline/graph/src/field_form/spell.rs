@@ -7,7 +7,7 @@
 
 use specforge_common::SourceSpan;
 use specforge_parser::lex::is_entity_id;
-use specforge_parser::{FieldEntry, FieldValue, Written};
+use specforge_parser::{FieldEntry, FieldMap, FieldValue, Written};
 use specforge_protocol_types::FieldType;
 
 use super::{FieldForm, FieldForms, Reading, is_word};
@@ -67,11 +67,12 @@ pub fn spelled(text: &str, written: Written) -> String {
 
 /// Whether `text` may stand bare as a value of a field of `field_type` whose form is bare (ADR 0147 D1): a word,
 /// or on a `reference_list` an entity id (a scheme ref id too, ADR 0153 D3); never `true` / `false` (they read back
-/// as booleans). A scalar `reference` takes a word only: a scheme ref id does not parse bare outside a list.
+/// as booleans). A scalar `reference` takes a word or a path (ADR 0284): a scheme ref id does not parse bare outside a list.
 pub fn holds_bare(field_type: FieldType, text: &str) -> bool {
     !matches!(text, "true" | "false")
         && match field_type {
             FieldType::ReferenceList => is_entity_id(text),
+            FieldType::Reference => is_word(text) || specforge_parser::lex::is_path(text),
             _ => is_word(text),
         }
 }
@@ -107,7 +108,7 @@ pub fn is_date(text: &str) -> bool {
 ///
 /// | declared | written |
 /// |---|---|
-/// | `integer` | a literal when `text` is an integer; else quoted (E061 reports it) |
+/// | `integer` | a literal when `text` is an integer or an integer difference (`2-1`); else quoted (E061 reports it) |
 /// | `bool` | a literal when `true` / `false`; else quoted (E061) |
 /// | `date` | a literal when [`is_date`]; else quoted (E061) |
 /// | `string_list` item | a scheme ref id as a scheme ref (it then names an entity, ADR 0093); else quoted |
@@ -117,11 +118,16 @@ pub fn is_date(text: &str) -> bool {
 pub fn form(form: &FieldForm, text: &str) -> Written {
     let field_type = form.field_type();
     match field_type {
-        FieldType::Integer if text.trim().parse::<i64>().is_ok() => Written::Literal,
+        FieldType::Integer
+            if text.trim().parse::<i64>().is_ok() || super::integer_difference(text).is_ok() =>
+        {
+            Written::Literal
+        }
         FieldType::Bool if matches!(text, "true" | "false") => Written::Literal,
         FieldType::Date if is_date(text) => Written::Literal,
         FieldType::StringList if text.contains(':') && is_entity_id(text) => Written::SchemeRef,
         FieldType::Enum
+        | FieldType::EnumList
         | FieldType::Identifier
         | FieldType::Reference
         | FieldType::ReferenceList
@@ -170,6 +176,8 @@ pub struct Respell {
 /// the whole entry's value as the field writes it on one line (what W159's message prints).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rewrite {
+    /// The field, or the member (`requires[1].phase`), the value is written in.
+    pub field: String,
     pub span: SourceSpan,
     pub text: String,
     pub to: Written,
@@ -178,7 +186,7 @@ pub struct Rewrite {
 }
 
 impl FieldForms {
-    /// How `kind.field` writes `text`, written `written` at `place`, when that is not how it is written (ADR 0147,
+    /// How `kind.field` (a declared member path: `requires.phase` reads a member) writes `text`, written `written` at `place`, when that is not how it is written (ADR 0147,
     /// ADR 0234); `None` leaves it as written: the field has no declared form or is a `block`; the value is already
     /// in its form (quoted exactly when the form is quoted, and listed or not as the type says); a number, boolean
     /// or date field holds a text that is none (E061 reports it); a quoted scheme ref id on a `string_list`
@@ -192,15 +200,18 @@ impl FieldForms {
         text: &str,
         place: Place,
     ) -> Option<Respell> {
-        let Reading::Declared(form) = self.reading(kind, field) else {
+        let Reading::Declared(form) = self.reading_at(kind, field) else {
             return None;
         };
         let field_type = form.field_type();
-        if field_type == FieldType::Block {
+        if matches!(field_type, FieldType::Block | FieldType::BlockList) {
             return None;
         }
         let listed = place == Place::Whole
-            && matches!(field_type, FieldType::StringList | FieldType::ReferenceList);
+            && matches!(
+                field_type,
+                FieldType::StringList | FieldType::ReferenceList | FieldType::EnumList
+            );
         let to = match self::form(form, text) {
             Written::SchemeRef if written == Written::Quoted => Written::Quoted,
             to => to,
@@ -234,7 +245,25 @@ impl FieldForms {
     /// [`Self::rewrite`] would write otherwise, in source order. A scalar
     /// without a value span is reported at `fallback`.
     pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
-        let field = entry.key.as_str();
+        self.rewrites_at(
+            kind,
+            entry.key.as_str(),
+            entry.key.as_str(),
+            entry,
+            fallback,
+        )
+    }
+
+    /// [`Self::rewrites`] for `entry` read at the declared member path `field`, written at `shown` (the same with its
+    /// item indices); a typed block's members, and those of each block-list item, follow (ADR 0285).
+    fn rewrites_at(
+        &self,
+        kind: &str,
+        field: &str,
+        shown: &str,
+        entry: &FieldEntry,
+        fallback: &SourceSpan,
+    ) -> Vec<Rewrite> {
         let span = entry.value_span.as_ref().unwrap_or(fallback);
         let scalar = |written, text: String| {
             let respell = self.rewrite(kind, field, written, &text, Place::Whole)?;
@@ -253,6 +282,7 @@ impl FieldForms {
                 }
             };
             Some(Rewrite {
+                field: shown.to_string(),
                 span: span.clone(),
                 text,
                 to: respell.to,
@@ -294,6 +324,7 @@ impl FieldForms {
                     .zip(respelled)
                     .filter_map(|(i, r)| {
                         r.map(|r| Rewrite {
+                            field: shown.to_string(),
                             span: i.span.clone(),
                             text: i.text.clone(),
                             to: r.to,
@@ -303,7 +334,39 @@ impl FieldForms {
                     })
                     .collect()
             }
+            FieldValue::Block(map) => self.rewrites_in(kind, field, shown, map, fallback),
+            FieldValue::Blocks(items) => items
+                .iter()
+                .enumerate()
+                .flat_map(|(i, item)| {
+                    self.rewrites_in(
+                        kind,
+                        field,
+                        &format!("{shown}[{i}]"),
+                        &item.fields,
+                        fallback,
+                    )
+                })
+                .collect(),
             _ => Vec::new(),
         }
+    }
+
+    fn rewrites_in(
+        &self,
+        kind: &str,
+        field: &str,
+        shown: &str,
+        map: &FieldMap,
+        fallback: &SourceSpan,
+    ) -> Vec<Rewrite> {
+        map.entries()
+            .iter()
+            .flat_map(|member| {
+                let path = format!("{field}.{}", member.key);
+                let shown = format!("{shown}.{}", member.key);
+                self.rewrites_at(kind, &path, &shown, member, fallback)
+            })
+            .collect()
     }
 }

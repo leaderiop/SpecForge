@@ -39,7 +39,7 @@
     },
 
     "number": {
-      "match": "(?<![a-zA-Z_])-?\\b[0-9]+(?:\\.[0-9]+)?\\b",
+      "match": "(?<![a-zA-Z_])-?\\b[0-9]+(?:\\.[0-9]+)?\\b(?![.-]?[a-zA-Z0-9_])",
       "name": "constant.numeric.specforge"
     },
 
@@ -88,7 +88,7 @@
         },
         { "include": "#number" },
         {
-          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+          "match": "\\b[a-zA-Z0-9_]+(?:[.-][a-zA-Z0-9_]+)*\\b",
           "name": "variable.other.reference.specforge"
         },
         {
@@ -132,7 +132,7 @@
         { "include": "#nested-block" },
         { "include": "#array-type" },
         {
-          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+          "match": "\\b[a-zA-Z0-9_]+(?:[.-][a-zA-Z0-9_]+)*\\b",
           "name": "variable.other.value.specforge"
         }
       ]
@@ -199,7 +199,7 @@
               "name": "keyword.control.as.specforge"
             },
             {
-              "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+              "match": "\\b[a-zA-Z0-9_]+(?:[.-][a-zA-Z0-9_]+)*\\b",
               "name": "entity.name.function.import.specforge"
             },
             {
@@ -252,7 +252,7 @@
               "name": "keyword.control.as.specforge"
             },
             {
-              "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+              "match": "\\b[a-zA-Z0-9_]+(?:[.-][a-zA-Z0-9_]+)*\\b",
               "name": "entity.name.function.import.specforge"
             },
             {
@@ -363,7 +363,7 @@
     },
 
     "entity-block": {
-      "begin": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s+(\"[^\"]*\"))?\\s*(\\{)",
+      "begin": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z0-9_]+(?:[.-][a-zA-Z0-9_]+)*)(?:\\s+(\"[^\"]*\"))?\\s*(\\{)",
       "beginCaptures": {
         "1": { "name": "keyword.other.entity-kind.specforge" },
         "2": { "name": "entity.name.function.specforge" },

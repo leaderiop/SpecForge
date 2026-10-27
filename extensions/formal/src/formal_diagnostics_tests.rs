@@ -369,6 +369,7 @@ fn a_refinement_without_invariant_deltas_fails_w133() {
                 })
                 .collect(),
             methods: Vec::new(),
+            values: Default::default(),
         },
         referenced: Vec::new(),
         declared_types: Vec::new(),

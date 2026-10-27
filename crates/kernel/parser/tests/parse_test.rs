@@ -1982,12 +1982,12 @@ behavior test "Test" {
 
 // === Phase 6: Parser Robustness ===
 
-// B:parse_all_block_types — verify unit "integer overflow produces parse error instead of silent 0"
+// B:parse_all_block_types — verify unit "an integer too large for i64 is a bare word whose field's type decides"
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "integer overflow produces parse error instead of silent 0"
+    verify = "an integer too large for i64 is a bare word whose field's type decides"
 )]
-fn integer_overflow_produces_parse_error() {
+fn an_integer_too_large_for_i64_is_a_word() {
     let source = r#"
 behavior overflowed "Overflow" {
     priority 99999999999999999999999999999
@@ -1995,29 +1995,13 @@ behavior overflowed "Overflow" {
 "#;
     let result = parse(source, "test.spec");
 
-    // Should report an error about integer overflow
-    let has_overflow_error = result
-        .errors
-        .iter()
-        .any(|e| e.message.contains("integer") && e.message.contains("too large"));
-    assert!(
-        has_overflow_error,
-        "expected parse error for integer overflow, got errors: {:?}",
-        result.errors
-    );
-
-    // Entity is still created (error recovery), but the error is surfaced
-    assert!(
-        !result.errors.is_empty(),
-        "overflow must be reported as an error"
-    );
-    assert!(
-        result
-            .errors
-            .iter()
-            .any(|e| e.message.contains("too large")),
-        "the error says the integer is too large: {:?}",
-        result.errors
+    // The parser reads no declared type: it keeps the word, and an integer field refuses it (E061).
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(
+        result.entities[0].fields.get("priority"),
+        Some(&FieldValue::Identifier(
+            "99999999999999999999999999999".to_string()
+        ))
     );
 }
 

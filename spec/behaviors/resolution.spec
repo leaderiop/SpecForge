@@ -154,12 +154,15 @@ behavior link_entity_references "Link Entity References" {
     no_silent_ignoring      "No reference is silently ignored"
   }
   contract   """
-    The resolver MUST link every entity ID in a reference list to the
-    declaration site of that entity. Each resolved reference MUST be
+    The resolver MUST link every entity name or path in a reference list to
+    the declaration site of that entity. A reference resolves from its holder
+    outward: the holder itself, each enclosing scope, then the project, a
+    path at the nearest level where the whole path resolves, a leading "/"
+    at the project only; a scope field alone also takes a unique suffix. Each resolved reference MUST be
     recorded as a pending edge (source, target, edge type) for the
     graph builder to materialize. Unresolvable references MUST produce
     an E003 diagnostic with a "did you mean?" suggestion when a close
-    match exists. A reference whose field declares a target kind and that
+    match exists, and naming the entities that bear the name elsewhere. A reference whose field declares a target kind and that
     names an existing entity of another kind MUST be E022 at the
     reference, whether or not a loaded extension declares that kind; it
     still links, so navigation and rename reach it. A quoted reference is
@@ -181,9 +184,18 @@ behavior link_entity_references "Link Entity References" {
   verify unit "an open-fields kind's undeclared field references nothing"
   verify unit "an unresolved reference in a field whose target kind no extension declares is I004 naming the extension"
   verify unit "an unresolved reference to a loaded or undeclared target kind is E003 alone"
+  verify unit "no builtin kind declares a scope field, so every builtin entity id is its name"
   verify unit "a reference naming an existing entity of the absent target kind links without a diagnostic"
   verify unit "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
   verify unit "a single reference to an existing entity of another kind than its field's target kind is E022 at the reference"
+  verify unit "no builtin reference field declares a default value, so an absent value names nothing"
+  verify unit "a reference resolves in its holder, each enclosing scope, then the project"
+  verify unit "a path resolves at the nearest level where the whole path resolves"
+  verify unit "a rooted path names an entity from the project, and a bare name is found in the chain first"
+  verify unit "a name outside the holder's chain is E003 naming each entity that bears it, and never links silently"
+  verify unit "a scope field takes a unique suffix, and several matches are E003 naming each"
+  verify unit "an entity whose scope does not resolve keeps its written scope in its path and reports E003 on the field"
+  verify unit "a kind declares the reference field its entities are scoped by, and a field that cannot scope is W021"
   verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
   verify unit "E003 span covers exactly the unresolved identifier token"
   verify unit "a quoted reference is written at its ID, inside its quotes"
@@ -191,6 +203,8 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a second spec block is E002 whatever its name, and is not placed"
   verify unit "same ID different kind across files warns W060 with both kinds named"
   verify unit "a declaration's graph-build diagnostics name its entity in their data"
+  verify unit "a reference inside a block is held by its entity, resolves outward from it and is labelled by its member path"
+  verify unit "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

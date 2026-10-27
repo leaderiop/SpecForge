@@ -64,12 +64,9 @@ fn the_build_reports_its_diagnostics_in_one_order() {
     ]);
     build.probe(&failing);
 
-    // The declarations' own (E030, W021), the registries' (E026, W023), the
+    // The declarations' own (E030, W021), the registries' (E026), the
     // probe's (W112), then the surfaces' (E039).
-    assert_eq!(
-        codes(&build),
-        ["E030", "W021", "E026", "W023", "W112", "E039"]
-    );
+    assert_eq!(codes(&build), ["E030", "W021", "E026", "W112", "E039"]);
 }
 
 #[spec(
@@ -78,10 +75,10 @@ fn the_build_reports_its_diagnostics_in_one_order() {
 )]
 fn a_probe_is_w112_after_the_registries_and_probing_again_reports_it_once() {
     let mut build = build([colliding("@t/a", true), colliding("@t/b", false)]);
-    assert_eq!(codes(&build), ["W021", "E026", "W023", "E039"]);
+    assert_eq!(codes(&build), ["W021", "E026", "E039"]);
 
     build.probe(&failing);
-    let after = ["W021", "E026", "W023", "W112", "E039"];
+    let after = ["W021", "E026", "W112", "E039"];
     assert_eq!(codes(&build), after);
     let probe = build.diagnostics().find(|d| d.code == "W112").unwrap();
     assert!(
@@ -98,7 +95,7 @@ fn a_probe_is_w112_after_the_registries_and_probing_again_reports_it_once() {
 
     // A source that cannot answer reports nothing.
     build.probe(&NoVerdicts);
-    assert_eq!(codes(&build), ["W021", "E026", "W023", "E039"]);
+    assert_eq!(codes(&build), ["W021", "E026", "E039"]);
 }
 
 #[spec(
@@ -122,7 +119,6 @@ fn the_build_says_what_each_diagnostic_is_about() {
             (BuildPart::Declaration, "E030"),
             (BuildPart::Declaration, "W021"),
             (BuildPart::Collision, "E026"),
-            (BuildPart::Collision, "W023"),
             (BuildPart::Rules, "W112"),
             (BuildPart::Collision, "E039"),
         ]

@@ -102,8 +102,12 @@ vocabulary! {
         Reference = "reference",
         /// A list of entity ids; creates one edge per id.
         ReferenceList = "reference_list",
-        /// A triple-quoted text block.
+        /// A `{ ... }` block: typed by the field's `members` when it declares any, else named text entries.
         Block = "block",
+        /// A list of the field's `enum_values`, each once (ADR 0285).
+        EnumList = "enum_list",
+        /// A list of blocks, each typed by the field's `members` (ADR 0285).
+        BlockList = "block_list",
     }
     aliases {
         "string_type" => String,
@@ -125,11 +129,34 @@ impl FieldType {
         matches!(self, FieldType::Reference | FieldType::ReferenceList)
     }
 
-    /// A value of this type is a list (`string_list`, `reference_list`); a
+    /// A value of this type is a list (`string_list`, `reference_list`, `enum_list`, `block_list`); a
     /// single value written on such a field is read as a one-item list.
     pub fn is_list(self) -> bool {
-        matches!(self, FieldType::StringList | FieldType::ReferenceList)
+        matches!(
+            self,
+            FieldType::StringList
+                | FieldType::ReferenceList
+                | FieldType::EnumList
+                | FieldType::BlockList
+        )
     }
+
+    /// A value of this type is a `{ ... }` block or a list of them, and may declare `members`.
+    pub fn is_block(self) -> bool {
+        matches!(self, FieldType::Block | FieldType::BlockList)
+    }
+}
+
+vocabulary! {
+    /// Where a `file_reference` field's relative paths start (ADR 0285). On the wire
+    /// `FieldDescriptor::file_base` stays a string, so an unknown base costs the field its base (W021).
+    FileBase {
+        /// The spec root (`spec_root` of `specforge.json`): what a field reads without a base.
+        Spec = "spec",
+        /// The directory holding `specforge.json`.
+        Project = "project",
+    }
+    aliases {}
 }
 
 vocabulary! {
@@ -181,8 +208,8 @@ vocabulary! {
         /// every entity when `target_kind` is unset.
         CycleDetection = "cycle_detection",
         /// The path in `field` (required; each item of a list field)
-        /// does not exist, relative to the spec root (plan 01's base, ADR
-        /// 0019).
+        /// does not exist, relative to its field's base: the spec root unless the field
+        /// declares `project` (ADR 0019, ADR 0285).
         FileExists = "file_exists",
         /// The extension's `wasm_function` (required) decides; a function
         /// that cannot answer is W112 at load, W148 at check.

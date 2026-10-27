@@ -111,7 +111,7 @@ impl Outcome {
         CollectDocument {
             status: CollectStatus::Collected,
             runners: self.runners.clone(),
-            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            diagnostics: DiagnosticList::from(self.diagnostics.clone()),
             report: ProjectPath::of(&self.root, &self.report),
         }
     }

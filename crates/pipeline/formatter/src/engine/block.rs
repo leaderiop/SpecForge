@@ -9,7 +9,7 @@ use tree_sitter_specforge::{field, kind};
 /// The declared kind a block's fields are looked up under, with the forms
 /// that say how each field's value is written (ADR 0147): only the depth-1
 /// body of an entity block has one; a `defaults` block's body is read as the kind it names (ADR 0224).
-type Forms<'a> = Option<(&'a str, &'a FieldForms)>;
+type Forms<'a> = Option<(&'a str, &'a FieldForms, &'a str)>;
 
 /// Format one top-level block.
 pub(super) fn format_block(
@@ -56,8 +56,11 @@ pub(super) fn format_block(
         .child_by_field_name(field::NAME)
         .map(|n| node_text(n, source));
     // A `defaults <kind>` body is read as the kind it names (ADR 0224), as the graph and the editor read it.
-    let declared = (node.kind() == kind::ENTITY_BLOCK)
-        .then_some((structural::body_kind(&keyword, name), forms));
+    let declared = (node.kind() == kind::ENTITY_BLOCK).then_some((
+        structural::body_kind(&keyword, name),
+        forms,
+        "",
+    ));
     format_body(node, source, config, 1, declared, &mut lines);
     lines.push("}".to_string());
     lines
@@ -273,7 +276,15 @@ fn field_member(
     match value.kind() {
         kind::NESTED_BLOCK => {
             let mut body = Vec::new();
-            format_body(value, source, config, depth + 1, None, &mut body);
+            let path = member_prefix(forms, &key);
+            format_body(
+                value,
+                source,
+                config,
+                depth + 1,
+                forms.map(|(kind, f, _)| (kind, f, path.as_str())),
+                &mut body,
+            );
             Member::Nested {
                 key,
                 lines: body,
@@ -282,6 +293,11 @@ fn field_member(
         }
         kind::LIST => Member::Field {
             value: list_value(value, source, config, depth, &key, forms),
+            key,
+            annotations,
+        },
+        kind::BLOCK_LIST => Member::Field {
+            value: block_list_value(value, source, config, depth, &key, forms),
             key,
             annotations,
         },
@@ -367,14 +383,97 @@ fn list_value(
     lines
 }
 
+/// `[ { a 1 } { b 2 } ]` (ADR 0285): `[`, one item a line, `]`, no commas. An item stays on one line when its members
+/// are plain `key value` fields without comments and it fits; else its members go one a line between braces. A list
+/// holding a comment of its own is kept as written.
+fn block_list_value(
+    node: Node,
+    source: &str,
+    config: &FormatConfig,
+    depth: usize,
+    key: &str,
+    forms: Forms,
+) -> Vec<String> {
+    let mut cursor = node.walk();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    if children.iter().any(|c| c.kind() == kind::COMMENT) {
+        return lines_keeping_strings(node, source);
+    }
+    let indent = config.indent_str();
+    let outer = indent.repeat(depth);
+    let inner = indent.repeat(depth + 1);
+    let mut lines = vec!["[".to_string()];
+    for item in children.iter().filter(|c| c.kind() == kind::NESTED_BLOCK) {
+        let mut body = Vec::new();
+        let path = member_prefix(forms, key);
+        let inside = forms.map(|(kind, f, _)| (kind, f, path.as_str()));
+        format_body(*item, source, config, depth + 2, inside, &mut body);
+        let one_line = format!(
+            "{inner}{{ {} }}",
+            body.iter()
+                .map(|l| unpadded(l))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        let plain = body
+            .iter()
+            .all(|l| !l.trim().is_empty() && !l.contains('\n'))
+            && body.len() == count_kind(*item, kind::FIELD)
+            && !body.iter().any(|l| l.trim_end().ends_with('{'))
+            && !item_has_comment(*item)
+            && one_line.len() <= config.max_width;
+        if body.is_empty() {
+            lines.push(format!("{inner}{{}}"));
+        } else if plain {
+            lines.push(one_line);
+        } else {
+            lines.push(format!("{inner}{{"));
+            lines.extend(body);
+            lines.push(format!("{inner}}}"));
+        }
+    }
+    lines.push(format!("{outer}]"));
+    lines
+}
+
+/// Whether a comment sits anywhere under `node`: a trailing one would swallow the rest of a joined line.
+fn item_has_comment(node: Node) -> bool {
+    let mut cursor = node.walk();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    children
+        .into_iter()
+        .any(|c| c.kind() == kind::COMMENT || item_has_comment(c))
+}
+
+/// A body line `key   value` with the padding that aligns its key in a body dropped, for an item written on one line.
+fn unpadded(line: &str) -> String {
+    match line.trim().split_once(char::is_whitespace) {
+        Some((key, value)) => format!("{key} {}", value.trim_start()),
+        None => line.trim().to_string(),
+    }
+}
+
+/// The declared path a block under `key` writes its members at, with the dot: `requires.`.
+fn member_prefix(forms: Forms, key: &str) -> String {
+    format!("{}{key}.", forms.map_or("", |(_, _, prefix)| prefix))
+}
+
+fn count_kind(node: Node, wanted: &str) -> usize {
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .filter(|c| c.kind() == wanted)
+        .count()
+}
+
 /// `node`, a value of one field (`Place::Whole`) or one item of its list, written in its field's form when the
 /// declared type writes it another way: the parse's reading of the token (`specforge_parser::value_token`) asked of
 /// `FieldForms::rewrite`, the rule `check` reports as W159, and written as it spells it (ADR 0247). `None` leaves it
 /// as written, and so does a multi-line text on a list field: format cannot tell where one item ends.
 fn in_form(node: Node, source: &str, key: &str, forms: Forms, place: Place) -> Option<String> {
-    let (kind, forms) = forms?;
+    let (kind, forms, prefix) = forms?;
+    let key = format!("{prefix}{key}");
     let (written, text) = specforge_parser::value_token(node, source)?;
-    let respell = forms.rewrite(kind, key, written, &text, place)?;
+    let respell = forms.rewrite(kind, &key, written, &text, place)?;
     if respell.listed && text.contains('\n') {
         return None;
     }

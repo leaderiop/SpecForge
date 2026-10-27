@@ -6,7 +6,7 @@
 use specforge_common::{Diagnostic, DiagnosticData, Sym, codes};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Edge, FieldForms, Graph};
+use crate::{Edge, FieldForms, Graph, Node};
 
 mod reference;
 
@@ -31,6 +31,7 @@ impl Graph {
         &mut self,
         forms: &FieldForms,
         owners: &BTreeMap<String, String>,
+        scoped: &BTreeMap<String, String>,
     ) -> Vec<Diagnostic> {
         self.clear_edges();
         let mut diagnostics = Vec::new();
@@ -39,23 +40,33 @@ impl Graph {
 
         for node in self.nodes.values() {
             let kind = node.kind.raw.as_str();
-            for entry in node.fields.entries() {
-                let reading = forms.reading(kind, entry.key.as_str());
-                let single = reading.is_single_reference();
-                let target = forms.target(kind, entry.key.as_str());
-                for reference in reading.references(entry) {
-                    let resolution = self.resolve(target, owners, reference.id);
-                    if resolution.links() {
-                        edges.push(WrittenEdge {
-                            edge: Edge {
-                                source: node.id.raw,
-                                target: Sym::new(reference.id),
-                                label: entry.key,
-                            },
-                            single,
-                        });
+            for top in node.fields.entries() {
+                // A reference inside a typed block is held by this node, read from it and labelled by its declared
+                // member path (ADR 0285); diagnostics name the written path.
+                for (path, reading, entry) in forms.readings(kind, top) {
+                    let single = reading.is_single_reference();
+                    let declared = path.declared();
+                    let target = forms.target(kind, &declared);
+                    let from = held_from(node, scoped, &declared);
+                    let label = Sym::new(&declared);
+                    for reference in reading.references(entry) {
+                        let resolution = self.resolve(target.clone(), owners, from, reference.id);
+                        if let Some(path) = resolution.path() {
+                            edges.push(WrittenEdge {
+                                edge: Edge {
+                                    source: node.id.raw,
+                                    target: path,
+                                    label,
+                                },
+                                single,
+                            });
+                        }
+                        diagnostics.extend(resolution.diagnostic(
+                            node,
+                            Sym::new(path.as_str()),
+                            &reference,
+                        ));
                     }
-                    diagnostics.extend(resolution.diagnostic(node, entry.key, &reference));
                 }
             }
         }
@@ -77,30 +88,38 @@ impl Graph {
         not(debug_assertions),
         allow(dead_code, reason = "only debug assertions call it")
     )]
-    pub(crate) fn unlinked_references(&self, forms: &FieldForms) -> Vec<(Sym, Sym, Sym)> {
+    pub(crate) fn unlinked_references(
+        &self,
+        forms: &FieldForms,
+        scoped: &BTreeMap<String, String>,
+    ) -> Vec<(Sym, Sym, Sym)> {
         let mut unlinked = Vec::new();
         for node in self.nodes.values() {
             let source = node.id.raw;
             let edges = self.source_index.get(&source);
             let kind = node.kind.raw.as_str();
-            for entry in node.fields.entries() {
-                let field_target = forms.target(kind, entry.key.as_str());
-                for reference in forms.reading(kind, entry.key.as_str()).references(entry) {
-                    if !self
-                        .resolve(field_target, &BTreeMap::new(), reference.id)
-                        .links()
-                    {
-                        continue;
-                    }
-                    let target = Sym::new(reference.id);
-                    let linked = edges.is_some_and(|indices| {
-                        indices.iter().any(|&i| {
-                            let edge = &self.edges[i];
-                            edge.target == target && edge.label == entry.key
-                        })
-                    });
-                    if !linked {
-                        unlinked.push((source, target, entry.key));
+            for top in node.fields.entries() {
+                for (path, reading, entry) in forms.readings(kind, top) {
+                    let declared = path.declared();
+                    let label = Sym::new(&declared);
+                    let field_target = forms.target(kind, &declared);
+                    let from = held_from(node, scoped, &declared);
+                    for reference in reading.references(entry) {
+                        let Some(target) = self
+                            .resolve(field_target.clone(), &BTreeMap::new(), from, reference.id)
+                            .path()
+                        else {
+                            continue;
+                        };
+                        let linked = edges.is_some_and(|indices| {
+                            indices.iter().any(|&i| {
+                                let edge = &self.edges[i];
+                                edge.target == target && edge.label == label
+                            })
+                        });
+                        if !linked {
+                            unlinked.push((source, target, label));
+                        }
                     }
                 }
             }
@@ -114,8 +133,8 @@ impl Graph {
         not(debug_assertions),
         allow(dead_code, reason = "only debug assertions call it")
     )]
-    pub(crate) fn assert_linked(&self, forms: &FieldForms) {
-        let unlinked = self.unlinked_references(forms);
+    pub(crate) fn assert_linked(&self, forms: &FieldForms, scoped: &BTreeMap<String, String>) {
+        let unlinked = self.unlinked_references(forms, scoped);
         assert!(
             unlinked.is_empty(),
             "SpecForge bug: references to existing entities without their edge (source, target, field): {}",
@@ -126,6 +145,44 @@ impl Graph {
                 .join(", ")
         );
     }
+}
+
+impl Graph {
+    /// Panic, naming it, when a node's scope field links to an entity other than the node's scope: the build
+    /// resolves the field once for the path and once for the edge, from the project both times (ADR 0284). A
+    /// SpecForge bug, never a spec error.
+    #[cfg(debug_assertions)]
+    pub(crate) fn assert_scoped(&self, inputs: &crate::GraphInputs) {
+        for node in self.nodes.values() {
+            let kind = node.kind.raw.as_str();
+            let Some(field) = inputs.scopes.get(kind) else {
+                continue;
+            };
+            let target = inputs.field_forms.target(kind, field);
+            for edge in self.edges_from(node.id.raw.as_str()) {
+                let admitted = self
+                    .scopes
+                    .kind(edge.target.as_str())
+                    .is_some_and(|k| target.as_ref().is_none_or(|t| t.admits(k.as_str())));
+                assert!(
+                    edge.label != field.as_str() || !admitted || Some(edge.target) == node.scope,
+                    "SpecForge bug: '{}' is scoped by '{}', but its '{field}' links to '{}'",
+                    node.id.raw,
+                    node.scope.map_or("the project", |s| s.as_str()),
+                    edge.target
+                );
+            }
+        }
+    }
+}
+
+/// Where a reference `node` writes in `field` is read from: the node itself, whose scope chain answers; `None` for
+/// its scope field, which decides the chain and so reads from the project (ADR 0284).
+fn held_from(node: &Node, scoped: &BTreeMap<String, String>, field: &str) -> Option<Sym> {
+    let is_scope = scoped
+        .get(node.kind.raw.as_str())
+        .is_some_and(|f| f == field);
+    (!is_scope).then_some(node.id.raw)
 }
 
 /// W061 for every cycle among `references`: one per strongly connected set,
@@ -175,7 +232,7 @@ invariant inv_one "Invariant One" {
         // What a linker that forgot an edge leaves behind.
         graph.clear_edges();
 
-        graph.assert_linked(&FieldForms::default());
+        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
     }
 
     #[test]
@@ -184,7 +241,7 @@ invariant inv_one "Invariant One" {
         graph.clear_edges();
 
         let unlinked: Vec<(&str, &str, &str)> = graph
-            .unlinked_references(&FieldForms::default())
+            .unlinked_references(&FieldForms::default(), &BTreeMap::new())
             .iter()
             .map(|(s, t, f)| (s.as_str(), t.as_str(), f.as_str()))
             .collect();
@@ -198,8 +255,12 @@ invariant inv_one "Invariant One" {
     )]
     fn a_linked_reference_passes() {
         let (graph, _) = built(REFERENCING);
-        graph.assert_linked(&FieldForms::default());
-        assert!(graph.unlinked_references(&FieldForms::default()).is_empty());
+        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
+        assert!(
+            graph
+                .unlinked_references(&FieldForms::default(), &BTreeMap::new())
+                .is_empty()
+        );
     }
 
     #[specforge_test(
@@ -209,7 +270,7 @@ invariant inv_one "Invariant One" {
     fn an_empty_graph_passes() {
         let (graph, _) = built("");
         assert_eq!(graph.edge_count(), 0);
-        graph.assert_linked(&FieldForms::default());
+        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
     }
 
     #[specforge_test(
@@ -222,7 +283,11 @@ invariant inv_one "Invariant One" {
         let source = "behavior beta \"B\" { contract \"second\" invariants [missing] }\n";
         let (graph, diagnostics) = built(source);
         assert_eq!(diagnostics.iter().filter(|d| d.code == "E003").count(), 1);
-        assert!(graph.unlinked_references(&FieldForms::default()).is_empty());
-        graph.assert_linked(&FieldForms::default());
+        assert!(
+            graph
+                .unlinked_references(&FieldForms::default(), &BTreeMap::new())
+                .is_empty()
+        );
+        graph.assert_linked(&FieldForms::default(), &BTreeMap::new());
     }
 }

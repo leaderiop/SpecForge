@@ -24,7 +24,7 @@ behavior login_user "User Login" {
 ### Key elements
 
 - **Keyword** -- the entity kind (`behavior`, `feature`, `event`, etc.), declared by an extension. The core language itself has only five structural keywords: `spec`, `ref`, `use`, `define`, `defaults`
-- **ID** -- a unique identifier (letters, digits, underscores, 2-60 chars)
+- **ID** -- a unique name (words of letters, digits and underscores, joined by single `-` or `.`, 2-60 chars)
 - **Title** -- a human-readable name in quotes
 - **Fields** -- key-value pairs, reference lists, and verify statements
 - **`use` imports** -- pull in entities from other files: `use "types/user"`

@@ -8,14 +8,17 @@ mod block;
 mod create;
 mod declared;
 mod defaults;
+mod keep;
 mod outcome;
 mod path;
 mod skeleton;
+mod typed;
 pub(crate) mod validate;
 pub mod write;
 
 pub use outcome::{EditDocument, Edited, run};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
+pub use typed::takes_json;
 
 use crate::authoring::format::{Configs, Forms, Place};
 use crate::authoring::planned::PlannedChange;
@@ -23,10 +26,12 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use serde::{Deserialize, Serialize};
 use specforge_common::DiagnosticList;
+use specforge_common::Sym;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
+use specforge_graph::{Found, Scopes};
 use specforge_parser::LineBreak;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// One typed edit. The MCP `specforge.edit` tool reads a list of them (`op` names the variant); each CLI verb
 /// builds one. Every edit of a member (set, unset, link, unlink, add or remove a verify statement) refuses a union
@@ -58,6 +63,19 @@ pub enum Edit {
     /// `field` (or `field.entry`) holds none afterwards: removed, or, over a file default, written `[]` (a list) or
     /// `{}` (a block field); refused for a field of one value with a default. A second unset changes nothing.
     Unset { entity_id: String, field: String },
+    /// A new last item `value` (a block) of the block list `field` names (`requires`, or nested `a[0].b`). Refused
+    /// on any other type: a list of words changes by `link` and `unlink` (ADR 0285).
+    Append {
+        entity_id: String,
+        field: String,
+        value: Input,
+    },
+    /// The item at `index` (0-based) of the block list `field` names goes; the later items shift down.
+    Remove {
+        entity_id: String,
+        field: String,
+        index: usize,
+    },
     /// The header's title becomes `title`; a blank one is refused (`invalid_title`).
     Retitle { entity_id: String, title: String },
     /// `target` is added to the list `field`. No change when it is already there (own or inherited).
@@ -95,21 +113,35 @@ pub enum Edit {
     },
 }
 
-/// A value as a caller gives it; the field's declaration decides how it is written.
+/// A value as a caller gives it; the field's declaration decides how it is written. A block whose values are all
+/// text reads as `Entries` (an open block's entries, or a typed block's members); `Block` holds a member that is
+/// not text (a list, a nested block), `Blocks` a block list's items (ADR 0285). A JSON number or boolean is a leaf a
+/// member of integer or bool type takes, written as given.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Input {
     One(String),
+    Number(serde_json::Number),
+    Bool(bool),
     Many(Vec<String>),
     Entries(BTreeMap<String, String>),
+    Block(BTreeMap<String, Input>),
+    Blocks(Vec<BTreeMap<String, Input>>),
 }
 
 impl Shape for Input {
+    const NAME: Option<&'static str> = Some("EditInput");
+
     fn body(defs: &mut Definitions) -> serde_json::Value {
-        serde_json::json!({"oneOf": [
+        // anyOf: an object of texts is an `Entries` and a `Block` alike.
+        serde_json::json!({"anyOf": [
             String::schema(defs),
+            serde_json::json!({"type": "number"}),
+            bool::schema(defs),
             Vec::<String>::schema(defs),
             BTreeMap::<String, String>::schema(defs),
+            BTreeMap::<String, Input>::schema(defs),
+            Vec::<BTreeMap<String, Input>>::schema(defs),
         ]})
     }
 }
@@ -162,7 +194,11 @@ impl Obligation {
     /// with its kind's verify kinds, that other one; otherwise the parse. An entity the project does not hold reads
     /// with no verify kinds, and the plan then refuses it (`not_found`) as it does today.
     pub fn on(view: &ProjectView<'_>, entity_id: &str, text: &str) -> Obligation {
-        let node = view.graph().node(entity_id);
+        let path = match view.graph().find(entity_id) {
+            Found::One(path) => path.to_string(),
+            _ => entity_id.to_string(),
+        };
+        let node = view.graph().node(&path);
         let kinds = node.map_or(&[][..], |n| verify_kinds_of(view, n.kind.raw.as_str()));
         let parsed = Obligation::parse(text, kinds);
         let writes = |o: &Obligation| {
@@ -209,6 +245,8 @@ pub struct FieldInfo {
     pub description: String,
     /// Whether the kind requires the field.
     pub required: bool,
+    /// Whether the field declares members: a value for it is a JSON object (a block) or array (a block list).
+    pub typed: bool,
 }
 
 /// The fields `kind` declares, in the order a new block writes them (the kind's own, then its enhancements');
@@ -222,6 +260,7 @@ pub fn fields_of(view: &ProjectView<'_>, kind: &str) -> Vec<FieldInfo> {
                 field_type: entry.field_type(),
                 description: entry.declared().description.clone().unwrap_or_default(),
                 required: entry.declared().required,
+                typed: !entry.declared().members.is_empty(),
                 name,
             })
         })
@@ -260,15 +299,20 @@ impl EditPlan {
     }
 }
 
-/// The part of the plan being made: the edited texts, and what the earlier edits created or deleted. The texts are LF:
-/// each file is read in its `LineBreak` and written back in it (ADR 0266).
+/// The part of the plan being made: the edited texts, and the project as the earlier edits leave it: who is in which
+/// scope, and in which file an entity the plan created or moved is. Every edit reads these, not the graph, so it sees
+/// what the edits before it made (ADR 0284). The texts are LF: each file is read in its `LineBreak` and written back
+/// in it (ADR 0266).
 struct Planner<'v> {
     view: &'v ProjectView<'v>,
     /// The plan's one configuration lookup, through the view's disk (ADR 0169).
     configs: Configs<'v>,
     texts: BTreeMap<String, String>,
-    created: BTreeMap<String, (String, String)>,
-    deleted: BTreeSet<String>,
+    /// The scopes once the edits so far are made.
+    scopes: Scopes,
+    /// The file of each path an edit of the plan created, moved to or deleted (`None`); any other path is the
+    /// graph's.
+    files: BTreeMap<String, Option<String>>,
     declared: declared::Declared,
 }
 
@@ -276,6 +320,8 @@ struct Planner<'v> {
 struct Located {
     key: String,
     kind: String,
+    /// The entity's path (ADR 0284): what `id` named, spelled in full.
+    path: String,
 }
 
 impl<'v> Planner<'v> {
@@ -296,20 +342,39 @@ impl<'v> Planner<'v> {
         }
     }
 
-    fn locate(&self, id: &str) -> Result<Located, Refusal<EditField>> {
-        if let Some((kind, key)) = self.created.get(id) {
-            return Ok(Located {
-                key: key.clone(),
-                kind: kind.clone(),
-            });
+    /// The file of the entity at `path` as the plan leaves it.
+    fn file_of(&self, path: &str) -> Option<String> {
+        match self.files.get(path) {
+            Some(file) => file.clone(),
+            None => self
+                .view
+                .graph()
+                .node(path)
+                .map(|node| node.source_span.file.to_string()),
         }
-        let graph = self.view.graph();
-        match graph.node(id).filter(|_| !self.deleted.contains(id)) {
-            Some(node) => Ok(Located {
-                key: node.source_span.file.to_string(),
-                kind: node.kind.raw.to_string(),
+    }
+
+    /// The path `id` names in the project as the plan leaves it: the entity by its path or a unique short form;
+    /// refused when a short form names several. `id` itself when it names none (the caller refuses it).
+    fn path_of(&self, id: &str) -> Result<String, Refusal<EditField>> {
+        match self.scopes.resolve(None, id, &|_| true) {
+            Found::One(path) => Ok(path.to_string()),
+            Found::Ambiguous(paths) => {
+                Err(crate::view::ambiguous(id, &paths).about(EditField::Entity))
+            }
+            Found::Mistyped(_) | Found::None(_) => Ok(id.to_string()),
+        }
+    }
+
+    fn locate(&self, id: &str) -> Result<Located, Refusal<EditField>> {
+        let path = self.path_of(id)?;
+        match self.scopes.kind(&path).zip(self.file_of(&path)) {
+            Some((kind, key)) => Ok(Located {
+                key,
+                kind: kind.to_string(),
+                path,
             }),
-            None => Err(crate::view::not_found(graph, id).about(EditField::Entity)),
+            None => Err(crate::view::not_found(self.view.graph(), id).about(EditField::Entity)),
         }
     }
 
@@ -327,12 +392,20 @@ impl<'v> Planner<'v> {
                 format!("no text was read for {}", located.key),
             )
         })?;
+        let config = self.config_of(&located.key);
         let site = block::Site {
             view: self.view,
+            scopes: &self.scopes,
             key: &located.key,
-            id,
+            id: &located.path,
             kind: &located.kind,
-            config: self.config_of(&located.key),
+            ordinal: block::ordinal(
+                self.view,
+                &self.scopes,
+                &text,
+                (&located.key, &located.path, &located.kind),
+            ),
+            config,
         };
         let new = change(&site, &text)?;
         if new != text {
@@ -355,50 +428,154 @@ impl<'v> Planner<'v> {
         })
     }
 
+    /// The path of the entity `edit` is about: the one a create makes, else the one its `entity_id` names.
+    fn entity_path(&self, edit: &Edit) -> Result<String, Refusal<EditField>> {
+        match edit {
+            Edit::Create {
+                kind, id, fields, ..
+            } => Ok(self.new_path(kind, id, fields)),
+            Edit::Set { entity_id, .. }
+            | Edit::Unset { entity_id, .. }
+            | Edit::Retitle { entity_id, .. }
+            | Edit::Link { entity_id, .. }
+            | Edit::Unlink { entity_id, .. }
+            | Edit::Append { entity_id, .. }
+            | Edit::Remove { entity_id, .. }
+            | Edit::AddVerify { entity_id, .. }
+            | Edit::RemoveVerify { entity_id, .. }
+            | Edit::Delete { entity_id, .. } => self.path_of(entity_id),
+        }
+    }
+
+    /// What a set or unset of an entity's scope field moves (ADR 0284): the entity and every one scoped under it, as
+    /// (old path, new path).
+    fn moves(&self, edit: &Edit, path: &str) -> Vec<(String, String)> {
+        let (Edit::Set { field, .. } | Edit::Unset { field, .. }) = edit else {
+            return Vec::new();
+        };
+        let scopes = &self.scopes;
+        let Some(kind) = scopes.kind(path) else {
+            return Vec::new();
+        };
+        let scoped_by = &self.view.registries().graph_inputs().scopes;
+        if scoped_by.get(kind.as_str()) != Some(field) {
+            return Vec::new();
+        }
+        let scope = match edit {
+            Edit::Set {
+                value: Input::One(written),
+                ..
+            } => match scopes.resolve(None, written, &|_| true) {
+                Found::One(found) => Some(found.to_string()),
+                _ => Some(written.clone()),
+            },
+            _ => None,
+        };
+        let name = scopes.name(Sym::new(path));
+        let new = match scope {
+            Some(scope) => format!("{scope}/{name}"),
+            None => name.to_string(),
+        };
+        let under = format!("{path}/");
+        let mut moves = vec![(path.to_string(), new.clone())];
+        for member in scopes.paths() {
+            if let Some(rest) = member.as_str().strip_prefix(&under) {
+                moves.push((member.to_string(), format!("{new}/{rest}")));
+            }
+        }
+        moves
+    }
+
     fn apply(&mut self, edit: &Edit) -> Result<(), Refusal<EditField>> {
-        self.declared.edit(edit);
+        let path = self.entity_path(edit)?;
+        let moves = self.moves(edit, &path);
+        self.declared.edit(edit, &path);
+        for (old, new) in &moves {
+            self.declared.moved(old, new);
+        }
+        let creates = matches!(edit, Edit::Create { .. });
+        let before = (creates || !moves.is_empty()).then(|| self.snapshot());
+        self.apply_edit(edit, &path)?;
+        let Some(before) = before else {
+            return Ok(());
+        };
+        // A move or a create keeps what every other token names (ADR 0284).
+        let (after, written, created) = match edit {
+            Edit::Create { kind, .. } => (
+                self.scopes
+                    .added(Sym::new(&path), Sym::new(kind), keep::parent(&path)),
+                None,
+                Some(path.as_str()),
+            ),
+            Edit::Set { field, .. } | Edit::Unset { field, .. } => (
+                keep::rekeyed(&self.scopes, &moves),
+                Some((path.as_str(), field.as_str())),
+                None,
+            ),
+            _ => return Ok(()),
+        };
+        let rekey = keep::Rekey {
+            after,
+            moves: &moves,
+            written,
+            created,
+        };
+        self.keep_targets(&before, &rekey)?;
+        // The edits after this one read the project as it is now.
+        let files: Vec<_> = moves
+            .iter()
+            .map(|(old, new)| (new.clone(), self.file_of(old)))
+            .collect();
+        for (old, _) in &moves {
+            self.files.insert(old.clone(), None);
+        }
+        self.files.extend(files);
+        self.scopes = rekey.after;
+        Ok(())
+    }
+
+    fn apply_edit(&mut self, edit: &Edit, path: &str) -> Result<(), Refusal<EditField>> {
+        let path = path.to_string();
         match edit {
             Edit::Set {
-                entity_id,
                 field,
                 value,
                 annotations,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::set(site, text, field, value, annotations.as_deref())
             }),
-            Edit::Unset { entity_id, field } => {
-                self.on_members(entity_id, |site, text| block::unset(site, text, field))
+            Edit::Unset { field, .. } => {
+                self.on_members(&path, |site, text| block::unset(site, text, field))
             }
-            Edit::Retitle { entity_id, title } => {
+            Edit::Append { field, value, .. } => {
+                self.on_members(&path, |site, text| typed::append(site, text, field, value))
+            }
+            Edit::Remove { field, index, .. } => {
+                self.on_members(&path, |site, text| typed::remove(site, text, field, *index))
+            }
+            Edit::Retitle { title, .. } => {
                 create::require_title(title)?;
-                self.on(entity_id, |site, text| block::retitle(site, text, title))
+                self.on(&path, |site, text| block::retitle(site, text, title))
             }
-            Edit::Link {
-                entity_id,
-                field,
-                target,
-            } => self.on_members(entity_id, |site, text| {
+            Edit::Link { field, target, .. } => self.on_members(&path, |site, text| {
                 block::link(site, text, field, target, true)
             }),
-            Edit::Unlink {
-                entity_id,
-                field,
-                target,
-            } => self.on_members(entity_id, |site, text| {
+            Edit::Unlink { field, target, .. } => self.on_members(&path, |site, text| {
                 block::link(site, text, field, target, false)
             }),
             Edit::AddVerify {
-                entity_id,
                 kind,
                 text: description,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::verify(site, text, kind.as_deref(), description, true)
             }),
             Edit::RemoveVerify {
-                entity_id,
                 kind,
                 text: description,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::verify(site, text, kind.as_deref(), description, false)
             }),
             Edit::Create {
@@ -410,9 +587,8 @@ impl<'v> Planner<'v> {
                 verify,
             } => self.create(kind, id, title, file, fields, verify),
             Edit::Delete {
-                entity_id,
-                unlink_references,
-            } => self.delete(entity_id, *unlink_references),
+                unlink_references, ..
+            } => self.delete(&path, *unlink_references),
         }
     }
 
@@ -436,7 +612,7 @@ impl<'v> Planner<'v> {
             entities: change.entities(),
             affected_files: change.affected_files().map(String::from).collect(),
             diff: change.diff(),
-            added: DiagnosticList(added),
+            added: DiagnosticList::new(added, self.view.registries().codes()),
         };
         Ok(EditPlan { change, report })
     }
@@ -450,6 +626,12 @@ fn describe(edit: &Edit) -> String {
             entity_id, field, ..
         } => format!("set {entity_id} {field}"),
         Edit::Unset { entity_id, field } => format!("unset {entity_id} {field}"),
+        Edit::Append {
+            entity_id, field, ..
+        } => format!("append {entity_id} {field}"),
+        Edit::Remove {
+            entity_id, field, ..
+        } => format!("remove {entity_id} {field}"),
         Edit::Retitle { entity_id, .. } => format!("retitle {entity_id}"),
         Edit::Link {
             entity_id, field, ..
@@ -475,8 +657,8 @@ pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<
         view,
         configs: Configs::new(Forms::none(), &disk),
         texts: BTreeMap::new(),
-        created: BTreeMap::new(),
-        deleted: BTreeSet::new(),
+        scopes: view.graph().scopes().clone(),
+        files: BTreeMap::new(),
         declared: declared::Declared::default(),
     };
     for (n, edit) in edits.iter().enumerate() {

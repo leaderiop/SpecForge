@@ -11,7 +11,7 @@ use crate::read::navigate::{TextEdit, apply_edits};
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::Sym;
 use specforge_graph::field_form::spell;
-use specforge_graph::{Form, Holder, written_tokens};
+use specforge_graph::{Form, Found, Holder, written_tokens};
 use specforge_parser::parse;
 use std::collections::BTreeSet;
 
@@ -44,6 +44,26 @@ pub(super) fn fill(
 }
 
 impl Planner<'_> {
+    /// The path a new `name` of `kind` gets (ADR 0284): in the scope `fields` gives its scope field, else in the
+    /// project's.
+    pub(super) fn new_path(
+        &self,
+        kind: &str,
+        name: &str,
+        fields: &std::collections::BTreeMap<String, Input>,
+    ) -> String {
+        let inputs = self.view.registries().graph_inputs();
+        let Some(Input::One(scope)) = inputs.scopes.get(kind).and_then(|f| fields.get(f)) else {
+            return name.to_string();
+        };
+        // A scope that resolves to none keeps its written text in the path (ADR 0284).
+        let scope = match self.scopes.resolve(None, scope, &|_| true) {
+            Found::One(path) => path.to_string(),
+            _ => scope.clone(),
+        };
+        format!("{scope}/{name}")
+    }
+
     pub(super) fn create(
         &mut self,
         kind: &str,
@@ -54,15 +74,14 @@ impl Planner<'_> {
         verify: &[Obligation],
     ) -> Result<(), Refusal<EditField>> {
         validate_id(id, self.view.registries().kinds()).map_err(|e| e.about(EditField::Id))?;
-        let graph = self.view.graph();
-        if (graph.node(id).is_some() && !self.deleted.contains(id)) || self.created.contains_key(id)
-        {
+        let path = &self.new_path(kind, id, fields);
+        if self.scopes.contains(path) {
             return Err(OpError::new(
                 OpErrorKind::Conflict,
                 rename::TAKEN,
-                format!("cannot create '{id}': an entity with that id exists"),
+                format!("cannot create '{path}': an entity with that id exists"),
             )
-            .with_entity(id)
+            .with_entity(path)
             .about(EditField::Id));
         }
         self.view
@@ -77,12 +96,20 @@ impl Planner<'_> {
         let file = file.as_str();
         let existing = self.text(file).unwrap_or_default();
         let parsed = parse(&existing, file);
+        let config = self.config_of(file);
         let site = Site {
             view: self.view,
+            scopes: &self.scopes,
             key: file,
-            id,
+            id: path,
             kind,
-            config: self.config_of(file),
+            // The new block goes after the last of its kind, so after every block of its name and kind.
+            ordinal: parsed
+                .entities
+                .iter()
+                .filter(|e| e.id.raw.as_str() == id && e.kind.raw.as_str() == kind)
+                .count(),
+            config,
         };
         let header = header(kind, id, title);
         let text = fill(
@@ -92,9 +119,7 @@ impl Planner<'_> {
             verify,
         )?;
         self.texts.insert(file.to_string(), text);
-        self.created
-            .insert(id.to_string(), (kind.to_string(), file.to_string()));
-        self.deleted.remove(id);
+        self.files.insert(path.to_string(), Some(file.to_string()));
         Ok(())
     }
 
@@ -103,9 +128,9 @@ impl Planner<'_> {
         id: &str,
         unlink_references: bool,
     ) -> Result<(), Refusal<EditField>> {
-        let located = self.locate(id)?;
+        self.locate(id)?;
         if unlink_references {
-            let (referrers, bound) = self.referrers(id, &located.kind)?;
+            let (referrers, bound) = self.referrers(id)?;
             for (referrer, field, list) in referrers {
                 self.declared.field(&referrer, &field);
                 self.on(&referrer, |site, text| {
@@ -129,8 +154,8 @@ impl Planner<'_> {
             block.delete();
             Ok(block.text())
         })?;
-        self.deleted.insert(id.to_string());
-        self.created.remove(id);
+        self.scopes.remove(Sym::new(id));
+        self.files.insert(id.to_string(), None);
         Ok(())
     }
 
@@ -139,14 +164,8 @@ impl Planner<'_> {
     /// `use` binding that imports it (ADR 0233). A token no typed edit writes
     /// refuses the delete, naming each place: an entry of a `defaults` block (ADR 0151 D5), a field its holder's kind
     /// does not declare, or a type name a derived field reads.
-    fn referrers(
-        &self,
-        id: &str,
-        kind: &str,
-    ) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
+    fn referrers(&self, id: &str) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
         let inputs = self.view.registries().graph_inputs();
-        let kind = Sym::new(kind);
-        let kind_of = |name: &str| (name == id).then_some(kind);
         let mut keys: BTreeSet<String> = self.texts.keys().cloned().collect();
         keys.extend(
             self.view
@@ -160,7 +179,7 @@ impl Planner<'_> {
             let Some(text) = self.text(&key) else {
                 continue;
             };
-            for token in written_tokens(&parse(&text, &key), inputs, kind_of) {
+            for token in written_tokens(&parse(&text, &key), inputs, &self.scopes) {
                 if token.target.as_str() != id {
                     continue;
                 }

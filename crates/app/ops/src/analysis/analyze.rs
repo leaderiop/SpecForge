@@ -17,7 +17,7 @@ use serde_json::Value;
 use specforge_common::shape::Shape;
 
 use crate::analysis::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
-use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_common::{Codebook, Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::Graph;
 use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
@@ -127,6 +127,8 @@ pub struct AnalyzeOutcome {
     pub gate: Option<Gate>,
     /// Stray test records, outside the pass reports.
     pub stray_records: Vec<StrayRecord>,
+    /// The project's code book: it titles an extension's finding in the document.
+    pub codes: Codebook,
 }
 
 /// Where the proof-coverage gate landed, when `min` was set: part of the
@@ -260,7 +262,7 @@ impl AnalyzeOutcome {
                 .iter()
                 .map(|r| PassDocument {
                     pass: r.name.clone(),
-                    findings: DiagnosticList(r.findings.clone()),
+                    findings: DiagnosticList::new(r.findings.clone(), &self.codes),
                     summary: r.summary.clone(),
                 })
                 .collect(),
@@ -393,6 +395,7 @@ pub fn analyze(
                     .filter(|p| selection.runs(&p.full_name())),
                 &context,
                 runtime.as_ref(),
+                registries.codes(),
             )
             .into_iter()
             .map(|r| PassOutcome {
@@ -423,11 +426,13 @@ pub fn analyze(
         passes: passes_run,
         gate,
         stray_records,
+        codes: registries.codes().clone(),
     })
 }
 
-/// Report entries for entities the graph does not know. Matching is exact;
-/// a close match is only a hint.
+/// Report entries for entities the graph does not know. A key names an entity by its path or a unique short form
+/// (ADR 0284); one that names none, or several (its candidates are named), is a stray record. A close match is only a
+/// hint.
 fn stray_records(graph: &Graph, report: Option<&TestReport>) -> Vec<StrayRecord> {
     let Some(report) = report else {
         return Vec::new();
@@ -435,14 +440,20 @@ fn stray_records(graph: &Graph, report: Option<&TestReport>) -> Vec<StrayRecord>
     report
         .results
         .keys()
-        .filter(|id| graph.node(id).is_none())
+        .filter(|id| !matches!(graph.find(id), specforge_graph::Found::One(_)))
         .map(|id| StrayRecord {
             entity_id: id.clone(),
-            near: specforge_common::suggest::find_close_match(
-                id,
-                graph.nodes().iter().map(|n| n.id.raw.as_str()),
-            )
-            .map(str::to_string),
+            near: match graph.find(id) {
+                specforge_graph::Found::Ambiguous(paths) => paths.first().map(|p| p.to_string()),
+                _ => None,
+            }
+            .or_else(|| {
+                specforge_common::suggest::find_close_match(
+                    id,
+                    graph.nodes().iter().map(|n| n.id.raw.as_str()),
+                )
+                .map(str::to_string)
+            }),
         })
         .collect()
 }

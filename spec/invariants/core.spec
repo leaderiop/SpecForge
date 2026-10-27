@@ -69,10 +69,12 @@ invariant import_dag "Import DAG" {
 
 invariant entity_id_uniqueness "Entity ID Uniqueness" {
   guarantee """
-    Every entity ID raw string MUST be globally unique across all .spec files
-    in a project, regardless of entity kind. Two entities with different kinds
-    but the same raw ID are forbidden. The compiler MUST reject duplicate IDs
-    with an E002 diagnostic that names both declaration sites.
+    Every entity name MUST be unique within its scope across all .spec files
+    in a project: a scope is the entity its kind's scope field names, or the
+    project. Two entities of one kind with the same name in one scope are
+    forbidden: the compiler MUST reject the duplicate with an E002 diagnostic
+    that names both declaration sites. Two of different kinds are a W060. An
+    entity's ID is its scope's path and its name.
   """
   risk      high
   verify property "all unique entity IDs across files are accepted"

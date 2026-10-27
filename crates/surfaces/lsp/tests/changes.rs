@@ -355,6 +355,9 @@ const COUNT: &str = "@test/count";
 /// last. It declares no kind, so the project also reports W151, which no test reads.
 fn counted(files: &[(&str, &str)]) -> Served {
     Served::new(files).extension(COUNT, |c| {
+        c.code("I990", |d| {
+            d.title("The checks ran").explanation("A check pass ran.");
+        });
         c.pass("count", |p| {
             p.phase("check").run(|_: &PassInput| {
                 vec![PassDiagnostic::new(
@@ -375,7 +378,7 @@ fn checks_reported(served: &Served) -> bool {
         .project()
         .diagnostics()
         .iter()
-        .any(|d| d.code == "I990")
+        .any(|d| d.code.ends_with("/I990"))
 }
 
 #[spec(

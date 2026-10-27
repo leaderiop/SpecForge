@@ -60,7 +60,7 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "0.2.0"
+specforge-extension-sdk = "0.3.0"
 ```
 
 That is an outside author's crate. `specforge extension init` writes this dependency line, in a crate that
@@ -144,6 +144,10 @@ impl Contributions for Greet {
             });
             r.severity(ValidationSeverity::Error);
             r.message_template("greeting '{id}' has unknown style");
+        });
+        c.code("E901", |d| {
+            d.title("Unknown greeting style")
+                .explanation("A greeting's style is `warm` or `formal`: set it to one of them.");
         });
         c.command("hello", |cmd| {
             cmd.title("Say hello")
@@ -279,6 +283,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
 | `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
 | `c.feature_flag(name, default, description)` | a flag users set in `specforge.json` | `feature_flags` |
+| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
 
@@ -292,13 +297,13 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 - `testable(bool)`, `singleton(bool)`, `supports_verify(bool)`, `incremental(bool)`
 - `open_fields(bool)` -- unknown fields are accepted
 - `has_body_parser()` -- declares that the kind's body carries syntax of its own; the core grammar reads every body and reports its parse errors whatever the flag says
-- `contract_target()`, `declares_types()`, `lifecycle_field(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
+- `contract_target()`, `declares_types()`, `lifecycle_field(field)`, `scoped_by(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
 - LSP and DOT metadata, requested by the host only where it needs them: `semantic_token(..)`, `lsp_icon(..)`, `dot_shape(..)`, `dot_color(..)`, `dot_fillcolor(..)`
 - `field(name, |f| ..)` -- a field of the kind
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)` and `file_reference()` (string values are file paths). `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -311,7 +316,9 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `StringList` | a list of quoted strings |
 | `Reference` | one entity id; creates an edge |
 | `ReferenceList` | a list of entity ids; creates one edge per id |
-| `Block` | a triple-quoted text block |
+| `EnumList` | a list of its vocabulary's values, each once (declared with `enum_list`) |
+| `Block` | a block of entries; with `member(..)`, of typed members |
+| `BlockList` | a list of blocks with the same `member(..)`s |
 
 ### Vocabularies
 
@@ -336,7 +343,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 ### Declarative rules
 
-`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `description(..)` (what the code means; `specforge explain` and the hover show it), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
+`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
 
 | `CheckKind` | Reads |
 |---|---|
@@ -589,7 +596,7 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
 
 ```toml
 [dev-dependencies]
-specforge-extension-sdk = { version = "0.2.0", features = ["testing"] }   # MockHost, call_every_command
+specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }   # MockHost, call_every_command
 ```
 
 `specforge-wasm`'s `InProcessRuntime` and `specforge-test` are not published: the builtins in this

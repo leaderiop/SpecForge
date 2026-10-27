@@ -20,6 +20,7 @@ Everything below is a builder call in the extension SDK (`ContributionsBuilder`,
 | **Shared fields** | A field every kind of the extension gets (product's `tags`) | `shared_field` |
 | **Enhancements** | Fields, or `verify` kinds, added to a kind *another* extension declares | `enhance` |
 | **Rules** | Checks run on every compile and every edit: a missing link, a cycle, a missing field when a flag is set, a value constraint, a file that must exist, or a custom check written in code | `rule` |
+| **Codes** | The diagnostic codes its rules and passes report, each with a title, an explanation and an optional docs URL. The host prints them under the extension's namespace (`@acme/lint` is `acme.lint`: `acme.lint/W101`) | `code` |
 | **Passes** | Analyses over the whole graph (formal's `condition_check`, testing's `coverage`) | `pass` |
 | **Commands** | `specforge <extension> <command>` on the CLI, promoted to an MCP tool of the same name | `command` |
 | **MCP tools and resources** | Explicit tools and resources for AI agents | `mcp_tool`, `mcp_resource` |

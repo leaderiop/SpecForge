@@ -107,6 +107,12 @@ expression: listing
                   },
                   {
                     "type": "boolean"
+                  },
+                  {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/FieldJson"
+                    },
+                    "type": "object"
                   }
                 ]
               },
@@ -163,58 +169,7 @@ expression: listing
                   },
                   "fields": {
                     "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "default_value": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "edge": {
-                          "type": "string"
-                        },
-                        "enum_values": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        "field_type": {
-                          "enum": [
-                            "string",
-                            "integer",
-                            "bool",
-                            "date",
-                            "enum",
-                            "identifier",
-                            "string_list",
-                            "reference",
-                            "reference_list",
-                            "block"
-                          ],
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "source_extension": {
-                          "type": "string"
-                        },
-                        "target_kind": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "name",
-                        "field_type",
-                        "required",
-                        "source_extension"
-                      ],
-                      "type": "object"
+                      "$ref": "#/$defs/SchemaField"
                     },
                     "type": "array"
                   },
@@ -351,6 +306,83 @@ expression: listing
           "required": [
             "name",
             "type"
+          ],
+          "type": "object"
+        },
+        "SchemaField": {
+          "additionalProperties": false,
+          "properties": {
+            "default_value": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "edge": {
+              "type": "string"
+            },
+            "enum_values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field_type": {
+              "enum": [
+                "string",
+                "integer",
+                "bool",
+                "date",
+                "enum",
+                "identifier",
+                "string_list",
+                "reference",
+                "reference_list",
+                "block",
+                "enum_list",
+                "block_list"
+              ],
+              "type": "string"
+            },
+            "file_base": {
+              "type": "string"
+            },
+            "maximum": {
+              "type": "integer"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/SchemaField"
+              },
+              "type": "array"
+            },
+            "minimum": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "source_extension": {
+              "type": "string"
+            },
+            "target_kind": {
+              "type": "string"
+            },
+            "target_kinds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "field_type",
+            "required",
+            "source_extension"
           ],
           "type": "object"
         },
@@ -777,6 +809,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -1574,7 +1612,7 @@ expression: listing
   },
   {
     "name": "specforge.explain",
-    "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link; a code the served project's extensions declare, from their rules",
+    "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link; a code the served project's extensions catalog, from their catalogs",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1621,8 +1659,7 @@ expression: listing
             "title",
             "owner",
             "level",
-            "explanation",
-            "docs"
+            "explanation"
           ],
           "type": "object"
         },
@@ -1659,8 +1696,7 @@ expression: listing
                 "title",
                 "owner",
                 "level",
-                "explanation",
-                "docs"
+                "explanation"
               ],
               "type": "object"
             },
@@ -1670,56 +1706,6 @@ expression: listing
           },
           "required": [
             "code",
-            "retired"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "code": {
-              "type": "string"
-            },
-            "level": {
-              "type": "string"
-            },
-            "retired": {
-              "type": "boolean"
-            },
-            "rules": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "check": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "extension": {
-                    "type": "string"
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "target_kind": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "extension",
-                  "check",
-                  "message"
-                ],
-                "type": "object"
-              },
-              "type": "array"
-            }
-          },
-          "required": [
-            "code",
-            "level",
-            "rules",
             "retired"
           ],
           "type": "object"
@@ -1758,6 +1744,85 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "$defs": {
+        "SchemaField": {
+          "additionalProperties": false,
+          "properties": {
+            "default_value": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "edge": {
+              "type": "string"
+            },
+            "enum_values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field_type": {
+              "enum": [
+                "string",
+                "integer",
+                "bool",
+                "date",
+                "enum",
+                "identifier",
+                "string_list",
+                "reference",
+                "reference_list",
+                "block",
+                "enum_list",
+                "block_list"
+              ],
+              "type": "string"
+            },
+            "file_base": {
+              "type": "string"
+            },
+            "maximum": {
+              "type": "integer"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/SchemaField"
+              },
+              "type": "array"
+            },
+            "minimum": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "source_extension": {
+              "type": "string"
+            },
+            "target_kind": {
+              "type": "string"
+            },
+            "target_kinds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "field_type",
+            "required",
+            "source_extension"
+          ],
+          "type": "object"
+        }
+      },
       "additionalProperties": false,
       "properties": {
         "edge_types": {
@@ -1800,58 +1865,7 @@ expression: listing
               },
               "fields": {
                 "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "default_value": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "edge": {
-                      "type": "string"
-                    },
-                    "enum_values": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "field_type": {
-                      "enum": [
-                        "string",
-                        "integer",
-                        "bool",
-                        "date",
-                        "enum",
-                        "identifier",
-                        "string_list",
-                        "reference",
-                        "reference_list",
-                        "block"
-                      ],
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "required": {
-                      "type": "boolean"
-                    },
-                    "source_extension": {
-                      "type": "string"
-                    },
-                    "target_kind": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "name",
-                    "field_type",
-                    "required",
-                    "source_extension"
-                  ],
-                  "type": "object"
+                  "$ref": "#/$defs/SchemaField"
                 },
                 "type": "array"
               },
@@ -2374,6 +2388,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -2614,6 +2634,12 @@ expression: listing
                   },
                   {
                     "type": "boolean"
+                  },
+                  {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/FieldJson"
+                    },
+                    "type": "object"
                   }
                 ]
               },
@@ -3372,6 +3398,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -3795,6 +3827,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -4129,7 +4167,49 @@ expression: listing
           "type": "boolean"
         },
         "edits": {
-          "description": "The edits, in order: each names its `op` (create, set, unset, retitle, link, unlink, add_verify, remove_verify or delete) and what it changes",
+          "$defs": {
+            "EditInput": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/EditInput"
+                  },
+                  "type": "object"
+                },
+                {
+                  "items": {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/EditInput"
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              ]
+            }
+          },
+          "description": "The edits, in order: each names its `op` (create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify or delete) and what it changes",
           "items": {
             "oneOf": [
               {
@@ -4137,23 +4217,7 @@ expression: listing
                 "properties": {
                   "fields": {
                     "additionalProperties": {
-                      "oneOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "type": "object"
-                        }
-                      ]
+                      "$ref": "#/$defs/EditInput"
                     },
                     "type": "object"
                   },
@@ -4225,23 +4289,7 @@ expression: listing
                     "type": "string"
                   },
                   "value": {
-                    "oneOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "items": {
-                          "type": "string"
-                        },
-                        "type": "array"
-                      },
-                      {
-                        "additionalProperties": {
-                          "type": "string"
-                        },
-                        "type": "object"
-                      }
-                    ]
+                    "$ref": "#/$defs/EditInput"
                   }
                 },
                 "required": [
@@ -4272,6 +4320,61 @@ expression: listing
                   "op",
                   "entity_id",
                   "field"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "append"
+                    ],
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/EditInput"
+                  }
+                },
+                "required": [
+                  "op",
+                  "entity_id",
+                  "field",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "index": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "op": {
+                    "enum": [
+                      "remove"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op",
+                  "entity_id",
+                  "field",
+                  "index"
                 ],
                 "type": "object"
               },
@@ -4461,6 +4564,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -5240,6 +5349,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -5830,6 +5945,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -6886,6 +7007,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },

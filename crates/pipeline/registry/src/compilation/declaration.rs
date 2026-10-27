@@ -7,6 +7,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use specforge_common::{Diagnostic, codes};
+use specforge_diagnostics::is_local_code;
 use specforge_protocol_types::{
     CompilerPassDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, is_valid_short,
 };
@@ -20,7 +21,7 @@ fn e030(message: String) -> Diagnostic {
 /// E030: a declaration the host cannot use as declared: an empty name or
 /// version, an `ext_short` that is not lowercase kebab case (it names a CLI
 /// subcommand and an MCP tool prefix), an analyzer without a language,
-/// file extensions or exports.
+/// file extensions or exports, or a malformed `codes` entry.
 pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -42,6 +43,7 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
             ),
         );
     }
+    diagnostics.extend(code_entries(declaration));
     for analyzer in &declaration.analyzers {
         if analyzer.language.is_empty() {
             diagnostics.push(e030(format!(
@@ -70,6 +72,66 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// E030 for each `codes` entry the host cannot use as declared: a code that is not a local code
+/// (`E`, `W` or `I` and three digits; the host adds the namespace, so a `/` is refused), a code
+/// catalogued twice, an empty title or explanation, a `docs` that is not an absolute `http(s)` URL;
+/// and, once, a first-party extension declaring any (its codes are in the host catalog, ADR 0286).
+fn code_entries(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
+    let name = declaration.name();
+    let mut diagnostics = Vec::new();
+    if name.starts_with("@specforge/") && !declaration.codes.is_empty() {
+        diagnostics.push(e030(format!(
+            "extension '{name}': a first-party extension declares no `codes`; its codes are in the host catalog"
+        )));
+    }
+    let mut seen = HashSet::new();
+    for entry in &declaration.codes {
+        let code = &entry.code;
+        let about = |problem: &str| e030(format!("extension '{name}': code '{code}' {problem}"));
+        if !is_local_code(code) {
+            diagnostics.push(about("is not a local code (`E`, `W` or `I` and three digits; the host adds the namespace)"));
+        } else if !seen.insert(code.as_str()) {
+            diagnostics.push(about("is catalogued twice"));
+        }
+        if entry.title.trim().is_empty() {
+            diagnostics.push(about("has an empty title"));
+        }
+        if entry.explanation.trim().is_empty() {
+            diagnostics.push(about("has an empty explanation"));
+        }
+        if entry
+            .docs
+            .as_deref()
+            .is_some_and(|docs| !super::codes::is_http_url(docs))
+        {
+            diagnostics.push(about("has a `docs` that is not an absolute http(s) URL"));
+        }
+    }
+    diagnostics
+}
+
+/// Every kind `field` and its members (recursively) name, as (field or member path, the attribute naming it,
+/// the kind), in declared order (ADR 0285).
+fn target_kinds_of<'f>(
+    field: &'f FieldDescriptor,
+    path: &str,
+) -> Vec<(String, &'static str, &'f str)> {
+    let mut named: Vec<(String, &'static str, &'f str)> = Vec::new();
+    if let Some(kind) = &field.target_kind {
+        named.push((path.to_string(), "target_kind", kind));
+    }
+    named.extend(
+        field
+            .target_kinds
+            .iter()
+            .map(|kind| (path.to_string(), "target_kinds", kind.as_str())),
+    );
+    for member in &field.members {
+        named.extend(target_kinds_of(member, &format!("{path}.{}", member.name)));
+    }
+    named
+}
+
 /// Why the host can't derive `field`'s edges from `source`, or None when
 /// it can: a known source on a reference field with a target kind.
 fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'static str> {
@@ -77,8 +139,8 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
         return Some("expected 'type_expressions' or 'method_signatures'");
     }
     let reference = FieldType::parse(&field.field_type).is_some_and(FieldType::is_reference);
-    if !reference || field.target_kind.is_none() {
-        return Some("only a reference field with a target_kind derives edges");
+    if !reference || (field.target_kind.is_none() && field.target_kinds.len() < 2) {
+        return Some("only a reference field with a target_kind or target_kinds derives edges");
     }
     None
 }
@@ -149,13 +211,13 @@ pub(crate) fn consistency(
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
         for field in &kind.fields {
-            if let Some(target) = &field.target_kind
-                && let Some(why) = unresolved(target)
-            {
-                diagnostics.push(warn(format!(
-                    "extension '{}': field '{}' on kind '{}' references target_kind '{}' {}",
-                    name, field.name, kind_keyword, target, why
-                )));
+            for (path, role, target) in target_kinds_of(field, &field.name) {
+                if let Some(why) = unresolved(target) {
+                    diagnostics.push(warn(format!(
+                        "extension '{}': field '{}' on kind '{}' references {} '{}' {}",
+                        name, path, kind_keyword, role, target, why
+                    )));
+                }
             }
             if let Some(edge) = &field.edge
                 && !own_edge_labels.contains(edge.as_str())

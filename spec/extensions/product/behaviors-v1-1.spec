@@ -170,11 +170,11 @@ behavior pe_validate_journey_flow_features "Validate Journey Flow Feature Refere
     resolve to features declared in the journey's features list.
     Unresolvable references produce I090.
 
-    Extraction regex: \[([a-zA-Z_][a-zA-Z0-9_]{1,59})\]
+    Extraction regex: \[([A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*)\]
 
     This matches a single opening bracket, captures an entity ID
-    (2-60 chars: starts with letter or underscore, then letters, digits,
-    or underscores), and a closing bracket. The entity ID character set
+    (2-60 chars: words of letters, digits and underscores, joined by single
+    dashes or dots), and a closing bracket. The entity ID character set
     matches the spec-wide entity ID format.
 
     Edge cases:
@@ -197,7 +197,7 @@ behavior pe_validate_journey_flow_features "Validate Journey Flow Feature Refere
     with the unresolved ID and the flow step index.
   """
   ensures {
-    regex_extraction   "references extracted via \\[([a-zA-Z_][a-zA-Z0-9_]{1,59})\\] regex"
+    regex_extraction   "references extracted via \\[([A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*)\\] regex"
     references_checked "each extracted entity_id is checked against the journey's features list"
     unknown_warned     "I090 emitted per unresolved reference with entity_id and step index"
     empty_safe         "empty brackets [] produce no match and no I090"

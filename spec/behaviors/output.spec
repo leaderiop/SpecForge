@@ -68,7 +68,11 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify unit "schema is included even for empty graph"
   verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
   verify unit "an expression group is written as its conjuncts, one per line, never as a parse tree"
+  verify unit "a value no K3 attribute shapes is written as it was before"
   verify unit "what an entity holds is written once: its fields, their annotations at any depth and its methods, with no position"
+  verify unit "every export format writes an entity id holding a dash or a dot as written"
+  verify unit "an export of a project with no scoped kind writes each id as its name and each edge as written"
+  verify unit "a block list is exported as an array of objects and the Graph Protocol schema describes its members"
   verify contract "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
 }
 
@@ -408,6 +412,7 @@ behavior compute_the_coverage_view "Compute the Coverage View" {
   verify unit "an entity with an unproven obligation is partial, not covered"
   verify unit "a failing recorded test keeps an entity from being covered"
   verify unit "a field named verify does not hide an entity's verify statements"
+  verify unit "a test report names an entity by its path or a unique short form"
 }
 
 // list and search (specforge_ops::read::query::{list, search}): the entities a
@@ -546,6 +551,8 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
   verify unit "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
   verify unit "a duplicate declaration's diagnostics are about its entity"
+  verify unit "a surface takes an entity by its path or a unique short form, reports its path, and refuses a short form naming several"
+  verify unit "inspect writes a block list as an array of objects, and specforge.edit appends an item to it"
 }
 
 // The exploration and the review: the explore and review prompts'
@@ -704,40 +711,42 @@ behavior explain_diagnostic_code "Explain a Diagnostic Code" {
   features   [diagnostic_reporting]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [McpExplainResult, McpExplainDeclared]
+  types      [McpExplainResult]
   requires {
     code_given "The caller names a diagnostic code"
   }
   ensures {
-    entry_printed      "The catalogued entry, or the retired code and its replacement, is printed with its docs link"
-    one_document       "Under --format json the CLI prints the document specforge.explain answers"
-    unknown_refused    "A code the catalog neither has nor retired is refused with unknown_code"
-    declared_explained "In a project, a code the catalog does not have that the loaded extensions' rules declare is answered by those rules"
+    entry_printed        "The catalogued entry, or the retired code and its replacement, is printed with its docs link"
+    one_document         "Under --format json the CLI prints the document specforge.explain answers"
+    unknown_refused      "A code the code book neither has nor retired is refused with unknown_code"
+    catalogued_explained "In a project, a code a loaded extension catalogs is answered from its catalog, under the extension's namespace"
   }
   contract   """
     specforge explain <code> and specforge.explain MUST be one operation
-    (specforge_ops::read::explain) over the diagnostic catalog and, in a
-    project, the loaded extensions' validation rules: the code is read
+    (specforge_ops::read::explain) over the code book, the diagnostic
+    catalog and, in a project, the loaded extensions' own catalogs: the code is read
     in any case with surrounding whitespace ignored; a catalogued code
     answers its code, title, owner, level, explanation and docs link; a
     retired code answers retired true and the entry of the code that
     replaced it, if any. The CLI MUST print the entry as text, its last
-    line the docs link, and under --format json the document
-    specforge.explain answers (McpExplainResult), nothing else. A code the
-    catalog has or retired is the catalog's; else every loaded rule that
-    declares it and whose code the host takes from its extension (no W150)
-    answers it: the code, its level and each rule's extension, target kind,
-    check, message template and description. A code neither the catalog nor
-    an accepted rule has MUST be refused with unknown_code
-    (invalid input) and the code forms as its suggestion, on both surfaces.
+    line the docs link (when it has one), and under --format json the
+    document specforge.explain answers (McpExplainResult), nothing else. A
+    bare code is the catalog's or retired; an extension's code is asked
+    under its namespace (`acme.lint/W101`) and answers its title, owner (the
+    extension), level (its letter's), explanation and the docs link it
+    declares, if any. A code the code book neither has nor retired MUST be
+    refused with unknown_code (invalid input) and the code forms as its
+    suggestion, naming the namespaced forms when a bare code asked is one an
+    extension catalogs, on both surfaces.
   """
   verify unit "specforge explain prints the catalogued entry with its docs link, and a retired code with the entry that replaced it"
   verify integration "specforge explain --format json prints the document specforge.explain answers"
   verify unit "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
   verify unit "an uncatalogued code is refused with unknown_code on both surfaces"
-  verify integration "in a project, specforge explain explains a code its loaded extensions' rules declare and the catalog does not have: the code, its level and each rule with its extension"
-  verify unit "explain answers a code the loaded declarations declare from their rules, the catalog first, and only codes the host takes from their extension"
-  verify integration "outside a project specforge explain answers from the catalog alone: a code only an extension declares is unknown_code"
+  verify integration "in a project, specforge explain explains a code its loaded extensions catalog: the code, its title, its level and its owner"
+  verify unit "explain answers a code an extension catalogs, whether a rule or a pass reports it"
+  verify unit "explain answers a code an extension catalogs under its namespace, the static catalog first, and a bare code only from the static catalog"
+  verify integration "outside a project specforge explain answers from the catalog alone: a code only an extension catalogs is unknown_code"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
@@ -804,6 +813,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
+  verify unit "a raised severity only raises a code, before strict"
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
   verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"

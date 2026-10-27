@@ -589,11 +589,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and every read view that asks what a field says (search, the headline; ADR 0019, ADR 0228): scalars as written; lists of strings or references and mixed lists joined by `", "`;
   variant lists and type unions by `" | "`; expressions by `", "`; a
   block's keys by `", "`. An entity's `verify` statements are not a field and have no field text (ADR 0094). An empty value is `""`. Every written field has one, and none is null. It differs from the written value (`field_form::write`) only for an expression group, which every output writes one conjunct per line (ADR 0064, ADR 0115).
-- **Field type**: how the host reads a field's value, one of ten names an extension declares:
+- **Field type**: how the host reads a field's value, one of twelve names an extension declares:
   `string`, `integer`, `bool`, `date` (one calendar day, written bare `YYYY-MM-DD`; ADR 0234), `enum` (its values are the declaration's `enum_values`, its absent value its `default_value`: a field
   vocabulary; an enum without values, or a default outside them, is W021), `identifier` (one word from an open set,
-  written bare; ADR 0147), `string_list`,
-  `reference`, `reference_list`, `block` (`specforge_protocol_types::FieldType`). The registry build
+  written bare; ADR 0147), `enum_list` (distinct words of its `enum_values`; ADR 0285), `string_list`,
+  `reference`, `reference_list`, `block`, `block_list` (`specforge_protocol_types::FieldType`). The registry build
   reads a declared type once, into the field's registry entry (`FieldRegistryEntry::new`, the only way
   to make one); every output names it by that one name — the schema and exports, the published JSON
   Schema, the model, the hover and E061 (ADR 0034). The older spellings (`_type` suffixes, `boolean`)
@@ -640,6 +640,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   expression group as its conjuncts one per line, lists as arrays, a block as
   an object; never a parse tree or a position. A value E061 admits is a value
   the published schema admits (ADR 0064).
+- **Typed block**: a `block` field that declares `members`, full field descriptors, recursively; each member is read,
+  checked and written as a field is (`FieldForm::members`). A `block` without members is an open map of named text
+  entries (ADR 0285).
+- **Block list**: a `block_list` field, a list of typed blocks written `[ { … } { … } ]`, one item a line, no commas
+  (`FieldValue::Blocks`). An item has no identity; it is addressed by its index (ADR 0285).
+- **Member path**: where a value sits inside a field. Declared, `requires.phase` (a reference edge's label, a
+  rule's `field`, a hover); written, `requires[1].phase`, the 0-based item of a block list (diagnostics, typed edits)
+  (`MemberPath`, ADR 0285).
+- **Member (of a block)**: a field a typed block declares. Not an entity's members (below), and not a type member (a
+  field written in a `type` entity, ADR 0282): a typed block's member is never a type expression.
+- **File base**: where a `file_reference` field's relative paths start, `spec` (the spec root, the default) or
+  `project` (the directory of `specforge.json`), declared by the field (`file_base`, ADR 0285; ADR 0118 D1 for the
+  default).
 - **Members**: what an entity holds besides its id, kind, title and obligations, as every output writes it
   (`specforge_graph::Members`, ADR 0222): its fields' values (`FieldJson`), the annotations written after them, by the
   field's name (an entry of a block field's by `outer.key`), and its methods (`MethodJson`: name, parameters with their
@@ -1384,8 +1397,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   its reply (ADR 0022 D7, ADR 0057). The CLI, the LSP and the operations keep no event.
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which the explain operation
-  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document; in a project it
-  also answers the codes the loaded extensions' rules declare, ADR 0278),
+  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document, over the
+  **code book**),
   diagnostics JSON titles, doctor and the LSP hover read and from which
   `docs/diagnostics.md` is generated, and a **code constant** for every core code.
 - **Code constant**: a core diagnostic code as a typed value, `specforge_diagnostics::codes::W112`
@@ -1394,16 +1407,22 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   compile. The host builds a diagnostic from one (`specforge_common::Diagnostic::new`, or
   `Diagnostic::graded` with the pass's severity), so its severity is the code's catalog level. Codes
   an extension reports cross the protocol as text and have no constant (`Diagnostic::from_extension`); they
-  are checked against the catalog where they enter the host (`check_extension_code`, W150).
+  are checked against the extension's own catalog where they enter the host (`Codebook::check`, W150).
 - **Diagnostic origin**: the extension that reported a diagnostic (`Diagnostic::origin`, JSON `origin`;
   a rule's declaring extension, a pass's extension; absent for the host's own). The catalog describes
-  a diagnostic (title, explanation, docs link: `CodeEntry::docs_href`) only for the host's own or for the code's owner
-  (`specforge_diagnostics::describes`), so an extension's finding with a code it may not use (W150) is
+  a diagnostic (title, explanation, docs link) only for the host's own or for the code's owner
+  (`Codebook::describes`), so an extension's finding with a code it may not use (W150) is
   kept but never presented as that code's owner's.
-- **Declared code**: a diagnostic code the catalog does not have that a loaded extension's validation rule
-  declares and the host takes from that extension (no W150): a third-party extension's own, E900–E998,
-  W900–W998, I900–I998. `specforge explain` and `specforge.explain` answer it in the project from those rules
-  (`specforge_ops::read::explain::declared`, ADR 0278), with the rule's description when it has one.
+- **Code namespace**: the prefix of a third-party extension's code, computed from its package name
+  (`@gsd/core` is `gsd`, `@gsd/security` is `gsd.security`, a local `lint` is `lint`; `specforge_diagnostics::code_namespace`).
+  A code prints as `<namespace>/<letter><3 digits>` (`gsd/W304`); `@specforge/*` builtins and core keep bare
+  codes. Two loaded extensions that share a namespace are E039.
+- **Code book**: every code the host can describe: the static catalog plus each loaded extension's own
+  `codes` catalog (`specforge_diagnostics::Codebook`, built by the registry as `RegistryBuild::codes()`).
+  It checks a code an extension reports (`check`: listed in the extension's catalog, at the level its
+  letter states, else W150) and describes one for every surface (`describes`: title, owner, level,
+  explanation, optional docs URL). An extension lists its codes with `c.code` (the `codes` category,
+  protocol 1.7.0); `specforge explain acme.lint/W101` answers one (ADR 0286).
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
@@ -1458,7 +1477,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the declaration's name and each incoming reference's token, positions in the text the project was compiled from,
   which its planned change keeps, with the spec root they are relative to. MCP writes it only to files that still hold that text, refusing `conflict` otherwise; the LSP
   hands it to the editor only over buffers that are that text (`ContentModified` otherwise; ADR 0116, ADR 0023 D3).
-  The new ID is refused (`authoring::entity_id::validate_id`) when it is not an identifier of 2–60 characters, is a reserved word (E013), is taken, or the project already writes it for no entity (a capture, `name_captured`). A
+  The new ID is refused (`authoring::entity_id::validate_id`) when it is not a name of 2–60 characters, is a reserved word (E013), is taken, or the project already writes it for no entity (a capture, `name_captured`). A
   rename is not a typed edit and is not checked by E080 (ADR 0151, amended).
 - **Starter**: the spec file init writes (`spec/hello.spec`): the first template the extensions it enables declare,
   in `specforge.json` order, else the structural one, its `{project}` the project's spec ID and `{version}` its
@@ -1466,9 +1485,22 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry build of those extensions, made before the project exists (ADR 0189), and parsed before it is written:
   one that does not parse is refused, `starter_unparsed` (ADR 0226), so its first `check` and `format --check`
   accept it.
-- **Entity ID rule**: what `check` refuses of an entity ID: outside 2–60 characters (E014) or a reserved word (E013)
-  (`specforge_registry::refused_id`). A token ID is also the grammar's identifier (`authoring::entity_id::validate_id`);
-  a spec block's ID, its header's string, is not.
+- **Entity ID rule**: what `check` refuses of an entity's name (its ID is its path, ADR 0284): outside 2–60 characters (E014) or a reserved word (E013)
+  (`specforge_registry::refused_id`). A token ID is also the grammar's name, words of letters, digits and `_` joined by
+  single `-` or `.` (`authoring::entity_id::validate_id`, ADR 0283); a spec block's ID, its header's string, is not.
+- **Scope**: the entity a kind's `scoped_by` reference field names (a phase for a decision); a name is unique within
+  its scope and kind (E002, W060), and the project is the scope of an entity with none (ADR 0284).
+- **Path**: an entity's ID, its scope's path and its name joined by `/` (`v1.0/03/D-01`); an unscoped entity's path is its
+  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`.
+- **Shortest spelling**: the fewest trailing names of a path that still resolve to the entity from a given holder
+  (`D-01`, `03/D-01`, `/D-01`); what an edit, completion or a fix writes (`Scopes::spell`), never what a report shows.
+- **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
+  written as, `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (a name has no leading `-`): `AUTH-01`, `03-02`, `2-1`, `-5`. The
+  parser keeps its text; its field's declared type reads and means it (a reference its name, an integer its
+  difference `2-1` = 1, a date its day). The lexer and the grammar read it alike (ADR 0283).
+- **Shape tag**: what the parser says of a bare word by its shape alone (`specforge_parser::literal_shape`): canonical
+  integer, `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
+  rest (ADR 0283).
 - **Text edit**: one change of a project file's text, a span of the text the project was compiled from and the
   text it becomes (`specforge_ops::read::navigate::TextEdit`; an empty span inserts). Navigation's fixes and a
   rename plan answer them; `navigate::apply_edits` applies a file's edits whole or not at all; the LSP converts

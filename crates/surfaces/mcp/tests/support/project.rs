@@ -149,7 +149,7 @@ fn a_reported_diagnostic_joins_the_compile() {
         .state()
         .diagnostics()
         .into_iter()
-        .filter(|d| d.code == "W900")
+        .filter(|d| d.code == "test.ext/W900")
         .collect();
     assert_eq!(reported.len(), 1, "{reported:?}");
     assert_eq!(reported[0].message, "x");

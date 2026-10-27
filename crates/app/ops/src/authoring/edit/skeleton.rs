@@ -5,7 +5,7 @@
 //! the order, the lead, the alignment and every field's form are the create's; the markers are then taken out.
 
 use super::block::{self, Site};
-use super::{FieldInfo, Input, create, fields_of, write};
+use super::{FieldInfo, Input, create, fields_of, typed, write};
 use crate::authoring::format::{Configs, Forms, Place};
 use crate::view::ProjectView;
 use specforge_formatter::FormatConfig;
@@ -68,17 +68,23 @@ impl<'v> Skeletons<'v> {
         Skeletons { view, config }
     }
 
+    fn site<'s>(&'s self, kind: &'s str) -> Site<'s> {
+        Site {
+            view: self.view,
+            scopes: self.view.graph().scopes(),
+            key: "skeleton.spec",
+            id: ID,
+            kind,
+            ordinal: 0,
+            config: self.config.clone(),
+        }
+    }
+
     /// A new `kind` block: its header, each field the kind requires (`FieldInfo::required`), placed, laid out and
     /// spelled as a create writes them, and an `End` slot. `None` for a kind no loaded extension declares.
     pub fn block(&self, kind: &str) -> Option<Skeleton> {
         self.view.kinds().declared(kind).ok()?;
-        let site = Site {
-            view: self.view,
-            key: "skeleton.spec",
-            id: ID,
-            kind,
-            config: self.config.clone(),
-        };
+        let site = self.site(kind);
         let required: Vec<FieldInfo> = fields_of(self.view, kind)
             .into_iter()
             .filter(|f| f.required)
@@ -128,7 +134,10 @@ impl<'v> Skeletons<'v> {
         let marker = marker(1);
         let (input, fill) = sample(reading, &marker)?;
         let reading = self.view.registries().field_forms().reading(kind, field);
-        let value = write::written(reading, field, &input, "", &self.config).ok()?;
+        let value = match typed::written(&self.site(kind), field, &reading, &input) {
+            Some(value) => value.ok()?,
+            None => write::written(reading, field, &input, "", &self.config).ok()?,
+        };
         let text = format!("{field} {value}");
         Some(apply(
             &text,
@@ -151,8 +160,15 @@ fn sample(reading: Reading<'_>, marker: &str) -> Option<(Input, Fill)> {
         Reading::Declared(form) => Some(match form.field_type() {
             FieldType::Integer => (Input::One("0".into()), Fill::Literal),
             FieldType::Bool => (Input::One("false".into()), Fill::Literal),
-            FieldType::ReferenceList | FieldType::StringList => {
+            FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
                 (Input::Many(vec![marker.to_string()]), Fill::Marker)
+            }
+            // A typed value is written empty (`[]`, `{}`): its members are the author's to add (ADR 0285).
+            FieldType::BlockList if form.members().is_some() => {
+                (Input::Blocks(Vec::new()), Fill::Literal)
+            }
+            FieldType::Block if form.members().is_some() => {
+                (Input::Block(BTreeMap::new()), Fill::Literal)
             }
             FieldType::Block => (
                 Input::Entries(BTreeMap::from([(marker.to_string(), String::new())])),

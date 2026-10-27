@@ -91,10 +91,12 @@ fn copy(site: &Site<'_>, block: &Block, field: &str, default: &FieldEntry) -> Op
         return None;
     };
     match form.field_type() {
-        FieldType::ReferenceList | FieldType::StringList => {
+        FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
             items_of(&forms.stored(site.kind, default)).map(|items| list_text(&items))
         }
-        FieldType::Block => default.value_span.as_ref().map(|span| block.text_of(span)),
+        FieldType::Block | FieldType::BlockList => {
+            default.value_span.as_ref().map(|span| block.text_of(span))
+        }
         _ => None,
     }
 }

@@ -131,7 +131,7 @@ fn a_verify_stub_is_attributed_to_the_rule_that_reports_its_entity() {
 
 /// The §3 probe's kinds and one rule: `item` (testable, accepts verify,
 /// `abstract` exempts), `note` (accepts verify), `memo` (accepts none)
-/// and `P300`, an obligation rule with no target kind.
+/// and `E300`, an obligation rule with no target kind.
 fn untargeted_rule() -> specforge_extension_sdk::prelude::ContributionsBuilder {
     use specforge_extension_sdk::prelude::*;
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/untargeted", "0.1.0"));
@@ -147,7 +147,11 @@ fn untargeted_rule() -> specforge_extension_sdk::prelude::ContributionsBuilder {
     c.kind("memo", |k| {
         k.open_fields(true);
     });
-    c.rule("P300", |r| {
+    c.code("E300", |d| {
+        d.title("No verify")
+            .explanation("An item declares no verify obligations.");
+    });
+    c.rule("E300", |r| {
         r.check(CheckKind::NoVerifyStatements)
             .field("verify")
             .message_template("{kind} '{id}' declares no verify obligations");
@@ -179,7 +183,7 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
     let reported: Vec<String> = project
         .diagnostics()
         .into_iter()
-        .filter(|d| d.code == "P300")
+        .filter(|d| d.code == "pin.untargeted/E300")
         .map(|d| d.message)
         .collect();
     assert_eq!(
@@ -195,8 +199,8 @@ fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
     assert_eq!(
         stubs(fix::fixes(&navigator, &project.diagnostics(), &FixQuery::default()).unwrap()),
         [
-            ("beta".to_string(), Some("P300".to_string())),
-            ("gamma".to_string(), Some("P300".to_string())),
+            ("beta".to_string(), Some("pin.untargeted/E300".to_string())),
+            ("gamma".to_string(), Some("pin.untargeted/E300".to_string())),
         ]
     );
 }
@@ -527,6 +531,7 @@ fn unresolved(target: &str, entity: &str, field: &str, close: Option<&str>) -> D
         entity: entity.into(),
         field: field.into(),
         did_you_mean: close.map(String::from),
+        candidates: Vec::new(),
     }
 }
 

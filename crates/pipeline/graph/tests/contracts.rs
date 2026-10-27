@@ -44,6 +44,7 @@ behavior delta "D" { features [alpha] }
             entity: "gamma".into(),
             field: "features".into(),
             did_you_mean: None,
+            candidates: Vec::new(),
         })
     );
 

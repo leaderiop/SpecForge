@@ -1,12 +1,25 @@
 use std::collections::HashMap;
 
 use specforge_graph::FieldForm;
-use specforge_protocol_types::{FieldDescriptor, FieldType, ProofRole};
+use specforge_graph::field_form::BlockMembers;
+use specforge_protocol_types::{FieldDescriptor, FieldType, FileBase, ProofRole};
 
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnknownFieldType(pub String);
+
+/// What the registry refuses in a field's declaration and drops, so the field keeps the rest (ADR 0285). The
+/// registry build reports each: [`Self::UnknownMemberType`] as W019, [`Self::Refused`] as W021.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FieldProblem {
+    /// A member whose type this host does not read: the member is dropped.
+    UnknownMemberType { member: String, field_type: String },
+    /// An attribute the declaration states wrongly (members on a scalar, a bound on a string, both target
+    /// fields, a bad base …): the attribute is dropped. `field` is the field or member path (`requires.phase`),
+    /// `what` completes "field 'f' on kind 'k' …".
+    Refused { field: String, what: String },
+}
 
 /// One registered field of one kind: the descriptor its extension declared,
 /// the kind it is registered on and the extension that declared the field:
@@ -22,6 +35,7 @@ pub struct FieldRegistryEntry {
     form: FieldForm,
     proof_role: Option<ProofRole>,
     declared: FieldDescriptor,
+    problems: Vec<FieldProblem>,
 }
 
 impl FieldRegistryEntry {
@@ -32,7 +46,8 @@ impl FieldRegistryEntry {
     /// entry's descriptor names the type canonically (`"boolean"` becomes
     /// `"bool"`), so every reader of `declared()` sees the one name. A
     /// `proof_role` that is not `bound` or `claim` is read as none; the
-    /// registry build reports it (W021).
+    /// registry build reports it (W021). The members of a block field are read the same way, recursively; what is
+    /// refused in the declaration is dropped from it and listed in [`Self::problems`].
     pub fn new(
         kind_name: &str,
         source_extension: &str,
@@ -42,18 +57,37 @@ impl FieldRegistryEntry {
             .ok_or_else(|| UnknownFieldType(declared.field_type.clone()))?;
         declared.field_type = field_type.as_str().to_string();
         let proof_role = declared.proof_role.as_deref().and_then(ProofRole::parse);
-        let form = FieldForm::new(field_type, declared.enum_values.clone());
-        let form = match &declared.target_kind {
-            Some(target) => form.targeting(target),
-            None => form,
-        };
+        let mut problems = Vec::new();
+        let path = declared.name.clone();
+        let form = read(&mut declared, field_type, &path, false, &mut problems);
         Ok(Self {
             kind_name: kind_name.to_string(),
             source_extension: source_extension.to_string(),
             form,
             proof_role,
             declared,
+            problems,
         })
+    }
+
+    /// What the registry refused in the declaration, in declared order.
+    pub fn problems(&self) -> &[FieldProblem] {
+        &self.problems
+    }
+
+    /// The descriptor and form at a member path: `requires.phase` is the member `phase` of the field `requires`; a
+    /// path of one name is the field itself.
+    pub fn at_path(&self, path: &str) -> Option<(&FieldDescriptor, &FieldForm)> {
+        let mut parts = path.split('.');
+        if parts.next()? != self.declared.name {
+            return None;
+        }
+        let (mut declared, mut form) = (&self.declared, &self.form);
+        for part in parts {
+            declared = declared.members.iter().find(|m| m.name == part)?;
+            form = form.members()?.get(part)?;
+        }
+        Some((declared, form))
     }
 
     /// The kind the field is registered on.
@@ -89,13 +123,10 @@ impl FieldRegistryEntry {
         &self.form
     }
 
-    /// The type as messages and hover name it: the type's name, followed by
-    /// an enum's declared values: `enum (low, medium, high)`.
+    /// The type as messages and hover name it ([`FieldForm::label`]): the type's name, followed by an enum's declared
+    /// values (`enum (low, medium, high)`), an integer's bounds or a block's members.
     pub fn type_label(&self) -> String {
-        match self.enum_values() {
-            [] => self.field_type().as_str().to_string(),
-            values => format!("{} ({})", self.field_type().as_str(), values.join(", ")),
-        }
+        self.form.label()
     }
 
     /// What the prove pass reads the field as, when it declares a known role.
@@ -134,6 +165,12 @@ impl FieldRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.count == 0
+    }
+
+    /// The descriptor and form at `path` on `kind`: a field's name, or a member path `field.member`.
+    pub fn get_path(&self, kind_name: &str, path: &str) -> Option<(&FieldDescriptor, &FieldForm)> {
+        let field = path.split('.').next()?;
+        self.get(kind_name, field)?.at_path(path)
     }
 
     /// Look up a field entry by kind and field name.
@@ -220,4 +257,214 @@ impl FieldRegistry {
                 .map(move |(field, entry)| (kind.as_str(), field.as_str(), entry))
         })
     }
+}
+
+/// Whether `name` is one identifier: a member's name never holds a `.` or `[`, so a member path parses back.
+fn is_identifier(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+fn refuse(problems: &mut Vec<FieldProblem>, field: &str, what: String) {
+    problems.push(FieldProblem::Refused {
+        field: field.to_string(),
+        what,
+    });
+}
+
+/// The form of `declared`, a field of type `field_type` named `path` (a member path for a member), with whatever
+/// the declaration states wrongly dropped from `declared` and listed in `problems` (ADR 0285).
+fn read(
+    declared: &mut FieldDescriptor,
+    field_type: FieldType,
+    path: &str,
+    is_member: bool,
+    problems: &mut Vec<FieldProblem>,
+) -> FieldForm {
+    let ty = field_type.as_str();
+    if !declared.members.is_empty() && !field_type.is_block() {
+        refuse(
+            problems,
+            path,
+            format!(
+                "declares members, but its type is '{ty}': only a block or block_list has members"
+            ),
+        );
+        declared.members.clear();
+    }
+    if field_type == FieldType::BlockList && declared.members.is_empty() {
+        refuse(
+            problems,
+            path,
+            "is a block_list that declares no members".into(),
+        );
+    }
+    let mut kept: Vec<FieldDescriptor> = Vec::new();
+    let mut forms = Vec::new();
+    for mut member in std::mem::take(&mut declared.members) {
+        let member_path = format!("{path}.{}", member.name);
+        if !is_identifier(&member.name) {
+            refuse(
+                problems,
+                path,
+                format!(
+                    "declares a member '{}' whose name is not one identifier",
+                    member.name
+                ),
+            );
+            continue;
+        }
+        if kept.iter().any(|m| m.name == member.name) {
+            refuse(
+                problems,
+                path,
+                format!("declares the member '{}' twice", member.name),
+            );
+            continue;
+        }
+        let Some(member_type) = FieldType::parse(&member.field_type) else {
+            problems.push(FieldProblem::UnknownMemberType {
+                member: member_path,
+                field_type: member.field_type.clone(),
+            });
+            continue;
+        };
+        member.field_type = member_type.as_str().to_string();
+        if member.derived_from.take().is_some() {
+            refuse(
+                problems,
+                &member_path,
+                "declares derived_from: a block member is no type syntax".into(),
+            );
+        }
+        let form = read(&mut member, member_type, &member_path, true, problems);
+        forms.push((member.name.clone(), form));
+        kept.push(member);
+    }
+    declared.members = kept;
+
+    if declared.target_kind.is_some() && !declared.target_kinds.is_empty() {
+        refuse(
+            problems,
+            path,
+            "declares both target_kind and target_kinds".into(),
+        );
+        declared.target_kinds.clear();
+    }
+    if !declared.target_kinds.is_empty() && !field_type.is_reference() {
+        refuse(
+            problems,
+            path,
+            format!("declares target_kinds, but its type is '{ty}'"),
+        );
+        declared.target_kinds.clear();
+    }
+    if declared.target_kinds.len() == 1 {
+        refuse(
+            problems,
+            path,
+            "declares target_kinds of one kind: write target_kind".into(),
+        );
+        declared.target_kinds.clear();
+    }
+    if (declared.minimum.is_some() || declared.maximum.is_some())
+        && field_type != FieldType::Integer
+    {
+        refuse(
+            problems,
+            path,
+            format!(
+                "declares a minimum or maximum, but its type is '{ty}': only an integer has bounds"
+            ),
+        );
+        (declared.minimum, declared.maximum) = (None, None);
+    }
+    if let (Some(minimum), Some(maximum)) = (declared.minimum, declared.maximum)
+        && minimum > maximum
+    {
+        refuse(
+            problems,
+            path,
+            format!("declares minimum {minimum} above maximum {maximum}"),
+        );
+        (declared.minimum, declared.maximum) = (None, None);
+    }
+    if let Some(base) = declared.file_base.clone() {
+        if !declared.file_reference {
+            refuse(
+                problems,
+                path,
+                "declares file_base without file_reference".into(),
+            );
+            declared.file_base = None;
+        } else if FileBase::parse(&base).is_none() {
+            refuse(
+                problems,
+                path,
+                format!("declares file_base '{base}': expected 'spec' or 'project'"),
+            );
+            declared.file_base = None;
+        }
+    }
+    if matches!(field_type, FieldType::Enum | FieldType::EnumList)
+        && declared.enum_values.is_empty()
+    {
+        refuse(
+            problems,
+            path,
+            format!("is an {ty} that declares no values"),
+        );
+    } else if field_type == FieldType::Enum
+        && let Some(default) = declared.default_value.as_deref()
+        && !declared.enum_values.iter().any(|v| v == default)
+    {
+        refuse(
+            problems,
+            path,
+            format!(
+                "declares default_value '{default}', which is not one of its values: {}",
+                declared.enum_values.join(", ")
+            ),
+        );
+    }
+    if matches!(
+        field_type,
+        FieldType::Block | FieldType::BlockList | FieldType::EnumList
+    ) && declared.default_value.is_some()
+    {
+        refuse(
+            problems,
+            path,
+            format!("declares a default_value, but its type is '{ty}'"),
+        );
+        declared.default_value = None;
+    }
+    if is_member && declared.edge.is_some() && !field_type.is_reference() {
+        refuse(
+            problems,
+            path,
+            format!("declares an edge, but its type is '{ty}': only a reference member has edges"),
+        );
+        declared.edge = None;
+    }
+
+    let mut form = FieldForm::new(field_type, declared.enum_values.clone())
+        .bounded(declared.minimum, declared.maximum)
+        .requiring(is_member && declared.required);
+    form = match &declared.target_kind {
+        Some(kind) => form.targeting(kind),
+        None => form.targeting_any(&declared.target_kinds),
+    };
+    if declared.file_reference
+        && let Some(base) = declared.file_base.as_deref().and_then(FileBase::parse)
+    {
+        form = form.based(base);
+    }
+    if field_type.is_block() && !forms.is_empty() {
+        form = form.with_members(BlockMembers::new(forms));
+    }
+    form
 }

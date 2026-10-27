@@ -61,6 +61,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a field written twice in one block is E081, and the node holds its first entry, at any depth"
   verify unit "a later entry's names stay tokens a rename edits, and link nothing"
   verify unit "an update reports a field written twice as the cold build does"
+  verify unit "the finder reports a reference inside a block under its member path, held by the entity"
 }
 
 behavior apply_file_defaults "Apply File Defaults" {
@@ -136,6 +137,10 @@ behavior link_derived_references "Link Derived References" {
       own) don't count.
       A list field written as one value is a list (ADR 0156): its word is
       no type name, to the linker and to the finder alike.
+      A value or bare list item that is one word holding `-` or `.`, or
+      starting with a digit (`Money-v2`), is one type name, whole, to the
+      edge, the finder and E004 alike (ADR 0283); inside `T[]` or `A | B`
+      the lexer's identifiers stay.
     - `method_signatures`: the names in the parameter and return types of
       the entity's methods.
 
@@ -160,6 +165,7 @@ behavior link_derived_references "Link Derived References" {
     find it there (ADR 0176).
   """
   verify unit "a name in a type-syntax field value links through the derived field"
+  verify unit "a type name written whole may hold a dash or a dot: it links as one name and is one E004 when undeclared"
   verify unit "a name in a method parameter or return type links through the derived field"
   verify unit "a member, a union variant or a method type naming no type is E004 at the name"
   verify unit "a primitive, a container or a declared type is no E004"
@@ -175,6 +181,8 @@ behavior link_derived_references "Link Derived References" {
   verify unit "the linker and the finder read every block alike"
   verify unit "a default's derived name is held by the blocks that take its entry"
   verify integration "a field's derived_from reaches the graph from the extension's manifest"
+  verify unit "a type name resolves by its holder's chain and is no E004, a path written as a type is one name"
+  verify unit "an enum list's words and a typed block's members are no type expression: no derived edge and no E004"
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {

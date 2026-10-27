@@ -145,6 +145,10 @@ impl FakeExtension {
             c.raw_category(DeclaredCategory::Surfaces, json!([surfaces.clone()]));
             if passes.as_array().is_some_and(|p| !p.is_empty()) {
                 c.raw_category(DeclaredCategory::Passes, passes.clone());
+                c.code("W900", |d| {
+                    d.title("Careful")
+                        .explanation("A finding of the test passes.");
+                });
             }
             c
         });

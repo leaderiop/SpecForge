@@ -1,4 +1,5 @@
 use super::*;
+use crate::lex::{LiteralShape, is_number_word, literal_shape};
 
 /// What a block's members read to; `obligations` and `obligation_spans` are pushed together, at one site.
 #[derive(Default)]
@@ -122,29 +123,14 @@ impl<'a> ParseContext<'a> {
         match node.kind() {
             kind::STRING => FieldValue::String(string_text(self.text(node))),
             kind::TRIPLE_QUOTED_STRING => FieldValue::String(triple_text(self.text(node))),
-            kind::INTEGER | kind::NEGATIVE_INTEGER => {
-                let text = self.text(node);
-                match text.parse::<i64>() {
-                    Ok(val) => FieldValue::Integer(val),
-                    Err(_) => {
-                        self.errors.push(ParseError {
-                            message: format!(
-                                "integer value '{}' is too large (overflows i64)",
-                                text
-                            ),
-                            span: self.span(node),
-                        });
-                        FieldValue::Integer(0)
-                    }
-                }
+            kind::IDENTIFIER => word_value(self.text(node)),
+            kind::ARRAY_TYPE | kind::REFERENCE_PATH => {
+                FieldValue::Identifier(self.text(node).to_string())
             }
-            kind::BOOLEAN => FieldValue::Boolean(self.text(node) == "true"),
-            kind::DATE_LITERAL => FieldValue::Date(self.text(node).to_string()),
-            kind::IDENTIFIER => FieldValue::Identifier(self.text(node).to_string()),
-            kind::ARRAY_TYPE => FieldValue::Identifier(self.text(node).to_string()),
             kind::EXPR_GROUP => FieldValue::Expression(self.parse_expr_group(node)),
             kind::TYPE_UNION => FieldValue::TypeUnion(self.parse_type_union(node)),
             kind::LIST => self.parse_list(node),
+            kind::BLOCK_LIST => self.parse_block_list(node),
             kind::NESTED_BLOCK => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
         }
@@ -172,7 +158,7 @@ impl<'a> ParseContext<'a> {
     /// Each comment inside `node`, a field's value, recorded as a value comment: a list's at any depth, an expression
     /// group's. A nested block's are its members' (`parse_nested_block` reads them).
     fn comments_inside(&mut self, node: Node) {
-        if node.kind() == kind::NESTED_BLOCK {
+        if matches!(node.kind(), kind::NESTED_BLOCK | kind::BLOCK_LIST) {
             return;
         }
         let mut cursor = node.walk();
@@ -184,6 +170,26 @@ impl<'a> ParseContext<'a> {
                 self.comments_inside(child);
             }
         }
+    }
+
+    /// A list of blocks: each `{ … }` child read as a nested block, with its span. Its comments are its members'.
+    fn parse_block_list(&mut self, node: Node) -> FieldValue {
+        let mut items = Vec::new();
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == kind::COMMENT {
+                let span = self.span(child);
+                self.value_comments.push(span);
+            } else if child.kind() == kind::NESTED_BLOCK
+                && let FieldValue::Block(fields) = self.parse_nested_block(child)
+            {
+                items.push(BlockItem {
+                    fields,
+                    span: self.span(child),
+                });
+            }
+        }
+        FieldValue::Blocks(items)
     }
 
     fn parse_nested_block(&mut self, node: Node) -> FieldValue {
@@ -328,6 +334,17 @@ fn dedent(text: &str) -> String {
     result.join("\n")
 }
 
+/// A bare word as the parse stores it: tagged by its shape, losing nothing (ADR 0283). The field's declared type,
+/// which the parser never reads, decides what the word means.
+fn word_value(word: &str) -> FieldValue {
+    match literal_shape(word) {
+        LiteralShape::Integer(n) => FieldValue::Integer(n),
+        LiteralShape::Boolean(b) => FieldValue::Boolean(b),
+        LiteralShape::Date => FieldValue::Date(word.to_string()),
+        LiteralShape::Other => FieldValue::Identifier(word.to_string()),
+    }
+}
+
 /// The text a `"""…"""` token reads to: its inside dedented (the first line trimmed, the common indentation of the
 /// others dropped, trailing blank lines dropped).
 pub(crate) fn triple_text(raw: &str) -> String {
@@ -349,14 +366,13 @@ pub fn value_token(node: Node<'_>, source: &str) -> Option<(Written, String)> {
     Some(match node.kind() {
         kind::STRING => (Written::Quoted, string_text(text)),
         kind::TRIPLE_QUOTED_STRING => (Written::Quoted, triple_text(text)),
-        kind::IDENTIFIER if matches!(text, "true" | "false") => {
+        kind::IDENTIFIER if text == "true" || text == "false" || is_number_word(text) => {
             (Written::Literal, text.to_string())
         }
         kind::IDENTIFIER => (Written::Bare, text.to_string()),
+        kind::REFERENCE_PATH => (Written::Bare, text.to_string()),
         kind::SCHEME_REF_ID => (Written::SchemeRef, text.to_string()),
-        kind::INTEGER | kind::NEGATIVE_INTEGER | kind::BOOLEAN | kind::DATE_LITERAL => {
-            (Written::Literal, text.to_string())
-        }
+        kind::INTEGER | kind::NEGATIVE_INTEGER => (Written::Literal, text.to_string()),
         _ => return None,
     })
 }

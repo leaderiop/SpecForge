@@ -173,6 +173,10 @@ that create typed edges between entities, and they can carry constraints
 Rules are structural checks the compiler runs on every graph build:
 
 ```rust
+c.code("E901", |d| {
+    d.title("Unknown greeting style")
+        .explanation("A greeting's style is `warm` or `formal`: set it to one of them.");
+});
 c.rule("E901", |r| {
     r.check(CheckKind::FieldValueConstraint);
     r.target_kind("greeting");
@@ -186,13 +190,15 @@ c.rule("E901", |r| {
 });
 ```
 
-A rule's code names your extension's diagnostic, so it comes from the range
-third-party extensions own: `E900`-`E998` for an error, `W900`-`W998` for a
-warning, `I900`-`I998` for an info, with the prefix matching the rule's
-severity (`E901` above is an error). A rule that uses a code core or another
-extension owns, or a prefix that contradicts its severity, still runs, and the
-host adds a `W150` warning naming it; under `--strict` that warning fails the
-check.
+A rule's code is a local code, a letter and three digits (`E901`), and the host
+prints it under your extension's namespace: `@sdk/greet` is `sdk.greet`, so
+`sdk.greet/E901`. The letter states the level (`E` error, `W` warning, `I`
+info) and must match the rule's severity (`E901` above is an error). List every
+code you report with `c.code`, as above: its title and explanation are what
+`specforge explain`, the editor and the JSON output show. A code you do not
+list, a letter that contradicts the severity or a code that is not a local code
+still runs, and the host adds a `W150` warning naming it; under `--strict` that
+warning fails the check.
 
 Rules are declarative patterns — they run in-process, cost nothing at Wasm
 boundaries, and are the right tool for per-field shape checks. When a check

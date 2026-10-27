@@ -4,7 +4,7 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
-use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{ExtensionDeclaration, FileBase};
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
@@ -57,12 +57,15 @@ fn every_kinds_fields_and_shared_fields_are_registered() {
     assert!(!build.fields().contains("epic", "estimate"));
 }
 
-/// The field names a type is declared under: its own, and (but for `identifier` and `date`,
-/// which have no older spelling) the one a `_type` alias is tried on.
+/// The field names a type is declared under: its own, and (but for the types that have no older spelling:
+/// `identifier`, `date`, `enum_list` and `block_list`) the one a `_type` alias is tried on.
 fn spellings(field_type: FieldType) -> Vec<String> {
     let name = field_type.as_str();
     let mut names = vec![name.to_string()];
-    if !matches!(field_type, FieldType::Identifier | FieldType::Date) {
+    if !matches!(
+        field_type,
+        FieldType::Identifier | FieldType::Date | FieldType::EnumList | FieldType::BlockList
+    ) {
         names.push(format!("{name}_alias"));
     }
     names
@@ -81,6 +84,12 @@ fn each_field_type_and_its_alias_registers_as_that_type() {
                     k.field(&name, |f| {
                         if *field_type == FieldType::Enum {
                             f.vocabulary(&Vocabulary::new(&["draft", "done"]));
+                        } else if *field_type == FieldType::EnumList {
+                            f.enum_list(&Vocabulary::new(&["draft", "done"]));
+                        } else if *field_type == FieldType::BlockList {
+                            f.field_type(*field_type).member("note", |m| {
+                                m.field_type(FieldType::String);
+                            });
                         } else {
                             f.field_type(*field_type);
                         }
@@ -444,4 +453,60 @@ fn field_registration_holds() {
         "{:?}",
         diagnostics(&build)
     );
+}
+
+#[spec(
+    behavior = "registry_build_fields",
+    verify = "a block field's members register as forms, read by member path, with their bounds, base and targets"
+)]
+fn a_blocks_members_register_by_path() {
+    let build = build([declare("@test/ext", |c| {
+        for kind in ["Phase", "Milestone"] {
+            c.kind(kind, |k| {
+                k.keyword(&kind.to_lowercase());
+            });
+        }
+        c.kind("Thing", |k| {
+            k.keyword("thing");
+            k.field("requires", |f| {
+                f.field_type(FieldType::BlockList)
+                    .member("phase", |m| {
+                        m.field_type(FieldType::Reference)
+                            .target_kinds(&["phase", "milestone"])
+                            .required();
+                    })
+                    .member("score", |m| {
+                        m.field_type(FieldType::Integer).minimum(0).maximum(100);
+                    })
+                    .member("path", |m| {
+                        m.field_type(FieldType::String)
+                            .file_reference()
+                            .file_base(FileBase::Project);
+                    });
+            });
+        });
+    })]);
+    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
+
+    let fields = build.fields();
+    let (_, phase) = fields.get_path("thing", "requires.phase").unwrap();
+    assert_eq!(phase.target_kinds(), ["phase", "milestone"]);
+    assert!(phase.required());
+    let (_, score) = fields.get_path("thing", "requires.score").unwrap();
+    assert_eq!(score.bounds(), (Some(0), Some(100)));
+    let (declared, path) = fields.get_path("thing", "requires.path").unwrap();
+    assert_eq!(path.base(), FileBase::Project);
+    assert!(declared.file_reference);
+    assert!(fields.get_path("thing", "requires").is_some());
+    assert!(fields.get_path("thing", "requires.nope").is_none());
+    let names: Vec<_> = fields
+        .get("thing", "requires")
+        .unwrap()
+        .form()
+        .members()
+        .unwrap()
+        .iter()
+        .map(|(name, _)| name)
+        .collect();
+    assert_eq!(names, ["phase", "score", "path"], "in declared order");
 }

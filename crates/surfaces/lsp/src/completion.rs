@@ -2,13 +2,14 @@
 //! the project view's registries and graph (ADR 0023). Where the cursor is
 //! is the document module's to say.
 
-use specforge_common::structural;
+use specforge_common::{Sym, structural};
 use specforge_graph::Reading;
 use specforge_ops::authoring::edit::{Skeleton, Skeletons, SlotOf};
 use specforge_ops::authoring::format::Place;
 use specforge_ops::read::infer::{KindGuide, guide};
 use specforge_ops::read::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
+use specforge_protocol_types::FieldDescriptor;
 use specforge_registry::{FieldRegistry, FieldType};
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, InsertReplaceEdit,
@@ -30,6 +31,7 @@ pub fn items(
 ) -> Vec<CompletionItem> {
     let registries = view.registries();
     let edit = cursor.word_edit();
+    let holder = holder(cursor, view, place);
     let mut items = match cursor.completion() {
         CompletionSite::Keywords { prefix } => keywords(prefix, view, &Skeletons::at(view, place)),
         CompletionSite::Fields { kind, prefix } => {
@@ -75,34 +77,81 @@ pub fn items(
                     .collect()
             })
             .unwrap_or_default(),
+        CompletionSite::Members { kind, path, prefix } => {
+            let written = cursor.written_fields();
+            registries
+                .fields()
+                .get_path(kind, &path)
+                .map(|(declared, _)| {
+                    declared
+                        .members
+                        .iter()
+                        .filter(|member| starts_with(&member.name, prefix))
+                        .filter(|member| !written.contains(&member.name.as_str()))
+                        .map(|member| CompletionItem {
+                            label: member.name.clone(),
+                            kind: Some(CompletionItemKind::FIELD),
+                            detail: member.description.clone(),
+                            ..Default::default()
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        }
         CompletionSite::ListItem {
             kind,
             field,
             prefix,
+            written,
         } => {
-            let entry = registries.fields().get(kind, field);
-            match registries.field_forms().reading(kind, field) {
-                // A reference list: the ids of its target kind.
+            let entry = registries.fields().get_path(kind, &field);
+            match registries.field_forms().reading_at(kind, &field) {
+                // A reference list: the ids of its target kind, or of any kind of its union.
                 Reading::Declared(form) if form.field_type() == FieldType::ReferenceList => {
-                    let target = entry.and_then(|e| e.declared().target_kind.as_deref());
-                    entity_ids(view, prefix, target)
+                    let kinds = entry.map(|(d, _)| target_kinds(d)).unwrap_or_default();
+                    entity_ids(view, prefix, &kinds, holder)
                 }
                 // A string list's items are strings; the only entities it
                 // names are the refs a scheme ref ID names.
                 Reading::Declared(form) if form.field_type() == FieldType::StringList => {
-                    entity_ids(view, prefix, Some(structural::REF))
+                    entity_ids(view, prefix, &[structural::REF], holder)
                 }
+                // An enum list's words it does not hold yet.
+                Reading::Declared(form) if form.field_type() == FieldType::EnumList => form
+                    .enum_values()
+                    .iter()
+                    .filter(|word| starts_with(word, prefix) && !written.contains(&word.as_str()))
+                    .map(|word| CompletionItem {
+                        label: word.clone(),
+                        kind: Some(CompletionItemKind::ENUM_MEMBER),
+                        ..Default::default()
+                    })
+                    .collect(),
                 Reading::Declared(_) => Vec::new(),
                 // An undeclared field, or a member of an open-fields kind
                 // (whose lists name types): every id.
-                Reading::Member | Reading::Undeclared => entity_ids(view, prefix, None),
+                Reading::Member | Reading::Undeclared if !field.contains('.') => {
+                    entity_ids(view, prefix, &[], holder)
+                }
+                Reading::Member | Reading::Undeclared => Vec::new(),
             }
         }
         CompletionSite::Value {
             kind,
             field,
             prefix,
-        } => value(registries.fields(), kind, field, prefix, view),
+        } => {
+            // A scope field is read from the project, not from its holder (ADR 0284).
+            let from = holder.filter(|_| {
+                view.registries()
+                    .graph_inputs()
+                    .scopes
+                    .get(kind)
+                    .map(String::as_str)
+                    != Some(field.as_str())
+            });
+            value(registries.fields(), kind, &field, prefix, view, from)
+        }
         CompletionSite::Nothing => Vec::new(),
     };
     for item in &mut items {
@@ -125,6 +174,32 @@ pub fn items(
         item.filter_text = Some(item.label.clone());
     }
     items
+}
+
+/// The path of the entity block around the cursor: the one of its kind and name whose block holds the cursor's line.
+fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
+    let at = cursor.entity()?;
+    let name = at.id?;
+    let line = cursor.position().line as usize + 1;
+    let Place::File(file) = place else {
+        return None;
+    };
+    let nodes = view.graph().nodes();
+    let same: Vec<_> = nodes
+        .iter()
+        .filter(|node| {
+            node.kind.raw == at.kind
+                && node.name() == name
+                && file.ends_with(node.source_span.file.as_str())
+        })
+        .collect();
+    match same.as_slice() {
+        [one] => Some(one.id.raw),
+        _ => same
+            .iter()
+            .find(|n| n.source_span.start_line <= line && line <= n.source_span.end_line)
+            .map(|n| n.id.raw),
+    }
 }
 
 /// Whether `label` starts with `prefix`, ignoring case.
@@ -198,19 +273,25 @@ fn value(
     field: &str,
     prefix: &str,
     view: &ProjectView,
+    from: Option<Sym>,
 ) -> Vec<CompletionItem> {
-    let Some(entry) = fields.get(kind, field) else {
-        return entity_ids(view, prefix, None);
+    let Some((declared, form)) = fields.get_path(kind, field) else {
+        // A member path no field declares (an open block's entry) completes nothing.
+        return if field.contains('.') {
+            Vec::new()
+        } else {
+            entity_ids(view, prefix, &[], from)
+        };
     };
     let constant = |label: &str, item_kind| CompletionItem {
         label: label.to_string(),
         kind: Some(item_kind),
-        detail: entry.declared().description.clone(),
+        detail: declared.description.clone(),
         ..Default::default()
     };
-    match entry.field_type() {
-        FieldType::Reference => entity_ids(view, prefix, entry.declared().target_kind.as_deref()),
-        FieldType::Enum => entry
+    match form.field_type() {
+        FieldType::Reference => entity_ids(view, prefix, &target_kinds(declared), from),
+        FieldType::Enum => form
             .enum_values()
             .iter()
             .filter(|value| starts_with(value, prefix))
@@ -225,12 +306,28 @@ fn value(
     }
 }
 
-/// The entity IDs matching `prefix`, of `kind` when one is given, ranked
+/// The kinds a reference field may name: its target kind, or each kind of its union; none when it names any.
+fn target_kinds(declared: &FieldDescriptor) -> Vec<&str> {
+    declared
+        .target_kind
+        .iter()
+        .map(String::as_str)
+        .chain(declared.target_kinds.iter().map(String::as_str))
+        .collect()
+}
+
+/// The entity IDs matching `prefix`, of `kinds` when any are given, ranked
 /// as completion, workspace symbols and MCP search rank them.
-fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<CompletionItem> {
-    let kinds: Vec<&str> = kind.into_iter().collect();
+/// `from` is the block the id is written in (none: the project): the shortest spelling that resolves from it is what
+/// completion inserts (ADR 0284).
+fn entity_ids(
+    view: &ProjectView,
+    prefix: &str,
+    kinds: &[&str],
+    from: Option<Sym>,
+) -> Vec<CompletionItem> {
     let query = EntityQuery {
-        kinds: &kinds,
+        kinds,
         ..EntityQuery::new(prefix, MatchScope::Names)
     };
     find_entities(view.graph(), &query)
@@ -244,8 +341,18 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
                 .as_ref()
                 .map(|t| format!("{kind} — {t}"))
                 .unwrap_or_else(|| kind.to_string());
+            let name = node.name();
+            let path = node.id.raw;
+            // An entity of a scope shows its path and inserts the shortest spelling from the cursor's block.
+            let (detail, insert_text) = if path.as_str() == name {
+                (detail, None)
+            } else {
+                let spelled = view.graph().scopes().spell(from, path, &|_| true);
+                (format!("{path} · {detail}"), Some(spelled))
+            };
             CompletionItem {
-                label: node.id.raw.to_string(),
+                label: name.to_string(),
+                insert_text,
                 kind: Some(CompletionItemKind::REFERENCE),
                 detail: Some(detail),
                 // C4-06: preserve the server's ranking in the editor.

@@ -256,3 +256,13 @@ fn rename_and_find_references_agree_on_a_word_a_string_list_holds() {
     assert_eq!(plan.edits().len(), 1);
     assert_eq!(plan.edits()[0].span.start_line, 1);
 }
+
+#[test]
+fn rename_edits_a_digits_only_name_an_undeclared_list_holds() {
+    let text = "invariant 03 \"A\" {\n  guarantee \"g\"\n}\n\ninvariant inv_b \"B\" {\n  guarantee \"g\"\n  see [03]\n}\n";
+    let p = compile(SOFTWARE, &[("a.spec", text)]);
+    let nav = p.navigator();
+    let plan = rename::plan(&nav, "03", "inv_c").unwrap();
+    let lines: Vec<usize> = plan.edits().iter().map(|e| e.span.start_line).collect();
+    assert_eq!(lines, [1, 7], "{lines:?}");
+}

@@ -20,10 +20,35 @@ pub fn extension(name: &str) -> ContributionsBuilder {
 }
 
 /// The declaration of the extension `name` (1.0.0) that `f` fills.
+///
+/// A third-party extension's rule codes are catalogued for it (a code the builder did not
+/// catalogue gets an entry), so what a test asserts about its rules does not pick up a W150
+/// (ADR 0286); a first-party extension's are in the host catalog.
 pub fn declare(name: &str, f: impl FnOnce(&mut ContributionsBuilder)) -> ExtensionDeclaration {
     let mut c = extension(name);
     f(&mut c);
-    c.declaration()
+    catalogue_rule_codes(c.declaration())
+}
+
+/// `declaration` with a `codes` entry for each rule code it does not catalogue yet, unless it is
+/// a first-party extension's.
+pub fn catalogue_rule_codes(mut declaration: ExtensionDeclaration) -> ExtensionDeclaration {
+    if declaration.name().starts_with("@specforge/") {
+        return declaration;
+    }
+    for rule in &declaration.validation_rules {
+        if !declaration.codes.iter().any(|c| c.code == rule.code) {
+            declaration
+                .codes
+                .push(specforge_protocol_types::CodeDescriptor {
+                    code: rule.code.clone(),
+                    title: "A test rule".to_string(),
+                    explanation: "A test rule's finding.".to_string(),
+                    docs: None,
+                });
+        }
+    }
+    declaration
 }
 
 /// The declaration of `name` at `version`, with `peers` and nothing else.
@@ -158,6 +183,7 @@ pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic>
             entities: records,
             edges: &[],
             spec_root: Path::new("/spec"),
+            project_root: Path::new("/spec"),
             disk: &NoDisk,
         },
         &NoVerdicts,

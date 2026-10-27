@@ -44,5 +44,5 @@ pub use slug::slug;
 pub use span::SourceSpan;
 /// Core diagnostic codes as typed constants (`codes::W112`), so a host
 /// crate builds a diagnostic with `Diagnostic::new(codes::W112, …)`.
-pub use specforge_diagnostics::{Code, GradedCode, codes};
+pub use specforge_diagnostics::{Code, Codebook, ExtensionCode, GradedCode, codes};
 pub use suggest::find_close_match;

@@ -6,7 +6,17 @@ use specforge_graph::ValueShape;
 use specforge_graph::field_form::spell;
 
 use crate::entity::{EntityRecord, FieldRecord};
-use crate::{FieldRegistry, FieldRegistryEntry, KindRegistry};
+use crate::{FieldRegistry, KindRegistry};
+use specforge_graph::FieldForm;
+
+/// The type as a message names it: `integer`, `enum (a, b)`.
+fn form_label(form: &FieldForm) -> String {
+    let name = form.field_type().as_str();
+    match form.enum_values() {
+        [] => name.to_string(),
+        values => format!("{name} ({})", values.join(", ")),
+    }
+}
 
 /// E061 for every registered field whose (coerced) value its field form
 /// refuses: a scalar that is not an integer, true/false or a declared enum
@@ -26,31 +36,31 @@ pub(super) fn mistyped(
             continue;
         }
         for field in &record.fields {
-            let Some(declared) = fields.get(&record.kind, &field.key) else {
-                continue;
-            };
-            let Some(mismatch) = mismatch(declared, field) else {
-                continue;
-            };
-            let mut diagnostic = Diagnostic::new(
-                codes::E061,
-                format!(
-                    "field '{}' of {} '{}' is declared {}, but was given {}",
-                    field.key,
-                    record.kind,
-                    record.id,
-                    declared.type_label(),
-                    mismatch.given
-                ),
-            )
-            .with_span(
-                field
-                    .value_span
-                    .clone()
-                    .unwrap_or_else(|| record.span.clone()),
-            );
-            diagnostic.suggestion = mismatch.suggestion;
-            diagnostics.push(diagnostic);
+            // A field, then each typed member written inside it, by its written path (ADR 0285).
+            for field in std::iter::once(field).chain(&field.members) {
+                let Some((_, form)) = fields.get_path(&record.kind, &field.declared) else {
+                    continue;
+                };
+                let Some(mismatch) = mismatch(form, field) else {
+                    continue;
+                };
+                let label = form_label(form);
+                let mut diagnostic = Diagnostic::new(
+                    codes::E061,
+                    format!(
+                        "field '{}' of {} '{}' is declared {}, but was given {}",
+                        field.key, record.kind, record.id, label, mismatch.given
+                    ),
+                )
+                .with_span(
+                    field
+                        .value_span
+                        .clone()
+                        .unwrap_or_else(|| record.span.clone()),
+                );
+                diagnostic.suggestion = mismatch.suggestion;
+                diagnostics.push(diagnostic);
+            }
         }
     }
     diagnostics
@@ -61,10 +71,16 @@ struct Mismatch {
     suggestion: Option<String>,
 }
 
-fn mismatch(declared: &FieldRegistryEntry, field: &FieldRecord) -> Option<Mismatch> {
-    let refusal = declared.form().admit(field.shape, &field.text).err()?;
+fn mismatch(form: &FieldForm, field: &FieldRecord) -> Option<Mismatch> {
+    if let Err(refusal) = form.admit(field.shape, &field.text) {
+        return Some(Mismatch {
+            given: describe(field),
+            suggestion: refusal.suggestion,
+        });
+    }
+    let (item, refusal) = form.refuse_item(field.items.as_deref()?)?;
     Some(Mismatch {
-        given: describe(field),
+        given: item.to_string(),
         suggestion: refusal.suggestion,
     })
 }
@@ -81,6 +97,7 @@ fn describe(field: &FieldRecord) -> String {
         | ValueShape::TypeUnion => field.text.clone(),
         ValueShape::List | ValueShape::Variants => "a list".to_string(),
         ValueShape::Block => "a block".to_string(),
+        ValueShape::Blocks => "a list of blocks".to_string(),
         ValueShape::Expression => "an expression".to_string(),
     }
 }

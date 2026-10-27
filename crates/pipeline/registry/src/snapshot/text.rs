@@ -22,13 +22,16 @@ pub fn field_text(value: &FieldValue) -> String {
         FieldValue::String(s) | FieldValue::Identifier(s) | FieldValue::Date(s) => s.clone(),
         FieldValue::Integer(n) => n.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
-        FieldValue::List(_) | FieldValue::Expression(_) | FieldValue::Block(_) => joined(", "),
+        FieldValue::List(_)
+        | FieldValue::Expression(_)
+        | FieldValue::Block(_)
+        | FieldValue::Blocks(_) => joined(", "),
         FieldValue::VariantList(_) | FieldValue::TypeUnion(_) => joined(" | "),
     }
 }
 
 /// A list-shaped value's items, unjoined, each as its text: the list's
-/// items' texts, a variant list's or type union's members, each expression's display form, a block's keys. `None` for a scalar. [`field_text`]
+/// items' texts, a variant list's or type union's members, each expression's display form, a block's keys, a block list's items each as its keys in braces. `None` for a scalar. [`field_text`]
 /// is these joined.
 pub fn field_items(value: &FieldValue) -> Option<Vec<String>> {
     match value {
@@ -42,6 +45,20 @@ pub fn field_items(value: &FieldValue) -> Option<Vec<String>> {
         }
         FieldValue::List(items) => Some(items.iter().map(|item| item.text.clone()).collect()),
         FieldValue::Expression(exprs) => Some(exprs.iter().map(ToString::to_string).collect()),
+        FieldValue::Blocks(items) => Some(
+            items
+                .iter()
+                .map(|item| {
+                    let keys: Vec<String> = item
+                        .fields
+                        .entries()
+                        .iter()
+                        .map(|e| e.key.to_string())
+                        .collect();
+                    format!("{{{}}}", keys.join(", "))
+                })
+                .collect(),
+        ),
         FieldValue::Block(block) => {
             Some(block.entries().iter().map(|e| e.key.to_string()).collect())
         }

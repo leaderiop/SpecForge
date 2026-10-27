@@ -29,7 +29,6 @@ fn subscribe_adds_subscription() {
         json!({"uri": "specforge://graph"}),
     );
     assert_eq!(reply["result"], json!({}), "{reply}");
-
     assert_eq!(
         server.state().subscriptions().subscribed(),
         ["specforge://graph"]
@@ -801,9 +800,7 @@ fn diagnostics_changed_sends_whole_diagnostics() {
             "jsonrpc": "2.0",
             "method": "specforge/diagnosticsChanged",
             "params": {
-                "added": serde_json::to_value(specforge_common::diagnostics_json(
-                    std::slice::from_ref(&warning)
-                )).unwrap(),
+                "added": printed(std::slice::from_ref(&warning)),
                 "removed": [],
             },
         })
@@ -833,6 +830,7 @@ fn a_notified_diagnostic_is_presented_as_check_presents_it() {
         entity: "beta".to_string(),
         field: "depends_on".to_string(),
         did_you_mean: Some("alpha".to_string()),
+        candidates: Vec::new(),
     });
     let delta = GraphDelta::default();
     let mut subscriptions = Subscriptions::new();
@@ -853,10 +851,7 @@ fn a_notified_diagnostic_is_presented_as_check_presents_it() {
             &mut events,
         );
         let sent = drained(&mut subscriptions);
-        let presented = serde_json::to_value(specforge_common::diagnostics_json(
-            std::slice::from_ref(&unresolved),
-        ))
-        .unwrap();
+        let presented = printed(std::slice::from_ref(&unresolved));
         assert_eq!(sent[1]["params"][key], presented, "{key}");
         assert!(presented[0]["data"].is_object(), "{presented}");
         assert!(presented[0]["span"].is_object(), "{presented}");

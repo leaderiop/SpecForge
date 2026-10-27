@@ -6,7 +6,7 @@ use crate::target::View;
 use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{DiagnosticList, SourceSpan};
+use specforge_common::{Codebook, DiagnosticList, SourceSpan};
 use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
 use std::collections::BTreeMap;
@@ -99,12 +99,12 @@ impl CoreTool for Tool {
         // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
         let coverage =
             specforge_ops::read::inspect::coverage(&view, &facts).map_err(McpError::from)?;
-        Ok(Reply::of(&facts, &coverage).into())
+        Ok(Reply::of(&facts, &coverage, view.registries().codes()).into())
     }
 }
 
 impl Reply {
-    fn of(facts: &EntityFacts, coverage: &EntityCoverage) -> Self {
+    fn of(facts: &EntityFacts, coverage: &EntityCoverage, codes: &Codebook) -> Self {
         let node = facts.node;
         let refs = &facts.references;
         let declared = facts.standing.declares_obligations();
@@ -127,7 +127,10 @@ impl Reply {
             coverage_status: coverage.status,
             // The diagnostics about the entity: those its data names it in,
             // else those inside its block (ADR 0016); never by its message.
-            diagnostics: DiagnosticList(facts.diagnostics.iter().map(|d| (*d).clone()).collect()),
+            diagnostics: DiagnosticList::new(
+                facts.diagnostics.iter().map(|d| (*d).clone()).collect(),
+                codes,
+            ),
         }
     }
 }

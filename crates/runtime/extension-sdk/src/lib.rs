@@ -25,7 +25,7 @@ pub use wit_bindgen as __wit_bindgen;
 /// constraint kinds — as the host's registry build reads it. `Custom` hands
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
-pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, FileBase};
 
 pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
@@ -63,7 +63,7 @@ mod builders;
 mod command_graph;
 mod guest;
 pub use builders::{
-    AnalyzerBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
+    AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
     FieldConstraintBuilder, KindBuilder, PassBuilder, RuleBuilder,
 };
 pub use command_graph::{CommandGraph, CommandInput};
@@ -358,6 +358,16 @@ impl ContributionsBuilder {
         self
     }
 
+    /// Catalog a diagnostic code this extension reports: its local code
+    /// (`E101`; the host adds the namespace), a title, an explanation and
+    /// optionally a documentation URL (ADR 0286).
+    pub fn code(&mut self, code: &str, f: impl FnOnce(&mut CodeBuilder)) -> &mut Self {
+        let mut b = CodeBuilder::new(code);
+        f(&mut b);
+        self.decl.codes.push(b.0);
+        self
+    }
+
     /// Contribute a feature flag.
     pub fn feature_flag(
         &mut self,
@@ -526,12 +536,12 @@ fn describe_answer<'d>(
 /// Everything an extension needs, behind one `use`.
 pub mod prelude {
     pub use crate::{
-        AnalyzerBuilder, CheckKind, ConstraintKind, Contributions, ContributionsBuilder,
-        EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder,
-        FieldType, KindBuilder, MigrationInput, PassAnswer, PassBuildCache, PassBuilder,
-        PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassInput, PassOutput,
-        PassSeverity, PassSpan, RuleBuilder, ScanRequest, ScanResponse, ScannedItem, TestResult,
-        TestResults, TestStatus, Vocabulary,
+        AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
+        ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
+        FieldConstraintBuilder, FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer,
+        PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
+        PassInput, PassOutput, PassSeverity, PassSpan, RuleBuilder, ScanRequest, ScanResponse,
+        ScannedItem, TestResult, TestResults, TestStatus, Vocabulary,
     };
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,

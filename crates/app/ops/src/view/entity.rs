@@ -34,3 +34,17 @@ pub fn not_found(graph: &Graph, id: &str) -> OpError {
 
 /// The code of a depth given without the entity it counts hops from.
 pub const DEPTH_WITHOUT_ENTITY: &str = "depth_without_entity";
+
+/// A short form `spelling` names several entities (ADR 0284): E003, invalid input, listing their `paths`.
+pub fn ambiguous(spelling: &str, paths: &[specforge_common::Sym]) -> OpError {
+    let list: Vec<&str> = paths.iter().map(|p| p.as_str()).collect();
+    OpError::coded(
+        OpErrorKind::InvalidInput,
+        codes::E003,
+        format!(
+            "ambiguous entity '{spelling}': it names {}; give one path",
+            list.join(", ")
+        ),
+    )
+    .with_entity(spelling)
+}

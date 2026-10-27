@@ -38,6 +38,16 @@ pub(crate) fn passes_extension() -> InProcessRuntime {
                 f.field_type(FieldType::StringList).file_reference();
             });
         });
+        for (code, title) in [
+            ("E951", "Gadget fails the audit"),
+            ("W952", "The audit ran"),
+            ("W953", "A gadget went missing"),
+            ("I950", "Gadget reported"),
+        ] {
+            c.code(code, |d| {
+                d.title(title).explanation("A finding of the test passes.");
+            });
+        }
         c.pass("second", |p| {
             p.after("first").phase("check").run(nothing);
         });
@@ -144,7 +154,10 @@ pub(crate) const SPEC: &str =
     "gadget good \"Good\" {\n  status active\n}\n\ngadget bad_one \"Bad\" {\n  status retired\n}\n";
 
 fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
-    diagnostics.iter().filter(|d| d.code == code).collect()
+    diagnostics
+        .iter()
+        .filter(|d| d.code == code || d.code.ends_with(&format!("/{code}")))
+        .collect()
 }
 
 #[specforge_test(
@@ -269,6 +282,7 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
         registries.analyze_passes(),
         &ctx,
         ext.as_ref(),
+        registries.codes(),
     );
     let names: Vec<&str> = reports.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(names, ["@test/passes:report"], "analyze skips check passes");
@@ -489,6 +503,9 @@ fn the_pass_input_carries_each_entitys_exemption() {
         c.kind("widget", |k| {
             k.keyword("widget").testable(true);
         });
+        c.code("W990", |d| {
+            d.title("A test rule").explanation("A test rule's finding.");
+        });
         c.rule("W990", |r| {
             r.check(CheckKind::NoVerifyStatements)
                 .target_kind("gadget")
@@ -547,26 +564,51 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
         diagnostics: vec![
             PassDiagnostic::new("E001", PassSeverity::Info, "x"),
             PassDiagnostic::new("E001", PassSeverity::Info, "y"),
-            // Its own range, at the level its prefix states: not reported.
+            // Catalogued below, at the level its letter states: not reported.
             PassDiagnostic::new("W950", PassSeverity::Warning, "fine"),
         ],
         summary: Default::default(),
     };
 
+    let mut book = specforge_diagnostics::Codebook::default();
+    book.add(
+        "@acme/squat",
+        vec![specforge_diagnostics::ExtensionCode {
+            local: "W950".to_string(),
+            title: "t".to_string(),
+            explanation: "e".to_string(),
+            docs: None,
+        }],
+    )
+    .unwrap();
     let findings = specforge_project::passes::pass_findings(
         "@acme/squat",
         "audit",
         output,
         &specforge_registry::EntitySnapshot::default(),
+        &book,
     );
 
+    // Under its namespace: the squatter's `E001` is never core's.
     let codes: Vec<_> = findings.iter().map(|d| d.code.as_str()).collect();
-    assert_eq!(codes, ["E001", "E001", "W950", "W150"]);
+    assert_eq!(
+        codes,
+        [
+            "acme.squat/E001",
+            "acme.squat/E001",
+            "acme.squat/W950",
+            "W150"
+        ]
+    );
     assert!(findings[..3].iter().all(|d| d.severity != Severity::Error));
     let w150 = &findings[3];
     assert_eq!(w150.severity, Severity::Warning);
     assert!(w150.message.contains("'@acme/squat'"), "{}", w150.message);
     assert!(w150.message.contains("pass 'audit'"), "{}", w150.message);
     assert!(w150.message.contains("'E001'"), "{}", w150.message);
-    assert!(w150.message.contains("core owns"), "{}", w150.message);
+    assert!(
+        w150.message.contains("catalog does not list"),
+        "{}",
+        w150.message
+    );
 }

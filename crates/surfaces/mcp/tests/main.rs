@@ -57,6 +57,7 @@ mod resource_templates;
 mod resources;
 mod revision;
 mod schema_reflection;
+mod scoped_names;
 mod served;
 mod served_project;
 mod source_links;

@@ -85,7 +85,7 @@ fn compiled(
 fn messages<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a str> {
     diagnostics
         .iter()
-        .filter(|d| d.code == code)
+        .filter(|d| d.code == code || d.code.ends_with(&format!("/{code}")))
         .map(|d| d.message.as_str())
         .collect()
 }

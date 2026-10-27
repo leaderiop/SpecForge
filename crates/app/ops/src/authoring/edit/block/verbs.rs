@@ -2,10 +2,13 @@
 
 use super::super::defaults::{self, Change};
 use super::super::path::{self, FieldPath};
+use super::super::typed;
 use super::super::write::not_editable;
 use super::super::{EditField, Input};
 use super::{Block, Items, Site, items_of, list_text, unreadable};
 use crate::Refusal;
+use specforge_common::Sym;
+use specforge_graph::Found;
 use specforge_graph::field_form::{Reading, spell};
 use specforge_parser::FieldValue;
 use specforge_protocol_types::FieldType;
@@ -24,6 +27,27 @@ fn finish_edit(
     })
 }
 
+/// `text` as `field` of `site`'s entity writes a reference to the entity it names (ADR 0284): the shortest spelling
+/// that resolves from the entity, a scope field's as a full path from the project. Text that names no one entity
+/// stays as given.
+pub fn spelled(site: &Site<'_>, field: &str, reading: &Reading<'_>, text: &str) -> String {
+    let Reading::Declared(form) = reading else {
+        return text.to_string();
+    };
+    if !matches!(
+        form.field_type(),
+        FieldType::Reference | FieldType::ReferenceList
+    ) {
+        return text.to_string();
+    }
+    let Found::One(target) = site.scopes.resolve(None, text, &|_| true) else {
+        return text.to_string();
+    };
+    let scope_field = site.view.registries().graph_inputs().scopes.get(site.kind);
+    let from = (scope_field.map(String::as_str) != Some(field)).then(|| Sym::new(site.id));
+    site.scopes.spell(from, target, &|_| true)
+}
+
 /// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that. A value holding a comment
 /// is kept as written when it reads the same, else refused (ADR 0267).
 pub fn set(
@@ -35,9 +59,21 @@ pub fn set(
 ) -> Result<String, Refusal<EditField>> {
     match path::resolve(site, field, None)? {
         FieldPath::Field { name, reading } => defaults::change(site, text, name, |block, _| {
+            let input = &match input {
+                Input::One(one) => Input::One(spelled(site, name, &reading, one)),
+                Input::Many(many) => Input::Many(
+                    many.iter()
+                        .map(|one| spelled(site, name, &reading, one))
+                        .collect(),
+                ),
+                other => other.clone(),
+            };
             block.put(site, name, reading, input, annotations)?;
             Ok(Change::Changed)
         }),
+        FieldPath::Member { field, segs } => {
+            typed::set(site, text, field, &segs, input, annotations)
+        }
         FieldPath::Entry {
             field: outer,
             entry: inner,
@@ -58,6 +94,7 @@ pub fn set(
 /// block nor its file's defaults hold it. An inherited list becomes `[]`, an inherited block field `{}`.
 pub fn unset(site: &Site<'_>, text: &str, field: &str) -> Result<String, Refusal<EditField>> {
     match path::resolve(site, field, None)? {
+        FieldPath::Member { field, segs } => typed::unset(site, text, field, &segs),
         FieldPath::Entry {
             field: outer,
             entry: inner,
@@ -160,6 +197,15 @@ pub fn link(
                 entry,
             ));
         }
+        FieldPath::Member { field, .. } => {
+            return Err(not_editable(
+                EditField::Field,
+                format!(
+                    "{} takes a whole word list; '{field}' is a block: use set, append or remove",
+                    if add { "link" } else { "unlink" }
+                ),
+            ));
+        }
         FieldPath::Field { reading, .. } => reading,
     };
     let Reading::Declared(form) = reading else {
@@ -168,8 +214,26 @@ pub fn link(
             format!("'{field}' takes any text; use set"),
         ));
     };
+    let target_text = spelled(site, field, &reading, target);
+    let target_path = match site.scopes.resolve(None, target, &|_| true) {
+        Found::One(path) => Some(path),
+        _ => None,
+    };
+    // A written item is the target when it is its text, or resolves from the holder to the entity it names.
+    let names_target = |written: &str| {
+        written == target
+            || written == target_text
+            || target_path.is_some_and(|path| {
+                site.scopes
+                    .chain(Some(Sym::new(site.id)), written, &|_| true)
+                    == Found::One(path)
+            })
+    };
+    let target = target_text.as_str();
     let item = match form.field_type() {
-        FieldType::ReferenceList | FieldType::StringList => spell::value(form, target),
+        FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
+            spell::value(form, target)
+        }
         FieldType::Reference if !add => String::new(),
         _ => {
             return Err(not_editable(
@@ -205,14 +269,21 @@ pub fn link(
         };
         let Some(mut items) = current else {
             // A single `reference` field: unlink removes it when it names the target.
+            // A name written as a number or a date (`parent 10`) names its text (ADR 0283).
             return Ok(match held.entry().map(|e| &e.value) {
-                Some(FieldValue::Identifier(t) | FieldValue::String(t)) if t == target => {
+                Some(
+                    value @ (FieldValue::Identifier(_)
+                    | FieldValue::String(_)
+                    | FieldValue::Integer(_)
+                    | FieldValue::Date(_)
+                    | FieldValue::Boolean(_)),
+                ) if names_target(&specforge_registry::snapshot::field_text(value)) => {
                     Change::Emptied
                 }
                 _ => Change::Unchanged,
             });
         };
-        let present = items.texts.iter().any(|t| t == target);
+        let present = items.texts.iter().any(|t| names_target(t));
         if add == present {
             return Ok(Change::Unchanged);
         }
@@ -223,11 +294,11 @@ pub fn link(
             let mut keep = items
                 .texts
                 .iter()
-                .map(|t| t != target)
+                .map(|t| !names_target(t))
                 .collect::<Vec<_>>()
                 .into_iter();
             items.written.retain(|_| keep.next().unwrap_or(true));
-            items.texts.retain(|t| t != target);
+            items.texts.retain(|t| !names_target(t));
         }
         if items.texts.is_empty() {
             return Ok(Change::Emptied);

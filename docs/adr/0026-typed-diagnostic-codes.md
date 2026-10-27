@@ -26,12 +26,12 @@ takes a text code for codes that arrive as text (extension rules and passes, an 
 back into a diagnostic, tests); a test lists the files that may call it. `OpError::new`, the CLI's
 `print_error` and ops' `fail` take a `Code`.
 
-**D3. Severity changes only through policy.** The catalog's level is the severity a diagnostic has
+**D3. Severity changes only through policy.** *Amended by [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md): a raised code (`Raises`) is applied before strict.* The catalog's level is the severity a diagnostic has
 when built. `DiagnosticPolicy` (strict promotion, lint profiles) is the only thing that changes
 severities afterwards, and only upwards. There is no per-site override: another severity is another
 code.
 
-**D4. Extension codes stay text and are checked where they cross.** Builtins and third-party
+**D4. Extension codes stay text and are checked where they cross.** *Amended by [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md): a third-party code is namespaced and checked against its extension's own catalog, not a range.* Builtins and third-party
 extensions report codes as text in rule descriptors and pass diagnostics. The builtins do not link
 the catalog: `build-builtins --check` records every file a builtin compiles, so they would need
 re-vendoring on every explanation edit. `specforge_diagnostics::check_extension_code(extension,

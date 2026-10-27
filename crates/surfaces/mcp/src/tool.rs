@@ -9,8 +9,8 @@
 
 use serde::Serialize;
 use serde_json::{Value, json};
-use specforge_common::Diagnostic;
 use specforge_common::shape::Shape;
+use specforge_common::{Codebook, Diagnostic};
 
 use crate::protocol::JsonRpcResponse;
 use crate::registry::ToolAnnotations;
@@ -282,7 +282,12 @@ impl From<McpError> for ToolOutcome {
 /// (ADR 0275). With `structured` (a 2025-06-18 or later session), a success's
 /// JSON object payload is also sent as `structuredContent`, beside the text
 /// block holding its JSON.
-pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
+pub fn envelope(
+    outcome: ToolOutcome,
+    codes: &Codebook,
+    id: Option<Value>,
+    structured: bool,
+) -> JsonRpcResponse {
     let (payload, is_error, diagnostics, mut meta) = match outcome {
         ToolOutcome::Refused(error) => {
             let json = serde_json::to_value(&*error).expect("an McpError serializes");
@@ -316,7 +321,7 @@ pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> Js
     if !diagnostics.is_empty() {
         meta.insert(
             "diagnostics".to_string(),
-            serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
+            serde_json::to_value(specforge_common::diagnostics_json(&diagnostics, codes))
                 .unwrap_or_default(),
         );
     }

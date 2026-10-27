@@ -114,6 +114,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify property "parsing any text yields a file and never panics"
   verify unit "brackets nested past 32 levels are one parse error, and no tree is read"
   verify unit "a control or bidirectional character in the text is one parse error at it, and no tree is read"
+  verify unit "a list of blocks left half-typed ends where the next top-level form starts"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 }
 
@@ -136,6 +137,7 @@ behavior parse_use_imports "Parse Use Imports" {
   """
   verify unit "parse full use import"
   verify unit "parse selective use import with braces"
+  verify unit "a selective use binding may import a name holding a dash or a dot"
   verify contract "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted"
 }
 
@@ -192,6 +194,11 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "define block uses dedicated grammar rule"
   verify unit "unknown keyword parsed without error"
   verify unit "optional and annotated parameters, nested arrays, unit and function types, and string-literal unions parse"
+  verify unit "a minus in an expression, a union variant and a scheme ref read as before a value is one word"
+  verify unit "an entity header names an entity with a word holding a dash or a dot, or all digits"
+  verify unit "a field value or list item is one word, tagged by shape and kept as written"
+  verify unit "a union's name stays an identifier: a dash in it is a syntax error"
+  verify unit "every bare scalar value of the repository's spec keeps its written text"
   verify unit "a type may declare a field named verify next to verify statements"
   verify unit "every spec in the repository parses without a syntax error"
   verify unit "a syntax error inside a method signature is reported"
@@ -204,17 +211,19 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "a type field named kind is an ordinary field"
   verify unit "a union block carries its title"
   verify unit "a block answers whether it is a union from its syntax, whatever its fields are named"
+  verify unit "a reference value, a list item and a use binding may be a path of names joined by '/', rooted or not"
   verify contract "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted"
   verify unit "field annotations are extracted into FieldEntry"
   verify unit "a list of bare words keeps each item bare"
   verify unit "a list of quoted strings keeps each item quoted"
-  verify unit "integer overflow produces parse error instead of silent 0"
+  verify unit "an integer too large for i64 is a bare word whose field's type decides"
   verify unit "a list mixing quoted strings and bare words is no parse error"
   verify unit "a list keeps each item's text, span and how it was written"
   verify unit "multiple annotations on a single field are all extracted"
   verify unit "negative integer parsed as field value"
   verify unit "negative integer parsed as field value with larger magnitude"
   verify unit "valid integer parses correctly"
+  verify unit "a list of blocks parses to its items, commas optional, and a key twice in an item is E081"
 }
 
 behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
@@ -260,6 +269,7 @@ behavior provide_syntax_highlighting_queries "Provide Syntax Highlighting Querie
   verify unit "highlights.scm captures all block keywords as @keyword"
   verify unit "highlights.scm captures strings and triple-quoted strings as @string"
   verify unit "highlights.scm captures entity IDs as @constant"
+  verify unit "highlights.scm colours a number, a date and a boolean by the shape of the word"
   verify unit "highlights.scm captures generic_entity_block kind as @keyword"
   verify integration "highlights.scm loads in Tree-sitter runtime and matches expected captures"
 }
@@ -373,11 +383,18 @@ behavior lex_spec_text "Lex Spec Text" {
     half_typed_text_lexes      "text the grammar rejects still lexes, an unclosed regular string ending at its line's end and an unclosed triple-quoted one before the next line that starts a top-level form"
     form_starts_as_grammar     "a line starts a top-level form of the grammar exactly where the grammar reads one, whether its lexemes are read alone or in their document"
     body_statements_as_grammar "a body line starts a verify or method statement exactly where the grammar reads one, read on its line; a verify line being typed is told apart"
+    words_as_grammar           "a bare word the grammar reads where a field's value, a list item, an entity's name or a selective use's binding is written is one lexeme, AUTH-01, 03 and 2026-10-26 included; elsewhere a minus is its own lexeme"
   }
   contract   """
     The lexer MUST read a .spec text, complete or half-typed, into the
     lexemes the grammar tokenizes: identifiers, scheme ref IDs (one lexeme),
-    numbers, strings, comments and punctuation, without a parse.
+    numbers, strings, comments and punctuation, without a parse. A bare
+    word (-?[A-Za-z0-9_]+ joined by single - or ., ADR 0283) is one lexeme
+    in the four places the grammar reads one: a field's value, a list item,
+    an entity's name (a union's name stays an identifier) and a selective
+    use's binding; it is a number when it has the shape of an integer or a
+    date, else an identifier; everywhere else, in an expression or a type
+    expression for one, a minus is a lexeme of its own.
     Navigation, the LSP, the parser's recovery from unclosed strings and
     the formatter read text through it and through no scanner of their own
     (ADR 0023, ADR 0038). A string is read as the grammar reads it, across
@@ -415,6 +432,8 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "the lexer agrees with the grammar on every spec file of the repository"
   verify unit "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
   verify unit "a scheme ref ID is one lexeme"
+  verify unit "a word is one lexeme in a value, list item, header name or binding slot and nowhere else"
+  verify unit "the lexer agrees with the grammar on every top-level form an edit of the repository's spec leaves intact"
   verify unit "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
   verify unit "strings and comments are lexemes of their own and hold no others"
   verify unit "a line starts a top-level form exactly where the grammar reads one, on every spec file of the repository"
@@ -423,6 +442,7 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "a document's form starts are the grammar's top-level nodes, and stay so with every body left unclosed"
   verify unit "a body line starts a verify or method statement exactly where the grammar reads one, on every spec file of the repository"
   verify unit "a verify line being typed is told apart from a verify statement and from a field"
+  verify unit "the lexer agrees with the grammar on a list of blocks, a nested typed block and an enum list"
 }
 
 behavior parse_define_blocks "Parse Define Blocks" {

@@ -130,6 +130,10 @@ impl Contributions for Marketing {
         });
 
         // A "never": a campaign nobody receives is an error.
+        c.code("E901", |d| {
+            d.title("Campaign targets no audience")
+                .explanation("A campaign that targets no audience: money spent on nobody.");
+        });
         c.rule("E901", |r| {
             r.check(CheckKind::NoOutgoingEdges)
                 .target_kind("campaign")
@@ -151,7 +155,7 @@ What each part buys you:
   fails. These links are what an agent follows.
 - **Rules.** Declarative checks (a missing link, a value that doesn't match, a cycle) cover most needs. A rule
   that needs logic — "ends before it starts" — is a small Rust function (`r.validate(..)`), as in the full
-  example. Your codes come from the ranges reserved for you: `E900`–`E998`, `W900`–`W998`, `I900`–`I998`.
+  example. Each code a rule reports is listed in `c.code(..)` with a title and an explanation; the host prints it under your extension's namespace (`example.marketing/E901`).
 - **Commands (optional).** `c.command("calendar", ..)` adds `specforge marketing calendar` on the CLI and the
   MCP tool `specforge.marketing.calendar` for agents, answered from the graph.
 
@@ -196,12 +200,12 @@ Every change goes through the same check, from a person or an agent. In the mark
 ```bash
 specforge set customer_upgrade ends 2027-02-20
 #   error[E080]: the edit would leave the project with 1 error it does not have; nothing was written
-#     error[E903]: campaign 'customer_upgrade' ends (2027-02-20) before it starts
+#     error[example.marketing/E903]: campaign 'customer_upgrade' ends (2027-02-20) before it starts
 
 specforge new campaign retarget "Retarget visitors" --goal "Bring back 500 visitors." \
   --channel search --starts 2027-04-01 --ends 2027-04-30 --in spec/campaigns.spec
 #   error[E080]: the edit would leave the project with 1 error it does not have; nothing was written
-#     error[E901]: campaign 'retarget' targets no audience
+#     error[example.marketing/E901]: campaign 'retarget' targets no audience
 
 specforge marketing calendar
 #   2027-03-02 to 2027-03-16  email    customer_upgrade

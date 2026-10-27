@@ -1,6 +1,6 @@
 //! The rule set's order and ownership: the extensions' rules by code
 //! (declaration order within a code), then the host's E006 rules by kind
-//! and field; W023 for a code two extensions declare.
+//! and field; an extension's codes sit under its namespace.
 
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
@@ -30,7 +30,11 @@ fn rules_from_several_extensions_are_one_set_in_code_order() {
         .collect();
     assert_eq!(
         owned,
-        [("W100", "@ext/a"), ("W200", "@ext/b"), ("W300", "@ext/a")]
+        [
+            ("ext.a/W100", "@ext/a"),
+            ("ext.a/W300", "@ext/a"),
+            ("ext.b/W200", "@ext/b")
+        ]
     );
 }
 
@@ -42,7 +46,7 @@ fn a_code_declared_for_several_kinds_keeps_declaration_order() {
         w004.target_kind = Some(kind.to_string());
         declared.push(w004);
     }
-    declared.insert(1, rule("A001", "no_edges"));
+    declared.insert(1, rule("E001", "no_edges"));
     let built = rules_of(vec![declaring_with_kinds(declared)]);
     let order: Vec<(&str, Option<&str>)> = built
         .rules
@@ -52,57 +56,12 @@ fn a_code_declared_for_several_kinds_keeps_declaration_order() {
     assert_eq!(
         order,
         [
-            ("A001", Some("behavior")),
-            ("W004", Some("type")),
-            ("W004", Some("behavior")),
-            ("W004", Some("event")),
+            ("test/E001", Some("behavior")),
+            ("test/W004", Some("type")),
+            ("test/W004", Some("behavior")),
+            ("test/W004", Some("event")),
         ]
     );
-}
-
-#[test]
-fn a_code_two_extensions_declare_is_w023_and_both_rules_are_kept() {
-    let mut a = declaring_with_kinds(vec![rule("W100", "no_incoming_edges")]);
-    a.handshake.name = "@ext/a".to_string();
-    let mut b = declaring_with_kinds(vec![
-        rule("W100", "no_outgoing_edges"),
-        // A rule W112 rejects still counts for W023.
-        rule("W101", "bogus"),
-    ]);
-    b.handshake.name = "@ext/b".to_string();
-    let mut c = declaring_with_kinds(vec![rule("W101", "no_edges"), rule("W101", "no_edges")]);
-    c.handshake.name = "@ext/c".to_string();
-
-    let built = rules_of(vec![a, b, c]);
-
-    let reported: Vec<(&str, &str)> = built
-        .diagnostics
-        .iter()
-        .map(|d| (d.code.as_str(), d.message.as_str()))
-        .collect();
-    assert_eq!(
-        reported,
-        [
-            (
-                "W112",
-                "extension '@ext/b': unrecognized validation pattern kind 'bogus'"
-            ),
-            (
-                "W023",
-                "validation rule code 'W100' from '@ext/b' duplicates code from '@ext/a'"
-            ),
-            // Once per repeat.
-            (
-                "W023",
-                "validation rule code 'W101' from '@ext/c' duplicates code from '@ext/b'"
-            ),
-            (
-                "W023",
-                "validation rule code 'W101' from '@ext/c' duplicates code from '@ext/b'"
-            ),
-        ]
-    );
-    assert_eq!(built.codes(), ["W100", "W100", "W101", "W101"]);
 }
 
 #[test]
@@ -143,7 +102,7 @@ fn the_hosts_e006_rules_follow_the_extensions_by_kind_and_field() {
     assert_eq!(
         order,
         [
-            ("Z999", Some("behavior"), &ext),
+            ("test/Z999", Some("behavior"), &ext),
             ("E006", Some("alpha"), &Origin::Host),
             ("E006", Some("zeta"), &Origin::Host),
             ("E006", Some("zeta"), &Origin::Host),

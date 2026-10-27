@@ -36,6 +36,10 @@ impl Contributions for Greet {
             r.severity(ValidationSeverity::Error);
             r.message_template("greeting '{id}' has unknown style");
         });
+        c.code("E901", |d| {
+            d.title("Unknown greeting style")
+                .explanation("A greeting's style is `warm` or `formal`: set it to one of them.");
+        });
         c.command("hello", |cmd| {
             cmd.title("Say hello")
                 .description("Greet someone, warmly")

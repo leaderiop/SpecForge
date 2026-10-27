@@ -73,8 +73,7 @@ fn assert_agree(name: &str, source: &str, placed: bool) {
         ..Default::default()
     };
     let (graph, _) = build_graph_with_config(std::slice::from_ref(&file), &config);
-    let tokens: Vec<WrittenToken> =
-        written_tokens(&file, &config.inputs, |n| graph.node(n).map(|n| n.kind.raw));
+    let tokens: Vec<WrittenToken> = written_tokens(&file, &config.inputs, graph.scopes());
     for edge in graph.edges() {
         assert!(
             tokens.iter().any(|t| t.target == edge.target

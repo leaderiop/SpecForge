@@ -11,6 +11,7 @@
 //! initialization.
 
 use serde_json::Value;
+use specforge_common::Codebook;
 
 use crate::events::{EventSink, McpEvent};
 use crate::lifecycle::Revision;
@@ -150,6 +151,7 @@ pub(crate) trait Surface {
         found: &Found<Self::Core, Self::Extension>,
         invocation: &Invocation,
         outcome: Self::Outcome,
+        codes: &Codebook,
         id: Option<Value>,
     ) -> JsonRpcResponse;
 }
@@ -179,6 +181,7 @@ pub(crate) fn serve<S: Surface>(
         name: invocation.name.clone(),
         arguments: spec.handler_arguments(&invocation.arguments),
     };
+    let mut codes = Codebook::default();
     let outcome = match target::resolve(state, revision, spec, &invocation.arguments) {
         Ok(target) => {
             let mut call = Call::new(state, target);
@@ -190,6 +193,7 @@ pub(crate) fn serve<S: Surface>(
             if let Some(refusal) = S::refusal_mut(&mut outcome) {
                 target::refuse_without_project(call.target(), refusal);
             }
+            codes = call.view().registries().codes().clone();
             outcome
         }
         Err(refused) => S::refused(&found, &handed, McpError::from(refused), &mut *state.events),
@@ -197,7 +201,7 @@ pub(crate) fn serve<S: Surface>(
     if let Some(event) = S::completed(&found, &invocation, &outcome) {
         state.events.record(event);
     }
-    S::envelope(revision, &found, &invocation, outcome, id)
+    S::envelope(revision, &found, &invocation, outcome, &codes, id)
 }
 
 /// The entry `name` names: a core one; else, for a kind extensions

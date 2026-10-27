@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CommandArgDescriptor,
-    CommandDescriptor, CompilerPassDescriptor, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
+    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
+    CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
+    EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, McpResourceDescriptor,
     McpToolDescriptor, PeerDependency, ProtocolError, SurfaceDescriptor, ValidationRuleDescriptor,
 };
@@ -46,10 +46,13 @@ pub struct ExtensionDeclaration {
     pub passes: Vec<CompilerPassDescriptor>,
     #[serde(default)]
     pub feature_flags: Vec<FeatureFlagDescriptor>,
+    /// The diagnostic codes it reports (protocol 1.7.0, ADR 0286).
+    #[serde(default)]
+    pub codes: Vec<CodeDescriptor>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these ten and nothing else
+/// protocol defines no other: a guest answers these eleven and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -63,12 +66,13 @@ pub enum DeclaredCategory {
     Analyzers,
     Passes,
     FeatureFlags,
+    Codes,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 10] = [
+    pub const ALL: [DeclaredCategory; 11] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -79,6 +83,7 @@ impl DeclaredCategory {
         DeclaredCategory::Analyzers,
         DeclaredCategory::Passes,
         DeclaredCategory::FeatureFlags,
+        DeclaredCategory::Codes,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -94,6 +99,16 @@ impl DeclaredCategory {
             DeclaredCategory::Analyzers => "analyzers",
             DeclaredCategory::Passes => "passes",
             DeclaredCategory::FeatureFlags => "feature_flags",
+            DeclaredCategory::Codes => "codes",
+        }
+    }
+
+    /// The protocol version `(major, minor)` that introduced it: a guest
+    /// older than this is not asked for it ([`ExtensionDeclaration::from_wire`]).
+    pub const fn since(self) -> (u64, u64) {
+        match self {
+            DeclaredCategory::Codes => (1, 7),
+            _ => (1, 0),
         }
     }
 
@@ -118,6 +133,7 @@ impl DeclaredCategory {
             DeclaredCategory::Analyzers => &ANALYZER,
             DeclaredCategory::Passes => &PASS,
             DeclaredCategory::FeatureFlags => &FEATURE_FLAG,
+            DeclaredCategory::Codes => &CODE,
         }
     }
 }
@@ -215,6 +231,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Analyzers => !self.analyzers.is_empty(),
             DeclaredCategory::Passes => !self.passes.is_empty(),
             DeclaredCategory::FeatureFlags => !self.feature_flags.is_empty(),
+            DeclaredCategory::Codes => !self.codes.is_empty(),
         }
     }
 
@@ -242,6 +259,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Analyzers => to_items(&self.analyzers),
             DeclaredCategory::Passes => to_items(&self.passes),
             DeclaredCategory::FeatureFlags => to_items(&self.feature_flags),
+            DeclaredCategory::Codes => to_items(&self.codes),
         }
     }
 
@@ -271,6 +289,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Analyzers => self.analyzers = parse(name, items)?,
             DeclaredCategory::Passes => self.passes = parse(name, items)?,
             DeclaredCategory::FeatureFlags => self.feature_flags = parse(name, items)?,
+            DeclaredCategory::Codes => self.codes = parse(name, items)?,
         }
         Ok(())
     }
@@ -292,7 +311,10 @@ impl ExtensionDeclaration {
     }
 
     /// Assemble a declaration from its wire answers: `describe` fetches one
-    /// category's answer, for each of [`DeclaredCategory::ALL`] in order. A
+    /// category's answer, for each of [`DeclaredCategory::ALL`] in order,
+    /// except the categories newer than the handshake's `protocol_version`
+    /// ([`DeclaredCategory::since`]; numeric `(major, minor)`), which stay
+    /// empty and are never asked of that guest. A
     /// category whose items do not parse is
     /// [`ProtocolError::DescribeFailed`] naming it; `unknown` receives each
     /// item key a descriptor does not define (a host reports it as W138).
@@ -305,12 +327,26 @@ impl ExtensionDeclaration {
             handshake,
             ..Default::default()
         };
+        let spoken = protocol_minor(&declaration.handshake.protocol_version);
         for category in DeclaredCategory::ALL {
+            if spoken < category.since() {
+                continue;
+            }
             let items = describe(category)?.items;
             declaration.set_category(category, &items)?;
             report_unknown_keys(category, &items, &mut unknown);
         }
         Ok(declaration)
+    }
+}
+
+/// `(major, minor)` of a protocol version text; `(0, 0)` when it has no two
+/// numbers (the host has already refused a version that does not parse).
+fn protocol_minor(version: &str) -> (u64, u64) {
+    let mut parts = version.split('.').map(|part| part.parse::<u64>());
+    match (parts.next(), parts.next()) {
+        (Some(Ok(major)), Some(Ok(minor))) => (major, minor),
+        _ => (0, 0),
     }
 }
 
@@ -409,6 +445,10 @@ static ANALYZER: Shape = Shape {
 };
 static PASS: Shape = Shape {
     fields: struct_fields::<CompilerPassDescriptor>,
+    nested: &[],
+};
+static CODE: Shape = Shape {
+    fields: struct_fields::<CodeDescriptor>,
     nested: &[],
 };
 static FEATURE_FLAG: Shape = Shape {

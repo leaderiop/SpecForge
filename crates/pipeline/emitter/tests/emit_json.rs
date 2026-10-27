@@ -35,6 +35,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 
@@ -147,6 +148,7 @@ fn json_includes_fields() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
 
     let json = crate::support::emit_json(&graph);
@@ -239,6 +241,7 @@ fn json_includes_source_location() {
         },
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
 
     let json = crate::support::emit_json(&graph);
@@ -349,8 +352,11 @@ fn an_expression_group_is_written_as_its_conjuncts_one_per_line() {
     assert_eq!(written["metric"], serde_json::json!("a < 1\nb >= 2ms"));
 }
 
-#[test]
-fn every_other_value_is_written_as_today() {
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "a value no K3 attribute shapes is written as it was before"
+)]
+fn an_export_without_k3_attributes_is_unchanged() {
     let mut inner = FieldMap::new();
     inner.push(Sym::new("m"), FieldValue::Integer(1));
     let mut block = FieldMap::new();

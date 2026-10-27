@@ -1,58 +1,43 @@
-//! The hover of an extension's declared code shows its rule's description (ADR 0278).
+//! The hover of a third-party code shows what its extension's own catalog says of it (ADR 0286).
 
-use specforge_common::Diagnostic;
-use specforge_extension_sdk::prelude::*;
+use specforge_common::{Codebook, Diagnostic};
+use specforge_diagnostics::ExtensionCode;
 use specforge_lsp::hover::diagnostics;
-use specforge_protocol_types::ExtensionDeclaration;
 use specforge_test_macros::test as spec;
-
-/// `@acme/launch` declaring E903 on `campaign`, described when `description` is.
-fn launch(description: Option<&str>) -> ExtensionDeclaration {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/launch", "0.1.0"));
-    c.rule("E903", |r| {
-        r.check(CheckKind::MissingRequiredField)
-            .target_kind("campaign")
-            .field("ends")
-            .severity(ValidationSeverity::Error)
-            .message_template("campaign '{id}' has no end");
-        if let Some(text) = description {
-            r.description(text);
-        }
-    });
-    c.declaration()
-}
-
-/// An E903 diagnostic reported by `origin`.
-fn reported_by(origin: &str) -> Diagnostic {
-    let mut diag = Diagnostic::untyped(
-        "E903",
-        specforge_common::Severity::Error,
-        "campaign 'spring' has no end",
-    );
-    diag.origin = Some(origin.to_string());
-    diag
-}
 
 #[spec(
     behavior = "hover_diagnostic",
-    verify = "an extension's declared code shows its rule's description in the hover"
+    verify = "a third-party code is titled, explained and linked from its own catalog"
 )]
-fn an_extensions_declared_code_hover_shows_its_description() {
-    let described = [launch(Some("A campaign that ends before it starts."))];
-    let ours = reported_by("@acme/launch");
+fn hover_explains_a_third_party_code() {
+    let mut codes = Codebook::default();
+    codes
+        .add(
+            "@sdk/greet",
+            vec![ExtensionCode {
+                local: "E901".into(),
+                title: "Greeting missing".into(),
+                explanation: "Add a greeting.".into(),
+                docs: Some("https://greet.dev/codes#e901".into()),
+            }],
+        )
+        .unwrap();
+    let mut diag = Diagnostic::untyped(
+        "sdk.greet/E901",
+        specforge_common::Severity::Error,
+        "no greeting",
+    );
+    diag.origin = Some("@sdk/greet".to_string());
     assert_eq!(
-        diagnostics(&[&ours], &described).as_deref(),
+        diagnostics(&[&diag], &codes).as_deref(),
         Some(
-            "**E903** \u{b7} reported by '@acme/launch'\n\ncampaign 'spring' has no end\n\nA campaign that ends before it starts."
+            "**sdk.greet/E901** \u{b7} Greeting missing\n\nno greeting\n\nAdd a greeting.\n\n[Documentation](https://greet.dev/codes#e901)"
         )
     );
-    let theirs = reported_by("@acme/other");
+    // The same code from another extension, or no catalog entry: the extension is named instead.
+    diag.origin = Some("@acme/squat".to_string());
     assert_eq!(
-        diagnostics(&[&theirs], &described).as_deref(),
-        Some("**E903** \u{b7} reported by '@acme/other'\n\ncampaign 'spring' has no end")
-    );
-    assert_eq!(
-        diagnostics(&[&ours], &[launch(None)]).as_deref(),
-        Some("**E903** \u{b7} reported by '@acme/launch'\n\ncampaign 'spring' has no end")
+        diagnostics(&[&diag], &codes).as_deref(),
+        Some("**sdk.greet/E901** \u{b7} reported by '@acme/squat'\n\nno greeting")
     );
 }

@@ -179,17 +179,17 @@ pub(crate) fn export_view(
 }
 
 /// An entity ID the URI template read (non-empty, one segment): told apart,
-/// when it cannot be one (the 400 case: no identifier nor scheme ref ID, as the
+/// when it cannot be one (the 400 case: no name nor scheme ref ID, as the
 /// grammar reads them), from a well-formed one that names no entity (the 404).
 pub(super) fn check_entity_id(entity_id: &str) -> Result<(), Box<McpError>> {
-    if specforge_parser::lex::is_entity_id(entity_id) {
+    if specforge_parser::lex::is_entity_id(entity_id) || specforge_parser::lex::is_path(entity_id) {
         return Ok(());
     }
     Err(refuse(
         "entity_id",
         format!(
-            "Malformed entity_id: {entity_id:?} is no entity ID: an identifier (letters, digits and '_', \
-             not starting with a digit) or a scheme ref ID (scheme.kind:id)"
+            "Malformed entity_id: {entity_id:?} is no entity ID: a name (words of letters, digits and '_', \
+             joined by single '-' or '.') or a scheme ref ID (scheme.kind:id)"
         ),
     ))
 }

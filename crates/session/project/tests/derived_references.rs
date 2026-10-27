@@ -36,6 +36,9 @@ fn shapes_extension() -> InProcessRuntime {
                     .derived_from("method_signatures");
             });
         });
+        c.code("W950", |d| {
+            d.title("A test rule").explanation("A test rule's finding.");
+        });
         c.rule("W950", |r| {
             r.check(CheckKind::NoIncomingEdges)
                 .message_template("shape '{id}' is not referenced")
@@ -102,7 +105,7 @@ iface Garage {
     let diagnostics: Vec<Diagnostic> = compiled.diagnostics();
     let unreferenced: Vec<&str> = diagnostics
         .iter()
-        .filter(|d| d.code == "W950")
+        .filter(|d| d.code.ends_with("/W950"))
         .map(|d| d.message.as_str())
         .collect();
     assert_eq!(

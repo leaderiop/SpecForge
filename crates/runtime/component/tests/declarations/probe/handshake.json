@@ -1,5 +1,5 @@
 {
-  "protocol_version": "1.6.0",
+  "protocol_version": "1.7.0",
   "name": "@test/probe",
   "version": "0.1.0",
   "peer_dependencies": [],

@@ -199,9 +199,16 @@ fn nothing_completes_in_strings_comments_or_nested_blocks() {
     );
     let (_dir, project) = compiled(&[("test.spec", text)]);
     let view = ProjectView::of(&project);
+    // An open block's body is a block the cursor is in (a typed one completes its members); no field declares any.
+    let open_block = "Members { kind: \"behavior\", path: \"requires\", prefix: \"\" }";
     for (line, character) in [(2, 4), (4, 19), (5, 7), (8, 2), (0, 10)] {
         let (site, found) = complete(text, line, character, &view);
-        assert_eq!(site, "Nothing", "{line}:{character}");
+        let want = if (line, character) == (2, 4) {
+            open_block
+        } else {
+            "Nothing"
+        };
+        assert_eq!(site, want, "{line}:{character}");
         assert!(found.is_empty(), "{line}:{character}: {:?}", labels(&found));
     }
 }
@@ -311,6 +318,7 @@ impl Fixture {
                 },
                 methods: Vec::new(),
                 obligations: Vec::new(),
+                scope: None,
             });
         }
         Fixture {
@@ -393,7 +401,7 @@ fn a_string_list_suggests_no_ids() {
     let (site, found) = complete(text, 1, 8, &fixture.view());
     assert_eq!(
         site,
-        "ListItem { kind: \"task\", field: \"tags\", prefix: \"\" }"
+        "ListItem { kind: \"task\", field: \"tags\", prefix: \"\", written: [] }"
     );
     // No entity's ID; only a ref's scheme ref ID, which the core links to
     // its ref from any list.

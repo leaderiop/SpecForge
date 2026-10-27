@@ -117,17 +117,20 @@ pub(crate) struct SetArgs {
 
 impl SetArgs {
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let edits = self.edits();
-        execute(
-            &self.project,
-            edits,
-            self.dry_run,
-            self.output.format,
-            terminal,
-        )
+        let format = self.output.format;
+        let compiled = match self.project.compile() {
+            Ok(compiled) => compiled,
+            Err(error) => return Refusal::of(format).report(terminal, &error),
+        };
+        let edits = self.edits(&ProjectView::of(&compiled));
+        let edits = match edits {
+            Ok(edits) => edits,
+            Err(error) => return Refusal::of(format).report(terminal, &error),
+        };
+        execute_on(&compiled, edits, self.dry_run, format, terminal)
     }
 
-    fn edits(&self) -> Result<Vec<Edit>, OpError> {
+    fn edits(&self, view: &ProjectView<'_>) -> Result<Vec<Edit>, OpError> {
         let entity_id = self.entity.clone();
         if let Some(title) = &self.title {
             return Ok(vec![Edit::Retitle {
@@ -140,6 +143,13 @@ impl SetArgs {
         };
         let value = match self.values.as_slice() {
             [] => return Err(usage("set needs a value (unset removes a field)")),
+            // The declaration decides, never the text: a typed block or block list is JSON, any other field is text.
+            [one] if edit::takes_json(view, &entity_id, field) => serde_json::from_str(one)
+                .map_err(|e| {
+                    usage(&format!(
+                        "'{field}' takes JSON (an object, or an array of objects): {e}"
+                    ))
+                })?,
             [one] => Input::One(one.clone()),
             many => Input::Many(many.to_vec()),
         };

@@ -227,3 +227,39 @@ fn a_define_block_is_published_as_unnecessary() {
         file.diagnostics
     );
 }
+
+// A third-party code links the page its extension's catalog documents it on (ADR 0286).
+#[test]
+fn a_third_party_code_links_its_declared_docs() {
+    use specforge_extension_sdk::prelude::*;
+    let runtime = specforge_wasm::testing::InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@sdk/greet", "1.0.0"));
+        c.code("W901", |d| {
+            d.title("Greeting missing")
+                .explanation("Add a greeting.")
+                .docs("https://greet.dev/codes#w901");
+        });
+        c.pass("report", |p| {
+            p.phase("check")
+                .run(|_: &PassInput| vec![PassDiagnostic::warning("W901", "no greeting")]);
+        });
+        c
+    });
+    let dir = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&["@sdk/greet"])
+        .file("a.spec", CLEAN)
+        .serving(runtime);
+    let mut state = LspState::new();
+    state.set_session(dir.session());
+    // The finding has no span: it goes on the file just edited.
+    let publication = Publication::of(&state, Some("a.spec"), &[]);
+    let found = publication
+        .files
+        .values()
+        .flat_map(|file| &file.diagnostics)
+        .find(|d| matches!(&d.code, Some(tower_lsp::lsp_types::NumberOrString::String(c)) if c == "sdk.greet/W901"))
+        .expect("the finding is published as sdk.greet/W901");
+    let href = found.code_description.as_ref().map(|d| d.href.to_string());
+    assert_eq!(href.as_deref(), Some("https://greet.dev/codes#w901"));
+}

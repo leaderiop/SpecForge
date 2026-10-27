@@ -18,6 +18,8 @@ use specforge_graph::{GraphBuild, written_fields};
 use crate::compilation::RegistryBuild;
 use crate::disk::Disk;
 use crate::entity::{EdgeRecord, EntityRecord, RuleInput};
+use specforge_common::Sym;
+use specforge_graph::Found;
 
 pub use standing::Standing;
 pub use text::{field_items, field_text};
@@ -39,13 +41,20 @@ pub struct EntitySnapshot {
     /// In id order.
     declared_types: Vec<String>,
     spec_root: PathBuf,
+    project_root: PathBuf,
 }
 
 impl EntitySnapshot {
     /// The snapshot of the graph `build` holds, read with `registries`, the
     /// Registry build it was built in (`RegistryBuild::graph_of`, ADR 0123);
-    /// relative file paths in it resolve against `spec_root`.
-    pub fn of(build: &GraphBuild, registries: &RegistryBuild, spec_root: &Path) -> Self {
+    /// relative file paths in it resolve against `spec_root`, or `project_root` where a field declares that base
+    /// (ADR 0285).
+    pub fn of(
+        build: &GraphBuild,
+        registries: &RegistryBuild,
+        spec_root: &Path,
+        project_root: &Path,
+    ) -> Self {
         debug_assert!(
             build.inputs() == registries.graph_inputs(),
             "an entity snapshot reads only a graph built in its Registry build (RegistryBuild::graph_of, ADR 0123)"
@@ -115,6 +124,7 @@ impl EntitySnapshot {
             edges,
             declared_types,
             spec_root: spec_root.to_path_buf(),
+            project_root: project_root.to_path_buf(),
         }
     }
 
@@ -129,6 +139,7 @@ impl EntitySnapshot {
             entities: &self.records,
             edges: &self.edges,
             spec_root: &self.spec_root,
+            project_root: &self.project_root,
             disk,
         }
     }
@@ -142,6 +153,31 @@ impl EntitySnapshot {
     pub fn get(&self, id: &str) -> Option<(&EntityRecord, &Standing)> {
         let i = *self.index.get(id)?;
         Some((&self.records[i], &self.standings[i]))
+    }
+
+    /// The entity `key` names: its path, a rooted path, or a unique suffix of one (ADR 0284) — the way a surface that
+    /// holds no entity names one, as a test report does.
+    pub fn find(&self, key: &str) -> Found {
+        let exact = key.strip_prefix('/').unwrap_or(key);
+        if self.index.contains_key(exact) {
+            return Found::One(Sym::new(exact));
+        }
+        if key.starts_with('/') || key.contains(':') {
+            return Found::None(Vec::new());
+        }
+        let tail = format!("/{key}");
+        let mut matches: Vec<Sym> = self
+            .records
+            .iter()
+            .filter(|r| r.id.ends_with(&tail))
+            .map(|r| Sym::new(&r.id))
+            .collect();
+        matches.sort();
+        match matches.as_slice() {
+            [] => Found::None(Vec::new()),
+            [one] => Found::One(*one),
+            _ => Found::Ambiguous(matches),
+        }
     }
 
     /// The standing of the entity `id`.

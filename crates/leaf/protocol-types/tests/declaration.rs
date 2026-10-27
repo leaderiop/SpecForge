@@ -7,11 +7,11 @@
 
 use serde_json::json;
 use specforge_protocol_types::{
-    CommandArgDescriptor, CommandArgType, CommandDescriptor, CompilerPassDescriptor,
-    DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration, FeatureFlagDescriptor,
-    FieldDescriptor, HandshakeResponse, PeerDependency, ProtocolError, SurfaceDescriptor,
-    UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
+    CodeDescriptor, CommandArgDescriptor, CommandArgType, CommandDescriptor,
+    CompilerPassDescriptor, DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse,
+    EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
+    FeatureFlagDescriptor, FieldDescriptor, HandshakeResponse, PROTOCOL_VERSION, PeerDependency,
+    ProtocolError, SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -35,7 +35,7 @@ fn kind(name: &str, fields: &[&str]) -> EntityKindDescriptor {
 fn full() -> ExtensionDeclaration {
     ExtensionDeclaration {
         handshake: HandshakeResponse {
-            protocol_version: "1.0.0".to_string(),
+            protocol_version: PROTOCOL_VERSION.to_string(),
             name: "@acme/reports".to_string(),
             version: "0.1.0".to_string(),
             peer_dependencies: vec![PeerDependency {
@@ -103,6 +103,20 @@ fn full() -> ExtensionDeclaration {
             description: None,
             default_enabled: false,
         }],
+        codes: vec![
+            CodeDescriptor {
+                code: "R001".to_string(),
+                title: "Report without a title".to_string(),
+                explanation: "Give the report a title.".to_string(),
+                docs: Some("https://acme.dev/codes#r001".to_string()),
+            },
+            CodeDescriptor {
+                code: "R002".to_string(),
+                title: "Chart without an axis".to_string(),
+                explanation: "Name the chart's axis.".to_string(),
+                docs: None,
+            },
+        ],
     }
 }
 
@@ -152,35 +166,6 @@ fn a_declaration_round_trips_through_its_wire_answers() {
 
 #[specforge_test_macros::test(
     behavior = "load_extension_declaration",
-    verify = "a declaration round-trips through its wire answers unchanged"
-)]
-fn a_rule_description_crosses_the_wire_and_is_absent_when_unset() {
-    let rule = |code: &str, description: Option<&str>| ValidationRuleDescriptor {
-        code: code.to_string(),
-        severity: ValidationSeverity::Error,
-        message_template: "m".to_string(),
-        check: "custom".to_string(),
-        description: description.map(str::to_string),
-        ..Default::default()
-    };
-    let declared = ExtensionDeclaration {
-        validation_rules: vec![rule("E950", Some("What E950 means.")), rule("E951", None)],
-        ..Default::default()
-    };
-    let items = declared.describe_items(DeclaredCategory::ValidationRules);
-    assert_eq!(items[0]["description"], "What E950 means.");
-    assert!(items[1].get("description").is_none(), "{}", items[1]);
-    let loaded = ExtensionDeclaration::from_wire(
-        declared.handshake.clone(),
-        |category| answer(&declared, category),
-        |key| panic!("unexpected unknown key {key:?}"),
-    )
-    .unwrap();
-    assert_eq!(loaded, declared);
-}
-
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
     verify = "a describe category that does not parse fails the load naming the category"
 )]
 fn a_category_that_does_not_parse_fails_naming_it() {
@@ -225,6 +210,43 @@ fn a_category_that_does_not_parse_fails_naming_it() {
     assert!(
         error.to_string().contains("describe 'surfaces' failed"),
         "{error}"
+    );
+}
+
+/// A guest built before ADR 0286 still sends a rule's `description`: the key is ignored and reported (W138).
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a describe item key the protocol does not define produces W138"
+)]
+fn a_rule_description_a_guest_still_sends_is_reported() {
+    let declared = full();
+    let mut unknown = Vec::new();
+    let loaded = ExtensionDeclaration::from_wire(
+        declared.handshake.clone(),
+        |category| match category {
+            DeclaredCategory::ValidationRules => Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([{
+                    "code": "W901",
+                    "severity": "warning",
+                    "description": "The old rule description.",
+                    "message_template": "m",
+                    "check": "no_edges",
+                }]),
+            }),
+            other => answer(&declared, other),
+        },
+        |key| unknown.push(key),
+    )
+    .unwrap();
+    assert_eq!(loaded.validation_rules[0].code, "W901");
+    assert_eq!(
+        unknown,
+        [UnknownKey {
+            category: "validation_rules",
+            item: "W901".to_string(),
+            key: "description".to_string(),
+        }]
     );
 }
 
@@ -417,4 +439,111 @@ fn declares_reads_the_content() {
         surfaced.declared_categories().collect::<Vec<_>>(),
         [DeclaredCategory::Surfaces]
     );
+}
+
+/// A descriptor carrying members, a target union, bounds and a file base keeps them on the wire (ADR 0285); one
+/// that writes none reads as before.
+#[specforge_test_macros::test(
+    behavior = "check_field_value_types",
+    verify = "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+)]
+fn a_field_declares_members_a_union_bounds_and_a_base() {
+    let wire = json!({
+        "name": "requires", "field_type": "block_list",
+        "members": [
+            {"name": "phase", "field_type": "reference", "target_kinds": ["phase", "milestone"], "required": true},
+            {"name": "score", "field_type": "integer", "minimum": 0, "maximum": 100},
+            {"name": "path", "field_type": "string", "file_reference": true, "file_base": "project"},
+        ],
+    });
+    let field: FieldDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    let [phase, score, path] = &field.members[..] else {
+        panic!("three members: {:?}", field.members);
+    };
+    assert_eq!(phase.target_kinds, ["phase", "milestone"]);
+    assert_eq!((score.minimum, score.maximum), (Some(0), Some(100)));
+    assert_eq!(path.file_base.as_deref(), Some("project"));
+    let written = serde_json::to_value(&field).unwrap();
+    let again: FieldDescriptor = serde_json::from_value(written).unwrap();
+    assert_eq!(again, field, "the attributes survive the wire");
+
+    let older = json!({"name": "title", "field_type": "string"});
+    let field: FieldDescriptor = serde_json::from_value(older.clone()).unwrap();
+    let written = serde_json::to_value(&field).unwrap();
+    for key in ["members", "target_kinds", "minimum", "maximum", "file_base"] {
+        assert!(
+            written.get(key).is_none(),
+            "{key} is written for a field that declares none"
+        );
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
+)]
+fn codes_round_trip_on_the_wire() {
+    let declared = full();
+    let items = declared.describe_items(DeclaredCategory::Codes);
+    assert_eq!(items[0]["code"], "R001");
+    assert_eq!(items[0]["docs"], "https://acme.dev/codes#r001");
+    assert!(items[1].get("docs").is_none(), "{}", items[1]);
+    assert!(declared.declares(DeclaredCategory::Codes));
+    let loaded = ExtensionDeclaration::from_wire(
+        declared.handshake.clone(),
+        |category| answer(&declared, category),
+        |key| panic!("unexpected unknown key {key:?}"),
+    )
+    .unwrap();
+    assert_eq!(loaded.codes, declared.codes);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
+)]
+fn a_1_6_guest_is_asked_no_codes_and_loads() {
+    let mut handshake = full().handshake;
+    handshake.protocol_version = "1.6.0".to_string();
+    let loaded = ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            assert_ne!(
+                category,
+                DeclaredCategory::Codes,
+                "a 1.6 guest has no codes"
+            );
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([]),
+            })
+        },
+        |_| {},
+    )
+    .unwrap();
+    assert!(loaded.codes.is_empty());
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
+)]
+fn a_1_10_guest_is_asked_for_codes() {
+    // Numeric, not string, order: "1.10" sorts before "1.7" as text.
+    let mut handshake = full().handshake;
+    handshake.protocol_version = "1.10.0".to_string();
+    let mut asked_codes = false;
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            asked_codes |= category == DeclaredCategory::Codes;
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([]),
+            })
+        },
+        |_| {},
+    )
+    .unwrap();
+    assert!(asked_codes);
 }

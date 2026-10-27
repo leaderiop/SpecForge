@@ -122,3 +122,11 @@ pub fn unserved() -> Logged {
 pub fn unit(text: &str) -> serde_json::Value {
     serde_json::json!({"kind": "unit", "text": text})
 }
+
+/// Diagnostics as a surface prints them with no project's code book behind them.
+pub fn printed(diagnostics: &[specforge_common::Diagnostic]) -> serde_json::Value {
+    serde_json::json!(specforge_common::diagnostics_json(
+        diagnostics,
+        &Default::default()
+    ))
+}

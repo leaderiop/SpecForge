@@ -1,11 +1,13 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, PassAnswer, PassInput, ScanRequest, ScanResponse, ValidationRuleDescriptor,
-    ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary, operations,
+    FieldType, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
+    ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
+    operations,
 };
 use specforge_protocol_types::{
-    AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
+    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
+    CompilerPassDescriptor,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -72,6 +74,13 @@ impl KindBuilder {
         self.0.lifecycle_field = Some(field.to_string());
         self
     }
+    /// The single `reference` field (with a target kind) naming the entity this kind's entities are scoped by:
+    /// a name is unique within its scope, and an entity's id is its scope's path and its name (ADR 0284).
+    /// The field may be absent from an entity, which is then in the project scope.
+    pub fn scoped_by(&mut self, field: &str) -> &mut Self {
+        self.0.scoped_by = Some(field.to_string());
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self
@@ -124,6 +133,10 @@ impl FieldBuilder {
         assert!(
             t != FieldType::Enum,
             "an enum field is declared with FieldBuilder::vocabulary"
+        );
+        assert!(
+            t != FieldType::EnumList,
+            "an enum list field is declared with FieldBuilder::enum_list"
         );
         self.0.field_type = t.as_str().to_string();
         self
@@ -181,6 +194,45 @@ impl FieldBuilder {
     }
     pub fn file_reference(&mut self) -> &mut Self {
         self.0.file_reference = true;
+        self
+    }
+    /// Where a [`Self::file_reference`] field's relative paths start (ADR 0285): the spec root by default.
+    pub fn file_base(&mut self, base: FileBase) -> &mut Self {
+        self.0.file_base = Some(base.as_str().to_string());
+        self
+    }
+    /// The kinds a reference field may name when it names more than one, exclusive with [`Self::target_kind`]
+    /// (ADR 0285).
+    pub fn target_kinds(&mut self, kinds: &[&str]) -> &mut Self {
+        self.0.target_kinds = kinds.iter().map(|k| k.to_string()).collect();
+        self
+    }
+    /// An integer field's least value, inclusive (ADR 0285).
+    pub fn minimum(&mut self, n: i64) -> &mut Self {
+        self.0.minimum = Some(n);
+        self
+    }
+    /// An integer field's greatest value, inclusive (ADR 0285).
+    pub fn maximum(&mut self, n: i64) -> &mut Self {
+        self.0.maximum = Some(n);
+        self
+    }
+    /// A member of a `block` or `block_list` field, declared as a field is (ADR 0285).
+    pub fn member(&mut self, name: &str, f: impl FnOnce(&mut FieldBuilder)) -> &mut Self {
+        let mut b = FieldBuilder::new(name);
+        f(&mut b);
+        self.0.members.push(b.0);
+        self
+    }
+    /// Declare the field an `enum_list` of `vocabulary`: a list of its values, each once (ADR 0285). A list has
+    /// no absent value, so the vocabulary declares none.
+    pub fn enum_list(&mut self, vocabulary: &Vocabulary) -> &mut Self {
+        assert!(
+            vocabulary.absent().is_none(),
+            "an enum list has no absent value"
+        );
+        self.0.field_type = FieldType::EnumList.as_str().to_string();
+        self.0.enum_values = vocabulary.values().iter().map(|v| v.to_string()).collect();
         self
     }
     /// Declare the field an `enum` of `vocabulary`: its values are the
@@ -259,6 +311,33 @@ impl EnhancementBuilder {
     }
 }
 
+/// Builder for [`CodeDescriptor`]: one diagnostic code the extension reports.
+pub struct CodeBuilder(pub(crate) CodeDescriptor);
+
+impl CodeBuilder {
+    pub(crate) fn new(code: &str) -> Self {
+        Self(CodeDescriptor {
+            code: code.to_string(),
+            ..Default::default()
+        })
+    }
+    /// What the code is called (`Requirement not mapped`).
+    pub fn title(&mut self, title: &str) -> &mut Self {
+        self.0.title = title.to_string();
+        self
+    }
+    /// What the code means and how to fix it.
+    pub fn explanation(&mut self, text: &str) -> &mut Self {
+        self.0.explanation = text.to_string();
+        self
+    }
+    /// An absolute `http(s)` URL the editor links the code to.
+    pub fn docs(&mut self, url: &str) -> &mut Self {
+        self.0.docs = Some(url.to_string());
+        self
+    }
+}
+
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
 /// handler.
 pub struct RuleBuilder {
@@ -280,7 +359,6 @@ impl RuleBuilder {
                 constraint: None,
                 wasm_function: None,
                 target_extension: None,
-                description: None,
             },
             validate: None,
         }
@@ -295,11 +373,6 @@ impl RuleBuilder {
             "validator",
             move |context: &ValidatorContext| Ok::<_, String>(handler(context)),
         ));
-        self
-    }
-    /// What the rule's code means and how to fix it, in a sentence or two (`specforge explain`).
-    pub fn description(&mut self, text: &str) -> &mut Self {
-        self.descriptor.description = Some(text.to_string());
         self
     }
     pub fn check(&mut self, kind: CheckKind) -> &mut Self {

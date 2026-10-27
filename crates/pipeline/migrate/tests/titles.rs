@@ -249,3 +249,18 @@ fn beyond_steps_drops_a_title_written_over_a_blank_one() {
     let ids: Vec<&str> = delta.modified_nodes.iter().map(|n| n.id.as_str()).collect();
     assert_eq!(ids, ["B"], "{delta:?}");
 }
+
+#[specforge_test(
+    behavior = "add_missing_titles",
+    verify = "a name holding a dash or a dot is its own title"
+)]
+fn a_name_holding_a_dash_or_a_dot_is_its_own_title() {
+    assert_eq!(
+        migrated("type v1.0 {\n  id string\n}\n"),
+        "type v1.0 \"v1.0\" {\n  id string\n}\n"
+    );
+    assert_eq!(
+        migrated("type AUTH-01 {\n  id string\n}\n"),
+        "type AUTH-01 \"AUTH-01\" {\n  id string\n}\n"
+    );
+}

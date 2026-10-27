@@ -97,8 +97,9 @@ Planned or in progress -- say so, never imply they work:
 
 An extension is a WASM component built with the Rust SDK (`specforge-extension-sdk`). Its declaration contributes:
 
-- **kinds** with typed fields (string, identifier, enum, reference, reference_list, string_list, date, integer, bool,
-  block), required flags, and an inference guide;
+- **kinds** with typed fields (string, identifier, enum, enum_list, reference (one kind or a union), reference_list, string_list, date,
+  integer (optionally bounded), bool, block and block_list (typed members), file references from the spec root or the
+  project root), required flags, and an inference guide;
 - **edges** between kinds, and **enhancements** that add fields to another extension's kind;
 - **validation rules** (each with a diagnostic code), **passes** (e.g. formal analysis), **collectors** (test runners)
   and **commands** surfaced as `specforge <extension> <command>` and as MCP tools.
@@ -116,7 +117,7 @@ specforge explain <code>                         # a diagnostic code
 specforge infer-guide [kind]                     # what each declared kind holds and how to find it in code
 specforge schema [--kind K] / model              # the declared kinds, fields and edges
 specforge new|set|unset|link|unlink|delete       # typed edits (refuse one that adds errors: E080)
-specforge query / trace <id> / explore / review  # read the graph
+specforge query / trace <id> / explore / review  # read the graph (<id>: a path such as v1.0/03/D-01, or a unique short form)
 specforge stats / export / format / migrate
 specforge analyze                                # analysis passes declared by extensions (e.g. formal)
 specforge collect                                # run declared test runners, record what their tests prove

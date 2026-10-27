@@ -251,7 +251,17 @@ fn a_build_with_no_kind_checks_no_kind() {
     let codes: Vec<&str> = diags.iter().map(|d| d.code.as_str()).collect();
     // W012, then the one notice that the kinds are unchecked (W151), then
     // the rule.
-    assert_eq!(codes, ["W012", "W151", "W902", "W902", "W902"], "{diags:?}");
+    assert_eq!(
+        codes,
+        [
+            "W012",
+            "W151",
+            "test.kindless/W902",
+            "test.kindless/W902",
+            "test.kindless/W902"
+        ],
+        "{diags:?}"
+    );
 }
 
 #[spec(

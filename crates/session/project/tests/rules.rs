@@ -48,10 +48,7 @@ fn extension(rules: Value, required_owner: bool) -> impl Fn() -> ContributionsBu
         c.edge("NodeDependsOn", |e| {
             e.source_kind("node").target_kind("node");
         });
-        c.raw_category(
-            specforge_extension_sdk::DeclaredCategory::ValidationRules,
-            rules.clone(),
-        );
+        specforge_project::testing::declare_rules(&mut c, rules.clone());
         c
     }
 }
@@ -129,10 +126,15 @@ fn check(source: &str, rules: Value) -> Vec<Diagnostic> {
 }
 
 /// The messages of the diagnostics with `code`.
+/// A diagnostic's code without its extension's namespace (`test.rules/X001` is `X001`).
+fn local(diagnostic: &Diagnostic) -> &str {
+    diagnostic.code.rsplit('/').next().unwrap_or_default()
+}
+
 fn messages<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a str> {
     diagnostics
         .iter()
-        .filter(|d| d.code == code)
+        .filter(|d| local(d) == code)
         .map(|d| d.message.as_str())
         .collect()
 }
@@ -141,7 +143,7 @@ fn messages<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a str> {
 fn naming<'a>(diagnostics: &'a [Diagnostic], code: &str, part: &str) -> Vec<&'a Diagnostic> {
     diagnostics
         .iter()
-        .filter(|d| d.code == code && d.message.contains(part))
+        .filter(|d| local(d) == code && d.message.contains(part))
         .collect()
 }
 
@@ -178,7 +180,7 @@ fn a_cycle_rule_without_an_edge_type_is_w112() {
     assert_eq!(
         messages(&diagnostics, "W112"),
         [
-            "extension '@pin/rules': rule 'X002': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
+            "extension '@pin/rules': rule 'pin.rules/X002': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
         ]
     );
 }
@@ -296,13 +298,17 @@ fn a_custom_function_failing_on_an_entity_is_w148() {
     let message = &w148[0].message;
     assert!(
         message.starts_with(
-            "extension '@pin/rules': rule 'X007': wasm_function 'validate__x007' failed on 1 entity ('beta': "
+            "extension '@pin/rules': rule 'pin.rules/X007': wasm_function 'validate__x007' failed on 1 entity ('beta': "
         ) && message.contains("cannot read beta")
             && message.ends_with(") — it was not checked"),
         "{message}"
     );
     // `check --format json` carries every failure under `data`.
-    let json = serde_json::to_value(specforge_common::diagnostics_json(&diagnostics)).unwrap();
+    let json = serde_json::to_value(specforge_common::diagnostics_json(
+        &diagnostics,
+        &specforge_common::Codebook::default(),
+    ))
+    .unwrap();
     let entry = json
         .as_array()
         .unwrap()
@@ -310,7 +316,7 @@ fn a_custom_function_failing_on_an_entity_is_w148() {
         .find(|d| d["code"] == "W148")
         .unwrap();
     assert_eq!(entry["data"]["kind"], "custom_rule_failures");
-    assert_eq!(entry["data"]["rule"], "X007");
+    assert_eq!(entry["data"]["rule"], "pin.rules/X007");
     assert_eq!(entry["data"]["function"], "validate__x007");
     assert_eq!(entry["data"]["failures"][0]["entity"], "beta");
     assert_eq!(entry["data"]["failures"].as_array().unwrap().len(), 1);
@@ -341,8 +347,8 @@ fn rule_diagnostics_come_in_rule_order_then_entity_id_order() {
 
     let order: Vec<String> = diagnostics
         .iter()
-        .filter(|d| ["E901", "W900", "X001", "E006"].contains(&d.code.as_str()))
-        .map(|d| format!("{} {}", d.code, d.message))
+        .filter(|d| ["E901", "W900", "X001", "E006"].contains(&local(d)))
+        .map(|d| format!("{} {}", local(d), d.message))
         .collect();
     assert_eq!(
         order,
@@ -377,7 +383,7 @@ fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {
         ["node 'alpha' declares no verify obligations"]
     );
     let standing = compiled.entities().standing("alpha").unwrap();
-    assert_eq!(standing.rule.as_deref(), Some("W904"));
+    assert_eq!(standing.rule.as_deref(), Some("pin.rules/W904"));
     assert!(standing.owes_obligations());
     let alpha = compiled
         .entities()
@@ -415,7 +421,7 @@ fn a_conditional_rule_with_a_matches_constraint_is_w147_and_reads_pattern_as_a_f
     assert_eq!(
         messages(&diagnostics, "W147"),
         [
-            "extension '@pin/rules': rule 'I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
+            "extension '@pin/rules': rule 'pin.rules/I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
         ]
     );
 }

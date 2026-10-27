@@ -80,10 +80,18 @@ pub fn list(items: &[String]) -> String {
     format!("[{}]", items.join(", "))
 }
 
-fn one<'i>(input: &'i Input, key: &str, what: &str) -> Result<&'i str, Refusal<EditField>> {
+pub(super) fn one<'i>(
+    input: &'i Input,
+    key: &str,
+    what: &str,
+) -> Result<&'i str, Refusal<EditField>> {
     match input {
         Input::One(text) => Ok(text),
         Input::Many(items) if items.len() == 1 => Ok(&items[0]),
+        Input::Number(_) | Input::Bool(_) => Err(not_editable(
+            EditField::Value,
+            format!("'{key}' takes text; give a string, not a number or a boolean"),
+        )),
         _ => Err(not_editable(
             EditField::Value,
             format!("'{key}' takes one {what}; give a single value"),
@@ -100,13 +108,17 @@ pub(super) fn items_given(
 ) -> Result<Vec<String>, Refusal<EditField>> {
     debug_assert!(matches!(
         field_type,
-        FieldType::ReferenceList | FieldType::StringList
+        FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList
     ));
     let split = field_type == FieldType::ReferenceList;
     let texts: &[String] = match input {
         Input::Many(items) => items,
         Input::One(text) => std::slice::from_ref(text),
-        Input::Entries(_) => {
+        Input::Entries(_)
+        | Input::Block(_)
+        | Input::Blocks(_)
+        | Input::Number(_)
+        | Input::Bool(_) => {
             return Err(not_editable(
                 EditField::Value,
                 format!("'{key}' is a list; give its items"),
@@ -178,12 +190,18 @@ pub fn written(
                 let written: Vec<String> = items.iter().map(|i| spell::value(form, i)).collect();
                 (list(&written), Expect::Items(&items))
             }
-            FieldType::StringList => {
-                items = items_given(input, key, FieldType::StringList)?;
+            FieldType::StringList | FieldType::EnumList => {
+                items = items_given(input, key, form.field_type())?;
                 let written: Vec<String> = items.iter().map(|i| spell::value(form, i)).collect();
                 (list(&written), Expect::Items(&items))
             }
             FieldType::Block => return block(key, input, lead, config),
+            FieldType::BlockList => {
+                return Err(not_editable(
+                    EditField::Value,
+                    format!("'{key}' is a block list: edit its items with append, remove and set"),
+                ));
+            }
         },
     };
     if reads_back(key, &text, lead, &expect) {

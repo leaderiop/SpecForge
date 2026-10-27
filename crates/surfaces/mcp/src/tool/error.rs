@@ -2,7 +2,7 @@ use crate::protocol::{JsonRpcError, error_codes};
 use serde::Serialize;
 use serde_json::{Value, json};
 use specforge_common::shape::Shape;
-use specforge_common::{Diagnostic, DiagnosticDocument, Severity};
+use specforge_common::{Codebook, Diagnostic, DiagnosticDocument, Severity};
 use specforge_graph::Graph;
 use specforge_ops::{OpError, OpErrorKind};
 
@@ -161,7 +161,10 @@ impl McpError {
     }
 
     pub fn with_diagnostic(mut self, diagnostic: &Diagnostic) -> Self {
-        self.diagnostic = Some(DiagnosticDocument(diagnostic.clone()));
+        self.diagnostic = Some(DiagnosticDocument::new(
+            diagnostic.clone(),
+            &Codebook::default(),
+        ));
         self
     }
 

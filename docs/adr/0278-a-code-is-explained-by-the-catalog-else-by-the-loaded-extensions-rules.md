@@ -1,6 +1,8 @@
 # A code is explained by the catalog, else by the loaded extensions' rules
 
-**Status:** accepted (2026-10-26, architecture round 29, plan 02). Extends
+**Status:** accepted (2026-10-26, architecture round 29, plan 02). D4 superseded and D1-D3 amended by
+[ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md): a third-party code is explained from its
+extension's `codes`; the rule `description` and the `Declared` reply are gone. Extends
 [ADR 0026](0026-typed-diagnostic-codes.md) D4, amends [ADR 0012](0012-one-extension-declaration.md) (a validation
 rule may carry a `description`), [ADR 0024](0024-one-mcp-request-pipeline.md) and
 [ADR 0049](0049-a-core-tool-is-one-module.md) (no core tool is `Unscoped`).

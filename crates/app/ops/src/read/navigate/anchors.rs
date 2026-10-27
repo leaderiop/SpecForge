@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::shape::Shape;
+use specforge_graph::Found;
 
 use super::{FileMatch, match_file};
 use crate::source_key::SourceKey;
@@ -248,10 +249,20 @@ pub fn anchors_of_entity(
     entity_id: &str,
 ) -> Result<EntityAnchors, Refusal<EntityField>> {
     let manifest = manifest(view)?;
+    let entity_id = &match view.graph().find(entity_id) {
+        Found::One(path) => path.to_string(),
+        Found::Ambiguous(paths) => {
+            return Err(Refusal::about(
+                EntityField::EntityId,
+                crate::view::ambiguous(entity_id, &paths),
+            ));
+        }
+        Found::Mistyped(_) | Found::None(_) => entity_id.to_string(),
+    };
     let implementations: Vec<Implementation> = manifest
         .anchors
         .into_iter()
-        .filter(|anchor| anchor.entity_id == entity_id)
+        .filter(|anchor| anchor.entity_id == *entity_id)
         .map(|anchor| Implementation {
             file: anchor.file,
             line: anchor.line,

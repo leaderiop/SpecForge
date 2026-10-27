@@ -13,9 +13,11 @@ fn a_block_the_edit_leaves_unreadable_is_the_edits_defect() {
     let view = fixture.view();
     let site = Site {
         view: &view,
+        scopes: view.graph().scopes(),
         key: "main.spec",
         id: "p",
         kind: specforge_common::structural::SPEC,
+        ordinal: 0,
         config: FormatConfig::default(),
     };
     let mut block = Block::open(&site, SPEC).unwrap();

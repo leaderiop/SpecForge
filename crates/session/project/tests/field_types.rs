@@ -33,6 +33,9 @@ fn ticket_manifest() -> ExtensionDeclaration {
                 field("points", "integer", &[]),
                 field("labels", "string_list", &[]),
                 field("summary", "string", &[]),
+                field("depends_on", "reference_list", &[]),
+                field("parent", "reference", &[]),
+                field("notes", "block", &[]),
             ],
             ..EntityKindDescriptor::default()
         }],
@@ -170,4 +173,138 @@ fn check_field_value_types_contract() {
 "#,
     );
     assert_eq!(e061(&diags).len(), 2, "{diags:?}");
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "no reference field of the repository's spec holds a bare number, date or boolean"
+)]
+fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
+    use specforge_parser::{FieldValue, Written};
+    use std::collections::{HashMap, HashSet};
+
+    // keyword -> the names of its reference and reference_list fields, over the builtins.
+    let mut reference_fields: HashMap<String, HashSet<String>> = HashMap::new();
+    for kind in specforge_component::committed::pinned_builtin_declarations()
+        .unwrap()
+        .iter()
+        .flat_map(|d| &d.entities)
+    {
+        let Some(keyword) = &kind.keyword else {
+            continue;
+        };
+        for field in &kind.fields {
+            if matches!(field.field_type.as_str(), "reference" | "reference_list") {
+                reference_fields
+                    .entry(keyword.clone())
+                    .or_default()
+                    .insert(field.name.clone());
+            }
+        }
+    }
+    assert!(!reference_fields.is_empty());
+    let mut checked = 0usize;
+    for (path, source) in specforge_parser::testing::corpus() {
+        let file = specforge_parser::parse(source, &path.to_string_lossy());
+        for entity in &file.entities {
+            let Some(names) = reference_fields.get(entity.kind.raw.as_str()) else {
+                continue;
+            };
+            for entry in entity.fields.entries() {
+                if !names.contains(entry.key.as_str()) {
+                    continue;
+                }
+                let literal = match &entry.value {
+                    FieldValue::Integer(_) | FieldValue::Boolean(_) | FieldValue::Date(_) => true,
+                    FieldValue::List(items) => items.iter().any(|i| i.written == Written::Literal),
+                    _ => false,
+                };
+                assert!(
+                    !literal,
+                    "{}: {} {} holds a number, date or boolean in `{}`",
+                    path.display(),
+                    entity.kind.raw.as_str(),
+                    entity.id.raw.as_str(),
+                    entry.key.as_str()
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert!(
+        checked > 100,
+        "only {checked} reference values were checked"
+    );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
+)]
+fn a_reference_field_names_a_gsd_entity() {
+    let (graph, diags) = build_and_check(
+        r#"ticket 03-02 "A" {
+}
+ticket 03 "B" {
+}
+ticket 10 "C" {
+}
+ticket 2-1 "D" {
+}
+ticket v1.0 "E" {
+}
+ticket t1 "T" {
+  parent 2-1
+  depends_on [03-02, 03, v1.0]
+}
+ticket t2 "T" {
+  parent 10
+}
+ticket t3 "T" {
+  parent -5
+}
+"#,
+    );
+    let targets = |id: &str| -> Vec<String> {
+        let mut t: Vec<String> = graph
+            .edges_from(id)
+            .iter()
+            .map(|e| e.target.to_string())
+            .collect();
+        t.sort();
+        t
+    };
+    assert_eq!(targets("t1"), ["03", "03-02", "2-1", "v1.0"]);
+    assert_eq!(targets("t2"), ["10"]);
+    let errors = e061(&diags);
+    assert_eq!(errors.len(), 1, "{diags:?}");
+    assert!(errors[0].message.contains("parent") && errors[0].message.contains("t3"));
+    assert!(diags.iter().all(|d| d.code != "E003"), "{diags:?}");
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a block field with no declared members is an open map of named text entries"
+)]
+fn an_open_block_reads_as_named_text_entries() {
+    let (graph, diags) = build_and_check(
+        r#"ticket t1 "T" {
+  notes { pre "x" count 3 }
+}
+"#,
+    );
+
+    assert!(e061(&diags).is_empty(), "{diags:?}");
+    let value = graph.node("t1").unwrap().fields.get("notes").unwrap();
+    let FieldValue::Block(entries) = value else {
+        panic!("stored as written: {value:?}");
+    };
+    assert_eq!(entries.entries().len(), 2);
+    assert_eq!(
+        serde_json::Value::from(specforge_graph::field_form::write(value)),
+        serde_json::json!({"pre": "x", "count": 3})
+    );
+
+    let (_graph, diags) = build_and_check("ticket t2 \"T\" {\n  notes \"x\"\n}\n");
+    assert_eq!(e061(&diags).len(), 1, "{diags:?}");
 }

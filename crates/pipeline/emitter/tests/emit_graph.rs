@@ -42,6 +42,7 @@ fn emit_graph_includes_all_fields_and_metadata() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
 
     let json = crate::support::emit_json(&graph);
@@ -81,6 +82,7 @@ fn emit_graph_equals_emit_json() {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         });
     }
     for (source, target, label) in [
@@ -139,6 +141,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
     graph.add_node(Node {
         id: EntityId {
@@ -152,6 +155,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
     graph.add_edge(Edge {
         source: Sym::new("beta"),
@@ -196,6 +200,7 @@ fn graph_format_includes_schema_version() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
 
     let json = crate::support::emit_json(&graph);
@@ -227,6 +232,7 @@ fn structural_only_graph_exports_raw_keywords() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
     graph.add_node(Node {
         id: EntityId {
@@ -240,6 +246,7 @@ fn structural_only_graph_exports_raw_keywords() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     });
 
     let json = crate::support::emit_json(&graph);
@@ -270,6 +277,7 @@ fn without_verdicts_no_node_carries_a_coverage_status() {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         });
     }
     let verdicts = BTreeMap::from([("alpha".to_string(), specforge_coverage::Status::Covered)]);

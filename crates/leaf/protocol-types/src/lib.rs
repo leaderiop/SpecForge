@@ -31,15 +31,19 @@ use std::fmt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
+mod code_catalog;
 pub mod command_args;
 mod declaration;
+mod field;
 pub mod tool_input;
 mod vocabulary;
 pub use calls::*;
+pub use code_catalog::CodeDescriptor;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
-pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
+pub use field::FieldDescriptor;
+pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FileBase, ProofRole};
 
 /// Protocol version for the extension wire format (semver). The host loads
 /// every guest of its major version. The minor moves when a payload's
@@ -54,8 +58,12 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 /// and a pass's test results carry `duration_ms`; 1.5.0 is ADR 0094's: an
 /// entity's `verify` statements are no field text, so a pass's and a validator's
 /// `fields` carry no `verify` entry; 1.6.0 is ADR 0234's: a field's type may be `date`, and
-/// the primitives a validator gets include `date`.
-pub const PROTOCOL_VERSION: &str = "1.6.0";
+/// the primitives a validator gets include `date`; 1.7.0 is ADR 0284's: a kind may declare the
+/// reference field its entities are scoped by (`scoped_by`), and a pass's entity ids and edges are
+/// paths; the same 1.7.0 is ADR 0285's: a field's type may be `enum_list` or `block_list`, and a field
+/// may declare `members`, `target_kinds`, `minimum`, `maximum` and `file_base`; and the same 1.7.0 is ADR 0286's: an extension catalogs its codes (`codes`), and a
+/// rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`.
+pub const PROTOCOL_VERSION: &str = "1.7.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -280,63 +288,11 @@ pub struct EntityKindDescriptor {
     /// passes that compare against the previous build (ADR 0009, C).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifecycle_field: Option<String>,
-}
-
-// ── Field Descriptor ──
-
-/// Describes a field on an entity kind.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FieldDescriptor {
-    pub name: String,
-    /// A [`FieldType`] name (kept a string so an unknown name costs this
-    /// field a diagnostic, not the whole describe payload).
-    pub field_type: String,
-    #[serde(default)]
-    pub required: bool,
-    #[serde(default)]
-    pub description: Option<String>,
-    #[serde(default)]
-    pub edge: Option<String>,
-    #[serde(default)]
-    pub target_kind: Option<String>,
-    #[serde(default)]
-    pub file_reference: bool,
-    /// What an absent value counts as: for an enum, one of its `enum_values`
-    /// (W021 otherwise). The host never writes it into the graph; the schema,
-    /// the model, the guide and the hover show it.
-    #[serde(default)]
-    pub default_value: Option<String>,
-    /// An enum's values, in order (W021 when an enum declares none).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub enum_values: Vec<String>,
-    #[serde(default)]
-    pub inverse_of: Option<String>,
-    /// The field states what the entity promises (a contract, a guarantee)
-    /// rather than prose: the review document quotes it whole, and with
-    /// `headline` it is the entity's statement (ADR 0236).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub normative: bool,
-    /// Set on an entity (`true`, or a non-empty value), the entity owes no
-    /// obligations of its own: W004, the coverage rule and stats leave it
-    /// out (ADR 0004, D2-b). E.g. a specification-only `abstract` flag.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub exempts_obligations: bool,
-    /// The context export carries this field at the node's top level, as
-    /// the line an agent reads first (a contract, a status), instead of
-    /// among the normative `fields`.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub headline: bool,
-    /// The host fills this reference field's edges from type names the
-    /// entity writes elsewhere: `type_expressions` (its field types) or
-    /// `method_signatures` (its method parameter and return types).
+    /// The one field naming the entity this kind's entities are scoped by (ADR 0284): a single `reference`
+    /// field of this kind with a target kind. A name is unique within its scope and an entity's id is its
+    /// scope's path and its name. Absent from an entity, the entity is in the project scope.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub derived_from: Option<String>,
-    /// What the prove pass reads this field as: `bound` (a fact the solver
-    /// assumes) or `claim` (a statement that must follow from the bounds).
-    /// Kept a string, as `derived_from`, so an unknown value costs this
-    /// field a diagnostic (ADR 0009, A).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof_role: Option<String>,
+    pub scoped_by: Option<String>,
 }
 
 // ── Edge Type Descriptor ──
@@ -429,10 +385,6 @@ pub struct ValidationRuleDescriptor {
     /// Absent: the kind belongs to the extension itself or a declared peer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_extension: Option<String>,
-    /// What the code means and how to fix it: the sentence `specforge explain` and the hover show
-    /// for a code the host catalog does not have (an extension's own, E900–E998, W900–W998, I900–I998).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
 }
 
 // ── Surface Descriptors ──
@@ -695,6 +647,10 @@ pub struct ValidatorEntity {
     /// written twice in one block is E081 and arrives as its first entry); `value` is the field's text (ADR 0019,
     /// protocol 1.1.0), always a JSON string.
     pub fields: Vec<ValidatorField>,
+    /// The structured value of each field whose text drops structure (a typed `block`, a `block_list`), by name, as
+    /// the export writes it (protocol 1.7.0, ADR 0285); absent for the entity that has none.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub values: std::collections::BTreeMap<String, serde_json::Value>,
     /// Declared methods (populated for entity kinds that have them, e.g.
     /// ports).
     pub methods: Vec<ValidatorMethod>,

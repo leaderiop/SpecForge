@@ -1,6 +1,6 @@
 # A value's spelling is the speller's
 
-**Status:** accepted (2026-10-23, architecture round 26, plan 05). Widens [ADR 0147](0147-a-value-is-written-in-its-fields-one-form.md), amends [ADR 0153](0153-a-value-is-spelled-by-one-module.md), extends [ADR 0064](0064-a-declared-field-type-decides-one-wire-form.md) and [ADR 0034](0034-one-field-type-read-from-the-declaration.md). Reopened by [ADR 0247](0247-the-formatter-reads-a-values-text-from-the-parse.md) (D1: `Respell` carries the spelling; D3: the formatter reads the parse's reading of the written value, as W159 does).
+**Status:** accepted (2026-10-23, architecture round 26, plan 05). Widens [ADR 0147](0147-a-value-is-written-in-its-fields-one-form.md), amends [ADR 0153](0153-a-value-is-spelled-by-one-module.md), extends [ADR 0064](0064-a-declared-field-type-decides-one-wire-form.md) and [ADR 0034](0034-one-field-type-read-from-the-declaration.md). Reopened by [ADR 0247](0247-the-formatter-reads-a-values-text-from-the-parse.md) (D1: `Respell` carries the spelling; D3: the formatter reads the parse's reading of the written value, as W159 does). Extended by [ADR 0283](0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md).
 
 ## Context
 

@@ -9,6 +9,7 @@ mod enhancements;
 mod fields;
 mod graph_inputs;
 mod kinds;
+mod namespaces;
 mod order;
 mod peers;
 mod pin;

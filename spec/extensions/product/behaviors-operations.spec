@@ -230,7 +230,7 @@ behavior pe_enforce_migration_strategy "Extension Version Migration" {
   contract   """
     The @specforge/product extension MUST follow additive-only schema
     evolution for minor versions. New fields MUST be optional. New diagnostic
-    codes are allocated outside the third-party range (900-998) and added to
+    codes are allocated in the core catalog (a third-party code is namespaced) and added to
     the diagnostic catalog. New edge types require a manifest version bump. Breaking changes (field
     removal, kind removal, edge type removal) MUST require a major version
     bump with a migration hook. Until v2, migration_hook remains null.
@@ -240,7 +240,7 @@ behavior pe_enforce_migration_strategy "Extension Version Migration" {
   }
   ensures {
     additive_minor     "minor version adds only optional fields and new diagnostic codes"
-    catalogued_codes   "new diagnostics get a diagnostic catalog entry outside the third-party 900-998 range"
+    catalogued_codes   "new diagnostics get a diagnostic catalog entry in the core catalog; a third-party code is namespaced"
     major_for_breaking "field/kind/edge removal triggers major version bump"
     migration_hook_v2  "v2 manifest declares a migration hook for v1->v2 transformation"
     backward_compat    "v1 spec files parse without error under v1.x minor bumps"

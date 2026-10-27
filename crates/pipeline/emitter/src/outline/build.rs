@@ -100,7 +100,8 @@ impl OutlineIntermediate {
                 .validation_rules
                 .iter()
                 .map(|r| OutlineValidationRule {
-                    code: r.code.clone(),
+                    // The code as a diagnostic, explain and `schema --validation-rules` spell it (ADR 0286).
+                    code: specforge_diagnostics::qualify(m.name(), &r.code),
                     severity: severity(&r.severity).to_string(),
                     check: r.check.clone(),
                     target_kind: r.target_kind.clone(),

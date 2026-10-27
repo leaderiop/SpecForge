@@ -5,7 +5,7 @@
 //! view (`specforge_ops::read::inspect`); a field's help; the diagnostics under
 //! the cursor.
 
-use specforge_common::{Severity, SourceSpan, Sym};
+use specforge_common::{Codebook, Severity, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_lsp::LineIndex;
 use specforge_ops::view::ProjectView;
@@ -484,7 +484,8 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     let facts = specforge_ops::read::inspect::inspect(&view, "beta").unwrap();
 
     let coverage = specforge_ops::read::inspect::coverage(&view, &facts);
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &[]);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &[], &Codebook::default(), &|_| None);
     assert!(
         text.ends_with(
             "**Diagnostics** *(2)*\n\
@@ -496,13 +497,17 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     );
 
     // What the cursor already shows is not listed again.
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &[&cycle]);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &[&cycle], &Codebook::default(), &|_| {
+            None
+        });
     assert!(
         text.ends_with("**Diagnostics** *(1)*\n- **X900** acme says no"),
         "{text}"
     );
     let all = [&reported[0], &reported[1]];
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &all);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &all, &Codebook::default(), &|_| None);
     assert!(!text.contains("**Diagnostics**"), "{text}");
 }
 
@@ -671,7 +676,7 @@ fn diagnostic_hover(
 ) -> Option<String> {
     specforge_lsp::hover::diagnostics(
         &specforge_lsp::hover::diagnostics_at(published, |span| Some(index.range(span)), position),
-        &[],
+        &Codebook::default(),
     )
 }
 
@@ -728,7 +733,7 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
         md,
         "**E003** · Unresolved reference\n\nunresolved reference 'ghost'\n\n\
          A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. \
-         A `string_list` field's other items are strings, never references. Fix the typo or add the missing entity; a `did you mean` suggestion is included when a close match exists.\n\n\
+         A `string_list` field's other items are strings, never references. A reference resolves from its holder outward (the holder itself, each enclosing scope, then the project; a leading `/` names the project only), a path such as `03/D-01` resolving at the nearest level where the whole path does. A name outside that chain lists the entities that bear it as candidates; a scope field or a surface's short form naming several entities is ambiguous. Fix the typo, write one of the candidates, or add the missing entity; a `did you mean` suggestion is included when a close match exists.\n\n\
          [Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e003)"
     );
     // Outside the range, nothing.

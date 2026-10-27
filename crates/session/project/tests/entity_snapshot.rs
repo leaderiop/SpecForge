@@ -153,10 +153,12 @@ fn compile(
 
 /// `code message` of every diagnostic whose code starts with `prefix`.
 fn reported(diagnostics: &[Diagnostic], prefix: &str) -> Vec<String> {
+    // The probe's codes are `pin.snapshot/P200`; the rules are told by their local code.
+    let local = |d: &Diagnostic| d.code.rsplit('/').next().unwrap_or_default().to_string();
     diagnostics
         .iter()
-        .filter(|d| d.code.starts_with(prefix))
-        .map(|d| format!("{} {}", d.code, d.message))
+        .filter(|d| local(d).starts_with(prefix))
+        .map(|d| format!("{} {}", local(d), d.message))
         .collect()
 }
 

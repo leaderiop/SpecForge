@@ -167,9 +167,9 @@ behavior call_extension_exports "Call Extension Exports" {
     A component guest builds its declaration once per instance and answers
     the handshake and every describe from it.
 
-    A pass diagnostic keeps the code and severity the pass gave it; when
-    the code is not one the extension may use (its own catalogued code
-    at its level, or a third-party code whose prefix states its level),
+    A pass diagnostic keeps its severity and takes its extension's
+    namespace on its code; when the code is not one the extension may use
+    (a code its own catalog lists, at the level its letter states),
     the host adds one W150 per code naming the extension and the pass.
     Every diagnostic a rule or a pass of an extension produces names that
     extension as its origin, and a code the extension may not use is not
@@ -254,6 +254,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a pass diagnostic naming an entity gets that entity's span"
   verify unit "a pass entity carries whether the host found it exempt"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
+  verify unit "a pass receives a typed block and a block list structured beside their text"
 }
 
 behavior write_build_cache "Write the Build Cache" {

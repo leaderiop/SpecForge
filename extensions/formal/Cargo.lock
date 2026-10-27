@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-coverage"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "specforge-protocol-types",
@@ -268,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-cycles"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "specforge-ext-formal"
@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-extension-sdk"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-extension-sdk-macros"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "specforge-protocol-types"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",

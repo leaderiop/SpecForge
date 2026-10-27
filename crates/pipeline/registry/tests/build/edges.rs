@@ -478,3 +478,30 @@ fn a_writer_outside_a_declared_end_is_w021_and_writes_nothing() {
     assert_eq!(relates.sources(), ["job"]);
     assert_eq!(relates.targets(), ["person"]);
 }
+
+#[spec(
+    behavior = "registry_build_edges",
+    verify = "a reference member of a typed block writes its edge type under its declared member path"
+)]
+fn a_block_members_edge_is_written_under_its_member_path() {
+    let declared = declare("@test/ext", |c| {
+        c.kind("A", |k| {
+            k.keyword("a");
+            k.field("requires", |f| {
+                f.field_type(FieldType::BlockList).member("phase", |m| {
+                    m.field_type(FieldType::Reference)
+                        .target_kind("b")
+                        .edge("needs");
+                });
+            });
+        });
+        c.kind("B", |k| {
+            k.keyword("b");
+        });
+    });
+    let build = build([software(), declared]);
+    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
+    let needs = build.edges().written_by("a", "requires.phase").unwrap();
+    assert_eq!(needs.label(), "needs");
+    assert!(build.edges().written_by("a", "requires").is_none());
+}

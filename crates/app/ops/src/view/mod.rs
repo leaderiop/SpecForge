@@ -36,7 +36,7 @@ use specforge_project::{CompiledProject, Environment, SharedRuntime};
 use specforge_registry::{Disk, EntitySnapshot, RegistryBuild};
 
 pub use connectivity::Connectivity;
-pub use entity::{DEPTH_WITHOUT_ENTITY, EntityField, not_found};
+pub use entity::{DEPTH_WITHOUT_ENTITY, EntityField, ambiguous, not_found};
 pub use kinds::{KindFilter, KnownKinds, UNKNOWN_KIND, kinds_of_text, kinds_of_texts};
 pub use selection::{Entity, Select, Selection};
 pub(crate) use source_file::FILE_NOT_FOUND;

@@ -77,6 +77,9 @@ fn extension() -> ContributionsBuilder {
             f.field_type(FieldType::Bool).exempts_obligations();
         });
     });
+    c.code("W990", |d| {
+        d.title("A test rule").explanation("A test rule's finding.");
+    });
     c.rule("W990", |r| {
         r.check(CheckKind::NoVerifyStatements)
             .target_kind("gadget")
@@ -84,6 +87,9 @@ fn extension() -> ContributionsBuilder {
     });
     // The validator passes everything and both passes report nothing; the
     // tests answer otherwise through `answer_raw`.
+    c.code("E991", |d| {
+        d.title("A test rule").explanation("A test rule's finding.");
+    });
     c.rule("E991", |r| {
         r.check(CheckKind::Custom)
             .target_kind("gadget")
@@ -194,7 +200,7 @@ fn compile_answering(answer: WasmCallResult) -> Vec<Diagnostic> {
 fn pass_findings(diagnostics: &[Diagnostic]) -> Vec<&Diagnostic> {
     diagnostics
         .iter()
-        .filter(|d| d.code.starts_with('X') || d.code == "E028")
+        .filter(|d| d.code.contains("/X") || d.code == "E028")
         .collect()
 }
 
@@ -231,10 +237,10 @@ fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
         assert_eq!(
             shown,
             [
-                ("X1", "names a", Some("a.spec:1".to_string())),
-                ("X2", "a", Some("a.spec:9".to_string())),
-                ("X2", "c", Some("a.spec:9".to_string())),
-                ("X2", "b", Some("z.spec:3".to_string())),
+                ("pin.passes/X1", "names a", Some("a.spec:1".to_string())),
+                ("pin.passes/X2", "a", Some("a.spec:9".to_string())),
+                ("pin.passes/X2", "c", Some("a.spec:9".to_string())),
+                ("pin.passes/X2", "b", Some("z.spec:3".to_string())),
             ],
             "{all:?}"
         );
@@ -308,6 +314,7 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
         registries.analyze_passes(),
         &PassContext::of(compiled.entities()),
         runtime.as_ref(),
+        registries.codes(),
     );
     assert_eq!(reports.len(), 1);
     let report = &reports[0];
@@ -357,7 +364,10 @@ fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
         WasmCallResult::Ok(br#"{"verdict":"fail","field":"needs","value":"b"}"#.to_vec()),
     ));
     let failed = dir.compile_in(runtime.clone()).diagnostics();
-    let e991: Vec<&Diagnostic> = failed.iter().filter(|d| d.code == "E991").collect();
+    let e991: Vec<&Diagnostic> = failed
+        .iter()
+        .filter(|d| d.code.ends_with("/E991"))
+        .collect();
     assert_eq!(e991.len(), 3, "{failed:?}");
     assert_eq!(e991[0].message, "gadget 'a' has a bad needs");
 
@@ -368,11 +378,14 @@ fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
     assert_eq!(
         w112[0].message,
         format!(
-            "extension '{EXT}': rule 'E991': wasm_function 'validate__shape' could not be resolved \
+            "extension '{EXT}': rule 'pin.passes/E991': wasm_function 'validate__shape' could not be resolved \
              (custom validator validate__shape() of '{EXT}' trapped: k: m) — the rule will not fire"
         )
     );
-    assert!(trapped.iter().all(|d| d.code != "E991"), "{trapped:?}");
+    assert!(
+        trapped.iter().all(|d| !d.code.ends_with("/E991")),
+        "{trapped:?}"
+    );
 
     // An answer that is not a ValidatorVerdict is a failure too: W112 once,
     // and the rule never fires on a default verdict.
@@ -391,7 +404,10 @@ fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
         "{}",
         w112[0].message
     );
-    assert!(malformed.iter().all(|d| d.code != "E991"), "{malformed:?}");
+    assert!(
+        malformed.iter().all(|d| !d.code.ends_with("/E991")),
+        "{malformed:?}"
+    );
 }
 
 fn runtime_with_trap() -> InProcessRuntime {

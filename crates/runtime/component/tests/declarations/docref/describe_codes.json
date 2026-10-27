@@ -1,0 +1,10 @@
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "W901",
+      "explanation": "The file named by a gadget's `guide` does not exist: create it or fix the path.",
+      "title": "Gadget guide missing"
+    }
+  ]
+}

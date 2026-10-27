@@ -213,6 +213,7 @@ behavior add_missing_titles "Add Missing Titles" {
     none or a blank one.
   """
   verify unit "a doc comment directly above a block becomes its title"
+  verify unit "a name holding a dash or a dot is its own title"
   verify unit "a multi-line doc comment becomes one title"
   verify unit "a union takes its doc comment as its title"
   verify unit "a block with no doc comment is titled with its id in words"

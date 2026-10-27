@@ -1,8 +1,8 @@
-use crate::defaults::{FileDefaults, is_defaults_block};
+use crate::declare::{Declarations, declarations, place};
 use crate::delta::{self, GraphDelta, NodeChange};
-use crate::{Graph, Node, title};
-use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes, structural};
-use specforge_parser::{Entity, FieldValue, REF_SCHEME_FIELD, SpecFile};
+use crate::{Graph, Node};
+use specforge_common::{Diagnostic, DiagnosticData, Sym, structural};
+use specforge_parser::{Entity, SpecFile};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
@@ -28,6 +28,10 @@ pub struct GraphInputs {
     /// writes in its field types or method signatures (`derived_from`),
     /// sorted by kind and field.
     pub derived_references: Vec<crate::DerivedReference>,
+    /// For each scoped kind, the reference field naming the entity its entities are scoped by (ADR 0284):
+    /// the registry build's `scoped_by` it kept. An entity of such a kind is identified by its scope's path and
+    /// its name; a name is unique within its scope.
+    pub scopes: BTreeMap<String, String>,
 }
 
 /// What one graph build is configured with: the provider schemes the
@@ -157,7 +161,6 @@ impl GraphBuild {
             ids.extend(self.graph.nodes_in_file(&path).iter().map(|n| n.id.raw));
             match change {
                 FileChange::Parsed(spec) => {
-                    ids.extend(spec.entities.iter().map(|e| e.id.raw));
                     self.files.insert(path.clone(), Arc::new(spec));
                 }
                 FileChange::Removed(_) if self.files.remove(&path).is_none() => continue,
@@ -165,6 +168,27 @@ impl GraphBuild {
             }
             files.insert(path);
         }
+
+        // The declarations now. An entity's path depends on where its scope resolves, so a change in one file can
+        // re-key the entities of another: every path the changed files declare, and every path the graph and the
+        // declarations do not share, is placed anew (ADR 0284).
+        let declared = declarations(self.files.values().map(Arc::as_ref), &self.config);
+        for path in &files {
+            ids.extend(declared.paths.get(&Sym::new(path)).into_iter().flatten());
+        }
+        ids.extend(
+            self.graph
+                .nodes()
+                .iter()
+                .map(|n| n.id.raw)
+                .filter(|id| !declared.winners.contains_key(id)),
+        );
+        ids.extend(
+            declared
+                .winners
+                .keys()
+                .filter(|path| self.graph.node(path.as_str()).is_none()),
+        );
 
         // What the graph had under those IDs, and all its edges, for the delta.
         let old_nodes: BTreeMap<Sym, Node> = ids
@@ -176,7 +200,15 @@ impl GraphBuild {
         for path in &files {
             self.graph.remove_entities_of_file(Sym::new(path));
         }
-        self.rebuild(Ids::Only(&ids));
+        let diagnostics = settle(
+            &mut self.graph,
+            &self.config,
+            &self.files,
+            declared,
+            Ids::Only(&ids),
+        );
+        self.by_file = partition_by_file(&diagnostics);
+        self.diagnostics = diagnostics;
 
         let old_nodes: BTreeMap<Sym, &Node> = old_nodes.iter().map(|(id, n)| (*id, n)).collect();
         let delta = delta::diff(&ids, &old_nodes, &old_edges, &self.graph);
@@ -238,26 +270,7 @@ impl GraphBuild {
     /// which declarations are placed; the graph holds the others already.
     fn rebuild(&mut self, ids: Ids<'_>) {
         let declared = declarations(self.files.values().map(Arc::as_ref), &self.config);
-        place(&mut self.graph, &declared, ids);
-        let mut diagnostics = declared.diagnostics;
-        diagnostics.extend(link_and_diagnose(&mut self.graph, &self.config));
-        #[cfg(debug_assertions)]
-        {
-            let unheld = unheld_edges(
-                &self.graph,
-                self.files.values().map(Arc::as_ref),
-                &self.config.inputs,
-            );
-            assert!(
-                unheld.is_empty(),
-                "SpecForge bug: edges no written token holds (source, target, field): {}",
-                unheld
-                    .iter()
-                    .map(|(source, target, field)| format!("({source}, {target}, {field})"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
+        let diagnostics = settle(&mut self.graph, &self.config, &self.files, declared, ids);
         self.by_file = partition_by_file(&diagnostics);
         self.diagnostics = diagnostics;
     }
@@ -290,6 +303,35 @@ impl GraphBuild {
     }
 }
 
+/// Place `declared`, link and report: the rest of a rebuild. Returns the graph-build diagnostics in build order.
+fn settle(
+    graph: &mut Graph,
+    config: &GraphConfig,
+    files: &BTreeMap<String, Arc<SpecFile>>,
+    declared: Declarations<'_>,
+    ids: Ids<'_>,
+) -> Vec<Diagnostic> {
+    place(graph, &declared, ids);
+    let mut diagnostics = declared.diagnostics;
+    diagnostics.extend(link_and_diagnose(graph, config));
+    #[cfg(debug_assertions)]
+    {
+        let unheld = unheld_edges(graph, files.values().map(Arc::as_ref), &config.inputs);
+        assert!(
+            unheld.is_empty(),
+            "SpecForge bug: edges no written token holds (source, target, field): {}",
+            unheld
+                .iter()
+                .map(|(source, target, field)| format!("({source}, {target}, {field})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    #[cfg(not(debug_assertions))]
+    let _ = files;
+    diagnostics
+}
+
 /// `GraphBuild::of(spec_files, GraphConfig::default()).into_parts()`: a graph with no extension loaded, which no
 /// compile builds (production builds through `RegistryBuild::graph_of`): a test convenience.
 #[cfg(any(test, feature = "testing"))]
@@ -311,178 +353,9 @@ pub fn build_graph_with_config(
 
 /// Which declarations [`place`] puts in the graph.
 #[derive(Clone, Copy)]
-enum Ids<'a> {
+pub(crate) enum Ids<'a> {
     All,
     Only(&'a BTreeSet<Sym>),
-}
-
-/// What the sweep over the files decided.
-struct Declarations<'a> {
-    /// The node's declaration of each raw ID: the first that is not a
-    /// `define` block, and the first of its ID's kind.
-    winners: HashMap<Sym, &'a Entity>,
-    /// Each file's defaults (ADR 0149), by path.
-    defaults: HashMap<Sym, FileDefaults<'a>>,
-    diagnostics: Vec<Diagnostic>,
-}
-
-/// The one sweep over the files, in the iteration order they are given:
-/// every file's E001s and the I007 / E019 its
-/// format version header reports first, then per file and entity W143 / E076 / E081 / E002 / W060, then I005. It is also first-writer-wins:
-/// `seen` is keyed on (kind, id), so a second declaration of a kind is E002
-/// naming the first of that kind; `winners` is keyed on the raw ID, so a
-/// declaration of another kind is W060. Placement reads `winners`. Each diagnostic about one declaration names
-/// it in its data (`Subject`); W143 names nothing.
-fn declarations<'a>(
-    files: impl Iterator<Item = &'a SpecFile> + Clone,
-    config: &GraphConfig,
-) -> Declarations<'a> {
-    let mut diagnostics = Vec::new();
-
-    let mut defaults = HashMap::new();
-    // Surface parse errors as diagnostics so CLI/MCP consumers see them.
-    for spec_file in files.clone() {
-        diagnostics.extend(spec_file.errors.iter().map(Diagnostic::from));
-        // What the format version header reports (I007, E019), where the
-        // file declares it.
-        diagnostics.extend(spec_file.format_diagnostics.iter().cloned());
-        let (file_defaults, problems) = FileDefaults::of(spec_file, &config.inputs.field_forms);
-        diagnostics.extend(problems);
-        defaults.insert(spec_file.path, file_defaults);
-    }
-
-    // Where each (kind, ID) was first declared, so a duplicate names both sites.
-    let mut seen: HashMap<(Sym, Sym), SourceSpan> = HashMap::new();
-    let mut winners: HashMap<Sym, &'a Entity> = HashMap::new();
-    for spec_file in files.clone() {
-        for entity in &spec_file.entities {
-            // A defaults block is no node; first, so no per-entity check below sees it.
-            if is_defaults_block(entity) {
-                continue;
-            }
-            if is_define_block(entity) {
-                diagnostics.push(define_block_warning(entity));
-                continue;
-            }
-            // Placed all the same: the LSP keeps the block navigable and every check after the build sees it.
-            if title::owes_title(entity) {
-                diagnostics.push(title::untitled_block_error(entity));
-            }
-            diagnostics.extend(repeated_field_errors(entity));
-            // A project has one spec block, whatever its name (ADR 0282 D2).
-            let root = entity.kind.raw == structural::SPEC;
-            let key = (
-                entity.kind.raw,
-                if root { entity.kind.raw } else { entity.id.raw },
-            );
-            if let Some(first) = seen.get(&key) {
-                let (what, site, fix) = if root {
-                    (
-                        "a second spec block",
-                        "the project's spec block is declared at",
-                        "remove it, or merge it into the first: a project has one spec block",
-                    )
-                } else {
-                    (
-                        "duplicate entity ID",
-                        "first declared at",
-                        "rename one of the entities to avoid the collision",
-                    )
-                };
-                diagnostics.push(
-                    Diagnostic::new(
-                        codes::E002,
-                        format!(
-                            "{what} '{}' ({site} {}:{}:{})",
-                            entity.id.raw, first.file, first.start_line, first.start_col
-                        ),
-                    )
-                    .with_span(entity.span.clone())
-                    .with_data(about(entity))
-                    .with_suggestion(fix),
-                );
-                continue;
-            }
-            seen.insert(key, entity.span.clone());
-
-            // The same ID used by several kinds is W060; the first
-            // declaration is retained.
-            if let Some(first) = winners.get(&entity.id.raw) {
-                diagnostics.push(
-                    Diagnostic::new(
-                        codes::W060,
-                        format!(
-                            "entity ID '{}' is used by kind '{}' and kind '{}'; first declaration (kind '{}') is retained",
-                            entity.id.raw, first.kind.raw, entity.kind.raw, first.kind.raw
-                        ),
-                    )
-                    .with_span(entity.span.clone())
-                    .with_data(about(entity))
-                    .with_suggestion("use distinct IDs for entities of different kinds"),
-                );
-                continue;
-            }
-            winners.insert(entity.id.raw, entity);
-        }
-    }
-
-    // Check ref nodes for unknown provider schemes (I005)
-    if !config.known_provider_schemes.is_empty() {
-        for spec_file in files {
-            for entity in &spec_file.entities {
-                if entity.kind.raw == structural::REF
-                    && let Some(FieldValue::String(scheme)) = entity.fields.get(REF_SCHEME_FIELD)
-                    && !config.known_provider_schemes.contains(scheme)
-                {
-                    diagnostics.push(
-                        Diagnostic::new(
-                            codes::I005,
-                            format!(
-                                "unrecognized ref scheme '{}' in '{}' --- no provider installed for this scheme",
-                                scheme, entity.id.raw
-                            ),
-                        )
-                        .with_span(entity.span.clone())
-                        .with_data(about(entity)),
-                    );
-                }
-            }
-        }
-    }
-
-    Declarations {
-        winners,
-        defaults,
-        diagnostics,
-    }
-}
-
-/// Put the winning declaration of each ID in scope into the graph.
-fn place(graph: &mut Graph, declared: &Declarations<'_>, ids: Ids<'_>) {
-    for (id, entity) in &declared.winners {
-        if match ids {
-            Ids::All => true,
-            Ids::Only(ids) => ids.contains(id),
-        } {
-            graph.add_node(node_from_entity(
-                entity,
-                declared.defaults.get(&entity.span.file),
-            ));
-        }
-    }
-}
-
-/// The graph node for one parsed entity.
-fn node_from_entity(entity: &Entity, defaults: Option<&FileDefaults<'_>>) -> Node {
-    Node {
-        id: entity.id,
-        kind: entity.kind,
-        title: entity.title.clone(),
-        fields: defaults.map_or_else(|| entity.fields.first_of_each_key(), |d| d.resolve(entity)),
-        source_span: entity.span.clone(),
-        methods: entity.methods.clone(),
-        obligations: entity.obligations.clone(),
-    }
 }
 
 /// Whether a parsed entity is a `define` block. Define blocks are not
@@ -493,46 +366,12 @@ pub(crate) fn is_define_block(entity: &Entity) -> bool {
     entity.kind.raw == structural::DEFINE
 }
 
-/// What a diagnostic about the declaration `entity` names as its subject: its id, whether or not the build
-/// places the block (a duplicate is no node; its id's node is the first declaration).
-pub(crate) fn about(entity: &Entity) -> DiagnosticData {
+/// What a diagnostic about a declaration names as its subject: its path, whether or not the build places the block
+/// (a duplicate is no node; its path's node is the first declaration).
+pub(crate) fn about(path: Sym) -> DiagnosticData {
     DiagnosticData::Subject {
-        entity: entity.id.raw.as_str().to_owned(),
+        entity: path.as_str().to_owned(),
     }
-}
-
-/// E081: each later entry of a key `entity` writes twice, at any depth (ADR 0215); its node keeps the first.
-fn repeated_field_errors(entity: &Entity) -> impl Iterator<Item = Diagnostic> + '_ {
-    entity.fields.repeats().into_iter().map(move |r| {
-        let line = r.first.value_span.as_ref().map_or(entity.span.start_line, |s| s.start_line);
-        Diagnostic::new(
-            codes::E081,
-            format!(
-                "'{}' is written twice in {} '{}'; the first, at line {line}, is kept",
-                r.path, entity.kind.raw, entity.id.raw
-            ),
-        )
-        .with_span(r.later.value_span.clone().unwrap_or_else(|| entity.span.clone()))
-        .with_data(about(entity))
-        .with_suggestion(
-            "delete this line, or give every value in the first: a list takes all its items in one [...]",
-        )
-    })
-}
-
-/// W143: a define block, which declares nothing.
-fn define_block_warning(entity: &Entity) -> Diagnostic {
-    Diagnostic::new(
-        codes::W143,
-        format!(
-            "define blocks are not supported: '{}' is not registered as an entity kind",
-            entity.id.raw
-        ),
-    )
-    .with_span(entity.span.clone())
-    .with_suggestion(
-        "declare custom entity kinds in an extension (`specforge extension init`), then enable it",
-    )
 }
 
 /// Link reference edges, resolve E003s (single-reference aware) and emit
@@ -543,7 +382,11 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
 
     // Link references -> edges (E003, I004) and warn on reference cycles
     // (W061), which leave a declared single reference out.
-    let mut diagnostics = graph.link(&config.inputs.field_forms, &config.inputs.target_owners);
+    let mut diagnostics = graph.link(
+        &config.inputs.field_forms,
+        &config.inputs.target_owners,
+        &config.inputs.scopes,
+    );
 
     // Derived reference fields: dependencies, never a reference W061 reads,
     // so a recursive type is no reference cycle (ADR 0204); an unknown type name is E004 (ADR 0282 D1).
@@ -555,7 +398,10 @@ fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic>
     // The linker's postcondition (E060, retired): every reference to an
     // existing entity has its edge.
     #[cfg(debug_assertions)]
-    graph.assert_linked(&config.inputs.field_forms);
+    {
+        graph.assert_linked(&config.inputs.field_forms, &config.inputs.scopes);
+        graph.assert_scoped(&config.inputs);
+    }
 
     diagnostics
 }
@@ -586,11 +432,12 @@ fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Result<(), Strin
             .iter()
             .map(|n| {
                 let sig = format!(
-                    "{} in {}:{}:{} title={:?} fields={:?} methods={:?} obligations={:?}",
+                    "{} in {}:{}:{} scope={:?} title={:?} fields={:?} methods={:?} obligations={:?}",
                     n.kind.raw,
                     n.source_span.file,
                     n.source_span.start_line,
                     n.source_span.start_col,
+                    n.scope,
                     n.title,
                     n.fields,
                     n.methods,
@@ -636,9 +483,8 @@ fn unheld_edges<'a>(
     files: impl Iterator<Item = &'a SpecFile>,
     inputs: &crate::GraphInputs,
 ) -> Vec<(Sym, Sym, Sym)> {
-    let kind_of = |name: &str| graph.node(name).map(|n| n.kind.raw);
     let held: HashSet<(Sym, Sym, Sym)> = files
-        .flat_map(|file| crate::written_tokens(file, inputs, kind_of))
+        .flat_map(|file| crate::written_tokens(file, inputs, graph.scopes()))
         .flat_map(|t| {
             t.held_by
                 .into_iter()
@@ -656,6 +502,7 @@ fn unheld_edges<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::codes;
     use specforge_parser::parse;
     use specforge_test_macros::test as specforge_test;
 

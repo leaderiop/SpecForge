@@ -27,6 +27,7 @@ fn texts(source: &str) -> Vec<(String, &'static str, String)> {
                 FieldValue::TypeUnion(_) => "TypeUnion",
                 FieldValue::Expression(_) => "Expression",
                 FieldValue::Block(_) => "Block",
+                FieldValue::Blocks(_) => "Blocks",
             };
             // The text is the items joined, for every list-shaped value.
             if let Some(items) = field_items(&e.value) {
@@ -66,7 +67,7 @@ fn every_variant_has_a_value_shape() {
 "#;
     let registries = RegistryBuild::default();
     let graph = super::graph_of(source, &registries);
-    let snapshot = EntitySnapshot::of(&graph, &registries, Path::new("."));
+    let snapshot = EntitySnapshot::of(&graph, &registries, Path::new("."), Path::new("."));
     let record = snapshot.records().iter().find(|r| r.id == "x").unwrap();
     let shapes: Vec<(&str, ValueShape)> = record
         .fields

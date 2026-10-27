@@ -1,26 +1,23 @@
-//! `specforge explain` and `specforge.explain`: what the diagnostic catalog says of one code, else
-//! what the loaded extensions' rules declare of it (ADR 0278), one operation whose outcome is the
-//! document both surfaces print (`McpExplainResult`, ADR 0052).
+//! `specforge explain` and `specforge.explain`: what the code book says of one code, the static
+//! catalog's or a loaded extension's own (ADR 0286), one operation whose outcome is the document
+//! both surfaces print (`McpExplainResult`, ADR 0052).
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_diagnostics::{CodeEntry, lookup, retired};
-use specforge_protocol_types::{ExtensionDeclaration, ValidationRuleDescriptor};
-use specforge_registry::declared_level;
+use specforge_diagnostics::{CodeRef, Codebook, Described, retired};
 
 use crate::{OpError, OpErrorKind, Refusal};
 
-/// The refusal of a code the catalog neither has nor retired.
+/// The refusal of a code the code book neither has nor retired.
 pub const UNKNOWN_CODE: &str = "unknown_code";
 
 /// The forms a code takes: the suggestion of the refusal of an unknown one.
 const CODE_FORMS: &str = "codes are E### (error), W### (warning), I### (info), A### (analyze finding), \
-     R### and R-<AREA>-### (registry client); E900-E998, W900-W998 and I900-I998 are \
-     third-party extensions' (explain them inside a project that loads the extension, or see its \
-     documentation)";
+     R### and R-<AREA>-### (registry client); an extension's code is its namespace and a code \
+     (`acme.lint/W101`), explained inside a project that loads the extension";
 
-/// What the catalog says of a code: its entry, or that it was retired and what replaced it; else
-/// what the loaded extensions' rules declare of it.
+/// What the code book says of a code: its entry (the catalog's, or its extension's own), or that
+/// it was retired and what replaced it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(untagged)]
 pub enum Explanation {
@@ -28,35 +25,6 @@ pub enum Explanation {
     Catalogued(Catalogued),
     /// A code the catalog retired.
     Retired(Retired),
-    /// A code the catalog does not have that the loaded extensions' rules declare.
-    Declared(Declared),
-}
-
-/// A code the loaded extensions declare: upper-cased as asked, the level its rules report at,
-/// each rule that reports it, `retired: false`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
-pub struct Declared {
-    pub code: String,
-    /// `error`, `warning` or `info`.
-    pub level: String,
-    pub rules: Vec<DeclaredRule>,
-    pub retired: bool,
-}
-
-/// One declared rule as both surfaces print it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
-pub struct DeclaredRule {
-    /// The extension that declares it (the origin of what it reports).
-    pub extension: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_kind: Option<String>,
-    /// Its check (`no_outgoing_edges`, `custom`, …).
-    pub check: String,
-    /// Its message template, as declared (`{id}` and the rest unexpanded).
-    pub message: String,
-    /// What the extension says the code means.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
 }
 
 /// A catalogued code: its entry, `retired: false`.
@@ -87,95 +55,60 @@ pub struct Entry {
     /// The level's description (`error`, `warning`, `info`, `set by the analyze pass`).
     pub level: String,
     pub explanation: String,
-    /// Its section of `docs/diagnostics.md`.
-    pub docs: String,
+    /// Its section of `docs/diagnostics.md`, or the page its extension documents it on; an
+    /// extension's code may have none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docs: Option<String>,
 }
 
 impl Entry {
-    fn of(entry: &CodeEntry) -> Self {
+    fn of(described: Described<'_>) -> Self {
         Entry {
-            code: entry.code.to_string(),
-            title: entry.title.to_string(),
-            owner: entry.owner.to_string(),
-            level: entry.level.describe().to_string(),
-            explanation: entry.explanation.to_string(),
-            docs: entry.docs_href(),
+            code: described.code.into_owned(),
+            title: described.title.to_string(),
+            owner: described.owner.to_string(),
+            level: described.level.describe().to_string(),
+            explanation: described.explanation.to_string(),
+            docs: described.docs.map(std::borrow::Cow::into_owned),
         }
     }
 }
 
-/// The rules among `declarations` that declare `code` (any case, trimmed) and whose code the host
-/// takes from their extension (no W150), in load order, with their extension's name.
-pub fn declared<'d>(
-    code: &str,
-    declarations: &'d [ExtensionDeclaration],
-) -> impl Iterator<Item = (&'d str, &'d ValidationRuleDescriptor)> {
-    let code = code.trim().to_uppercase();
-    declarations.iter().flat_map(move |declaration| {
-        let extension = declaration.name();
-        let code = code.clone();
-        declaration
-            .validation_rules
-            .iter()
-            .filter(move |rule| {
-                rule.code.eq_ignore_ascii_case(&code) && declared_level(extension, rule).is_ok()
-            })
-            .map(move |rule| (extension, rule))
-    })
-}
-
-/// The catalog's answer for `code`: any case, surrounding whitespace ignored; else the answer of
-/// the rules `declarations` declare for it ([`declared`]). A code neither has is `unknown_code`
-/// (invalid input), with the code forms as its suggestion.
-pub fn explain(
-    code: &str,
-    declarations: &[ExtensionDeclaration],
-) -> Result<Explanation, Refusal<ExplainField>> {
+/// The code book's answer for `code`: any case, surrounding whitespace ignored; a retired code
+/// names what replaced it. A code the book lacks is `unknown_code` (invalid input), with the code
+/// forms as its suggestion, or the loaded `<namespace>/<code>` forms when a bare local code asked
+/// is one an extension catalogs (ADR 0286).
+pub fn explain(code: &str, codes: &Codebook) -> Result<Explanation, Refusal<ExplainField>> {
     let code = code.trim();
-    if let Some(replacement) = retired(code) {
+    let normalized = CodeRef::normalized(code);
+    if let Some(replacement) = retired(&normalized) {
         return Ok(Explanation::Retired(Retired {
-            code: code.to_uppercase(),
+            code: normalized,
             retired: true,
-            replaced_by: replacement.and_then(lookup).map(Entry::of),
+            replaced_by: replacement
+                .and_then(|r| codes.describes(r, None))
+                .map(Entry::of),
         }));
     }
-    match lookup(code) {
-        Some(entry) => Ok(Explanation::Catalogued(Catalogued {
-            entry: Entry::of(entry),
+    match codes.describes(&normalized, None) {
+        Some(described) => Ok(Explanation::Catalogued(Catalogued {
+            entry: Entry::of(described),
             retired: false,
         })),
-        None => declared_answer(code, declarations).ok_or_else(|| {
-            OpError::new(
+        None => {
+            let suggestion = match codes.qualified(&normalized).as_slice() {
+                [] => CODE_FORMS.to_string(),
+                forms => format!("{CODE_FORMS}; did you mean {}?", forms.join(" or ")),
+            };
+            Err(OpError::new(
                 OpErrorKind::InvalidInput,
                 UNKNOWN_CODE,
                 format!("unknown diagnostic code: {code}"),
             )
-            .with_suggestion(CODE_FORMS)
-            .about(ExplainField::Code)
-        }),
+            .with_suggestion(suggestion)
+            .about(ExplainField::Code))
+        }
     }
-}
-
-/// The [`Declared`] answer of the rules that declare `code`, if any does.
-fn declared_answer(code: &str, declarations: &[ExtensionDeclaration]) -> Option<Explanation> {
-    // Accepted rules of one code agree on its level: the first one's.
-    let (extension, first) = declared(code, declarations).next()?;
-    let level = declared_level(extension, first).ok()?;
-    let rules = declared(code, declarations)
-        .map(|(extension, rule)| DeclaredRule {
-            extension: extension.to_string(),
-            target_kind: rule.target_kind.clone(),
-            check: rule.check.clone(),
-            message: rule.message_template.clone(),
-            description: rule.description.clone(),
-        })
-        .collect();
-    Some(Explanation::Declared(Declared {
-        code: code.to_uppercase(),
-        level: level.describe().to_string(),
-        rules,
-        retired: false,
-    }))
 }
 
 /// The field of an explain request a refusal can be about (ADR 0072).
@@ -188,32 +121,55 @@ pub enum ExplainField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_diagnostics::ExtensionCode;
     use specforge_test_macros::test as specforge_test;
+
+    /// A code book where each extension catalogs its locals, each titled "Audit failed".
+    fn book(extensions: &[(&str, &[&str])]) -> Codebook {
+        let mut book = Codebook::default();
+        for (extension, locals) in extensions {
+            let entries = locals
+                .iter()
+                .map(|local| ExtensionCode {
+                    local: (*local).into(),
+                    title: "Audit failed".into(),
+                    explanation: "Fix the audit.".into(),
+                    docs: None,
+                })
+                .collect();
+            book.add(extension, entries).unwrap();
+        }
+        book
+    }
+
+    fn none() -> Codebook {
+        Codebook::default()
+    }
 
     #[specforge_test(
         behavior = "explain_diagnostic_code",
         verify = "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
     )]
     fn explain_answers_the_entry_any_case_and_trimmed() {
-        let Explanation::Catalogued(found) = explain(" w018 ", &[]).unwrap() else {
+        let Explanation::Catalogued(found) = explain(" w018 ", &none()).unwrap() else {
             panic!("W018 is catalogued");
         };
         assert_eq!(found.entry.code, "W018");
         assert!(!found.retired);
         assert_eq!(
-            found.entry.docs,
-            "https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w018"
+            found.entry.docs.as_deref(),
+            Some("https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w018")
         );
     }
 
     #[test]
     fn a_retired_code_names_its_replacement_or_none() {
-        let Explanation::Retired(renumbered) = explain("E047", &[]).unwrap() else {
+        let Explanation::Retired(renumbered) = explain("E047", &none()).unwrap() else {
             panic!("E047 is retired");
         };
         assert_eq!(renumbered.replaced_by.unwrap().code, "W139");
 
-        let gone = serde_json::to_value(explain("W024", &[]).unwrap()).unwrap();
+        let gone = serde_json::to_value(explain("W024", &none()).unwrap()).unwrap();
         assert_eq!(gone, serde_json::json!({"code": "W024", "retired": true}));
     }
 
@@ -223,7 +179,7 @@ mod tests {
     )]
     fn an_uncatalogued_code_is_unknown_code() {
         for code in ["Z123", "E901"] {
-            let error = explain(code, &[]).unwrap_err();
+            let error = explain(code, &none()).unwrap_err();
             assert_eq!(error.error.kind, OpErrorKind::InvalidInput, "{code}");
             assert_eq!(error.error.code, UNKNOWN_CODE, "{code}");
             assert_eq!(
@@ -243,98 +199,53 @@ mod tests {
         }
     }
 
-    /// `extension` declaring `code` at `severity` on `campaign`, described when `description` is.
-    fn declaring(
-        extension: &str,
-        code: &str,
-        severity: specforge_protocol_types::ValidationSeverity,
-        description: Option<&str>,
-    ) -> ExtensionDeclaration {
-        use specforge_extension_sdk::prelude::*;
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new(extension, "0.1.0"));
-        c.rule(code, |r| {
-            r.check(CheckKind::MissingRequiredField)
-                .target_kind("campaign")
-                .field("ends")
-                .severity(severity)
-                .message_template("campaign '{id}' has no end");
-            if let Some(text) = description {
-                r.description(text);
-            }
-        });
-        c.declaration()
+    #[specforge_test(
+        behavior = "explain_diagnostic_code",
+        verify = "explain answers a code an extension catalogs, whether a rule or a pass reports it"
+    )]
+    fn explain_answers_a_catalogued_code_no_rule_declares() {
+        let answer = explain(" Acme.Audit/w950 ", &book(&[("@acme/audit", &["W950"])])).unwrap();
+        let Explanation::Catalogued(found) = answer else {
+            panic!("acme.audit/W950 is catalogued");
+        };
+        assert_eq!(found.entry.code, "acme.audit/W950");
+        assert_eq!(found.entry.title, "Audit failed");
+        assert_eq!(found.entry.owner, "@acme/audit");
+        assert_eq!(found.entry.level, "warning");
+        assert_eq!(found.entry.docs, None);
     }
-
-    use specforge_protocol_types::ValidationSeverity::{Error, Warning};
 
     #[specforge_test(
         behavior = "explain_diagnostic_code",
-        verify = "explain answers a code the loaded declarations declare from their rules, the catalog first, and only codes the host takes from their extension"
+        verify = "explain answers a code an extension catalogs under its namespace, the static catalog first, and a bare code only from the static catalog"
     )]
-    fn a_declared_code_is_answered_by_its_rules() {
-        let launch = [declaring(
-            "@acme/launch",
-            "E903",
-            Error,
-            Some("Ends before it starts."),
-        )];
-        let answer = serde_json::to_value(explain(" e903 ", &launch).unwrap()).unwrap();
-        assert_eq!(
-            answer,
-            serde_json::json!({
-                "code": "E903",
-                "level": "error",
-                "retired": false,
-                "rules": [{
-                    "extension": "@acme/launch",
-                    "target_kind": "campaign",
-                    "check": "missing_required_field",
-                    "message": "campaign '{id}' has no end",
-                    "description": "Ends before it starts.",
-                }],
-            })
-        );
-    }
-
-    #[test]
-    fn the_catalog_answers_a_code_whoever_declares_it() {
-        let squat = [declaring("@acme/x", "W041", Warning, None)];
+    fn the_static_catalog_answers_a_bare_code_whatever_an_extension_catalogs() {
+        let squat = book(&[("@acme/x", &["W041", "E047", "W950"])]);
         let Explanation::Catalogued(found) = explain("W041", &squat).unwrap() else {
             panic!("W041 is catalogued");
         };
         assert_eq!(found.entry.owner, "@specforge/product");
-        let retired = [declaring("@acme/x", "E047", Error, None)];
         assert!(matches!(
-            explain("E047", &retired).unwrap(),
+            explain("E047", &squat).unwrap(),
             Explanation::Retired(_)
         ));
+        assert!(explain("acme.x/W041", &squat).is_ok());
+        let error = explain("W950", &squat).unwrap_err();
+        assert_eq!(error.error.code, UNKNOWN_CODE);
     }
 
     #[test]
-    fn a_declared_code_the_host_does_not_take_is_unknown() {
-        for (extension, code, severity) in [
-            ("@acme/x", "W500", Warning),
-            ("@acme/x", "W950", Error),
-            ("@specforge/rust", "W950", Warning),
-        ] {
-            let declarations = [declaring(extension, code, severity, None)];
-            let error = explain(code, &declarations).unwrap_err();
-            assert_eq!(error.error.code, UNKNOWN_CODE, "{extension} {code}");
-        }
-    }
-
-    #[test]
-    fn every_extension_declaring_a_code_is_listed() {
-        let both = [
-            declaring("@a/one", "E950", Error, None),
-            declaring("@b/two", "E950", Error, None),
-        ];
-        let Explanation::Declared(answer) = explain("E950", &both).unwrap() else {
-            panic!("E950 is declared");
-        };
-        assert_eq!(answer.level, "error");
-        let extensions: Vec<&str> = answer.rules.iter().map(|r| r.extension.as_str()).collect();
-        assert_eq!(extensions, ["@a/one", "@b/two"]);
+    fn a_bare_code_an_extension_catalogs_suggests_its_namespaced_forms() {
+        let both = book(&[("@a/one", &["E950"]), ("@b/two", &["E950"])]);
+        let error = explain("e950", &both).unwrap_err();
+        let suggestion = error.error.suggestion.unwrap();
+        assert!(
+            suggestion.ends_with("did you mean a.one/E950 or b.two/E950?"),
+            "{suggestion}"
+        );
+        // The qualified form of an uncatalogued code is unknown, with no guess.
+        let error = explain("a.one/E951", &both).unwrap_err();
+        assert!(!error.error.suggestion.unwrap().contains("did you mean"));
     }
 
     #[specforge_test(
@@ -343,7 +254,7 @@ mod tests {
     )]
     fn explain_states_which_field_a_refusal_is_about() {
         assert_eq!(
-            explain("Z123", &[]).unwrap_err().subject,
+            explain("Z123", &none()).unwrap_err().subject,
             Some(ExplainField::Code)
         );
     }

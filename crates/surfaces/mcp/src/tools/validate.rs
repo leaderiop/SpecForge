@@ -69,9 +69,10 @@ impl CoreTool for Tool {
         let outcome = check(&project.view(), &options).map_err(McpError::from)?;
         let shown: Vec<specforge_common::Diagnostic> =
             outcome.shown().into_iter().cloned().collect();
-        Ok(
-            Answer::new(Text(specforge_common::serialize_diagnostics(&shown)))
-                .with_meta(VERDICT_META, outcome.verdict_json()),
-        )
+        Ok(Answer::new(Text(specforge_common::serialize_diagnostics(
+            &shown,
+            project.view().registries().codes(),
+        )))
+        .with_meta(VERDICT_META, outcome.verdict_json()))
     }
 }

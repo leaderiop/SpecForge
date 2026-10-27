@@ -144,7 +144,7 @@ pub(crate) fn entity_under_cursor(
 
 /// The hover at `position` of the open document `uri`: the published
 /// diagnostics under it whose range is a position in the editor's text
-/// (`Compiled::range`) explained from the catalog, then what the cursor names: an entity's
+/// (`Compiled::range`) explained from the code book, then what the cursor names: an entity's
 /// facts (the inspect read view reporting what was published; while the
 /// project rebuilds, the last complete compile's coverage) or a field's help. Sections are
 /// joined by a rule. `None` for a document that is not open or a position
@@ -175,7 +175,26 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                 .ok()
                 .map(|facts| {
                     let coverage = specforge_ops::read::inspect::coverage(&view, &facts);
-                    hover::entity(&facts, &coverage, &shown)
+                    // The word a one-line span holds in the buffer, where the buffer is the compiled text.
+                    let written = |span: &specforge_common::SourceSpan| {
+                        compiled.range(span)?;
+                        let line = files
+                            .document(span.file.as_str())?
+                            .text()
+                            .lines()
+                            .nth(span.start_line.checked_sub(1)?)?;
+                        (span.start_line == span.end_line)
+                            .then(|| line.get(span.start_col - 1..span.end_col - 1))
+                            .flatten()
+                            .map(str::to_string)
+                    };
+                    hover::entity(
+                        &facts,
+                        &coverage,
+                        &shown,
+                        state.registries().codes(),
+                        &written,
+                    )
                 })
         }
         Some(Target::Field { kind, field }) => {
@@ -184,7 +203,7 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
         Some(Target::Import { .. }) | None => None,
     };
     let value = match (
-        hover::diagnostics(&shown, state.view().registries().declarations()),
+        hover::diagnostics(&shown, state.registries().codes()),
         about,
     ) {
         (Some(diagnostics), Some(about)) => format!("{diagnostics}{}{about}", hover::SECTION),
@@ -613,7 +632,11 @@ pub fn formatting(
         sent: formatted
             .diagnostics
             .iter()
-            .map(|d| diagnostic_to_lsp(d, |span| Some(doc.index().range(span))))
+            .map(|d| {
+                diagnostic_to_lsp(d, state.registries().codes(), |span| {
+                    Some(doc.index().range(span))
+                })
+            })
             .collect(),
         placed: formatted.diagnostics.clone(),
         key,

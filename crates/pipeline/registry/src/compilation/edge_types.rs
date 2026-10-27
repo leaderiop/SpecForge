@@ -6,7 +6,18 @@
 use std::collections::{BTreeMap, HashMap};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::{EdgeTypeDescriptor, ExtensionDeclaration};
+use specforge_protocol_types::{EdgeTypeDescriptor, ExtensionDeclaration, FieldDescriptor};
+
+/// A field or member that names an edge: its extension's load index, kind, declared path, label, extension and
+/// descriptor.
+type Candidate<'a> = (
+    usize,
+    &'a str,
+    String,
+    &'a str,
+    &'a str,
+    &'a FieldDescriptor,
+);
 
 use crate::{EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldRegistry};
 
@@ -36,26 +47,25 @@ pub(super) fn resolve(
             .unwrap_or(usize::MAX)
     };
 
-    let mut candidates: Vec<(usize, &str, &str, &str, &crate::FieldRegistryEntry)> = fields
-        .iter()
-        .filter_map(|(kind, field, entry)| {
-            let label = entry.declared().edge.as_deref()?;
-            Some((
-                load_index(entry.source_extension()),
-                kind,
-                field,
-                label,
-                entry,
-            ))
-        })
-        .collect();
-    candidates.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
+    // Every field and every member of a typed block that names an `edge` (ADR 0285): a member writes its edge under
+    // its declared member path (`requires.phase`).
+    let mut candidates: Vec<Candidate<'_>> = Vec::new();
+    for (kind, field, entry) in fields.iter() {
+        let extension = load_index(entry.source_extension());
+        entry.declared().for_each_path(field, &mut |path, d| {
+            if let Some(label) = d.edge.as_deref() {
+                candidates.push((extension, kind, path, label, entry.source_extension(), d));
+            }
+        });
+    }
+    candidates.sort_by(|a, b| (a.0, a.1, &a.2).cmp(&(b.0, b.1, &b.2)));
 
     let mut diagnostics = Vec::new();
     let mut writers: BTreeMap<&str, Vec<EdgeWriter>> = BTreeMap::new();
     let mut written = HashMap::new();
-    for (_, kind, field, label, entry) in candidates {
-        let target_kind = entry.declared().target_kind.clone();
+    for (_, kind, field, label, source_extension, descriptor) in candidates {
+        let field = field.as_str();
+        let target_kind = descriptor.target_kind.clone();
         if let Some((_, edge)) = declared.get(label)
             && let Some(problem) = outside_an_end(edge, kind, target_kind.as_deref())
         {
@@ -63,14 +73,14 @@ pub(super) fn resolve(
                 codes::W021,
                 format!(
                     "extension '{}': field '{field}' on kind '{kind}' writes edge type '{label}', whose declared {problem} — its edges are not of that type",
-                    entry.source_extension()
+                    source_extension
                 ),
             ));
             continue;
         }
         written.insert((kind.to_string(), field.to_string()), label.to_string());
         writers.entry(label).or_default().push(EdgeWriter {
-            extension: entry.source_extension().to_string(),
+            extension: source_extension.to_string(),
             kind: kind.to_string(),
             field: field.to_string(),
             target_kind,

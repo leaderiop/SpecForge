@@ -3,13 +3,12 @@
 //! help. Rendering only: the facts come from the read view, so the hover
 //! and MCP `specforge.inspect` cannot disagree (ADR 0015, "Inspect").
 
-use specforge_common::{Diagnostic, SourceSpan};
+use specforge_common::{Codebook, Diagnostic, SourceSpan};
 use specforge_ops::OpError;
 use specforge_ops::read::coverage::STATUS;
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligations_table, quote};
 use specforge_parser::{FieldValue, ListItem, TypeMember, Written};
 use specforge_project::coverage::Status;
-use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::{Position, Range};
@@ -37,51 +36,34 @@ pub fn diagnostics_at(
 }
 
 /// Markdown for the diagnostics `shown` under the cursor
-/// ([`diagnostics_at`]): each code with the catalogue's title, the message,
-/// the catalogue's explanation and the docs link; a code the catalogue
+/// ([`diagnostics_at`]): each code with the code book's title, the message,
+/// its explanation and its docs link (when it has one); a code the book
 /// doesn't have shows its code, the extension that reported it and the
-/// message, then the description that extension's accepted rule for the code
-/// declares in `declarations`, when one does (the first, in load order).
-/// `None` when none is.
-pub fn diagnostics(shown: &[&Diagnostic], declarations: &[ExtensionDeclaration]) -> Option<String> {
+/// message. `None` when none is.
+pub fn diagnostics(shown: &[&Diagnostic], codes: &Codebook) -> Option<String> {
     let sections: Vec<String> = shown
         .iter()
-        .map(
-            |diag| match specforge_diagnostics::describes(&diag.code, diag.origin()) {
-                Some(entry) => {
-                    format!(
-                        "**{}** · {}\n\n{}\n\n{}\n\n[Documentation]({})",
-                        entry.code,
-                        entry.title,
-                        diag.message,
-                        entry.explanation,
-                        entry.docs_href()
-                    )
-                }
-                // An extension's own uncatalogued code, or one it may not use
-                // (W150): no catalogue entry describes it.
-                None => match diag.origin() {
-                    Some(extension) => {
-                        let described =
-                            specforge_ops::read::explain::declared(&diag.code, declarations)
-                                .find_map(|(by, rule)| {
-                                    (by == extension)
-                                        .then_some(rule.description.as_deref())
-                                        .flatten()
-                                });
-                        let head = format!(
-                            "**{}** · reported by '{extension}'\n\n{}",
-                            diag.code, diag.message
-                        );
-                        match described {
-                            Some(text) => format!("{head}\n\n{text}"),
-                            None => head,
-                        }
-                    }
-                    None => format!("**{}**\n\n{}", diag.code, diag.message),
-                },
+        .map(|diag| match codes.describes(&diag.code, diag.origin()) {
+            Some(entry) => {
+                let docs = entry
+                    .docs
+                    .map(|href| format!("\n\n[Documentation]({href})"))
+                    .unwrap_or_default();
+                format!(
+                    "**{}** · {}\n\n{}\n\n{}{docs}",
+                    entry.code, entry.title, diag.message, entry.explanation
+                )
+            }
+            // An extension's own uncatalogued code, or one it may not use
+            // (W150): no code book entry describes it.
+            None => match diag.origin() {
+                Some(extension) => format!(
+                    "**{}** · reported by '{extension}'\n\n{}",
+                    diag.code, diag.message
+                ),
+                None => format!("**{}**\n\n{}", diag.code, diag.message),
             },
-        )
+        })
         .collect();
     (!sections.is_empty()).then(|| sections.join(SECTION))
 }
@@ -97,15 +79,18 @@ pub fn diagnostics(shown: &[&Diagnostic], declarations: &[ExtensionDeclaration])
 /// - **Refers to**: its references, grouped by field;
 /// - **Referenced by**: the references to it, grouped by the referencing
 ///   kind and field;
-/// - **Fields**: its field values but the headline;
+/// - **Fields**: its field values but the headline (`written` reads the word a span holds: an integer read from
+///   another word shows it beside its value);
 /// - **Methods**: its methods' signatures, one per line (ADR 0222);
 /// - **Obligations**: its `verify` statements, the review document's table (ADR 0273);
 /// - **Diagnostics**: the diagnostics about it that are not among those
-///   `shown` for the cursor, each code linked to its catalogue entry.
+///   `shown` for the cursor, each code linked to its docs page.
 pub fn entity(
     facts: &EntityFacts,
     coverage: &Result<EntityCoverage, OpError>,
     shown: &[&Diagnostic],
+    codes: &Codebook,
+    written: &dyn Fn(&SourceSpan) -> Option<String>,
 ) -> String {
     let node = facts.node;
     let title = node
@@ -194,7 +179,15 @@ pub fn entity(
             let key = entry.key.as_str();
             let annotations = facts.members.annotations.get(key).into_iter().flatten();
             let noted: String = annotations.map(|a| format!(" {}", a.spelled())).collect();
-            format!("- `{key}` = {}{noted}", format_field_value(&entry.value))
+            let value = format_field_value(&entry.value);
+            // An integer read from another word (`2-1`, `007`) shows the word beside its value (ADR 0283).
+            let value = match (&entry.value, entry.value_span.as_ref().and_then(written)) {
+                (FieldValue::Integer(n), Some(word)) if word != n.to_string() => {
+                    format!("{value} (written {word})")
+                }
+                _ => value,
+            };
+            format!("- `{key}` = {value}{noted}")
         })
         .collect();
     if !fields.is_empty() {
@@ -223,9 +216,11 @@ pub fn entity(
         .iter()
         .filter(|diagnostic| !shown.contains(diagnostic))
         .map(|diagnostic| {
-            let code = match specforge_diagnostics::describes(&diagnostic.code, diagnostic.origin())
-            {
-                Some(entry) => format!("[**{}**]({})", diagnostic.code, entry.docs_href()),
+            let docs = codes
+                .describes(&diagnostic.code, diagnostic.origin())
+                .and_then(|entry| entry.docs);
+            let code = match docs {
+                Some(href) => format!("[**{}**]({href})", diagnostic.code),
                 None => format!("**{}**", diagnostic.code),
             };
             format!("- {code} {}", diagnostic.message)
@@ -284,34 +279,47 @@ fn coverage_line(facts: &EntityFacts, coverage: &Result<EntityCoverage, OpError>
     line
 }
 
-/// Returns markdown-formatted hover content for a field name within an entity block.
+/// Returns markdown-formatted hover content for a field name within an entity block, or, as `requires.phase`, for a
+/// member of a typed block (ADR 0285).
 pub fn hover_field_info(
     field_name: &str,
     entity_kind: &str,
     field_registry: &FieldRegistry,
 ) -> Option<String> {
-    let entry = field_registry.get(entity_kind, field_name)?;
+    let (declared, form) = field_registry.get_path(entity_kind, field_name)?;
+    let entry = field_registry.get(entity_kind, field_name.split('.').next()?)?;
 
-    let type_str = entry.type_label();
+    let type_str = form.label();
 
-    // First line: field name + type, with optional target kind on same line
-    let first_line = if let Some(ref target) = entry.declared().target_kind {
-        format!("**`{}`** : {} → **{}**", field_name, type_str, target)
-    } else {
+    // First line: field name + type, with the target kind, or the kinds of its union, on same line
+    let targets: Vec<&str> = declared
+        .target_kind
+        .iter()
+        .chain(&declared.target_kinds)
+        .map(String::as_str)
+        .collect();
+    let first_line = if targets.is_empty() {
         format!("**`{}`** : {}", field_name, type_str)
+    } else {
+        format!(
+            "**`{}`** : {} → **{}**",
+            field_name,
+            type_str,
+            targets.join(" | ")
+        )
     };
 
     let mut parts = vec![first_line];
 
-    if let Some(ref desc) = entry.declared().description {
+    if let Some(ref desc) = declared.description {
         parts.push(desc.clone());
     }
-    if let Some(ref default) = entry.declared().default_value {
+    if let Some(ref default) = declared.default_value {
         parts.push(format!("Absent, it counts as `{default}`."));
     }
 
     // Edge and required on same line
-    match (&entry.declared().edge, entry.declared().required) {
+    match (&declared.edge, declared.required) {
         (Some(edge_name), true) => {
             parts.push(format!("Edge `{}` · *required*", edge_name));
         }
@@ -385,5 +393,6 @@ fn format_field_value(fv: &FieldValue) -> String {
             let count = map.entries().len();
             format!("{{…}} ({} fields)", count)
         }
+        FieldValue::Blocks(items) => format!("[{{…}} × {}]", items.len()),
     }
 }

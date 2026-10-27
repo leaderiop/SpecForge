@@ -46,7 +46,13 @@ module.exports = grammar({
 
     // --- Use imports -------------------------------------------------
     import_binding: ($) =>
-      seq($.identifier, optional(seq("as", field("alias", $.identifier)))),
+      seq(
+        choice(
+          $.identifier,
+          alias($._name, $.identifier),
+          alias($._binding_path, $.reference_path),
+        ),
+        optional(seq("as", field("alias", $.identifier)))),
 
     import_bindings: ($) =>
       seq("{", commaSep1($.import_binding), "}"),
@@ -97,7 +103,9 @@ module.exports = grammar({
     entity_block: ($) =>
       seq(
         field("kind", $.identifier),
-        field("name", $.identifier),
+        // An identifier, or a word holding a dash or a dot or starting with a digit (ADR 0283); both are
+        // `identifier` nodes. A selective import's binding reads the same.
+        field("name", choice($.identifier, alias($._name, $.identifier))),
         optional(field("title", $.string)),
         "{",
         repeat(choice($.field, $.verify_statement, $.method_statement, $._in_body)),
@@ -194,14 +202,13 @@ module.exports = grammar({
       choice(
         $.triple_quoted_string,
         $.string,
-        $.date_literal,
-        $.negative_integer,
-        $.integer,
-        $.boolean,
         $.list,
+        $.block_list,
         $.nested_block,
         $.array_type,
         $.identifier,
+        alias($._bare, $.identifier),
+        $.reference_path,
         $.type_union,
         $.expr_group,
       ),
@@ -301,7 +308,21 @@ module.exports = grammar({
       ),
 
     _list_item: ($) =>
-      choice($.string, $.scheme_ref_id, $.integer, $.identifier),
+      choice(
+        $.string,
+        $.scheme_ref_id,
+        $.identifier,
+        alias($._bare, $.identifier),
+        $.reference_path,
+      ),
+
+    // A list of blocks (ADR 0285): each item a `{ ... }`, commas optional. `[]` stays a `list`.
+    block_list: ($) =>
+      seq(
+        "[",
+        repeat1(seq($.nested_block, optional(","))),
+        choice("]", $._close),
+      ),
 
     // Nested block: { key value ... }
     nested_block: ($) =>
@@ -364,6 +385,46 @@ module.exports = grammar({
 
     identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
+    // The two words below are declared after `identifier` on purpose: of two tokens matching the same length,
+    // the earlier rule wins, so a plain word stays an `identifier` (keywords come out of it) and only a longer
+    // word (`AUTH-01`, `03`, `v1.0`, `-5`) is one of these (ADR 0283).
+    // A bare value word: with `identifier`, exactly /-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/ — no doubled, leading
+    // (except one `-`) or trailing separator.
+    _bare: (_) => token(/-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
+    // The word where an entity or a binding is named: never starting with `-`.
+    _name: (_) => token(/[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
+
+    // A path names an entity from an enclosing scope (ADR 0284): names joined by '/', no space anywhere. Its first
+    // word is the slot's own word, so a '/' right after it shifts into the path; a leading '/' roots it at the
+    // project (`/D-01`, `/v1.0/03`). `a//c` stays `a` and a comment: the comment token is longer than '/'.
+    reference_path: ($) =>
+      choice(
+        seq(
+          choice($.identifier, alias($._bare, $.identifier)),
+          repeat1(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+        seq(
+          field("root", "/"),
+          alias($._segment, $.identifier),
+          repeat(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+      ),
+    // A binding's path: as `reference_path`, but its first name is a `_name` (no leading `-`).
+    _binding_path: ($) =>
+      choice(
+        seq(
+          choice($.identifier, alias($._name, $.identifier)),
+          repeat1(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+        seq(
+          field("root", "/"),
+          alias($._segment, $.identifier),
+          repeat(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+      ),
+    // A path's later segment: a name (`_name`) that must follow the '/' at once.
+    _segment: (_) => token.immediate(/[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
+
     string: (_) => token(seq('"', repeat(choice(/[^"\\]/, seq("\\", /[^\r\n]/))), '"')),
 
     triple_quoted_string: (_) => {
@@ -378,10 +439,7 @@ module.exports = grammar({
       ));
     },
 
-    date_literal: (_) => token(seq(/[0-9]{4}/, "-", /[0-9]{2}/, "-", /[0-9]{2}/)),
-
     integer: (_) => /[0-9]+/,
-    boolean: (_) => choice("true", "false"),
 
     // Numeric literal with optional unit suffix: 100, 100ms, 1.5s
     number_with_unit: (_) =>

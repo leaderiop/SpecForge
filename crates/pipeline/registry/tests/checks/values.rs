@@ -113,7 +113,7 @@ fn the_message_describes_the_value_by_its_shape() {
         "  points {\n    a \"x\"\n  }\n",
         "  points expr { a < 1 }\n",
         "  points string | int\n",
-        "  points 2026-10-07\n",
+        "  points AUTH-01\n",
         "  points [1, x]\n",
     ]
     .iter()
@@ -129,7 +129,7 @@ fn the_message_describes_the_value_by_its_shape() {
             "a block",
             "an expression",
             "string | int",
-            "2026-10-07",
+            "AUTH-01",
             "a list"
         ]
     );
@@ -218,6 +218,22 @@ fn a_value_of_a_shape_its_type_never_takes_is_an_error() {
     let admitted =
         e061("  summary expr { a < 1 }\n  summary a | b\n  details {\n    k \"x\"\n  }\n");
     assert!(admitted.is_empty(), "{admitted:?}");
+}
+
+#[spec(
+    behavior = "check_field_value_types",
+    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+)]
+fn a_reference_never_starts_with_a_dash() {
+    for word in ["-a", "-0", "-007", "-5-3"] {
+        let remedy = Some("a name never starts with '-'".to_string());
+        let scalar = e061(&format!("  blocker {word}\n"));
+        assert_eq!(scalar.len(), 1, "{word}: {scalar:?}");
+        assert_eq!(scalar[0].1, remedy, "{word}");
+        let item = e061(&format!("  watchers [t2, {word}]\n"));
+        assert_eq!(item.len(), 1, "[{word}]: {item:?}");
+        assert_eq!(item[0].1, remedy, "[{word}]");
+    }
 }
 
 #[spec(

@@ -3,9 +3,9 @@
 A symptom-first reference for the diagnostics you'll hit most while authoring `.spec` files.
 Core codes (parse errors, unresolved references, typed-edit refusals) hold in every project; the
 kind-specific ones below (`W001` "behavior implements no feature", `W041` "unreferenced feature", …) come
-from the builtin extensions that declare those kinds, and your own extensions add codes in
-`E900`–`E998`, `W900`–`W998` and `I900`–`I998`. `specforge explain <CODE>` names each code's owner; run in
-your project, it also explains the codes your extensions' rules declare.
+from the builtin extensions that declare those kinds, and your own extensions add codes
+under their namespace (`example.marketing/E903`). `specforge explain <CODE>` names each code's owner; run in
+your project, it also explains the codes your extensions list in their `codes` catalog.
 Find the code or symptom, read the cause, apply the fix. For a guided introduction see the
 **[tutorial](authoring-spec-files.md)**; for the complete diagnostic catalog see
 **[entity-model.md](../entity-model.md)**.

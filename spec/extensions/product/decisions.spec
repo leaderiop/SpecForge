@@ -1390,8 +1390,8 @@ decision pe_migration_additive_only "Additive-Only Schema Evolution" {
   decision     """
     Minor versions (1.x) follow additive-only schema evolution:
     - New optional fields can be added to any entity kind
-    - New diagnostic codes are allocated outside the third-party range
-      (900-998) and added to the diagnostic catalog
+    - New diagnostic codes are allocated in the core catalog (a
+      third-party code is namespaced) and added to the diagnostic catalog
     - New edge types require manifest version field bump but not major version
     - New entity kinds require major version bump
     - Field removal, kind removal, or edge type removal require major version

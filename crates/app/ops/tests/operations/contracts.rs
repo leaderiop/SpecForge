@@ -35,6 +35,7 @@ fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node 
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 
@@ -57,6 +58,7 @@ fn testable_node(id: &str) -> Node {
             kind: "unit".to_string(),
             description: "it works".to_string(),
         }],
+        scope: None,
     }
 }
 

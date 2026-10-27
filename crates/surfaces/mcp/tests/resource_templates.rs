@@ -96,9 +96,9 @@ fn a_scheme_ref_id_is_an_entity_id_in_both_entity_templates() {
         assert!(reply["result"].to_string().contains(id), "{uri}: {reply}");
     }
     for uri in [
-        "specforge://graph/a.b",
+        "specforge://graph/a..b",
         "specforge://graph/a.b-c:d",
-        "specforge://context/1abc",
+        "specforge://context/-1abc",
     ] {
         assert_refused(&mut server, uri, "entity_id");
     }

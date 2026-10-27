@@ -362,7 +362,7 @@ impl Searched {
             query: query.to_string(),
             contributes: contributes.map(|c| c.name().to_string()),
             results: self.found.clone(),
-            diagnostics: DiagnosticList(self.failures.clone()),
+            diagnostics: DiagnosticList::from(self.failures.clone()),
         }
     }
 
@@ -423,6 +423,7 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             "feature flags",
             DeclaredCategory::FeatureFlags,
         ),
+        category("codes", "diagnostic code catalog", DeclaredCategory::Codes),
     ],
     default: None,
 };

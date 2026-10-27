@@ -156,3 +156,39 @@ fn every_reply_writes_an_obligation_as_the_graph_export_does() {
     assert_eq!(*verify, payload["verify_expectations"], "{payload}");
     assert_eq!(Some(verify.clone()), in_context, "{exported}");
 }
+
+#[specforge_test(
+    behavior = "inspect_entity_facts",
+    verify = "inspect writes a block list as an array of objects, and specforge.edit appends an item to it"
+)]
+fn mcp_inspect_shows_blocks_and_edits_them() {
+    use specforge_project::testing::{TYPED_EXTENSION, typed_kinds};
+    let mut server = TestProject::new()
+        .file(
+            "a.spec",
+            "milestone v1.0 \"One\" { }\nphase 02 \"Two\" { milestone v1.0 }\nphase 03 \"Three\" { milestone v1.0 }\n\
+             plan 03-02 \"Plan\" {\n  phase v1.0/03\n  files_modified [\"src/a.ts\"]\n}\n\
+             summary 03-02-S \"S\" {\n  plan v1.0/03/03-02\n  requires [{ phase 02 provides \"x\" }]\n}\n",
+        )
+        .serve(&[TestExtension::named(TYPED_EXTENSION).declaring(typed_kinds)]);
+
+    let inspected = tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "03-02-S"}),
+    );
+    assert_eq!(
+        inspected["fields"]["requires"],
+        json!([{"phase": "02", "provides": "x"}]),
+        "{inspected}"
+    );
+
+    let reply = tool(
+        &mut server,
+        "specforge.edit",
+        json!({"edits": [{"op": "append", "entity_id": "03-02-S", "field": "requires",
+            "value": {"phase": "03", "provides": "y"}}], "dry_run": true}),
+    );
+    let diff = reply["diff"].as_str().unwrap_or_default();
+    assert!(diff.contains("+    { phase 03 provides \"y\" }"), "{reply}");
+}

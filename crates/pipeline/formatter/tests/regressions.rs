@@ -175,3 +175,41 @@ fn a_text_holding_a_control_character_is_left_as_written() {
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
     assert_eq!(result.diagnostics[0].code, "E001");
 }
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "format writes every bare word as it was written, a number-like word and a difference included"
+)]
+fn format_writes_every_bare_word_as_written() {
+    let canonical = "thing AUTH-01 \"T\" {\n  points 2-1\n  more   007\n  parent 03\n  refs   [03, v1.0]\n}\n\ntype L = 01 | 2\n";
+    assert_eq!(fmt(canonical), canonical);
+    // Read, not left alone as an error: the indentation is normalised and the words stay.
+    let untidy = canonical.replace("  points", "      points");
+    assert_eq!(fmt(&untidy), canonical);
+}
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a list of blocks is written one item a line, indented, with no commas"
+)]
+fn format_writes_a_block_list_one_item_a_line() {
+    let source = "thing t \"T\" {\n  f [ {a 1}, {b \"x\" c 2}   ]\n}\n";
+    let formatted = fmt(source);
+    assert_eq!(
+        formatted,
+        "thing t \"T\" {\n  f [\n    { a 1 }\n    { b \"x\" c 2 }\n  ]\n}\n"
+    );
+    assert_eq!(fmt(&formatted), formatted, "idempotent");
+}
+
+#[specforge_test(
+    behavior = "apply_format_rules",
+    verify = "a list of blocks is written one item a line, indented, with no commas"
+)]
+fn a_block_list_item_with_a_trailing_comment_stays_multi_line() {
+    let source = "thing t \"T\" {\n  r [ { a 1 // note\nb 2 } ]\n}\n";
+    let formatted = fmt(source);
+    assert!(formatted.contains("// note\n"), "{formatted}");
+    assert!(!formatted.contains("// note b"), "{formatted}");
+    assert_eq!(fmt(&formatted), formatted, "idempotent");
+}

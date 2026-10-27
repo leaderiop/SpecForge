@@ -11,7 +11,7 @@
 
 use crate::Environment;
 use serde::Deserialize;
-use specforge_graph::GraphBuild;
+use specforge_graph::{Found, GraphBuild};
 use specforge_protocol_types::{EntityTests, TestResult, TestResults};
 use specforge_registry::{Disk, EntitySnapshot, Standing};
 use std::collections::BTreeMap;
@@ -53,20 +53,28 @@ pub struct ReportedTest {
 
 pub use specforge_coverage::{Status, Summary, Verdict};
 
-/// The report as a pass receives it and the coverage rule reads it
-/// (`PassInput::test_results`): each test's result without its runner.
-impl From<&TestReport> for TestResults {
-    fn from(report: &TestReport) -> Self {
+impl TestReport {
+    /// The report as a pass receives it and the coverage rule reads it (`PassInput::test_results`): each test's
+    /// result without its runner, each entity keyed by its path. A key that is a path, a rooted path or a unique
+    /// short form of one of `entities` is re-keyed to the path (ADR 0284); any other key stays as written, naming
+    /// no entity, and several keys of one entity are one.
+    pub fn results(&self, entities: &EntitySnapshot) -> TestResults {
+        let mut results: BTreeMap<String, EntityTests> = BTreeMap::new();
+        for (key, entity) in &self.results {
+            let id = match entities.find(key) {
+                Found::One(path) => path.to_string(),
+                _ => key.clone(),
+            };
+            let tests = entity.tests.iter().map(|t| t.result.clone());
+            results
+                .entry(id)
+                .or_insert_with(|| EntityTests { tests: Vec::new() })
+                .tests
+                .extend(tests);
+        }
         TestResults {
-            runner: report.runner.clone(),
-            results: report
-                .results
-                .iter()
-                .map(|(id, entity)| {
-                    let tests = entity.tests.iter().map(|t| t.result.clone()).collect();
-                    (id.clone(), EntityTests { tests })
-                })
-                .collect(),
+            runner: self.runner.clone(),
+            results,
         }
     }
 }
@@ -162,7 +170,7 @@ impl ProjectCoverage {
     /// which computes it once per compile and report content.
     pub(crate) fn compute(entities: &Arc<EntitySnapshot>, report: Option<&TestReport>) -> Self {
         let rule_entities = entities.coverage_entities();
-        let results = report.map(TestResults::from);
+        let results = report.map(|r| r.results(entities));
         let assessment = specforge_coverage::assess(&rule_entities, results.as_ref(), None, None);
         ProjectCoverage {
             entities: Arc::clone(entities),
@@ -409,6 +417,7 @@ mod tests {
             Arc::new(EntitySnapshot::of(
                 &self.graph,
                 &self.registries,
+                Path::new(""),
                 Path::new(""),
             ))
         }

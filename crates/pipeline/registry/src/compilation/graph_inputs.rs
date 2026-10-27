@@ -5,11 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs, Target};
+use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs};
 
 use crate::{FieldRegistry, KindRegistry};
 
 pub(super) fn derive(
+    kinds: &KindRegistry,
     fields: &FieldRegistry,
     forms: &FieldForms,
     owner_of: impl Fn(&str) -> Option<String>,
@@ -18,7 +19,16 @@ pub(super) fn derive(
         target_owners: target_owners(forms, owner_of),
         field_forms: forms.clone(),
         derived_references: derived_references(fields),
+        scopes: scopes(kinds),
     }
+}
+
+/// Each scoped kind's scope field (ADR 0284): the declared `scoped_by` the registry build kept.
+fn scopes(kinds: &KindRegistry) -> BTreeMap<String, String> {
+    kinds
+        .iter()
+        .filter_map(|(kind, entry)| Some((kind.clone(), entry.scoped_by.clone()?)))
+        .collect()
 }
 
 /// For each target kind no loaded extension declares, the extension that owns it (`owner_of`, the
@@ -31,10 +41,8 @@ fn target_owners(
     forms
         .targets()
         .into_iter()
-        .filter_map(|(_, target)| match target {
-            Target::Absent(kind) => Some((kind.to_string(), owner_of(kind)?)),
-            Target::Loaded(_) => None,
-        })
+        .flat_map(|(_, target)| target.absent())
+        .filter_map(|kind| Some((kind.to_string(), owner_of(kind)?)))
         .collect()
 }
 
@@ -66,7 +74,7 @@ fn derived_references(fields: &FieldRegistry) -> Vec<DerivedReference> {
         .iter()
         .filter(|(_, _, entry)| entry.field_type().is_reference())
         .filter_map(|(kind, field, entry)| {
-            entry.form().target_kind()?;
+            (!entry.form().target_kinds().is_empty()).then_some(())?;
             Some(DerivedReference {
                 source_kind: kind.to_string(),
                 field: field.to_string(),

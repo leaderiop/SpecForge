@@ -9,7 +9,7 @@ use specforge_graph::FieldForm;
 use specforge_parser::Written;
 use specforge_protocol_types::FieldType;
 
-use crate::entity::EntityRecord;
+use crate::entity::{EntityRecord, FieldRecord};
 use crate::{FieldRegistry, KindRegistry};
 
 /// W159 for every value written in the other form than its field's, one per
@@ -36,6 +36,12 @@ pub(super) fn off_form(
                 continue;
             }
             for rewrite in &field.rewrites {
+                // A member E061 refuses gets none, as a field does.
+                if rewrite.field != field.key
+                    && refused_member(record, field, &rewrite.field, fields)
+                {
+                    continue;
+                }
                 let holder = if inherited(&record.span, &rewrite.span) {
                     if !defaults_reported.insert(&rewrite.span) {
                         continue;
@@ -55,16 +61,18 @@ pub(super) fn off_form(
                     (_, Written::Literal) => (literal_what(declared.form()), "write it bare"),
                     _ => ("text", "quote it"),
                 };
-                let item = if !rewrite.listed && field.shape.is_list() {
-                    "an item of field"
-                } else {
-                    "field"
+                let is_member = rewrite.field != field.key;
+                let item = match (is_member, !rewrite.listed && field.shape.is_list()) {
+                    (true, _) => "member",
+                    (false, true) => "an item of field",
+                    (false, false) => "field",
                 };
+                let written_as = rewrite.field.rsplit('.').next().unwrap_or(&rewrite.field);
                 let mut diagnostic = Diagnostic::new(
                     codes::W159,
                     format!(
-                        "{item} '{}' of {holder} is {what}: {fix}, as {} {}",
-                        field.key, field.key, rewrite.value
+                        "{item} '{}' of {holder} is {what}: {fix}, as {written_as} {}",
+                        rewrite.field, rewrite.value
                     ),
                 )
                 .with_span(rewrite.span.clone());
@@ -81,6 +89,21 @@ pub(super) fn off_form(
         }
     }
     diagnostics
+}
+
+/// Whether the member `path` (written) of `field` is one E061 refuses.
+fn refused_member(
+    record: &EntityRecord,
+    field: &FieldRecord,
+    path: &str,
+    fields: &FieldRegistry,
+) -> bool {
+    let Some(member) = field.members.iter().find(|m| m.key == path) else {
+        return false;
+    };
+    fields
+        .get_path(&record.kind, &member.declared)
+        .is_some_and(|(_, form)| form.admit(member.shape, &member.text).is_err())
 }
 
 /// Whether `value` lies outside `block`: an inherited entry keeps its default's spans (ADR 0149 D9).

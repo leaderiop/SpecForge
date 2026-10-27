@@ -577,3 +577,49 @@ fn an_edge_type_losing_an_end_is_breaking_and_gaining_one_is_an_addition() {
     let changes = diff(&open, &closed);
     assert!(!breaking(&changes) && additions(&changes), "{changes:?}");
 }
+
+/// The sample schema with a `block` field `requires` holding `members` and a `reference` field `gap` naming
+/// `targets`, as the wire writes them (ADR 0285).
+fn with_members(members: serde_json::Value, targets: serde_json::Value) -> GraphProtocolSchema {
+    let mut wire = serde_json::to_value(sample_schema()).unwrap();
+    let fields = wire["entity_kinds"][0]["fields"].as_array_mut().unwrap();
+    for field in [
+        serde_json::json!({"name": "requires", "field_type": "block", "required": false,
+            "members": members, "source_extension": "@specforge/software"}),
+        serde_json::json!({"name": "gap", "field_type": "reference", "required": false,
+            "target_kinds": targets, "source_extension": "@specforge/software"}),
+    ] {
+        fields.push(field);
+    }
+    serde_json::from_value(wire).unwrap()
+}
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
+    verify = "a required member or a bound tightened is major, a member or a target kind added is minor"
+)]
+fn a_schema_change_to_members_is_classified() {
+    let source = "@specforge/software";
+    let optional = serde_json::json!({"name": "x", "field_type": "string", "required": false, "source_extension": source});
+    let required = serde_json::json!({"name": "y", "field_type": "string", "required": true, "source_extension": source});
+    let old = with_members(
+        serde_json::json!([optional]),
+        serde_json::json!(["verify_gap", "uat_gap"]),
+    );
+    let bump = |new: &GraphProtocolSchema| diff(&old, new).iter().map(SchemaChange::bump).max();
+    let more_members = with_members(
+        serde_json::json!([optional, required]),
+        serde_json::json!(["verify_gap", "uat_gap"]),
+    );
+    assert_eq!(bump(&more_members), Some(Bump::Major));
+    let more_kinds = with_members(
+        serde_json::json!([optional]),
+        serde_json::json!(["verify_gap", "uat_gap", "truth"]),
+    );
+    assert_eq!(bump(&more_kinds), Some(Bump::Minor));
+    let fewer_kinds = with_members(
+        serde_json::json!([optional]),
+        serde_json::json!(["verify_gap"]),
+    );
+    assert_eq!(bump(&fewer_kinds), Some(Bump::Major));
+}

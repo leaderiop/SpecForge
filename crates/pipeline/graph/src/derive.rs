@@ -8,9 +8,10 @@
 //! with the position it is written at, so the graph's finder reports it
 //! (`written_tokens`, ADR 0176).
 
+use crate::scope::{Found, Scopes};
 use crate::{Edge, Graph, Reading};
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes};
-use specforge_parser::lex::{LexemeKind, lex};
+use specforge_parser::lex::{LexemeKind, is_path, lex};
 use specforge_parser::{FieldEntry, FieldValue, MethodDecl, Written};
 
 /// The type names that are no entity: what an unknown type name is checked against (E004, ADR 0282 D1), and what the
@@ -179,32 +180,52 @@ fn type_expressions<'v>(
 /// The names inside a type expression, each with where it is written: the identifiers of the language's lexer
 /// (`Result<A, B[]>` -> Result, A, B), at the expression's position plus the identifier's offset.
 fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>, &str)> {
-    lex(expression.text)
-        .into_iter()
-        .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
-        .map(move |lexeme| {
-            (
-                &expression.text[lexeme.start..lexeme.end],
-                expression
-                    .at
-                    .map(|at| within(at, expression.text, lexeme.start, lexeme.end)),
-                expression.owner,
-            )
-        })
+    // A value or bare item that is one word holding `-` or `.`, or starting with a digit (`Money-v2`, `2-1`, `v1.0`,
+    // `007`), or a path of names (`v1.0/03/Money`, ADR 0284), is one name, as the grammar reads it (ADR 0283); a structured type expression keeps the lexer's identifiers.
+    let text = expression.text;
+    let whole = is_path(text)
+        && (text.contains(['-', '.', '/']) || text.starts_with(|c: char| c.is_ascii_digit()));
+    let lexemes = if whole {
+        vec![(0, text.len())]
+    } else {
+        lex(text)
+            .into_iter()
+            .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
+            .map(|lexeme| (lexeme.start, lexeme.end))
+            .collect()
+    };
+    lexemes.into_iter().map(move |(start, end)| {
+        (
+            &text[start..end],
+            expression.at.map(|at| within(at, text, start, end)),
+            expression.owner,
+        )
+    })
+}
+
+/// One type name that links, as it is written and as it resolves.
+pub(crate) struct DerivedName<'v> {
+    /// The name or path as written.
+    pub written: &'v str,
+    /// The entity it names.
+    pub path: Sym,
+    /// Where it is written (`None`: a value built without a position).
+    pub at: Option<SourceSpan>,
 }
 
 /// The names `reference` links from one block of its kind, in written order, each with where it is written (`None`: a
 /// value built without a position): the type names of the block's type expressions (`entries` as the graph build
-/// stores them, and `methods`) that are not `own` and name an entity (`kind_of`) the field's declared target admits.
-/// None when the field declares no target. The linker makes each an edge, the finder a token (ADR 0163).
-pub(crate) fn derived_names(
+/// stores them, and `methods`) that are not the entity `from` itself and name an entity, resolved from `from`'s scope
+/// chain (`None`: the project's), that the field's declared target admits. None when the field declares no target.
+/// The linker makes each an edge, the finder a token (ADR 0163).
+pub(crate) fn derived_names<'v>(
     reference: &DerivedReference,
     forms: &crate::FieldForms,
-    entries: &[FieldEntry],
-    methods: &[MethodDecl],
-    own: Option<Sym>,
-    kind_of: &dyn Fn(&str) -> Option<Sym>,
-) -> Vec<(Sym, Option<SourceSpan>)> {
+    entries: &'v [FieldEntry],
+    methods: &'v [MethodDecl],
+    from: Option<Sym>,
+    scopes: &Scopes,
+) -> Vec<DerivedName<'v>> {
     let kind = reference.source_kind.as_str();
     let Some(target) = forms.target(kind, &reference.field) else {
         return Vec::new();
@@ -212,25 +233,27 @@ pub(crate) fn derived_names(
     type_expressions(reference, forms, kind, entries, methods)
         .into_iter()
         .flat_map(names)
-        .map(|(name, at, _)| (Sym::new(name), at))
-        .filter(|(name, _)| {
-            Some(*name) != own && kind_of(name.as_str()).is_some_and(|k| target.admits(k.as_str()))
+        .filter_map(|(written, at, _)| {
+            let Found::One(path) = scopes.chain(from, written, &|k| target.admits(k)) else {
+                return None;
+            };
+            (Some(path) != from).then_some(DerivedName { written, path, at })
         })
         .collect()
 }
 
 /// The names `reference` reads as types from one block of its kind, outside a union body's variants and a list's
-/// items (`TypeExpression::typed`), that are not `own`, no [`PRIMITIVE_TYPES`] entry,
-/// and name no entity (`kind_of`) the field's target admits: each with where it is written and the field key or
-/// method name it is in. The same walk as [`derived_names`], so the linker and the report agree on what a type
-/// name is (ADR 0282 D1). None when the field declares no target.
+/// items (`TypeExpression::typed`), that are not the entity `from` itself, no [`PRIMITIVE_TYPES`] entry,
+/// and name no entity (resolved from `from`'s scope chain) the field's target admits: each with where it is written
+/// and the field key or method name it is in. The same walk as [`derived_names`], so the linker and the report agree
+/// on what a type name is (ADR 0282 D1). None when the field declares no target.
 pub(crate) fn unknown_type_names<'v>(
     reference: &DerivedReference,
     forms: &crate::FieldForms,
     entries: &'v [FieldEntry],
     methods: &'v [MethodDecl],
-    own: Option<Sym>,
-    kind_of: &dyn Fn(&str) -> Option<Sym>,
+    from: Option<Sym>,
+    scopes: &Scopes,
 ) -> Vec<(&'v str, Option<SourceSpan>, &'v str)> {
     let kind = reference.source_kind.as_str();
     let Some(target) = forms.target(kind, &reference.field) else {
@@ -241,11 +264,13 @@ pub(crate) fn unknown_type_names<'v>(
         .filter(|expression| expression.typed)
         .flat_map(names)
         .filter(|(name, _, _)| {
-            Some(Sym::new(name)) != own
-                // `fn` is a function type's keyword (`fn(A) -> B`), not a name.
-                && *name != "fn"
+            // `fn` is a function type's keyword (`fn(A) -> B`), not a name. The entity itself is a known name.
+            *name != "fn"
                 && !PRIMITIVE_TYPES.contains(name)
-                && !kind_of(name).is_some_and(|k| target.admits(k.as_str()))
+                && !matches!(
+                    scopes.chain(from, name, &|k| target.admits(k)),
+                    Found::One(_)
+                )
         })
         .collect()
 }
@@ -286,18 +311,17 @@ impl Graph {
         let mut diagnostics = Vec::new();
         for reference in derived {
             for node in self.nodes_by_kind(&reference.source_kind) {
-                let kind_of = |name: &str| self.node(name).map(|named| named.kind.raw);
                 let names = derived_names(
                     reference,
                     forms,
                     node.fields.entries(),
                     &node.methods,
                     Some(node.id.raw),
-                    &kind_of,
+                    self.scopes(),
                 );
-                edges.extend(names.into_iter().map(|(name, _)| Edge {
+                edges.extend(names.into_iter().map(|name| Edge {
                     source: node.id.raw,
-                    target: name,
+                    target: name.path,
                     label: Sym::new(&reference.field),
                 }));
                 let unknown = unknown_type_names(
@@ -306,7 +330,7 @@ impl Graph {
                     node.fields.entries(),
                     &node.methods,
                     Some(node.id.raw),
-                    &kind_of,
+                    self.scopes(),
                 );
                 for (name, at, owner) in unknown {
                     let place = match reference.from {
@@ -325,6 +349,7 @@ impl Graph {
                         entity: node.id.raw.to_string(),
                         field: owner.to_string(),
                         did_you_mean: None,
+                        candidates: Vec::new(),
                     })
                     .with_suggestion(format!(
                         "declare a type '{name}', or name a declared type or a primitive"

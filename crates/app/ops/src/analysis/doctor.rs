@@ -22,7 +22,7 @@
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{Diagnostic, DiagnosticData, Severity, codes};
+use specforge_common::{Codebook, Diagnostic, DiagnosticData, Severity, codes};
 use specforge_installed::Health;
 use specforge_project::{Environment, SetupPart};
 use std::collections::BTreeMap;
@@ -132,7 +132,7 @@ impl Finding {
     /// The finding `diagnostic` is, about `about`: its message, code and
     /// severity; its own suggestion, else the catalogue's explanation, else
     /// how to read more.
-    fn of(about: About, diagnostic: &Diagnostic) -> Finding {
+    fn of(about: About, diagnostic: &Diagnostic, codes: &Codebook) -> Finding {
         let code = &diagnostic.code;
         let fallback = match about {
             About::Conflict { .. } => format!(
@@ -148,7 +148,7 @@ impl Finding {
             status: FindingStatus::of(diagnostic.severity),
             check: diagnostic.message.clone(),
             code: code.clone(),
-            remediation: remediation(diagnostic, || fallback),
+            remediation: remediation(diagnostic, codes, || fallback),
             about,
         }
     }
@@ -182,7 +182,7 @@ pub enum About {
     Rule,
     /// An extension's surfaces (E055).
     Surface,
-    /// Two contributions claim one name (E026, W018, W023, E039, E057); a
+    /// Two contributions claim one name (E026, W018, E039, E057); a
     /// kind keyword registered twice names the keyword it shadows.
     Conflict {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -400,7 +400,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
             check: format!("{} [{}]", problem.message, problem.code),
             status: FindingStatus::Error,
             code: LOCK_UNREADABLE.into(),
-            remediation: remediation(problem, || {
+            remediation: remediation(problem, view.registries().codes(), || {
                 format!(
                     "run `{}`",
                     specforge_common::remedy::command("specforge explain {}", &[&problem.code])
@@ -457,6 +457,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
         findings.push(Finding::of(
             about(setup.part, setup.diagnostic),
             setup.diagnostic,
+            view.registries().codes(),
         ));
     }
 
@@ -464,12 +465,20 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
     // shadows (E013).
     for diagnostic in view.reported().iter().filter(|d| d.is(codes::E013)) {
         let keyword = keyword_of(diagnostic).unwrap_or_default();
-        findings.push(Finding::of(About::Shadowing { keyword }, diagnostic));
+        findings.push(Finding::of(
+            About::Shadowing { keyword },
+            diagnostic,
+            view.registries().codes(),
+        ));
     }
 
     // 4. The toolchain: the solver `specforge analyze --prove` asks.
     if let Availability::Unavailable(diagnostic) = solver.availability() {
-        findings.push(Finding::of(About::Toolchain, &diagnostic));
+        findings.push(Finding::of(
+            About::Toolchain,
+            &diagnostic,
+            view.registries().codes(),
+        ));
     }
 
     DoctorReport {
@@ -535,13 +544,14 @@ fn written_edge_types(fields: &[specforge_protocol_types::FieldDescriptor]) -> V
 }
 
 /// How to fix what `diag` reports: its own suggestion, else the
-/// catalogue's explanation of its code, else `fallback` (a code the
+/// code book's explanation of its code, else `fallback` (a code the
 /// catalogue doesn't have).
-fn remediation(diag: &Diagnostic, fallback: impl FnOnce() -> String) -> String {
+fn remediation(diag: &Diagnostic, codes: &Codebook, fallback: impl FnOnce() -> String) -> String {
     diag.suggestion
         .clone()
         .or_else(|| {
-            specforge_diagnostics::describes(&diag.code, diag.origin())
+            codes
+                .describes(&diag.code, diag.origin())
                 .map(|e| e.explanation.to_string())
         })
         .unwrap_or_else(fallback)

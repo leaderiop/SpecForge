@@ -106,6 +106,7 @@ fn known_entities_are_the_snapshots_records() {
                 description: "second".into(),
             },
         ],
+        scope: None,
     });
     let fixture = specforge_project::testing::Assembled::new().graph(graph);
     let view = fixture.view();

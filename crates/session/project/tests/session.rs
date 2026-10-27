@@ -2172,7 +2172,7 @@ fn a_sessions_snapshot_follows_every_update() {
         .unwrap()
         .clone();
     assert_eq!(standing.declared, 0);
-    assert_eq!(standing.reported_by(), Some("P300"));
+    assert_eq!(standing.reported_by(), Some("pin.items/P300"));
     assert_eq!(
         last_pass_input()["entities"][0]["verify_texts"],
         serde_json::json!([])

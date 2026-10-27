@@ -1,7 +1,7 @@
 use super::build::{BuildPart, Reported};
 use super::edge_types;
 use crate::{
-    EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
+    EdgeRegistry, FieldProblem, FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
     UnknownFieldType,
 };
 use specforge_common::{Diagnostic, DiagnosticData, codes};
@@ -9,6 +9,7 @@ use specforge_protocol_types::{
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
     FieldDescriptor, FieldType,
 };
+use std::collections::BTreeMap;
 
 /// The keyword a kind's entities are written with: its declared keyword,
 /// else its name.
@@ -39,6 +40,9 @@ pub(crate) fn populate(
         &mut field_reg,
     ));
 
+    // Once every kind, field and enhancement is registered: each kind's scope field (ADR 0284).
+    resolve_scopes(&mut kind_reg, &field_reg, &mut diagnostics);
+
     // Once every kind, field and enhancement is registered: each edge type
     // with every field that writes it (ADR 0060).
     let (edge_reg, edge_diagnostics) =
@@ -50,6 +54,96 @@ pub(crate) fn populate(
     );
 
     (kind_reg, field_reg, edge_reg, diagnostics)
+}
+
+/// Check each kind's `scoped_by` (ADR 0284) and keep the ones that hold: the field is a registered single
+/// `reference` with a target kind that is a loaded kind other than the kind itself (a structural keyword is no
+/// loaded kind), and it closes no scope cycle (the kinds form a DAG). Each failure is W021 and leaves the kind
+/// unscoped. Kinds are taken in keyword order, so which kind of a cycle is left unscoped does not depend on the
+/// registry's hash order.
+fn resolve_scopes(
+    kinds: &mut KindRegistry,
+    fields: &FieldRegistry,
+    diagnostics: &mut Vec<Reported>,
+) {
+    let mut declared: Vec<(String, String)> = kinds
+        .iter()
+        .filter_map(|(kind, entry)| Some((kind.clone(), entry.declared.scoped_by.clone()?)))
+        .collect();
+    declared.sort();
+    // The accepted scope kind of each scoped kind.
+    let mut parent: BTreeMap<String, String> = BTreeMap::new();
+    for (kind, field) in declared {
+        let extension = kinds
+            .get(&kind)
+            .map(|e| e.source_extension.clone())
+            .unwrap_or_default();
+        let refuse = |why: String| {
+            Reported::new(
+                BuildPart::Registries,
+                Diagnostic::new(
+                    codes::W021,
+                    format!(
+                        "extension '{extension}': kind '{kind}' declares scoped_by '{field}', which {why}"
+                    ),
+                ),
+            )
+        };
+        if field.contains('.') {
+            diagnostics.push(refuse(
+                "is a member path: a scope is one kind, named by a field of the kind".into(),
+            ));
+            continue;
+        }
+        let Some(entry) = fields.get(&kind, &field) else {
+            diagnostics.push(refuse("is not one of its fields".into()));
+            continue;
+        };
+        if entry.field_type() != FieldType::Reference {
+            diagnostics.push(refuse("is not a single reference field".into()));
+            continue;
+        }
+        if entry.form().target_kinds().len() > 1 {
+            diagnostics.push(refuse(
+                "names several kinds with target_kinds: a scope is one kind".into(),
+            ));
+            continue;
+        }
+        let Some(target) = entry.form().target_kind() else {
+            diagnostics.push(refuse("declares no target kind".into()));
+            continue;
+        };
+        if target == kind {
+            diagnostics.push(refuse("targets the kind itself".into()));
+            continue;
+        }
+        if !kinds.contains(target) {
+            diagnostics.push(refuse(format!(
+                "targets '{target}', which is no loaded entity kind"
+            )));
+            continue;
+        }
+        // The scopes above `target` must not lead back to `kind`.
+        let mut above = parent.get(target);
+        let mut closes = false;
+        while let Some(up) = above {
+            if *up == kind {
+                closes = true;
+                break;
+            }
+            above = parent.get(up);
+        }
+        if closes {
+            diagnostics.push(refuse(format!(
+                "targets '{target}', which closes a scope cycle"
+            )));
+            continue;
+        }
+        parent.insert(kind.clone(), target.to_string());
+        if let Some(entry) = kinds.get_mut(&kind) {
+            entry.scoped_by = Some(field);
+        }
+    }
 }
 
 /// Apply entity enhancements to the FieldRegistry, declarations in load
@@ -156,6 +250,7 @@ fn register_entity_kinds(
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.verify_kinds.clone(),
             lifecycle_field: lifecycle_field(kind, declaration, diagnostics),
+            scoped_by: None,
             declared: kind.clone(),
         };
         if let Some(existing) = registry.register(entry) {
@@ -236,36 +331,24 @@ fn register_single_field(
                     ),
                 ));
             }
-            if entry.field_type() == FieldType::Enum {
-                if entry.enum_values().is_empty() {
-                    diagnostics.push(Reported::new(
-                        BuildPart::Registries,
-                        Diagnostic::new(
-                            codes::W021,
+            for problem in entry.problems() {
+                diagnostics.push(Reported::new(
+                    BuildPart::Registries,
+                    match problem {
+                        FieldProblem::UnknownMemberType { member, field_type } => Diagnostic::new(
+                            codes::W019,
                             format!(
-                                "extension '{}': field '{}' on kind '{}' is an enum that declares no values",
-                                source_extension, field.name, kind_name
+                                "extension '{source_extension}': unknown field type '{field_type}' for member '{member}' on kind '{kind_name}'"
                             ),
                         ),
-                    ));
-                } else if let Some(default) = field.default_value.as_deref()
-                    && !entry.enum_values().iter().any(|v| v == default)
-                {
-                    diagnostics.push(Reported::new(
-                        BuildPart::Registries,
-                        Diagnostic::new(
+                        FieldProblem::Refused { field, what } => Diagnostic::new(
                             codes::W021,
                             format!(
-                                "extension '{}': field '{}' on kind '{}' declares default_value '{}', which is not one of its values: {}",
-                                source_extension,
-                                field.name,
-                                kind_name,
-                                default,
-                                entry.enum_values().join(", ")
+                                "extension '{source_extension}': field '{field}' on kind '{kind_name}' {what}"
                             ),
                         ),
-                    ));
-                }
+                    },
+                ));
             }
             registry.register(entry);
         }

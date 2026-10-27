@@ -90,6 +90,10 @@ fn doc_comment(lines: &[String], doc: &SourceSpan) -> Option<(usize, String)> {
 /// `id` as Title Case words: split at `_` and before a capital that follows a lowercase letter or a digit.
 /// Shortcut: a run of capitals (`HTTPServer`) stays one word; no tracked id has one.
 fn words(id: &str) -> String {
+    // A name holding a dash or a dot (`AUTH-01`, `v1.0`) is its own title: it is no snake or camel case (ADR 0283).
+    if id.contains(['-', '.']) {
+        return id.to_string();
+    }
     let mut out = String::new();
     let mut previous: Option<char> = None;
     for c in id.chars() {

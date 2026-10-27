@@ -10,7 +10,6 @@ mod disk;
 pub mod entity;
 mod registries;
 pub mod rules;
-pub use rules::declared_level;
 pub mod snapshot;
 
 #[cfg(test)]
@@ -21,8 +20,8 @@ pub use disk::{Asked, Disk, MemoryDisk, PlainDisk};
 
 // --- Core registries ---
 pub use registries::{
-    EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, UnknownFieldType,
+    EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldProblem, FieldRegistry, FieldRegistryEntry,
+    KindRegistry, KindRegistryEntry, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
@@ -42,7 +41,7 @@ pub use surface::{
 // --- What the checks after the graph build read about an entity (ADR 0019) ---
 pub use entity::{
     Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord,
-    ParamRecord, RuleInput,
+    ParamRecord, RuleInput, UnknownMember,
 };
 
 // --- E014: the shortest and longest entity IDs ---
@@ -54,6 +53,7 @@ pub use snapshot::{EntitySnapshot, Standing};
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild, build_registries,
+    extension_codes,
 };
 
 // Module paths external code names directly (`specforge_registry::surface::`).

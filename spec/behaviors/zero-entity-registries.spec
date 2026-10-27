@@ -451,6 +451,7 @@ behavior registry_build_fields "Registry Build Registers Fields" {
   verify unit "a registry entry names its type canonically, whatever spelling was declared"
   verify unit "an enum field without values, or whose default_value is not one of its values, is W021 and still registered"
   verify unit "a field declared with a vocabulary registers as an enum of its values, its absent value as its default"
+  verify unit "a block field's members register as forms, read by member path, with their bounds, base and targets"
   verify contract "Registry Build Registers Fields: field registration holds — declarations_in_load_order, fields_registered, types_parsed, roles_checked, enums_checked"
 }
 
@@ -509,6 +510,7 @@ behavior registry_build_edges "Registry Build Registers Edge Types" {
   verify unit "a relation declared from both of its ends is W162, once per field whose inverse_of names a field of its target kind"
   verify unit "two kinds that each declare a reference field targeting the other are W162 once, naming both fields"
   verify unit "the builtin extensions declare no relation from both ends"
+  verify unit "a reference member of a typed block writes its edge type under its declared member path"
   verify contract "Registry Build Registers Edge Types: edge type registration holds — declarations_in_load_order, edge_types_registered, every_writer_named, one_type_per_field, first_wins"
 }
 
@@ -563,7 +565,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   }
   ensures {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
-    duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
+    duplicates_warned      "A local code two extensions declare is two codes, and two extensions that share a code namespace are E039"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
     files_enforced         "Every field registered as a file reference has a host-generated E016 rule"
     unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares is not registered, so it reports nothing"
@@ -574,9 +576,9 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     into one rule set, each rule with the extension that declared it
     (custom rules are dispatched to it), ordered by code; rules sharing a
     code keep load order. A rule that does not parse is W112
-    (parse_validation_rule_pattern). A code two extensions declare MUST
-    produce a W023 warning naming the code and both extensions; both rules
-    are kept. A rule's target kind and edge type are resolved against the
+    (parse_validation_rule_pattern). A code is its extension's namespace and a
+    local code, so one local code from two extensions is two codes; two
+    loaded extensions that share a namespace are E039. A rule's target kind and edge type are resolved against the
     loaded registries: a rule whose target kind or edge type no loaded
     extension declares is not registered, so it reports nothing when rules
     run (and the entities written with that keyword are E024), since it
@@ -594,16 +596,16 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     file_exists rule for every field registered as a file reference.
 
     Each rule's code is checked against the diagnostic catalog when it
-    is registered: an extension's rule uses its own catalogued code at
-    the catalogued level, or a code in E900-E998, W900-W998 or I900-I998
-    whose prefix states the rule's severity. Any other is reported as
+    is registered: an extension's rule uses a code its own catalog lists,
+    at the level its letter states. Any other is reported as
     W150 naming the extension, the code and why, once per code and
     severity; the rule is still registered and runs with the code it
     declares.
   """
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
-  verify unit "a rule code two extensions declare is W023 and both rules are kept"
+  verify unit "one local code from two extensions is two codes"
+  verify unit "two loaded extensions that share a code namespace are E039"
   verify unit "the build drops a rule whose target kind or edge type no loaded extension declares"
   verify unit "a rule whose edge type no loaded extension declares reports nothing"
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
@@ -671,6 +673,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
   verify unit "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
   verify unit "cross-validation uses no domain-specific logic"
   verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
+  verify unit "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
   verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
 }
 
@@ -737,7 +740,7 @@ behavior registry_build_load_order "Registry Build Orders the Extensions" {
   contract   """
     The registry build MUST put the loaded declarations in load order
     before it reads them, and every first-wins rule (E026 kinds, W018 edge
-    labels, enhancement fields, W023 rule codes, surfaces and short names)
+    labels, enhancement fields, rule codes, surfaces and short names)
     and every in-order list (passes, rules, the extensions a schema names,
     migration hooks) MUST follow it. Load order is entry order, except that
     an extension comes after the peers it declares: every required one,

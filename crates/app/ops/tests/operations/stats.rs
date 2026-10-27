@@ -36,6 +36,7 @@ fn node(id: &str, kind: &str) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 
@@ -54,6 +55,7 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
             kind: "unit".to_string(),
             description: "it works".to_string(),
         }],
+        scope: None,
     }
 }
 

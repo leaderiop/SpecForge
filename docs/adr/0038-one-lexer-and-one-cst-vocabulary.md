@@ -1,6 +1,6 @@
 # One reader of the language's lexemes and one CST vocabulary
 
-**Status:** accepted (2026-10-07)
+**Status:** accepted (2026-10-07) Extended by [ADR 0283](0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) (the lexer reads a word in the grammar's value and name slots).
 
 ADR 0023 made `specforge_parser::lex` the one lexer of the `.spec` language beside tree-sitter's
 grammar, and cleanup round B kept the expression tokenizer apart on purpose. Four scanners still copied

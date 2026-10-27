@@ -8,7 +8,7 @@ use super::EditField;
 use super::declared::Declared;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
-use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_common::{Codebook, Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
 use std::collections::{BTreeMap, HashMap};
 
@@ -66,7 +66,7 @@ pub fn check(
     let post = view.project().edited(texts);
     let (errors, rest) = added(&before, post.diagnostics());
     if !errors.is_empty() {
-        return Err(new_errors(errors));
+        return Err(new_errors(errors, view.registries().codes()));
     }
     let delta = compute_graph_delta_over(
         view.project().graph(),
@@ -80,7 +80,7 @@ pub fn check(
     Err(undeclared(&beyond))
 }
 
-fn new_errors(errors: Vec<Diagnostic>) -> Refusal<EditField> {
+fn new_errors(errors: Vec<Diagnostic>, codes: &Codebook) -> Refusal<EditField> {
     let mut message = format!(
         "the edit would leave the project with {} error{} it does not have; nothing was written",
         errors.len(),
@@ -89,7 +89,7 @@ fn new_errors(errors: Vec<Diagnostic>) -> Refusal<EditField> {
     for error in &errors {
         message.push_str(&format!("\n  error[{}]: {}", error.code, error.message));
     }
-    let data = serde_json::json!({ "diagnostics": DiagnosticList(errors) });
+    let data = serde_json::json!({ "diagnostics": DiagnosticList::new(errors, codes) });
     OpError::coded(OpErrorKind::CompilationFailed, codes::E080, message)
         .with_data(data)
         .into()

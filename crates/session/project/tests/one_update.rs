@@ -68,7 +68,7 @@ fn f001(session: &ProjectSession) -> usize {
         .project()
         .diagnostics()
         .iter()
-        .filter(|d| d.code == "F001")
+        .filter(|d| d.code.ends_with("/F001"))
         .count()
 }
 

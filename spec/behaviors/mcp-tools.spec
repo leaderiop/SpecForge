@@ -295,7 +295,7 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
   ensures {
     entry_returned       "The catalogued entry for the code is returned: title, owner, level, explanation and docs link"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
-    declared_returned    "A code the served project's extensions declare is returned from their rules"
+    catalogued_returned  "A code the served project's extensions catalog is returned from their catalogs"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.explain tool
@@ -305,14 +305,14 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
     emitting extension), its level, its explanation and the link to its
     section of docs/diagnostics.md. A retired code returns retired true and
     the entry of the code that replaced it, if any. It is the operation
-    specforge explain runs (explain_diagnostic_code). A code the catalogue
+    specforge explain runs (explain_diagnostic_code). A code the code book
     neither has nor retired MUST be an invalid_input error naming the code
     argument, its suggestion the code forms.
   """
   verify unit "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
   verify unit "a retired code names the code that replaced it"
   verify unit "an uncatalogued code is an invalid_input error"
-  verify unit "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
+  verify unit "specforge.explain explains a code the served project's extensions catalog, as specforge explain does"
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {

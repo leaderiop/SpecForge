@@ -195,6 +195,7 @@ fn add_entity_with(
             },
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         });
 }
 

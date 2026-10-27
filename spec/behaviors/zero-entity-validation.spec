@@ -135,6 +135,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
   verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
+  verify unit "a field_value_constraint over a declared member path judges each item of a typed block"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 
@@ -360,6 +361,7 @@ behavior check_entities_in_one_order "Check the Entities in One Order" {
   verify unit "the entity-ID rule answers for an ID exactly what E013 and E014 report of it"
   verify unit "the checks read only through their disk: the paths file_exists rules read, E016's among them, and the directory a missing path's suggestion lists"
   verify integration "a compile reports the structural checks in the order the registry build runs them"
+  verify unit "E013 and E014 judge an entity's name, not its path"
 }
 
 // -- Field Validation --------------------------------------------------------
@@ -447,14 +449,18 @@ behavior check_field_value_types "Check Field Value Types" {
     `field [value]` parses to), and a list mixing strings, integers and
     booleans the list of its items' text. A quoted integer or boolean on an
     integer or bool field MUST become that integer or boolean, a quoted calendar day on a date field MUST become that date, and an
-    integer or boolean on a string or enum field MUST become its text.
+    integer or boolean on a string or enum field MUST become its text. A bare word is read by its field's
+    declared type (ADR 0283): on a reference field a number, a date or `true` / `false` is the name it is
+    written as (`10`, `2026-10-26`), a negative number none; on an integer field `-?N(-N)*` is an integer
+    difference in checked 64-bit arithmetic (`2-1` is 1, `007` is 7) and a date is its difference
+    (`2026-10-26` is 1990), quoted or bare.
     Coercion MUST NOT produce a diagnostic.
 
     A stored value its declared type does not take MUST produce an E061
     error at the value's source span naming the field, the declared type
     and the value given (a string quoted as a .spec string writes it). A string field takes text, a bare word, a date, a
     type union or an expression group; an enum one of its declared values
-    (suggesting the closest); an integer field an integer; a bool field
+    (suggesting the closest); an integer field an integer, a difference or a date (E061 names the operand that is no number); a bool field
     true or false; a date field one calendar day, `YYYY-MM-DD`, that exists; an identifier field one word (letters, digits and `_`,
     starting with a letter or `_`), bare or quoted; a reference field one id;
     a string_list or reference_list field a list; a block field a block. Fields no
@@ -481,6 +487,11 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a single string on a string_list field becomes a one-item list"
   verify unit "a single reference on a reference_list field becomes a one-item list"
   verify unit "a value that is not the declared integer, bool or enum type is an error"
+  verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
+  verify unit "a block field with no declared members is an open map of named text entries"
+  verify unit "no builtin or pinned example declaration declares a member, a target union, a bound, a file base, an enum list or a block list"
+  verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
+  verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
   verify unit "a list on a field declared as a single value is an error"
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"
@@ -501,5 +512,15 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a quoted calendar day on a date field is W159, written bare"
   verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
   verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
+  verify unit "an enum list takes the declared words, each once, and a scalar is a one-item list"
+  verify unit "a typed block reads and admits each member by its own declared type"
+  verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
+  verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
+  verify unit "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+  verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
+  verify unit "a block list takes a list of blocks and a typed block writes an object closed to its members"
+  verify unit "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
+  verify unit "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
+  verify unit "a member written in another form than its type gives is W159 at the member, named by its path"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }

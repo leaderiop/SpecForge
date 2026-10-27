@@ -8,6 +8,7 @@ use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::find_close_match;
 use specforge_formatter::FormatConfig;
 use specforge_graph::field_form::Reading;
+use specforge_graph::{Found, Scopes};
 use specforge_registry::FieldRegistryEntry;
 
 /// The edit names a field its kind does not declare.
@@ -18,15 +19,27 @@ const OTHER_SIDE: &str = "other_side";
 /// The entity an edit changes, and where it is.
 pub struct Site<'a> {
     pub view: &'a ProjectView<'a>,
+    /// Who is in which scope once the edits before this one are made (ADR 0284): what a written name resolves with.
+    pub scopes: &'a Scopes,
     /// The file, relative to the project root.
     pub key: &'a str,
     pub id: &'a str,
     pub kind: &'a str,
+    /// Which of the blocks the file declares with this name and kind is the entity's, in file order.
+    pub ordinal: usize,
     /// The format configuration of the entity's file, looked up once per plan (ADR 0169).
     pub config: FormatConfig,
 }
 
 impl Site<'_> {
+    /// The name the entity is declared with: its path without its scope's (a scheme ref id is all name).
+    pub fn name(&self) -> &str {
+        if self.id.contains(':') {
+            return self.id;
+        }
+        self.id.rsplit('/').next().unwrap_or(self.id)
+    }
+
     /// How `field` of the entity's kind reads; refused when the kind does not declare it. A value naming `target`
     /// (a link's or unlink's): an undeclared `field` whose target's
     /// kind owns a relation into this kind is told as that relation's other side, as E079 tells it by its values.
@@ -60,8 +73,10 @@ impl Site<'_> {
             );
         }
         let target = target.and_then(|id| {
-            let node = self.view.graph().node(id)?;
-            Some((id, node.kind.raw.as_str()))
+            let Found::One(path) = self.scopes.resolve(None, id, &|_| true) else {
+                return None;
+            };
+            Some((id, self.scopes.kind(path.as_str())?.as_str()))
         });
         let owners = self.view.registries().fields().owning_fields(
             self.kind,

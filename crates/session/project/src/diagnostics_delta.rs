@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{Diagnostic, DiagnosticList};
+use specforge_common::{Codebook, Diagnostic, DiagnosticList};
 
 /// The diagnostics one update added and removed, each as every surface
 /// presents a diagnostic (`DiagnosticsDelta` in spec/types/graph.spec).
@@ -55,6 +55,14 @@ impl DiagnosticsDelta {
         }
     }
 
+    /// The same delta, its diagnostics titled from `codes` (the project's).
+    pub fn titled(self, codes: &Codebook) -> Self {
+        DiagnosticsDelta {
+            added: DiagnosticList::new(self.added.0, codes),
+            removed: DiagnosticList::new(self.removed.0, codes),
+        }
+    }
+
     /// Nothing added, nothing removed.
     pub fn is_empty(&self) -> bool {
         self.added.0.is_empty() && self.removed.0.is_empty()
@@ -93,6 +101,7 @@ mod tests {
             entity: "beta".into(),
             field: "behaviors".into(),
             did_you_mean: Some(did_you_mean.into()),
+            candidates: Vec::new(),
         }
     }
 

@@ -11,10 +11,12 @@
 use std::collections::HashSet;
 
 use specforge_common::Diagnostic;
+use specforge_diagnostics::Codebook;
 use specforge_graph::{FieldForms, GraphBuild, GraphConfig, GraphInputs, SpecFile};
 use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
 
 use super::candidates::CandidateVocabulary;
+use super::codes;
 use super::declaration::{consistency, order_passes, shape};
 use super::graph_inputs;
 use super::peers;
@@ -55,7 +57,7 @@ pub enum BuildPart {
     /// (E055).
     Surfaces,
     /// Two contributions claim one name and the first registration wins: a
-    /// kind keyword (E026), an edge label (W018), a rule code (W023), a
+    /// kind keyword (E026), an edge label (W018), a code namespace, a
     /// command, MCP tool or resource name (E039).
     Collision,
 }
@@ -127,6 +129,9 @@ pub struct RegistryBuild {
     /// the registries) plus the host-generated E006 rules for required
     /// fields, each with its origin (ADR 0020).
     pub(crate) rules: Rules,
+    /// Every code the loaded extensions catalog, under their namespaces
+    /// (ADR 0286); read beside the static catalog by the `Codebook`'s readers.
+    codes: Codebook,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -139,7 +144,7 @@ pub struct RegistryBuild {
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
     /// W017, the rule set's (W150, W147 or W112 per declared rule), then
-    /// W023 — in that order.
+    /// E039 for a shared code namespace — in that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
     probe_diagnostics: Vec<Diagnostic>,
@@ -180,6 +185,12 @@ impl RegistryBuild {
     /// The rule set (ADR 0020).
     pub fn rules(&self) -> &Rules {
         &self.rules
+    }
+
+    /// The code book: the static catalog and the loaded extensions' own
+    /// catalogs (ADR 0286).
+    pub fn codes(&self) -> &Codebook {
+        &self.codes
     }
 
     /// Every declared pass with its extension, in order (both phases).
@@ -223,7 +234,7 @@ impl RegistryBuild {
 
     /// The graph inputs of these declarations and the vocabulary held now.
     fn derived_graph_inputs(&self) -> GraphInputs {
-        graph_inputs::derive(&self.fields, &self.field_forms, |kind| {
+        graph_inputs::derive(&self.kinds, &self.fields, &self.field_forms, |kind| {
             self.candidates().kind_owner(kind).map(str::to_string)
         })
     }
@@ -258,7 +269,7 @@ impl RegistryBuild {
     /// Every diagnostic the build reports with what it is about, in its one
     /// order: the declarations' own (E030, W021, E073 and E027, W145), the
     /// registries' (E026, W018, W019, W021, I004, the edge types' W021; W017;
-    /// W150, W147 or W112 per rule; W023), the custom rules' probes (W112), then the surfaces'
+    /// W150, W147 or W112 per rule; E039 for a shared code namespace), the custom rules' probes (W112), then the surfaces'
     /// (E055, E039); each group extension by extension in load order.
     /// `specforge check` reports them right after the environment's own,
     /// before any source (ADR 0012 D11, amended).
@@ -353,9 +364,10 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     // W162: a relation declared from both of its ends.
     registry_diagnostics.extend(about(BuildPart::Registries, sides::both_sides(&fields)));
 
-    // The rule set: W150, W147 or W112 per declared rule, then W023 for a
-    // code two extensions declare; E006 rules for required
-    // fields come after the declared rules.
+    // The rule set: W150, W147 or W112 per declared rule, then E039 for an
+    // extension whose code namespace an earlier one owns; E006 rules for
+    // required fields come after the declared rules.
+    let (codes, namespace_diagnostics) = codes::build(&declarations);
     let (rules, rule_diagnostics) = Rules::build(
         &declarations,
         Registries {
@@ -363,19 +375,17 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
             fields: &fields,
             edges: &edges,
         },
+        &codes,
     );
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
-    registry_diagnostics.extend(about(
-        BuildPart::Collision,
-        Rules::duplicate_codes(&declarations),
-    ));
+    registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
 
     let (commands, duplicates) = register_surface_contributions(&declarations);
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
     // A build handed no vocabulary owns nothing (`CandidateVocabulary::default()`).
-    let graph_inputs = graph_inputs::derive(&fields, &field_forms, |_| None);
+    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |_| None);
     RegistryBuild {
         declarations,
         kinds,
@@ -384,6 +394,7 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         graph_inputs,
         edges,
         rules,
+        codes,
         commands,
         passes,
         declaration_diagnostics,

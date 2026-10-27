@@ -107,8 +107,9 @@ term t_diagnostic "diagnostic" {
     diagnostic catalog (`specforge explain`, rendered to
     docs/diagnostics.md), which also gives every core code a typed
     constant. Codes an extension reports are checked where they enter
-    the host. Third-party extensions use E900-E998, W900-W998,
-    I900-I998 (I999 is core), at the level the prefix states.
+    the host. A third-party extension's code is its namespace and a
+    local code (`acme.audit/W101`); the extension lists it in its own
+    catalog, at the level its letter states.
   """
   aliases    ["compiler diagnostic", "validation message"]
 }
@@ -128,9 +129,9 @@ term t_entity "entity" {
 
 term t_entity_id "entity ID" {
   definition """
-    A globally unique free-form identifier for an entity. Any valid identifier
-    (letters, digits, underscores, 2-60 chars, starts with a letter or
-    underscore), and not a reserved word (E013). A spec block's ID is its
+    A free-form name, unique within its scope, that with its scope's path is an entity's ID. Any name (words of
+    letters, digits and underscores, joined by single dashes or dots, 2-60
+    chars: AUTH-01, 03.1, v1.0), and not a reserved word (E013). A spec block's ID is its
     header's string, held to length and reserved words, not to the grammar. No
     enforced case convention — projects choose their own naming style.
   """

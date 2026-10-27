@@ -19,11 +19,14 @@ prefix doesn't state the severity; no other family is accepted. Each entry's
 `Level` is the severity a diagnostic of that code has when it is reported;
 `specforge check --strict` raises warnings to errors afterwards. A code an
 extension reports at another level, or a code it does not own, is reported as
-W150. The ranges
-`E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
-extensions and never appear in this catalog; `specforge explain` run in a
-project explains them from the rules its extensions declare. `I999` is a core
-code.
+W150.
+
+A third-party extension's codes are not in this catalog. Each is
+`<namespace>/<letter><three digits>` (`acme.lint/W001`): the namespace is the
+extension's package name (`@gsd/core` is `gsd`, `@gsd/security` is
+`gsd.security`, a local `lint` is `lint`), and the extension catalogs its own
+codes in its `codes`. `specforge explain` run in a project explains them from
+the loaded extensions' `codes`.
 
 Regenerate this page after editing the catalog table:
 
@@ -138,8 +141,9 @@ E002: Duplicate entity ID
 Two entities of the same kind declare the same ID, or a project writes a second
 `spec` block (a project has one, whatever its name); the diagnostic points at
 the duplicate and its message names where the ID was first declared
-(file:line:col). Rename one of the entities so each ID is unique within its
-kind.
+(file:line:col). Rename one of the entities so each name is unique within its
+scope and kind (a name is unique within its scope: the entity its kind's scope
+field names, or the project).
 
 Owner: core
 Level: error
@@ -153,8 +157,13 @@ E003: Unresolved reference
 A reference field names an entity ID that doesn't resolve to any declared
 entity: a `reference` field's value or a `reference_list` field's item, quoted
 or not, or a scheme ref ID in a string list. A `string_list` field's other items
-are strings, never references. Fix the typo or add the missing entity; a `did
-you mean` suggestion is included when a close match exists.
+are strings, never references. A reference resolves from its holder outward (the
+holder itself, each enclosing scope, then the project; a leading `/` names the
+project only), a path such as `03/D-01` resolving at the nearest level where the
+whole path does. A name outside that chain lists the entities that bear it as
+candidates; a scope field or a surface's short form naming several entities is
+ambiguous. Fix the typo, write one of the candidates, or add the missing entity;
+a `did you mean` suggestion is included when a close match exists.
 
 Owner: core
 Level: error
@@ -182,7 +191,9 @@ Level: error
 E006: Missing required field
 
 An entity is missing a field marked `required: true` for its kind in the field
-registry. Add the missing field to the entity.
+registry, or an item of a typed block or block list is missing a member marked
+`required: true` (the message names the member's path, `requires[1].provides`).
+Add the missing field or member.
 
 Owner: core
 Level: error
@@ -256,9 +267,11 @@ Level: error
 ```
 E016: Referenced file does not exist
 
-A file-reference field on an entity points at a path that doesn't exist under
-the spec root. Fix the path, or create the missing file; a similarly-named file
-is suggested when one is found.
+A file-reference field on an entity, or a file-reference member of a typed block
+or block list item, points at a path that doesn't exist under the field's base:
+the spec root, or, when the field declares `file_base` `project`, the project
+root. Fix the path, or create the missing file; a similarly-named file is
+suggested when one is found.
 
 Owner: core
 Level: error
@@ -398,11 +411,15 @@ E030: Invalid extension declaration
 An extension's declaration (its handshake and describe answers) can't be used as
 declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
-prefix), or an analyzer has no language, no file extensions or an empty export
-name. The registry build reports it on every load, and `specforge publish`
-refuses such a binary before any network call. Fix the declaration in the
-extension's source (with the SDK: `#[extension(name, version, short)]` and the
-builders) and rebuild it.
+prefix), an analyzer has no language, no file extensions or an empty export
+name, or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
+three digits (a `/` included: the host adds the namespace), a code catalogued
+twice, an empty title or explanation, or a `docs` that is not an absolute
+`http(s)` URL; a first-party extension declares no `codes`, its codes are in
+this catalog. The registry build reports it on every load, and `specforge
+publish` refuses such a binary before any network call. Fix the declaration in
+the extension's source (with the SDK: `#[extension(name, version, short)]` and
+the builders) and rebuild it.
 
 Owner: core
 Level: error
@@ -479,15 +496,19 @@ Level: error
 ## E039
 
 ```
-E039: Duplicate surface contribution
+E039: Duplicate contribution name
 
 Two contributions claim one name. Two commands route under one name, `specforge
 <short> <command>`: one short name, and ids that spell one command name (`_` and
 `-` alike), whether from two extensions or declared twice by one; the first in
 load order is routed and the later runs on no surface. Or two extensions
-register one MCP tool name, or one MCP resource name. One command id under two
-short names is two names, not a collision. Rename the later contribution, or
-give its extension another short name (`ext_short`; the SDK's `short`).
+register one MCP tool name, or one MCP resource name. Or two loaded extensions
+share one code namespace (the namespace is the package name's scope and name:
+`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
+`a.b.c`): the first in load order owns the namespace and the later extension's
+codes are described by nobody. One command id under two short names is two
+names, not a collision. Rename the later contribution, or give its extension
+another short name (`ext_short`; the SDK's `short`).
 
 Owner: core
 Level: error
@@ -707,14 +728,21 @@ can't be that type. A string field takes text, a bare word, a date, a type union
 or an `expr { }` group; an enum one of its declared values (the suggestion names
 the closest one; the closed vocabularies the builtins declare, a feature's
 `status`, a failure mode's `severity`, a property's `property_type`, and the
-like, are enum fields); an integer field an integer; a bool field true or false;
-a date field one calendar day, `YYYY-MM-DD`, that exists (`2026-02-30` is none);
-a reference field one id; a string_list or reference_list field a list; a block
-field a block. Values that can be read as the declared type are converted
-without a diagnostic: a single string, id, integer, boolean or date on a list
-field becomes a one-item list, a list is stored as written, a quoted integer,
-boolean or calendar day the number, boolean or date. Fix the value, or check the
-field's type with `specforge schema --kind <kind>`.
+like, are enum fields); an integer field an integer, an integer difference like
+`2-1` or a date (the message names the operand that is no number); a bool field
+true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
+(`2026-02-30` is none); a reference field one name, a number or a date written
+as one (`10`, `2026-10-26`) included, never one starting with `-`; a
+string_list, reference_list or enum_list field a list (an enum_list's words are
+each one of its declared values and appear once); a block field a block, whose
+members, when it declares them, are each read by their own type, and a
+block_list field a list of blocks, `[ { a 1 } { a 2 } ]`; a reference field with
+`target_kinds` names an entity of any of the listed kinds; an integer field with
+a `minimum` or `maximum` an integer inside them. Values that can be read as the
+declared type are converted without a diagnostic: a single string, id, integer,
+boolean or date on a list field becomes a one-item list, a list is stored as
+written, a quoted integer, boolean or calendar day the number, boolean or date.
+Fix the value, or check the field's type with `specforge schema --kind <kind>`.
 
 Owner: core
 Level: error
@@ -2331,8 +2359,10 @@ W019: Unknown field type
 
 An extension manifest declares a field whose `field_type` value the compiler
 doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
-`enum`, `identifier`, `string_list`, `reference`, `reference_list`, or `block`).
-Correct the field's `field_type` in the manifest.
+`enum`, `enum_list`, `identifier`, `string_list`, `reference`, `reference_list`,
+`block` or `block_list`); a member of a block or block list is a field and is
+read the same way, and one with an unknown type is dropped. Correct the field's
+`field_type` in the manifest.
 
 Owner: core
 Level: warning
@@ -2344,8 +2374,9 @@ Level: warning
 W020: Unrecognized field
 
 An entity sets a field that isn't declared for its kind by any installed
-extension. Remove the field, fix a typo in its name, or install the extension
-that declares it.
+extension, or a typed block or block list item sets a key its field declares no
+member for. Remove it, fix a typo in its name, or install the extension that
+declares it.
 
 Owner: core
 Level: warning
@@ -2364,23 +2395,21 @@ appropriate peer dependency (a validation rule on another extension's kind that
 this one works without names that extension as its `target_extension` instead).
 The same code reports a declaration the registry refuses: a `derived_from` that
 derives nothing, a `proof_role` other than `bound` or `claim`, or a
-`lifecycle_field` that is not one of the kind's fields, an `enum` field that
-declares no values, or a `default_value` an enum field does not take. A field
-that writes a declared edge type from a kind outside its declared `source_kind`,
-or to a kind outside its declared `target_kind`, is W021 too, and its edges are
-of no edge type.
-
-Owner: core
-Level: warning
-```
-
-## W023
-
-```
-W023: Duplicate validation rule code
-
-Two extensions register a validation rule using the same diagnostic code. Change
-one extension's rule to use a unique code.
+`lifecycle_field` that is not one of the kind's fields, a `scoped_by` that is
+not one of the kind's single reference fields with a target kind, targets a kind
+no extension loads or the kind itself, or closes a scope cycle (the kind is then
+unscoped), an `enum` field that declares no values, or a `default_value` an enum
+field does not take. A field that writes a declared edge type from a kind
+outside its declared `source_kind`, or to a kind outside its declared
+`target_kind`, is W021 too, and its edges are of no edge type. So is a typed
+field the registry refuses and drops the attribute of: `members` on a type other
+than `block` or `block_list`, a `block_list` with none, a member named twice or
+not one identifier, a member that declares `derived_from`, `target_kinds`
+together with `target_kind`, on a type other than `reference` or
+`reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
+than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
+`spec` or `project`, or without `file_reference`; a `scoped_by` field with
+`target_kinds` scopes nothing.
 
 Owner: core
 Level: warning
@@ -2393,10 +2422,10 @@ W027: Import binding not found
 
 A selective import, `use { A, B } from "target"` or `pub use { A, B } from
 "target"`, names a binding the target file does not export: an entity it neither
-declares nor re-exports with `pub use`. References resolve without `use`, so the
-binding changes nothing, but it names nothing either; a rename and a delete keep
-bindings in step with the entities they name (ADR 0233). Correct the binding's
-name, or remove it.
+declares nor re-exports with `pub use`. A binding may be a path (`use { 03/D-01
+}`). References resolve without `use`, so the binding changes nothing, but it
+names nothing either; a rename and a delete keep bindings in step with the
+entities they name (ADR 0233). Correct the binding's name, or remove it.
 
 Owner: core
 Level: warning
@@ -2671,9 +2700,10 @@ Level: warning
 W060: Cross-kind ID collision
 
 The same entity ID is declared with two different entity kinds, either within
-the same compilation pass or across different files. Entity IDs share one flat
-namespace regardless of kind, so rename one of the conflicting declarations; the
-first declaration encountered is retained and later ones are skipped.
+the same compilation pass or across different files. Entity names share one
+namespace per scope regardless of kind, so rename one of the conflicting
+declarations; the first declaration encountered is retained and later ones are
+skipped.
 
 Owner: core
 Level: warning
@@ -3163,14 +3193,16 @@ Level: warning
 W150: Extension reports a code it may not use
 
 An extension declared a validation rule, or a pass reported a diagnostic, with a
-code it may not use: a code the catalog gives to core or to another extension,
-its own code at a level the catalog does not give it, a retired code, a
-first-party extension's uncatalogued code, or a third-party code outside
-`E900`-`E998`, `W900`-`W998` and `I900`-`I998` or whose prefix contradicts its
-level. The rule still runs and the finding is still reported, with the code as
-given, so its title and docs link may describe another diagnostic. Renumber it
-in the extension's range (a third-party extension) or catalogue it (a
-first-party one).
+code it may not use. A first-party extension may report only the codes this
+catalog gives it, at the catalogued level: a code the catalog gives to core or
+to another extension, a retired code and an uncatalogued one are refused. Any
+other extension reports a local code, `E`, `W` or `I` and three digits, that its
+own `codes` catalog lists, at the level its letter states: a code it did not
+catalogue, a code that holds a `/` or is not three digits, and a code whose
+letter contradicts the level reported are refused. The rule still runs and the
+finding is still reported, under the extension's namespace (`acme.lint/W001`),
+so its title and docs link never describe another diagnostic. Catalogue the code
+in the extension's `codes` (`c.code` in the SDK), at its letter's level.
 
 Owner: core
 Level: warning
@@ -3356,6 +3388,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | I086 | [E061](#e061) |
 | I087 | [E061](#e061) |
 | W011 | (nothing) |
+| W023 | [E039](#e039) |
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |

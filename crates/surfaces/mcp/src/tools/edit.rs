@@ -12,8 +12,8 @@ use specforge_ops::authoring::edit::{self, EditDocument, EditField};
 /// `specforge.edit`'s arguments.
 #[derive(Debug, Arguments)]
 pub struct Args {
-    /// The edits, in order: each names its `op` (create, set, unset, retitle, link, unlink, add_verify,
-    /// remove_verify or delete) and what it changes
+    /// The edits, in order: each names its `op` (create, set, unset, append, remove, retitle, link,
+    /// unlink, add_verify, remove_verify or delete) and what it changes
     edits: Edits,
     /// Return the plan (files and diff) without changing any file
     dry_run: bool,

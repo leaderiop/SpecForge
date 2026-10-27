@@ -33,6 +33,11 @@ impl Contributions for DocRef {
                 .field("guide")
                 .message_template("gadget '{id}': missing '{value}'");
         });
+        c.code("W901", |d| {
+            d.title("Gadget guide missing").explanation(
+                "The file named by a gadget's `guide` does not exist: create it or fix the path.",
+            );
+        });
     }
 }
 

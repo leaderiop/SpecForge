@@ -209,6 +209,7 @@ behavior go_to_definition "Go-to-Definition" {
     statement, to the imported file.
   """
   verify unit "go-to-def navigates to entity declaration"
+  verify unit "go-to-definition follows a number written in a field that names entities"
   verify unit "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
   verify unit "source spans convert from 1-based to 0-based for LSP"
@@ -217,6 +218,8 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "a use binding's imported name goes to the entity it names"
   verify unit "a definition is a location link for a client that declares linkSupport, else a location at the name"
   verify unit "the entity after a body being typed is navigated to"
+  verify unit "go-to-definition, prepare rename and rename take a path one segment at a time"
+  verify unit "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -259,6 +262,7 @@ behavior find_all_references "Find All References" {
   verify unit "a parameter's name is not a reference to the type it spells"
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
+  verify unit "the finder reports a final token for a path's last name and a qualifier token for each name before it"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
   verify unit "find-refs include a use binding's imported name"
   verify unit "the written tokens of a file include a use binding's imported name, never its alias"
@@ -302,10 +306,12 @@ behavior hover_information "Hover Information" {
   """
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
+  verify unit "hover shows an integer field's value beside the word it was written as when they differ"
   verify unit "hover lists a type member named title"
   verify unit "field help answers only on a field's name"
   verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify unit "field help says what an absent value counts as"
+  verify unit "hover and workspace symbols show an entity's full path"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -324,10 +330,10 @@ behavior hover_diagnostic "Hover a Diagnostic" {
     When a user hovers inside the range of a published diagnostic, the LSP
     MUST show, as markdown and before any entity hover, the diagnostic's
     code with the catalogue's title, the catalogue's explanation and the
-    link to the code's section of docs/diagnostics.md. A code the catalogue
-    does not have shows its code, the reporting extension and its message,
-    and the description the extension's rule declares for the code when it
-    has one. The entity hover that
+    link to the code's section of docs/diagnostics.md. A third-party code
+    shows the title, explanation and docs link its extension's own catalog
+    gives it; one no catalog lists shows its code, the reporting extension
+    and its message. The entity hover that
     follows does not list that diagnostic again. A region the formatter
     left unformatted (W142) is such a diagnostic while the document is the
     text formatting reported it on. A diagnostic of the compile is such a
@@ -337,7 +343,7 @@ behavior hover_diagnostic "Hover a Diagnostic" {
   """
   verify unit "hovering a diagnostic shows its catalogued title and explanation"
   verify unit "an uncatalogued diagnostic's hover shows its code and message only"
-  verify unit "an extension's declared code shows its rule's description in the hover"
+  verify unit "a third-party code is titled, explained and linked from its own catalog"
   verify unit "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
   verify unit "hovering a region the formatter left unformatted shows its W142"
   verify unit "hovering a buffer typed since the compile shows none of the compile's diagnostics"
@@ -368,7 +374,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     (e.g., a "deps" field with a target_kind constraint filters to
     entities of that kind), suggestions MUST be filtered to entities of
     that kind. When no target_kind constraint exists, all entity IDs
-    MUST be suggested. Entity IDs are globally unique regardless of
+    MUST be suggested. Entity names are unique within their scope regardless of
     kind — the filtering is a UX optimization based on
     extension-declared field metadata, not a compiler requirement.
     Suggestions are ranked by the shared ranking over IDs and titles
@@ -390,6 +396,8 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "a single-reference field's value suggests the IDs of its target kind"
   verify unit "a string list's items suggest no entity IDs but scheme ref IDs"
   verify integration "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
+  verify unit "completion offers an entity by its name, shows its path and inserts the shortest spelling from the cursor's block"
+  verify unit "completion inside a typed block offers its unwritten members, a member's values and an enum list's unwritten words"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
 }
 
@@ -431,6 +439,8 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename on entity ID returns token range"
   verify unit "prepare rename on non-renameable token returns not available"
   verify unit "prepare rename answers on a name written below its kind"
+  verify unit "prepare rename ranges a name holding a dash or a dot whole"
+  verify unit "an entity named with digits only is a name to the editor"
   verify unit "prepare rename answers on a default no block takes"
   verify unit "prepare rename answers on a reference in a duplicate declaration"
   verify unit "prepare rename answers on a quoted reference, inside its quotes"
@@ -494,6 +504,7 @@ behavior rename_entity_id "Rename Entity ID" {
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename edits a name written below its kind and its references"
+  verify unit "rename takes a new ID holding a dash or a dot"
   verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename edits a type named in a method signature and no parameter name"
   verify unit "rename is atomic — all or nothing"
@@ -512,6 +523,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename onto an unresolved reference is refused as a capture"
   verify unit "rename edits a quoted reference inside its quotes"
   verify unit "a rename is refused while a source that spells the new ID does not parse"
+  verify unit "a rename keeps the scope and edits every segment naming the entity"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
   verify unit "rename edits a use binding's imported name, never its alias"
 }

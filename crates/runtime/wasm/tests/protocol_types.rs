@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.6.0");
+    assert_eq!(PROTOCOL_VERSION, "1.7.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -191,6 +191,11 @@ fn entity_kind_descriptor_full_round_trip() {
                 headline: false,
                 derived_from: None,
                 proof_role: None,
+                members: vec![],
+                target_kinds: vec![],
+                minimum: None,
+                maximum: None,
+                file_base: None,
             },
             FieldDescriptor {
                 name: "invariants".to_string(),
@@ -208,6 +213,11 @@ fn entity_kind_descriptor_full_round_trip() {
                 headline: false,
                 derived_from: None,
                 proof_role: None,
+                members: vec![],
+                target_kinds: vec![],
+                minimum: None,
+                maximum: None,
+                file_base: None,
             },
         ],
         testable: true,
@@ -219,6 +229,7 @@ fn entity_kind_descriptor_full_round_trip() {
         contract_target: false,
         declares_types: false,
         lifecycle_field: None,
+        scoped_by: None,
         semantic_token: Some("function".to_string()),
         lsp_icon: Some("Method".to_string()),
         dot_shape: Some("ellipse".to_string()),
@@ -266,6 +277,11 @@ fn field_descriptor_with_edge_and_target() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     let decoded: FieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -294,6 +310,11 @@ fn field_descriptor_with_enum_values() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("enum_values"));
@@ -319,6 +340,11 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(
@@ -374,6 +400,11 @@ fn shared_field_descriptor_is_field_descriptor() {
         headline: false,
         derived_from: None,
         proof_role: None,
+        members: vec![],
+        target_kinds: vec![],
+        minimum: None,
+        maximum: None,
+        file_base: None,
     };
     let json = serde_json::to_string(&shared).unwrap();
     let decoded: SharedFieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -403,6 +434,11 @@ fn entity_enhancement_descriptor_round_trip() {
             headline: false,
             derived_from: None,
             proof_role: None,
+            members: vec![],
+            target_kinds: vec![],
+            minimum: None,
+            maximum: None,
+            file_base: None,
         }],
     };
     let json = serde_json::to_string(&enh).unwrap();
@@ -425,7 +461,6 @@ fn validation_rule_descriptor_declarative() {
         constraint: None,
         wasm_function: None,
         target_extension: None,
-        description: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -455,7 +490,6 @@ fn validation_rule_descriptor_with_constraint() {
         }),
         wasm_function: None,
         target_extension: None,
-        description: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -475,7 +509,6 @@ fn validation_rule_descriptor_custom_wasm() {
         constraint: None,
         wasm_function: Some("validate__custom_check".to_string()),
         target_extension: None,
-        description: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     assert!(

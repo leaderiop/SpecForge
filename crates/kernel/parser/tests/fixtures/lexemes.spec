@@ -41,3 +41,40 @@ type nested_members "Nested block members named verify and method" {
   method get(id: string) -> string
   method put(id: string)
 }
+
+use { AUTH-01, v1.0 as release, 03 } from "./gsd.spec"
+
+phase 10 "A number as a name" {
+  after 03-02
+  plan 03.1
+  points 2-1
+  padded 007
+  fraction 1.5
+  signed -5
+  day 2026-10-26
+  flag true
+  refs [AUTH-01, v1.0, 2026-10-26, 03, 10, -5, 007, gh.issue:7]
+  gate expr { a-b < 3 }
+}
+
+requirement D-01 "Dashed" {
+}
+
+requirement G-03-1 "Dashed twice" {
+}
+
+requirement H-01 "Typed members" {
+  tags [threshold, jump]
+  requires [
+    { phase 02 plan 03-02 }
+    { phase 03 note "x" },
+  ]
+  gate {
+    inner { score 5 }
+  }
+  empty []
+}
+
+requirement H-02 "x" {
+  r [ { plan 03-02 } ]
+}
