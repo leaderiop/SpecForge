@@ -222,6 +222,22 @@ fn a_value_of_a_shape_its_type_never_takes_is_an_error() {
 
 #[spec(
     behavior = "check_field_value_types",
+    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+)]
+fn a_reference_never_starts_with_a_dash() {
+    for word in ["-a", "-0", "-007", "-5-3"] {
+        let remedy = Some("a name never starts with '-'".to_string());
+        let scalar = e061(&format!("  blocker {word}\n"));
+        assert_eq!(scalar.len(), 1, "{word}: {scalar:?}");
+        assert_eq!(scalar[0].1, remedy, "{word}");
+        let item = e061(&format!("  watchers [t2, {word}]\n"));
+        assert_eq!(item.len(), 1, "[{word}]: {item:?}");
+        assert_eq!(item[0].1, remedy, "[{word}]");
+    }
+}
+
+#[spec(
+    behavior = "check_field_value_types",
     verify = "a date field takes one calendar day, bare or quoted; any other value is E061"
 )]
 fn a_date_that_is_no_calendar_day_is_e061() {

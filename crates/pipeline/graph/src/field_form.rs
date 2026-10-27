@@ -265,11 +265,9 @@ impl FieldForm {
                 )),
             },
             FieldType::Reference => match shape {
-                ValueShape::Identifier | ValueShape::String => Ok(()),
                 s if s.is_list() => Err(single_value()),
-                ValueShape::Integer if text.starts_with('-') => {
-                    Err(Refusal::with("a name never starts with '-'"))
-                }
+                _ if text.starts_with('-') => Err(dashed_name()),
+                ValueShape::Identifier | ValueShape::String => Ok(()),
                 _ => Err(Refusal::with("name one entity by its id")),
             },
             FieldType::StringList | FieldType::ReferenceList => match shape {
@@ -281,6 +279,17 @@ impl FieldForm {
                 _ => Err(Refusal::with("write a block: { name value }")),
             },
         }
+    }
+
+    /// The first item of a list field that is none of its declared type: on a `reference_list`, one starting with
+    /// `-`. `Err` is that item's text and the refusal.
+    pub fn refuse_item<'a>(&self, items: &'a [String]) -> Option<(&'a str, Refusal)> {
+        let bad =
+            |item: &&String| self.field_type == FieldType::ReferenceList && item.starts_with('-');
+        items
+            .iter()
+            .find(bad)
+            .map(|item| (item.as_str(), dashed_name()))
     }
 
     /// The JSON Schema of what [`write`] writes for every value
@@ -309,6 +318,10 @@ impl FieldForm {
             }
         }
     }
+}
+
+fn dashed_name() -> Refusal {
+    Refusal::with("a name never starts with '-'")
 }
 
 /// The integer a bare word reads as: `-?N(-N)*`, each `N` digits, taken left to right as differences in checked
@@ -518,7 +531,7 @@ impl Reading<'_> {
     /// | declared `reference_list` | none (the build stores it as a list) | every item |
     /// | declared `string_list` | none | a scheme ref ID |
     /// | other declared types, a member | none | none |
-    /// | undeclared | none | a bare word or a scheme ref ID |
+    /// | undeclared | none | a bare word, a number or a scheme ref ID |
     ///
     /// Each reference's span is where it writes its ID ([`spell::id_span`]): inside the quotes of a quoted value.
     pub fn references<'v>(&self, entry: &'v FieldEntry) -> Vec<Reference<'v>> {
@@ -553,7 +566,12 @@ impl Reading<'_> {
             },
             (Self::Undeclared, FieldValue::List(items)) => items
                 .iter()
-                .filter(|i| matches!(i.written, Written::Bare | Written::SchemeRef))
+                .filter(|i| {
+                    matches!(
+                        i.written,
+                        Written::Bare | Written::SchemeRef | Written::Literal
+                    )
+                })
                 .map(item)
                 .collect(),
             _ => Vec::new(),

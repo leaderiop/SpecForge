@@ -331,6 +331,14 @@ fn a_declared_type_reads_a_bare_word() {
         Err(Some("a name never starts with '-'".to_string()))
     );
 
+    for text in ["-a", "-0", "-007", "-5-3"] {
+        assert_eq!(
+            read(&reference, word(text)),
+            Err(Some("a name never starts with '-'".to_string())),
+            "{text}"
+        );
+    }
+
     let integer = FieldForm::new(FieldType::Integer, Vec::new());
     for (text, value) in [("2-1", 1), ("03-02", 1), ("007", 7)] {
         assert_eq!(

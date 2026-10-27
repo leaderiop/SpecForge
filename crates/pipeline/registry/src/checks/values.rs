@@ -62,9 +62,16 @@ struct Mismatch {
 }
 
 fn mismatch(declared: &FieldRegistryEntry, field: &FieldRecord) -> Option<Mismatch> {
-    let refusal = declared.form().admit(field.shape, &field.text).err()?;
+    let form = declared.form();
+    if let Err(refusal) = form.admit(field.shape, &field.text) {
+        return Some(Mismatch {
+            given: describe(field),
+            suggestion: refusal.suggestion,
+        });
+    }
+    let (item, refusal) = form.refuse_item(field.items.as_deref()?)?;
     Some(Mismatch {
-        given: describe(field),
+        given: item.to_string(),
         suggestion: refusal.suggestion,
     })
 }
