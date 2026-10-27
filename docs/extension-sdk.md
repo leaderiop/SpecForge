@@ -428,6 +428,38 @@ the project, the host's call target reads it from every MCP call and takes it ou
 export sees it (`specforge_protocol_types::tool_input`, ADR 0239). The builder panics on such a tool,
 as on a command arg named `path`, so the extension's first test finds it.
 
+### Writing commands and collectors
+
+An extension never writes files. A command declares `cmd.writes()` and answers an edit plan the host checks, judges
+and applies all or nothing ([the wire](extension-protocol.md#writing), ADR 0289):
+
+```rust
+c.command("record", |cmd| {
+    cmd.writes()                                   // the host adds --dry-run; no arg may take that name
+        .arg("phase", |a| a.required())
+        .handler(|call| {
+            let mut plan = call.plan();            // each op takes its file's revision from this call
+            let phase = call.str("phase").unwrap_or_default();
+            plan.title("Record a phase")
+                .set(phase, "status", "done")
+                .append(phase, "checks", json!({"status": "pass"}));
+            Ok(CommandOutput::ok("").with_plan(plan.finish()))
+        });
+});
+```
+
+`PlanBuilder` has one method per op: `create`, `set`, `unset`, `append`, `remove`, `link`, `unlink`, `retitle`,
+`add_verify`, `remove_verify`, `delete`, `rename` and `set_verdict(Verdict { .. })`. A collector declares `k.writes()`
+and builds with `PlanBuilder::for_collect(input)`, answering `CollectOutput.plan`. If the files changed since the
+call read them, the host refuses the plan `stale_revision` and writes nothing; the caller runs the command again. The
+plan is the call's whole write: a handler that also touches the disk itself is outside the host's checks, its lock
+and its journal.
+
+Who may write is declared on the vocabulary: `human()` on a kind or a field (only a person writes it; an extension's
+plan and the agent surfaces get `human_only`), `harness()` and `computed()` as above, and `guard()` on a pass (it
+runs when a write is judged, reads the project before the write as `previous`, and its error diagnostics refuse the
+write, E080).
+
 ### Collectors
 
 A test-runner extension declares a collector with `c.collector(name, ...)`

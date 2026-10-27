@@ -202,7 +202,7 @@ its `enum_values`; `identifier` one word (letters, digits and `_`, starting with
 array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
 
 A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
-A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored.
+A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity.
 
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
@@ -503,7 +503,7 @@ neither). An entity's `id`, and an edge's `source` and `target`, are entity path
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
-A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface; a value for a field that is not declared `computed` is W165.
+A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface; a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 `previous` (compute and check passes that name kinds in `baseline`) is the
 git baseline of those kinds, `{"revision", "entities": {"<id>": {"kind",
 "fields": {...}}}}`; it is absent with no baseline (not in a git repository, no
@@ -600,11 +600,11 @@ Every call but the handshake and describe also carries the extension's own `sett
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph"}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph", "revisions"?}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
-| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` | `CollectOutput` |
+| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "graph", "revisions"}`) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
 | Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
 | Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
 | Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |
@@ -643,6 +643,65 @@ handler (`ContributionsBuilder::command`, `mcp_tool`, `mcp_resource`, `pass`
 with `run`, `collector` with `collect`, `rule` with `validate`, `analyzer`
 with `scan`, `migration_hook_handler`); the SDK decodes the input and encodes
 the answer. See [the SDK guide](extension-sdk.md).
+
+## Writing
+
+A command or collector of 1.9.0 may declare `writes: true` (ADR 0289). It does not write files: it answers an
+**edit plan**, and the host checks it, plans it with the typed edit engine, judges it as one edit and applies it all
+or nothing, under the project's write lock and a write journal (a write interrupted by a crash is put back by the
+next one; W167 reports one that is waiting). Only a command or collector that declares `writes` may answer a plan
+(`undeclared_write` otherwise).
+
+A writing command's input also carries `revisions`, `{"<file>": "sha256:<hex>" | "absent"}` for the project's
+sources, and every `graph` node carries its `file`. A writing collector is sent `cwd`, `today`, `graph` and
+`revisions` beside the report. The command answers `CommandOutput.plan`, a collector `CollectOutput.plan`:
+
+```json
+{
+  "title": "Record 03-02",
+  "ops": [
+    {"op": "set", "entity": "03-02", "field": "status", "value": "done", "revision": "sha256:9f2c..."},
+    {"op": "append", "entity": "03-02", "field": "checks", "value": {"status": "pass"}, "revision": "sha256:9f2c..."},
+    {"op": "create", "kind": "decision", "id": "D-9", "title": "Use X", "file": "spec/d.spec", "revision": "absent"}
+  ]
+}
+```
+
+| `op` | Fields besides `revision` |
+|---|---|
+| `create` | `kind`, `id`, `title`, `file`, `fields`?, `verify`? (`[{"kind"?, "text"}]`) |
+| `set`, `append` | `entity`, `field` (a path: `status`, `completion.at`, `checks[0].status`), `value` |
+| `unset` | `entity`, `field` |
+| `remove` | `entity`, `field`, `index` |
+| `link`, `unlink` | `entity`, `field`, `target` |
+| `retitle` | `entity`, `title` |
+| `add_verify`, `remove_verify` | `entity`, `kind`?, `text` |
+| `delete` | `entity`, `unlink_references`? |
+| `rename` | `entity`, `to` (the move record is written with the ledger) |
+| `set_verdict` | `entity`, `rule`, `outcome`, `judge`, `model`, `findings`?, `cited`? (`{"entity"}`, `{"file"}` or `{"test"}`), `values`?, `basis`? |
+
+Ops apply in order, each over the texts the ones before it left. An op's `revision` is the revision of the file it
+writes, as the call received it (`absent` for a file that is not there yet); an op with none is `invalid_plan`. If the
+file has changed since the compile the call read, the whole plan is refused `stale_revision` and nothing is written:
+the command reads again and answers a new plan. A `set_verdict` has no file revision; its `basis` names the inputs
+the judgement read, and any that changed is `stale_revision` with `inputs`.
+
+A plan is refused, with nothing written, by one of these codes (the CLI prints `error[<code>]` and exits 1; MCP puts
+the code in `data.code`):
+
+| Code | The plan |
+|---|---|
+| `invalid_plan` | has an op that is not well formed (the message names its number, from 1) |
+| `undeclared_write` | comes from a command or collector that does not declare `writes` |
+| `human_only` | writes a kind, field or member declared `writer: "human"` |
+| `computed_field` | writes a `computed` value |
+| `harness_field` | sets a `harness` value its origin may not set |
+| `stale_revision` | names a file revision that is not the file's now |
+| `not_judged`, `verdict_refused` | writes a verdict for a rule the host does not judge, or one it refuses (`reason`: `kind`, `outcome`, `origin`, `judge`, `value`, `cite`) |
+| `E080` | would leave the project with an error it does not have now (a guard pass counts) |
+
+The host adds `--dry-run` to a writing command (it prints the diff and writes nothing), so a writing command declares
+no arg of that name. A writing command's MCP tool is a mutation and reports the files it wrote.
 
 ## Host Functions
 

@@ -42,7 +42,8 @@ specforge unset <id> <field>         # remove a field
 specforge link <id> <field> <target> # add a reference (on the relation's owning side); unlink removes it
 specforge link <id> --verify unit:"<text>"   # add a verify obligation; unlink removes it
 specforge delete <id> [--unlink-references]  # delete an entity (and, with the flag, every reference to it)
-# Every edit takes --dry-run (print the diff, write nothing) and --format json. MCP: specforge.edit takes a list.
+# Every edit takes --dry-run (print the diff, write nothing), --revision <sha256:..|absent> (refuse the write if the file has changed: stale_revision) and --format json.
+# MCP: specforge.edit takes a list; each item may name a revision. An extension's writing command takes --dry-run too.
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

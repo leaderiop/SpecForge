@@ -56,6 +56,8 @@ specforge link archive_task --verify unit:"archiving an unknown task fails"
 specforge delete archive_task --unlink-references
 ```
 
+A write is checked against the file as you last read it. `specforge set/unset/link/unlink/delete/new` take `--revision <sha256:..|absent>` (MCP: a `revision` on each edit; `specforge.inspect` returns an entity's `file` and `revision`), and when the file has changed since, the write is refused `stale_revision` and nothing is written: read the entity again, then retry. A kind or field declared `writer: human` is refused `human_only` to an agent: tell the person instead of working around it.
+
 A member of a typed block or block list is addressed by its path: `specforge set <id> 'requires[0].phase' 03`, `specforge unset <id> completion.audit`; a whole block list is JSON (`specforge set <id> requires '[{"phase":"02","provides":"x"}]'`), and the MCP `specforge.edit` tool adds an item with `append` and drops one with `remove` (a list of words changes by `link`/`unlink`).
 
 `--in` is relative to the project root and must be inside the spec root. `specforge new <kind> --help` lists that

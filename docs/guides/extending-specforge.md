@@ -38,6 +38,7 @@ This is the extension **tutorial**. Companion reading:
   - [Your first compiler pass](#your-first-compiler-pass)
   - [Ordering passes](#ordering-passes)
   - [A command](#a-command)
+  - [Writing from an extension](#writing-from-an-extension)
 - [Act V — Build, install, test](#act-v--build-install-test)
   - [Build to Wasm](#build-to-wasm)
   - [Install into a project](#install-into-a-project)
@@ -404,6 +405,35 @@ URI.
 ---
 
 # Act V — Build, install, test
+
+## Writing from an extension
+
+A command can change the project, but it never writes a file: it answers an **edit plan**, and the host checks it,
+judges it as one edit and applies it all or nothing (ADR 0289). Take a GSD-shaped command that records a finished
+phase: it marks the phase done and notes the check that passed.
+
+1. **Read.** Declare `cmd.writes()`. The command receives the graph and the `revisions` of the project's files, so
+   `call.plan()` stamps each op with the revision of the file it changes.
+2. **Plan.** Build the ops and answer them:
+
+   ```rust
+   let mut plan = call.plan();
+   plan.title("Record 03-02")
+       .set("03-02", "status", "done")
+       .append("03-02", "checks", json!({"status": "pass"}));
+   Ok(CommandOutput::ok("").with_plan(plan.finish()))
+   ```
+
+3. **Preview.** The host adds `--dry-run` to a writing command: `specforge gsd record 03-02 --dry-run` prints the
+   diff and writes nothing.
+4. **Apply.** Without the flag the host writes the files, or none: a plan that would leave an error the project does
+   not have now is E080, a human-only value is `human_only`, and nothing is half written. The ledger line of a
+   `harness` field is written in the same step.
+5. **Re-plan on `stale_revision`.** If someone edited `03-02.spec` after the command read it, the host refuses the
+   plan `stale_revision` and writes nothing. Run the command again: it reads the new file and plans over it.
+
+A collector that declares `k.writes()` answers a plan the same way after it reads its report. See
+[the protocol](../extension-protocol.md#writing) for the ops and the refusal codes.
 
 ## Build to Wasm
 
