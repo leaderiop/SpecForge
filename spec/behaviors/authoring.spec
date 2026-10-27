@@ -375,4 +375,6 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   """
   verify unit "a human-only value is refused in an agents write"
   verify unit "the command line writes a human-only value from a terminal and refuses it without one"
+  verify unit "a human-only or computed member is refused in the value of a set, append or create"
+  verify unit "a delete that unlinks references and a rename do not change a human-only entity"
 }

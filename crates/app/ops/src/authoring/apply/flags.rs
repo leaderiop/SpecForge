@@ -5,9 +5,9 @@
 use super::{COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
 use crate::OpError;
 use crate::OpErrorKind;
-use crate::authoring::edit::{Edit, Step};
+use crate::authoring::edit::{Edit, Input, Step};
 use crate::view::ProjectView;
-use specforge_graph::Found;
+use specforge_graph::{FieldForm, Found};
 use specforge_protocol_types::FieldWriter;
 use std::collections::BTreeMap;
 
@@ -55,6 +55,7 @@ pub(crate) fn check(
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
                     human_kind(view, origin, op.number, plan, &kind)?;
+                    human_referrers(view, origin, op.number, plan, entity)?;
                     kinds.made.insert(to.clone(), kind);
                 }
             }
@@ -76,19 +77,27 @@ fn edit_flags(
             kind, id, fields, ..
         } => {
             human_kind(view, origin, number, plan, kind)?;
-            for field in fields.keys() {
-                write(view, origin, number, plan, kind, field)?;
+            for (field, value) in fields {
+                write(view, origin, number, plan, kind, field, Some(value))?;
             }
             kinds.made.insert(id.clone(), kind.clone());
             Ok(())
         }
         Edit::Set {
-            entity_id, field, ..
-        }
-        | Edit::Unset {
-            entity_id, field, ..
+            entity_id,
+            field,
+            value,
+            ..
         }
         | Edit::Append {
+            entity_id,
+            field,
+            value,
+        } => match kinds.of(entity_id) {
+            Some(kind) => write(view, origin, number, plan, &kind, field, Some(value)),
+            None => Ok(()),
+        },
+        Edit::Unset {
             entity_id, field, ..
         }
         | Edit::Remove {
@@ -100,7 +109,7 @@ fn edit_flags(
         | Edit::Unlink {
             entity_id, field, ..
         } => match kinds.of(entity_id) {
-            Some(kind) => write(view, origin, number, plan, &kind, field),
+            Some(kind) => write(view, origin, number, plan, &kind, field, None),
             None => Ok(()),
         },
         Edit::Retitle { entity_id, .. }
@@ -109,7 +118,15 @@ fn edit_flags(
         | Edit::Delete { entity_id, .. } => match kinds.of(entity_id) {
             Some(kind) => human_kind(view, origin, number, plan, &kind),
             None => Ok(()),
-        },
+        }
+        .and_then(|()| match edit {
+            // The references it removes are writes to the entities that hold them.
+            Edit::Delete {
+                entity_id,
+                unlink_references: true,
+            } => human_referrers(view, origin, number, plan, entity_id),
+            _ => Ok(()),
+        }),
     }
 }
 
@@ -176,6 +193,7 @@ fn write(
     plan: bool,
     kind: &str,
     field: &str,
+    value: Option<&Input>,
 ) -> Result<(), OpError> {
     let registries = view.registries();
     let name = top(field);
@@ -201,6 +219,78 @@ fn write(
             writer = writer.or(form.writer());
         }
     }
+    let source = entry.source_extension();
+    enforce(view, origin, number, plan, kind, field, source, writer)?;
+    match value {
+        Some(value) => within(
+            view, origin, number, plan, kind, field, source, form, writer, value,
+        ),
+        None => Ok(()),
+    }
+}
+
+/// The members `value` writes inside `form` (a block or block list), each checked as a path to it would be.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the walk carries the write's whole context"
+)]
+fn within(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    kind: &str,
+    label: &str,
+    source: &str,
+    form: &FieldForm,
+    inherited: Option<FieldWriter>,
+    value: &Input,
+) -> Result<(), OpError> {
+    let Some(members) = form.members() else {
+        return Ok(());
+    };
+    let items: Vec<Vec<(&str, Option<&Input>)>> = match value {
+        Input::Entries(map) => vec![map.keys().map(|k| (k.as_str(), None)).collect()],
+        Input::Block(map) => vec![map.iter().map(|(k, v)| (k.as_str(), Some(v))).collect()],
+        Input::Blocks(list) => list
+            .iter()
+            .map(|map| map.iter().map(|(k, v)| (k.as_str(), Some(v))).collect())
+            .collect(),
+        _ => return Ok(()),
+    };
+    for item in items {
+        for (key, nested) in item {
+            let Some(member) = members.get(key) else {
+                continue;
+            };
+            let label = format!("{label}.{key}");
+            let writer = inherited.or(member.writer());
+            enforce(view, origin, number, plan, kind, &label, source, writer)?;
+            if let Some(nested) = nested {
+                within(
+                    view, origin, number, plan, kind, &label, source, member, writer, nested,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A write of `field` refused by its `writer`, when `origin` may not write it.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the refusal names the write's whole context"
+)]
+fn enforce(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    kind: &str,
+    field: &str,
+    source: &str,
+    writer: Option<FieldWriter>,
+) -> Result<(), OpError> {
     let at = if plan {
         format!("operation {number}: ")
     } else {
@@ -212,23 +302,17 @@ fn write(
             number,
             plan,
             format!(
-                "{at}'{field}' of {kind} is computed by a pass of {} and is never written",
-                entry.source_extension()
+                "{at}'{field}' of {kind} is computed by a pass of {source} and is never written"
             ),
         )),
-        Some(FieldWriter::Harness)
-            if !may_write_harness(view, origin, entry.source_extension()) =>
-        {
-            Err(refuse(
-                HARNESS_FIELD,
-                number,
-                plan,
-                format!(
-                    "{at}'{field}' of {kind} is set by a command or collector of {} (or of an extension that names it a peer), recorded in specforge-harness",
-                    entry.source_extension()
-                ),
-            ))
-        }
+        Some(FieldWriter::Harness) if !may_write_harness(view, origin, source) => Err(refuse(
+            HARNESS_FIELD,
+            number,
+            plan,
+            format!(
+                "{at}'{field}' of {kind} is set by a command or collector of {source} (or of an extension that names it a peer), recorded in specforge-harness"
+            ),
+        )),
         Some(FieldWriter::Human) if agent_facing(origin) => Err(human_only(
             number,
             plan,
@@ -236,6 +320,51 @@ fn write(
         )),
         _ => Ok(()),
     }
+}
+
+/// A delete that unlinks references, or a rename, rewrites the fields of the entities that name `id`: refused when one
+/// is a human-only kind or a human-only field and `origin` an agent's, so a person's entity is never changed as a side
+/// effect.
+fn human_referrers(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    id: &str,
+) -> Result<(), OpError> {
+    if !agent_facing(origin) {
+        return Ok(());
+    }
+    let scopes = view.graph().scopes();
+    let Found::One(path) = scopes.resolve(None, id, &|_| true) else {
+        return Ok(());
+    };
+    for edge in view.graph().edges_to(path.as_str()) {
+        let Some(kind) = scopes.kind(edge.source.as_str()).map(|k| k.to_string()) else {
+            continue;
+        };
+        let human_field = view
+            .registries()
+            .fields()
+            .get(&kind, top(edge.label.as_str()))
+            .is_some_and(|entry| entry.form().writer() == Some(FieldWriter::Human));
+        let human_kind = view
+            .registries()
+            .kinds()
+            .get(&kind)
+            .is_some_and(|entry| entry.is_human_only());
+        if human_kind || human_field {
+            return Err(human_only(
+                number,
+                plan,
+                format!(
+                    "{id} is named by '{}' of {}, a {kind} written by a person, which this change would rewrite",
+                    edge.label, edge.source
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn refuse(code: &'static str, number: usize, plan: bool, message: String) -> OpError {
