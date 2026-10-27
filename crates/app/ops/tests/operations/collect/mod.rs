@@ -28,8 +28,6 @@ use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 /// What a runner's export answers.
 enum Answer {
     Output(CollectOutput),
-    /// An output spelled as JSON, with fields the typed output may not have yet.
-    Raw(serde_json::Value),
     Trap,
 }
 
@@ -96,12 +94,6 @@ impl Runner {
         self
     }
 
-    /// Its export answers `output` as JSON and its collector declares that it writes.
-    pub fn writing(mut self, output: serde_json::Value) -> Self {
-        self.answer = Answer::Raw(output);
-        self
-    }
-
     /// Its export traps.
     pub fn trapping(mut self) -> Self {
         self.answer = Answer::Trap;
@@ -122,12 +114,6 @@ impl Runner {
                 .collect(|_| Ok(CollectOutput::default()));
         });
         let mut declaration = builder.declaration();
-        if matches!(self.answer, Answer::Raw(_)) {
-            // `writes` is on the wire from K5 T5; before it the flag is dropped on decode.
-            let mut wire = serde_json::to_value(&declaration).unwrap();
-            wire["collectors"][0]["writes"] = true.into();
-            declaration = serde_json::from_value(wire).unwrap();
-        }
         // The report and the capture as declared, whatever they are.
         declaration.collectors[0].report = Some(self.report.clone());
         declaration.collectors[0].capture = self.capture.clone();
@@ -151,7 +137,6 @@ impl Fixture {
                 Answer::Output(output) => {
                     WasmCallResult::Ok(serde_json::to_vec(output).expect("output serializes"))
                 }
-                Answer::Raw(output) => WasmCallResult::Ok(serde_json::to_vec(output).unwrap()),
                 Answer::Trap => WasmCallResult::Trap(WasmTrapInfo {
                     kind: "trap".to_string(),
                     message: "the export trapped".to_string(),

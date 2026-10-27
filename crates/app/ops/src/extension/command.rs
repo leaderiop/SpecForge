@@ -464,7 +464,7 @@ pub fn run(
 
 /// The view's graph as the plain graph export, naming the version of the
 /// project's schema.
-fn graph_export(view: &ProjectView<'_>) -> String {
+pub(crate) fn graph_export(view: &ProjectView<'_>) -> String {
     let versioned = view.versioned_schema();
     specforge_emitter::emit(
         view.graph(),
@@ -515,12 +515,12 @@ fn run_on(
 }
 
 /// Today's date in UTC, `YYYY-MM-DD`: the one clock every command reads.
-fn today() -> String {
+pub(crate) fn today() -> String {
     chrono::Utc::now().format("%Y-%m-%d").to_string()
 }
 
 /// `root` absolute and canonical, else as given.
-fn canonical(root: &Path) -> PathBuf {
+pub(crate) fn canonical(root: &Path) -> PathBuf {
     std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf())
 }
 

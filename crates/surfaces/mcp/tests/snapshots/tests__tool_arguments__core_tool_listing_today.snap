@@ -7775,6 +7775,43 @@ expression: listing
                 "minimum": 0,
                 "type": "integer"
               },
+              "plan": {
+                "additionalProperties": false,
+                "properties": {
+                  "added": {
+                    "items": {
+                      "$ref": "#/$defs/Diagnostic"
+                    },
+                    "type": "array"
+                  },
+                  "affected_files": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "diff": {
+                    "type": "string"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "entities": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "dry_run",
+                  "entities",
+                  "affected_files",
+                  "diff",
+                  "added"
+                ],
+                "type": "object"
+              },
               "ran": {
                 "type": "boolean"
               },

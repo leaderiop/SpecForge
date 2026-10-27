@@ -21,6 +21,9 @@ Options:
       --report <FILE>
           Report files to parse instead of running the runner (implies --no-run)
 
+      --dry-run
+          Plan a writing collector's edits and write none of them
+
       --yes
           Run the declared test command without asking (for CI)
 

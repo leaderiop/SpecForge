@@ -7,7 +7,9 @@ use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
 use crate::reply::Answered;
 use crate::target::ProjectRef;
+use crate::tool::McpError;
 use specforge_ops::analysis::collect::CollectField;
+use specforge_ops::authoring::apply::apply_collected;
 
 /// `specforge.collect`'s reply: the document `specforge collect --format
 /// json` prints (`McpCollectResult`).
@@ -71,8 +73,17 @@ impl CoreTool for Tool {
             // project with `specforge collect` in a terminal.
             caller: project.caller(),
         };
-        collect::collect(&project.view(), request, project.machine)
-            .map(|outcome| outcome.document().into())
-            .map_err(|refusal| Box::new(Self::refused(refusal)))
+        let view = project.view();
+        let mut outcome = collect::collect(&view, request, project.machine)
+            .map_err(|refusal| Box::new(Self::refused(refusal)))?;
+        // A writing collector's plans are applied after the report was written (ADR 0289).
+        let applied = apply_collected(
+            &view,
+            std::mem::take(&mut outcome.plans),
+            false,
+            project.caller(),
+        )
+        .map_err(|error| Box::new(McpError::from(error)))?;
+        Ok(outcome.with_applied(applied).document().into())
     }
 }

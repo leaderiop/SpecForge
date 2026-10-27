@@ -4,12 +4,14 @@
 //! against the field flags and the revisions it names, planned with the typed edit engine, judged, and written all or
 //! nothing with its harness ledger.
 
+mod collector;
 mod command;
 mod flags;
 pub(crate) mod journal;
 mod lower;
 mod revision;
 
+pub use collector::apply_collected;
 pub use command::{CommandRun, PlanOutcome, execute};
 
 use crate::authoring::edit::{EditField, Edited, Step, plan_steps};

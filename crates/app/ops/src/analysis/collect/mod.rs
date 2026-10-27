@@ -25,6 +25,7 @@ pub use crate::machine::{
 use collector::detect;
 pub use collector::{Collector, collectors};
 pub use dispatch::dispatch;
+use dispatch::dispatch_over;
 use evidence::{Evidence, Source};
 pub use merge::MergeStats;
 use merge::{KnownEntities, merge};
@@ -32,6 +33,7 @@ pub use process::ProcessMachine;
 
 use crate::view::ProjectView;
 use crate::{Caller, Held, OpError, OpErrorKind, Refusal};
+use crate::{CollectedPlan, EditDocument};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, ProjectPath, codes};
@@ -89,6 +91,9 @@ pub struct RunnerResult {
     pub stats: MergeStats,
     /// Tests linked by naming convention rather than by the report.
     pub by_convention: usize,
+    /// What a writing collector's plan did to the project (ADR 0289), as `specforge.edit` reports an edit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<EditDocument>,
 }
 
 /// The outcome of a successful collect.
@@ -102,9 +107,24 @@ pub struct Outcome {
     /// Approvals given at a prompt that could not be remembered (the
     /// consent store could not be written), each with why.
     pub unsaved_approvals: Vec<String>,
+    /// The plans writing collectors answered, for the caller to apply after the report is written (ADR 0289): the
+    /// report is per machine and the plan is the project's, so they are separate writes. `collect` applies none
+    /// (a plan is an `authoring` operation); see [`Outcome::with_applied`].
+    pub plans: Vec<CollectedPlan>,
 }
 
 impl Outcome {
+    /// The plans the caller applied, each under its runner's name, recorded on the runner's result.
+    pub fn with_applied(mut self, applied: Vec<(String, EditDocument)>) -> Self {
+        for (runner, document) in applied {
+            if let Some(result) = self.runners.iter_mut().find(|r| r.name == runner) {
+                result.plan = Some(document);
+            }
+        }
+        self.plans.clear();
+        self
+    }
+
     /// The document both surfaces answer with:
     /// `{status, runners, diagnostics, report}`.
     pub fn document(&self) -> CollectDocument {
@@ -187,6 +207,7 @@ pub fn collect(
         .map_err(OpError::from)?;
     let mut report = load_report(&report_file);
     let mut runners = Vec::new();
+    let mut plans: Vec<CollectedPlan> = Vec::new();
     let mut diagnostics = Vec::new();
     let mut unsaved_approvals = Vec::new();
     // Decided for every collector before anything runs (ADR 0125 D5): a refusal that needs no run never
@@ -214,11 +235,12 @@ pub fn collect(
             ran,
         } = source.gather(collector, root, containment, machine, &mut *announce)?;
 
-        let mut collected = dispatch(
+        let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
             collector,
             &files,
             stdout.as_deref(),
+            Some(view),
         )
         .map_err(|error| OpError::of(OpErrorKind::Internal, error.diagnostic()))?;
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
@@ -227,6 +249,14 @@ pub fn collect(
         collected.entity_results.extend(by_convention);
         let (stats, diags) = merge(&mut report, &collector.name, &collected, known);
         diagnostics.extend(diags);
+        if let Some(plan) = collected.plan.take() {
+            plans.push(CollectedPlan {
+                runner: collector.name.clone(),
+                extension: collector.extension.clone(),
+                writes: collector.writes,
+                plan,
+            });
+        }
         runners.push(RunnerResult {
             name: collector.name.clone(),
             extension: collector.extension.clone(),
@@ -235,6 +265,7 @@ pub fn collect(
             files: files.len(),
             stats,
             by_convention: by_convention_count,
+            plan: None,
         });
     }
 
@@ -245,6 +276,7 @@ pub fn collect(
         diagnostics,
         report,
         unsaved_approvals,
+        plans,
     })
 }
 

@@ -17,7 +17,8 @@ mod typed;
 pub(crate) mod validate;
 pub mod write;
 
-pub use outcome::{EditDocument, Edited, run};
+pub use crate::edit_report::{EditDocument, EditReport};
+pub use outcome::{Edited, run};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
 use steps::compose;
 pub use steps::{Step, plan, plan_steps};
@@ -28,7 +29,6 @@ use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use serde::{Deserialize, Serialize};
-use specforge_common::DiagnosticList;
 use specforge_common::Sym;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
@@ -269,20 +269,6 @@ pub fn fields_of(view: &ProjectView<'_>, kind: &str) -> Vec<FieldInfo> {
             })
         })
         .collect()
-}
-
-/// What a plan will write.
-#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
-pub struct EditReport {
-    /// The entities whose block the edits, taken together, create, change or delete, sorted
-    /// (`PlannedChange::entities`).
-    pub entities: Vec<String>,
-    /// The files the edits change, relative to the project root, sorted.
-    pub affected_files: Vec<String>,
-    /// A unified diff of every affected file (project-root-relative headers), in file order. Empty when nothing changes.
-    pub diff: String,
-    /// The warnings and infos the edited project reports that the project did not, in report order.
-    pub added: DiagnosticList,
 }
 
 /// The files a list of edits changes, and what they would write.

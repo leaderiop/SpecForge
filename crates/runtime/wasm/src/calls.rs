@@ -365,6 +365,22 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
+    /// [`Self::collect`] for a collector that declares `writes`: the host already rendered the graph.
+    pub fn collect_writing(
+        &self,
+        extension: &str,
+        export: &str,
+        input: &CollectInput<RawGraph>,
+    ) -> Result<CollectOutput, CallError> {
+        self.call_typed(
+            Operation::Collect,
+            extension,
+            export,
+            input,
+            "CollectOutput",
+        )
+    }
+
     /// A custom rule's `function` on one entity's context.
     pub fn validate(
         &self,

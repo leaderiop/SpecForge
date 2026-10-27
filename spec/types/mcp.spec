@@ -792,12 +792,12 @@ type McpCollectResult "Mcp Collect Result" {
 
 type McpCollectRunner "What one runner's collection found" {
   /// The collector's name, e.g. cargo-test.
-  name          string  @readonly
+  name          string         @readonly
   /// The extension contributing the collector.
-  extension     string  @readonly
+  extension     string         @readonly
   /// Whether the runner's command ran (run=true), or its report was read.
   ran           boolean
-  exit_code     integer @optional
+  exit_code     integer        @optional
   /// Report files read.
   files         integer
   /// Entities the results name.
@@ -807,7 +807,23 @@ type McpCollectRunner "What one runner's collection found" {
   skipped       integer
   /// Tests linked by naming convention rather than by the report.
   by_convention integer
+  /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
+  plan          McpCollectPlan @optional
   verify unit "McpCollectRunner schema is valid"
+}
+
+type McpCollectPlan "What a writing collector's plan did to the project" {
+  /// The entities whose blocks the plan creates, changes or deletes, sorted.
+  entities       string[]
+  /// The files the plan changes, relative to the project root.
+  affected_files string[]
+  /// A unified diff of every affected file.
+  diff           string
+  /// The warnings and infos the edited project reports that the project did not.
+  added          Diagnostic[]
+  /// True when the plan was only planned.
+  dry_run        boolean
+  verify unit "McpCollectPlan schema is valid"
 }
 
 type McpRenderResult "Mcp Render Result" {

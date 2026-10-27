@@ -1,12 +1,10 @@
 //! What a list of typed edits did (ADR 0162): [`run`] plans it and writes it unless it previews; [`EditDocument`]
 //! is what both surfaces print.
 
-use super::{Edit, EditField, EditReport, plan};
+use super::{Edit, EditDocument, EditField, EditReport, plan};
 use crate::authoring::apply::{self, Origin};
 use crate::view::ProjectView;
 use crate::{Caller, Refusal, Wrote};
-use serde::Serialize;
-use specforge_common::shape::Shape;
 
 /// What a list of typed edits did: what it plans (or planned) and whether it wrote.
 #[derive(Debug, Clone)]
@@ -32,16 +30,6 @@ pub fn run(
         report: planned.report().clone(),
         wrote,
     })
-}
-
-/// What `specforge set|unset|link|unlink|delete|new --format json` and `specforge.edit` print (`McpEditResult`):
-/// the report, and whether the run previewed (ADR 0052 D1, ADR 0162).
-#[derive(Debug, Clone, Serialize, Shape)]
-pub struct EditDocument {
-    #[serde(flatten)]
-    pub report: EditReport,
-    /// The edits were only planned: nothing was written.
-    pub dry_run: bool,
 }
 
 impl Edited {

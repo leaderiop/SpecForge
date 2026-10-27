@@ -74,6 +74,7 @@ fn collector() -> Collector {
         run: Vec::new(),
         report: "report.json".to_string(),
         capture: None,
+        writes: false,
     }
 }
 
