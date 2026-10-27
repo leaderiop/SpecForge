@@ -282,7 +282,10 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
 | `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
-| `c.feature_flag(name, default, description)` | a flag users set in `specforge.json` | `feature_flags` |
+| `c.feature_flag(name, default, description)` | a bool setting of that name users set in `specforge.json` | `settings` |
+| `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `keys(..)` for a family | `settings` |
+| `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
+| `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
@@ -541,9 +544,20 @@ declared with its handler, `c.migration_hook_handler(export, |input:
 files the migration will rewrite; its `Err` refuses the migration and nothing
 is written.
 
-### Feature flags
+### Settings
 
-`c.feature_flag("warning_level", false, "Promote warnings")` declares a flag users set in `specforge.json`: a name, its default (on or off) and a description.
+A setting is a typed value a user sets in `specforge.json` under the extension's name (ADR 0288):
+
+```rust
+c.setting("tdd_mode", |s| { s.bool().default(false).describe("Require a test first").gates(&["T201"]); });
+c.setting("models.*", |s| { s.enum_values(&["opus", "sonnet"]).keys(&[&["planning", "execution"]]); });
+c.preset("profile", |p| { p.when("strict", |e| { e.set("tdd_mode", true).raise("T202", ValidationSeverity::Error); }); });
+c.secret("api_key", "MY_API_KEY", "The service key");
+```
+
+A dotted name or a family (`*` segments) has a type, an optional default and the codes it gates: while a bool setting is false, those codes are reported by no source. A preset maps each value of an enum or bool setting (the extension's own, or a peer's as `@ext:name`) to settings it sets and codes it raises, never lowers. `c.feature_flag(name, default, description)` is a bool setting. A secret is never written in `specforge.json` (E087); the extension is told only whether its variable is set.
+
+A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)`. A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
 
 ## Host Functions
 

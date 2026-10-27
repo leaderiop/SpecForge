@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes` (the host compares `(major, minor)` as numbers) and loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes`, `settings` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -128,8 +128,9 @@ The host reads every string and object key of a handshake or describe answer pri
 | `collectors` | Test result collector descriptors | Always |
 | `analyzers` | Language analyzer descriptors (`specforge infer`) | Always |
 | `passes` | Compiler pass descriptors with ordering constraints | Always |
-| `feature_flags` | Feature flag descriptors | Always |
+| `feature_flags` | Feature flag descriptors, each read as a bool setting (below) | Always |
 | `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
+| `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
 
 ### Category: entities
 
@@ -529,7 +530,7 @@ commit yet). See
 
 ### Category: feature_flags
 
-Returns feature flag descriptors. Each flag declares allowed values and a default.
+Returns feature flag descriptors. Each flag declares allowed values and a default. The host reads a flag as the bool setting of its name and default ([Category: settings](#category-settings)), so `"settings": {"<extension>": {"<flag>": true}}` in `specforge.json` sets it.
 
 ```json
 {
@@ -779,7 +780,8 @@ Install it again (`specforge add`) and the next load restores all of it.
         v
   __describe(category), each once        entities, edges, shared_fields, enhancements,
         │                                 validation_rules, surfaces, collectors,
-        │                                 analyzers, passes, feature_flags
+        │                                 analyzers, passes, feature_flags,
+        │                                 codes, settings
         v
   REGISTER                               KindRegistry, FieldRegistry, EdgeRegistry
         │

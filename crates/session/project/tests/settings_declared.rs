@@ -135,6 +135,11 @@ fn the_registry_refuses_a_malformed_setting() {
             Some("gates"),
         ),
         (
+            setting("fam.*", json!({"field_type": "bool", "gates": ["W901"]})),
+            "only a setting named whole gates",
+            Some("fam.*"),
+        ),
+        (
             setting("g2", json!({"field_type": "bool", "gates": ["W999"]})),
             "do not catalog",
             Some("g2"),

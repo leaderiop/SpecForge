@@ -271,6 +271,12 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
         ));
         setting.gates.clear();
     }
+    if !setting.gates.is_empty() && Family::is_family(&name) {
+        found.w021(format!(
+            "setting '{name}' declares gates, but it is a family: only a setting named whole gates codes"
+        ));
+        setting.gates.clear();
+    }
     let extension = found.extension;
     let book = found.book;
     let (catalogued, missing): (Vec<String>, Vec<String>) = setting

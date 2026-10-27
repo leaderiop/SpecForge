@@ -82,6 +82,8 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 }
 ```
 
+An extension's settings go under `settings`, by extension name (`"settings": {"@acme/ext": {"tdd_mode": true}}`); `specforge settings` lists what they resolve to, `specforge schema --config` writes the file's JSON Schema with them typed, and the editor completes and checks them. A secret is never written there.
+
 `specforge init --extensions @specforge/software` creates this for you; `specforge add` / `specforge remove` edit the `extensions` list afterwards.
 
 ---

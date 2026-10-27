@@ -874,12 +874,14 @@ structure is checked (I002 says so), and `specforge add`, `specforge update` and
 format`, `specforge migrate` and the rename tools refuse the same way when the
 file can't be used or `spec_root`, `exclude` or `extensions` has the wrong type,
 since they could not tell which files are the project's sources; on any other
-problem they still run, report the E069 and fail. When a key has the wrong type
-(`name`, `version` or `spec_root` not a string, `exclude` not an array), that
-key's default is used; when an item of `extensions` or `exclude` isn't a string,
-or an `exclude` item can match no source (empty, starting with `!`, with a `.`
-or `..` name, or not a glob pattern), that item is ignored; the rest of the file
-is used. Each problem is one E069, and `check` fails on it, so a broken config
+problem they still run, report the E069 and fail. A `settings` value that is not
+an object is one too (the settings are then read as none); a setting that is not
+used as written is E086, E087 or W166. When a key has the wrong type (`name`,
+`version` or `spec_root` not a string, `exclude` not an array), that key's
+default is used; when an item of `extensions` or `exclude` isn't a string, or an
+`exclude` item can match no source (empty, starting with `!`, with a `.` or `..`
+name, or not a glob pattern), that item is ignored; the rest of the file is
+used. Each problem is one E069, and `check` fails on it, so a broken config
 can't pass a CI that checks nothing. Fix the file: the message names the JSON
 error's line and column, or the key and the item. A missing `specforge.json` is
 not this: it is a project with the default config (`specforge doctor` says so).
@@ -1406,14 +1408,15 @@ each extension's explicit MCP tools and resources in extension load order, then
 its commands as the tools `specforge.<ext>.<command>`. A contribution not served
 under its name is reported here, with why: an explicit tool named as a core tool
 or an earlier extension's tool; an explicit tool whose input schema declares
-`path`, which the call target takes out of every call; a resource whose URIs a
-core resource or an earlier extension resource already serves; a command whose
-tool name an explicit tool (or a core tool) already has; a command the host
-refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one
-option, or a default its declaration contradicts); a command another command
-routes first under its name (`specforge check` reports that one as E039). I017
-itself only MCP reports. Rename the contribution if the collision is unintended;
-otherwise no action is needed.
+`path`, which the call target takes out of every call, or `settings`, which the
+host sends with every call (ADR 0288); a resource whose URIs a core resource or
+an earlier extension resource already serves; a command whose tool name an
+explicit tool (or a core tool) already has; a command the host refuses (an arg
+taking `--path`, `--format` or `--help`, two args spelling one option, or a
+default its declaration contradicts); a command another command routes first
+under its name (`specforge check` reports that one as E039). I017 itself only
+MCP reports. Rename the contribution if the collision is unintended; otherwise
+no action is needed.
 
 Owner: core
 Level: info
@@ -2556,7 +2559,18 @@ field that is also `required`, `immutable`, `append_only` or `derived_from`,
 `append_only` on a field that is not a list, a computed field no compute pass
 lists in `computes`, a `computes` entry that is not a computed field of the
 extension or that two passes list or whose pass is not in the `compute` phase,
-and a `baseline` naming a kind no loaded extension declares.
+and a `baseline` naming a kind no loaded extension declares. The `settings`
+category is checked too (ADR 0288): a setting named twice or not a dotted name
+or a family (`*` segments), of a type the field forms do not have, with a
+default its type refuses, with `gates` on a type other than `bool` or on a
+family (only a setting named whole gates codes), or naming a code the extension
+does not catalog, or with `keys` that do not match its `*`s; a preset whose
+source is not an enum or bool setting of the extension or of a loaded peer, that
+names a value its source does not take, that sets a setting the extension does
+not declare to a value its type refuses, or that raises a code the extension
+does not catalog; a secret named twice or whose environment variable is not a
+name; and an item of a kind the host does not know. The item is dropped, the
+rest of the category is kept.
 
 Owner: core
 Level: warning

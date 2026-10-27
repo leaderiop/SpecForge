@@ -179,7 +179,7 @@ naturally groups by -- one file per area (`orders.spec`, `billing.spec`), or one
 passes ~20 entities. Example for a project loading `@specforge/software` and `@specforge/product`:
 
 ```
-specforge.json           # configuration: extensions, spec_root -- created by `specforge init`
+specforge.json           # configuration: extensions, spec_root, settings (typed, per extension) -- created by `specforge init`
 spec/
   main.spec              # the spec block
   features/orders.spec

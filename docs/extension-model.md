@@ -28,7 +28,8 @@ Everything below is a builder call in the extension SDK (`ContributionsBuilder`,
 | **Analyzers** | A source-code scanner `specforge infer` uses to suggest entities from existing code | `analyzer` |
 | **Providers** | A `ref` scheme the project can configure (see [below](#providers-registered-not-yet-connected)) | `providers` |
 | **Peers** | Other extensions it needs, or works with when present, with a version range | `peer`, `optional_peer` |
-| Starter file, diagram colour, feature flags, a migration hook | Conveniences: what `specforge init` writes, how `model` and `outline` draw it | `starter_template`, `theme_color`, `feature_flag`, `migration_hook_handler` |
+| Starter file, diagram colour, a migration hook | Conveniences: what `specforge init` writes, how `model` and `outline` draw it | `starter_template`, `theme_color`, `migration_hook_handler` |
+| Typed settings, presets and secrets | What a user sets in `specforge.json`: gates codes, raises their severity, kept out of the graph | `setting`, `preset`, `secret`, `feature_flag` |
 
 Here is the start of a real declaration, `@specforge/governance` declaring the `decision` kind
 ([`extensions/governance/src/declaration.rs`](../extensions/governance/src/declaration.rs)):
