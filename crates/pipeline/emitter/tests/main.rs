@@ -15,6 +15,7 @@ mod emit_markdown;
 mod emit_matrix;
 mod emit_members;
 mod emitter_error;
+mod gsd_ids;
 mod model;
 mod outline;
 mod outline_owner;

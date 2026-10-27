@@ -481,6 +481,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a single string on a string_list field becomes a one-item list"
   verify unit "a single reference on a reference_list field becomes a one-item list"
   verify unit "a value that is not the declared integer, bool or enum type is an error"
+  verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
   verify unit "a list on a field declared as a single value is an error"
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"

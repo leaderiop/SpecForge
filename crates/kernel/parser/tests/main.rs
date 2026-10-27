@@ -17,6 +17,7 @@ mod line_breaks;
 mod member_comments;
 mod methods_test;
 mod name_spans;
+mod names;
 mod parse_test;
 mod ref_components;
 mod robustness;

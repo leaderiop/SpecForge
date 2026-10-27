@@ -36,6 +36,8 @@ tempfile = { workspace = true, optional = true }
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-project = { path = ".", features = ["testing"] }
+# The corpus the reference-field guard reads.
+specforge-parser = { workspace = true, features = ["testing"] }
 # The builtins, loaded outside the extension load by the tests.
 specforge-component = { path = "../../runtime/component", features = ["testing"] }
 # The pipeline tests render what they compile.

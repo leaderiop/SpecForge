@@ -17,3 +17,22 @@ fn the_builtin_vocabulary_is_what_the_builtins_declare() {
     );
     assert!(!CandidateVocabulary::from_json(BUILTIN_VOCABULARY).is_empty());
 }
+
+#[specforge_test_macros::test(
+    behavior = "link_entity_references",
+    verify = "no builtin reference field declares a default value, so an absent value names nothing"
+)]
+fn no_builtin_reference_field_declares_a_default() {
+    let declarations = pinned_builtin_declarations().unwrap();
+    let mut checked = 0;
+    for field in declarations
+        .iter()
+        .flat_map(|d| &d.entities)
+        .flat_map(|kind| &kind.fields)
+        .filter(|f| matches!(f.field_type.as_str(), "reference" | "reference_list"))
+    {
+        assert_eq!(field.default_value, None, "{}", field.name);
+        checked += 1;
+    }
+    assert!(checked > 40, "only {checked} reference fields were found");
+}

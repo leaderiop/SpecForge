@@ -192,6 +192,8 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "define block uses dedicated grammar rule"
   verify unit "unknown keyword parsed without error"
   verify unit "optional and annotated parameters, nested arrays, unit and function types, and string-literal unions parse"
+  verify unit "a minus in an expression, a union variant and a scheme ref read as before a value is one word"
+  verify unit "every bare scalar value of the repository's spec keeps its written text"
   verify unit "a type may declare a field named verify next to verify statements"
   verify unit "every spec in the repository parses without a syntax error"
   verify unit "a syntax error inside a method signature is reported"

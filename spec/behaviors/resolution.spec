@@ -184,6 +184,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a reference naming an existing entity of the absent target kind links without a diagnostic"
   verify unit "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
   verify unit "a single reference to an existing entity of another kind than its field's target kind is E022 at the reference"
+  verify unit "no builtin reference field declares a default value, so an absent value names nothing"
   verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
   verify unit "E003 span covers exactly the unresolved identifier token"
   verify unit "a quoted reference is written at its ID, inside its quotes"

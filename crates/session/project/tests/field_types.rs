@@ -171,3 +171,65 @@ fn check_field_value_types_contract() {
     );
     assert_eq!(e061(&diags).len(), 2, "{diags:?}");
 }
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "no reference field of the repository's spec holds a bare number, date or boolean"
+)]
+fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
+    use specforge_parser::{FieldValue, Written};
+    use std::collections::{HashMap, HashSet};
+
+    // keyword -> the names of its reference and reference_list fields, over the builtins.
+    let mut reference_fields: HashMap<String, HashSet<String>> = HashMap::new();
+    for kind in specforge_component::committed::pinned_builtin_declarations()
+        .unwrap()
+        .iter()
+        .flat_map(|d| &d.entities)
+    {
+        let Some(keyword) = &kind.keyword else {
+            continue;
+        };
+        for field in &kind.fields {
+            if matches!(field.field_type.as_str(), "reference" | "reference_list") {
+                reference_fields
+                    .entry(keyword.clone())
+                    .or_default()
+                    .insert(field.name.clone());
+            }
+        }
+    }
+    assert!(!reference_fields.is_empty());
+    let mut checked = 0usize;
+    for (path, source) in specforge_parser::testing::corpus() {
+        let file = specforge_parser::parse(source, &path.to_string_lossy());
+        for entity in &file.entities {
+            let Some(names) = reference_fields.get(entity.kind.raw.as_str()) else {
+                continue;
+            };
+            for entry in entity.fields.entries() {
+                if !names.contains(entry.key.as_str()) {
+                    continue;
+                }
+                let literal = match &entry.value {
+                    FieldValue::Integer(_) | FieldValue::Boolean(_) | FieldValue::Date(_) => true,
+                    FieldValue::List(items) => items.iter().any(|i| i.written == Written::Literal),
+                    _ => false,
+                };
+                assert!(
+                    !literal,
+                    "{}: {} {} holds a number, date or boolean in `{}`",
+                    path.display(),
+                    entity.kind.raw.as_str(),
+                    entity.id.raw.as_str(),
+                    entry.key.as_str()
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert!(
+        checked > 100,
+        "only {checked} reference values were checked"
+    );
+}
