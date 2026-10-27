@@ -15,8 +15,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("box")
             .dot_color("#2196F3")
             .dot_fillcolor("#E3F2FD")
-            .inference_guide("Look for user-facing capabilities described in product documents, issue trackers, or feature flag configurations. Signals: feature flag definitions; product requirement documents; user stories in README or docs/; GitHub issues labeled 'feature' or 'enhancement'; CHANGELOG entries describing new capabilities; marketing copy describing what users can do. Extract the problem (user pain point) and solution (how the feature addresses it). Fill acceptance with testable completion criteria (e.g., 'User can export CSV in <2s'). Set priority and status from issue labels or project boards. Link depends_on for prerequisite features. Features are user-facing capabilities; for internal technical units of work, use behavior instead. Skip: internal technical improvements, bug fixes, refactoring work.")
-            .lifecycle_field("status");
+            .inference_guide("Look for user-facing capabilities described in product documents, issue trackers, or feature flag configurations. Signals: feature flag definitions; product requirement documents; user stories in README or docs/; GitHub issues labeled 'feature' or 'enhancement'; CHANGELOG entries describing new capabilities; marketing copy describing what users can do. Extract the problem (user pain point) and solution (how the feature addresses it). Fill acceptance with testable completion criteria (e.g., 'User can export CSV in <2s'). Set priority and status from issue labels or project boards. Link depends_on for prerequisite features. Features are user-facing capabilities; for internal technical units of work, use behavior instead. Skip: internal technical improvements, bug fixes, refactoring work.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .description("Human-readable summary of the feature");
@@ -131,8 +130,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("box3d")
             .dot_color("#4CAF50")
             .dot_fillcolor("#E8F5E9")
-            .inference_guide("Look for independently shippable artifacts: binaries, packages, services, libraries, or documentation bundles. Signals: Cargo.toml/package.json with distinct package names; Dockerfile definitions; CI/CD deployment targets; published npm/crate packages; separate apps in a monorepo (apps/ directory); versioned API specifications. Set artifact_type to the kind of artifact. Link modules it contains and milestones it's tracked under. Link depends_on for build or runtime dependencies between deliverables. Skip: internal modules (those are modules), test utilities, development-only tooling.")
-            .lifecycle_field("status");
+            .inference_guide("Look for independently shippable artifacts: binaries, packages, services, libraries, or documentation bundles. Signals: Cargo.toml/package.json with distinct package names; Dockerfile definitions; CI/CD deployment targets; published npm/crate packages; separate apps in a monorepo (apps/ directory); versioned API specifications. Set artifact_type to the kind of artifact. Link modules it contains and milestones it's tracked under. Link depends_on for build or runtime dependencies between deliverables. Skip: internal modules (those are modules), test utilities, development-only tooling.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .description("Human-readable summary of the deliverable");
@@ -196,8 +194,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("hexagon")
             .dot_color("#9C27B0")
             .dot_fillcolor("#F3E5F5")
-            .inference_guide("Look for project phases, release planning checkpoints, and grouped sets of work with target dates. Signals: GitHub milestones; project board columns representing phases; roadmap documents with dated targets; sprint/iteration boundaries; 'Phase 1/2/3' labels; release planning documents. Extract target_date, exit_criteria, and status. Link features that must be delivered and modules scoped to this milestone. Link depends_on for sequential milestone ordering. Skip: individual tasks (those are features or behaviors), recurring ceremonies, ongoing maintenance work.")
-            .lifecycle_field("status");
+            .inference_guide("Look for project phases, release planning checkpoints, and grouped sets of work with target dates. Signals: GitHub milestones; project board columns representing phases; roadmap documents with dated targets; sprint/iteration boundaries; 'Phase 1/2/3' labels; release planning documents. Extract target_date, exit_criteria, and status. Link features that must be delivered and modules scoped to this milestone. Link depends_on for sequential milestone ordering. Skip: individual tasks (those are features or behaviors), recurring ceremonies, ongoing maintenance work.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .description("Human-readable summary of the milestone");
@@ -342,8 +339,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("ellipse")
             .dot_color("#E91E63")
             .dot_fillcolor("#FCE4EC")
-            .inference_guide("Look for distinct user archetypes referenced in product docs, user stories, or access control systems. Signals: role-based access control definitions (admin, editor, viewer); user story formats ('As a <persona>...'); docs/personas/ directory; marketing segments; README describing who the product is for; distinct CLI/API user types. Extract technical_level, goals, and pain_points. Link key_features this persona cares about. One persona per distinct user archetype with meaningfully different needs. Skip: system/service accounts, test users, internal roles that don't represent real users.")
-            .lifecycle_field("status");
+            .inference_guide("Look for distinct user archetypes referenced in product docs, user stories, or access control systems. Signals: role-based access control definitions (admin, editor, viewer); user story formats ('As a <persona>...'); docs/personas/ directory; marketing segments; README describing who the product is for; distinct CLI/API user types. Extract technical_level, goals, and pain_points. Link key_features this persona cares about. One persona per distinct user archetype with meaningfully different needs. Skip: system/service accounts, test users, internal roles that don't represent real users.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .required()
@@ -385,8 +381,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("rectangle")
             .dot_color("#00BCD4")
             .dot_fillcolor("#E0F7FA")
-            .inference_guide("Look for distinct surfaces through which users interact with the product. Signals: separate frontend applications (web app, mobile app, CLI); API endpoints exposed to external consumers; notification channels (email, push, SMS); documentation sites; IDE extensions; webhook integrations; Slack/Discord bots. Set interaction_model to how users interact through it. Set url if applicable. One channel per distinct interaction surface. Skip: internal communication between services (those are ports), monitoring/alerting channels, CI/CD pipelines.")
-            .lifecycle_field("status");
+            .inference_guide("Look for distinct surfaces through which users interact with the product. Signals: separate frontend applications (web app, mobile app, CLI); API endpoints exposed to external consumers; notification channels (email, push, SMS); documentation sites; IDE extensions; webhook integrations; Slack/Discord bots. Set interaction_model to how users interact through it. Set url if applicable. One channel per distinct interaction surface. Skip: internal communication between services (those are ports), monitoring/alerting channels, CI/CD pipelines.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .required()
@@ -420,8 +415,7 @@ pub(super) fn kinds(c: &mut ContributionsBuilder) {
             .dot_shape("doubleoctagon")
             .dot_color("#FF5722")
             .dot_fillcolor("#FBE9E7")
-            .inference_guide("Look for versioned release artifacts, changelogs, and release planning documents. Signals: CHANGELOG.md entries; GitHub releases; git tags following semver; release branches (release/v*); Cargo.toml/package.json version fields; release notes documents; deployment manifests with version numbers. Set version (semver), target_date, and status. Link deliverables included and milestones completed by this release. Skip: pre-release/nightly builds (unless formally tracked), hotfix patches (unless they warrant a release entity), internal development versions.")
-            .lifecycle_field("status");
+            .inference_guide("Look for versioned release artifacts, changelogs, and release planning documents. Signals: CHANGELOG.md entries; GitHub releases; git tags following semver; release branches (release/v*); Cargo.toml/package.json version fields; release notes documents; deployment manifests with version numbers. Set version (semver), target_date, and status. Link deliverables included and milestones completed by this release. Skip: pre-release/nightly builds (unless formally tracked), hotfix patches (unless they warrant a release entity), internal development versions.");
         k.field("description", |f| {
             f.field_type(FieldType::String)
                 .description("Human-readable summary of this release");

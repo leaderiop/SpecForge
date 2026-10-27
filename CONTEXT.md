@@ -191,7 +191,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (the environment reads of its last load) and its **check inputs**
-  (the check reads of the last check run: `specforge-cache.json` when a check pass read it, each path a check looked
+  (the check reads of the last check run: each path a check looked
   for, each directory a missing named file's suggestion listed, and the target of each that is a symlink) and its **source hops**
   (each link hop a symlinked source's last read followed, its target included). They are one table of **recorded
   inputs** (ADR 0133). Every input is keyed by its own name (a symlink stays itself), and each link hop it
@@ -1609,9 +1609,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
-- **Lifecycle field**: the one field of a kind that holds its entities' lifecycle state
-  (`lifecycle_field` on the kind). The build cache records its value so check-phase passes can
-  compare against the previous build (ADR 0009).
+- **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
+  read through the `History` port only when something declares history; what an immutable or append-only value is
+  judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
 - **Call containment**: the one **Containment** an MCP call reads and writes its project through, built when the call is
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.

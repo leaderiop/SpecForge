@@ -67,13 +67,6 @@ impl KindBuilder {
         self.0.declares_types = true;
         self
     }
-    /// The field holding the kind's lifecycle state, whose previous value
-    /// the build cache records for check-phase passes. Must be one of the
-    /// kind's fields.
-    pub fn lifecycle_field(&mut self, field: &str) -> &mut Self {
-        self.0.lifecycle_field = Some(field.to_string());
-        self
-    }
     /// The single `reference` field (with a target kind) naming the entity this kind's entities are scoped by:
     /// a name is unique within its scope, and an entity's id is its scope's path and its name (ADR 0284).
     /// The field may be absent from an entity, which is then in the project scope.

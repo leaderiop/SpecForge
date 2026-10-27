@@ -166,7 +166,6 @@ fn digest(env: &Environment) -> Value {
                     "open_fields": k.declared.open_fields,
                     "contract_target": k.declared.contract_target,
                     "declares_types": k.declared.declares_types,
-                    "lifecycle_field": k.lifecycle_field,
                 }),
             )
         })

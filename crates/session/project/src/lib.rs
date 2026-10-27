@@ -21,7 +21,6 @@
 
 pub mod baseline;
 mod buffers;
-mod build_cache;
 mod check_passes;
 mod compiled;
 mod compute;
@@ -61,7 +60,6 @@ use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use buffers::Buffer;
-pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compiled::CompiledProject;
 pub use diagnostics_delta::DiagnosticsDelta;
 pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};

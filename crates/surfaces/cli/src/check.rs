@@ -3,7 +3,7 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, err, errln};
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
-use specforge_ops::analysis::check::{CacheRecord, CheckOptions, check};
+use specforge_ops::analysis::check::{CheckOptions, check};
 use specforge_ops::view::ProjectView;
 use specforge_project::{LintProfile, SharedRuntime};
 use std::sync::Arc;
@@ -32,7 +32,7 @@ pub(crate) struct Args {
     lint: Vec<LintProfile>,
 
     /// Show only diagnostics of this severity (after --strict); the exit
-    /// code and --cache still judge everything reported
+    /// code still judges everything reported
     #[arg(
         long,
         ignore_case = true,
@@ -40,12 +40,6 @@ pub(crate) struct Args {
             .try_map(|name| specforge_ops::analysis::check::parse_severity(&name))
     )]
     severity: Option<Severity>,
-
-    /// Record each entity's lifecycle state (e.g. a feature's status) in
-    /// specforge-cache.json when the check passes (the build cache history
-    /// rules compare against)
-    #[arg(long)]
-    cache: bool,
 }
 
 impl Args {
@@ -55,7 +49,6 @@ impl Args {
             strict: self.strict,
             lint_profiles: self.lint.clone(),
             severity: self.severity,
-            record_cache: self.cache,
         }
     }
 
@@ -75,9 +68,7 @@ impl Args {
 /// `specforge check` with the project's extensions running in `runtime`:
 /// the check operation over what the compile reported, the diagnostics the
 /// severity filter shows rendered, and the verdict over everything as the
-/// exit code. With `record_cache`, a check that passes records the build's
-/// lifecycle states (the fields kinds declare as `lifecycle_field`) in
-/// `specforge-cache.json`.
+/// exit code.
 fn run_in(
     project: &crate::project::ProjectArg,
     runtime: SharedRuntime,
@@ -102,11 +93,6 @@ fn run_in(
     };
     let shown: Vec<Diagnostic> = outcome.shown().into_iter().cloned().collect();
 
-    // A refusal under --format json is the only document on stdout (report_command_outcome).
-    if let (OutputFormat::Json, CacheRecord::WriteFailed(error)) = (format, &outcome.cache) {
-        return Refusal::of(format).report(terminal, error);
-    }
-
     match format {
         OutputFormat::Json => {
             let entries = specforge_common::diagnostics_json(
@@ -126,15 +112,6 @@ fn run_in(
             let summary = diagnostic_summary(&outcome.reported, color);
             errln!(terminal, "{}", with_filter_note(&summary, outcome.severity));
         }
-    }
-
-    match &outcome.cache {
-        CacheRecord::NotRequested | CacheRecord::Written => {}
-        CacheRecord::NotWritten => notes.person(format_args!(
-            "note: {} not written: the check failed",
-            specforge_project::BUILD_CACHE_FILE
-        )),
-        CacheRecord::WriteFailed(error) => return Refusal::of(format).report(terminal, error),
     }
 
     // Strict already promoted warnings: errors alone decide.

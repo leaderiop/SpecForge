@@ -22,9 +22,8 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     E007, E015, E052, W041-W046, W049, W057, W092,
     W093, I010, I046-I048, I050, I054, I055, I057, I059-I061,
     I066-I070, I080-I083, I089. Feature, milestone,
-    deliverable, persona, channel and release MUST declare status as their
-    lifecycle field, the state the build cache records for the transition
-    rules (W087-W091, W094; ADR 0009).
+    deliverable, persona, channel and release MUST declare a status field (the
+    transition rules W087-W091, W094 compare it against the git baseline, ADR 0287).
   """
   requires {
     supported_protocol   "the handshake's protocol major version is the host's"
@@ -47,7 +46,6 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     starter_tmpl_declared      "starter_template is the product starter in src/starter.spec"
     surfaces_declared          "surfaces declares the 40 specforge product CLI commands (cmd__product_* exports, auto-promoted to MCP tools) and no explicit MCP tools or resources"
     ext_short_declared         "ext_short is 'product' for MCP tool naming (specforge.product.{cmd_id})"
-    lifecycle_fields_declared  "feature, milestone, deliverable, persona, channel and release declare lifecycle_field status"
     fields_declared            "fields declares shared fields (tags: string[] @optional) applied to all 9 entity kinds"
     no_collector_contributions "collector_contributions is empty — product does not collect test results"
   }

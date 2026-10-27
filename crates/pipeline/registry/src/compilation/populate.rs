@@ -249,8 +249,6 @@ fn register_entity_kinds(
             testable: kind.testable,
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.verify_kinds.clone(),
-            // Read and ignored since ADR 0287; the build cache that used it goes with ticket 10.
-            lifecycle_field: kind.lifecycle_field.clone(),
             scoped_by: None,
             declared: kind.clone(),
         };

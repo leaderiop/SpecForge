@@ -16,7 +16,6 @@ specforge init                       # scaffold a new project
 specforge check                      # validate .spec files
 specforge check --strict             # promote warnings to errors
 specforge check --severity error     # show only errors (the exit code still counts everything)
-specforge check --cache              # record statuses in specforge-cache.json (history rules)
 
 # Graph access (for agents and humans)
 specforge export --format=context    # token-efficient context for an agent

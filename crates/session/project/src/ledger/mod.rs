@@ -394,7 +394,7 @@ impl Ledger {
 
 /// What a read the ledger records is (how a later change to it is reached).
 pub(crate) enum Reading {
-    /// A file: its bytes or its existence (the build cache, a file a
+    /// A file: its bytes or its existence (a file a
     /// `file_reference` field or a `file_exists` rule names). Reached by its
     /// own path or a directory above it.
     File,

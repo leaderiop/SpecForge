@@ -17,10 +17,6 @@ pub struct KindRegistryEntry {
     pub supports_verify: bool,
     /// The `verify` kinds it accepts: declared, or an enhancement's.
     pub allowed_verify_kinds: Vec<String>,
-    /// The field holding its entities' lifecycle state, which the build
-    /// cache records (ADR 0009, C): the declared one, when it is one of the
-    /// kind's fields (W021 otherwise).
-    pub lifecycle_field: Option<String>,
     /// The field naming the entity its entities are scoped by (ADR 0284): the declared one, when it is a single
     /// reference with a target kind that is a loaded kind and closes no scope cycle (W021 otherwise).
     pub scoped_by: Option<String>,

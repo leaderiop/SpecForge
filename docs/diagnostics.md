@@ -3229,22 +3229,6 @@ Owner: core
 Level: warning
 ```
 
-## W144
-
-```
-W144: Invalid build cache
-
-The project root has a `specforge-cache.json` that can't be read, isn't valid
-JSON, or declares a `format` other than 1. The build cache records each entity's
-status from the build `specforge check --cache` last wrote, and check-phase
-passes compare against it (status transitions); with the file invalid they get
-no previous statuses, so history rules stay silent. Rewrite it with `specforge
-check --cache`, or delete it.
-
-Owner: core
-Level: warning
-```
-
 ## W145
 
 ```
@@ -3569,5 +3553,6 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W121 | [E061](#e061) |
 | W122 | (nothing) |
 | W125 | [E061](#e061) |
+| W144 | (nothing) |
 | W146 | (nothing) |
 | W149 | [E033](#e033) |

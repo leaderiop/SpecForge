@@ -1073,11 +1073,11 @@ behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
     refused: by the CLI while arguments are parsed (exit 2), by MCP as
     invalid input. The check passes when no reported diagnostic is an
     error; a severity filter selects what is shown and MUST NOT change
-    whether the check passes or whether the build cache is written.
+    whether the check passes.
   """
   verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
   verify unit "each named lint profile adds its diagnostics once, before strict promotes warnings"
-  verify unit "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
+  verify unit "the verdict is taken over every reported diagnostic, never the filtered ones"
   verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
   verify unit "--lint pedantic is accepted and changes nothing"
 }
@@ -1094,7 +1094,7 @@ behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {
   ensures {
     shows_one_severity "only diagnostics of the named severity (error, warning or info, any case) are shown, after strict promotion"
     same_both_surfaces "specforge check --severity and MCP validate severity_filter show the same diagnostics"
-    exit_unaffected    "the exit code and the build cache decision are those of the unfiltered check"
+    exit_unaffected    "the exit code is that of the unfiltered check"
   }
   contract   """
     specforge check --severity <error|warning|info> and the
@@ -1103,7 +1103,7 @@ behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {
     check's order. The name matches ignoring case; any other value MUST
     be refused (CLI: exit 2 while arguments are parsed; MCP: invalid
     input naming severity_filter). The filter MUST NOT change the exit
-    code, the build cache decision, or MCP's verdict.
+    code or MCP's verdict.
   """
   verify unit "check --severity prints only that severity and never changes the exit code"
   verify integration "check --severity and MCP validate severity_filter report the same diagnostics"

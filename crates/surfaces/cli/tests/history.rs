@@ -53,7 +53,6 @@ fn check_reports_the_same_inside_and_outside_a_repository() {
     behavior = "run_check_phase_passes",
     verify = "check --cache is a usage error and a specforge-cache.json is not read"
 )]
-#[ignore = "K4 T10"]
 fn check_cache_is_gone() {
     let dir = fixture();
     dir.write("specforge-cache.json", "not json");

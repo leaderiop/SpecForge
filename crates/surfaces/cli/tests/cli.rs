@@ -860,16 +860,14 @@ fn check_json(dir: &TestProject, args: &[&str]) -> (Option<i32>, Vec<String>, St
 )]
 fn unknown_lint_profile_is_rejected_by_clap() {
     let dir = project_with_every_severity();
-    let (code, codes, stderr) = check_json(&dir, &["--lint", "nonsense", "--cache"]);
+    let (code, codes, stderr) = check_json(&dir, &["--lint", "nonsense"]);
     assert_eq!(code, Some(2), "{stderr}");
     assert!(
         stderr.contains("invalid value 'nonsense'") && stderr.contains("inferred, pedantic"),
         "expected a clap parse error naming the profiles, got: {stderr}"
     );
-    // Nothing ran: no diagnostics printed, no cache note, no cache file.
+    // Nothing ran: no diagnostics printed.
     assert!(codes.is_empty(), "{codes:?}");
-    assert!(!stderr.contains("specforge-cache.json"), "{stderr}");
-    assert!(!dir.root().join("specforge-cache.json").exists());
 
     // An unknown --severity is refused the same way.
     let (code, _, stderr) = check_json(&dir, &["--severity", "errors"]);
@@ -922,10 +920,8 @@ fn check_severity_shows_one_severity_and_keeps_the_exit_code() {
         "{stderr}"
     );
 
-    // The filter does not decide the cache either: the check failed.
-    let (_, _, stderr) = check_json(&dir, &["--severity", "info", "--cache"]);
+    let (_, _, stderr) = check_json(&dir, &["--severity", "info"]);
     assert_eq!(stderr, "", "a JSON reader gets no note (ADR 0120)");
-    assert!(!dir.root().join("specforge-cache.json").exists());
 }
 
 #[specforge_test(

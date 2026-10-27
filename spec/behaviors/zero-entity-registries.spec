@@ -383,9 +383,7 @@ behavior registry_build_kinds "Registry Build Registers Kinds" {
     token, LSP icon, DOT shape, description) and naming the declaring
     extension. No kind is testable, and no verify kind is allowed, unless a
     declaration says so: the host knows no kind and no verify kind. A
-    kind's lifecycle_field MUST name one of its own fields or one of its
-    extension's shared fields; any other one is refused with a W021
-    warning and not recorded. When a later declaration declares a keyword
+    kind's lifecycle_field is read and ignored (ADR 0287). When a later declaration declares a keyword
     again, the first in load order keeps it and the later one is E026
     naming both extensions. A kind declared testable that does not support
     verify statements is W017 (advisory: the kind registers); one that

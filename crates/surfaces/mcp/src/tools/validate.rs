@@ -29,8 +29,7 @@ pub const VERDICT_META: &str = "specforge/check";
 /// reports for the call's project (the target brought the served project
 /// up to date with disk, or opened the project `path` names for this
 /// call). Finding errors is a successful call (ADR
-/// 0004 D4-a); whether the check passed is the `_meta` verdict. The tool
-/// never records the build cache.
+/// 0004 D4-a); whether the check passed is the `_meta` verdict.
 pub(crate) struct Tool;
 
 impl ArgumentOf<CheckField> for Tool {
@@ -64,7 +63,6 @@ impl CoreTool for Tool {
             strict: args.strict,
             lint_profiles,
             severity,
-            record_cache: false,
         };
         let outcome = check(&project.view(), &options).map_err(McpError::from)?;
         let shown: Vec<specforge_common::Diagnostic> =

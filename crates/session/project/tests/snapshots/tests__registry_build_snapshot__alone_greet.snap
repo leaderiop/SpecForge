@@ -60,7 +60,6 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
       "dot_shape": null,
       "has_body_parser": false,
       "kind_name": "greeting",
-      "lifecycle_field": null,
       "lsp_icon": null,
       "open_fields": false,
       "semantic_token": null,

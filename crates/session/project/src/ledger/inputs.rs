@@ -14,8 +14,7 @@ use super::recorded::{Class, Pending, Recorded, Recording};
 /// files its environment load read (`specforge.json`, `specforge.lock`, each
 /// extension module the load read, and each hop of a symlink among them,
 /// ADR 0114) and the files its
-/// last checks read (every path a check asked about, the build cache a
-/// check-phase pass read, and every directory E016's suggestion listed,
+/// last checks read (every path a check asked about, and every directory E016's suggestion listed,
 /// recorded when read, ADR 0107), and the link hops each symlinked
 /// source's last read followed (its target included, ADR 0129), and the
 /// directory links on the way to each (ADR 0173). Behavior `classify_project_changes`, ADR 0030.

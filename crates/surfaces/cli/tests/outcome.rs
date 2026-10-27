@@ -301,42 +301,6 @@ fn an_unknown_explain_code_is_a_refusal() {
     );
 }
 
-#[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "an operation's refusal is error[CODE]: message, its hint and the files it left written, on stderr"
-)]
-fn a_build_cache_that_cannot_be_written_is_a_refusal() {
-    use std::os::unix::fs::PermissionsExt;
-    let project = rv1(None);
-    let mode = |m| std::fs::Permissions::from_mode(m);
-    std::fs::set_permissions(project.root(), mode(0o555)).unwrap();
-    if std::fs::write(project.root().join("probe"), b"").is_ok() {
-        // Permissions do not bind this user (root): nothing to test.
-        std::fs::set_permissions(project.root(), mode(0o755)).unwrap();
-        return;
-    }
-
-    let human = run_in(&project, &["check", "--cache"], None);
-    let json = run_in(&project, &["check", "--cache", "--format", "json"], None);
-    std::fs::set_permissions(project.root(), mode(0o755)).unwrap();
-
-    assert_eq!(human.code, 1, "{}", human.stderr);
-    assert!(
-        human
-            .stderr
-            .contains("error[cache_write_failed]: cannot write"),
-        "{}",
-        human.stderr
-    );
-    assert_eq!(json.code, 1, "{}", json.stderr);
-    assert!(
-        json.stdout.contains("\"code\": \"cache_write_failed\""),
-        "{}",
-        json.stdout
-    );
-}
-
 #[specforge_test_macros::test(
     behavior = "report_command_outcome",
     verify = "a command run outside any project refuses with no_project"

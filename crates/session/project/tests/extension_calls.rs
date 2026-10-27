@@ -63,8 +63,7 @@ fn extension() -> ContributionsBuilder {
         k.keyword("gadget")
             .testable(true)
             .supports_verify(true)
-            .verify_kinds(&["unit"])
-            .lifecycle_field("status");
+            .verify_kinds(&["unit"]);
         k.field("needs", |f| {
             f.field_type(FieldType::Reference)
                 .edge("needs")

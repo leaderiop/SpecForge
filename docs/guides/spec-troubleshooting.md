@@ -98,7 +98,6 @@ specforge check --strict         # promote warnings to errors (CI gate)
 specforge check --severity error # show only errors (the exit code still counts everything)
 specforge check --severity info  # show only the info-level advice
 specforge check --format=json    # machine-readable diagnostics
-specforge check --cache          # on success, record statuses in specforge-cache.json
 
 specforge explain W008           # describe any diagnostic code
 specforge trace <id>             # see an entity's full traceability chain

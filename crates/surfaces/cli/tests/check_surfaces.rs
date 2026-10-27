@@ -25,8 +25,6 @@ const FIXTURES: &[&str] = &[
     "missing_import",
 ];
 
-const CACHE: &str = "specforge-cache.json";
-
 fn fixtures_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/parity")
 }
@@ -96,29 +94,6 @@ fn cli_check_lint_values_golden() {
         let doc = json!({"exit": exit, "stdout": stdout});
         insta::assert_snapshot!(
             format!("cli_check_lint_{profile}"),
-            normalized(&doc, dir.root())
-        );
-    }
-}
-
-#[test]
-fn cli_check_cache_golden() {
-    let runs: [(&str, &[&str]); 3] = [
-        ("body_parser_type", &["--cache"]),
-        ("body_parser_type", &["--strict", "--cache"]),
-        ("product_cycle", &["--cache"]),
-    ];
-    for (name, flags) in runs {
-        let dir = fixture(name);
-        let mut args = vec!["--format", "json"];
-        args.extend(flags);
-        let (exit, _, stderr) = check(&dir, &args);
-        let cache_file = std::fs::read_to_string(dir.root().join(CACHE))
-            .map(Value::String)
-            .unwrap_or(Value::Null);
-        let doc = json!({"exit": exit, "stderr": stderr, "cache_file": cache_file});
-        insta::assert_snapshot!(
-            format!("cli_check_cache_{name}_{}", suffix(flags)),
             normalized(&doc, dir.root())
         );
     }

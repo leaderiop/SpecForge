@@ -18,7 +18,7 @@
     "crates/session/project/tests/product_rules.rs": 1248,
     "crates/session/project/tests/session.rs": 3033,
     "crates/surfaces/cli/tests/analyze.rs": 1118,
-    "crates/surfaces/cli/tests/cli.rs": 1176,
+    "crates/surfaces/cli/tests/cli.rs": 1172,
     "crates/surfaces/cli/tests/export.rs": 839,
     "crates/surfaces/cli/tests/extensions.rs": 2173,
     "crates/surfaces/cli/tests/format.rs": 1025,
@@ -43,7 +43,7 @@
     "crates/surfaces/mcp/tests/surface_call.rs": 995,
     "crates/surfaces/mcp/tests/surface_wiring.rs": 1636,
     "crates/surfaces/mcp/tests/tool_arguments.rs": 876,
-    "crates/surfaces/mcp/tests/tools_core.rs": 2152,
+    "crates/surfaces/mcp/tests/tools_core.rs": 2091,
     "crates/surfaces/mcp/tests/tools_inference.rs": 818,
     "crates/surfaces/mcp/tests/tools_navigation.rs": 820,
     "crates/surfaces/registry-server/tests/server_contracts.rs": 1144

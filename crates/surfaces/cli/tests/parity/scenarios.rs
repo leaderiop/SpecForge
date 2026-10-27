@@ -293,13 +293,6 @@ pub(super) const SCENARIOS: &[Scenario] = &[
         mcp_rooted: true,
     },
     Scenario {
-        name: "check_cache",
-        setup: project,
-        cli: |root| args(&["check", "--path", &s(root), "--format", "json", "--cache"]),
-        mcp: |_| ("specforge.validate", json!({})),
-        mcp_rooted: true,
-    },
-    Scenario {
         name: "analyze",
         setup: project,
         cli: |root| args(&["analyze", "--path", &s(root), "--format", "json"]),
@@ -398,12 +391,6 @@ pub(super) const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         "migrate_config_problem",
         Aspect::Outcome,
         "a run that goes around a specforge.json problem is a successful MCP call whose ok is false; the CLI exits 1",
-    ),
-    // The build cache is opt-in and the CLI's: validate never writes it.
-    (
-        "check_cache",
-        Aspect::Files,
-        "only `check --cache` writes the build cache (write_build_cache opt_in)",
     ),
 ];
 
@@ -520,11 +507,6 @@ fn parity_check() {
 #[test]
 fn parity_check_failing() {
     parity("check_failing");
-}
-
-#[test]
-fn parity_check_cache() {
-    parity("check_cache");
 }
 
 #[test]

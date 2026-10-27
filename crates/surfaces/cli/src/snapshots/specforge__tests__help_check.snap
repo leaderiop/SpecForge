@@ -27,12 +27,9 @@ Options:
           [possible values: inferred, pedantic]
 
       --severity <SEVERITY>
-          Show only diagnostics of this severity (after --strict); the exit code and --cache still judge everything reported
+          Show only diagnostics of this severity (after --strict); the exit code still judges everything reported
           
           [possible values: error, warning, info]
-
-      --cache
-          Record each entity's lifecycle state (e.g. a feature's status) in specforge-cache.json when the check passes (the build cache history rules compare against)
 
   -h, --help
           Print help

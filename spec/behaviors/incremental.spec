@@ -90,7 +90,7 @@ behavior classify_project_changes "Classify Project Changes" {
     installed extension's extension.wasm, a local .wasm entry) are
     environment inputs, and the target of each of these that is a
     symlink; every path the checks read is a check input:
-    specforge-cache.json when a check-phase pass read it, every file a
+    every file a
     file_reference field or a file_exists rule names, which the checks
     look for, and every directory a missing named file's suggestion listed, and the
     target of each of these that is a symlink; a specforge.json
@@ -131,7 +131,6 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a discovered .spec file is a source keyed from the project root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
   verify unit "a .wasm file no extension loads changes nothing"
-  verify unit "specforge-cache.json re-runs the checks without re-parsing"
   verify unit "a file a file_reference field names re-runs the checks"
   verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "a file beside a missing file a file_exists rule names changes its suggestion"
