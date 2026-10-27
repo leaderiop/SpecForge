@@ -28,6 +28,10 @@ pub struct GraphInputs {
     /// writes in its field types or method signatures (`derived_from`),
     /// sorted by kind and field.
     pub derived_references: Vec<crate::DerivedReference>,
+    /// For each scoped kind, the reference field naming the entity its entities are scoped by (ADR 0284):
+    /// the registry build's `scoped_by` it kept. An entity of such a kind is identified by its scope's path and
+    /// its name; a name is unique within its scope.
+    pub scopes: BTreeMap<String, String>,
 }
 
 /// What one graph build is configured with: the provider schemes the

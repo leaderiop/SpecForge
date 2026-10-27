@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.6.0");
+    assert_eq!(PROTOCOL_VERSION, "1.7.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -219,6 +219,7 @@ fn entity_kind_descriptor_full_round_trip() {
         contract_target: false,
         declares_types: false,
         lifecycle_field: None,
+        scoped_by: None,
         semantic_token: Some("function".to_string()),
         lsp_icon: Some("Method".to_string()),
         dot_shape: Some("ellipse".to_string()),

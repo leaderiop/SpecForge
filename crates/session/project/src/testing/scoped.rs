@@ -19,31 +19,34 @@ pub fn scoped_kinds(c: &mut ContributionsBuilder) {
         k.keyword("workstream");
     });
     c.kind("Milestone", |k| {
-        k.keyword("milestone");
+        k.keyword("milestone").scoped_by("workstream");
         k.field("workstream", |f| one(f, "workstream"));
         k.field("audit", |f| one(f, "audit"));
     });
     c.kind("Phase", |k| {
-        k.keyword("phase");
+        k.keyword("phase").scoped_by("milestone");
         k.field("milestone", |f| one(f, "milestone"));
     });
     c.kind("Plan", |k| {
-        k.keyword("plan").testable(true).supports_verify(true);
+        k.keyword("plan")
+            .scoped_by("phase")
+            .testable(true)
+            .supports_verify(true);
         k.field("phase", |f| one(f, "phase"));
         k.field("depends_on", |f| many(f, "plan"));
         k.field("decisions", |f| many(f, "decision"));
     });
     c.kind("Decision", |k| {
-        k.keyword("decision");
+        k.keyword("decision").scoped_by("phase");
         k.field("phase", |f| one(f, "phase"));
         k.field("superseded_by", |f| one(f, "decision"));
     });
     c.kind("Task", |k| {
-        k.keyword("task");
+        k.keyword("task").scoped_by("plan");
         k.field("plan", |f| one(f, "plan"));
     });
     c.kind("Audit", |k| {
-        k.keyword("audit");
+        k.keyword("audit").scoped_by("milestone");
         k.field("milestone", |f| one(f, "milestone"));
     });
     c.kind("Requirement", |k| {
@@ -51,7 +54,7 @@ pub fn scoped_kinds(c: &mut ContributionsBuilder) {
     });
     // A kind whose field types name entities, scoped by a phase.
     c.kind("Shape", |k| {
-        k.keyword("shape").open_fields(true);
+        k.keyword("shape").scoped_by("phase").open_fields(true);
         k.field("phase", |f| one(f, "phase"));
         k.field("parts", |f| {
             many(f, "shape");

@@ -72,6 +72,13 @@ impl KindBuilder {
         self.0.lifecycle_field = Some(field.to_string());
         self
     }
+    /// The single `reference` field (with a target kind) naming the entity this kind's entities are scoped by:
+    /// a name is unique within its scope, and an entity's id is its scope's path and its name (ADR 0284).
+    /// The field may be absent from an entity, which is then in the project scope.
+    pub fn scoped_by(&mut self, field: &str) -> &mut Self {
+        self.0.scoped_by = Some(field.to_string());
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self

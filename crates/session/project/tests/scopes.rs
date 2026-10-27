@@ -583,7 +583,7 @@ fn field(name: &str, field_type: &str, target: Option<&str>) -> serde_json::Valu
     .unwrap()
 }
 
-/// The W021 messages registering `kinds` reports.
+/// The W021 messages about a `scoped_by` registering `kinds` reports.
 fn w021(kinds: &[serde_json::Value]) -> Vec<String> {
     let project = Assembled::over(specforge_registry::build_registries(vec![declaring(kinds)]));
     project
@@ -591,7 +591,7 @@ fn w021(kinds: &[serde_json::Value]) -> Vec<String> {
         .environment()
         .registries()
         .diagnostics()
-        .filter(|d| d.code == "W021")
+        .filter(|d| d.code == "W021" && d.message.contains("scoped_by"))
         .map(|d| d.message.clone())
         .collect()
 }
@@ -600,7 +600,6 @@ fn w021(kinds: &[serde_json::Value]) -> Vec<String> {
     behavior = "link_entity_references",
     verify = "a kind declares the reference field its entities are scoped by, and a field that cannot scope is W021"
 )]
-#[ignore = "K2 T3"]
 fn a_kind_declares_its_scope_field() {
     use serde_json::json;
     let kind = |name: &str, scoped_by: &str, fields: Vec<serde_json::Value>| json!({"name": name, "keyword": name, "scoped_by": scoped_by, "fields": fields});

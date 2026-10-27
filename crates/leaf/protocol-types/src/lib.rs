@@ -54,8 +54,10 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, ProofRole};
 /// and a pass's test results carry `duration_ms`; 1.5.0 is ADR 0094's: an
 /// entity's `verify` statements are no field text, so a pass's and a validator's
 /// `fields` carry no `verify` entry; 1.6.0 is ADR 0234's: a field's type may be `date`, and
-/// the primitives a validator gets include `date`.
-pub const PROTOCOL_VERSION: &str = "1.6.0";
+/// the primitives a validator gets include `date`; 1.7.0 is ADR 0284's: a kind may declare the
+/// reference field its entities are scoped by (`scoped_by`), and a pass's entity ids and edges are
+/// paths.
+pub const PROTOCOL_VERSION: &str = "1.7.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -280,6 +282,11 @@ pub struct EntityKindDescriptor {
     /// passes that compare against the previous build (ADR 0009, C).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifecycle_field: Option<String>,
+    /// The one field naming the entity this kind's entities are scoped by (ADR 0284): a single `reference`
+    /// field of this kind with a target kind. A name is unique within its scope and an entity's id is its
+    /// scope's path and its name. Absent from an entity, the entity is in the project scope.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoped_by: Option<String>,
 }
 
 // ── Field Descriptor ──

@@ -223,7 +223,7 @@ impl RegistryBuild {
 
     /// The graph inputs of these declarations and the vocabulary held now.
     fn derived_graph_inputs(&self) -> GraphInputs {
-        graph_inputs::derive(&self.fields, &self.field_forms, |kind| {
+        graph_inputs::derive(&self.kinds, &self.fields, &self.field_forms, |kind| {
             self.candidates().kind_owner(kind).map(str::to_string)
         })
     }
@@ -375,7 +375,7 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);
     // A build handed no vocabulary owns nothing (`CandidateVocabulary::default()`).
-    let graph_inputs = graph_inputs::derive(&fields, &field_forms, |_| None);
+    let graph_inputs = graph_inputs::derive(&kinds, &fields, &field_forms, |_| None);
     RegistryBuild {
         declarations,
         kinds,

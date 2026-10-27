@@ -10,6 +10,7 @@ use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs, Ta
 use crate::{FieldRegistry, KindRegistry};
 
 pub(super) fn derive(
+    kinds: &KindRegistry,
     fields: &FieldRegistry,
     forms: &FieldForms,
     owner_of: impl Fn(&str) -> Option<String>,
@@ -18,7 +19,16 @@ pub(super) fn derive(
         target_owners: target_owners(forms, owner_of),
         field_forms: forms.clone(),
         derived_references: derived_references(fields),
+        scopes: scopes(kinds),
     }
+}
+
+/// Each scoped kind's scope field (ADR 0284): the declared `scoped_by` the registry build kept.
+fn scopes(kinds: &KindRegistry) -> BTreeMap<String, String> {
+    kinds
+        .iter()
+        .filter_map(|(kind, entry)| Some((kind.clone(), entry.scoped_by.clone()?)))
+        .collect()
 }
 
 /// For each target kind no loaded extension declares, the extension that owns it (`owner_of`, the
