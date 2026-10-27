@@ -184,10 +184,23 @@ fn the_baseline_is_cached_by_commit_and_environment() {
         "another module digest compiles again"
     );
     // and the compile is on disk, so a process that has never seen the commit does not compile it
-    let cached: Vec<_> = std::fs::read_dir(project.root().join(".specforge/baselines"))
+    let dir = project.root().join(".specforge/baselines");
+    let cached: Vec<_> = std::fs::read_dir(&dir)
         .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|x| x == "json")
+        })
         .collect();
     assert_eq!(cached.len(), 4);
+    // and the directory ignores itself, whatever the project's `.gitignore` holds
+    assert_eq!(
+        std::fs::read_to_string(dir.join(".gitignore")).unwrap(),
+        "*\n"
+    );
 }
 
 const HEAD: &str = "1a2b3c4000000000000000000000000000000000";

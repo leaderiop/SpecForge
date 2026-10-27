@@ -396,7 +396,13 @@ impl Baseline {
                 let compiled = Self::compile(env, commit.clone(), within, files);
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
                 if let Ok(json) = serde_json::to_vec(&compiled) {
-                    let _ = std::fs::create_dir_all(env.root().join(CACHE_DIR));
+                    let dir = env.root().join(CACHE_DIR);
+                    let _ = std::fs::create_dir_all(&dir);
+                    // the directory ignores itself, whatever the project's own `.gitignore` says
+                    let ignore = dir.join(".gitignore");
+                    if !ignore.exists() {
+                        let _ = std::fs::write(ignore, "*\n");
+                    }
                     let _ = specforge_common::fresh::replace_file(&file, &json);
                 }
                 compiled
