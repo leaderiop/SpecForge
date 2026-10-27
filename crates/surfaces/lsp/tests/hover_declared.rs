@@ -30,3 +30,26 @@ fn an_extensions_declared_code_hover_shows_its_description() {
         )
     );
 }
+
+// Pins K10-D2: today an extension's code shows only the extension; T6 reads its catalog.
+#[spec(
+    behavior = "hover_diagnostic",
+    verify = "a third-party code is titled, explained and linked from its own catalog"
+)]
+#[ignore = "K10 T6"]
+fn hover_explains_a_third_party_code() {
+    let mut diag = Diagnostic::untyped(
+        "sdk.greet/E901",
+        specforge_common::Severity::Error,
+        "no greeting",
+    );
+    diag.origin = Some("@sdk/greet".to_string());
+    // T6 passes the code book (`@sdk/greet` cataloguing E901 as "Greeting missing", "Add a greeting.",
+    // https://greet.dev/codes#e901) where today's hover takes only the diagnostics.
+    assert_eq!(
+        diagnostics(&[&diag]).as_deref(),
+        Some(
+            "**sdk.greet/E901** \u{b7} Greeting missing\n\nno greeting\n\nAdd a greeting.\n\n[Documentation](https://greet.dev/codes#e901)"
+        )
+    );
+}

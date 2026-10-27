@@ -607,6 +607,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "the extensions' rules are ordered by code"
   verify unit "a rule code two extensions declare is W023 and both rules are kept"
   verify unit "one local code from two extensions is two codes"
+  verify unit "two loaded extensions that share a code namespace are E039"
   verify unit "the build drops a rule whose target kind or edge type no loaded extension declares"
   verify unit "a rule whose edge type no loaded extension declares reports nothing"
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"

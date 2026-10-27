@@ -343,6 +343,7 @@ behavior hover_diagnostic "Hover a Diagnostic" {
   """
   verify unit "hovering a diagnostic shows its catalogued title and explanation"
   verify unit "an uncatalogued diagnostic's hover shows its code and message only"
+  verify unit "a third-party code is titled, explained and linked from its own catalog"
   verify unit "an extension's declared code shows its rule's description in the hover"
   verify unit "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
   verify unit "hovering a region the formatter left unformatted shows its W142"

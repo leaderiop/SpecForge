@@ -743,6 +743,7 @@ behavior explain_diagnostic_code "Explain a Diagnostic Code" {
   verify unit "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
   verify unit "an uncatalogued code is refused with unknown_code on both surfaces"
   verify integration "in a project, specforge explain explains a code its loaded extensions' rules declare and the catalog does not have: the code, its level and each rule with its extension"
+  verify unit "explain answers a code an extension catalogs, whether a rule or a pass reports it"
   verify unit "explain answers a code the loaded declarations declare from their rules, the catalog first, and only codes the host takes from their extension"
   verify integration "outside a project specforge explain answers from the catalog alone: a code only an extension declares is unknown_code"
 }

@@ -284,6 +284,23 @@ mod tests {
         );
     }
 
+    // Pins the pass-code gap of ADR 0278: a catalogued code no rule declares is unknown_code
+    // today; T6 un-ignores it.
+    #[specforge_test(
+        behavior = "explain_diagnostic_code",
+        verify = "explain answers a code an extension catalogs, whether a rule or a pass reports it"
+    )]
+    #[ignore = "K10 T6"]
+    fn explain_answers_a_catalogued_code_no_rule_declares() {
+        use specforge_extension_sdk::prelude::*;
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
+        c.code("W950", |d| {
+            d.title("Audit failed").explanation("Fix the audit.");
+        });
+        let declarations = [c.declaration()];
+        assert!(explain("acme.audit/W950", &declarations).is_ok());
+    }
+
     #[test]
     fn the_catalog_answers_a_code_whoever_declares_it() {
         let squat = [declaring("@acme/x", "W041", Warning)];
