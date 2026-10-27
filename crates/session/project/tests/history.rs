@@ -164,11 +164,30 @@ fn the_baseline_is_cached_by_commit_and_environment() {
         2,
         "a different environment compiles again"
     );
+    // a module rebuilt under the same name and version is another environment: its digest is part of it
+    let mut rebuilt = specforge_wasm::testing::spelled_module(
+        specforge_project::testing::GSD_EXTENSION,
+        "1.0.0",
+        &[],
+    );
+    rebuilt.push(b' ');
+    specforge_installed::testing::install_module(
+        project.root(),
+        &gsd_history_runtime(json!([])),
+        specforge_project::testing::GSD_EXTENSION,
+        &rebuilt,
+    );
+    compiled_with(&fake, &project);
+    assert_eq!(
+        fake.files_asked(),
+        3,
+        "another module digest compiles again"
+    );
     // and the compile is on disk, so a process that has never seen the commit does not compile it
     let cached: Vec<_> = std::fs::read_dir(project.root().join(".specforge/baselines"))
         .unwrap()
         .collect();
-    assert_eq!(cached.len(), 3);
+    assert_eq!(cached.len(), 4);
 }
 
 const HEAD: &str = "1a2b3c4000000000000000000000000000000000";

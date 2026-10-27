@@ -4,7 +4,7 @@
 //!
 //! A baseline is cached by commit and environment: in memory for the process, and as
 //! `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
-//! of what the compile reads besides the sources (the host version, the loaded declarations, the spec root and the
+//! of what the compile reads besides the sources (the host version, the loaded declarations and the digest of each installed module, the spec root and the
 //! excludes). A different extension version is a different environment, never a stale hit.
 
 use std::collections::{BTreeMap, HashMap};
@@ -492,6 +492,12 @@ fn fingerprint(env: &Environment) -> String {
     for declaration in env.registries().declarations() {
         bytes.push(0);
         bytes.extend(serde_json::to_vec(declaration).unwrap_or_default());
+    }
+    // the digest of each installed module: a rebuilt extension with the same name and version is another environment
+    for entry in env.installed().lock().entries() {
+        bytes.push(0);
+        bytes.extend(entry.name.to_string().into_bytes());
+        bytes.extend(entry.wasm_hash.as_str().as_bytes());
     }
     let config = env.config();
     bytes.push(0);
