@@ -336,13 +336,16 @@ impl PlannedChange {
             record.begin(&self.doing)?;
         }
         let result = change.commit();
-        // Written, or put back: the record is not needed. A file that could not be put back keeps it.
-        if locked
-            && result
-                .as_ref()
-                .map_or_else(|e| e.writes.is_empty(), |_| true)
-        {
-            record.end();
+        if locked {
+            match &result {
+                // Written: the record says so before it goes, and a failure to do either is the caller's.
+                Ok(writes) => record
+                    .finish(&self.doing)
+                    .map_err(|e| e.with_writes(writes.clone()))?,
+                // Put back, or nothing written: the record is not needed. A file that could not be put back keeps it.
+                Err(e) if e.writes.is_empty() => record.discard(),
+                Err(_) => {}
+            }
         }
         result.map(|writes| {
             rolled.merge(writes);

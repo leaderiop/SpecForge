@@ -86,3 +86,36 @@ fn a_typed_edit_in_a_project_with_a_writing_command_and_no_ledger_is_locked() {
         "the write took the lock"
     );
 }
+
+#[specforge_test(
+    behavior = "roll_back_interrupted_write",
+    verify = "a journal marked done is removed by the next writer and rolls nothing back"
+)]
+fn a_journal_marked_done_is_removed_and_rolls_nothing_back() {
+    let p = project();
+    // The write committed both files and died before it removed its record.
+    let written = ONE.replace("}\n", "  result pass\n}\n");
+    p.write("03-01.spec", &written);
+    p.write(
+        ".specforge/write-journal.json",
+        json!({"format": 1, "doing": "cannot apply the edits", "done": true, "files": [
+            {"path": "03-01.spec", "before": ONE, "after": digest(&written)},
+        ]})
+        .to_string(),
+    );
+    let runtime = Arc::new(GsdWrites::new().runtime());
+    let compile = compiled(&p, &runtime);
+    edit::run(
+        &ProjectView::of(&compile),
+        &[Edit::Retitle {
+            entity_id: "v1.0".into(),
+            title: "Uno".into(),
+        }],
+        false,
+        &specforge_ops::authoring::apply::testing::origin(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    assert_eq!(p.read("03-01.spec"), written, "a completed write stays");
+    assert!(!p.root().join(".specforge/write-journal.json").exists());
+}

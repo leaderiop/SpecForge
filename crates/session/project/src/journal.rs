@@ -7,7 +7,8 @@
 //! {"format":1,"doing":"cannot rename 'a'","files":[{"path":"a.spec","before":"<text>"|null,"after":"sha256:.."}]}
 //! ```
 //! `path` is from the project root, `before` the text the write replaced (`null`: the file was not there) and `after`
-//! the digest of what it wrote.
+//! the digest of what it wrote. A write that has committed every file sets `"done":true` before it removes the
+//! record, so a record that survives a crash or a failed removal is never mistaken for an unfinished write.
 
 use std::path::Path;
 
@@ -28,6 +29,9 @@ pub struct Journal {
     /// What the write was doing, the head of its failure's message (`cannot rename 'a'`).
     pub doing: String,
     pub files: Vec<Entry>,
+    /// Every file was written: the record is only waiting to be removed, and nothing is rolled back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub done: bool,
 }
 
 /// One file the write replaces.
@@ -60,6 +64,9 @@ pub fn digest(bytes: &[u8]) -> String {
 /// input.
 pub(crate) fn pending(root: &Path) -> Option<Diagnostic> {
     let journal = Journal::parse(&std::fs::read(root.join(JOURNAL_FILE)).ok()?)?;
+    if journal.done {
+        return None;
+    }
     let files: Vec<&str> = journal.files.iter().map(|f| f.path.as_str()).collect();
     Some(
         Diagnostic::new(

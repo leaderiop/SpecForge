@@ -53,6 +53,7 @@ impl Record {
             format: FORMAT,
             doing: doing.to_string(),
             files: self.entries.clone(),
+            done: false,
         };
         let result = self
             .root
@@ -68,9 +69,41 @@ impl Record {
         })
     }
 
-    /// The write finished, or put every file back: the record is not needed.
-    pub(crate) fn end(&self) {
+    /// Every file was put back, or none was written: the record is not needed.
+    pub(crate) fn discard(&self) {
         let _ = std::fs::remove_file(&self.root);
+    }
+
+    /// Every file is written: the record says so, synced, then goes. A record left behind by a crash or by a failed
+    /// removal says `done`, and the next writer only removes it, so a completed write is never rolled back.
+    pub(crate) fn finish(&self, doing: &str) -> Result<(), OpError> {
+        if !self.complete || self.entries.is_empty() {
+            return Ok(());
+        }
+        let done = Journal {
+            format: FORMAT,
+            doing: doing.to_string(),
+            files: self.entries.clone(),
+            done: true,
+        };
+        let marked = specforge_common::fresh::replace_file(&self.root, &done.to_bytes());
+        match std::fs::remove_file(&self.root) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(OpError::new(
+                OpErrorKind::of_io(&e),
+                crate::FILE_UNWRITABLE,
+                format!(
+                    "{doing}: the write completed but its journal cannot be removed ({e}){}",
+                    match marked {
+                        Ok(()) =>
+                            "; it is marked done, so the next write only clears it".to_string(),
+                        Err(m) => format!(
+                            " and cannot be marked done ({m}): the next write would roll it back"
+                        ),
+                    }
+                ),
+            )),
+        }
     }
 }
 
@@ -84,7 +117,8 @@ pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Write
     };
     let mut put_back = Writes::none();
     // A journal that is not one (another format, a torn write) records nothing to put back.
-    if let Some(journal) = Journal::parse(&bytes) {
+    // A journal marked done records a finished write: it is only removed.
+    if let Some(journal) = Journal::parse(&bytes).filter(|journal| !journal.done) {
         for entry in &journal.files {
             let held = caller.containment().resolve(&sources.path(&entry.path))?;
             let now = held.read_if_there().map_err(|e| {
@@ -119,7 +153,13 @@ pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Write
             put_back.record(sources.path(&entry.path));
         }
     }
-    let _ = journal_file.remove();
+    journal_file.remove().map_err(|e| {
+        OpError::new(
+            OpErrorKind::of_io(&e),
+            crate::FILE_UNWRITABLE,
+            format!("cannot remove the write journal: {e}"),
+        )
+    })?;
     Ok(put_back)
 }
 
