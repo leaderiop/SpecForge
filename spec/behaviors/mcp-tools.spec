@@ -865,3 +865,14 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
   verify unit "specforge.list tool appears in tool list"
   verify unit "entities resource template in resource template list"
 }
+
+behavior writing_command_tool "Writing Command Tool" {
+  invariants [mcp_structured_error_responses]
+  category   mutation
+  contract   """
+    A command that declares `writes` is announced as a mutation with a `dry_run` argument, and its call answers the
+    command's output, the plan the host applied and the files it wrote (ADR 0289). A command that does not declare
+    `writes` is announced as before.
+  """
+  verify unit "a writing command's tool is a mutation that answers its plan and the files it wrote"
+}

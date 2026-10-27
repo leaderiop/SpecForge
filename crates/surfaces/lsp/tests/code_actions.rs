@@ -116,3 +116,33 @@ async fn actions_are_those_overlapping_the_requested_range() {
     let between = client.code_action(&uri, 4, 0, 4, 0).await;
     assert!(between["result"].is_null(), "{between}");
 }
+
+#[ignore = "K5 T4"]
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "a fix names the version of the buffer it edits for a client that takes document changes"
+)]
+#[tokio::test]
+async fn lsp_fixes_are_versioned() {
+    let text = "behavior first \"First\" {\n  contract \"c\"\n}\n";
+    let (mut client, uri, _dir, _) = crate::session::Session::with_extensions_as(
+        &[
+            "@specforge/software",
+            "@specforge/governance",
+            "@specforge/testing",
+        ],
+        "flows.spec",
+        text,
+        serde_json::json!({"workspace": {"workspaceEdit": {"documentChanges": true}}}),
+    )
+    .await;
+    let resp = client.code_action(&uri, 0, 0, 3, 0).await;
+    let actions = resp["result"].as_array().cloned().unwrap_or_default();
+    let stub = actions
+        .iter()
+        .find(|a| a["title"] == "Add verify stub for first")
+        .unwrap_or_else(|| panic!("no verify stub action in {resp}"));
+    let versioned = &stub["edit"]["documentChanges"][0]["textDocument"];
+    assert!(versioned["version"].is_number(), "{stub}");
+    assert!(stub["edit"]["changes"].is_null(), "{stub}");
+}

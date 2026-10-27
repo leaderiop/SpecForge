@@ -21,6 +21,7 @@
 
 pub mod assembled;
 pub mod gsd;
+pub mod gsd_writes;
 pub mod history;
 pub mod scoped;
 pub mod settings;
@@ -31,6 +32,10 @@ pub use assembled::Assembled;
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,
+};
+pub use gsd_writes::{
+    CORE, GSD_WRITES_EXTENSIONS, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
+    revision_of,
 };
 pub use history::FakeHistory;
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};

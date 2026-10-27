@@ -1132,3 +1132,18 @@ behavior incremental_document_sync "Incremental Document Sync" {
 }
 
 // -- Extension Grammar Highlighting -------------------------------------------
+
+behavior land_rename_ledger "Land a Rename's Ledger" {
+  invariants [rename_atomicity]
+  category   mutation
+  contract   """
+    The edits of a rename and of a fix name the version of the buffer they apply to when the client takes versioned
+    document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
+    session, shown over its checks, written under the write lock once the renamed files are saved, and dropped
+    when the edit is undone.
+  """
+  verify unit "the LSP rename writes its ledger change once the rename lands on disk"
+  verify unit "an undone LSP rename writes no ledger change"
+  verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
+  verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
+}

@@ -996,3 +996,25 @@ behavior update_all_extensions "Update All Extensions" {
   verify integration "update --format json prints every locked extension's status and the batch_update_completed payload"
   verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
 }
+
+behavior answer_edit_plan "Answer an Edit Plan" {
+  invariants [extension_isolation]
+  category   command
+  contract   """
+    A command or a collector that declares `writes` answers typed operations, an edit plan, instead of writing
+    (ADR 0289): the host sends it the revision of every source and, to a collector, the graph, and applies the plan
+    it answers after the report. An extension holds no file system and no lock.
+  """
+  verify unit "a writing collector receives the graph and its plan is applied after the report"
+}
+
+behavior run_guard_passes "Run Guard Passes" {
+  invariants [extension_isolation]
+  category   validation
+  contract   """
+    A pass whose phase is `guard` runs only when a write is judged, after the check passes, over the project as the
+    write would leave it and the project before it (ADR 0289). Its findings refuse the write through E080; a compile
+    runs no guard pass and reports none.
+  """
+  verify unit "a guard pass refuses a write and is silent on compile"
+}

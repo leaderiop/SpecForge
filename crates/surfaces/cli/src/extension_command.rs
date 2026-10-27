@@ -50,7 +50,7 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
         return INVALID_INPUT_EXIT;
     };
     // `product:features` is `product features`.
-    let (ext, mut rest) = match first.split_once(':') {
+    let (ext, rest) = match first.split_once(':') {
         Some((ext, command)) => {
             let mut rest = rest.to_vec();
             rest.insert(0, command.to_string());
@@ -77,8 +77,21 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
             specforge_component::ComponentRuntime::with_user_cache(),
         )),
     );
+    run_in(env, &root, &ext, rest, builtins, terminal)
+}
+
+/// [`run`] over the environment that routes the command: `rest` is the command line after the extension's name.
+/// A test gives it an environment whose extensions run in process.
+pub(crate) fn run_in(
+    env: Environment,
+    root: &ProjectRoot,
+    ext: &str,
+    mut rest: Vec<String>,
+    builtins: &[String],
+    terminal: &Terminal,
+) -> i32 {
     let routed = ExtensionCommands::build(env.registries());
-    let commands: Vec<&ExtensionCommand> = routed.of(&ext).collect();
+    let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
     if commands.is_empty() {
         errln!(
             terminal,
@@ -87,7 +100,7 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
         );
         let mut names: Vec<&str> = builtins.iter().map(String::as_str).collect();
         names.extend(routed.shorts());
-        if let Some(close) = specforge_common::find_close_match(&ext, names) {
+        if let Some(close) = specforge_common::find_close_match(ext, names) {
             errln!(terminal, "\n  tip: a similar subcommand exists: '{close}'");
         }
         errln!(terminal, "\nFor more information, try 'specforge --help'.");
@@ -130,7 +143,7 @@ pub fn run(argv: &[String], builtins: &[String], terminal: &Terminal) -> i32 {
     // before reaching it.
     let json = asks_for_json(&rest);
     rest.insert(0, format!("specforge {ext}"));
-    let matches = match command_line(&ext, &commands).try_get_matches_from(rest) {
+    let matches = match command_line(ext, &commands).try_get_matches_from(rest) {
         Ok(matches) => matches,
         Err(e) if json && !is_display(&e) => {
             errln!(terminal, "{}", usage_error(&e, requested));
@@ -477,3 +490,5 @@ fn arg_values(command: &ExtensionCommand, matches: &ArgMatches) -> Map<String, V
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod writes;
