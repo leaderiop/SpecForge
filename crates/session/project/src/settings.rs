@@ -162,6 +162,18 @@ fn read(
             continue;
         };
         let place = at(key);
+        // An extension that is not read has no declared secrets to name, but a credential written under it is
+        // still one in the file.
+        let credentials = |found: &mut Vec<Diagnostic>| {
+            for entry in index.children(&["settings", extension]) {
+                let (Some(name), Some(range)) = (entry.path.last(), &entry.key) else {
+                    continue;
+                };
+                if looks_like_a_credential(name) {
+                    found.push(credential(extension, name).with_span(at(range)));
+                }
+            }
+        };
         if !enabled.iter().any(|e| e.name == *extension) {
             found.push(
                 Diagnostic::new(
@@ -176,10 +188,12 @@ fn read(
                     specforge_common::remedy::command("specforge add {}", &[extension]),
                 )),
             );
+            credentials(found);
             continue;
         }
         let Some(declared) = registry.of(extension) else {
             // Enabled, but it did not load: its own diagnostic says why, and its settings are kept unchecked.
+            credentials(found);
             continue;
         };
         let Some(Value::Object(values)) = settings.get(extension) else {
@@ -234,23 +248,27 @@ fn secret(extension: &str, key: &str, declared: &Declared) -> Option<Diagnostic>
         );
     }
     if declared.find(key).is_none() && looks_like_a_credential(key) {
-        return Some(
-            Diagnostic::new(
-                codes::E087,
-                format!(
-                    "'{key}' looks like a secret: SpecForge never reads a credential from specforge.json; the value is ignored"
-                ),
-            )
-            .with_suggestion(format!(
-                "remove it from specforge.json, and rotate the secret if it was committed (extension '{extension}' declares secrets with `secret`)"
-            )),
-        );
+        return Some(credential(extension, key));
     }
     None
 }
 
-/// Whether the last segment of `key` has a word that names a credential (`api_key`, `token`, `secret` …), words
-/// bounded by `_` and `-`, so `max_prompt_tokens` is not one.
+/// E087 for `key`, which looks like a credential and is no declared secret or setting of `extension`.
+fn credential(extension: &str, key: &str) -> Diagnostic {
+    Diagnostic::new(
+        codes::E087,
+        format!(
+            "'{key}' looks like a secret: SpecForge never reads a credential from specforge.json; the value is ignored"
+        ),
+    )
+    .with_suggestion(format!(
+        "remove it from specforge.json, and rotate the secret if it was committed (extension '{extension}' declares secrets with `secret`)"
+    ))
+}
+
+/// Whether the last segment of `key` ends in a word that names a credential (`api_key`, `github_token`, `secret`
+/// …), words bounded by `_` and `-`: `max_prompt_tokens` is not one, and neither is `token_budget`, which is a
+/// misspelt setting and is told so (E086).
 fn looks_like_a_credential(key: &str) -> bool {
     let last = key.rsplit('.').next().unwrap_or(key).to_lowercase();
     let words: Vec<&str> = last.split(['_', '-']).filter(|w| !w.is_empty()).collect();
@@ -263,10 +281,11 @@ fn looks_like_a_credential(key: &str) -> bool {
         "credential",
         "credentials",
     ];
-    words.iter().any(|w| single.contains(w))
-        || words
-            .windows(2)
-            .any(|pair| matches!(pair, ["api" | "private" | "secret" | "access", "key"]))
+    words.last().is_some_and(|w| single.contains(w))
+        || words.ends_with(&["api", "key"])
+        || words.ends_with(&["private", "key"])
+        || words.ends_with(&["secret", "key"])
+        || words.ends_with(&["access", "key"])
 }
 
 /// The explicit value of the setting `name` (`None`: written `null`, unset), or the E086 about it.

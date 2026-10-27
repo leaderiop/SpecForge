@@ -360,6 +360,34 @@ fn settings_for_an_extension_not_enabled_are_w166() {
 
 #[specforge_test_macros::test(
     behavior = "load_extension_settings",
+    verify = "a secret written in specforge.json is E087 and no diagnostic echoes its value"
+)]
+fn a_credential_under_an_unread_extension_is_e087_and_a_misspelt_token_setting_is_e086() {
+    // Not enabled: W166 for the extension, E087 for the credential (its value is never echoed).
+    let (_, found) = resolve(json!({"@t/other": {"api_key": "sk-live-1", "x": 1}}));
+    assert_eq!(codes_of(&found), ["W166", "E087"], "{found:#?}");
+    assert!(!format!("{found:?}").contains("sk-live"));
+    // Enabled (`@t/f`) but not loaded (only `@t/s` is declared): no W166, still E087.
+    let text = serde_json::to_string(&settings_config(
+        json!({"@t/f": {"github_token": "sk-live-2", "anything": 1}}),
+    ))
+    .unwrap();
+    let (_, found) = resolve_text(vec![settings_extension().declaration()], &text);
+    assert_eq!(codes_of(&found), ["E087"], "{found:#?}");
+    // `token_budget` is no credential: a setting that is not declared, told as one.
+    let (_, found) = resolve(json!({"@t/s": {"token_budget": 5, "client_secret": "x"}}));
+    assert_eq!(codes_of(&found), ["E087", "E086"], "{found:#?}");
+    assert!(
+        found[1]
+            .message
+            .contains("'token_budget' is not a setting of '@t/s'"),
+        "{}",
+        found[1].message
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
     verify = "the environment reports a setting not used as written after the registry build's diagnostics"
 )]
 fn the_environment_reports_settings_diagnostics_last() {

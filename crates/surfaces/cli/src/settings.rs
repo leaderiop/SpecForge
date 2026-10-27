@@ -23,7 +23,7 @@ pub(crate) struct Args {
 
 impl Args {
     /// `specforge settings`: each loaded extension's settings as `specforge.json` and the presets resolve them
-    /// (ADR 0288), then the diagnostics reading them produced.
+    /// (ADR 0288), then the diagnostics reading them produced. Exit 1 when one is an error.
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
         let format = self.output.format;
         let project = match self.project.compile() {
@@ -36,6 +36,15 @@ impl Args {
             self.extension.as_deref(),
         );
 
+        // A setting `specforge.json` gets wrong (E086, E087) fails the run, as `check` does: CI may run this as a
+        // check. A W166 does not.
+        let exit = Exit::of_verdict(
+            !listing
+                .diagnostics
+                .0
+                .iter()
+                .any(|d| d.severity == specforge_common::Severity::Error),
+        );
         match format {
             OutputFormat::Json => {
                 terminal.json(&listing);
@@ -56,7 +65,7 @@ impl Args {
                 }
                 if listing.extensions.is_empty() {
                     outln!(terminal, "No settings.");
-                    return Exit::Passed;
+                    return exit;
                 }
                 for row in &listing.extensions {
                     outln!(terminal, "{}", row.extension);
@@ -103,6 +112,6 @@ impl Args {
             }
         }
 
-        Exit::Passed
+        exit
     }
 }
