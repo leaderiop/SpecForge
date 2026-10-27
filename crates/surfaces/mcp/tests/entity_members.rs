@@ -220,7 +220,6 @@ fn mcp_inspect_shows_a_computed_value() {
     assert_eq!(inspected["computed"], json!(["status"]), "{inspected}");
 }
 
-#[ignore = "K5 T11"]
 #[specforge_test(
     behavior = "refuse_stale_revision",
     verify = "a core edit names the revision it was planned on and is refused when it is stale"

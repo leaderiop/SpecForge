@@ -12,7 +12,7 @@
 
 use serde::Deserialize as _;
 use serde_json::{Map, Value, json};
-use specforge_ops::authoring::edit::Edit;
+use specforge_ops::authoring::edit::Revised;
 use specforge_ops::options::OptionTable;
 use specforge_ops::read::plan::AgentPlan;
 use specforge_protocol_types::command_args::normalize_arg;
@@ -334,11 +334,11 @@ impl Arg for AgentPlan {
 /// a string holding one's JSON, checked against that schema before it is decoded, so a list it does not admit is
 /// refused naming every place it departs, and one it admits always decodes.
 #[derive(Debug, Clone)]
-pub struct Edits(pub Vec<Edit>);
+pub struct Edits(pub Vec<Revised>);
 
 impl Arg for Edits {
     fn schema() -> Value {
-        specforge_common::shape::build::<Vec<Edit>>()
+        specforge_common::shape::build::<Vec<Revised>>()
     }
     fn absent() -> Option<Self> {
         None
@@ -357,7 +357,7 @@ impl Arg for Edits {
             other => other,
         };
         let found = specforge_common::shape::violations(
-            specforge_common::shape::document::<Vec<Edit>>(),
+            specforge_common::shape::document::<Vec<Revised>>(),
             value,
         );
         if !found.is_empty() {
@@ -366,7 +366,7 @@ impl Arg for Edits {
                 found.join("; ")
             ));
         }
-        Vec::<Edit>::deserialize(value)
+        Vec::<Revised>::deserialize(value)
             .map(Edits)
             .map_err(|e| format!("{name} is not a list of edits: {e}"))
     }

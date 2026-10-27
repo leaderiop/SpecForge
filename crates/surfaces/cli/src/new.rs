@@ -27,6 +27,7 @@ const FIELDS: &str = "new:fields";
 const IN: &str = "in";
 const VERIFY: &str = "verify";
 const DRY_RUN: &str = "dry-run";
+const REVISION: &str = "revision";
 const HELP: &str = "help";
 
 /// `specforge new`'s words, as the clap tree takes them: every one, unread, for [`command`] to read once the
@@ -60,6 +61,12 @@ fn options() -> Command {
                 .action(ArgAction::Append)
                 .value_name("KIND:TEXT")
                 .help("A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several"),
+        )
+        .arg(
+            Arg::new(REVISION)
+                .long(REVISION)
+                .value_name("REVISION")
+                .help("The revision of the target file (`sha256:<digest>`, or `absent` for a new file); refused with `stale_revision` when the file has changed since"),
         )
         .arg(
             Arg::new(DRY_RUN)
@@ -279,6 +286,7 @@ impl Args {
             Ok(edit) => execute_on(
                 &compiled,
                 vec![edit],
+                matches.get_one::<String>(REVISION).cloned(),
                 matches.get_flag(DRY_RUN),
                 format,
                 terminal,

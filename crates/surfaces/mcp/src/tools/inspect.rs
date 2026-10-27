@@ -6,7 +6,7 @@ use crate::target::View;
 use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{Codebook, DiagnosticList, SourceSpan};
+use specforge_common::{DiagnosticList, SourceSpan};
 use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
 use std::collections::{BTreeMap, BTreeSet};
@@ -45,6 +45,11 @@ pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     source_extension: Option<String>,
     source_span: SourceSpan,
+    /// The file it is written in, relative to the spec root.
+    file: String,
+    /// The revision of that file as the project was read (`sha256:<digest>`): what a later `specforge.edit` or
+    /// `specforge.rename` names to be refused when the file has changed since (ADR 0289).
+    revision: String,
     /// The statement the extension declares (headline and normative): a
     /// behavior's `contract`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,12 +107,14 @@ impl CoreTool for Tool {
         // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
         let coverage =
             specforge_ops::read::inspect::coverage(&view, &facts).map_err(McpError::from)?;
-        Ok(Reply::of(&facts, &coverage, view.registries().codes()).into())
+        Ok(Reply::of(&facts, &coverage, &view).into())
     }
 }
 
 impl Reply {
-    fn of(facts: &EntityFacts, coverage: &EntityCoverage, codes: &Codebook) -> Self {
+    fn of(facts: &EntityFacts, coverage: &EntityCoverage, view: &ProjectView<'_>) -> Self {
+        let codes = view.registries().codes();
+        let file = facts.node.source_span.file.to_string();
         let node = facts.node;
         let refs = &facts.references;
         let declared = facts.standing.declares_obligations();
@@ -120,6 +127,8 @@ impl Reply {
             obligated: facts.standing.obligated(),
             source_extension: facts.kind.map(|kind| kind.source_extension.to_string()),
             source_span: node.source_span.clone(),
+            revision: specforge_ops::revision::of_file(view.project(), &file),
+            file,
             contract: facts.headline.as_ref().map(ToString::to_string),
             fields: facts.members.fields.clone(),
             computed: facts.members.computed.clone(),

@@ -18,7 +18,7 @@ pub(crate) mod validate;
 pub mod write;
 
 pub use crate::edit_report::{EditDocument, EditReport};
-pub use outcome::{Edited, run};
+pub use outcome::{Edited, run, run_revised};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
 use steps::compose;
 pub use steps::{Step, plan, plan_steps};
@@ -115,6 +115,27 @@ pub enum Edit {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         unlink_references: bool,
     },
+}
+
+/// An edit and, when its caller read the file it changes, the revision of that file (ADR 0289, U9): `stale_revision`
+/// when the file is no longer at it. For `create`, the revision of the target file (`absent` for a new one).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Shape)]
+pub struct Revised {
+    #[serde(flatten)]
+    pub edit: Edit,
+    /// `sha256:<digest>` of the file's bytes, as `specforge inspect` answers it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<String>,
+}
+
+impl Revised {
+    /// `edit`, over whatever the file holds.
+    pub fn unrevised(edit: Edit) -> Self {
+        Revised {
+            edit,
+            revision: None,
+        }
+    }
 }
 
 /// A value as a caller gives it; the field's declaration decides how it is written. A block whose values are all

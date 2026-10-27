@@ -32,7 +32,14 @@ fn new_override(facts: Facts) -> (bool, String, TestProject) {
         verify: Vec::new(),
     };
     let (terminal, capture) = Terminal::captured("", facts);
-    let _ = execute_on(&compiled, vec![edit], false, OutputFormat::Human, &terminal);
+    let _ = execute_on(
+        &compiled,
+        vec![edit],
+        None,
+        false,
+        OutputFormat::Human,
+        &terminal,
+    );
     let wrote = project.root().join("o.spec").exists();
     (
         wrote,

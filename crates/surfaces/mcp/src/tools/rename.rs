@@ -20,6 +20,9 @@ pub struct Args {
     entity_id: String,
     /// New entity ID
     new_name: String,
+    /// The revision of the renamed entity's file, as `specforge.inspect` answers it: the rename is refused with
+    /// `stale_revision` when the file has changed since
+    revision: Option<String>,
     /// Return the rename plan without changing any file
     dry_run: bool,
 }
@@ -80,10 +83,11 @@ impl CoreTool for Tool {
         // is about; an invalid new ID is the argument's fault.
         //
         // A failed write puts back what it wrote; a file it could not put back is the failure's `files_written`.
-        let renamed = rename::run(
+        let renamed = rename::run_revised(
             &Navigator::new(project.view()),
             &args.entity_id,
             &args.new_name,
+            args.revision.as_deref(),
             args.dry_run,
             &Origin::mcp(),
             project.caller(),

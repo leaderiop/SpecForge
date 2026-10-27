@@ -33,12 +33,14 @@ expression: "normalized(result, root)"
       "signin"
     ]
   },
+  "file": "spec/main.spec",
   "kind": "behavior",
   "obligated": true,
   "referenced_by": [],
   "refers_to": [
     "signin"
   ],
+  "revision": "sha256:[SHA256]",
   "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,

@@ -200,6 +200,11 @@ type McpInspectResult "Mcp Inspect Result" {
   /// it): why an exempt entity is exempt.
   obligated           boolean
   source_span         SourceSpan   @readonly
+  /// The file the entity is written in, relative to the spec root.
+  file                string       @readonly
+  /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and
+  /// specforge.rename name to be refused when the file has changed since (ADR 0289).
+  revision            string       @readonly
   /// The field text of the field the entity's extension declares headline and
   /// normative (a behavior's contract); absent when its kind declares none.
   contract            string       @optional

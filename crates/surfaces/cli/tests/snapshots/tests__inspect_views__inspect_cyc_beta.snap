@@ -90,6 +90,7 @@ expression: "normalized(&result, root)"
       "alpha"
     ]
   },
+  "file": "a.spec",
   "kind": "behavior",
   "obligated": false,
   "referenced_by": [
@@ -98,6 +99,7 @@ expression: "normalized(&result, root)"
   "refers_to": [
     "alpha"
   ],
+  "revision": "sha256:[SHA256]",
   "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,

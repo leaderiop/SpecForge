@@ -66,10 +66,12 @@ expression: "normalized(result, root)"
   "fields": {
     "contract": "The system MUST end the session on logout"
   },
+  "file": "spec/main.spec",
   "kind": "behavior",
   "obligated": true,
   "referenced_by": [],
   "refers_to": [],
+  "revision": "sha256:[SHA256]",
   "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,

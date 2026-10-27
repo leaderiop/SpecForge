@@ -676,7 +676,6 @@ fn a_field_value_spelled_as_path_names_no_project() {
     }
 }
 
-#[ignore = "K5 T11"]
 #[specforge_test(
     behavior = "refuse_stale_revision",
     verify = "a core edit names the revision it was planned on and is refused when it is stale"

@@ -294,9 +294,26 @@ pub fn run(
     origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Renamed, Refusal<RenameField>> {
+    run_revised(nav, old_id, new_id, None, dry_run, origin, caller)
+}
+
+/// [`run`] when the caller read the file of `old_id` at `revision`: `stale_revision` when the file is no longer at it
+/// (ADR 0289).
+pub fn run_revised(
+    nav: &Navigator<'_>,
+    old_id: &str,
+    new_id: &str,
+    revision: Option<&str>,
+    dry_run: bool,
+    origin: &Origin,
+    caller: Caller<'_>,
+) -> Result<Renamed, Refusal<RenameField>> {
     apply::check_rename(nav.view(), origin, old_id, new_id)?;
+    let files = apply::entity_revision(nav.view(), old_id, revision)?;
     let plan = plan(nav, old_id, new_id)?;
-    let wrote = Wrote::unless_preview(dry_run, || apply::apply(plan.change(), origin, caller))?;
+    let wrote = Wrote::unless_preview(dry_run, || {
+        apply::apply_revised(nav.view(), plan.change(), &files, origin, caller)
+    })?;
     Ok(Renamed { plan, wrote })
 }
 

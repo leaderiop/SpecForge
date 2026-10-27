@@ -1,7 +1,7 @@
 //! What a list of typed edits did (ADR 0162): [`run`] plans it and writes it unless it previews; [`EditDocument`]
 //! is what both surfaces print.
 
-use super::{Edit, EditDocument, EditField, EditReport, plan};
+use super::{Edit, EditDocument, EditField, EditReport, Revised, plan};
 use crate::authoring::apply::{self, Origin};
 use crate::view::ProjectView;
 use crate::{Caller, Refusal, Wrote};
@@ -23,9 +23,26 @@ pub fn run(
     origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Edited, Refusal<EditField>> {
-    apply::check_edits(view, origin, edits)?;
-    let planned = plan(view, edits)?;
-    let wrote = Wrote::unless_preview(dry_run, || apply::apply(planned.change(), origin, caller))?;
+    let revised: Vec<Revised> = edits.iter().cloned().map(Revised::unrevised).collect();
+    run_revised(view, &revised, dry_run, origin, caller)
+}
+
+/// [`run`] for edits that may name the revision of the file they were planned on: a file no longer at it is
+/// `stale_revision`, checked against the compile before planning and against the disk under the write lock.
+pub fn run_revised(
+    view: &ProjectView<'_>,
+    edits: &[Revised],
+    dry_run: bool,
+    origin: &Origin,
+    caller: Caller<'_>,
+) -> Result<Edited, Refusal<EditField>> {
+    let plain: Vec<Edit> = edits.iter().map(|r| r.edit.clone()).collect();
+    apply::check_edits(view, origin, &plain)?;
+    let files = apply::named_revisions(view, edits)?;
+    let planned = plan(view, &plain)?;
+    let wrote = Wrote::unless_preview(dry_run, || {
+        apply::apply_revised(view, planned.change(), &files, origin, caller)
+    })?;
     Ok(Edited {
         report: planned.report().clone(),
         wrote,

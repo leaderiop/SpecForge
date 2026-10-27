@@ -26,6 +26,9 @@ Options:
       --dry-run
           Print the diff and write nothing
 
+      --revision <REVISION>
+          The revision of the entity's file (`sha256:<digest>`, as `specforge.inspect` answers it): refused with `stale_revision` when the file has changed since
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

@@ -2830,6 +2830,9 @@ expression: listing
           },
           "type": "object"
         },
+        "file": {
+          "type": "string"
+        },
         "kind": {
           "type": "string"
         },
@@ -2853,6 +2856,9 @@ expression: listing
             "type": "string"
           },
           "type": "array"
+        },
+        "revision": {
+          "type": "string"
         },
         "source_extension": {
           "type": "string"
@@ -2880,6 +2886,8 @@ expression: listing
         "declared",
         "obligated",
         "source_span",
+        "file",
+        "revision",
         "fields",
         "referenced_by",
         "refers_to",
@@ -3839,6 +3847,10 @@ expression: listing
         "path": {
           "description": "Project root path (the served project if omitted)",
           "type": "string"
+        },
+        "revision": {
+          "description": "The revision of the renamed entity's file, as `specforge.inspect` answers it: the rename is refused with `stale_revision` when the file has changed since",
+          "type": "string"
         }
       },
       "required": [
@@ -4276,6 +4288,9 @@ expression: listing
                     ],
                     "type": "string"
                   },
+                  "revision": {
+                    "type": "string"
+                  },
                   "title": {
                     "type": "string"
                   },
@@ -4328,6 +4343,9 @@ expression: listing
                     ],
                     "type": "string"
                   },
+                  "revision": {
+                    "type": "string"
+                  },
                   "value": {
                     "$ref": "#/$defs/EditInput"
                   }
@@ -4354,6 +4372,9 @@ expression: listing
                       "unset"
                     ],
                     "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -4376,6 +4397,9 @@ expression: listing
                     "enum": [
                       "append"
                     ],
+                    "type": "string"
+                  },
+                  "revision": {
                     "type": "string"
                   },
                   "value": {
@@ -4408,6 +4432,9 @@ expression: listing
                       "remove"
                     ],
                     "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -4428,6 +4455,9 @@ expression: listing
                     "enum": [
                       "retitle"
                     ],
+                    "type": "string"
+                  },
+                  "revision": {
                     "type": "string"
                   },
                   "title": {
@@ -4454,6 +4484,9 @@ expression: listing
                     "enum": [
                       "link"
                     ],
+                    "type": "string"
+                  },
+                  "revision": {
                     "type": "string"
                   },
                   "target": {
@@ -4483,6 +4516,9 @@ expression: listing
                     ],
                     "type": "string"
                   },
+                  "revision": {
+                    "type": "string"
+                  },
                   "target": {
                     "type": "string"
                   }
@@ -4508,6 +4544,9 @@ expression: listing
                     "enum": [
                       "add_verify"
                     ],
+                    "type": "string"
+                  },
+                  "revision": {
                     "type": "string"
                   },
                   "text": {
@@ -4536,6 +4575,9 @@ expression: listing
                     ],
                     "type": "string"
                   },
+                  "revision": {
+                    "type": "string"
+                  },
                   "text": {
                     "type": "string"
                   }
@@ -4557,6 +4599,9 @@ expression: listing
                     "enum": [
                       "delete"
                     ],
+                    "type": "string"
+                  },
+                  "revision": {
                     "type": "string"
                   },
                   "unlink_references": {

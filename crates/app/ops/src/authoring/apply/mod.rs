@@ -21,7 +21,7 @@ use crate::{Caller, OpError, OpErrorKind, Refusal, Writes, Wrote};
 use specforge_project::CompiledProject;
 use specforge_project::harness::LedgerChange;
 use specforge_protocol_types::EditPlan;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A plan's operations are not well formed: the data names the operation's number (from 1).
 pub const INVALID_PLAN: &str = "invalid_plan";
@@ -35,6 +35,18 @@ pub const COMPUTED_FIELD: &str = "computed_field";
 pub const HARNESS_FIELD: &str = "harness_field";
 /// A plan names a revision of a file that is not the file's now.
 pub const STALE_REVISION: &str = "stale_revision";
+
+/// The slugs a write refuses an agent with (ADR 0289): the code is the contract, so a surface that maps the failure by
+/// its kind keeps it.
+pub const WRITE_REFUSALS: [&str; 7] = [
+    INVALID_PLAN,
+    UNDECLARED_WRITE,
+    HUMAN_ONLY,
+    COMPUTED_FIELD,
+    HARNESS_FIELD,
+    STALE_REVISION,
+    NOT_JUDGED,
+];
 
 /// One operation of a lowered plan: its number in the plan, from 1.
 #[derive(Debug, Clone, PartialEq)]
@@ -150,6 +162,91 @@ pub(crate) fn check_edits(
         })
         .collect();
     flags::check(view, origin, &ops, false)
+}
+
+/// The revision each of `edits` names, by file: the file of the entity it changes (of `create`, its target), compared
+/// with the compile. Two revisions of one file are `invalid_edit`; a mismatch is `stale_revision`.
+pub(crate) fn named_revisions(
+    view: &ProjectView<'_>,
+    edits: &[crate::authoring::edit::Revised],
+) -> Result<BTreeMap<String, String>, OpError> {
+    use crate::authoring::edit::Edit;
+    let mut files: BTreeMap<String, String> = BTreeMap::new();
+    for revised in edits {
+        let Some(revision) = &revised.revision else {
+            continue;
+        };
+        let file = match &revised.edit {
+            Edit::Create { file, .. } => Some(file.clone()),
+            Edit::Set { entity_id, .. }
+            | Edit::Unset { entity_id, .. }
+            | Edit::Append { entity_id, .. }
+            | Edit::Remove { entity_id, .. }
+            | Edit::Retitle { entity_id, .. }
+            | Edit::Link { entity_id, .. }
+            | Edit::Unlink { entity_id, .. }
+            | Edit::AddVerify { entity_id, .. }
+            | Edit::RemoveVerify { entity_id, .. }
+            | Edit::Delete { entity_id, .. } => file_of(view, entity_id),
+        };
+        let Some(file) = file else { continue };
+        if let Some(known) = files.get(&file)
+            && known != revision
+        {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                "invalid_edit",
+                format!("two edits name different revisions of {file}: {known} and {revision}"),
+            ));
+        }
+        files.insert(file, revision.clone());
+    }
+    revision::against_compile(view.project(), &files)?;
+    Ok(files)
+}
+
+/// The revision `revision` names for the file of `entity` (none when it names none), compared with the compile.
+pub(crate) fn entity_revision(
+    view: &ProjectView<'_>,
+    entity: &str,
+    revision: Option<&str>,
+) -> Result<BTreeMap<String, String>, OpError> {
+    let mut files = BTreeMap::new();
+    if let (Some(revision), Some(file)) = (revision, file_of(view, entity)) {
+        files.insert(file, revision.to_string());
+    }
+    revision::against_compile(view.project(), &files)?;
+    Ok(files)
+}
+
+/// The file `entity` is written in, in the project `view` reads.
+pub(crate) fn file_of(view: &ProjectView<'_>, entity: &str) -> Option<String> {
+    match view.graph().scopes().resolve(None, entity, &|_| true) {
+        specforge_graph::Found::One(path) => view
+            .graph()
+            .node(path.as_str())
+            .map(|node| node.source_span.file.to_string()),
+        _ => None,
+    }
+}
+
+/// [`apply`] for edits that named the revision of the files `files`: also checked against the disk, under the write
+/// lock.
+pub(crate) fn apply_revised(
+    view: &ProjectView<'_>,
+    change: &PlannedChange,
+    files: &BTreeMap<String, String>,
+    origin: &Origin,
+    caller: Caller<'_>,
+) -> Result<Writes, OpError> {
+    if files.is_empty() {
+        return apply(change, origin, caller);
+    }
+    let sources = view.env().sources().clone();
+    change
+        .clone()
+        .serialized()
+        .apply_checked(caller, || revision::against_disk(&sources, caller, files))
 }
 
 /// Check the rename of `old_id` to `new_id` for `origin`: a human-only entity is renamed by a person.

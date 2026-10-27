@@ -7,7 +7,7 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::project::ProjectArg;
 use crate::terminal::{Terminal, outln};
 use specforge_ops::authoring::apply::Origin;
-use specforge_ops::authoring::edit::{self, Edit, Input, Obligation};
+use specforge_ops::authoring::edit::{self, Edit, Input, Obligation, Revised};
 use specforge_ops::view::ProjectView;
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_project::CompiledProject;
@@ -21,6 +21,7 @@ fn usage(message: &str) -> OpError {
 pub(crate) fn execute(
     project: &ProjectArg,
     edits: Result<Vec<Edit>, OpError>,
+    revision: Option<String>,
     dry_run: bool,
     format: OutputFormat,
     terminal: &Terminal,
@@ -33,7 +34,7 @@ pub(crate) fn execute(
         Ok(compiled) => compiled,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    execute_on(&compiled, edits, dry_run, format, terminal)
+    execute_on(&compiled, edits, revision, dry_run, format, terminal)
 }
 
 /// Plan `edits` over `compiled`, write them unless `dry_run`, and print what they did. It never compiles: the
@@ -41,6 +42,7 @@ pub(crate) fn execute(
 pub(crate) fn execute_on(
     compiled: &CompiledProject,
     edits: Vec<Edit>,
+    revision: Option<String>,
     dry_run: bool,
     format: OutputFormat,
     terminal: &Terminal,
@@ -50,7 +52,14 @@ pub(crate) fn execute_on(
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let edited = match edit::run(
+    let edits: Vec<Revised> = edits
+        .into_iter()
+        .map(|edit| Revised {
+            edit,
+            revision: revision.clone(),
+        })
+        .collect();
+    let edited = match edit::run_revised(
         &view,
         &edits,
         dry_run,
@@ -110,6 +119,11 @@ pub(crate) struct SetArgs {
     #[arg(long)]
     dry_run: bool,
 
+    /// The revision of the entity's file (`sha256:<digest>`, as `specforge.inspect` answers it): refused with
+    /// `stale_revision` when the file has changed since
+    #[arg(long, value_name = "REVISION")]
+    revision: Option<String>,
+
     #[command(flatten)]
     project: ProjectArg,
 
@@ -129,7 +143,14 @@ impl SetArgs {
             Ok(edits) => edits,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        execute_on(&compiled, edits, self.dry_run, format, terminal)
+        execute_on(
+            &compiled,
+            edits,
+            self.revision,
+            self.dry_run,
+            format,
+            terminal,
+        )
     }
 
     fn edits(&self, view: &ProjectView<'_>) -> Result<Vec<Edit>, OpError> {
@@ -178,6 +199,11 @@ pub(crate) struct UnsetArgs {
     #[arg(long)]
     dry_run: bool,
 
+    /// The revision of the entity's file (`sha256:<digest>`, as `specforge.inspect` answers it): refused with
+    /// `stale_revision` when the file has changed since
+    #[arg(long, value_name = "REVISION")]
+    revision: Option<String>,
+
     #[command(flatten)]
     project: ProjectArg,
 
@@ -194,6 +220,7 @@ impl UnsetArgs {
         execute(
             &self.project,
             edits,
+            self.revision,
             self.dry_run,
             self.output.format,
             terminal,
@@ -222,6 +249,11 @@ pub(crate) struct LinkArgs {
     /// Print the diff and write nothing
     #[arg(long)]
     dry_run: bool,
+
+    /// The revision of the entity's file (`sha256:<digest>`, as `specforge.inspect` answers it): refused with
+    /// `stale_revision` when the file has changed since
+    #[arg(long, value_name = "REVISION")]
+    revision: Option<String>,
 
     #[command(flatten)]
     project: ProjectArg,
@@ -260,6 +292,7 @@ impl LinkArgs {
                 return execute_on(
                     &compiled,
                     vec![edit],
+                    self.revision,
                     self.dry_run,
                     self.output.format,
                     terminal,
@@ -283,6 +316,7 @@ impl LinkArgs {
         execute(
             &self.project,
             Ok(vec![edit]),
+            self.revision,
             self.dry_run,
             self.output.format,
             terminal,
@@ -304,6 +338,11 @@ pub(crate) struct DeleteArgs {
     #[arg(long)]
     dry_run: bool,
 
+    /// The revision of the entity's file (`sha256:<digest>`, as `specforge.inspect` answers it): refused with
+    /// `stale_revision` when the file has changed since
+    #[arg(long, value_name = "REVISION")]
+    revision: Option<String>,
+
     #[command(flatten)]
     project: ProjectArg,
 
@@ -320,6 +359,7 @@ impl DeleteArgs {
         execute(
             &self.project,
             edits,
+            self.revision,
             self.dry_run,
             self.output.format,
             terminal,

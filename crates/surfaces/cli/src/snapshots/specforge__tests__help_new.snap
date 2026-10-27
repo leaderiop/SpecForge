@@ -26,6 +26,9 @@ Options:
       --verify <KIND:TEXT>
           A `verify` obligation: `kind:text` when the kind is one of the new kind's verify kinds, else the whole text; repeat for several
 
+      --revision <REVISION>
+          The revision of the target file (`sha256:<digest>`, or `absent` for a new file); refused with `stale_revision` when the file has changed since
+
       --dry-run
           Print the diff and write nothing
 
