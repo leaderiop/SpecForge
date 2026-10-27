@@ -164,8 +164,8 @@ fn sample_schema() -> GraphProtocolSchema {
                     edge: None,
                     target_kind: None,
                     description: None,
-                    default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -565,8 +565,8 @@ fn publish_json_schema_edge_labels_in_enum() {
         edge: Some("implements".to_string()),
         target_kind: Some("feature".to_string()),
         description: None,
-        default_value: None,
         source_extension: "@specforge/software".to_string(),
+        ..Default::default()
     });
     let parsed = publish(&schema, EmitFormat::Json).unwrap();
 
@@ -1269,8 +1269,7 @@ fn a_field_type_is_named_in_the_schema_as_declared() {
 fn the_published_schema_lists_the_field_types_the_host_reads() {
     let schema = generate_schema(&ticket_registries());
     let published = publish(&schema, EmitFormat::Json).unwrap();
-    let listed = &published["$defs"]["GraphProtocolSchema"]["properties"]["entity_kinds"]["items"]
-        ["properties"]["fields"]["items"]["properties"]["field_type"]["enum"];
+    let listed = &published["$defs"]["SchemaField"]["properties"]["field_type"]["enum"];
     let names: Vec<&str> = FieldType::ALL.iter().map(|t| t.as_str()).collect();
     assert_eq!(
         names.join(" "),

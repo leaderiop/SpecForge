@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use specforge_graph::{Direction, Graph, Node, Obligation, ValueShape};
+use specforge_graph::{Direction, Graph, Node, Obligation, Reading, ValueShape};
 use specforge_parser::{FieldEntry, FieldMap, FieldValue};
 
 use super::text::{field_items, field_text};
@@ -186,6 +186,7 @@ fn field_record(
         members: Vec::new(),
         missing: Vec::new(),
         unknown: Vec::new(),
+        written: None,
         text: field_text(&entry.value),
         annotations: entry
             .annotations
@@ -208,6 +209,9 @@ fn field_record(
         .skip(1)
         .map(|m| record(m.path.to_string(), m.path.declared(), m.entry, Vec::new()))
         .collect();
+    top.written = matches!(forms.reading(kind, entry.key.as_str()),
+        Reading::Declared(form) if form.members().is_some())
+    .then(|| specforge_graph::field_form::write(&entry.value).into());
     top.unknown = forms
         .undeclared(kind, entry)
         .into_iter()

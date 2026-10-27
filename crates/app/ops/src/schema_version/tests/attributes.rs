@@ -598,10 +598,10 @@ fn with_members(members: serde_json::Value, targets: serde_json::Value) -> Graph
     behavior = "detect_breaking_schema_changes",
     verify = "a required member or a bound tightened is major, a member or a target kind added is minor"
 )]
-#[ignore = "K3 T9"]
 fn a_schema_change_to_members_is_classified() {
-    let optional = serde_json::json!({"name": "x", "field_type": "string", "required": false});
-    let required = serde_json::json!({"name": "y", "field_type": "string", "required": true});
+    let source = "@specforge/software";
+    let optional = serde_json::json!({"name": "x", "field_type": "string", "required": false, "source_extension": source});
+    let required = serde_json::json!({"name": "y", "field_type": "string", "required": true, "source_extension": source});
     let old = with_members(
         serde_json::json!([optional]),
         serde_json::json!(["verify_gap", "uat_gap"]),

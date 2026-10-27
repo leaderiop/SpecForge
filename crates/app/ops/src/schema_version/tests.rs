@@ -31,6 +31,11 @@ fn sample_schema() -> GraphProtocolSchema {
                     description: None,
                     default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    members: Vec::new(),
+                    target_kinds: Vec::new(),
+                    minimum: None,
+                    maximum: None,
+                    file_base: None,
                 }],
             },
             SchemaEntityKind {
@@ -61,6 +66,11 @@ fn optional_field(name: &str) -> SchemaField {
         description: None,
         default_value: None,
         source_extension: "@specforge/software".to_string(),
+        members: Vec::new(),
+        target_kinds: Vec::new(),
+        minimum: None,
+        maximum: None,
+        file_base: None,
     }
 }
 

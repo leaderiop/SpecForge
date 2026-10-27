@@ -63,6 +63,9 @@ pub struct FieldRecord {
     /// The entries this field's typed blocks hold that they declare no member for (W020). Host-internal: never on
     /// the wire.
     pub unknown: Vec<UnknownMember>,
+    /// The value as the export writes it, for a typed `block` or a `block_list` (a pass and a validator read it
+    /// beside the text, ADR 0285); `None` for every other field. Host-internal: never on the wire as a field.
+    pub written: Option<serde_json::Value>,
     pub text: String,
     pub annotations: Vec<String>,
     /// A list-shaped value's items, unjoined (each item's text), so a host
@@ -236,6 +239,7 @@ impl EntityRecord {
             members: Vec::new(),
             missing: Vec::new(),
             unknown: Vec::new(),
+            written: None,
             text: items.join(", "),
             annotations: Vec::new(),
             items: Some(items.iter().map(|item| item.to_string()).collect()),
@@ -256,6 +260,7 @@ impl EntityRecord {
             members: Vec::new(),
             missing: Vec::new(),
             unknown: Vec::new(),
+            written: None,
             text: text.to_string(),
             annotations: Vec::new(),
             items: shape.is_list().then(|| vec![text.to_string()]),

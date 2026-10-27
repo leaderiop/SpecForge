@@ -5,6 +5,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specforge_common::shape::Shape;
+use specforge_protocol_types::FieldDescriptor;
 use specforge_registry::{FieldRegistryEntry, FieldType, RegistryBuild};
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ impl PartialOrd for SchemaVersion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
+#[shape(define)]
 pub struct SchemaField {
     pub name: String,
     /// The field's type, named as its extension declares it (ADR 0034). A
@@ -122,33 +124,97 @@ pub struct SchemaField {
     /// Extension that contributed this field (may differ from the entity's owning extension
     /// when the field comes from an entity enhancement).
     pub source_extension: String,
+    /// A typed `block` or `block_list`'s members, each described as a field is (ADR 0285).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<SchemaField>,
+    /// The kinds a reference may name when it names a union of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_kinds: Vec<String>,
+    /// An integer's least and greatest value, inclusive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maximum: Option<i64>,
+    /// Where a file field's relative paths start, when it is not the spec root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_base: Option<String>,
+}
+
+/// A plain optional string field: tests spell only what they exercise.
+impl Default for SchemaField {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            field_type: FieldType::String,
+            required: false,
+            enum_values: None,
+            edge: None,
+            target_kind: None,
+            description: None,
+            default_value: None,
+            source_extension: String::new(),
+            members: Vec::new(),
+            target_kinds: Vec::new(),
+            minimum: None,
+            maximum: None,
+            file_base: None,
+        }
+    }
 }
 
 impl SchemaField {
     /// The field's declared type read once: what it takes, how a written
     /// value is stored and the JSON Schema of what is written for it.
     pub fn form(&self) -> specforge_graph::FieldForm {
-        specforge_graph::FieldForm::new(
+        let mut form = specforge_graph::FieldForm::new(
             self.field_type,
             self.enum_values.clone().unwrap_or_default(),
         )
+        .bounded(self.minimum, self.maximum)
+        .requiring(self.required);
+        if !self.target_kinds.is_empty() {
+            form = form.targeting_any(&self.target_kinds);
+        }
+        if !self.members.is_empty() {
+            let members = self
+                .members
+                .iter()
+                .map(|member| (member.name.clone(), member.form()))
+                .collect();
+            form = form.with_members(specforge_graph::field_form::BlockMembers::new(members));
+        }
+        form
     }
 
     /// The schema's field for a registered one: everything its declaration
     /// says.
     fn of(entry: &FieldRegistryEntry) -> Self {
-        let declared = entry.declared();
+        Self::described(entry.declared(), entry.source_extension())
+    }
+
+    /// The schema's field for a declared field or member (`declared` is read: its type is canonical).
+    fn described(declared: &FieldDescriptor, source_extension: &str) -> Self {
+        let field_type = FieldType::parse(&declared.field_type).unwrap_or(FieldType::String);
         SchemaField {
-            name: entry.name().to_string(),
-            field_type: entry.field_type(),
+            name: declared.name.clone(),
+            field_type,
             required: declared.required,
-            enum_values: (entry.field_type() == FieldType::Enum)
-                .then(|| entry.enum_values().to_vec()),
+            enum_values: matches!(field_type, FieldType::Enum | FieldType::EnumList)
+                .then(|| declared.enum_values.clone()),
             edge: declared.edge.clone(),
             target_kind: declared.target_kind.clone(),
             description: declared.description.clone(),
             default_value: declared.default_value.clone(),
-            source_extension: entry.source_extension().to_string(),
+            source_extension: source_extension.to_string(),
+            members: declared
+                .members
+                .iter()
+                .map(|member| Self::described(member, source_extension))
+                .collect(),
+            target_kinds: declared.target_kinds.clone(),
+            minimum: declared.minimum,
+            maximum: declared.maximum,
+            file_base: declared.file_base.clone(),
         }
     }
 }

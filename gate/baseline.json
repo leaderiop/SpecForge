@@ -10,7 +10,7 @@
     "crates/pipeline/emitter/tests/contracts.rs": 841,
     "crates/pipeline/emitter/tests/model.rs": 1518,
     "crates/pipeline/emitter/tests/outline.rs": 1150,
-    "crates/pipeline/emitter/tests/schema.rs": 1597,
+    "crates/pipeline/emitter/tests/schema.rs": 1596,
     "crates/pipeline/graph/tests/graph.rs": 1596,
     "crates/runtime/wasm/tests/calls.rs": 839,
     "crates/session/project/tests/changes.rs": 840,

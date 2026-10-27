@@ -326,7 +326,6 @@ fn a_project_file_field_reads_from_the_project_root() {
     behavior = "run_check_phase_passes",
     verify = "a pass receives a typed block and a block list structured beside their text"
 )]
-#[ignore = "K3 T9"]
 fn a_pass_receives_a_block_structured() {
     let dir = TestProject::new()
         .config(|c| c["name"] = "p".into())
@@ -372,7 +371,6 @@ fn a_pass_receives_a_block_structured() {
     behavior = "serialize_json_graph",
     verify = "a block list is exported as an array of objects and the Graph Protocol schema describes its members"
 )]
-#[ignore = "K3 T9"]
 fn an_export_writes_blocks_and_their_schema() {
     let (graph, _) = compile(&format!(
         "{HIERARCHY}\nplan 03-03 \"Other\" {{\n  phase v1.0/03\n  files_modified [\"src/a.ts\"]\n  \
@@ -412,7 +410,7 @@ fn an_export_writes_blocks_and_their_schema() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|k| k["name"] == "Summary")
+        .find(|k| k["name"] == "summary")
         .unwrap();
     let requires = summary["fields"]
         .as_array()

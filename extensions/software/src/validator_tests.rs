@@ -24,6 +24,7 @@ fn entity(kind: &str, fields: Vec<ValidatorField>) -> ValidatorEntity {
         kind: kind.to_string(),
         fields,
         methods: vec![],
+        values: Default::default(),
     }
 }
 

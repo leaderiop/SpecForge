@@ -5,6 +5,7 @@ use specforge_protocol_types::{
     PassEdge, PassEntity, PassSpan, ValidatorContext, ValidatorEntity, ValidatorField,
     ValidatorMethod, ValidatorParam, ValidatorRef,
 };
+use std::collections::BTreeMap;
 
 use super::{EntitySnapshot, Standing};
 use crate::entity::EntityRecord;
@@ -56,6 +57,7 @@ impl EntitySnapshot {
                         annotations: f.annotations.clone(),
                     })
                     .collect(),
+                values: written_values(record),
                 methods: record
                     .methods
                     .iter()
@@ -87,6 +89,7 @@ impl EntitySnapshot {
                 id: "__probe__".to_string(),
                 kind: kind.to_string(),
                 fields: Vec::new(),
+                values: BTreeMap::new(),
                 methods: Vec::new(),
             },
             referenced: Vec::new(),
@@ -120,6 +123,7 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
             .iter()
             .map(|f| (f.key.clone(), f.text.clone()))
             .collect(),
+        values: written_values(record),
         incoming_edge_count: record.incoming.total,
         outgoing_edge_count: record.outgoing.total,
         span: Some(PassSpan {
@@ -134,6 +138,15 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
         verify_kinds: record.obligations.iter().map(|o| o.kind.clone()).collect(),
         verify_texts: record.obligations.iter().map(|o| o.text.clone()).collect(),
     }
+}
+
+/// The structured value of each of `record`'s typed blocks and block lists, by field name (ADR 0285).
+fn written_values(record: &EntityRecord) -> BTreeMap<String, serde_json::Value> {
+    record
+        .fields
+        .iter()
+        .filter_map(|f| Some((f.key.clone(), f.written.clone()?)))
+        .collect()
 }
 
 fn primitives() -> Vec<String> {

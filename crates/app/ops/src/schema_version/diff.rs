@@ -97,6 +97,12 @@ pub enum Scalar {
     TargetKind,
     Description,
     DefaultValue,
+    /// An integer field's least value; loosening it is minor, tightening it major.
+    Minimum,
+    /// An integer field's greatest value.
+    Maximum,
+    /// Where a file field's relative paths start.
+    FileBase,
 }
 
 /// The set-valued attributes.
@@ -142,10 +148,18 @@ impl SchemaChange {
 impl AttributeChange {
     fn bump(&self) -> Bump {
         match self {
-            Self::Changed { attribute, .. } => match attribute {
-                Scalar::FieldType | Scalar::Required | Scalar::Edge | Scalar::TargetKind => {
-                    Bump::Major
-                }
+            Self::Changed {
+                attribute,
+                before,
+                after,
+            } => match attribute {
+                Scalar::FieldType
+                | Scalar::Required
+                | Scalar::Edge
+                | Scalar::TargetKind
+                | Scalar::FileBase => Bump::Major,
+                Scalar::Minimum => bound_bump(before, after, |after, before| after < before),
+                Scalar::Maximum => bound_bump(before, after, |after, before| after > before),
                 Scalar::SourceExtension
                 | Scalar::Testable
                 | Scalar::DotColor
@@ -156,6 +170,20 @@ impl AttributeChange {
             Self::Lost { .. } => Bump::Major,
             Self::Reordered { .. } => Bump::Patch,
         }
+    }
+}
+
+/// A bound moved: loosened (no bound, or `loosened(after, before)`) is minor, tightened major (ADR 0285).
+fn bound_bump(
+    before: &Option<String>,
+    after: &Option<String>,
+    loosened: fn(i64, i64) -> bool,
+) -> Bump {
+    let number = |value: &Option<String>| value.as_deref().and_then(|v| v.parse::<i64>().ok());
+    match (number(before), number(after)) {
+        (Some(_), None) => Bump::Minor,
+        (Some(before), Some(after)) if loosened(after, before) => Bump::Minor,
+        _ => Bump::Major,
     }
 }
 
@@ -188,6 +216,9 @@ impl Scalar {
             Scalar::TargetKind => "target kind",
             Scalar::Description => "description",
             Scalar::DefaultValue => "default value",
+            Scalar::Minimum => "minimum",
+            Scalar::Maximum => "maximum",
+            Scalar::FileBase => "file base",
         }
     }
 
@@ -493,22 +524,44 @@ fn diff_kind(
         });
     }
 
+    diff_fields(name, "", old_fields, new_fields, changes);
+}
+
+/// The changes between two lists of fields of `kind`, or of the members of the field at `prefix` (`requires.`):
+/// a member is named by its declared member path (ADR 0285).
+fn diff_fields(
+    kind: &str,
+    prefix: &str,
+    old_fields: &[SchemaField],
+    new_fields: &[SchemaField],
+    changes: &mut Vec<SchemaChange>,
+) {
     let old_fields: BTreeMap<&str, &SchemaField> =
         old_fields.iter().map(|f| (f.name.as_str(), f)).collect();
     let new_fields: BTreeMap<&str, &SchemaField> =
         new_fields.iter().map(|f| (f.name.as_str(), f)).collect();
     for field in names(&old_fields, &new_fields) {
+        let path = format!("{prefix}{field}");
         match (old_fields.get(field), new_fields.get(field)) {
             (None, Some(added)) => changes.push(SchemaChange::FieldAdded {
-                kind: name.to_string(),
-                field: field.to_string(),
+                kind: kind.to_string(),
+                field: path,
                 required: added.required,
             }),
             (Some(_), None) => changes.push(SchemaChange::FieldRemoved {
-                kind: name.to_string(),
-                field: field.to_string(),
+                kind: kind.to_string(),
+                field: path,
             }),
-            (Some(old), Some(new)) => diff_field(name, field, old, new, changes),
+            (Some(old), Some(new)) => {
+                diff_field(kind, &path, old, new, changes);
+                diff_fields(
+                    kind,
+                    &format!("{path}."),
+                    &old.members,
+                    &new.members,
+                    changes,
+                );
+            }
             (None, None) => unreachable!("a name comes from one of the two maps"),
         }
     }
@@ -531,6 +584,12 @@ fn diff_field(
         description: old_description,
         default_value: old_default_value,
         source_extension: old_source,
+        // The members are compared by `diff_fields`, as fields of their own.
+        members: _,
+        target_kinds: old_target_kinds,
+        minimum: old_minimum,
+        maximum: old_maximum,
+        file_base: old_file_base,
     } = old;
     let SchemaField {
         name: _,
@@ -542,6 +601,11 @@ fn diff_field(
         description: new_description,
         default_value: new_default_value,
         source_extension: new_source,
+        members: _,
+        target_kinds: new_target_kinds,
+        minimum: new_minimum,
+        maximum: new_maximum,
+        file_base: new_file_base,
     } = new;
 
     let mut attributes: Vec<AttributeChange> = Vec::new();
@@ -569,6 +633,26 @@ fn diff_field(
         Scalar::TargetKind,
         old_target_kind.clone(),
         new_target_kind.clone(),
+    ));
+    attributes.extend(members(
+        Members::TargetKinds,
+        old_target_kinds,
+        new_target_kinds,
+    ));
+    attributes.extend(scalar(
+        Scalar::Minimum,
+        old_minimum.map(|n| n.to_string()),
+        new_minimum.map(|n| n.to_string()),
+    ));
+    attributes.extend(scalar(
+        Scalar::Maximum,
+        old_maximum.map(|n| n.to_string()),
+        new_maximum.map(|n| n.to_string()),
+    ));
+    attributes.extend(scalar(
+        Scalar::FileBase,
+        old_file_base.clone(),
+        new_file_base.clone(),
     ));
     attributes.extend(scalar(
         Scalar::Description,

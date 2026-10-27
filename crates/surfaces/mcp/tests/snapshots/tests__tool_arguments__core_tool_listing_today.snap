@@ -169,60 +169,7 @@ expression: listing
                   },
                   "fields": {
                     "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "default_value": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "edge": {
-                          "type": "string"
-                        },
-                        "enum_values": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        "field_type": {
-                          "enum": [
-                            "string",
-                            "integer",
-                            "bool",
-                            "date",
-                            "enum",
-                            "identifier",
-                            "string_list",
-                            "reference",
-                            "reference_list",
-                            "block",
-                            "enum_list",
-                            "block_list"
-                          ],
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "required": {
-                          "type": "boolean"
-                        },
-                        "source_extension": {
-                          "type": "string"
-                        },
-                        "target_kind": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "name",
-                        "field_type",
-                        "required",
-                        "source_extension"
-                      ],
-                      "type": "object"
+                      "$ref": "#/$defs/SchemaField"
                     },
                     "type": "array"
                   },
@@ -359,6 +306,83 @@ expression: listing
           "required": [
             "name",
             "type"
+          ],
+          "type": "object"
+        },
+        "SchemaField": {
+          "additionalProperties": false,
+          "properties": {
+            "default_value": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "edge": {
+              "type": "string"
+            },
+            "enum_values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field_type": {
+              "enum": [
+                "string",
+                "integer",
+                "bool",
+                "date",
+                "enum",
+                "identifier",
+                "string_list",
+                "reference",
+                "reference_list",
+                "block",
+                "enum_list",
+                "block_list"
+              ],
+              "type": "string"
+            },
+            "file_base": {
+              "type": "string"
+            },
+            "maximum": {
+              "type": "integer"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/SchemaField"
+              },
+              "type": "array"
+            },
+            "minimum": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "source_extension": {
+              "type": "string"
+            },
+            "target_kind": {
+              "type": "string"
+            },
+            "target_kinds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "field_type",
+            "required",
+            "source_extension"
           ],
           "type": "object"
         },
@@ -1772,6 +1796,85 @@ expression: listing
       "type": "object"
     },
     "outputSchema": {
+      "$defs": {
+        "SchemaField": {
+          "additionalProperties": false,
+          "properties": {
+            "default_value": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "edge": {
+              "type": "string"
+            },
+            "enum_values": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field_type": {
+              "enum": [
+                "string",
+                "integer",
+                "bool",
+                "date",
+                "enum",
+                "identifier",
+                "string_list",
+                "reference",
+                "reference_list",
+                "block",
+                "enum_list",
+                "block_list"
+              ],
+              "type": "string"
+            },
+            "file_base": {
+              "type": "string"
+            },
+            "maximum": {
+              "type": "integer"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/SchemaField"
+              },
+              "type": "array"
+            },
+            "minimum": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "source_extension": {
+              "type": "string"
+            },
+            "target_kind": {
+              "type": "string"
+            },
+            "target_kinds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "field_type",
+            "required",
+            "source_extension"
+          ],
+          "type": "object"
+        }
+      },
       "additionalProperties": false,
       "properties": {
         "edge_types": {
@@ -1814,60 +1917,7 @@ expression: listing
               },
               "fields": {
                 "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "default_value": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "edge": {
-                      "type": "string"
-                    },
-                    "enum_values": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "field_type": {
-                      "enum": [
-                        "string",
-                        "integer",
-                        "bool",
-                        "date",
-                        "enum",
-                        "identifier",
-                        "string_list",
-                        "reference",
-                        "reference_list",
-                        "block",
-                        "enum_list",
-                        "block_list"
-                      ],
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "required": {
-                      "type": "boolean"
-                    },
-                    "source_extension": {
-                      "type": "string"
-                    },
-                    "target_kind": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "name",
-                    "field_type",
-                    "required",
-                    "source_extension"
-                  ],
-                  "type": "object"
+                  "$ref": "#/$defs/SchemaField"
                 },
                 "type": "array"
               },

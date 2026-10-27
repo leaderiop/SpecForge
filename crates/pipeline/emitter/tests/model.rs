@@ -157,8 +157,8 @@ fn entity_fields_mapped_from_schema() {
                     edge: None,
                     target_kind: None,
                     description: Some("Current status".to_string()),
-                    default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    ..Default::default()
                 },
                 SchemaField {
                     name: "features".to_string(),
@@ -168,8 +168,8 @@ fn entity_fields_mapped_from_schema() {
                     edge: Some("BehaviorImplementsFeature".to_string()),
                     target_kind: Some("feature".to_string()),
                     description: None,
-                    default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    ..Default::default()
                 },
             ],
         }],
@@ -232,8 +232,8 @@ fn edge_type_maps_to_relationship() {
                     edge: Some("BehaviorImplementsFeature".to_string()),
                     target_kind: Some("feature".to_string()),
                     description: None,
-                    default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -369,8 +369,8 @@ fn reference_field_infers_many_to_one() {
                     edge: Some("BelongsTo".to_string()),
                     target_kind: Some("feature".to_string()),
                     description: None,
-                    default_value: None,
                     source_extension: "@specforge/software".to_string(),
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -487,8 +487,8 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
                     edge: Some("TermBelongsToModule".to_string()),
                     target_kind: Some("module".to_string()),
                     description: Some("The module that owns this term".to_string()),
-                    default_value: None,
                     source_extension: "@specforge/product".to_string(),
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -568,8 +568,8 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                         edge: None,
                         target_kind: None,
                         description: Some("The contract".to_string()),
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                     SchemaField {
                         name: "features".to_string(),
@@ -579,8 +579,8 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                         edge: Some("BehaviorImplementsFeature".to_string()),
                         target_kind: Some("feature".to_string()),
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                 ],
             },
@@ -604,8 +604,8 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                     edge: None,
                     target_kind: None,
                     description: None,
-                    default_value: None,
                     source_extension: "@specforge/product".to_string(),
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -1120,8 +1120,8 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                         edge: None,
                         target_kind: None,
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                     SchemaField {
                         name: "flag".to_string(),
@@ -1131,8 +1131,8 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                         edge: None,
                         target_kind: None,
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                     SchemaField {
                         name: "tags".to_string(),
@@ -1142,8 +1142,8 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                         edge: None,
                         target_kind: None,
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                     SchemaField {
                         name: "body".to_string(),
@@ -1153,8 +1153,8 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                         edge: None,
                         target_kind: None,
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                     SchemaField {
                         name: "features".to_string(),
@@ -1164,8 +1164,8 @@ fn dbml_maps_real_types_and_cardinality_operators() {
                         edge: Some("BehaviorImplementsFeature".to_string()),
                         target_kind: Some("feature".to_string()),
                         description: None,
-                        default_value: None,
                         source_extension: "@specforge/software".to_string(),
+                        ..Default::default()
                     },
                 ],
             },

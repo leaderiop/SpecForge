@@ -246,6 +246,15 @@ fn prose_of(value: &FieldValue, key: &str, members: &Members) -> Option<String> 
             block_lines(block, key, 0, members, &mut lines);
             Some(lines.join("\n"))
         }
+        // A block list: one `- item i:` group per item, its members beneath (ADR 0285).
+        FieldValue::Blocks(items) => {
+            let mut lines = Vec::new();
+            for (i, item) in items.iter().enumerate() {
+                lines.push(format!("- item {i}:"));
+                block_lines(&item.fields, &format!("{key}[{i}]"), 1, members, &mut lines);
+            }
+            Some(lines.join("\n"))
+        }
         _ => None,
     }
 }
