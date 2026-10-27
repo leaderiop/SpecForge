@@ -75,14 +75,14 @@ impl PlannedChange {
         self.with_ledger(before, change, false)
     }
 
-    /// This change writing the ledger canonically, whether or not an extension declares a harness field
-    /// (`specforge harness gc`).
+    /// This change writing the ledger canonically (`specforge harness gc`). Nothing when no loaded extension declares
+    /// a harness field: with none, every field line reads as one of a field that is gone, and would be dropped.
     pub(crate) fn rewriting_ledger(self, before: &CompiledProject) -> Self {
         self.with_ledger(before, LedgerChange::default(), true)
     }
 
     fn with_ledger(mut self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
-        if before.root().is_none() || !(force || before.declares_harness()) {
+        if before.root().is_none() || !before.declares_harness() {
             return self;
         }
         let current = before.root_file(LEDGER_FILE);

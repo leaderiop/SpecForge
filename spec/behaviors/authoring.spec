@@ -299,5 +299,6 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
     canonically, and the first ledger write adds `/specforge-harness merge=union` to `.gitattributes`.
   """
   verify unit "harness gc rewrites the ledger canonically and --dry-run writes nothing"
+  verify unit "harness gc leaves a ledger alone when no loaded extension declares a harness field"
   verify unit "the first ledger write adds the union attribute"
 }

@@ -177,3 +177,29 @@ fn the_first_ledger_write_adds_the_union_attribute() {
         Some("/specforge-harness merge=union\n")
     );
 }
+
+#[specforge_test(
+    behavior = "collect_harness_ledger",
+    verify = "harness gc rewrites the ledger canonically and --dry-run writes nothing"
+)]
+fn harness_gc_rewrites_the_ledger_canonically() {
+    let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
+    let kept = line("v1.0/03/U1", "result", "\"pass\"");
+    let gone = line("v1.0/03/Gone", "result", "\"pass\"");
+    let messy = format!("# specforge-harness 1\n{kept}{gone}{kept}");
+    project.write("specforge-harness", &messy);
+    let gc = |dry_run| {
+        let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+        specforge_ops::authoring::harness::run(
+            &ProjectView::of(&compiled),
+            dry_run,
+            specforge_ops::testing::caller(),
+        )
+        .unwrap();
+    };
+    let ledger = || std::fs::read_to_string(project.root().join("specforge-harness")).unwrap();
+    gc(true);
+    assert_eq!(ledger(), messy, "--dry-run writes nothing");
+    gc(false);
+    assert_eq!(ledger(), format!("# specforge-harness 1\n{kept}"));
+}
