@@ -110,3 +110,25 @@ fn a_codebook_answers_what_an_extension_catalogues_and_a_codes_letter() {
         Err(CodeMisuse::NotALocalCode)
     );
 }
+
+#[test]
+fn each_code_misuse_suggests_its_own_fix() {
+    use crate::CodeMisuse::*;
+    let fixes: Vec<_> = [
+        NotItsCode {
+            owner: "core",
+            title: "t",
+        },
+        WrongLevel {
+            catalogued: Level::Error,
+        },
+        Retired { replaced_by: None },
+        Uncatalogued,
+        NotALocalCode,
+        PrefixContradictsLevel,
+    ]
+    .map(|misuse| misuse.suggestion())
+    .into();
+    let distinct: std::collections::HashSet<_> = fixes.iter().collect();
+    assert_eq!(distinct.len(), fixes.len(), "{fixes:?}");
+}

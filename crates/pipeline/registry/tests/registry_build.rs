@@ -300,6 +300,9 @@ fn a_rule_with_a_code_it_may_not_use_is_reported() {
         "{}",
         w150.message
     );
+    // The fix is the severity or the letter, not a catalog entry.
+    let fix = w150.suggestion.as_deref().unwrap_or_default();
+    assert!(fix.contains("change the severity"), "{fix}");
 }
 
 /// The same code declared for several target kinds is one W150 per

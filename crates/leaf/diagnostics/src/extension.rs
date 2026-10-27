@@ -32,6 +32,30 @@ pub enum CodeMisuse {
     NotALocalCode,
 }
 
+impl CodeMisuse {
+    /// What an author does about it (W150's suggestion): each misuse has its own fix.
+    pub fn suggestion(&self) -> &'static str {
+        match self {
+            CodeMisuse::NotItsCode { .. } => {
+                "report a code the extension owns, not another owner's"
+            }
+            CodeMisuse::WrongLevel { .. } => "report the code at the level the catalog gives it",
+            CodeMisuse::Retired { .. } => {
+                "report the code that replaced it, if the entry names one"
+            }
+            CodeMisuse::Uncatalogued => {
+                "catalogue the code in the extension's `codes` (`c.code`), at its letter's level"
+            }
+            CodeMisuse::NotALocalCode => {
+                "report a local code (`E`, `W` or `I` and three digits) and catalogue it in `codes`; the host adds the namespace"
+            }
+            CodeMisuse::PrefixContradictsLevel => {
+                "change the severity to the one the code's letter states (E error, W warning, I info), or change the letter"
+            }
+        }
+    }
+}
+
 impl std::fmt::Display for CodeMisuse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

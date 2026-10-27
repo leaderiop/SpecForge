@@ -73,9 +73,7 @@ fn code_misuse(
                 descriptor.code
             ),
         )
-        .with_suggestion(
-            "catalogue the code in the extension's `codes` (`c.code`), at its letter's level",
-        ),
+        .with_suggestion(misuse.suggestion()),
     )
 }
 

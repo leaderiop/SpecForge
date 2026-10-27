@@ -139,9 +139,7 @@ fn code_misuse(
                     finding.code
                 ),
             )
-            .with_suggestion(
-                "catalogue the code in the extension's `codes` (`c.code`), at its letter's level",
-            ),
+            .with_suggestion(misuse.suggestion()),
         );
     }
     diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
