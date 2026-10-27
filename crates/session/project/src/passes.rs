@@ -9,7 +9,7 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Level, check_extension_code};
-use specforge_protocol_types::{PassBuildCache, PassInput, PassOutput, PassSeverity, TestResults};
+use specforge_protocol_types::{PassBuildCache, PassInput, PassOutput, PassSeverity};
 use specforge_wasm::ExtensionCalls;
 use std::collections::HashSet;
 
@@ -71,7 +71,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
     PassInput {
         entities: input.entities.pass_entities(),
         edges: input.entities.pass_edges(),
-        test_results: input.test_results.map(TestResults::from),
+        test_results: input.test_results.map(|r| r.results(input.entities)),
         proved_claims: input.proved_claims.map(sorted_ids),
         previous: input.previous.map(PassBuildCache::from),
     }

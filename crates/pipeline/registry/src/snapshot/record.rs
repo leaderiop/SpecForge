@@ -86,6 +86,7 @@ pub(super) fn record(
         .collect();
     let record = EntityRecord {
         id: id.to_string(),
+        name: node.name().to_string(),
         kind: node.kind.raw.to_string(),
         span: node.source_span.clone(),
         fields: entries

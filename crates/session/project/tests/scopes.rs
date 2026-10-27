@@ -633,7 +633,6 @@ fn a_kind_declares_its_scope_field() {
     behavior = "check_entities_in_one_order",
     verify = "E013 and E014 judge an entity's name, not its path"
 )]
-#[ignore = "K2 T6"]
 fn a_name_is_judged_not_its_path() {
     let long = "n".repeat(58);
     let source = format!(
@@ -655,7 +654,6 @@ fn a_name_is_judged_not_its_path() {
     behavior = "compute_the_coverage_view",
     verify = "a test report names an entity by its path or a unique short form"
 )]
-#[ignore = "K2 T6"]
 fn a_test_report_names_an_entity_by_its_short_form() {
     let source = "milestone v1.0 \"One\" { }\nphase 03 \"Three\" { milestone v1.0 }\n\
                   plan 03-02 \"Plan\" {\n  phase v1.0/03\n  verify unit \"works\"\n}\n";

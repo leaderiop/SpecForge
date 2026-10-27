@@ -10,7 +10,7 @@ use crate::entity::EntityRecord;
 pub(super) fn reserved(entities: &[EntityRecord], kinds: &KindRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for entity in entities {
-        let (id, span) = (entity.id.as_str(), &entity.span);
+        let (id, span) = (entity.name.as_str(), &entity.span);
         if !kinds.reserves(id) {
             continue;
         }
@@ -66,7 +66,7 @@ pub fn refused_id(id: &str, kinds: &KindRegistry) -> Option<IdRefusal> {
 pub(super) fn length(entities: &[EntityRecord]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for entity in entities {
-        let (id, span) = (entity.id.as_str(), &entity.span);
+        let (id, span) = (entity.name.as_str(), &entity.span);
         let len = id.chars().count();
         if ID_LENGTH.contains(&len) {
             continue;

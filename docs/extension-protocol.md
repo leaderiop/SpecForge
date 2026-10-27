@@ -491,7 +491,10 @@ each entity is `{"id", "kind", "fields", "incoming_edge_count",
 "verify_texts"}`, `owes_none` meaning it owes no obligations of its own, decided
 by the host from the registries; `incoming_edge_count` and `outgoing_edge_count`
 count the edges from and to other entities, an edge from the entity to itself in
-neither) and answers host diagnostics, bare or as
+neither). An entity's `id`, and an edge's `source` and `target`, are entity paths: a scope's path and a name
+(`v1.0/03/D-01`), or the name alone in the project scope; a name never holds `/`. The host re-keys
+`test_results` by path: a key written as a path, a rooted path or a unique short form reaches its
+entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 `previous` (check passes only) is the build cache, `{"statuses": {"<id>":

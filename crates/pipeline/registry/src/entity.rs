@@ -16,7 +16,11 @@ use crate::disk::Disk;
 /// is the rule engine or the wire build it with the `with_*` methods.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityRecord {
+    /// The entity's path: its scope's path and its name (ADR 0284).
     pub id: String,
+    /// The name it is declared with: `id` without its scope's path. What the identifier contract (E013, E014)
+    /// judges. Host-internal: never on the wire.
+    pub name: String,
     pub kind: String,
     pub span: SourceSpan,
     /// Every field the entity writes, once each, in source order, each with
@@ -170,6 +174,7 @@ impl EntityRecord {
     pub fn new(kind: &str, id: &str, span: &SourceSpan) -> Self {
         EntityRecord {
             id: id.to_string(),
+            name: id.to_string(),
             kind: kind.to_string(),
             span: span.clone(),
             fields: Vec::new(),
