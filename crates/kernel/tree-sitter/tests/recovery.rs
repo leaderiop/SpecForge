@@ -352,3 +352,44 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
         }
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "recover_from_syntax_errors",
+    verify = "a list of blocks left half-typed ends where the next top-level form starts"
+)]
+#[ignore = "K3 T4"]
+fn a_half_typed_block_list_ends_at_the_next_form() {
+    let closed = "port p \"P\" {\n  requires [ { phase 02 } ]\n}\n";
+    assert!(
+        !parse(closed).root_node().has_error(),
+        "a closed block list parses clean"
+    );
+    for member in [
+        "  requires [",
+        "  requires [ {",
+        "  requires [ { phase 02",
+        "  requires [ { phase 02 } {",
+    ] {
+        let source = format!(
+            "port p \"P\" {{\n  direction inbound\n{member}\n\nbehavior b \"B\" {{\n  status done\n}}\n"
+        );
+        let tree = parse(&source);
+        assert_eq!(
+            top_level(&source, &tree),
+            pairs(&[
+                ("entity_block", "port p \"P\" {"),
+                ("entity_block", "behavior b \"B\" {"),
+            ]),
+            "{member}: {}",
+            tree.root_node().to_sexp()
+        );
+        let root = tree.root_node();
+        let mut cursor = root.walk();
+        let blocks: Vec<Node> = root.named_children(&mut cursor).collect();
+        assert!(
+            misses_a_brace(blocks[0]),
+            "{member}: the body reports its error"
+        );
+        assert!(!blocks[1].has_error(), "{member}");
+    }
+}

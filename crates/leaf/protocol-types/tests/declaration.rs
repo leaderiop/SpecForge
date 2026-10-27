@@ -418,3 +418,36 @@ fn declares_reads_the_content() {
         [DeclaredCategory::Surfaces]
     );
 }
+
+/// A descriptor carrying members, a target union, bounds and a file base keeps them on the wire (ADR 0285); one
+/// that writes none reads as before.
+#[specforge_test_macros::test(
+    behavior = "check_field_value_types",
+    verify = "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+)]
+#[ignore = "K3 T3"]
+fn a_field_declares_members_a_union_bounds_and_a_base() {
+    let wire = json!({
+        "name": "requires", "field_type": "block_list",
+        "members": [
+            {"name": "phase", "field_type": "reference", "target_kinds": ["phase", "milestone"], "required": true},
+            {"name": "score", "field_type": "integer", "minimum": 0, "maximum": 100},
+            {"name": "path", "field_type": "string", "file_reference": true, "file_base": "project"},
+        ],
+    });
+    let field: FieldDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(
+        serde_json::to_value(&field).unwrap()["members"],
+        wire["members"]
+    );
+
+    let older = json!({"name": "title", "field_type": "string"});
+    let field: FieldDescriptor = serde_json::from_value(older.clone()).unwrap();
+    let written = serde_json::to_value(&field).unwrap();
+    for key in ["members", "target_kinds", "minimum", "maximum", "file_base"] {
+        assert!(
+            written.get(key).is_none(),
+            "{key} is written for a field that declares none"
+        );
+    }
+}

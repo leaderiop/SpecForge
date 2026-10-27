@@ -8,7 +8,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_extension_sdk::PeerDependency;
 use specforge_extension_sdk::prelude::*;
 use specforge_project::Environment;
-use specforge_project::testing::TestProject;
+use specforge_project::testing::{Assembled, TestProject};
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use std::sync::Arc;
@@ -340,5 +340,73 @@ fn population_completes_before_any_validation() {
             .any(|e| e.label == "owner" && e.target == "p1"),
         "{:?}",
         project.graph().edges()
+    );
+}
+
+/// A kind `thing` whose fields each declare a K3 attribute wrongly (ADR 0285), as the wire carries them.
+fn malformed_attributes() -> specforge_protocol_types::ExtensionDeclaration {
+    let member =
+        |name: &str, field_type: &str| serde_json::json!({"name": name, "field_type": field_type});
+    let fields = serde_json::json!([
+        {"name": "members_on_a_string", "field_type": "string", "members": [member("x", "string")]},
+        {"name": "empty_block_list", "field_type": "block_list"},
+        {"name": "twin_members", "field_type": "block", "members": [member("x", "string"), member("x", "integer")]},
+        {"name": "dotted_member", "field_type": "block", "members": [member("a.b", "string")]},
+        {"name": "unknown_member_type", "field_type": "block", "members": [member("x", "nope")]},
+        {"name": "both_targets", "field_type": "reference", "target_kind": "thing", "target_kinds": ["thing", "other"]},
+        {"name": "targets_on_a_string", "field_type": "string", "target_kinds": ["thing", "other"]},
+        {"name": "one_target_kind", "field_type": "reference", "target_kinds": ["thing"]},
+        {"name": "bound_on_a_string", "field_type": "string", "minimum": 1},
+        {"name": "inverted_bounds", "field_type": "integer", "minimum": 5, "maximum": 1},
+        {"name": "base_without_files", "field_type": "string", "file_base": "project"},
+        {"name": "unknown_base", "field_type": "string", "file_reference": true, "file_base": "root"},
+        {"name": "empty_enum_list", "field_type": "enum_list"},
+        {"name": "derived_member", "field_type": "block", "members": [
+            {"name": "x", "field_type": "reference_list", "target_kind": "thing", "derived_from": "type_expressions"}]},
+    ]);
+    let mut declaration = Assembled::declaration("@test/malformed", "1.0.0");
+    declaration.entities = vec![
+        serde_json::from_value(serde_json::json!({
+            "name": "Thing", "keyword": "thing", "fields": fields,
+        }))
+        .unwrap(),
+    ];
+    declaration
+}
+
+/// A malformed K3 attribute is W021 (W019 for an unknown member type), the attribute is dropped and the field
+/// keeps the rest.
+#[specforge_test(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
+)]
+#[ignore = "K3 T3"]
+fn the_registry_refuses_a_malformed_k3_attribute() {
+    let registries = specforge_registry::build_registries(vec![malformed_attributes()]);
+    let diagnostics: Vec<Diagnostic> = registries.diagnostics().cloned().collect();
+    for field in malformed_attributes().entities[0]
+        .fields
+        .iter()
+        .map(|f| f.name.as_str())
+    {
+        let refused: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| matches!(d.code.as_str(), "W019" | "W021") && d.message.contains(field))
+            .collect();
+        assert!(
+            !refused.is_empty(),
+            "{field} is not refused: {diagnostics:#?}"
+        );
+    }
+    let unknown = diagnostics
+        .iter()
+        .find(|d| d.message.contains("unknown_member_type"))
+        .unwrap();
+    assert_eq!(unknown.code, "W019");
+    assert!(
+        registries
+            .fields()
+            .get("thing", "targets_on_a_string")
+            .is_some()
     );
 }

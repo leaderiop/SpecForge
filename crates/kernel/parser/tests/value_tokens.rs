@@ -92,3 +92,42 @@ fn a_value_token_reads_as_the_parse_stores_it() {
         }
     }
 }
+
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "a list of blocks parses to its items, commas optional, and a key twice in an item is E081"
+)]
+#[ignore = "K3 T4"]
+fn a_block_list_is_a_list_of_blocks() {
+    let parsed = |body: &str| parse(&format!("thing t \"T\" {{\n  f {body}\n}}\n"), "t.spec");
+    for body in [
+        "[ {a 1} {b \"x\"} ]",
+        "[ { a 1 }, { b \"x\" } ]",
+        "[\n  { a 1 }\n  { b \"x\" }\n]",
+    ] {
+        let file = parsed(body);
+        assert!(file.errors.is_empty(), "{body}: {:?}", file.errors);
+        let value = &file.entities[0].fields.entries()[0].value;
+        assert!(
+            format!("{value:?}").starts_with("Blocks(["),
+            "{body}: {value:?}"
+        );
+    }
+    let empty = parsed("[]");
+    assert!(matches!(
+        &empty.entities[0].fields.entries()[0].value,
+        FieldValue::List(items) if items.is_empty()
+    ));
+    assert!(
+        !parsed("[a, {b 1}]").errors.is_empty(),
+        "a block among words is E001"
+    );
+    let repeated = parsed("[ { a 1 a 2 } ]");
+    let paths: Vec<_> = repeated.entities[0]
+        .fields
+        .repeats()
+        .iter()
+        .map(|r| r.path.clone())
+        .collect();
+    assert_eq!(paths, ["f[0].a"]);
+}

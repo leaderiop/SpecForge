@@ -22,9 +22,11 @@
 pub mod assembled;
 pub mod scoped;
 pub mod specs;
+pub mod typed;
 
 pub use assembled::Assembled;
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
+pub use typed::{TYPED_EXTENSION, typed_extension, typed_kinds, typed_runtime};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

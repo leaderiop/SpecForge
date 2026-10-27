@@ -72,6 +72,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify unit "what an entity holds is written once: its fields, their annotations at any depth and its methods, with no position"
   verify unit "every export format writes an entity id holding a dash or a dot as written"
   verify unit "an export of a project with no scoped kind writes each id as its name and each edge as written"
+  verify unit "a block list is exported as an array of objects and the Graph Protocol schema describes its members"
   verify contract "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
 }
 
@@ -551,6 +552,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
   verify unit "a duplicate declaration's diagnostics are about its entity"
   verify unit "a surface takes an entity by its path or a unique short form, reports its path, and refuses a short form naming several"
+  verify unit "inspect writes a block list as an array of objects, and specforge.edit appends an item to it"
 }
 
 // The exploration and the review: the explore and review prompts'

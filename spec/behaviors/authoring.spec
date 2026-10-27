@@ -138,6 +138,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
   verify unit "a plan's edits read the project as the edits before them leave it"
   verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
+  verify unit "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {

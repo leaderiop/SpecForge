@@ -48,6 +48,7 @@ mod snippets;
 mod stale;
 mod state;
 mod token_agreement;
+mod typed_members;
 mod union_title;
 mod use_bindings;
 

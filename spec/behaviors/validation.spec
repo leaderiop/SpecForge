@@ -246,6 +246,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "a single path on a file-reference field is checked like a one-item list"
   verify unit "a bare word on a file-reference field is a path"
   verify integration "a compile checks a bare word on a file-reference field as a path"
+  verify unit "a file field declaring the project base reads its relative paths from the directory of specforge.json"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 }
 

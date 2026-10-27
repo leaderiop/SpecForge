@@ -254,6 +254,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a pass diagnostic naming an entity gets that entity's span"
   verify unit "a pass entity carries whether the host found it exempt"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
+  verify unit "a pass receives a typed block and a block list structured beside their text"
 }
 
 behavior write_build_cache "Write the Build Cache" {

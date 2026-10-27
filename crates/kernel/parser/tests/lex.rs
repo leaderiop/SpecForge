@@ -719,3 +719,28 @@ fn an_identifier_is_the_grammars_identifier_whole() {
         assert!(!is_identifier(text), "{text:?}");
     }
 }
+
+#[specforge_test(
+    behavior = "lex_spec_text",
+    verify = "the lexer agrees with the grammar on a list of blocks, a nested typed block and an enum list"
+)]
+#[ignore = "K3 T4"]
+fn the_lexer_agrees_on_block_lists() {
+    let text = "thing t \"T\" {\n  requires [\n    { phase 02 provides \"x\" }\n    { phase 01 files [a, b] }\n  ]\n  completion { at 2026-10-27 inner { n 3 } }\n  reasons [threshold, jump]\n}\n";
+    let (file, tree) = parse_incremental(text, "t.spec", None);
+    let tree = tree.expect("a tree");
+    assert!(file.errors.is_empty(), "{:?}", file.errors);
+    assert!(!tree.root_node().has_error(), "the text has a CST error");
+    let mut leaves = Vec::new();
+    grammar_leaves(tree.root_node(), text, &mut leaves);
+    let lexemes = lex(text);
+    for (start, end, kind) in leaves {
+        let lexeme = lexemes.iter().find(|l| l.start == start).expect("a lexeme");
+        assert_eq!(
+            (lexeme.end, lexeme.kind),
+            (end, kind),
+            "{:?}",
+            &text[start..end]
+        );
+    }
+}

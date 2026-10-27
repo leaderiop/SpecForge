@@ -511,5 +511,10 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a quoted calendar day on a date field is W159, written bare"
   verify unit "a date field takes one calendar day, bare or quoted; any other value is E061"
   verify unit "a decision's, a milestone's and a release's date is one calendar day; any other value is E061"
+  verify unit "an enum list takes the declared words, each once, and a scalar is a one-item list"
+  verify unit "a typed block reads and admits each member by its own declared type"
+  verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
+  verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
+  verify unit "a field descriptor carries its members, target kinds, bounds and file base on the wire"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }

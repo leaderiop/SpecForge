@@ -117,6 +117,14 @@ impl Assembled {
         ]))
     }
 
+    /// [`Self::scoped`] with the typed fields of [`super::typed_extension`] (ADR 0285): block lists, an enum list, a
+    /// target union, bounds and a file base.
+    pub fn typed() -> Self {
+        Self::over(specforge_registry::build_registries(vec![
+            super::typed_extension(),
+        ]))
+    }
+
     /// A project whose environment the test makes at its root (a fresh temp directory).
     pub fn assembling(env: impl FnOnce(&Path) -> Environment) -> Self {
         let dir = TempDir::new().expect("a temp dir");

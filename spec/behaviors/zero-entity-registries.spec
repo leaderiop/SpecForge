@@ -671,6 +671,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
   verify unit "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
   verify unit "cross-validation uses no domain-specific logic"
   verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
+  verify unit "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
   verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
 }
 

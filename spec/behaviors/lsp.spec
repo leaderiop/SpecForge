@@ -219,6 +219,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "a definition is a location link for a client that declares linkSupport, else a location at the name"
   verify unit "the entity after a body being typed is navigated to"
   verify unit "go-to-definition, prepare rename and rename take a path one segment at a time"
+  verify unit "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -396,6 +397,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "a string list's items suggest no entity IDs but scheme ref IDs"
   verify integration "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
   verify unit "completion offers an entity by its name, shows its path and inserts the shortest spelling from the cursor's block"
+  verify unit "completion inside a typed block offers its unwritten members, a member's values and an enum list's unwritten words"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
 }
 

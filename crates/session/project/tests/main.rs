@@ -50,5 +50,6 @@ mod source_disk;
 mod source_hops;
 mod structural_checks;
 mod symlinked_directory;
+mod typed_fields;
 mod unresolved_cascade;
 mod update_bracket;

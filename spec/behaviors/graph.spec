@@ -61,6 +61,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a field written twice in one block is E081, and the node holds its first entry, at any depth"
   verify unit "a later entry's names stay tokens a rename edits, and link nothing"
   verify unit "an update reports a field written twice as the cold build does"
+  verify unit "the finder reports a reference inside a block under its member path, held by the entity"
 }
 
 behavior apply_file_defaults "Apply File Defaults" {
@@ -181,6 +182,7 @@ behavior link_derived_references "Link Derived References" {
   verify unit "a default's derived name is held by the blocks that take its entry"
   verify integration "a field's derived_from reaches the graph from the extension's manifest"
   verify unit "a type name resolves by its holder's chain and is no E004, a path written as a type is one name"
+  verify unit "an enum list's words and a typed block's members are no type expression: no derived edge and no E004"
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {

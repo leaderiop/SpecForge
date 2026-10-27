@@ -203,6 +203,8 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a second spec block is E002 whatever its name, and is not placed"
   verify unit "same ID different kind across files warns W060 with both kinds named"
   verify unit "a declaration's graph-build diagnostics name its entity in their data"
+  verify unit "a reference inside a block is held by its entity, resolves outward from it and is labelled by its member path"
+  verify unit "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

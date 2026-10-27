@@ -97,6 +97,7 @@ mod stats;
 mod trace;
 mod trace_order;
 mod trace_support;
+mod typed_blocks;
 mod use_bindings;
 mod verify_statements;
 mod view_support;
