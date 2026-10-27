@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
-use specforge_graph::Node;
+use specforge_graph::{Found, Node};
 
 use crate::authoring::edit::{self, Edit, EditField, Input};
 use crate::read::navigate::{Navigator, SourceText, TextEdit, is_about, overlaps};
@@ -273,7 +273,11 @@ fn entity_stub(
         return None;
     };
     let graph = navigator.view().graph();
-    if graph.node(target).is_some() || stubbed.contains(target) {
+    // A path names no new block (a name holds no '/'), and a name some entity bears is not missing.
+    if target.contains('/')
+        || !matches!(graph.find(target), Found::None(_))
+        || stubbed.contains(target)
+    {
         return None;
     }
     let holder = graph.node(entity)?;

@@ -7,6 +7,7 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::find_close_match;
 use specforge_formatter::FormatConfig;
+use specforge_graph::Found;
 use specforge_graph::field_form::Reading;
 use specforge_registry::FieldRegistryEntry;
 
@@ -27,6 +28,14 @@ pub struct Site<'a> {
 }
 
 impl Site<'_> {
+    /// The name the entity is declared with: its path without its scope's (a scheme ref id is all name).
+    pub fn name(&self) -> &str {
+        if self.id.contains(':') {
+            return self.id;
+        }
+        self.id.rsplit('/').next().unwrap_or(self.id)
+    }
+
     /// How `field` of the entity's kind reads; refused when the kind does not declare it. A value naming `target`
     /// (a link's or unlink's): an undeclared `field` whose target's
     /// kind owns a relation into this kind is told as that relation's other side, as E079 tells it by its values.
@@ -60,8 +69,11 @@ impl Site<'_> {
             );
         }
         let target = target.and_then(|id| {
-            let node = self.view.graph().node(id)?;
-            Some((id, node.kind.raw.as_str()))
+            let graph = self.view.graph();
+            let Found::One(path) = graph.find(id) else {
+                return None;
+            };
+            Some((id, graph.node(path.as_str())?.kind.raw.as_str()))
         });
         let owners = self.view.registries().fields().owning_fields(
             self.kind,

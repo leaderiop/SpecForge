@@ -11,7 +11,7 @@ use crate::read::navigate::{TextEdit, apply_edits};
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::Sym;
 use specforge_graph::field_form::spell;
-use specforge_graph::{Form, Holder, written_tokens};
+use specforge_graph::{Form, Found, Holder, written_tokens};
 use specforge_parser::parse;
 use std::collections::BTreeSet;
 
@@ -44,6 +44,26 @@ pub(super) fn fill(
 }
 
 impl Planner<'_> {
+    /// The path a new `name` of `kind` gets (ADR 0284): in the scope `fields` gives its scope field, else in the
+    /// project's.
+    pub(super) fn new_path(
+        &self,
+        kind: &str,
+        name: &str,
+        fields: &std::collections::BTreeMap<String, Input>,
+    ) -> String {
+        let inputs = self.view.registries().graph_inputs();
+        let Some(Input::One(scope)) = inputs.scopes.get(kind).and_then(|f| fields.get(f)) else {
+            return name.to_string();
+        };
+        // A scope that resolves to none keeps its written text in the path (ADR 0284).
+        let scope = match self.view.graph().find(scope) {
+            Found::One(path) => path.to_string(),
+            _ => scope.clone(),
+        };
+        format!("{scope}/{name}")
+    }
+
     pub(super) fn create(
         &mut self,
         kind: &str,
@@ -54,15 +74,17 @@ impl Planner<'_> {
         verify: &[Obligation],
     ) -> Result<(), Refusal<EditField>> {
         validate_id(id, self.view.registries().kinds()).map_err(|e| e.about(EditField::Id))?;
+        let path = &self.new_path(kind, id, fields);
         let graph = self.view.graph();
-        if (graph.node(id).is_some() && !self.deleted.contains(id)) || self.created.contains_key(id)
+        if (graph.node(path).is_some() && !self.deleted.contains(path))
+            || self.created.contains_key(path)
         {
             return Err(OpError::new(
                 OpErrorKind::Conflict,
                 rename::TAKEN,
-                format!("cannot create '{id}': an entity with that id exists"),
+                format!("cannot create '{path}': an entity with that id exists"),
             )
-            .with_entity(id)
+            .with_entity(path)
             .about(EditField::Id));
         }
         self.view
@@ -80,7 +102,7 @@ impl Planner<'_> {
         let site = Site {
             view: self.view,
             key: file,
-            id,
+            id: path,
             kind,
             config: self.config_of(file),
         };
@@ -93,8 +115,8 @@ impl Planner<'_> {
         )?;
         self.texts.insert(file.to_string(), text);
         self.created
-            .insert(id.to_string(), (kind.to_string(), file.to_string()));
-        self.deleted.remove(id);
+            .insert(path.to_string(), (kind.to_string(), file.to_string()));
+        self.deleted.remove(path);
         Ok(())
     }
 

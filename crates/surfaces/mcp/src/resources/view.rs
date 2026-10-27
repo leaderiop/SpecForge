@@ -182,7 +182,7 @@ pub(crate) fn export_view(
 /// when it cannot be one (the 400 case: no name nor scheme ref ID, as the
 /// grammar reads them), from a well-formed one that names no entity (the 404).
 pub(super) fn check_entity_id(entity_id: &str) -> Result<(), Box<McpError>> {
-    if specforge_parser::lex::is_entity_id(entity_id) {
+    if specforge_parser::lex::is_entity_id(entity_id) || specforge_parser::lex::is_path(entity_id) {
         return Ok(());
     }
     Err(refuse(

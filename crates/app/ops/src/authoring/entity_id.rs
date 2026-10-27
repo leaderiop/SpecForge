@@ -18,7 +18,8 @@ pub fn validate_id(id: &str, kinds: &KindRegistry) -> Result<(), OpError> {
             INVALID_ID,
             format!(
                 "invalid entity ID '{id}': it must be 2-60 characters: words of letters, digits and \
-                 underscores, joined by single '-' or '.' (AUTH-01, v1.0)"
+                 underscores, joined by single '-' or '.' (AUTH-01, v1.0); a name holds no '/': set the scope field \
+                 to place it"
             ),
         ));
     }

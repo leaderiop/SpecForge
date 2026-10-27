@@ -170,13 +170,16 @@ fn rank<'g>(node: &'g Node, text: &str, scope: MatchScope) -> Option<EntityMatch
     }
     let id = node.id.raw.as_str().to_lowercase();
     let title = node.title.as_deref().map(str::to_lowercase);
-    let id_similarity = strsim::jaro_winkler(text, &id);
+    // The name is matched as the path is: a scoped entity answers to the name it is declared with (ADR 0284).
+    let name = node.name().to_lowercase();
+    let id_similarity = strsim::jaro_winkler(text, &id).max(strsim::jaro_winkler(text, &name));
     let title_similarity = title
         .as_deref()
         .map_or(0.0, |t| strsim::jaro_winkler(text, t));
     let similarity = id_similarity.max(title_similarity);
     let names = [
         (MatchedOn::Id, Some(id.as_str())),
+        (MatchedOn::Id, Some(name.as_str())),
         (MatchedOn::Title, title.as_deref()),
     ];
     for (tier, test) in [

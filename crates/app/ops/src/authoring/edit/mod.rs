@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use specforge_common::DiagnosticList;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
+use specforge_graph::Found;
 use specforge_parser::LineBreak;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -162,7 +163,11 @@ impl Obligation {
     /// with its kind's verify kinds, that other one; otherwise the parse. An entity the project does not hold reads
     /// with no verify kinds, and the plan then refuses it (`not_found`) as it does today.
     pub fn on(view: &ProjectView<'_>, entity_id: &str, text: &str) -> Obligation {
-        let node = view.graph().node(entity_id);
+        let path = match view.graph().find(entity_id) {
+            Found::One(path) => path.to_string(),
+            _ => entity_id.to_string(),
+        };
+        let node = view.graph().node(&path);
         let kinds = node.map_or(&[][..], |n| verify_kinds_of(view, n.kind.raw.as_str()));
         let parsed = Obligation::parse(text, kinds);
         let writes = |o: &Obligation| {
@@ -276,6 +281,8 @@ struct Planner<'v> {
 struct Located {
     key: String,
     kind: String,
+    /// The entity's path (ADR 0284): what `id` named, spelled in full.
+    path: String,
 }
 
 impl<'v> Planner<'v> {
@@ -296,18 +303,36 @@ impl<'v> Planner<'v> {
         }
     }
 
+    /// The path `id` names: a path the plan created, else the graph's entity by its path or a unique short form;
+    /// refused when a short form names several. `id` itself when it names none (the caller refuses it).
+    fn path_of(&self, id: &str) -> Result<String, Refusal<EditField>> {
+        if self.created.contains_key(id) {
+            return Ok(id.to_string());
+        }
+        match self.view.graph().find(id) {
+            Found::One(path) => Ok(path.to_string()),
+            Found::Ambiguous(paths) => {
+                Err(crate::view::ambiguous(id, &paths).about(EditField::Entity))
+            }
+            Found::Mistyped(_) | Found::None(_) => Ok(id.to_string()),
+        }
+    }
+
     fn locate(&self, id: &str) -> Result<Located, Refusal<EditField>> {
-        if let Some((kind, key)) = self.created.get(id) {
+        let path = self.path_of(id)?;
+        if let Some((kind, key)) = self.created.get(&path) {
             return Ok(Located {
                 key: key.clone(),
                 kind: kind.clone(),
+                path,
             });
         }
         let graph = self.view.graph();
-        match graph.node(id).filter(|_| !self.deleted.contains(id)) {
+        match graph.node(&path).filter(|_| !self.deleted.contains(&path)) {
             Some(node) => Ok(Located {
                 key: node.source_span.file.to_string(),
                 kind: node.kind.raw.to_string(),
+                path,
             }),
             None => Err(crate::view::not_found(graph, id).about(EditField::Entity)),
         }
@@ -330,7 +355,7 @@ impl<'v> Planner<'v> {
         let site = block::Site {
             view: self.view,
             key: &located.key,
-            id,
+            id: &located.path,
             kind: &located.kind,
             config: self.config_of(&located.key),
         };
@@ -355,50 +380,101 @@ impl<'v> Planner<'v> {
         })
     }
 
+    /// The path of the entity `edit` is about: the one a create makes, else the one its `entity_id` names.
+    fn entity_path(&self, edit: &Edit) -> Result<String, Refusal<EditField>> {
+        match edit {
+            Edit::Create {
+                kind, id, fields, ..
+            } => Ok(self.new_path(kind, id, fields)),
+            Edit::Set { entity_id, .. }
+            | Edit::Unset { entity_id, .. }
+            | Edit::Retitle { entity_id, .. }
+            | Edit::Link { entity_id, .. }
+            | Edit::Unlink { entity_id, .. }
+            | Edit::AddVerify { entity_id, .. }
+            | Edit::RemoveVerify { entity_id, .. }
+            | Edit::Delete { entity_id, .. } => self.path_of(entity_id),
+        }
+    }
+
+    /// What a set or unset of an entity's scope field moves (ADR 0284): the entity and every one scoped under it, as
+    /// (old path, new path).
+    fn moves(&self, edit: &Edit, path: &str) -> Vec<(String, String)> {
+        let (Edit::Set { field, .. } | Edit::Unset { field, .. }) = edit else {
+            return Vec::new();
+        };
+        let graph = self.view.graph();
+        let Some(node) = graph.node(path) else {
+            return Vec::new();
+        };
+        let scoped_by = &self.view.registries().graph_inputs().scopes;
+        if scoped_by.get(node.kind.raw.as_str()) != Some(field) {
+            return Vec::new();
+        }
+        let scope = match edit {
+            Edit::Set {
+                value: Input::One(written),
+                ..
+            } => match graph.find(written) {
+                Found::One(found) => Some(found.to_string()),
+                _ => Some(written.clone()),
+            },
+            _ => None,
+        };
+        let new = match scope {
+            Some(scope) => format!("{scope}/{}", node.name()),
+            None => node.name().to_string(),
+        };
+        let under = format!("{path}/");
+        let mut moves = vec![(path.to_string(), new.clone())];
+        for member in graph.nodes() {
+            if let Some(rest) = member.id.raw.as_str().strip_prefix(&under) {
+                moves.push((member.id.raw.to_string(), format!("{new}/{rest}")));
+            }
+        }
+        moves
+    }
+
     fn apply(&mut self, edit: &Edit) -> Result<(), Refusal<EditField>> {
-        self.declared.edit(edit);
+        let path = self.entity_path(edit)?;
+        self.declared.edit(edit, &path);
+        for (old, new) in self.moves(edit, &path) {
+            self.declared.moved(&old, &new);
+        }
         match edit {
             Edit::Set {
-                entity_id,
                 field,
                 value,
                 annotations,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::set(site, text, field, value, annotations.as_deref())
             }),
-            Edit::Unset { entity_id, field } => {
-                self.on_members(entity_id, |site, text| block::unset(site, text, field))
+            Edit::Unset { field, .. } => {
+                self.on_members(&path, |site, text| block::unset(site, text, field))
             }
-            Edit::Retitle { entity_id, title } => {
+            Edit::Retitle { title, .. } => {
                 create::require_title(title)?;
-                self.on(entity_id, |site, text| block::retitle(site, text, title))
+                self.on(&path, |site, text| block::retitle(site, text, title))
             }
-            Edit::Link {
-                entity_id,
-                field,
-                target,
-            } => self.on_members(entity_id, |site, text| {
+            Edit::Link { field, target, .. } => self.on_members(&path, |site, text| {
                 block::link(site, text, field, target, true)
             }),
-            Edit::Unlink {
-                entity_id,
-                field,
-                target,
-            } => self.on_members(entity_id, |site, text| {
+            Edit::Unlink { field, target, .. } => self.on_members(&path, |site, text| {
                 block::link(site, text, field, target, false)
             }),
             Edit::AddVerify {
-                entity_id,
                 kind,
                 text: description,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::verify(site, text, kind.as_deref(), description, true)
             }),
             Edit::RemoveVerify {
-                entity_id,
                 kind,
                 text: description,
-            } => self.on_members(entity_id, |site, text| {
+                ..
+            } => self.on_members(&path, |site, text| {
                 block::verify(site, text, kind.as_deref(), description, false)
             }),
             Edit::Create {
@@ -410,9 +486,8 @@ impl<'v> Planner<'v> {
                 verify,
             } => self.create(kind, id, title, file, fields, verify),
             Edit::Delete {
-                entity_id,
-                unlink_references,
-            } => self.delete(entity_id, *unlink_references),
+                unlink_references, ..
+            } => self.delete(&path, *unlink_references),
         }
     }
 

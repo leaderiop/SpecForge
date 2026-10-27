@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specforge_common::codes;
 use specforge_common::shape::{self, Shape};
+use specforge_graph::Found;
 use std::collections::{HashMap, HashSet};
 
 use crate::view::ProjectView;
@@ -172,9 +173,14 @@ pub fn check(view: &ProjectView, plan: &AgentPlan) -> PlanOutcome {
     // Validate each entry
     for entry in &plan.entries {
         let id = entry.entity_id.as_str();
-        plan_ids.push(id.to_string());
-        if graph.node(id).is_some() {
-            validated_entries.push(id.to_string());
+        // A path, or a short form that names one entity (ADR 0284).
+        let path = match graph.find(id) {
+            Found::One(path) => path.to_string(),
+            _ => id.to_string(),
+        };
+        plan_ids.push(path.clone());
+        if graph.node(&path).is_some() {
+            validated_entries.push(path);
         } else {
             let message = format!(
                 "{}: unresolved entity '{}' in plan — not found in graph",

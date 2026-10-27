@@ -27,7 +27,6 @@ fn node_ids(entity: &Value) -> Vec<&str> {
     behavior = "expose_entity_as_mcp_resource",
     verify = "an entity resource names an entity by its percent-encoded path, a rooted path or a unique short form"
 )]
-#[ignore = "K2 T7"]
 fn an_mcp_uri_names_an_entity_by_its_encoded_path() {
     let mut server = serving(SCOPED);
     let (content, entity) = resource(&mut server, "specforge://graph/v1.0%2F03%2FD-01");

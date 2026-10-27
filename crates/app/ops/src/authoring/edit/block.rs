@@ -65,10 +65,29 @@ fn commented(site: &Site<'_>, field: &str) -> Refusal<EditField> {
     .about(EditField::Field)
 }
 
+/// The block of `site` in `file`: the one declared with its name and kind. Several in one file (the same name in
+/// scopes of one file) are told apart by their order among those the graph holds there.
+// shortcut: the order is the graph's, so a plan that adds a same-named block above one edited later in it misplaces
+// the edit; upgrade by reading each block's scope field through `declared_path`.
 fn position(file: &SpecFile, site: &Site<'_>) -> Option<usize> {
-    file.entities
-        .iter()
-        .position(|e| e.id.raw.as_str() == site.id && e.kind.raw.as_str() == site.kind)
+    let same: Vec<usize> = (0..file.entities.len())
+        .filter(|&i| {
+            let e = &file.entities[i];
+            e.id.raw.as_str() == site.name() && e.kind.raw.as_str() == site.kind
+        })
+        .collect();
+    if same.len() < 2 {
+        return same.first().copied();
+    }
+    let graph = site.view.graph();
+    let mut held: Vec<_> = graph
+        .nodes_in_file(site.key)
+        .into_iter()
+        .filter(|n| n.name() == site.name() && n.kind.raw.as_str() == site.kind)
+        .collect();
+    held.sort_by_key(|n| n.source_span.start_line);
+    let ordinal = held.iter().position(|n| n.id.raw.as_str() == site.id);
+    ordinal.and_then(|n| same.get(n)).or(same.last()).copied()
 }
 
 /// The lines of one entity's block, formatted, and what the parser reads in them.

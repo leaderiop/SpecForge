@@ -6,6 +6,8 @@ use super::super::write::not_editable;
 use super::super::{EditField, Input};
 use super::{Block, Items, Site, items_of, list_text, unreadable};
 use crate::Refusal;
+use specforge_common::Sym;
+use specforge_graph::Found;
 use specforge_graph::field_form::{Reading, spell};
 use specforge_parser::FieldValue;
 use specforge_protocol_types::FieldType;
@@ -24,6 +26,28 @@ fn finish_edit(
     })
 }
 
+/// `text` as `field` of `site`'s entity writes a reference to the entity it names (ADR 0284): the shortest spelling
+/// that resolves from the entity, a scope field's as a full path from the project. Text that names no one entity
+/// stays as given.
+fn spelled(site: &Site<'_>, field: &str, reading: &Reading<'_>, text: &str) -> String {
+    let Reading::Declared(form) = reading else {
+        return text.to_string();
+    };
+    if !matches!(
+        form.field_type(),
+        FieldType::Reference | FieldType::ReferenceList
+    ) {
+        return text.to_string();
+    }
+    let graph = site.view.graph();
+    let Found::One(target) = graph.find(text) else {
+        return text.to_string();
+    };
+    let scope_field = site.view.registries().graph_inputs().scopes.get(site.kind);
+    let from = (scope_field.map(String::as_str) != Some(field)).then(|| Sym::new(site.id));
+    graph.scopes().spell(from, target, &|_| true)
+}
+
 /// `field` (or `field.entry`) set to `input`. The text unchanged when it already holds that. A value holding a comment
 /// is kept as written when it reads the same, else refused (ADR 0267).
 pub fn set(
@@ -35,6 +59,15 @@ pub fn set(
 ) -> Result<String, Refusal<EditField>> {
     match path::resolve(site, field, None)? {
         FieldPath::Field { name, reading } => defaults::change(site, text, name, |block, _| {
+            let input = &match input {
+                Input::One(one) => Input::One(spelled(site, name, &reading, one)),
+                Input::Many(many) => Input::Many(
+                    many.iter()
+                        .map(|one| spelled(site, name, &reading, one))
+                        .collect(),
+                ),
+                entries @ Input::Entries(_) => entries.clone(),
+            };
             block.put(site, name, reading, input, annotations)?;
             Ok(Change::Changed)
         }),
@@ -168,6 +201,24 @@ pub fn link(
             format!("'{field}' takes any text; use set"),
         ));
     };
+    let target_text = spelled(site, field, &reading, target);
+    let graph = site.view.graph();
+    let target_path = match graph.find(target) {
+        Found::One(path) => Some(path),
+        _ => None,
+    };
+    // A written item is the target when it is its text, or resolves from the holder to the entity it names.
+    let names_target = |written: &str| {
+        written == target
+            || written == target_text
+            || target_path.is_some_and(|path| {
+                graph
+                    .scopes()
+                    .chain(Some(Sym::new(site.id)), written, &|_| true)
+                    == Found::One(path)
+            })
+    };
+    let target = target_text.as_str();
     let item = match form.field_type() {
         FieldType::ReferenceList | FieldType::StringList => spell::value(form, target),
         FieldType::Reference if !add => String::new(),
@@ -213,11 +264,13 @@ pub fn link(
                     | FieldValue::Integer(_)
                     | FieldValue::Date(_)
                     | FieldValue::Boolean(_)),
-                ) if specforge_registry::snapshot::field_text(value) == target => Change::Emptied,
+                ) if names_target(&specforge_registry::snapshot::field_text(value)) => {
+                    Change::Emptied
+                }
                 _ => Change::Unchanged,
             });
         };
-        let present = items.texts.iter().any(|t| t == target);
+        let present = items.texts.iter().any(|t| names_target(t));
         if add == present {
             return Ok(Change::Unchanged);
         }
@@ -228,11 +281,11 @@ pub fn link(
             let mut keep = items
                 .texts
                 .iter()
-                .map(|t| t != target)
+                .map(|t| !names_target(t))
                 .collect::<Vec<_>>()
                 .into_iter();
             items.written.retain(|_| keep.next().unwrap_or(true));
-            items.texts.retain(|t| t != target);
+            items.texts.retain(|t| !names_target(t));
         }
         if items.texts.is_empty() {
             return Ok(Change::Emptied);

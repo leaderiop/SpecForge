@@ -126,7 +126,11 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
     // when no edge connects them to this one.
     let mut constraint_entities: Vec<ConstraintEntity> = Vec::new();
     for constraint_id in &args.structural_constraints.0 {
-        let Some(constraint) = graph.node(constraint_id) else {
+        let path = match graph.find(constraint_id) {
+            specforge_graph::Found::One(path) => path.to_string(),
+            _ => constraint_id.to_string(),
+        };
+        let Some(constraint) = graph.node(&path) else {
             // The one refusal of an entity the graph lacks (E003, did-you-mean), about the argument that named it.
             return Err(Box::new(
                 crate::tool::entity_not_found(graph, constraint_id)

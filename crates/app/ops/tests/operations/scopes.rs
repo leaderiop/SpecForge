@@ -82,7 +82,6 @@ fn after(project: &Assembled, edits: &[Edit]) -> String {
     behavior = "inspect_entity_facts",
     verify = "a surface takes an entity by its path or a unique short form, reports its path, and refuses a short form naming several"
 )]
-#[ignore = "K2 T7"]
 fn a_surface_takes_a_short_form_and_reports_the_path() {
     let project = project(TWO_PHASES);
     let view = project.view();
@@ -106,7 +105,6 @@ fn a_surface_takes_a_short_form_and_reports_the_path() {
     behavior = "edit_entity_link",
     verify = "a typed edit writes the shortest spelling that resolves from its holder, and a scope field as a full path"
 )]
-#[ignore = "K2 T7"]
 fn a_typed_link_writes_the_shortest_spelling() {
     let project = project(TWO_PHASES);
     let link = |target: &str| Edit::Link {
