@@ -1,0 +1,25 @@
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "E901",
+      "explanation": "A campaign that targets no audience: money spent on nobody. Give it `audiences`.",
+      "title": "Campaign targets no audience"
+    },
+    {
+      "code": "E902",
+      "explanation": "A message that cites no brand rule: copy that skipped the brand check. Name the rules it `obeys`.",
+      "title": "Message cites no brand rule"
+    },
+    {
+      "code": "E903",
+      "explanation": "A campaign that ends before it starts: a calendar typo. Set `ends` on or after `starts`.",
+      "title": "Campaign ends before it starts"
+    },
+    {
+      "code": "W901",
+      "explanation": "A brand rule no message obeys: a rule nobody checks against. Cite it from a message, or remove it.",
+      "title": "Brand rule obeyed by no message"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "E901",
+      "explanation": "A greeting's style is `warm` or `formal`: set it to one of them.",
+      "title": "Unknown greeting style"
+    }
+  ]
+}
