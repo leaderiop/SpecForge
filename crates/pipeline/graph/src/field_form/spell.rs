@@ -67,11 +67,12 @@ pub fn spelled(text: &str, written: Written) -> String {
 
 /// Whether `text` may stand bare as a value of a field of `field_type` whose form is bare (ADR 0147 D1): a word,
 /// or on a `reference_list` an entity id (a scheme ref id too, ADR 0153 D3); never `true` / `false` (they read back
-/// as booleans). A scalar `reference` takes a word only: a scheme ref id does not parse bare outside a list.
+/// as booleans). A scalar `reference` takes a word or a path (ADR 0284): a scheme ref id does not parse bare outside a list.
 pub fn holds_bare(field_type: FieldType, text: &str) -> bool {
     !matches!(text, "true" | "false")
         && match field_type {
             FieldType::ReferenceList => is_entity_id(text),
+            FieldType::Reference => is_word(text) || specforge_parser::lex::is_path(text),
             _ => is_word(text),
         }
 }

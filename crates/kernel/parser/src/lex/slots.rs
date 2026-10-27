@@ -125,10 +125,47 @@ impl Reader<'_> {
         }
     }
 
-    /// Read the word starting at `self.at` as one lexeme when the base lexemes spell one, whole; else copy
-    /// one lexeme. `name`: a header or binding name (an `Ident` whatever its shape, no leading `-`). Whether
-    /// it was one identifier lexeme, which a type expression may start with.
+    /// Whether the `/` at `i` joins the word run right after it with no gap: a path's separator (or its root).
+    fn joins(&self, i: usize) -> bool {
+        self.punct(i, '/')
+            && self
+                .base
+                .get(i + 1)
+                .is_some_and(|n| n.start == self.base[i].end)
+            && word_run(self.text, &self.base, i + 1, false).is_some()
+    }
+
+    /// Read the word starting at `self.at`, or the path of names joined by adjacent `/` (ADR 0284), a leading `/`
+    /// rooting it. A word of a path is an `Ident`, as the grammar's `reference_path` reads it. Returns whether it
+    /// was one identifier lexeme, which a type expression may start with.
     fn word(&mut self, name: bool) -> bool {
+        let rooted = self.joins(self.at);
+        if rooted {
+            self.copy();
+        }
+        let joined = |me: &Self| {
+            word_run(me.text, &me.base, me.at, !name).is_some_and(|(len, _)| me.joins(me.at + len))
+        };
+        let path = rooted || joined(self);
+        let pure = self.segment(name || path);
+        if !path {
+            return pure;
+        }
+        while self.joins(self.at)
+            && self
+                .out
+                .last()
+                .is_some_and(|l| l.end == self.base[self.at].start)
+        {
+            self.copy();
+            self.segment(true);
+        }
+        false
+    }
+
+    /// Read the word starting at `self.at` as one lexeme when the base lexemes spell one, whole; else copy
+    /// one lexeme. `name`: a header, binding or path name (an `Ident` whatever its shape, no leading `-`).
+    fn segment(&mut self, name: bool) -> bool {
         let pure = self.kind(self.at) == Some(LexemeKind::Ident);
         let Some((len, end)) = word_run(self.text, &self.base, self.at, !name) else {
             self.copy();
@@ -145,12 +182,12 @@ impl Reader<'_> {
         pure && len == 1
     }
 
-    /// Whether the lexeme at `self.at` can start a bare word.
+    /// Whether the lexeme at `self.at` can start a bare word or a path.
     fn starts_word(&self) -> bool {
         matches!(
             self.kind(self.at),
             Some(LexemeKind::Ident | LexemeKind::Number | LexemeKind::Punct('-'))
-        )
+        ) || self.joins(self.at)
     }
 
     fn read(&mut self, starts: &[usize]) {
@@ -383,7 +420,7 @@ impl Reader<'_> {
                 self.copy_through(brace);
                 open.push(Frame::Expr, false);
             }
-            LexemeKind::Ident | LexemeKind::Number | LexemeKind::Punct('-') => {
+            LexemeKind::Ident | LexemeKind::Number | LexemeKind::Punct('-' | '/') => {
                 if self.word(false) {
                     self.type_tail(false);
                 }

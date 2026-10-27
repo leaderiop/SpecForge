@@ -35,6 +35,8 @@ pub const OPTIONAL: &str = "optional";
 pub const PATH: &str = "path";
 /// `method_statement`, `function_type`: the return type.
 pub const RETURNS: &str = "returns";
+/// `reference_path`: the leading `/` that roots it at the project.
+pub const ROOT: &str = "root";
 /// `expr_or`, `expr_and`, `expr_cmp`, `expr_add`: the right operand.
 pub const RHS: &str = "rhs";
 /// `entity_block`, `ref_inline`, `ref_full`: the title string.
@@ -64,6 +66,7 @@ pub const ALL: &[&str] = &[
     PATH,
     RETURNS,
     RHS,
+    ROOT,
     TITLE,
     TYPE,
     VALUE,

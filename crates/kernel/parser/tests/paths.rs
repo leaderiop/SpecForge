@@ -23,7 +23,6 @@ fn items(source: &str) -> Vec<(String, Written)> {
     behavior = "parse_all_block_types",
     verify = "a reference value, a list item and a use binding may be a path of names joined by '/', rooted or not"
 )]
-#[ignore = "K2 T4"]
 fn a_reference_value_may_be_a_path() {
     for word in ["a/b", "/D-09", "v1.0/03/D-01", "/v1.0/03", "03/D-01"] {
         let file = parse(&format!("thing x \"X\" {{\n  v {word}\n}}\n"), "t.spec");

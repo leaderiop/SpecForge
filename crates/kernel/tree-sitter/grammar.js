@@ -47,7 +47,11 @@ module.exports = grammar({
     // --- Use imports -------------------------------------------------
     import_binding: ($) =>
       seq(
-        choice($.identifier, alias($._name, $.identifier)),
+        choice(
+          $.identifier,
+          alias($._name, $.identifier),
+          alias($._binding_path, $.reference_path),
+        ),
         optional(seq("as", field("alias", $.identifier)))),
 
     import_bindings: ($) =>
@@ -203,6 +207,7 @@ module.exports = grammar({
         $.array_type,
         $.identifier,
         alias($._bare, $.identifier),
+        $.reference_path,
         $.type_union,
         $.expr_group,
       ),
@@ -302,7 +307,13 @@ module.exports = grammar({
       ),
 
     _list_item: ($) =>
-      choice($.string, $.scheme_ref_id, $.identifier, alias($._bare, $.identifier)),
+      choice(
+        $.string,
+        $.scheme_ref_id,
+        $.identifier,
+        alias($._bare, $.identifier),
+        $.reference_path,
+      ),
 
     // Nested block: { key value ... }
     nested_block: ($) =>
@@ -373,6 +384,37 @@ module.exports = grammar({
     _bare: (_) => token(/-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
     // The word where an entity or a binding is named: never starting with `-`.
     _name: (_) => token(/[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
+
+    // A path names an entity from an enclosing scope (ADR 0284): names joined by '/', no space anywhere. Its first
+    // word is the slot's own word, so a '/' right after it shifts into the path; a leading '/' roots it at the
+    // project (`/D-01`, `/v1.0/03`). `a//c` stays `a` and a comment: the comment token is longer than '/'.
+    reference_path: ($) =>
+      choice(
+        seq(
+          choice($.identifier, alias($._bare, $.identifier)),
+          repeat1(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+        seq(
+          field("root", "/"),
+          alias($._segment, $.identifier),
+          repeat(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+      ),
+    // A binding's path: as `reference_path`, but its first name is a `_name` (no leading `-`).
+    _binding_path: ($) =>
+      choice(
+        seq(
+          choice($.identifier, alias($._name, $.identifier)),
+          repeat1(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+        seq(
+          field("root", "/"),
+          alias($._segment, $.identifier),
+          repeat(seq(token.immediate("/"), alias($._segment, $.identifier))),
+        ),
+      ),
+    // A path's later segment: a name (`_name`) that must follow the '/' at once.
+    _segment: (_) => token.immediate(/[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*/),
 
     string: (_) => token(seq('"', repeat(choice(/[^"\\]/, seq("\\", /[^\r\n]/))), '"')),
 

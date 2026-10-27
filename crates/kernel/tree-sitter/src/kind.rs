@@ -81,6 +81,9 @@ pub const NUMBER_WITH_UNIT: &str = "number_with_unit";
 /// `[a-zA-Z_][a-zA-Z0-9_]*`, or, as a value, a list item, an entity name or a use binding, a word
 /// `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (no leading `-` in a name): `AUTH-01`, `03`, `2026-10-07`, `true`.
 pub const IDENTIFIER: &str = "identifier";
+/// A path of names joined by `/`, relative (`03/D-01`) or rooted at the project (`/D-01`): a reference value, a list
+/// item or a `use` binding (ADR 0284). Its identifiers are the names, with no space between them.
+pub const REFERENCE_PATH: &str = "reference_path";
 /// `"…"`.
 pub const STRING: &str = "string";
 /// `"""…"""`.
@@ -128,6 +131,7 @@ pub const ALL: &[&str] = &[
     EXPR_ATOM,
     NUMBER_WITH_UNIT,
     IDENTIFIER,
+    REFERENCE_PATH,
     STRING,
     TRIPLE_QUOTED_STRING,
     INTEGER,

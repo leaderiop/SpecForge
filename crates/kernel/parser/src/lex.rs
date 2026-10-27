@@ -332,6 +332,15 @@ pub fn is_name(text: &str) -> bool {
     word_end(text.as_bytes(), 0, false) == Some(text.len())
 }
 
+/// Whether `text` is a path as the grammar reads one (`reference_path`, ADR 0284): names joined by `/`, with a
+/// leading `/` rooting it at the project (`03/D-01`, `/D-09`). One name is a path of one segment.
+pub fn is_path(text: &str) -> bool {
+    text.strip_prefix('/')
+        .unwrap_or(text)
+        .split('/')
+        .all(is_name)
+}
+
 /// Whether `text` is one bare value word as the grammar reads one (`_bare`, ADR 0283): a name, with one leading
 /// `-` allowed (`-5`).
 pub fn is_bare_word(text: &str) -> bool {
@@ -534,7 +543,7 @@ pub fn is_identifier(text: &str) -> bool {
 /// Whether `text` is one entity ID as the grammar reads one, whole: a name ([`is_name`]: an `identifier`, or
 /// a word holding `-` or `.`, `AUTH-01`, `03`) or a `scheme_ref_id` (`scheme.kind:id`, `gh.issue:42`).
 pub fn is_entity_id(text: &str) -> bool {
-    is_name(text) || ref_id_end(text.as_bytes(), 0) == Some(text.len())
+    is_path(text) || ref_id_end(text.as_bytes(), 0) == Some(text.len())
 }
 
 /// The end of the `"…"` string opening at `open`, and whether the grammar

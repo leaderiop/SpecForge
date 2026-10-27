@@ -124,7 +124,9 @@ impl<'a> ParseContext<'a> {
             kind::STRING => FieldValue::String(string_text(self.text(node))),
             kind::TRIPLE_QUOTED_STRING => FieldValue::String(triple_text(self.text(node))),
             kind::IDENTIFIER => word_value(self.text(node)),
-            kind::ARRAY_TYPE => FieldValue::Identifier(self.text(node).to_string()),
+            kind::ARRAY_TYPE | kind::REFERENCE_PATH => {
+                FieldValue::Identifier(self.text(node).to_string())
+            }
             kind::EXPR_GROUP => FieldValue::Expression(self.parse_expr_group(node)),
             kind::TYPE_UNION => FieldValue::TypeUnion(self.parse_type_union(node)),
             kind::LIST => self.parse_list(node),
@@ -347,6 +349,7 @@ pub fn value_token(node: Node<'_>, source: &str) -> Option<(Written, String)> {
             (Written::Literal, text.to_string())
         }
         kind::IDENTIFIER => (Written::Bare, text.to_string()),
+        kind::REFERENCE_PATH => (Written::Bare, text.to_string()),
         kind::SCHEME_REF_ID => (Written::SchemeRef, text.to_string()),
         kind::INTEGER | kind::NEGATIVE_INTEGER => (Written::Literal, text.to_string()),
         _ => return None,

@@ -70,6 +70,7 @@
 
 ; Identifiers in lists
 (list (identifier) @variable)
+(reference_path (identifier) @variable)
 
 ; Union blocks
 (union_block

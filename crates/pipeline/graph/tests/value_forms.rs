@@ -158,9 +158,9 @@ fn a_value_is_rewritten_at_its_place_to_its_types_one_form() {
 )]
 fn rewrite_leaves_what_it_cannot_write() {
     let forms = forms();
-    // A path, or true/false, cannot be a bare word.
+    // Text with a space, or true/false, cannot be a bare word (a path can: ADR 0284).
     assert_eq!(
-        forms.rewrite("k", "ref_", Written::Quoted, "api/lsp", Place::Item),
+        forms.rewrite("k", "ref_", Written::Quoted, "api / lsp", Place::Item),
         None
     );
     assert_eq!(
