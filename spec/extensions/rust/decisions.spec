@@ -73,6 +73,7 @@ decision double_underscore_separator "Double Underscore Entity Separator" {
     "Unambiguous extraction — entity IDs never contain double underscores",
     "Human-readable: validate_input__rejects_empty translates clearly",
     "Compatible with Rust naming conventions",
+    "A name holding a dash or a dot (AUTH-01, v1.0, ADR 0283) is no Rust function name: such an entity is linked by the test attribute's behavior argument, not by convention",
     "Slightly unusual syntax, requires documentation",
   ]
   invariants   [entity_mapping_precedence]

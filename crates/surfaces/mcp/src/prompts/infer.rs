@@ -195,7 +195,7 @@ fn get_overview(project: &ProjectView) -> Prompted<Payload> {
     let guide = infer::guide(project);
     let payload = Payload::Overview(Overview {
         output_format: format!(
-            "Create entities with {}, one `create` edit per entity (kind, id, title, a `file` under the {} directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
+            "Create entities with {}, one `create` edit per entity (kind, id, title, a `file` under the {} directory, its fields and verify statements); it writes the `.spec` text. Entity IDs are names: words of letters, digits and underscores, joined by single '-' or '.' (snake_case by default, AUTH-01 and v1.0 allowed), 2-60 chars.",
             edit::Tool::NAME,
             guide.spec_directory
         ),

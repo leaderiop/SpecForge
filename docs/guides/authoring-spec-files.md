@@ -159,7 +159,7 @@ Annotated:
 behavior greet_user "Greet a user by name" {
 //  │        │            │
 //  │        │            └─ optional title (string); auto-derived from name if omitted
-//  │        └─ entity name: letters/digits/underscores, 2–60 chars, globally unique
+//  │        └─ entity name: words of letters/digits/underscores joined by '-' or '.', 2–60 chars, globally unique
 //  └─ keyword: which kind of entity (declared by an installed extension)
 
   contract "Given a name, the system MUST return a greeting."

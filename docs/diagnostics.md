@@ -707,14 +707,17 @@ can't be that type. A string field takes text, a bare word, a date, a type union
 or an `expr { }` group; an enum one of its declared values (the suggestion names
 the closest one; the closed vocabularies the builtins declare, a feature's
 `status`, a failure mode's `severity`, a property's `property_type`, and the
-like, are enum fields); an integer field an integer; a bool field true or false;
-a date field one calendar day, `YYYY-MM-DD`, that exists (`2026-02-30` is none);
-a reference field one id; a string_list or reference_list field a list; a block
-field a block. Values that can be read as the declared type are converted
-without a diagnostic: a single string, id, integer, boolean or date on a list
-field becomes a one-item list, a list is stored as written, a quoted integer,
-boolean or calendar day the number, boolean or date. Fix the value, or check the
-field's type with `specforge schema --kind <kind>`.
+like, are enum fields); an integer field an integer, an integer difference like
+`2-1` or a date (the message names the operand that is no number); a bool field
+true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
+(`2026-02-30` is none); a reference field one name, a number or a date written
+as one (`10`, `2026-10-26`) included, never one starting with `-`; a string_list
+or reference_list field a list; a block field a block. Values that can be read
+as the declared type are converted without a diagnostic: a single string, id,
+integer, boolean or date on a list field becomes a one-item list, a list is
+stored as written, a quoted integer, boolean or calendar day the number, boolean
+or date. Fix the value, or check the field's type with `specforge schema --kind
+<kind>`.
 
 Owner: core
 Level: error
