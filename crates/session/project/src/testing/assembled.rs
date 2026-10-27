@@ -109,6 +109,14 @@ impl Assembled {
         Self::bare(registries, Some(runtime))
     }
 
+    /// A project over the GSD-shaped kinds of [`super::scoped_kinds`] (`@test/scoped`), in a registry build made in
+    /// memory.
+    pub fn scoped() -> Self {
+        Self::over(specforge_registry::build_registries(vec![
+            super::scoped_extension().declaration(),
+        ]))
+    }
+
     /// A project whose environment the test makes at its root (a fresh temp directory).
     pub fn assembling(env: impl FnOnce(&Path) -> Environment) -> Self {
         let dir = TempDir::new().expect("a temp dir");
@@ -280,6 +288,18 @@ impl Assembled {
         self.made = None;
         self.texts.clear();
         self.texts.insert("main.spec".to_string(), Arc::from(text));
+        self.changed()
+    }
+
+    /// The project's graph is `files`, `(path, text)` each, built as [`Self::source`] builds its one file; each text
+    /// is on disk at its path under the root as well, as a compile reads it.
+    pub fn sources(mut self, files: &[(&str, &str)]) -> Self {
+        self.made = None;
+        self.texts.clear();
+        for (path, text) in files {
+            self.texts.insert((*path).to_string(), Arc::from(*text));
+            self.write(path, text);
+        }
         self.changed()
     }
 

@@ -360,6 +360,7 @@ behavior check_entities_in_one_order "Check the Entities in One Order" {
   verify unit "the entity-ID rule answers for an ID exactly what E013 and E014 report of it"
   verify unit "the checks read only through their disk: the paths file_exists rules read, E016's among them, and the directory a missing path's suggestion lists"
   verify integration "a compile reports the structural checks in the order the registry build runs them"
+  verify unit "E013 and E014 judge an entity's name, not its path"
 }
 
 // -- Field Validation --------------------------------------------------------

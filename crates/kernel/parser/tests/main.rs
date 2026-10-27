@@ -20,6 +20,7 @@ mod methods_test;
 mod name_spans;
 mod names;
 mod parse_test;
+mod paths;
 mod ref_components;
 mod robustness;
 mod snapshot_tests;

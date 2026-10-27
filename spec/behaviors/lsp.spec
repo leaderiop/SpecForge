@@ -218,6 +218,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "a use binding's imported name goes to the entity it names"
   verify unit "a definition is a location link for a client that declares linkSupport, else a location at the name"
   verify unit "the entity after a body being typed is navigated to"
+  verify unit "go-to-definition, prepare rename and rename take a path one segment at a time"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -260,6 +261,7 @@ behavior find_all_references "Find All References" {
   verify unit "a parameter's name is not a reference to the type it spells"
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
+  verify unit "the finder reports a final token for a path's last name and a qualifier token for each name before it"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
   verify unit "find-refs include a use binding's imported name"
   verify unit "the written tokens of a file include a use binding's imported name, never its alias"
@@ -308,6 +310,7 @@ behavior hover_information "Hover Information" {
   verify unit "field help answers only on a field's name"
   verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify unit "field help says what an absent value counts as"
+  verify unit "hover and workspace symbols show an entity's full path"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -392,6 +395,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "a single-reference field's value suggests the IDs of its target kind"
   verify unit "a string list's items suggest no entity IDs but scheme ref IDs"
   verify integration "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
+  verify unit "completion offers an entity by its name, shows its path and inserts the shortest spelling from the cursor's block"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
 }
 
@@ -517,6 +521,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename onto an unresolved reference is refused as a capture"
   verify unit "rename edits a quoted reference inside its quotes"
   verify unit "a rename is refused while a source that spells the new ID does not parse"
+  verify unit "a rename keeps the scope and edits every segment naming the entity"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
   verify unit "rename edits a use binding's imported name, never its alias"
 }

@@ -72,6 +72,9 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
   verify unit "a project with no scoped kind keeps each id its name, each edge its written text, and E002 and W060 on the same declarations"
+  verify unit "a name repeated in another scope is another entity with another path"
+  verify unit "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
+  verify unit "an entity that writes no scope field is in the project scope"
   verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 }
 

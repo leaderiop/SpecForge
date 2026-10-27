@@ -63,6 +63,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new --help after a field flag prints the kind's help"
   verify integration "new refuses a command line whose --path a field's value spells"
   verify unit "new writes into a spec root outside the project by the file check names"
+  verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -134,6 +135,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "set of a value holding a comment to another value is refused not_editable, naming its entity and file"
   verify unit "set keeps the comment trailing the value, annotations given or not"
   verify unit "a new last field or entry goes above the comment lines before its closing brace, and its unset leaves them"
+  verify unit "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {
@@ -168,6 +170,7 @@ behavior edit_entity_link "Edit an Entity Reference List" {
   verify unit "unlink of the last item keeps a // line inside the string above the list"
   verify unit "link and unlink keep the comment trailing the list"
   verify unit "a link to a target already there writes nothing, whatever comment the list holds"
+  verify unit "a typed edit writes the shortest spelling that resolves from its holder, and a scope field as a full path"
 }
 
 behavior edit_entity_obligation "Edit an Entity Obligation" {

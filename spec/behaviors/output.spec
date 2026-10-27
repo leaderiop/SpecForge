@@ -410,6 +410,7 @@ behavior compute_the_coverage_view "Compute the Coverage View" {
   verify unit "an entity with an unproven obligation is partial, not covered"
   verify unit "a failing recorded test keeps an entity from being covered"
   verify unit "a field named verify does not hide an entity's verify statements"
+  verify unit "a test report names an entity by its path or a unique short form"
 }
 
 // list and search (specforge_ops::read::query::{list, search}): the entities a
@@ -548,6 +549,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
   verify unit "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
   verify unit "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
   verify unit "a duplicate declaration's diagnostics are about its entity"
+  verify unit "a surface takes an entity by its path or a unique short form, reports its path, and refuses a short form naming several"
 }
 
 // The exploration and the review: the explore and review prompts'

@@ -210,6 +210,7 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "a type field named kind is an ordinary field"
   verify unit "a union block carries its title"
   verify unit "a block answers whether it is a union from its syntax, whatever its fields are named"
+  verify unit "a reference value, a list item and a use binding may be a path of names joined by '/', rooted or not"
   verify contract "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted"
   verify unit "field annotations are extracted into FieldEntry"
   verify unit "a list of bare words keeps each item bare"

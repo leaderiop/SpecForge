@@ -89,6 +89,7 @@ mod rename_text;
 mod review;
 mod schema;
 mod schema_notices;
+mod scopes;
 mod search;
 mod selection;
 mod setup;

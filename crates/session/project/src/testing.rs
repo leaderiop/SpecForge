@@ -20,9 +20,11 @@
 //! [`ProjectSession::apply`].
 
 pub mod assembled;
+pub mod scoped;
 pub mod specs;
 
 pub use assembled::Assembled;
+pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

@@ -180,6 +180,7 @@ behavior link_derived_references "Link Derived References" {
   verify unit "the linker and the finder read every block alike"
   verify unit "a default's derived name is held by the blocks that take its entry"
   verify integration "a field's derived_from reaches the graph from the extension's manifest"
+  verify unit "a type name resolves by its holder's chain and is no E004, a path written as a type is one name"
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {

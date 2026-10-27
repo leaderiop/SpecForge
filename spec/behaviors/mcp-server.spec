@@ -543,6 +543,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   verify unit "an entity_id that is a scheme ref ID reads that ref in both entity templates, and a text that is no entity ID is invalid input naming entity_id"
   verify unit "the entity resource is the scoped graph export with its schema_ref"
   verify unit "resource refreshes after recompilation"
+  verify unit "an entity resource names an entity by its percent-encoded path, a rooted path or a unique short form"
   verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 }
 

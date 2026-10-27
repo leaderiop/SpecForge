@@ -39,6 +39,7 @@ mod rebuilding;
 mod recorder;
 mod registries;
 mod rename;
+mod scoped_names;
 mod semantic_tokens;
 mod served;
 mod session;
