@@ -45,6 +45,7 @@ The package registry over HTTP, from both ends: its contract, the client, and th
 
 | Crate | Package | Owns |
 |---|---|---|
+| [`git`](adapters/git/) | `specforge-git` | The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287) |
 | [`ops-registry`](adapters/ops-registry/) | `specforge-ops-registry` | Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010) |
 | [`registry-client`](adapters/registry-client/) | `specforge-registry-client` | The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing |
 | [`registry-wire`](adapters/registry-wire/) | `specforge-registry-wire` | The package registry's HTTP contract: paths, JSON bodies, the publish form, the package signature, error codes (ADR 0044, ADR 0061) |

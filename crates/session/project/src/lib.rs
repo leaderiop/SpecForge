@@ -19,6 +19,7 @@
 //!   (watch, the LSP and MCP each hold one). After every update that runs
 //!   the checks it reports what a fresh compile reports, in the same order.
 
+pub mod baseline;
 mod buffers;
 mod build_cache;
 mod check_passes;
@@ -27,6 +28,7 @@ mod compute;
 pub mod coverage;
 mod diagnostics_delta;
 pub mod harness;
+pub mod history;
 mod ledger;
 pub mod passes;
 mod policy;
@@ -162,6 +164,9 @@ pub struct Environment {
     /// compiled project is on disk is [`CompiledProject::root`]. For a loaded environment,
     /// [`Self::root`] is its `dir()`.
     root: Option<ProjectRoot>,
+    /// What this environment asks of version control, when it is not the process's default
+    /// ([`history::default_history`]).
+    history: Option<history::SharedHistory>,
 }
 
 impl Environment {
@@ -178,7 +183,19 @@ impl Environment {
             structural_only: None,
             runtime: None,
             root: None,
+            history: None,
         }
+    }
+
+    /// This environment asking `history` of version control instead of the process's default.
+    pub fn with_history(mut self, history: history::SharedHistory) -> Self {
+        self.history = Some(history);
+        self
+    }
+
+    /// The history port: this environment's own, else the process's default; none: no judgement against history.
+    pub fn history(&self) -> Option<history::SharedHistory> {
+        self.history.clone().or_else(history::default_history)
     }
 
     /// A bare build for a project assembled in memory: a registry build made
@@ -291,6 +308,7 @@ impl Environment {
             structural_only,
             runtime,
             root: None,
+            history: None,
         }
     }
 
@@ -461,6 +479,11 @@ impl Environment {
             if let Some(runtime) = runtime {
                 diagnostics.extend(check_passes::run(self, entities, runtime, disk));
             }
+        }
+        // shortcut: the baseline is read on every check of a project that declares history (compiled once per
+        // commit and environment, then held); an eager editor re-asks the port for HEAD each time.
+        if let Err(notice) = baseline::Baseline::of_head(self) {
+            diagnostics.push(notice);
         }
         Checked {
             diagnostics,

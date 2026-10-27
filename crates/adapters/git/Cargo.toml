@@ -1,0 +1,19 @@
+[package]
+name = "specforge-git"
+description = "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+specforge-common = { workspace = true }
+specforge-project = { workspace = true }
+
+[dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

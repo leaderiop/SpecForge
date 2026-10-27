@@ -1,0 +1,226 @@
+//! The baseline (ADR 0287): the project compiled at the commit `HEAD` names, read through the [`History`] port. What
+//! a field `immutable` or `append_only` is judged against, and a pass's `previous`. Nothing here runs unless the
+//! project declares history ([`declared`]).
+//!
+//! A baseline is cached by commit and environment: in memory for the process, and as
+//! `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
+//! of what the compile reads besides the sources (the host version, the loaded declarations, the spec root and the
+//! excludes). A different extension version is a different environment, never a stale hit.
+
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use specforge_common::{Diagnostic, codes};
+use specforge_package::Sha256;
+use specforge_registry::RegistryBuild;
+use specforge_wasm::WasmRuntime;
+
+use crate::Environment;
+use crate::history::{CommitFile, GitPlace, History, Located, Sha};
+use crate::sources::Read;
+
+/// One entity at the baseline: its kind, each field it wrote as the host reads it (`graph::wire`), and the values
+/// the compute passes gave it, by written path.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct BaselineEntity {
+    pub kind: String,
+    pub values: BTreeMap<String, Value>,
+    pub computed: BTreeMap<String, Value>,
+}
+
+/// The project at a commit.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Baseline {
+    pub revision: Sha,
+    /// By full path.
+    pub entities: BTreeMap<String, BaselineEntity>,
+}
+
+/// Whether the loaded extensions declare anything that reads history.
+pub fn declared(registries: &RegistryBuild) -> bool {
+    registries
+        .fields()
+        .iter()
+        .any(|(_, _, f)| f.immutable() || f.append_only())
+        || registries
+            .kinds()
+            .iter()
+            .any(|(_, k)| k.declared.append_only)
+        || registries.passes().iter().any(|p| !p.baseline().is_empty())
+}
+
+impl Baseline {
+    /// The baseline of `env`'s project at `HEAD`: `Ok(None)` when nothing declares history or no history port is
+    /// installed, and the I204 or W164 that says why there is none otherwise.
+    pub fn of_head(env: &Environment) -> Result<Option<Arc<Baseline>>, Diagnostic> {
+        if !declared(env.registries()) {
+            return Ok(None);
+        }
+        let Some(history) = env.history() else {
+            return Ok(None);
+        };
+        let unreadable = |why: String| {
+            Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
+                .with_suggestion("nothing is judged against history until git answers")
+        };
+        let place = match history.locate(env.root()) {
+            Located::Repo(place) => place,
+            Located::NotARepository => {
+                return Err(Diagnostic::new(
+                    codes::I204,
+                    "not in a git repository: nothing is judged against history",
+                ));
+            }
+            Located::Unavailable(why) => return Err(unreadable(why)),
+        };
+        let head = match history.commit(&place, "HEAD") {
+            Ok(Some(sha)) => sha,
+            Ok(None) => {
+                return Err(Diagnostic::new(
+                    codes::I204,
+                    "no commit yet: nothing is judged against history",
+                ));
+            }
+            Err(error) => return Err(unreadable(error.to_string())),
+        };
+        Self::at(env, &*history, &place, &head)
+            .map(Some)
+            .map_err(unreadable)
+    }
+
+    /// The baseline at `commit`: from memory or disk when this environment compiled it before, else compiled from
+    /// the files the history gives.
+    pub fn at(
+        env: &Environment,
+        history: &dyn History,
+        place: &GitPlace,
+        commit: &Sha,
+    ) -> Result<Arc<Baseline>, String> {
+        let env16 = fingerprint(env);
+        let key = (env.root().to_path_buf(), commit.clone(), env16.clone());
+        if let Some(held) = MEMORY.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
+            return Ok(Arc::clone(held));
+        }
+        let file = env
+            .root()
+            .join(CACHE_DIR)
+            .join(format!("{}-{env16}.json", commit.as_str()));
+        let baseline = match std::fs::read(&file)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Baseline>(&bytes).ok())
+            .filter(|b| &b.revision == commit)
+        {
+            Some(read) => read,
+            None => {
+                let root = env.root().canonicalize().map_err(|e| e.to_string())?;
+                let within = root.strip_prefix(&place.toplevel).map_err(|_| {
+                    "the project is outside the repository's working tree".to_string()
+                })?;
+                let files = history
+                    .files(place, commit, within)
+                    .map_err(|e| e.to_string())?;
+                let compiled = Self::compile(env, commit.clone(), within, files);
+                // shortcut: the cache is best effort and never pruned; prune by age if it grows.
+                if let Ok(json) = serde_json::to_vec(&compiled) {
+                    let _ = std::fs::create_dir_all(env.root().join(CACHE_DIR));
+                    let _ = specforge_common::fresh::replace_file(&file, &json);
+                }
+                compiled
+            }
+        };
+        let baseline = Arc::new(baseline);
+        MEMORY
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(key, Arc::clone(&baseline));
+        Ok(baseline)
+    }
+
+    /// The project of `files` (from the repository's top; `within` is the project's directory there) compiled in
+    /// `env`, no history of its own.
+    pub fn compile(
+        env: &Environment,
+        revision: Sha,
+        within: &Path,
+        files: Vec<CommitFile>,
+    ) -> Baseline {
+        let mut texts: BTreeMap<String, String> = BTreeMap::new();
+        for (path, bytes) in files {
+            let Ok(rest) = path.strip_prefix(within) else {
+                continue;
+            };
+            let key = rest
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
+            if key.ends_with(".spec")
+                && env.sources().holds_key(&key)
+                && let Ok(text) = String::from_utf8(bytes)
+            {
+                texts.insert(key, text);
+            }
+        }
+        let held: BTreeMap<String, &str> =
+            texts.iter().map(|(k, v)| (k.clone(), v.as_str())).collect();
+        let keys: Vec<String> = texts.keys().cloned().collect();
+        let built = env.build_sources(&keys, &held, |_| Read::Gone);
+        let snapshot = env.entity_snapshot(&built.graph);
+        let computed = match env.runtime() {
+            Some(runtime) if env.registries().compute_passes().next().is_some() => {
+                crate::compute::run(env, &snapshot, &**runtime as &dyn WasmRuntime).0
+            }
+            _ => Default::default(),
+        };
+        let graph = built.graph.graph();
+        let forms = env.registries().field_forms();
+        let mut entities = BTreeMap::new();
+        for node in graph.nodes() {
+            let path = node.id.raw.as_str();
+            let mut entity = BaselineEntity {
+                kind: node.kind.raw.to_string(),
+                ..Default::default()
+            };
+            for entry in node.fields.entries() {
+                let key = entry.key.as_str();
+                if let Some(value) = specforge_graph::wire::resolved(graph, forms, node, key) {
+                    entity
+                        .values
+                        .insert(key.to_string(), value.as_value().clone());
+                }
+            }
+            for (field, value) in computed.of(path) {
+                entity
+                    .computed
+                    .insert(field.to_string(), value.as_value().clone());
+            }
+            entities.insert(path.to_string(), entity);
+        }
+        Baseline { revision, entities }
+    }
+}
+
+const CACHE_DIR: &str = ".specforge/baselines";
+
+type Key = (PathBuf, Sha, String);
+static MEMORY: LazyLock<Mutex<HashMap<Key, Arc<Baseline>>>> = LazyLock::new(Default::default);
+
+/// The first 16 hex of the digest of what a compile reads besides the sources.
+fn fingerprint(env: &Environment) -> String {
+    let mut bytes = env!("CARGO_PKG_VERSION").as_bytes().to_vec();
+    for declaration in env.registries().declarations() {
+        bytes.push(0);
+        bytes.extend(serde_json::to_vec(declaration).unwrap_or_default());
+    }
+    let config = env.config();
+    bytes.push(0);
+    bytes.extend(config.spec_root.clone().unwrap_or_default().into_bytes());
+    for entry in config.exclude.entries() {
+        bytes.push(0);
+        bytes.extend(entry.written().as_bytes());
+    }
+    Sha256::of(&bytes).to_string()[..16].to_string()
+}

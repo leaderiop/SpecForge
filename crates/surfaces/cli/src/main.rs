@@ -167,6 +167,10 @@ fn declared() -> clap::Command {
 }
 
 fn main() {
+    // History is read through the git command line, only when a project declares it (ADR 0287).
+    specforge_project::history::set_default(Some(std::sync::Arc::new(
+        specforge_git::GitCli::default(),
+    )));
     let cli = Cli::parse();
     let terminal = Terminal::process();
 

@@ -2816,6 +2816,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-extension-sdk",
  "specforge-formatter",
+ "specforge-git",
  "specforge-graph",
  "specforge-installed",
  "specforge-lsp",
@@ -2978,6 +2979,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-git"
+version = "0.3.0"
+dependencies = [
+ "specforge-common",
+ "specforge-project",
+ "specforge-test",
+ "specforge-test-macros",
+ "tempfile",
+]
+
+[[package]]
 name = "specforge-graph"
 version = "0.3.0"
 dependencies = [
@@ -3022,6 +3034,7 @@ dependencies = [
  "specforge-component",
  "specforge-diagnostics",
  "specforge-extension-sdk",
+ "specforge-git",
  "specforge-graph",
  "specforge-installed",
  "specforge-ops",

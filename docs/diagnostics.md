@@ -1724,6 +1724,21 @@ Owner: core
 Level: info
 ```
 
+## I204
+
+```
+I204: Nothing judged against history
+
+The project declares a history flag (a field `immutable` or `append_only`, a
+kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is
+no commit to judge against: the project is not in a git repository, or the
+repository has no commit yet. Nothing is judged, and nothing is wrong with the
+project. The first commit is the baseline from then on.
+
+Owner: core
+Level: info
+```
+
 ## I999
 
 ```
@@ -3429,6 +3444,21 @@ markers are such lines when the file's `merge=union` attribute is missing. The
 line is ignored; with a bad header the whole ledger is read as empty, so every
 harness value is E083. Run `specforge harness gc` to write the file again from
 what it records, or restore it from git.
+
+Owner: core
+Level: warning
+```
+
+## W164
+
+```
+W164: Baseline cannot be read
+
+The project declares a history flag (ADR 0287), and its baseline, the project at
+the commit `HEAD` names, cannot be read: git is not installed or does not answer
+in time, refuses the directory (dubious ownership), or cannot give the files at
+that commit (a shallow or partial clone). Nothing is judged against history, and
+the message says why. Fix what it names, then check again.
 
 Owner: core
 Level: warning

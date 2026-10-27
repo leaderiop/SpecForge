@@ -249,6 +249,13 @@ module specforge_ops "specforge-ops" {
   tags        ["app"]
 }
 
+module specforge_git "specforge-git" {
+  family      integration
+  description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
+  depends_on  [specforge_common, specforge_project]
+  tags        ["adapters"]
+}
+
 module specforge_ops_registry "specforge-ops-registry" {
   family      integration
   description "Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010)"
@@ -287,6 +294,7 @@ module specforge_cli "specforge-cli" {
   description "The specforge binary: every command's arguments, the terminal it writes to and asks from, and its exit code, over specforge-ops (ADR 0029)"
   features    [project_initialization, ci_integration]
   depends_on  [
+    specforge_git,
     specforge_common,
     specforge_component,
     specforge_diagnostics,
@@ -314,6 +322,7 @@ module specforge_lsp "specforge-lsp" {
     outline_and_symbol_search,
   ]
   depends_on  [
+    specforge_git,
     specforge_common,
     specforge_diagnostics,
     specforge_graph,

@@ -406,6 +406,9 @@ catalog! {
     I203: Info core,
         "Harness ledger not canonical",
         "`specforge-harness` is not the file the host would write: a line out of order, repeated, blank, a second header, a line for an entity or field that is gone, or a stale line for a value that has a current one. A union merge of two branches' ledgers leaves it so. Nothing is wrong with what it records. Run `specforge harness gc` to write it again; `check` never does.";
+    I204: Info core,
+        "Nothing judged against history",
+        "The project declares a history flag (a field `immutable` or `append_only`, a kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is no commit to judge against: the project is not in a git repository, or the repository has no commit yet. Nothing is judged, and nothing is wrong with the project. The first commit is the baseline from then on.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";
@@ -760,6 +763,9 @@ catalog! {
     W163: Warning core,
         "Malformed harness ledger line",
         "A line of `specforge-harness` is not `path key digest` with a SHA-256 digest, or the file does not start with `# specforge-harness 1` (ADR 0287). git's conflict markers are such lines when the file's `merge=union` attribute is missing. The line is ignored; with a bad header the whole ledger is read as empty, so every harness value is E083. Run `specforge harness gc` to write the file again from what it records, or restore it from git.";
+    W164: Warning core,
+        "Baseline cannot be read",
+        "The project declares a history flag (ADR 0287), and its baseline, the project at the commit `HEAD` names, cannot be read: git is not installed or does not answer in time, refuses the directory (dubious ownership), or cannot give the files at that commit (a shallow or partial clone). Nothing is judged against history, and the message says why. Fix what it names, then check again.";
     W165: Warning core,
         "Computed value refused",
         "A compute pass answered a value the host does not take, once per value: for an entity the project does not hold, for a field the pass does not list in its `computes`, for a member of a block item that is not written, or in a form the field refuses (the field's own type, bounds and enum values apply). The value is dropped. A check or analyze pass that answers `values` is W165 once, and its values are ignored: only a pass in the `compute` phase gives values.";

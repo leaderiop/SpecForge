@@ -39,6 +39,7 @@ chrono = "0.4.41"
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
+specforge-git = { path = "../../adapters/git" }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
 specforge-project = { workspace = true }
 
