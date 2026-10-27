@@ -117,8 +117,8 @@ fn explain_rejects_an_unknown_code_with_format_hints() {
         "the format hint is printed: {stderr}"
     );
     assert!(
-        stderr.contains("E900-E998, W900-W998 and I900-I998 are third-party extensions'"),
-        "the third-party range hint is printed: {stderr}"
+        stderr.contains("an extension's code is its namespace and a code (`acme.lint/W101`)"),
+        "the namespaced form hint is printed: {stderr}"
     );
 
     // Under --format json the refusal is the error document on stdout, nothing on stderr.

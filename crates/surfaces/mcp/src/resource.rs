@@ -169,7 +169,8 @@ pub(crate) fn resource_envelope(
             });
             if !text.notices.is_empty() {
                 result["_meta"] = json!({
-                    "diagnostics": specforge_common::diagnostics_json(&text.notices),
+                    // shortcut: notices are the host's own, so the static catalog titles them.
+                    "diagnostics": specforge_common::diagnostics_json(&text.notices, &specforge_common::Codebook::default()),
                 });
             }
             JsonRpcResponse::success(id, result)

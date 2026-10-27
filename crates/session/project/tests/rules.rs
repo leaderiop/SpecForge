@@ -304,7 +304,11 @@ fn a_custom_function_failing_on_an_entity_is_w148() {
         "{message}"
     );
     // `check --format json` carries every failure under `data`.
-    let json = serde_json::to_value(specforge_common::diagnostics_json(&diagnostics)).unwrap();
+    let json = serde_json::to_value(specforge_common::diagnostics_json(
+        &diagnostics,
+        &specforge_common::Codebook::default(),
+    ))
+    .unwrap();
     let entry = json
         .as_array()
         .unwrap()

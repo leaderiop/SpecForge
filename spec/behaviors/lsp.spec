@@ -330,10 +330,10 @@ behavior hover_diagnostic "Hover a Diagnostic" {
     When a user hovers inside the range of a published diagnostic, the LSP
     MUST show, as markdown and before any entity hover, the diagnostic's
     code with the catalogue's title, the catalogue's explanation and the
-    link to the code's section of docs/diagnostics.md. A code the catalogue
-    does not have shows its code, the reporting extension and its message,
-    and the description the extension's rule declares for the code when it
-    has one. The entity hover that
+    link to the code's section of docs/diagnostics.md. A third-party code
+    shows the title, explanation and docs link its extension's own catalog
+    gives it; one no catalog lists shows its code, the reporting extension
+    and its message. The entity hover that
     follows does not list that diagnostic again. A region the formatter
     left unformatted (W142) is such a diagnostic while the document is the
     text formatting reported it on. A diagnostic of the compile is such a
@@ -344,7 +344,6 @@ behavior hover_diagnostic "Hover a Diagnostic" {
   verify unit "hovering a diagnostic shows its catalogued title and explanation"
   verify unit "an uncatalogued diagnostic's hover shows its code and message only"
   verify unit "a third-party code is titled, explained and linked from its own catalog"
-  verify unit "an extension's declared code shows its rule's description in the hover"
   verify unit "the diagnostic under the cursor comes before the entity's hover, which does not list it again"
   verify unit "hovering a region the formatter left unformatted shows its W142"
   verify unit "hovering a buffer typed since the compile shows none of the compile's diagnostics"

@@ -126,14 +126,16 @@ fn diagnostics_json_keeps_code_severity_title() {
         dense_inference(),
     ];
 
-    let printed: Vec<Value> =
-        serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|entry| json!([entry["code"], entry["title"], entry["severity"]]))
-            .collect();
+    let printed: Vec<Value> = serde_json::to_value(specforge_common::diagnostics_json(
+        &diagnostics,
+        &specforge_common::Codebook::default(),
+    ))
+    .unwrap()
+    .as_array()
+    .unwrap()
+    .iter()
+    .map(|entry| json!([entry["code"], entry["title"], entry["severity"]]))
+    .collect();
 
     assert_eq!(
         printed,

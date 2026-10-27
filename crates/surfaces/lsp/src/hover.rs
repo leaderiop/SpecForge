@@ -3,7 +3,7 @@
 //! help. Rendering only: the facts come from the read view, so the hover
 //! and MCP `specforge.inspect` cannot disagree (ADR 0015, "Inspect").
 
-use specforge_common::{Diagnostic, SourceSpan};
+use specforge_common::{Codebook, Diagnostic, SourceSpan};
 use specforge_ops::OpError;
 use specforge_ops::read::coverage::STATUS;
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligations_table, quote};
@@ -36,38 +36,34 @@ pub fn diagnostics_at(
 }
 
 /// Markdown for the diagnostics `shown` under the cursor
-/// ([`diagnostics_at`]): each code with the catalogue's title, the message,
-/// the catalogue's explanation and the docs link; a code the catalogue
+/// ([`diagnostics_at`]): each code with the code book's title, the message,
+/// its explanation and its docs link (when it has one); a code the book
 /// doesn't have shows its code, the extension that reported it and the
 /// message. `None` when none is.
-pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
+pub fn diagnostics(shown: &[&Diagnostic], codes: &Codebook) -> Option<String> {
     let sections: Vec<String> = shown
         .iter()
-        .map(
-            |diag| match specforge_diagnostics::describes(&diag.code, diag.origin()) {
-                Some(entry) => {
-                    format!(
-                        "**{}** · {}\n\n{}\n\n{}\n\n[Documentation]({})",
-                        entry.code,
-                        entry.title,
-                        diag.message,
-                        entry.explanation,
-                        entry.docs_href()
-                    )
-                }
-                // An extension's own uncatalogued code, or one it may not use
-                // (W150): no catalogue entry describes it.
-                // An extension's own uncatalogued code, or one it may not use
-                // (W150): no catalogue entry describes it.
-                None => match diag.origin() {
-                    Some(extension) => format!(
-                        "**{}** · reported by '{extension}'\n\n{}",
-                        diag.code, diag.message
-                    ),
-                    None => format!("**{}**\n\n{}", diag.code, diag.message),
-                },
+        .map(|diag| match codes.describes(&diag.code, diag.origin()) {
+            Some(entry) => {
+                let docs = entry
+                    .docs
+                    .map(|href| format!("\n\n[Documentation]({href})"))
+                    .unwrap_or_default();
+                format!(
+                    "**{}** · {}\n\n{}\n\n{}{docs}",
+                    entry.code, entry.title, diag.message, entry.explanation
+                )
+            }
+            // An extension's own uncatalogued code, or one it may not use
+            // (W150): no code book entry describes it.
+            None => match diag.origin() {
+                Some(extension) => format!(
+                    "**{}** · reported by '{extension}'\n\n{}",
+                    diag.code, diag.message
+                ),
+                None => format!("**{}**\n\n{}", diag.code, diag.message),
             },
-        )
+        })
         .collect();
     (!sections.is_empty()).then(|| sections.join(SECTION))
 }
@@ -88,11 +84,12 @@ pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
 /// - **Methods**: its methods' signatures, one per line (ADR 0222);
 /// - **Obligations**: its `verify` statements, the review document's table (ADR 0273);
 /// - **Diagnostics**: the diagnostics about it that are not among those
-///   `shown` for the cursor, each code linked to its catalogue entry.
+///   `shown` for the cursor, each code linked to its docs page.
 pub fn entity(
     facts: &EntityFacts,
     coverage: &Result<EntityCoverage, OpError>,
     shown: &[&Diagnostic],
+    codes: &Codebook,
     written: &dyn Fn(&SourceSpan) -> Option<String>,
 ) -> String {
     let node = facts.node;
@@ -219,9 +216,11 @@ pub fn entity(
         .iter()
         .filter(|diagnostic| !shown.contains(diagnostic))
         .map(|diagnostic| {
-            let code = match specforge_diagnostics::describes(&diagnostic.code, diagnostic.origin())
-            {
-                Some(entry) => format!("[**{}**]({})", diagnostic.code, entry.docs_href()),
+            let docs = codes
+                .describes(&diagnostic.code, diagnostic.origin())
+                .and_then(|entry| entry.docs);
+            let code = match docs {
+                Some(href) => format!("[**{}**]({href})", diagnostic.code),
                 None => format!("**{}**", diagnostic.code),
             };
             format!("- {code} {}", diagnostic.message)

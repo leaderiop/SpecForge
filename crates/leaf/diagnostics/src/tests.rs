@@ -119,6 +119,8 @@ fn catalog_is_sorted_unique_and_well_formed() {
     verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
 )]
 fn describes_reads_ownership_not_level() {
+    let book = Codebook::default();
+    let describes = |code: &str, origin: Option<&str>| book.describes(code, origin);
     // The host's own: described.
     assert_eq!(
         describes("E001", None).map(|e| e.title),
@@ -126,8 +128,8 @@ fn describes_reads_ownership_not_level() {
     );
     // A code the extension owns, whatever level `--strict` gave it.
     assert_eq!(
-        describes("W004", Some("@specforge/testing")).map(|e| e.code),
-        Some("W004")
+        describes("W004", Some("@specforge/testing")).map(|e| e.code.into_owned()),
+        Some("W004".to_string())
     );
     // A code another owner has: not described.
     assert!(describes("E001", Some("@acme/squat")).is_none());

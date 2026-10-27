@@ -2291,7 +2291,7 @@ fn contract_diagnostics_resource() {
              "suggestion": null,
              "data": {"kind": "unresolved_reference", "target": "ghost", "entity": "broken", "field": "features"},
              "file": "broken.spec", "line": 2, "column": 15},
-            {"code": "test.ext/W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 4, "column": 1},
+            {"code": "test.ext/W901", "title": "A test finding", "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 4, "column": 1},
         ])
     );
 

@@ -144,7 +144,7 @@ pub(crate) fn entity_under_cursor(
 
 /// The hover at `position` of the open document `uri`: the published
 /// diagnostics under it whose range is a position in the editor's text
-/// (`Compiled::range`) explained from the catalog, then what the cursor names: an entity's
+/// (`Compiled::range`) explained from the code book, then what the cursor names: an entity's
 /// facts (the inspect read view reporting what was published; while the
 /// project rebuilds, the last complete compile's coverage) or a field's help. Sections are
 /// joined by a rule. `None` for a document that is not open or a position
@@ -188,7 +188,13 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                             .flatten()
                             .map(str::to_string)
                     };
-                    hover::entity(&facts, &coverage, &shown, &written)
+                    hover::entity(
+                        &facts,
+                        &coverage,
+                        &shown,
+                        state.registries().codes(),
+                        &written,
+                    )
                 })
         }
         Some(Target::Field { kind, field }) => {
@@ -196,7 +202,10 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
         }
         Some(Target::Import { .. }) | None => None,
     };
-    let value = match (hover::diagnostics(&shown), about) {
+    let value = match (
+        hover::diagnostics(&shown, state.registries().codes()),
+        about,
+    ) {
         (Some(diagnostics), Some(about)) => format!("{diagnostics}{}{about}", hover::SECTION),
         (diagnostics, about) => diagnostics.or(about)?,
     };
@@ -623,7 +632,11 @@ pub fn formatting(
         sent: formatted
             .diagnostics
             .iter()
-            .map(|d| diagnostic_to_lsp(d, |span| Some(doc.index().range(span))))
+            .map(|d| {
+                diagnostic_to_lsp(d, state.registries().codes(), |span| {
+                    Some(doc.index().range(span))
+                })
+            })
             .collect(),
         placed: formatted.diagnostics.clone(),
         key,

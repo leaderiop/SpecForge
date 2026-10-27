@@ -34,11 +34,12 @@ fn a_qualified_code_parses_and_normalizes_any_case() {
 }
 
 #[test]
-fn codebook_describes_static_codes_as_describes_does() {
+fn codebook_describes_a_static_code_to_the_host_and_its_owner_only() {
     let book = Codebook::default();
     for entry in CATALOG {
         for origin in [None, Some(entry.owner), Some("@acme/x")] {
-            let expected = describes(entry.code, origin).map(|e| (e.title, e.owner, e.explanation));
+            let described = origin.is_none_or(|o| o == entry.owner);
+            let expected = described.then_some((entry.title, entry.owner, entry.explanation));
             let got = book
                 .describes(entry.code, origin)
                 .map(|d| (d.title, d.owner, d.explanation));

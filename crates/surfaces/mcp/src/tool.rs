@@ -316,8 +316,12 @@ pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> Js
     if !diagnostics.is_empty() {
         meta.insert(
             "diagnostics".to_string(),
-            serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
-                .unwrap_or_default(),
+            // shortcut: no project in the envelope, so the static catalog titles them.
+            serde_json::to_value(specforge_common::diagnostics_json(
+                &diagnostics,
+                &specforge_common::Codebook::default(),
+            ))
+            .unwrap_or_default(),
         );
     }
     if !meta.is_empty() {

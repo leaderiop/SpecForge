@@ -34,11 +34,14 @@ pub fn checked(project: &CompiledProject, options: CheckOptions) -> CheckOutcome
 pub fn check_document(project: &CompiledProject, options: CheckOptions) -> Vec<Value> {
     let outcome = checked(project, options);
     let shown: Vec<_> = outcome.shown().into_iter().cloned().collect();
-    serde_json::to_value(specforge_common::diagnostics_json(&shown))
-        .expect("diagnostics serialize")
-        .as_array()
-        .cloned()
-        .expect("diagnostics are an array")
+    serde_json::to_value(specforge_common::diagnostics_json(
+        &shown,
+        ProjectView::of(project).registries().codes(),
+    ))
+    .expect("diagnostics serialize")
+    .as_array()
+    .cloned()
+    .expect("diagnostics are an array")
 }
 
 /// `specforge export --format <format>` (`cli/src/export.rs`): the recorded export, its text or its refusal.

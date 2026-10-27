@@ -5,7 +5,7 @@
 //! view (`specforge_ops::read::inspect`); a field's help; the diagnostics under
 //! the cursor.
 
-use specforge_common::{Severity, SourceSpan, Sym};
+use specforge_common::{Codebook, Severity, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_lsp::LineIndex;
 use specforge_ops::view::ProjectView;
@@ -484,7 +484,8 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     let facts = specforge_ops::read::inspect::inspect(&view, "beta").unwrap();
 
     let coverage = specforge_ops::read::inspect::coverage(&view, &facts);
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &[], &|_| None);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &[], &Codebook::default(), &|_| None);
     assert!(
         text.ends_with(
             "**Diagnostics** *(2)*\n\
@@ -496,13 +497,17 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     );
 
     // What the cursor already shows is not listed again.
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &[&cycle], &|_| None);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &[&cycle], &Codebook::default(), &|_| {
+            None
+        });
     assert!(
         text.ends_with("**Diagnostics** *(1)*\n- **X900** acme says no"),
         "{text}"
     );
     let all = [&reported[0], &reported[1]];
-    let text = specforge_lsp::hover::entity(&facts, &coverage, &all, &|_| None);
+    let text =
+        specforge_lsp::hover::entity(&facts, &coverage, &all, &Codebook::default(), &|_| None);
     assert!(!text.contains("**Diagnostics**"), "{text}");
 }
 
@@ -669,11 +674,10 @@ fn diagnostic_hover(
     index: &LineIndex,
     position: Position,
 ) -> Option<String> {
-    specforge_lsp::hover::diagnostics(&specforge_lsp::hover::diagnostics_at(
-        published,
-        |span| Some(index.range(span)),
-        position,
-    ))
+    specforge_lsp::hover::diagnostics(
+        &specforge_lsp::hover::diagnostics_at(published, |span| Some(index.range(span)), position),
+        &Codebook::default(),
+    )
 }
 
 /// An extension's finding with a code it may not use (here E001, core's)

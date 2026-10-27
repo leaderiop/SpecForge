@@ -639,8 +639,7 @@ fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let runtime = ext.runtime();
     let fresh = specforge_project::testing::compile_at(other.path(), Some(runtime.clone()));
-    let expected =
-        serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
+    let expected = printed(&fresh.diagnostics());
     assert_eq!(payload["diagnostics"], expected);
     assert_eq!(server.state().session_generation(), generation);
 }
@@ -674,8 +673,7 @@ fn an_extension_added_to_another_project_is_loaded_when_it_is_brought_up_to_date
     let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let runtime = specforge_project::testing::component_runtime();
     let fresh = specforge_project::testing::compile_at(other.path(), Some(runtime));
-    let expected =
-        serde_json::to_value(specforge_common::diagnostics_json(&fresh.diagnostics())).unwrap();
+    let expected = printed(&fresh.diagnostics());
     assert_eq!(payload["diagnostics"], expected);
     assert!(
         fresh.diagnostics().iter().all(|d| d.code != "I002"),

@@ -94,21 +94,6 @@ pub fn lookup(code: &str) -> Option<&'static CodeEntry> {
         .map(|index| &CATALOG[index])
 }
 
-/// The catalog entry that describes a diagnostic of `code` reported by
-/// `origin` (the extension that reported it; `None` for the host's own): the
-/// entry when the host reported it, or when the entry's owner is that very
-/// extension. A code an extension squats (W150) is not described by its
-/// owner's entry: its title, explanation and docs link would be another
-/// diagnostic's. Ownership only, not level: a warning `--strict` promoted to
-/// an error keeps its description.
-pub fn describes(code: &str, origin: Option<&str>) -> Option<&'static CodeEntry> {
-    let entry = lookup(code)?;
-    match origin {
-        None => Some(entry),
-        Some(extension) => (entry.owner == extension).then_some(entry),
-    }
-}
-
 /// Greedy word wrap; never splits a word.
 pub fn wrap(text: &str, width: usize) -> String {
     let mut out = String::new();

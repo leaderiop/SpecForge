@@ -405,7 +405,7 @@ fn diagnostic_json_contract_complete_fields() {
             .with_suggestion("did you mean 'foo'?"),
     ];
 
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
 
@@ -427,7 +427,7 @@ fn diagnostic_json_array() {
         Diagnostic::new(specforge_common::codes::E001, "err"),
         Diagnostic::untyped("W001", Severity::Warning, "warn"),
     ];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
     assert_eq!(parsed.as_array().unwrap().len(), 2);
@@ -447,7 +447,7 @@ fn diagnostic_json_all_fields() {
             end_col: 15,
         }),
     ];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let e = &parsed[0];
     assert_eq!(e["code"], "E042");
@@ -467,7 +467,7 @@ fn diagnostic_json_valid_parseable() {
         specforge_common::codes::E001,
         "msg with \"quotes\"",
     )];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
     assert!(result.is_ok(), "output must be valid JSON");
 }
@@ -479,7 +479,7 @@ fn diagnostic_exit_code_unaffected_by_format() {
     let exit = specforge_common::compute_exit_code(&diags);
     assert_eq!(exit, 1, "errors should produce exit 1 regardless of format");
     // Also verify JSON is still produced
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     assert!(!json.is_empty());
 }
 
@@ -492,7 +492,7 @@ fn diagnostic_suggestion_included() {
         Diagnostic::new(specforge_common::codes::E001, "unresolved")
             .with_suggestion("did you mean 'bar'?"),
     ];
-    let json = specforge_common::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags, &Default::default());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed[0]["suggestion"], "did you mean 'bar'?");
 }

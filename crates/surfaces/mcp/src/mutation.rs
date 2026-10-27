@@ -686,7 +686,11 @@ mod tests {
         let sent = payload(&outcome);
         assert_eq!(
             sent["diagnostics"],
-            serde_json::to_value(specforge_common::diagnostics_json(&[w001])).unwrap()
+            serde_json::to_value(specforge_common::diagnostics_json(
+                &[w001],
+                &specforge_common::Codebook::default()
+            ))
+            .unwrap()
         );
         assert_eq!(sent["files_written"], json!(["a.spec"]));
 

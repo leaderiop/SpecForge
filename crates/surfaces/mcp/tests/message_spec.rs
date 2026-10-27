@@ -736,8 +736,6 @@ reply_type! {
     mcp_explain_entry => "McpExplainEntry", "McpExplainEntry schema is valid",
     mcp_explain_retired => "McpExplainRetired", "McpExplainRetired schema is valid",
     mcp_explain_replacement => "McpExplainReplacement", "McpExplainReplacement schema is valid",
-    mcp_explain_declared => "McpExplainDeclared", "McpExplainDeclared schema is valid",
-    mcp_explain_declared_rule => "McpExplainDeclaredRule", "McpExplainDeclaredRule schema is valid",
     mcp_collect_result => "McpCollectResult", "McpCollectResult schema is valid",
     mcp_collect_runner => "McpCollectRunner", "McpCollectRunner schema is valid",
     mcp_render_result => "McpRenderResult", "McpRenderResult schema is valid",

@@ -70,7 +70,9 @@ impl Publication {
                     None => continue,
                 },
             };
-            let mut lsp = diagnostic_to_lsp(diagnostic, |span| compiled.compiled_range(span));
+            let mut lsp = diagnostic_to_lsp(diagnostic, state.registries().codes(), |span| {
+                compiled.compiled_range(span)
+            });
             let related = also_about(&compiled, &nav, diagnostic);
             if !related.is_empty() {
                 lsp.related_information = Some(related);
@@ -128,6 +130,7 @@ fn also_about(
 /// from another text.
 pub(crate) fn diagnostic_to_lsp(
     diag: &specforge_common::Diagnostic,
+    codes: &specforge_common::Codebook,
     range_of: impl Fn(&SourceSpan) -> Option<Range>,
 ) -> Diagnostic {
     let range = diag.span.as_ref().and_then(range_of).unwrap_or_default();
@@ -135,10 +138,12 @@ pub(crate) fn diagnostic_to_lsp(
         range,
         code: Some(NumberOrString::String(diag.code.clone())),
         // C4-10: editors can render this as a "view docs" link to the
-        // code's section of docs/diagnostics.md; none for a code the catalog does not describe
-        // (a third-party code, or an extension's use of a code another owner has).
-        code_description: specforge_diagnostics::describes(&diag.code, diag.origin())
-            .and_then(|entry| Url::parse(&entry.docs_href()).ok())
+        // code's section of docs/diagnostics.md or the page its extension documents it on; none
+        // for a code the code book does not describe (an uncatalogued code, or an extension's use
+        // of a code another owner has) or one without a page.
+        code_description: codes
+            .describes(&diag.code, diag.origin())
+            .and_then(|entry| Url::parse(&entry.docs?).ok())
             .map(|href| CodeDescription { href }),
         severity: Some(match diag.severity {
             specforge_common::Severity::Error => DiagnosticSeverity::ERROR,
@@ -178,9 +183,11 @@ mod docs_link_tests {
             specforge_common::Severity::Error,
             "message",
         );
-        diagnostic_to_lsp(&diag, |_| Some(Range::default()))
-            .code_description
-            .map(|d| d.href.to_string())
+        diagnostic_to_lsp(&diag, &specforge_common::Codebook::default(), |_| {
+            Some(Range::default())
+        })
+        .code_description
+        .map(|d| d.href.to_string())
     }
 
     /// C6: the "view docs" link points at the code's anchor in
@@ -196,7 +203,7 @@ mod docs_link_tests {
             href("R-RES-005").is_some_and(|h| h.ends_with("#r-res-005")),
             "catalogued registry codes are linked"
         );
-        assert_eq!(href("E901"), None, "third-party codes have no anchor");
+        assert_eq!(href("E901"), None, "an uncatalogued code has no anchor");
         assert_eq!(
             href("F011"),
             None,

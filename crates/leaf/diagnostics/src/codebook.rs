@@ -176,6 +176,18 @@ impl Codebook {
             .is_some_and(|owned| owned.codes.contains_key(&local.to_uppercase()))
     }
 
+    /// The qualified forms (`gsd/W304`) of a bare `local` code that loaded
+    /// extensions catalog, namespace by namespace: what a bare code asked
+    /// for most likely meant.
+    pub fn qualified(&self, local: &str) -> Vec<String> {
+        let local = local.to_uppercase();
+        self.namespaces
+            .iter()
+            .filter(|(_, owned)| owned.codes.contains_key(&local))
+            .map(|(namespace, _)| format!("{namespace}/{local}"))
+            .collect()
+    }
+
     /// The level a diagnostic of `code` (as it prints: `gsd/W304`, `E001`)
     /// is reported at: a static entry's catalogued level (`None` for `A###`,
     /// whose pass sets it), a namespaced code's letter when its namespace's

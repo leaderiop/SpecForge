@@ -12,6 +12,7 @@ pub use summary::{Counts, diagnostic_summary};
 
 use crate::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use serde::Serialize;
+use specforge_diagnostics::Codebook;
 
 /// A diagnostic as one heading line, `severity[CODE]: message`, with its
 /// suggestion on a `  = help:` line. This is the form for a diagnostic with
@@ -59,7 +60,7 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
 
 /// Diagnostics as the JSON every surface prints (`check --format json`,
 /// MCP validate, the `specforge://diagnostics` resource, tool `_meta`):
-/// one entry per diagnostic with code, the catalogue's title for it,
+/// one entry per diagnostic with code, the code book's title for it,
 /// severity, message, suggestion, the
 /// span nested under `span`, and the span's start flat as `file`, `line`
 /// and `column`. Absent values are `null`, never missing keys — except
@@ -68,12 +69,17 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
 /// `origin`, the extension that reported it, there only for an extension's. The
 /// shape is the superset of the nested (CLI) and flat (MCP) shapes the
 /// surfaces printed before, so readers of either keep working.
-pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
+pub fn diagnostics_json<'a>(
+    diagnostics: &'a [Diagnostic],
+    codes: &'a Codebook,
+) -> Vec<DiagnosticJson<'a>> {
     diagnostics
         .iter()
         .map(|d| DiagnosticJson {
             code: &d.code,
-            title: specforge_diagnostics::describes(&d.code, d.origin()).map(|entry| entry.title),
+            title: codes
+                .describes(&d.code, d.origin())
+                .map(|entry| entry.title),
             severity: &d.severity,
             message: &d.message,
             span: d.span.as_ref(),
@@ -88,8 +94,8 @@ pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
 }
 
 /// [`diagnostics_json`] as compact JSON text.
-pub fn serialize_diagnostics(diagnostics: &[Diagnostic]) -> String {
-    serde_json::to_string(&diagnostics_json(diagnostics))
+pub fn serialize_diagnostics(diagnostics: &[Diagnostic], codes: &Codebook) -> String {
+    serde_json::to_string(&diagnostics_json(diagnostics, codes))
         .expect("diagnostic serialization cannot fail")
 }
 
@@ -117,11 +123,11 @@ pub fn truncate_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
 #[shape(define = "Diagnostic")]
 pub struct DiagnosticJson<'a> {
     pub code: &'a str,
-    /// The catalogue's title for the code, when the catalogue describes this
-    /// diagnostic (`specforge_diagnostics::describes`); null for a code it
-    /// doesn't have (a third-party extension's) and for one an extension
-    /// reported that is another owner's (W150).
-    pub title: Option<&'static str>,
+    /// The code book's title for the code, when it describes this diagnostic
+    /// (`Codebook::describes`); null for a code it doesn't have (an
+    /// uncatalogued one) and for one an extension reported that is another
+    /// owner's (W150).
+    pub title: Option<&'a str>,
     pub severity: &'a Severity,
     pub message: &'a str,
     /// The location nested: file, start and end line and column.
@@ -148,7 +154,8 @@ pub struct DiagnosticList(pub Vec<Diagnostic>);
 
 impl Serialize for DiagnosticList {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        diagnostics_json(&self.0).serialize(serializer)
+        // shortcut: an owned list has no project, so only the static catalog titles it.
+        diagnostics_json(&self.0, &Codebook::default()).serialize(serializer)
     }
 }
 
@@ -166,7 +173,8 @@ pub struct DiagnosticDocument(pub Diagnostic);
 
 impl Serialize for DiagnosticDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        diagnostics_json(std::slice::from_ref(&self.0))[0].serialize(serializer)
+        diagnostics_json(std::slice::from_ref(&self.0), &Codebook::default())[0]
+            .serialize(serializer)
     }
 }
 

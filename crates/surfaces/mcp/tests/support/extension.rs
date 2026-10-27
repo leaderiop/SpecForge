@@ -248,9 +248,6 @@ impl TestExtension {
         for label in labels {
             c.edge(label, |_| {});
         }
-        if !self.obligated.is_empty() {
-            catalogue(&mut c, "W904");
-        }
         for kind in &self.obligated {
             c.rule("W904", |r| {
                 r.check(CheckKind::NoVerifyStatements)
@@ -262,14 +259,6 @@ impl TestExtension {
                     );
             });
         }
-        let mut reported_codes: Vec<&str> = (self.reported.iter().map(|d| d.code.as_str()))
-            .chain(self.coded.iter().map(String::as_str))
-            .collect();
-        reported_codes.sort_unstable();
-        reported_codes.dedup();
-        for code in reported_codes {
-            catalogue(&mut c, code);
-        }
         if !self.reported.is_empty() {
             let reported = self.reported.clone();
             c.pass("report", move |p| {
@@ -278,6 +267,20 @@ impl TestExtension {
         }
         for declare in &self.declares {
             declare(&mut c);
+        }
+        // What the rules and passes report is catalogued unless a `declaring` closure did.
+        let mut reported_codes: Vec<&str> = (self.reported.iter().map(|d| d.code.as_str()))
+            .chain(self.coded.iter().map(String::as_str))
+            .chain((!self.obligated.is_empty()).then_some("W904"))
+            .collect();
+        reported_codes.sort_unstable();
+        reported_codes.dedup();
+        let listed: Vec<String> = c.declaration().codes.into_iter().map(|d| d.code).collect();
+        for code in reported_codes
+            .into_iter()
+            .filter(|c| !listed.iter().any(|l| l == c))
+        {
+            catalogue(&mut c, code);
         }
         c
     }

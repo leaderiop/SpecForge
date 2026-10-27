@@ -1,4 +1,4 @@
-//! `specforge.explain` explains a code the served project's extensions declare (ADR 0278), and the
+//! `specforge.explain` explains a code the served project's extensions catalog, and the
 //! project's extensions' codes are titled from their catalogs (ADR 0286).
 
 use crate::support::*;
@@ -9,15 +9,14 @@ use specforge_extension_sdk::prelude::{
 };
 use specforge_test_macros::test as specforge_test;
 
-// A rule's code is `acme.launch/E903` now; T6 rewrites this test for it.
-#[ignore = "K10 T6"]
 #[specforge_test(
     behavior = "provide_mcp_explain_tool",
-    verify = "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
+    verify = "specforge.explain explains a code the served project's extensions catalog, as specforge explain does"
 )]
-fn explain_explains_a_code_the_served_projects_extension_declares() {
+fn a_bare_code_an_extension_catalogs_is_refused_with_its_namespaced_form() {
     let mut server = TestProject::new().serve(&[TestExtension::named("@acme/launch")
         .kind("campaign", false)
+        .coding("E903")
         .declaring(|c| {
             c.rule("E903", |r| {
                 r.check(CheckKind::MissingRequiredField)
@@ -28,29 +27,19 @@ fn explain_explains_a_code_the_served_projects_extension_declares() {
             });
         })]);
     let reply = server.call_tool("specforge.explain", json!({"code": " e903 "}));
+    assert_eq!(reply["result"]["isError"], true, "{reply}");
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("unknown diagnostic code: e903"), "{text}");
+    assert!(text.contains("did you mean acme.launch/E903?"), "{text}");
+    let reply = server.call_tool("specforge.explain", json!({"code": "acme.launch/e903"}));
     assert_eq!(reply["result"]["isError"], false, "{reply}");
-    assert_eq!(
-        tool_json(&reply),
-        json!({
-            "code": "E903",
-            "level": "error",
-            "retired": false,
-            "rules": [{
-                "extension": "@acme/launch",
-                "target_kind": "campaign",
-                "check": "missing_required_field",
-                "message": "campaign '{id}' has no end",
-            }],
-        })
-    );
+    assert_eq!(tool_json(&reply)["owner"], "@acme/launch");
 }
 
-// Pins K10-D2: today a namespaced code is unknown_code; T6 un-ignores it.
 #[specforge_test(
     behavior = "provide_mcp_explain_tool",
-    verify = "specforge.explain explains a code the served project's extensions declare, as specforge explain does"
+    verify = "specforge.explain explains a code the served project's extensions catalog, as specforge explain does"
 )]
-#[ignore = "K10 T6"]
 fn explain_answers_a_namespaced_code_from_the_project() {
     let mut server =
         TestProject::new().serve(&[TestExtension::named("@sdk/greet").declaring(|c| {
@@ -68,12 +57,10 @@ fn explain_answers_a_namespaced_code_from_the_project() {
     assert_eq!(entry["docs"], "https://greet.dev/codes#e901", "{entry}");
 }
 
-// Pins K10-D2: today a third-party code has no title; T6 un-ignores it.
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "each catalogued diagnostic in the resource carries its title"
 )]
-#[ignore = "K10 T6"]
 fn a_third_party_code_is_titled_from_its_catalog() {
     let mut server = TestProject::new().serve(&[TestExtension::named("@sdk/greet")
         .reporting(PassDiagnostic::new("W901", PassSeverity::Warning, "m"))

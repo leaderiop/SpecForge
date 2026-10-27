@@ -341,7 +341,13 @@ mod tests {
         FilePublication {
             diagnostics: codes
                 .iter()
-                .map(|code| crate::publish::diagnostic_to_lsp(&diagnostic(code), |_| None))
+                .map(|code| {
+                    crate::publish::diagnostic_to_lsp(
+                        &diagnostic(code),
+                        &specforge_common::Codebook::default(),
+                        |_| None,
+                    )
+                })
                 .collect(),
             placed: codes.iter().map(|code| diagnostic(code)).collect(),
             version: Some(1),

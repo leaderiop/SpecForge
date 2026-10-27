@@ -109,7 +109,10 @@ fn run_in(
 
     match format {
         OutputFormat::Json => {
-            let entries = specforge_common::diagnostics_json(&shown);
+            let entries = specforge_common::diagnostics_json(
+                &shown,
+                ProjectView::of(&compiled).registries().codes(),
+            );
             terminal.json(&entries);
         }
         OutputFormat::Human => {

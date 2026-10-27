@@ -1612,7 +1612,7 @@ expression: listing
   },
   {
     "name": "specforge.explain",
-    "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link; a code the served project's extensions declare, from their rules",
+    "description": "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link; a code the served project's extensions catalog, from their catalogs",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -1659,8 +1659,7 @@ expression: listing
             "title",
             "owner",
             "level",
-            "explanation",
-            "docs"
+            "explanation"
           ],
           "type": "object"
         },
@@ -1697,8 +1696,7 @@ expression: listing
                 "title",
                 "owner",
                 "level",
-                "explanation",
-                "docs"
+                "explanation"
               ],
               "type": "object"
             },
@@ -1708,53 +1706,6 @@ expression: listing
           },
           "required": [
             "code",
-            "retired"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "code": {
-              "type": "string"
-            },
-            "level": {
-              "type": "string"
-            },
-            "retired": {
-              "type": "boolean"
-            },
-            "rules": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "check": {
-                    "type": "string"
-                  },
-                  "extension": {
-                    "type": "string"
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "target_kind": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "extension",
-                  "check",
-                  "message"
-                ],
-                "type": "object"
-              },
-              "type": "array"
-            }
-          },
-          "required": [
-            "code",
-            "level",
-            "rules",
             "retired"
           ],
           "type": "object"

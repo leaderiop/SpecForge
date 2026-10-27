@@ -228,9 +228,8 @@ fn a_define_block_is_published_as_unnecessary() {
     );
 }
 
-// Pins K10-D2: today a third-party code has no `codeDescription`; T6 un-ignores it.
+// A third-party code links the page its extension's catalog documents it on (ADR 0286).
 #[test]
-#[ignore = "K10 T6"]
 fn a_third_party_code_links_its_declared_docs() {
     use specforge_extension_sdk::prelude::*;
     let runtime = specforge_wasm::testing::InProcessRuntime::new().with(|| {
@@ -253,7 +252,8 @@ fn a_third_party_code_links_its_declared_docs() {
         .serving(runtime);
     let mut state = LspState::new();
     state.set_session(dir.session());
-    let publication = Publication::of(&state, None, &[]);
+    // The finding has no span: it goes on the file just edited.
+    let publication = Publication::of(&state, Some("a.spec"), &[]);
     let found = publication
         .files
         .values()
