@@ -12,7 +12,7 @@
 //! it as `{"$ref": "#/$defs/<name>"}`. Every other subschema is inline, and a
 //! document's root is always its type's own body (ADR 0051). The schemas are the subset
 //! [`violations`] checks: `type`, `enum`, `properties`, `required`,
-//! `additionalProperties`, `items`, `oneOf`, `anyOf`, `minimum`, and, for the
+//! `additionalProperties`, `items`, `oneOf`, `anyOf`, `minimum`, `maximum`, `uniqueItems`, and, for the
 //! documents it checks, `$ref` to a definition of the same document. They
 //! carry no `description`, `title` or `$schema`.
 
@@ -544,6 +544,14 @@ fn check(
             Value::from(allowed.clone())
         ));
     }
+    if let (Value::Array(items), Some(Value::Bool(true))) = (value, schema.get("uniqueItems"))
+        && items
+            .iter()
+            .enumerate()
+            .any(|(i, a)| items[..i].contains(a))
+    {
+        found.push(format!("{path}: items are not unique"));
+    }
     if let Value::Object(object) = value {
         for name in schema["required"].as_array().into_iter().flatten() {
             if let Some(name) = name.as_str()
@@ -580,15 +588,15 @@ fn check(
             _ => {}
         }
     }
-    if let (Some(minimum), Some(number)) = (
-        schema.get("minimum").and_then(Value::as_f64),
-        value.as_f64(),
-    ) && number < minimum
-    {
-        found.push(format!(
-            "{path}: {value} is below the minimum {}",
-            schema["minimum"]
-        ));
+    for (keyword, below) in [("minimum", true), ("maximum", false)] {
+        if let (Some(bound), Some(number)) =
+            (schema.get(keyword).and_then(Value::as_f64), value.as_f64())
+            && (number < bound) == below
+            && number != bound
+        {
+            let side = if below { "below" } else { "above" };
+            found.push(format!("{path}: {value} is {side} the {keyword} {bound}"));
+        }
     }
     if let (Value::Array(items), Some(item)) = (value, schema.get("items")) {
         for (i, element) in items.iter().enumerate() {
@@ -599,7 +607,7 @@ fn check(
 
 /// The keywords [`violations`] checks, and the annotations it ignores by
 /// design (they describe, never constrain).
-const CHECKED_KEYWORDS: [&str; 11] = [
+const CHECKED_KEYWORDS: [&str; 13] = [
     "type",
     "enum",
     "properties",
@@ -609,6 +617,8 @@ const CHECKED_KEYWORDS: [&str; 11] = [
     "oneOf",
     "anyOf",
     "minimum",
+    "maximum",
+    "uniqueItems",
     "$ref",
     "$defs",
 ];
@@ -627,7 +637,7 @@ const ANNOTATIONS: [&str; 6] = [
 /// `items` and `additionalProperties` as schemas, `oneOf`/`anyOf` as arrays
 /// of schemas; `enum`, `required` and `examples` hold values. Checked:
 /// `type`, `enum`, `properties`, `required`, `additionalProperties`,
-/// `items`, `oneOf`, `anyOf`, `minimum`, `$ref`, `$defs`; annotations:
+/// `items`, `oneOf`, `anyOf`, `minimum`, `maximum`, `uniqueItems`, `$ref`, `$defs`; annotations:
 /// `$schema`, `$id`, `title`, `description`, `examples`, `format`.
 pub fn unchecked_keywords(document: &Value) -> Vec<String> {
     let mut found = Vec::new();

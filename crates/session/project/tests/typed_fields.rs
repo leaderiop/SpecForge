@@ -46,7 +46,6 @@ fn coded<'d>(diagnostics: &'d [Diagnostic], code: &str) -> Vec<&'d Diagnostic> {
     behavior = "check_field_value_types",
     verify = "an enum list takes the declared words, each once, and a scalar is a one-item list"
 )]
-#[ignore = "K3 T5"]
 fn an_enum_list_takes_declared_words_once() {
     let (graph, diagnostics) = compile(
         "refactor_proposal r1 \"R\" {\n  reasons [threshold, jump]\n}\n\
@@ -83,7 +82,6 @@ fn an_enum_list_takes_declared_words_once() {
     behavior = "check_field_value_types",
     verify = "a typed block reads and admits each member by its own declared type"
 )]
-#[ignore = "K3 T5"]
 fn a_typed_block_coerces_and_admits_each_member() {
     let (graph, diagnostics) =
         compile("discussion d1 \"D\" {\n  scores { goal 03-02 ambiguity 7 }\n}\n");
@@ -95,7 +93,14 @@ fn a_typed_block_coerces_and_admits_each_member() {
         matches!(scores.get("goal"), Some(FieldValue::Integer(1))),
         "{scores:?}"
     );
+}
 
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a typed block reads and admits each member by its own declared type"
+)]
+#[ignore = "K3 T7"]
+fn a_member_of_a_typed_block_is_admitted_at_its_own_span() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal \"x\" }\n}\n");
     let e061 = coded(&diagnostics, "E061");
     assert_eq!(e061.len(), 1, "{diagnostics:#?}");
@@ -116,25 +121,33 @@ fn a_typed_block_coerces_and_admits_each_member() {
     behavior = "check_field_value_types",
     verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
 )]
-#[ignore = "K3 T5"]
 fn an_integer_outside_its_bounds_is_e061() {
-    let (_, diagnostics) = compile(
-        "truth t1 \"T\" {\n  criterion 9\n}\ndiscussion d1 \"D\" {\n  scores { goal 120 }\n}\n",
-    );
+    let (_, diagnostics) = compile("truth t1 \"T\" {\n  criterion 9\n}\n");
     let e061 = coded(&diagnostics, "E061");
-    assert_eq!(e061.len(), 2, "{diagnostics:#?}");
+    assert_eq!(e061.len(), 1, "{diagnostics:#?}");
     assert_eq!(
         e061[0].suggestion.as_deref(),
         Some("write a whole number from 1 to 5")
     );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
+)]
+#[ignore = "K3 T7"]
+fn a_bounded_member_is_e061_at_its_own_span() {
+    let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal 120 }\n}\n");
+    let e061 = coded(&diagnostics, "E061");
+    assert_eq!(e061.len(), 1, "{diagnostics:#?}");
     assert_eq!(
-        e061[1].suggestion.as_deref(),
+        e061[0].suggestion.as_deref(),
         Some("write a whole number from 0 to 100")
     );
-    let span = e061[1].span.as_ref().unwrap();
+    let span = e061[0].span.as_ref().unwrap();
     assert_eq!(
         (span.start_line, span.start_col),
-        (5, 17),
+        (2, 17),
         "the member's own span"
     );
 }
@@ -143,7 +156,6 @@ fn an_integer_outside_its_bounds_is_e061() {
     behavior = "link_derived_references",
     verify = "an enum list's words and a typed block's members are no type expression: no derived edge and no E004"
 )]
-#[ignore = "K3 T5"]
 fn a_typed_block_on_a_type_kind_is_no_type_expression() {
     let (graph, diagnostics) = compile(&format!(
         "{HIERARCHY}\nshape s1 \"S\" {{\n  phase v1.0/03\n  tags [cli, api]\n  checks [{{ kind cli note \"x\" }}]\n  g Missing\n}}\n"

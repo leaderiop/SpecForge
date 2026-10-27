@@ -19,10 +19,13 @@ use crate::Graph;
 
 pub mod json;
 pub mod members;
+pub mod word;
 pub(crate) use json::write_fields;
 pub use json::{FieldJson, write};
+use word::dashed_name;
+pub use word::{integer_difference, is_word};
 pub mod spell;
-pub use members::BlockMembers;
+pub use members::{BlockMembers, Member, MemberPath, declared_path};
 pub use spell::{Place, Respell, Rewrite};
 
 /// What a field's value was written as, after the graph build coerced it:
@@ -230,8 +233,19 @@ impl FieldForm {
     /// - `string`, `enum`: an integer or boolean becomes its text.
     /// - `reference`: a number, date or boolean written bare becomes the name it is written as (`10`, `2026-10-26`);
     ///   a negative number stays, for E061.
-    /// - `block`: stored as written.
+    /// - `enum_list`: as the other lists.
+    /// - `block`, `block_list`: each member of a typed block is stored as its own form coerces it, a single block
+    ///   on a `block_list` is its one item and `[]` is no item ([`members::coerce_members`]); an open block is
+    ///   stored as written.
     pub fn coerce(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
+        let own = self.coerce_own(value, span);
+        match members::coerce_members(self, own.as_ref().unwrap_or(value), span) {
+            Some(inner) => Some(inner),
+            None => own,
+        }
+    }
+
+    fn coerce_own(&self, value: &FieldValue, span: Option<&SourceSpan>) -> Option<FieldValue> {
         match (self.field_type, value) {
             (FieldType::StringList | FieldType::ReferenceList | FieldType::EnumList, value) => {
                 coerce_list(value, span)
@@ -292,7 +306,7 @@ impl FieldForm {
         let single_value = || Refusal::with("give a single value, not a list");
         match self.field_type {
             FieldType::Integer => match shape {
-                ValueShape::Integer => Ok(()),
+                ValueShape::Integer => self.in_bounds(text),
                 ValueShape::Identifier => {
                     Err(integer_difference(text).err().unwrap_or_else(Refusal::none))
                 }
@@ -350,12 +364,16 @@ impl FieldForm {
                 ValueShape::Identifier | ValueShape::String => Ok(()),
                 _ => Err(Refusal::with("name one entity by its id")),
             },
-            FieldType::StringList
-            | FieldType::ReferenceList
-            | FieldType::EnumList
-            | FieldType::BlockList => match shape {
+            FieldType::StringList | FieldType::ReferenceList | FieldType::EnumList => match shape {
                 ValueShape::List | ValueShape::Variants => Ok(()),
                 _ => Err(Refusal::with("write a list: [a, b]")),
+            },
+            FieldType::BlockList => match shape {
+                ValueShape::Blocks => Ok(()),
+                ValueShape::List | ValueShape::Variants => {
+                    Err(Refusal::with("write each item as a block: { name value }"))
+                }
+                _ => Err(Refusal::with("write a list of blocks: [ { name value } ]")),
             },
             FieldType::Block => match shape {
                 ValueShape::Block => Ok(()),
@@ -365,23 +383,63 @@ impl FieldForm {
     }
 
     /// The first item of a list field that is none of its declared type: on a `reference_list`, one starting with
-    /// `-`. `Err` is that item's text and the refusal.
+    /// `-`; on an `enum_list`, one that is no declared value or repeats an earlier one. `Err` is that item's text and
+    /// the refusal.
     pub fn refuse_item<'a>(&self, items: &'a [String]) -> Option<(&'a str, Refusal)> {
-        let bad =
-            |item: &&String| self.field_type == FieldType::ReferenceList && item.starts_with('-');
-        items
-            .iter()
-            .find(bad)
-            .map(|item| (item.as_str(), dashed_name()))
+        match self.field_type {
+            FieldType::ReferenceList => items
+                .iter()
+                .find(|item| item.starts_with('-'))
+                .map(|item| (item.as_str(), dashed_name())),
+            FieldType::EnumList if !self.enum_values.is_empty() => {
+                items.iter().enumerate().find_map(|(i, item)| {
+                    if !self.enum_values.contains(item) {
+                        let values = self.enum_values.iter().map(String::as_str);
+                        let advice = match find_close_match(item, values) {
+                            Some(close) => format!("did you mean '{close}'?"),
+                            None => format!("use one of: {}", self.enum_values.join(", ")),
+                        };
+                        Some((item.as_str(), Refusal::with(&advice)))
+                    } else if items[..i].contains(item) {
+                        Some((
+                            item.as_str(),
+                            Refusal::with(&format!("'{item}' is written twice: each value once")),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// `Ok` when the integer `text` lies within the declared bounds; E061's remedy names them.
+    fn in_bounds(&self, text: &str) -> Result<(), Refusal> {
+        let (minimum, maximum) = self.bounds;
+        let Ok(n) = text.trim().parse::<i64>() else {
+            return Ok(());
+        };
+        if minimum.is_some_and(|m| n < m) || maximum.is_some_and(|m| n > m) {
+            return Err(Refusal::with(&match (minimum, maximum) {
+                (Some(low), Some(high)) => format!("write a whole number from {low} to {high}"),
+                (Some(low), None) => format!("write a whole number of at least {low}"),
+                (None, Some(high)) => format!("write a whole number of at most {high}"),
+                (None, None) => unreachable!("an unbounded integer is in bounds"),
+            }));
+        }
+        Ok(())
     }
 
     /// The JSON Schema of what [`write`] writes for every value
     /// [`Self::admit`] takes: `{"type":"string"}` for `string`, `reference`
     /// and a valueless `enum`; `{"type":"string","enum":[…]}` for an `enum`;
     /// `{"type":"integer"}`; `{"type":"boolean"}`; `{"type":"string","format":"date"}` for a `date`;
-    /// `{"type":"array","items":{"type":"string"}}` for both lists;
-    /// `{"type":"object","additionalProperties":<FieldJson>}` for a `block`
-    /// (its entries are undeclared values), `FieldJson` defined in `defs`.
+    /// `{"type":"array","items":{"type":"string"}}` for both lists; an `enum_list` adds its `enum` and
+    /// `uniqueItems`; an `integer` its `minimum` and `maximum`;
+    /// `{"type":"object","additionalProperties":<FieldJson>}` for an open `block`
+    /// (its entries are undeclared values), `FieldJson` defined in `defs`; a typed `block` an object closed to its
+    /// members; a `block_list` an array of those (ADR 0285).
     pub fn json_schema(&self, defs: &mut Definitions) -> Value {
         match self.field_type {
             // An identifier's one-word rule is `admit`'s: the in-repo schema checker reads no `pattern`.
@@ -390,67 +448,43 @@ impl FieldForm {
             }
             FieldType::Enum if self.enum_values.is_empty() => json!({"type": "string"}),
             FieldType::Enum => json!({"type": "string", "enum": self.enum_values}),
-            FieldType::Integer => json!({"type": "integer"}),
+            FieldType::Integer => {
+                let mut schema = json!({"type": "integer"});
+                if let Some(minimum) = self.bounds.0 {
+                    schema["minimum"] = json!(minimum);
+                }
+                if let Some(maximum) = self.bounds.1 {
+                    schema["maximum"] = json!(maximum);
+                }
+                schema
+            }
             FieldType::Bool => json!({"type": "boolean"}),
             FieldType::Date => json!({"type": "string", "format": "date"}),
-            FieldType::StringList
-            | FieldType::ReferenceList
-            | FieldType::EnumList
-            | FieldType::BlockList => {
+            FieldType::StringList | FieldType::ReferenceList => {
                 json!({"type": "array", "items": {"type": "string"}})
             }
-            FieldType::Block => {
-                json!({"type": "object", "additionalProperties": FieldJson::schema(defs)})
+            FieldType::EnumList if self.enum_values.is_empty() => {
+                json!({"type": "array", "items": {"type": "string"}, "uniqueItems": true})
             }
+            FieldType::EnumList => json!({
+                "type": "array",
+                "items": {"type": "string", "enum": self.enum_values},
+                "uniqueItems": true,
+            }),
+            FieldType::Block => self.block_schema(defs),
+            FieldType::BlockList => json!({"type": "array", "items": self.block_schema(defs)}),
         }
     }
 }
 
-fn dashed_name() -> Refusal {
-    Refusal::with("a name never starts with '-'")
-}
-
-/// The integer a bare word reads as: `-?N(-N)*`, each `N` digits, taken left to right as differences in checked
-/// `i64` (`2-1` is 1, `03-02` is 1, `007` is 7, `2026-10-26` is 1990). `Err` names the operand that is none, or
-/// the word when it leaves the `i64` range (ADR 0283).
-pub fn integer_difference(word: &str) -> Result<i64, Refusal> {
-    let (negative, rest) = match word.strip_prefix('-') {
-        Some(rest) => (true, rest),
-        None => (false, word),
-    };
-    let outside = || Refusal::with(&format!("'{word}' is outside {}..{}", i64::MIN, i64::MAX));
-    let mut total: Option<i64> = None;
-    for (i, term) in rest.split('-').enumerate() {
-        let n = if !term.is_empty() && term.bytes().all(|b| b.is_ascii_digit()) {
-            let n: i64 = term.parse().map_err(|_| outside())?;
-            if i == 0 && negative { -n } else { n }
-        } else if term.contains('.')
-            && term
-                .split('.')
-                .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
-        {
-            return Err(Refusal::with(
-                "an integer has no fraction (there is no decimal type)",
-            ));
-        } else {
-            return Err(Refusal::with(&format!("'{term}' is no number")));
-        };
-        total = Some(match total {
-            None => n,
-            Some(t) => t.checked_sub(n).ok_or_else(outside)?,
-        });
+impl FieldForm {
+    /// A block's schema: closed to its members when it types any, else a map of undeclared values.
+    fn block_schema(&self, defs: &mut Definitions) -> Value {
+        match self.members() {
+            Some(members) if !members.is_empty() => members::object_schema(members, defs),
+            _ => json!({"type": "object", "additionalProperties": FieldJson::schema(defs)}),
+        }
     }
-    total.ok_or_else(|| Refusal::with(&format!("'{word}' is no number")))
-}
-
-/// Whether `text` is one word: the grammar's identifier (letters, digits and
-/// `_`, starting with a letter or `_`).
-pub fn is_word(text: &str) -> bool {
-    let mut chars = text.chars();
-    chars
-        .next()
-        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Every registered field's form, and the kinds that take any field: what

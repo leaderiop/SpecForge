@@ -518,6 +518,22 @@ fn minimum_refuses_a_smaller_number() {
     );
 }
 
+#[test]
+fn maximum_refuses_a_larger_number_and_unique_items_a_repeat() {
+    let schema = json!({"type": "integer", "maximum": 5});
+    assert!(violations(&schema, &json!(5)).is_empty());
+    assert_eq!(
+        violations(&schema, &json!(7)),
+        ["$: 7 is above the maximum 5"]
+    );
+    let unique = json!({"type": "array", "items": {"type": "string"}, "uniqueItems": true});
+    assert!(violations(&unique, &json!(["a", "b"])).is_empty());
+    assert_eq!(
+        violations(&unique, &json!(["a", "a"])),
+        ["$: items are not unique"]
+    );
+}
+
 #[derive(Serialize, Shape)]
 struct Left {
     left: String,

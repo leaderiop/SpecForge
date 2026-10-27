@@ -7,7 +7,7 @@
 
 use specforge_common::SourceSpan;
 use specforge_parser::lex::is_entity_id;
-use specforge_parser::{FieldEntry, FieldValue, Written};
+use specforge_parser::{FieldEntry, FieldMap, FieldValue, Written};
 use specforge_protocol_types::FieldType;
 
 use super::{FieldForm, FieldForms, Reading, is_word};
@@ -127,6 +127,7 @@ pub fn form(form: &FieldForm, text: &str) -> Written {
         FieldType::Date if is_date(text) => Written::Literal,
         FieldType::StringList if text.contains(':') && is_entity_id(text) => Written::SchemeRef,
         FieldType::Enum
+        | FieldType::EnumList
         | FieldType::Identifier
         | FieldType::Reference
         | FieldType::ReferenceList
@@ -183,7 +184,7 @@ pub struct Rewrite {
 }
 
 impl FieldForms {
-    /// How `kind.field` writes `text`, written `written` at `place`, when that is not how it is written (ADR 0147,
+    /// How `kind.field` (a declared member path: `requires.phase` reads a member) writes `text`, written `written` at `place`, when that is not how it is written (ADR 0147,
     /// ADR 0234); `None` leaves it as written: the field has no declared form or is a `block`; the value is already
     /// in its form (quoted exactly when the form is quoted, and listed or not as the type says); a number, boolean
     /// or date field holds a text that is none (E061 reports it); a quoted scheme ref id on a `string_list`
@@ -197,15 +198,18 @@ impl FieldForms {
         text: &str,
         place: Place,
     ) -> Option<Respell> {
-        let Reading::Declared(form) = self.reading(kind, field) else {
+        let Reading::Declared(form) = self.reading_at(kind, field) else {
             return None;
         };
         let field_type = form.field_type();
-        if field_type == FieldType::Block {
+        if matches!(field_type, FieldType::Block | FieldType::BlockList) {
             return None;
         }
         let listed = place == Place::Whole
-            && matches!(field_type, FieldType::StringList | FieldType::ReferenceList);
+            && matches!(
+                field_type,
+                FieldType::StringList | FieldType::ReferenceList | FieldType::EnumList
+            );
         let to = match self::form(form, text) {
             Written::SchemeRef if written == Written::Quoted => Written::Quoted,
             to => to,
@@ -239,7 +243,18 @@ impl FieldForms {
     /// [`Self::rewrite`] would write otherwise, in source order. A scalar
     /// without a value span is reported at `fallback`.
     pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
-        let field = entry.key.as_str();
+        self.rewrites_at(kind, entry.key.as_str(), entry, fallback)
+    }
+
+    /// [`Self::rewrites`] for `entry` read at the declared member path `field`; a typed block's members, and those
+    /// of each block-list item, follow (ADR 0285).
+    fn rewrites_at(
+        &self,
+        kind: &str,
+        field: &str,
+        entry: &FieldEntry,
+        fallback: &SourceSpan,
+    ) -> Vec<Rewrite> {
         let span = entry.value_span.as_ref().unwrap_or(fallback);
         let scalar = |written, text: String| {
             let respell = self.rewrite(kind, field, written, &text, Place::Whole)?;
@@ -308,7 +323,28 @@ impl FieldForms {
                     })
                     .collect()
             }
+            FieldValue::Block(map) => self.rewrites_in(kind, field, map, fallback),
+            FieldValue::Blocks(items) => items
+                .iter()
+                .flat_map(|item| self.rewrites_in(kind, field, &item.fields, fallback))
+                .collect(),
             _ => Vec::new(),
         }
+    }
+
+    fn rewrites_in(
+        &self,
+        kind: &str,
+        field: &str,
+        map: &FieldMap,
+        fallback: &SourceSpan,
+    ) -> Vec<Rewrite> {
+        map.entries()
+            .iter()
+            .flat_map(|member| {
+                let path = format!("{field}.{}", member.key);
+                self.rewrites_at(kind, &path, member, fallback)
+            })
+            .collect()
     }
 }

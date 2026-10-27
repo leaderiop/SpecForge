@@ -516,5 +516,9 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
   verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
   verify unit "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+  verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
+  verify unit "a block list takes a list of blocks and a typed block writes an object closed to its members"
+  verify unit "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
+  verify unit "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }
