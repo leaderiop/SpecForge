@@ -16,14 +16,15 @@ impl Graph {
     /// each edge from it (a derived field writes nothing and has its edges, ADR 0204).
     pub fn linked_fields(&self, forms: &FieldForms, node: &Node) -> BTreeSet<Sym> {
         let kind = node.kind.raw.as_str();
-        let written = node.fields.entries().iter().filter(|entry| {
-            !forms
-                .reading(kind, entry.key.as_str())
-                .references(entry)
-                .is_empty()
+        // A reference inside a typed block gives its member path the link (ADR 0285).
+        let written = node.fields.entries().iter().flat_map(|top| {
+            forms
+                .readings(kind, top)
+                .into_iter()
+                .filter(|(_, reading, entry)| !reading.references(entry).is_empty())
+                .map(|(path, _, _)| Sym::new(&path.declared()))
         });
         written
-            .map(|entry| entry.key)
             .chain(
                 self.edges_from(node.id.raw.as_str())
                     .into_iter()

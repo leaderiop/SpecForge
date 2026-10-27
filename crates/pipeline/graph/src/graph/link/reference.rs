@@ -8,7 +8,7 @@ use specforge_common::{Diagnostic, DiagnosticData, Sym, codes, find_close_match}
 
 use crate::field_form::Reference;
 use crate::scope::Found;
-use crate::{Graph, Node, Target};
+use crate::{Graph, Node, Targets};
 
 /// What one written reference is.
 pub(super) enum Resolution<'g> {
@@ -19,7 +19,7 @@ pub(super) enum Resolution<'g> {
     /// target is absent.
     Mistyped {
         path: Sym,
-        target: Target<'g>,
+        target: Targets<'g>,
         provider: Option<&'g str>,
         actual: &'g str,
         did_you_mean: Option<String>,
@@ -32,11 +32,10 @@ pub(super) enum Resolution<'g> {
         candidates: Vec<String>,
         ambiguous: bool,
     },
-    /// It names no entity, and no loaded extension declares its field's target kind: I004.
-    /// `provider` is the extension that declares it, where one is known.
+    /// It names no entity, and no loaded extension declares a target kind of its field: I004. `kinds` are the target
+    /// kinds no loaded extension declares, each with the extension that declares it where one is known.
     Unavailable {
-        kind: &'g str,
-        provider: Option<&'g str>,
+        kinds: Vec<(&'g str, Option<&'g str>)>,
     },
 }
 
@@ -46,31 +45,37 @@ impl Graph {
     /// its scope chain answers (ADR 0284). `None` for a scope field, which has no chain yet.
     pub(super) fn resolve<'g>(
         &'g self,
-        target: Option<Target<'g>>,
+        target: Option<Targets<'g>>,
         owners: &'g BTreeMap<String, String>,
         from: Option<Sym>,
         id: &str,
     ) -> Resolution<'g> {
-        let admits = |kind: &str| target.is_none_or(|t| t.admits(kind));
+        let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
         let found = self.scopes.resolve(from, id, &admits);
         let named = |path: Sym| self.nodes[&path].kind.raw.as_str();
         match found {
             Found::One(path) => return Resolution::Linked { path },
             Found::Mistyped(path) => {
                 let target = target.expect("a reference of any kind is never mistyped");
+                let absent = target.absent();
                 return Resolution::Mistyped {
                     path,
-                    target,
-                    provider: match target {
-                        Target::Absent(kind) => owners.get(kind).map(String::as_str),
-                        Target::Loaded(_) => None,
-                    },
+                    provider: absent
+                        .first()
+                        .and_then(|kind| owners.get(*kind))
+                        .map(String::as_str),
                     actual: named(path),
                     did_you_mean: self.close_match(
                         from,
                         id,
-                        self.nodes_by_kind(target.kind()).into_iter(),
+                        target
+                            .loaded()
+                            .into_iter()
+                            .flat_map(|kind| self.nodes_by_kind(kind))
+                            .collect::<Vec<_>>()
+                            .into_iter(),
                     ),
+                    target,
                 };
             }
             Found::Ambiguous(paths) => {
@@ -82,12 +87,15 @@ impl Graph {
             }
             Found::None(_) => {}
         }
-        match target {
-            Some(Target::Absent(kind)) => Resolution::Unavailable {
-                kind,
-                provider: owners.get(kind).map(String::as_str),
+        match target.as_ref().filter(|t| !t.absent().is_empty()) {
+            Some(target) => Resolution::Unavailable {
+                kinds: target
+                    .absent()
+                    .into_iter()
+                    .map(|kind| (kind, owners.get(kind).map(String::as_str)))
+                    .collect(),
             },
-            Some(Target::Loaded(_)) | None => {
+            None => {
                 let Found::None(paths) = found else {
                     unreachable!("the other outcomes returned")
                 };
@@ -158,7 +166,8 @@ impl Resolution<'_> {
                 did_you_mean,
                 ..
             } => {
-                let expected = target.kind();
+                let expected = target.text();
+                let expected = expected.as_str();
                 Some(
                     Diagnostic::new(
                         codes::E022,
@@ -168,18 +177,18 @@ impl Resolution<'_> {
                         ),
                     )
                     .with_span(span)
-                    .with_suggestion(match (target, did_you_mean, provider) {
-                        (Target::Loaded(_), Some(close), _) => format!("did you mean '{close}'?"),
-                        (Target::Loaded(_), None, _) => {
+                    .with_suggestion(match (target.absent().first(), did_you_mean, provider) {
+                        (None, Some(close), _) => format!("did you mean '{close}'?"),
+                        (None, None, _) => {
                             format!("name a {expected} here, or drop the reference")
                         }
-                        (Target::Absent(_), _, Some(extension)) => format!(
+                        (Some(_), _, Some(extension)) => format!(
                             "name a {expected} here (enable the extension that declares it with `{}`), or drop the reference",
                             specforge_common::remedy::command("specforge add {}", &[extension])
                         ),
-                        (Target::Absent(_), _, None) => format!(
+                        (Some(kind), _, None) => format!(
                             "name a {expected} here (find an extension that declares it with `{}`), or drop the reference",
-                            specforge_common::remedy::command("specforge search {}", &[expected])
+                            specforge_common::remedy::command("specforge search {}", &[kind])
                         ),
                     }),
                 )
@@ -202,7 +211,10 @@ impl Resolution<'_> {
                         candidates.join(", ")
                     ),
                     (false, true) => {
-                        format!("unresolved reference '{}' in entity '{holder}'", reference.id)
+                        format!(
+                            "unresolved reference '{}' in entity '{holder}'",
+                            reference.id
+                        )
                     }
                 };
                 let mut diagnostic = Diagnostic::new(codes::E003, message)
@@ -221,26 +233,38 @@ impl Resolution<'_> {
                 }
                 Some(diagnostic)
             }
-            Self::Unavailable { kind, provider } => Some(
-                Diagnostic::new(
-                    codes::I004,
-                    format!(
-                        "reference '{}' in field '{}' of '{}' targets kind '{}', which no enabled extension provides",
-                        reference.id, field, node.id.raw, kind
-                    ),
-                )
-                .with_span(span)
-                .with_suggestion(match provider {
+            Self::Unavailable { kinds } => {
+                let named = kinds
+                    .iter()
+                    .map(|(kind, _)| format!("'{kind}'"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let plural = if kinds.len() == 1 { "kind" } else { "kinds" };
+                let remedy = |(kind, provider): &(&str, Option<&str>)| match provider {
                     Some(extension) => format!(
-                        "enable the extension that declares '{kind}' with `{}`, or drop the field",
+                        "enable the extension that declares '{kind}' with `{}`",
                         specforge_common::remedy::command("specforge add {}", &[extension])
                     ),
                     None => format!(
-                        "find an extension that declares '{kind}' with `{}`, or drop the field",
+                        "find an extension that declares '{kind}' with `{}`",
                         specforge_common::remedy::command("specforge search {}", &[kind])
                     ),
-                }),
-            ),
+                };
+                Some(
+                    Diagnostic::new(
+                        codes::I004,
+                        format!(
+                            "reference '{}' in field '{}' of '{}' targets {plural} {named}, which no enabled extension provides",
+                            reference.id, field, node.id.raw
+                        ),
+                    )
+                    .with_span(span)
+                    .with_suggestion(format!(
+                        "{}, or drop the field",
+                        kinds.iter().map(remedy).collect::<Vec<_>>().join(", and ")
+                    )),
+                )
+            }
         }
     }
 }

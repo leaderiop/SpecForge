@@ -4,7 +4,7 @@
 use crate::build::{GraphConfig, GraphInputs, Ids, about, is_define_block};
 use crate::defaults::{FileDefaults, is_defaults_block};
 use crate::scope::Found;
-use crate::{Graph, Node, Target, title};
+use crate::{Graph, Node, title};
 use specforge_common::{Diagnostic, SourceSpan, Sym, codes, structural};
 use specforge_parser::{Entity, EntityId, FieldValue, REF_SCHEME_FIELD, SpecFile};
 use std::collections::HashMap;
@@ -44,7 +44,11 @@ enum Outcome {
 fn depth_of(kind: &str, inputs: &GraphInputs) -> usize {
     let (mut depth, mut at) = (0, kind);
     while let Some(field) = inputs.scopes.get(at) {
-        let Some(Target::Loaded(up)) = inputs.field_forms.target(at, field) else {
+        let Some(up) = inputs
+            .field_forms
+            .target(at, field)
+            .and_then(|t| t.only_loaded())
+        else {
             break;
         };
         depth += 1;
@@ -91,7 +95,7 @@ pub(crate) fn declared_path(
         .scopes
         .get(kind)
         .and_then(|field| inputs.field_forms.target(kind, field));
-    let admits = |k: &str| target.is_none_or(|t| t.admits(k));
+    let admits = |k: &str| target.as_ref().is_none_or(|t| t.admits(k));
     let scope = match scopes.resolve(None, &text, &admits) {
         Found::One(path) => path,
         _ => Sym::new(&text),

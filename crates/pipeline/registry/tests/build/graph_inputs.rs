@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use specforge_extension_sdk::prelude::*;
-use specforge_graph::{DerivedFrom, FieldForm, FieldForms, GraphInputs, Reading, Target};
+use specforge_graph::{DerivedFrom, FieldForm, FieldForms, GraphInputs, Reading};
 use specforge_parser::FieldValue;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_test_macros::test as spec;
@@ -124,7 +124,8 @@ fn a_derived_reference_needs_a_target_kind_and_a_known_source() {
                     .field_forms
                     .target(&d.source_kind, &d.field)
                     .unwrap()
-                    .kind(),
+                    .only()
+                    .unwrap(),
                 d.from,
             )
         })
@@ -173,8 +174,8 @@ fn the_graph_inputs_contract_holds() {
             .is_single_reference()
     );
     assert_eq!(
-        inputs.field_forms.target("doc", "owner"),
-        Some(Target::Absent("team"))
+        inputs.field_forms.target("doc", "owner").unwrap().absent(),
+        ["team"]
     );
     assert_eq!(inputs.derived_references.len(), 1);
     assert_eq!(
@@ -211,8 +212,8 @@ fn the_field_forms_say_whether_each_target_kind_is_loaded() {
     .graph_inputs()
     .field_forms
     .clone();
-    assert_eq!(forms.target("doc", "owner"), Some(Target::Absent("team")));
-    assert_eq!(forms.target("doc", "parts"), Some(Target::Loaded("doc")));
+    assert_eq!(forms.target("doc", "owner").unwrap().absent(), ["team"]);
+    assert_eq!(forms.target("doc", "parts").unwrap().loaded(), ["doc"]);
     assert_eq!(forms.target("doc", "title"), None);
 }
 

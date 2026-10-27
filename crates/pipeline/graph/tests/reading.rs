@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use specforge_graph::{FieldForm, FieldForms, Reading, Target};
+use specforge_graph::{FieldForm, FieldForms, Reading};
 use specforge_protocol_types::FieldType;
 
 fn forms() -> FieldForms {
@@ -161,21 +161,26 @@ fn targeting_forms() -> FieldForms {
 
 #[test]
 fn a_declared_target_kind_is_loaded_when_a_loaded_extension_declares_it() {
-    assert_eq!(
-        targeting_forms().target("doc", "owner"),
-        Some(Target::Loaded("team"))
-    );
+    let forms = targeting_forms();
+    let owner = forms.target("doc", "owner").unwrap();
+    assert_eq!((owner.loaded(), owner.absent()), (vec!["team"], vec![]));
 }
 
 #[test]
 fn a_target_kind_no_loaded_extension_declares_is_absent() {
     let forms = targeting_forms();
-    assert_eq!(forms.target("doc", "sponsor"), Some(Target::Absent("org")));
+    let sponsor = forms.target("doc", "sponsor").unwrap();
+    assert_eq!((sponsor.loaded(), sponsor.absent()), (vec![], vec!["org"]));
+    let listed: Vec<_> = forms
+        .targets()
+        .into_iter()
+        .map(|((kind, field), t)| (kind.to_string(), field, t.kinds().collect::<Vec<_>>()))
+        .collect();
     assert_eq!(
-        forms.targets(),
+        listed,
         [
-            (("doc", "owner"), Target::Loaded("team")),
-            (("doc", "sponsor"), Target::Absent("org")),
+            ("doc".to_string(), "owner".to_string(), vec!["team"]),
+            ("doc".to_string(), "sponsor".to_string(), vec!["org"]),
         ]
     );
 }
@@ -191,8 +196,35 @@ fn a_member_or_undeclared_field_has_no_target() {
 
 #[test]
 fn a_target_admits_only_its_own_kind() {
-    assert!(Target::Loaded("team").admits("team"));
-    assert!(Target::Absent("org").admits("org"));
-    assert!(!Target::Loaded("team").admits("doc"));
-    assert_eq!(Target::Absent("org").kind(), "org");
+    let forms = targeting_forms();
+    let team = forms.target("doc", "owner").unwrap();
+    let org = forms.target("doc", "sponsor").unwrap();
+    assert!(team.admits("team") && org.admits("org") && !team.admits("doc"));
+    assert_eq!(org.only(), Some("org"));
+}
+
+#[test]
+fn a_union_admits_each_listed_kind_and_a_member_path_reads_its_member() {
+    let member = FieldForm::new(FieldType::Reference, vec![])
+        .targeting_any(&["team".to_string(), "org".to_string()]);
+    let block = FieldForm::new(FieldType::BlockList, vec![]).with_members(
+        specforge_graph::field_form::BlockMembers::new(vec![("owner".to_string(), member)]),
+    );
+    let forms = FieldForms::new(
+        [(("doc".to_string(), "uses".to_string()), block)].into(),
+        Default::default(),
+        ["doc".to_string(), "team".to_string()]
+            .into_iter()
+            .collect(),
+    );
+    let union = forms.target("doc", "uses.owner").unwrap();
+    assert!(union.admits("team") && union.admits("org") && !union.admits("doc"));
+    assert_eq!(
+        (union.loaded(), union.absent()),
+        (vec!["team"], vec!["org"])
+    );
+    assert_eq!(union.only(), None);
+    assert_eq!(union.text(), "team or org");
+    assert!(forms.target("doc", "uses").is_none());
+    assert_eq!(forms.targets().len(), 1, "members are listed");
 }

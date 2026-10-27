@@ -12,7 +12,7 @@ mod defaults;
 pub use defaults::{FileDefaults, Held, written_fields};
 pub mod field_form;
 pub use field_form::{
-    FieldForm, FieldForms, FieldJson, Place, Reading, Reference, Respell, Rewrite, Target,
+    FieldForm, FieldForms, FieldJson, Place, Reading, Reference, Respell, Rewrite, Targets,
     ValueShape,
 };
 mod delta;

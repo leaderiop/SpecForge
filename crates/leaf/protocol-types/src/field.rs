@@ -76,3 +76,14 @@ pub struct FieldDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_base: Option<String>,
 }
+
+impl FieldDescriptor {
+    /// This field and, depth first, every member of it, each with its declared member path (`requires`,
+    /// `requires.phase`): `path` is this field's own (ADR 0285).
+    pub fn for_each_path<'a>(&'a self, path: &str, f: &mut dyn FnMut(String, &'a FieldDescriptor)) {
+        f(path.to_string(), self);
+        for member in &self.members {
+            member.for_each_path(&format!("{path}.{}", member.name), f);
+        }
+    }
+}

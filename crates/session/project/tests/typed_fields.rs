@@ -185,7 +185,6 @@ summary 03-02-S \"S\" {
     behavior = "link_entity_references",
     verify = "a reference inside a block is held by its entity, resolves outward from it and is labelled by its member path"
 )]
-#[ignore = "K3 T6"]
 fn a_reference_in_a_block_links_from_its_entity() {
     let (graph, diagnostics) = compile(&format!("{HIERARCHY}\n{REQUIRING}"));
     assert!(coded(&diagnostics, "E003").is_empty(), "{diagnostics:#?}");
@@ -213,7 +212,6 @@ fn a_reference_in_a_block_links_from_its_entity() {
     behavior = "link_entity_references",
     verify = "a reference field declaring several target kinds takes an entity of any of them and refuses another, naming each"
 )]
-#[ignore = "K3 T6"]
 fn a_union_reference_takes_any_listed_kind() {
     let (graph, diagnostics) = compile(&format!(
         "{HIERARCHY}\nverify_gap VG1 \"G\" {{\n}}\nuat_gap G-03-1 \"G\" {{\n}}\n\
@@ -245,7 +243,6 @@ fn a_union_reference_takes_any_listed_kind() {
     behavior = "build_in_memory_graph",
     verify = "the finder reports a reference inside a block under its member path, held by the entity"
 )]
-#[ignore = "K3 T6"]
 fn the_finder_holds_member_tokens_by_their_entity() {
     let project = Assembled::typed();
     let file = parse(&format!("{HIERARCHY}\n{REQUIRING}"), "a.spec");

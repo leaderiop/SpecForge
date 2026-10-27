@@ -137,6 +137,25 @@ impl FieldForms {
     }
 }
 
+impl FieldForms {
+    /// What `entry` reads as, at its own path and at each typed member below it: the entry itself and every
+    /// [`Self::walk`] member as declared, else (an undeclared field, or a member of an open-fields kind) the one
+    /// reading [`Self::reading`] gives. What the linker and the finder iterate (ADR 0285).
+    pub fn readings<'f, 'e>(
+        &'f self,
+        kind: &str,
+        entry: &'e FieldEntry,
+    ) -> Vec<(MemberPath, Reading<'f>, &'e FieldEntry)> {
+        match self.reading(kind, entry.key.as_str()) {
+            Reading::Declared(_) => self
+                .walk(kind, entry)
+                .map(|m| (m.path, Reading::Declared(m.form), m.entry))
+                .collect(),
+            other => vec![(MemberPath::of(entry.key.as_str()), other, entry)],
+        }
+    }
+}
+
 fn descend<'f, 'e>(
     form: &'f FieldForm,
     path: &MemberPath,

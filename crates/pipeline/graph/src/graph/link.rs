@@ -40,24 +40,33 @@ impl Graph {
 
         for node in self.nodes.values() {
             let kind = node.kind.raw.as_str();
-            for entry in node.fields.entries() {
-                let reading = forms.reading(kind, entry.key.as_str());
-                let single = reading.is_single_reference();
-                let target = forms.target(kind, entry.key.as_str());
-                let from = held_from(node, scoped, entry.key.as_str());
-                for reference in reading.references(entry) {
-                    let resolution = self.resolve(target, owners, from, reference.id);
-                    if let Some(path) = resolution.path() {
-                        edges.push(WrittenEdge {
-                            edge: Edge {
-                                source: node.id.raw,
-                                target: path,
-                                label: entry.key,
-                            },
-                            single,
-                        });
+            for top in node.fields.entries() {
+                // A reference inside a typed block is held by this node, read from it and labelled by its declared
+                // member path (ADR 0285); diagnostics name the written path.
+                for (path, reading, entry) in forms.readings(kind, top) {
+                    let single = reading.is_single_reference();
+                    let declared = path.declared();
+                    let target = forms.target(kind, &declared);
+                    let from = held_from(node, scoped, &declared);
+                    let label = Sym::new(&declared);
+                    for reference in reading.references(entry) {
+                        let resolution = self.resolve(target.clone(), owners, from, reference.id);
+                        if let Some(path) = resolution.path() {
+                            edges.push(WrittenEdge {
+                                edge: Edge {
+                                    source: node.id.raw,
+                                    target: path,
+                                    label,
+                                },
+                                single,
+                            });
+                        }
+                        diagnostics.extend(resolution.diagnostic(
+                            node,
+                            Sym::new(path.as_str()),
+                            &reference,
+                        ));
                     }
-                    diagnostics.extend(resolution.diagnostic(node, entry.key, &reference));
                 }
             }
         }
@@ -89,24 +98,28 @@ impl Graph {
             let source = node.id.raw;
             let edges = self.source_index.get(&source);
             let kind = node.kind.raw.as_str();
-            for entry in node.fields.entries() {
-                let field_target = forms.target(kind, entry.key.as_str());
-                let from = held_from(node, scoped, entry.key.as_str());
-                for reference in forms.reading(kind, entry.key.as_str()).references(entry) {
-                    let Some(target) = self
-                        .resolve(field_target, &BTreeMap::new(), from, reference.id)
-                        .path()
-                    else {
-                        continue;
-                    };
-                    let linked = edges.is_some_and(|indices| {
-                        indices.iter().any(|&i| {
-                            let edge = &self.edges[i];
-                            edge.target == target && edge.label == entry.key
-                        })
-                    });
-                    if !linked {
-                        unlinked.push((source, target, entry.key));
+            for top in node.fields.entries() {
+                for (path, reading, entry) in forms.readings(kind, top) {
+                    let declared = path.declared();
+                    let label = Sym::new(&declared);
+                    let field_target = forms.target(kind, &declared);
+                    let from = held_from(node, scoped, &declared);
+                    for reference in reading.references(entry) {
+                        let Some(target) = self
+                            .resolve(field_target.clone(), &BTreeMap::new(), from, reference.id)
+                            .path()
+                        else {
+                            continue;
+                        };
+                        let linked = edges.is_some_and(|indices| {
+                            indices.iter().any(|&i| {
+                                let edge = &self.edges[i];
+                                edge.target == target && edge.label == label
+                            })
+                        });
+                        if !linked {
+                            unlinked.push((source, target, label));
+                        }
                     }
                 }
             }
@@ -150,7 +163,7 @@ impl Graph {
                 let admitted = self
                     .scopes
                     .kind(edge.target.as_str())
-                    .is_some_and(|k| target.is_none_or(|t| t.admits(k.as_str())));
+                    .is_some_and(|k| target.as_ref().is_none_or(|t| t.admits(k.as_str())));
                 assert!(
                     edge.label != field.as_str() || !admitted || Some(edge.target) == node.scope,
                     "SpecForge bug: '{}' is scoped by '{}', but its '{field}' links to '{}'",

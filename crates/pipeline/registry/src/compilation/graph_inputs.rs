@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs, Target};
+use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs};
 
 use crate::{FieldRegistry, KindRegistry};
 
@@ -41,10 +41,8 @@ fn target_owners(
     forms
         .targets()
         .into_iter()
-        .filter_map(|(_, target)| match target {
-            Target::Absent(kind) => Some((kind.to_string(), owner_of(kind)?)),
-            Target::Loaded(_) => None,
-        })
+        .flat_map(|(_, target)| target.absent())
+        .filter_map(|kind| Some((kind.to_string(), owner_of(kind)?)))
         .collect()
 }
 
@@ -76,7 +74,7 @@ fn derived_references(fields: &FieldRegistry) -> Vec<DerivedReference> {
         .iter()
         .filter(|(_, _, entry)| entry.field_type().is_reference())
         .filter_map(|(kind, field, entry)| {
-            entry.form().target_kind()?;
+            (!entry.form().target_kinds().is_empty()).then_some(())?;
             Some(DerivedReference {
                 source_kind: kind.to_string(),
                 field: field.to_string(),

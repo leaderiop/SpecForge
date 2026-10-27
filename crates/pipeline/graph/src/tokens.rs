@@ -324,35 +324,38 @@ impl Reader<'_> {
         out: &mut Vec<WrittenToken>,
     ) {
         let forms = &self.inputs.field_forms;
-        let reading = forms.reading(kind, entry.key.as_str());
-        let form = match reading {
-            _ if reading.is_single_reference() => Form::Single,
-            Reading::Undeclared => Form::Undeclared,
-            _ => Form::Item,
-        };
-        let target = forms.target(kind, entry.key.as_str());
-        let admits = |k: &str| target.is_none_or(|t| t.admits(k));
-        let scope_field = self
-            .inputs
-            .scopes
-            .get(kind)
-            .is_some_and(|field| field == entry.key.as_str());
-        for reference in reading.references(entry) {
-            let Some(span) = reference.span else { continue };
-            let found = if scope_field {
-                self.scopes.resolve(None, reference.id, &admits)
-            } else {
-                self.scopes.chain(from, reference.id, &admits)
+        // A reference inside a typed block is the entity's, under its declared member path (ADR 0285).
+        for (path, reading, entry) in forms.readings(kind, entry) {
+            let field = path.declared();
+            let form = match reading {
+                _ if reading.is_single_reference() => Form::Single,
+                Reading::Undeclared => Form::Undeclared,
+                _ => Form::Item,
             };
-            self.push(
-                reference.id,
-                &span,
-                resolved(&found),
-                holder,
-                entry.key,
-                form,
-                out,
-            );
+            let target = forms.target(kind, &field);
+            let admits = |k: &str| target.as_ref().is_none_or(|t| t.admits(k));
+            let scope_field = self
+                .inputs
+                .scopes
+                .get(kind)
+                .is_some_and(|scope| *scope == field);
+            for reference in reading.references(entry) {
+                let Some(span) = reference.span else { continue };
+                let found = if scope_field {
+                    self.scopes.resolve(None, reference.id, &admits)
+                } else {
+                    self.scopes.chain(from, reference.id, &admits)
+                };
+                self.push(
+                    reference.id,
+                    &span,
+                    resolved(&found),
+                    holder,
+                    Sym::new(&field),
+                    form,
+                    out,
+                );
+            }
         }
     }
 

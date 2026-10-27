@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
-use specforge_graph::{GraphInputs, Target};
+use specforge_graph::GraphInputs;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::RegistryBuild;
 
@@ -164,15 +164,20 @@ fn graph_inputs(inputs: &GraphInputs) -> Value {
         .field_forms
         .targets()
         .into_iter()
-        .filter_map(|((kind, field), target)| match target {
-            Target::Absent(target) => Some((
+        .flat_map(|((kind, field), targets)| {
+            targets
+                .absent()
+                .into_iter()
+                .map(move |target| (kind, field.clone(), target))
+        })
+        .map(|(kind, field, target)| {
+            (
                 format!("{kind}.{field}"),
                 match inputs.target_owners.get(target) {
                     Some(owner) => format!("{target} ({owner})"),
                     None => target.to_string(),
                 },
-            )),
-            Target::Loaded(_) => None,
+            )
         })
         .collect();
     let field_forms: BTreeMap<String, String> = inputs
@@ -193,7 +198,7 @@ fn graph_inputs(inputs: &GraphInputs) -> Value {
             json!({
                 "source_kind": d.source_kind,
                 "field": d.field,
-                "target_kind": inputs.field_forms.target(&d.source_kind, &d.field).map(|t| t.kind()),
+                "target_kind": inputs.field_forms.target(&d.source_kind, &d.field).map(|t| t.only()),
                 "from": format!("{:?}", d.from),
             })
         })

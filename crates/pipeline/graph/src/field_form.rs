@@ -19,9 +19,11 @@ use crate::Graph;
 
 pub mod json;
 pub mod members;
+pub mod targets;
 pub mod word;
 pub(crate) use json::write_fields;
 pub use json::{FieldJson, write};
+pub use targets::Targets;
 use word::dashed_name;
 pub use word::{integer_difference, is_word};
 pub mod spell;
@@ -519,37 +521,6 @@ impl FieldForms {
         }
     }
 
-    /// The kind `kind.field`'s references must name, and whether a loaded
-    /// extension declares it. `None` for a field with no declared target
-    /// kind, a member of an open-fields kind, or an undeclared field.
-    pub fn target(&self, kind: &str, field: &str) -> Option<Target<'_>> {
-        let Reading::Declared(form) = self.reading(kind, field) else {
-            return None;
-        };
-        let target = form.target_kind()?;
-        Some(if self.kinds.contains(target) {
-            Target::Loaded(target)
-        } else {
-            Target::Absent(target)
-        })
-    }
-
-    /// Every declared (kind, field) with a target, in (kind, field) order.
-    pub fn targets(&self) -> Vec<((&str, &str), Target<'_>)> {
-        let mut targets: Vec<_> = self
-            .forms
-            .iter()
-            .flat_map(|(kind, fields)| {
-                fields
-                    .keys()
-                    .map(move |field| (kind.as_str(), field.as_str()))
-            })
-            .filter_map(|(kind, field)| Some(((kind, field), self.target(kind, field)?)))
-            .collect();
-        targets.sort_by(|a, b| a.0.cmp(&b.0));
-        targets
-    }
-
     /// How `kind`'s field `field` reads: its declared form, an undeclared
     /// field of a kind that takes any field, or no form at all.
     pub fn reading(&self, kind: &str, field: &str) -> Reading<'_> {
@@ -595,28 +566,6 @@ impl FieldForms {
     /// The kinds that take any field (`open_fields`).
     pub fn member_kinds(&self) -> &BTreeSet<String> {
         &self.member_kinds
-    }
-}
-
-/// The kind a reference field's ids must name (ADR 0117).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Target<'f> {
-    /// A loaded extension declares the kind.
-    Loaded(&'f str),
-    /// No loaded extension declares the kind.
-    Absent(&'f str),
-}
-
-impl<'f> Target<'f> {
-    pub fn kind(&self) -> &'f str {
-        match self {
-            Self::Loaded(kind) | Self::Absent(kind) => kind,
-        }
-    }
-
-    /// Whether an entity of `kind` is one this target takes: the target's own kind, loaded or not.
-    pub fn admits(&self, kind: &str) -> bool {
-        self.kind() == kind
     }
 }
 

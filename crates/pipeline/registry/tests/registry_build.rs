@@ -5,7 +5,7 @@
 use specforge_test_macros::test as spec;
 
 use specforge_extension_sdk::prelude::*;
-use specforge_graph::{GraphInputs, Reading, Target};
+use specforge_graph::{GraphInputs, Reading};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::build_registries;
 
@@ -145,8 +145,12 @@ fn derived_graph_inputs_match_the_manifests() {
     );
     // `team` is declared by no loaded extension.
     assert_eq!(
-        inputs.field_forms.target("behavior", "owner"),
-        Some(Target::Absent("team"))
+        inputs
+            .field_forms
+            .target("behavior", "owner")
+            .unwrap()
+            .absent(),
+        ["team"]
     );
     assert_eq!(inputs.target_owners.get("team"), None, "nothing owns it");
     // A single reference is read as written; a reference list is a list.

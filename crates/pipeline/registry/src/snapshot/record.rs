@@ -75,11 +75,12 @@ pub(super) fn record(
     let mut seen = HashSet::new();
     let referenced: Vec<String> = entries
         .iter()
-        .flat_map(|entry| {
-            registries
-                .field_forms()
-                .reading(node.kind.raw.as_str(), entry.key.as_str())
-                .references(entry)
+        .flat_map(|top| {
+            let forms = registries.field_forms();
+            forms
+                .readings(node.kind.raw.as_str(), top)
+                .into_iter()
+                .flat_map(|(_, reading, entry)| reading.references(entry))
         })
         .filter(|reference| seen.insert(reference.id))
         .map(|reference| reference.id.to_string())
