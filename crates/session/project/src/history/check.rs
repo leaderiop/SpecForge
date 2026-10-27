@@ -11,12 +11,15 @@ use specforge_registry::RegistryBuild;
 
 use crate::baseline::{Baseline, BaselineEntity};
 
-/// The diagnostics of `graph` judged against `baseline` (already translated through the ledger's moves).
+/// The diagnostics of `graph` judged against `baseline` (already translated through the ledger's moves). `broken`
+/// names the sources that did not parse: what they lost or half read is not judged, and with any of them no entity
+/// is called removed (it may be in the file that did not parse).
 pub fn check(
     baseline: &Baseline,
     graph: &Graph,
     forms: &FieldForms,
     registries: &RegistryBuild,
+    broken: &[&str],
 ) -> Vec<Diagnostic> {
     let head = baseline.revision.short();
     let mut out = Vec::new();
@@ -25,6 +28,9 @@ pub fn check(
         let Some(before) = baseline.entities.get(path).filter(|b| b.kind == kind) else {
             continue;
         };
+        if broken.contains(&node.source_span.file.as_str()) {
+            continue;
+        }
         let appends = registries
             .kinds()
             .get(kind)
@@ -77,7 +83,7 @@ pub fn check(
             .kinds()
             .get(&before.kind)
             .is_some_and(|k| k.declared.append_only);
-        if appends && !kept {
+        if appends && !kept && broken.is_empty() {
             out.push(Diagnostic::new(
                 codes::E085,
                 format!(

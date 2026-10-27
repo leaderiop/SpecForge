@@ -589,3 +589,30 @@ fn only_a_reference_is_respelled_by_a_move_record() {
         assert!(computed::with_code(&found, code).is_empty(), "{found:?}");
     }
 }
+
+#[specforge_test(
+    behavior = "judge_field_history",
+    verify = "a file that does not parse is not judged against history"
+)]
+fn a_file_with_a_parse_error_is_not_judged_against_history() {
+    let deviation =
+        |id: &str, note: &str| format!("deviation {id} \"{id}\" {{\n  note \"{note}\"\n}}\n");
+    let head = at(&format!(
+        "{}{}",
+        deviation("DV1", "a"),
+        deviation("DV2", "b")
+    ));
+    // DV2 is half written: its block never closes
+    let broken = at(&format!(
+        "{}deviation DV2 \"DV2\" {{\n  note \"b\n",
+        deviation("DV1", "a")
+    ));
+    let found = judged(&head, &broken, None);
+    assert!(
+        found.iter().any(|d| d.code == "E001"),
+        "the file is broken: {found:?}"
+    );
+    for code in ["E084", "E085"] {
+        assert!(computed::with_code(&found, code).is_empty(), "{found:?}");
+    }
+}

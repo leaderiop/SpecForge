@@ -525,6 +525,11 @@ impl Environment {
                     build.graph(),
                     self.registries.field_forms(),
                     &self.registries,
+                    &build
+                        .files()
+                        .filter(|(_, file)| !file.errors.is_empty())
+                        .map(|(key, _)| key)
+                        .collect::<Vec<_>>(),
                 ));
             }
             _ => {}
