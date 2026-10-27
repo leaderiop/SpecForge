@@ -1205,13 +1205,13 @@ E087: Secret in specforge.json
 
 A key under an extension's `settings` in `specforge.json` is a secret the
 extension declares, or is named like a credential (its last word is `token`,
-`secret`, `password`, `credentials` or follows `api`, `private`, `secret` or
-`access` as `key`; words bounded by `_` or `-`, so `max_prompt_tokens` and
+`secret`, `password` or `credentials`, or `key` after `api`, `private`, `secret`
+or `access`; words bounded by `_` or `-`, so `max_prompt_tokens` and
 `token_budget` are not one) and is no declared setting (ADR 0288). The second is
-also found under an extension that is not enabled or did not load. A secret
-is read from its environment variable only: SpecForge never reads it from a file
-a repository holds, and no message or output repeats a written value. The value
-is ignored. Remove it from `specforge.json`, set the variable the message names,
+also found under an extension that is not enabled or did not load. A secret is
+read from its environment variable only: SpecForge never reads it from a file a
+repository holds, and no message or output repeats a written value. The value is
+ignored. Remove it from `specforge.json`, set the variable the message names,
 and rotate the secret if it was committed. `specforge settings` shows whether
 each declared secret is set.
 

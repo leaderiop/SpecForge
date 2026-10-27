@@ -67,7 +67,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
   verify unit "surfaces declares the product commands"
   verify unit "ext_short is product"
   verify unit "fields declares shared tags field"
-  verify unit "the six lifecycle kinds declare status as their lifecycle field"
+  verify unit "the six lifecycle kinds declare a status field and no lifecycle field"
   verify unit "grammar_contributions is empty"
   verify unit "body_parser_contributions is empty"
   verify unit "collector_contributions is empty"

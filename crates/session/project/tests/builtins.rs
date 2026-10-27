@@ -475,22 +475,26 @@ fn formal_declares_four_analyze_passes_and_one_check_pass() {
 
 #[specforge_test_macros::test(
     behavior = "pe_declare_manifest",
-    verify = "the six lifecycle kinds declare status as their lifecycle field"
+    verify = "the six lifecycle kinds declare a status field and no lifecycle field"
 )]
 fn product_lifecycle_kinds_declare_status() {
     let manifest = load_via_protocol("@specforge/product");
-    let lifecycle: Vec<(&str, Option<&str>)> = manifest
-        .entities
-        .iter()
-        .map(|k| (keyword(k), k.lifecycle_field.as_deref()))
-        .collect();
-    for (kind, field) in lifecycle {
-        let expected = matches!(
-            kind,
+    for kind in &manifest.entities {
+        let has_status = kind.fields.iter().any(|f| f.name == "status");
+        let lifecycle = matches!(
+            keyword(kind),
             "feature" | "milestone" | "deliverable" | "persona" | "channel" | "release"
-        )
-        .then_some("status");
-        assert_eq!(field, expected, "{kind}'s lifecycle field");
+        );
+        if lifecycle {
+            assert!(has_status, "{}'s status field", keyword(kind));
+        }
+        // The build cache that read it is gone (ADR 0287): no kind sets it.
+        assert_eq!(
+            kind.lifecycle_field,
+            None,
+            "{}'s lifecycle field",
+            keyword(kind)
+        );
     }
 }
 
