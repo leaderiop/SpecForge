@@ -19,6 +19,7 @@ mod format_config_links;
 mod format_forms;
 mod hard_links;
 mod held_spelling;
+mod history;
 mod infer_gaps;
 mod infer_session_arguments;
 mod infer_sources;

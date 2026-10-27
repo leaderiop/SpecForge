@@ -672,3 +672,23 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "a rebuild that passes the check is reported as passed"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 }
+
+behavior watch_baseline_refs "Watch the Baseline's Refs" {
+  category command
+  ports    [FileSystem]
+  requires {
+    history_declared "something declares history, so the session reads a baseline"
+  }
+  ensures {
+    commit_rechecks    "a commit, checkout, reset or pull re-checks watch and the language server"
+    refs_not_recursive "a ref outside the root is watched through its directory's own entries, never recursively"
+  }
+  contract """
+    The refs that name the baseline (HEAD, the loose ref, packed-refs, or reftable's tables.list) are check inputs of
+    their own class (ADR 0287). A change to one makes the session resolve the baseline again.
+  """
+  produces []
+  verify unit "a commit re-checks the session"
+  verify unit "refs outside the root are watched by their directories own entries"
+  verify unit "the LSP republishes after a commit"
+}

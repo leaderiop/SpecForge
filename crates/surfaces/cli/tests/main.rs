@@ -40,6 +40,7 @@ mod format;
 mod format_corpus;
 mod format_paths;
 mod hard_links;
+mod harness;
 mod history;
 mod hostile_files;
 mod init;

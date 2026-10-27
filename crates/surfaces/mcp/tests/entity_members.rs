@@ -192,3 +192,13 @@ fn mcp_inspect_shows_blocks_and_edits_them() {
     let diff = reply["diff"].as_str().unwrap_or_default();
     assert!(diff.contains("+    { phase 03 provides \"y\" }"), "{reply}");
 }
+
+#[specforge_test(
+    behavior = "compute_field_values",
+    verify = "MCP inspect shows a computed value"
+)]
+#[ignore = "K4 T5"]
+fn mcp_inspect_shows_a_computed_value() {
+    // specforge.inspect fields carry status and computed
+    unimplemented!("K4 T5: specforge.inspect fields carry status and computed");
+}

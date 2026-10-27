@@ -612,3 +612,15 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
         w150.message
     );
 }
+
+#[specforge_test(
+    behavior = "run_check_phase_passes",
+    verify = "previous is the baseline of the kinds a pass names"
+)]
+#[ignore = "K4 T9"]
+fn previous_is_the_baseline_of_the_declared_kinds() {
+    // previous.revision is HEAD sha, entities only the named kinds with the computed status, ids translated
+    unimplemented!(
+        "K4 T9: previous.revision is HEAD sha, entities only the named kinds with the computed status, ids translated"
+    );
+}

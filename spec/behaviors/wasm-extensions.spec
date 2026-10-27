@@ -255,6 +255,36 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a pass entity carries whether the host found it exempt"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
   verify unit "a pass receives a typed block and a block list structured beside their text"
+  verify unit "previous is the baseline of the kinds a pass names"
+  verify unit "check --cache is a usage error and a specforge-cache.json is not read"
+}
+
+behavior compute_field_values "Compute Field Values" {
+  features   [contribution_based_extensions]
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
+  ports      [WasmRuntime]
+  requires {
+    graph_built "the graph is built and its authored values are known"
+  }
+  ensures {
+    values_beside_the_graph "a compute pass's values join the snapshot before the rules and never the graph"
+    refused_is_w165         "a value the pass may not give is W165 and dropped"
+    shown_as_a_field        "every surface shows a computed value as a field and marks it computed"
+  }
+  contract   """
+    A pass declared with `phase: "compute"` names the fields it `computes` and answers `values` (ADR 0287). The
+    compiled project holds them beside the graph; rules, checks, query, MCP, the language server and exports read
+    them as fields, marked computed. A computed field is never required and never scaffolded.
+  """
+  produces   []
+  verify unit "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
+  verify unit "a value the pass may not give is W165 and dropped"
+  verify unit "a computed field or member is never required and never scaffolded"
+  verify unit "every surface shows a computed value as a field and marks it computed"
+  verify unit "hover marks a computed field and completion offers none"
+  verify unit "MCP inspect shows a computed value"
 }
 
 behavior write_build_cache "Write the Build Cache" {

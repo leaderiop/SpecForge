@@ -48,3 +48,31 @@ fn check_reports_the_same_inside_and_outside_a_repository() {
     assert_eq!(outside.code, inside.code);
     assert_eq!(outside.stdout, inside.stdout);
 }
+
+#[specforge_test_macros::test(
+    behavior = "run_check_phase_passes",
+    verify = "check --cache is a usage error and a specforge-cache.json is not read"
+)]
+#[ignore = "K4 T10"]
+fn check_cache_is_gone() {
+    let dir = fixture();
+    dir.write("specforge-cache.json", "not json");
+    Cli::on(&dir).run(&["check", "--cache"]).exits(2);
+    let plain = Cli::on(&dir).run(&["check", "--format", "json"]);
+    assert!(!plain.stdout.contains("W144"), "{}", plain.stdout);
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_git_baseline",
+    verify = "check since judges history against the merge-base and refuses an unknown revision"
+)]
+#[ignore = "K4 T11"]
+fn check_since_judges_against_the_merge_base() {
+    let repo = fixture();
+    git_repo(repo.root());
+    // The E084 half needs an extension that declares an immutable field: MCP's test drives it in process
+    // (`validate_since_judges_per_request`). Here, a revision git does not know is refused.
+    let run = Cli::on(&repo).run(&["check", "--since", "nosuch", "--format", "json"]);
+    assert_eq!(run.code, 2, "{}{}", run.stdout, run.stderr);
+    assert!(run.stdout.contains("unknown_revision") || run.stderr.contains("unknown_revision"));
+}
