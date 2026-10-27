@@ -150,6 +150,16 @@ impl CompiledProject {
     /// Compare it with [`Self::checked_diagnostics`], not [`Self::diagnostics`]: after an update that skipped the
     /// checks, only the former has them.
     pub fn edited(&self, texts: &BTreeMap<String, String>) -> CompiledProject {
+        self.edited_with(texts, None)
+    }
+
+    /// [`Self::edited`] with the harness ledger (ADR 0287) as `ledger`, the bytes a plan will write: the checks read
+    /// them for `specforge-harness`, so a rename's re-keyed lines are seen when the plan is judged.
+    pub fn edited_with(
+        &self,
+        texts: &BTreeMap<String, String>,
+        ledger: Option<&[u8]>,
+    ) -> CompiledProject {
         let mut keys: BTreeSet<String> =
             self.sources.keys().into_iter().map(String::from).collect();
         let mut planned: BTreeMap<String, &str> = BTreeMap::new();
@@ -168,8 +178,60 @@ impl CompiledProject {
             |key| self.sources.as_read(key),
         );
         project.baseline = self.baseline.clone();
-        project.check(&mut Unrecorded::plain());
+        match ledger {
+            Some(bytes) => {
+                let overlay = crate::harness::Overlay::new(self.env.root(), bytes);
+                project.check(&mut Unrecorded::checking(&overlay));
+            }
+            None => project.check(&mut Unrecorded::plain()),
+        }
         project
+    }
+
+    /// The bytes of `specforge-harness` on disk now; empty when there is none.
+    pub fn ledger_bytes(&self) -> Vec<u8> {
+        use specforge_registry::Disk;
+        specforge_registry::PlainDisk
+            .read(&self.env.root().join(crate::harness::LEDGER_FILE))
+            .unwrap_or_default()
+    }
+
+    /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's
+    /// bytes, empty when it has none): [`Ledger::rewritten`](crate::harness::Ledger::rewritten) over the two graphs.
+    /// `None` when no extension declares a harness field. With `keep_unseen`, a line of `current` for an entity
+    /// neither project holds is kept (it is another writer's).
+    pub fn rewritten_ledger<'a>(
+        &'a self,
+        after: &'a CompiledProject,
+        current: &[u8],
+        change: &crate::harness::LedgerChange,
+        keep_unseen: bool,
+    ) -> Option<Vec<u8>> {
+        use crate::harness::{Harness, Ledger, View};
+        let harness = Harness::of(self.env.registries());
+        if harness.is_empty() {
+            return None;
+        }
+        let forms = self.env.registries().field_forms();
+        let view = |project: &'a CompiledProject, keeps_gone| View {
+            graph: project.graph(),
+            forms,
+            harness: &harness,
+            keeps_gone,
+        };
+        let errors = after.parsed().any(|(_, file)| !file.errors.is_empty());
+        let ledger = Ledger::parse(&String::from_utf8_lossy(current)).ledger;
+        let mut rewritten = ledger.rewritten(&view(self, false), &view(after, errors), change);
+        if keep_unseen {
+            // The ledger was rewritten by another writer since this change was planned: its lines for entities
+            // neither project holds are that writer's, and stay.
+            for line in ledger.lines().filter(|l| {
+                self.graph().node(&l.path).is_none() && after.graph().node(&l.path).is_none()
+            }) {
+                rewritten.insert(line.clone());
+            }
+        }
+        Some(rewritten.canonical().into_bytes())
     }
 
     /// This project judged against the merge-base of `revision` and `HEAD` instead of `HEAD` (`check --since`):

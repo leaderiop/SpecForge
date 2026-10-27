@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use serde_json::json;
 use specforge_ops::authoring::edit::{self, Input};
+use specforge_ops::authoring::rename;
+use specforge_ops::read::navigate::Navigator;
 use specforge_ops::view::ProjectView;
+use specforge_package::Sha256;
 use specforge_project::testing::{
     FakeHistory, GSD_EXTENSION, TestProject, gsd_history_runtime, history,
 };
@@ -51,26 +54,101 @@ fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
     assert!(refused(&committed, "v1.0/03/D", "origin", "project"));
 }
 
+/// The ledger line that records `value` (JSON text) for `field` of `path`.
+fn line(path: &str, field: &str, value: &str) -> String {
+    let bytes = format!("{path}\0{field}\0{value}");
+    format!("{path} {field} {}\n", Sha256::of(bytes.as_bytes()))
+}
+
+fn rename(project: &TestProject, old: &str, new: &str) -> Result<(), String> {
+    let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+    let nav = Navigator::new(ProjectView::of(&compiled));
+    rename::run(&nav, old, new, false, specforge_ops::testing::caller())
+        .map(|_| ())
+        .map_err(|r| r.error.message)
+}
+
+fn e083(project: &TestProject) -> usize {
+    let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+    compiled
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "E083")
+        .count()
+}
+
 #[specforge_test(
     behavior = "record_harness_values",
     verify = "a rename records its move and re-keys its lines"
 )]
-#[ignore = "K4 T13"]
 fn a_rename_records_its_move_and_rekeys_its_lines() {
-    // rename v1.0/03 05: ledger gains v1.0/05 moved:v1.0/03, U1 result re-keyed, no E083
-    unimplemented!(
-        "K4 T13: rename v1.0/03 05: ledger gains v1.0/05 moved:v1.0/03, U1 result re-keyed, no E083"
+    let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
+    let header = "# specforge-harness 1\n";
+    project.write(
+        "specforge-harness",
+        format!("{header}{}", line("v1.0/03/U1", "result", "\"pass\"")),
     );
+    assert_eq!(e083(&project), 0);
+    rename(&project, "v1.0/03", "05").unwrap();
+    let ledger = std::fs::read_to_string(project.root().join("specforge-harness")).unwrap();
+    assert!(ledger.contains("v1.0/05 moved:v1.0/03 "), "{ledger}");
+    assert!(ledger.contains("v1.0/05/U1 result "), "{ledger}");
+    assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
+    assert_eq!(e083(&project), 0, "{ledger}");
 }
 
 #[specforge_test(
     behavior = "record_harness_values",
     verify = "two writers both land their lines"
 )]
-#[ignore = "K4 T13"]
 fn two_writers_both_land_their_lines() {
-    // two threads apply plans on disjoint files, both ledger lines present
-    unimplemented!("K4 T13: two threads apply plans on disjoint files, both ledger lines present");
+    let uat =
+        |phase: &str| format!("uat_test U{phase} \"U\" {{\n  phase {phase}\n  result pass\n}}\n");
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .installing_enabled()
+        .file("m.spec", "milestone v1.0 \"One\" {}\n")
+        .file(
+            "a.spec",
+            format!(
+                "phase 03 \"Three\" {{\n  milestone v1.0\n}}\n\n{}",
+                uat("03")
+            ),
+        )
+        .file(
+            "b.spec",
+            format!(
+                "phase 04 \"Four\" {{\n  milestone v1.0\n}}\n\n{}",
+                uat("04")
+            ),
+        );
+    let header = "# specforge-harness 1\n";
+    project.write(
+        "specforge-harness",
+        format!(
+            "{header}{}{}",
+            line("v1.0/03/U03", "result", "\"pass\""),
+            line("v1.0/04/U04", "result", "\"pass\"")
+        ),
+    );
+    let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+    let nav = Navigator::new(ProjectView::of(&compiled));
+    let first = rename::plan(&nav, "v1.0/03", "05").unwrap();
+    let second = rename::plan(&nav, "v1.0/04", "06").unwrap();
+    std::thread::scope(|scope| {
+        for plan in [&first, &second] {
+            scope.spawn(|| {
+                plan.change()
+                    .apply(specforge_ops::testing::caller())
+                    .unwrap()
+            });
+        }
+    });
+    let ledger = std::fs::read_to_string(project.root().join("specforge-harness")).unwrap();
+    assert!(ledger.contains("v1.0/05/U03 result "), "{ledger}");
+    assert!(ledger.contains("v1.0/06/U04 result "), "{ledger}");
+    assert_eq!(e083(&project), 0, "{ledger}");
 }
 
 #[specforge_test(

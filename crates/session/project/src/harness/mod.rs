@@ -5,6 +5,7 @@
 
 pub mod check;
 pub mod format;
+pub mod io;
 pub mod rewrite;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,6 +17,7 @@ use specforge_registry::RegistryBuild;
 
 pub use check::check;
 pub use format::{HEADER, LEDGER_FILE, Ledger, Line, Parsed, digest};
+pub use io::{Overlay, lock};
 pub use rewrite::{LedgerChange, View};
 
 /// The harness fields of the loaded extensions, by kind: the fields whose values the ledger records.

@@ -124,21 +124,32 @@ pub(crate) trait Reads {
 /// checks read the plain file system, as the ledger's do (ADR 0145 D3).
 pub(crate) struct Unrecorded<'d> {
     sources: &'d dyn Disk,
+    /// The disk the checks read: the plain file system, or a plan's overlay of it.
+    checks: &'d dyn Disk,
 }
 
 impl<'d> Unrecorded<'d> {
     /// Reads each source through `sources`.
     pub(crate) fn through(sources: &'d dyn Disk) -> Self {
-        Unrecorded { sources }
+        Unrecorded {
+            sources,
+            checks: &PlainDisk,
+        }
+    }
+
+    /// Reads every source plain and the checks through `checks`.
+    pub(crate) fn checking(checks: &'d dyn Disk) -> Self {
+        Unrecorded {
+            sources: &PlainDisk,
+            checks,
+        }
     }
 }
 
 impl Unrecorded<'static> {
     /// Reads every step from the plain file system (the CLI's compile; a step that reads no source).
     pub(crate) fn plain() -> Self {
-        Unrecorded {
-            sources: &PlainDisk,
-        }
+        Unrecorded::through(&PlainDisk)
     }
 }
 
@@ -160,7 +171,7 @@ impl Reads for Unrecorded<'_> {
     }
 
     fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
-        check(&PlainDisk);
+        check(self.checks);
     }
 }
 
