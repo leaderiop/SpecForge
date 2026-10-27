@@ -13,7 +13,7 @@ use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
 use specforge_project::testing::{
-    CORE, GSD_WRITES_EXTENSIONS, GsdWrites, OTHER, TestProject, UI, gsd_writes_answer,
+    CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, TestProject, UI, gsd_writes_answer,
 };
 use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_test_macros::test as specforge_test;
@@ -513,16 +513,46 @@ fn a_malformed_plan_is_invalid_plan() {
 )]
 fn a_plan_a_guard_pass_refuses_writes_nothing() {
     let p = project();
-    let finding = json!([{"code": "E700", "severity": "Error", "message": "phase 03 is not complete", "entity": "v1.0/03"}]);
-    let ops = json!([{"op": "retitle", "entity": "v1.0/03/U1", "title": "x",
-        "revision": revision(&p, "03-01.spec")}]);
+    let ops = json!([set(
+        "v1.0/03",
+        "goal",
+        json!(GUARDED),
+        &revision(&p, "m.spec")
+    )]);
     let runtime = Arc::new(
         GsdWrites::new()
-            .guarding(finding)
+            .guarding_a_goal()
             .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
             .runtime(),
     );
     let ran = run_command(&p, &compiled(&p, &runtime), &runtime, "core", "record");
     assert_eq!(ran.refusal.map(|(code, _)| code).as_deref(), Some("E080"));
     assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
+}
+
+#[specforge_test(
+    behavior = "run_guard_passes",
+    verify = "a guard that already objects to the project does not refuse the write that fixes it"
+)]
+fn a_guard_that_already_objects_does_not_refuse_the_write_that_fixes_it() {
+    // The project already holds the entity the guard objects to; renaming another entity changes nothing about it.
+    let p = project().file(
+        "g.spec",
+        format!("phase 04 \"Four\" {{\n  milestone v1.0\n  goal \"{GUARDED}\"\n}}\n"),
+    );
+    let ops = json!([set(
+        "v1.0/03",
+        "goal",
+        json!("fine"),
+        &revision(&p, "m.spec")
+    )]);
+    let runtime = Arc::new(
+        GsdWrites::new()
+            .guarding_a_goal()
+            .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
+            .runtime(),
+    );
+    let ran = run_command(&p, &compiled(&p, &runtime), &runtime, "core", "record");
+    assert_eq!(ran.refusal, None);
+    assert_eq!(ran.wrote, ["m.spec"]);
 }

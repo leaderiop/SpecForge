@@ -1018,4 +1018,5 @@ behavior run_guard_passes "Run Guard Passes" {
   """
   verify unit "a guard pass refuses a write and is silent on compile"
   verify unit "a plan a guard pass finds an error in is refused with E080 and nothing is written"
+  verify unit "a guard that already objects to the project does not refuse the write that fixes it"
 }

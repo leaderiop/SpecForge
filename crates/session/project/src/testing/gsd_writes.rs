@@ -56,6 +56,26 @@ fn guard_wire() -> Value {
     json!({"name": "phase_complete", "phase": "guard", "baseline": ["phase"]})
 }
 
+/// The goal [`GsdWrites::guarding_a_goal`]'s guard objects to.
+pub const GUARDED: &str = "GUARDED";
+
+fn marked_guard(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    if export != "__pass_phase_complete" {
+        return None;
+    }
+    let quoted = format!("\"{GUARDED}\"");
+    let held = input
+        .windows(quoted.len())
+        .any(|window| window == quoted.as_bytes());
+    let diagnostics = if held {
+        json!([{"code": "E700", "severity": "Error", "message": "a phase is not complete", "entity": "v1.0/03"}])
+    } else {
+        json!([])
+    };
+    let output = json!({"diagnostics": diagnostics, "summary": {}, "values": []});
+    Some(Ok(output.to_string().into_bytes()))
+}
+
 /// The revision of a file holding `bytes`, as a plan names it: `sha256:` and the digest.
 pub fn revision_of(bytes: &[u8]) -> String {
     format!("sha256:{}", specforge_package::Sha256::of(bytes))
@@ -74,6 +94,8 @@ pub fn gsd_writes_answer(exit_code: i32, ops: Value) -> WasmCallResult {
 /// The three extensions, served in process.
 pub struct GsdWrites {
     guard: bool,
+    /// The guard answers by what the project holds ([`GUARDED`]), not one fixed answer.
+    marked: bool,
     answers: Vec<(String, String, WasmCallResult)>,
 }
 
@@ -81,6 +103,7 @@ impl GsdWrites {
     pub fn new() -> Self {
         GsdWrites {
             guard: false,
+            marked: false,
             answers: Vec::new(),
         }
     }
@@ -103,22 +126,32 @@ impl GsdWrites {
         )
     }
 
+    /// [`CORE`] declares the guard pass `phase_complete`, which reports E700 for as long as the project holds a
+    /// phase whose `goal` is [`GUARDED`]: a rule about the state a write leaves, which a project can already violate.
+    pub fn guarding_a_goal(mut self) -> Self {
+        self.guard = true;
+        self.marked = true;
+        self
+    }
+
     /// The runtime serving the three extensions and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
         let guard = self.guard;
-        let mut runtime = InProcessRuntime::new()
-            .with(move || core(guard))
-            .with(ui)
-            .with(other)
-            .answer_raw(
-                CORE,
-                "__pass_verify_status",
-                WasmCallResult::Ok(
-                    json!({"diagnostics": [], "summary": {}, "values": []})
-                        .to_string()
-                        .into_bytes(),
-                ),
-            );
+        let mut runtime = InProcessRuntime::new();
+        runtime = if self.marked {
+            runtime.with_handler(move || core(guard), marked_guard)
+        } else {
+            runtime.with(move || core(guard))
+        };
+        let mut runtime = runtime.with(ui).with(other).answer_raw(
+            CORE,
+            "__pass_verify_status",
+            WasmCallResult::Ok(
+                json!({"diagnostics": [], "summary": {}, "values": []})
+                    .to_string()
+                    .into_bytes(),
+            ),
+        );
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);
         }

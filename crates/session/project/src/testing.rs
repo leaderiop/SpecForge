@@ -34,7 +34,7 @@ pub use gsd::{
     gsd_member_history_runtime,
 };
 pub use gsd_writes::{
-    CORE, GSD_WRITES_EXTENSIONS, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
+    CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
     revision_of,
 };
 pub use history::FakeHistory;
