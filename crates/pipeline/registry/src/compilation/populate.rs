@@ -249,7 +249,8 @@ fn register_entity_kinds(
             testable: kind.testable,
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.verify_kinds.clone(),
-            lifecycle_field: lifecycle_field(kind, declaration, diagnostics),
+            // Read and ignored since ADR 0287; the build cache that used it goes with ticket 10.
+            lifecycle_field: kind.lifecycle_field.clone(),
             scoped_by: None,
             declared: kind.clone(),
         };
@@ -363,38 +364,6 @@ fn register_single_field(
             ),
         )),
     }
-}
-
-/// The field `kind` declares as its lifecycle field, when it declares one
-/// among its own or the extension's shared fields; a name it does not
-/// declare is refused (W021).
-fn lifecycle_field(
-    kind: &EntityKindDescriptor,
-    declaration: &ExtensionDeclaration,
-    diagnostics: &mut Vec<Reported>,
-) -> Option<String> {
-    let name = kind.lifecycle_field.as_ref()?;
-    let declared = kind
-        .fields
-        .iter()
-        .chain(&declaration.shared_fields)
-        .any(|f| &f.name == name);
-    if declared {
-        return Some(name.clone());
-    }
-    diagnostics.push(Reported::new(
-        BuildPart::Registries,
-        Diagnostic::new(
-            codes::W021,
-            format!(
-                "extension '{}': kind '{}' declares lifecycle_field '{}', which is not one of its fields",
-                declaration.name(),
-                keyword(kind),
-                name
-            ),
-        ),
-    ));
-    None
 }
 
 /// Collect a declaration's explicit edge types into `declared` (the

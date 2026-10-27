@@ -397,7 +397,6 @@ behavior registry_build_kinds "Registry Build Registers Kinds" {
   verify unit "a kind's declared flags and presentation reach its registry entry"
   verify unit "a kind is testable only when its declaration says so"
   verify unit "a kind's verify kinds are exactly the ones it declares"
-  verify unit "a kind's lifecycle_field must name a field it declares"
   verify unit "a keyword a later extension declares again is E026 and the first in load order keeps it"
   verify unit "a testable kind without verify support is W017"
   verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"

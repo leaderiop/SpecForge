@@ -75,6 +75,18 @@ pub struct FieldDescriptor {
     /// `derived_from`, so an unknown base costs this field its base (W021).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_base: Option<String>,
+    /// Who writes the field (protocol 1.8.0, ADR 0287): absent, its author; `computed`, a compute pass of the
+    /// declaring extension, never a `.spec` file; `harness`, only a host write a command or collector plan
+    /// makes, recorded in `specforge-harness`. Kept a string, as `proof_role`, so an unknown writer costs this
+    /// field a diagnostic (W021), not the describe payload ([`FieldWriter`](crate::FieldWriter)).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writer: Option<String>,
+    /// A value set at the baseline never changes (ADR 0287): an immutable field unset there may be set once.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub immutable: bool,
+    /// The baseline list is a prefix of the current one (ADR 0287), items compared as resolved values.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub append_only: bool,
 }
 
 impl FieldDescriptor {

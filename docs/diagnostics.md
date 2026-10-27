@@ -2394,22 +2394,27 @@ extensions are loaded. Declare the missing kind or edge label, or add the
 appropriate peer dependency (a validation rule on another extension's kind that
 this one works without names that extension as its `target_extension` instead).
 The same code reports a declaration the registry refuses: a `derived_from` that
-derives nothing, a `proof_role` other than `bound` or `claim`, or a
-`lifecycle_field` that is not one of the kind's fields, a `scoped_by` that is
-not one of the kind's single reference fields with a target kind, targets a kind
-no extension loads or the kind itself, or closes a scope cycle (the kind is then
-unscoped), an `enum` field that declares no values, or a `default_value` an enum
-field does not take. A field that writes a declared edge type from a kind
-outside its declared `source_kind`, or to a kind outside its declared
-`target_kind`, is W021 too, and its edges are of no edge type. So is a typed
-field the registry refuses and drops the attribute of: `members` on a type other
-than `block` or `block_list`, a `block_list` with none, a member named twice or
-not one identifier, a member that declares `derived_from`, `target_kinds`
-together with `target_kind`, on a type other than `reference` or
+derives nothing, a `proof_role` other than `bound` or `claim`, a `scoped_by`
+that is not one of the kind's single reference fields with a target kind,
+targets a kind no extension loads or the kind itself, or closes a scope cycle
+(the kind is then unscoped), an `enum` field that declares no values, or a
+`default_value` an enum field does not take. A field that writes a declared edge
+type from a kind outside its declared `source_kind`, or to a kind outside its
+declared `target_kind`, is W021 too, and its edges are of no edge type. So is a
+typed field the registry refuses and drops the attribute of: `members` on a type
+other than `block` or `block_list`, a `block_list` with none, a member named
+twice or not one identifier, a member that declares `derived_from`,
+`target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
 than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
 `spec` or `project`, or without `file_reference`; a `scoped_by` field with
-`target_kinds` scopes nothing.
+`target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
+`writer` other than `computed` or `harness`, `harness` on a member, a computed
+field that is also `required`, `immutable`, `append_only` or `derived_from`,
+`append_only` on a field that is not a list, a computed field no compute pass
+lists in `computes`, a `computes` entry that is not a computed field of the
+extension or that two passes list or whose pass is not in the `compute` phase,
+and a `baseline` naming a kind no loaded extension declares.
 
 Owner: core
 Level: warning

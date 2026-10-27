@@ -3,7 +3,6 @@
 //! nothing the host assumes.
 
 use specforge_common::{DiagnosticData, Severity};
-use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_test_macros::test as spec;
 
@@ -154,51 +153,6 @@ fn a_kinds_verify_kinds_are_exactly_the_declared_ones() {
             .is_empty(),
         "no verify kind is allowed unless declared"
     );
-}
-
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a kind's lifecycle_field must name a field it declares"
-)]
-fn a_lifecycle_field_must_name_a_field_the_kind_declares() {
-    let declared = declare("@test/ext", |c| {
-        c.shared_field("phase", |f| {
-            f.field_type(FieldType::String);
-        });
-        c.kind("Task", |k| {
-            k.keyword("task").lifecycle_field("stage");
-            k.field("stage", |f| {
-                f.field_type(FieldType::String);
-            });
-        });
-        c.kind("Epic", |k| {
-            k.keyword("epic").lifecycle_field("phase");
-        });
-        c.kind("Note", |k| {
-            k.keyword("note").lifecycle_field("status");
-        });
-        c.kind("Idea", |k| {
-            k.keyword("idea");
-        });
-    });
-    let build = build([declared]);
-
-    let lifecycle = |kind: &str| build.kinds().get(kind).unwrap().lifecycle_field.clone();
-    assert_eq!(lifecycle("task").as_deref(), Some("stage"));
-    // An extension-level shared field is one of the kind's fields.
-    assert_eq!(lifecycle("epic").as_deref(), Some("phase"));
-    assert_eq!(lifecycle("idea"), None);
-    // `note` declares no `status`: refused, and the kind still registers.
-    assert_eq!(lifecycle("note"), None);
-    let refused = coded(&build, "W021");
-    assert_eq!(refused.len(), 1, "{:?}", diagnostics(&build));
-    assert_eq!(refused[0].severity, Severity::Warning);
-    assert!(
-        refused[0].message.contains("lifecycle_field 'status'"),
-        "{}",
-        refused[0].message
-    );
-    assert_eq!(codes(&build), ["W021"]);
 }
 
 #[spec(

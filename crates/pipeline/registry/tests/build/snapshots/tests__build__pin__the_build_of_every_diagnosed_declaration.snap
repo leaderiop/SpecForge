@@ -42,11 +42,6 @@ expression: digest(&build)
     [
       "W021",
       "Warning",
-      "extension '@pin/software': kind 'note' declares lifecycle_field 'status', which is not one of its fields"
-    ],
-    [
-      "W021",
-      "Warning",
       "extension '@pin/software': field 'limit' on kind 'rule' declares proof_role 'assumed': expected 'bound' or 'claim'"
     ],
     [

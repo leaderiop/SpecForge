@@ -30,7 +30,6 @@ fn compute(name: &str, computes: Value) -> Value {
     behavior = "judge_field_history",
     verify = "a field declares its writer and history, and the registry refuses a contradiction with W021"
 )]
-#[ignore = "K4 T3"]
 fn a_field_declares_its_writer_and_history() {
     let good = build([wire(
         thing(json!([
@@ -68,7 +67,14 @@ fn a_field_declares_its_writer_and_history() {
     ] {
         let build = build([wire(
             thing(json!([field.clone()])),
-            json!([compute("give", json!(["thing.a"]))]),
+            json!([compute(
+                "give",
+                json!(if field["writer"] == "computed" {
+                    vec!["thing.a"]
+                } else {
+                    vec![]
+                })
+            )]),
         )]);
         assert_eq!(
             coded(&build, "W021").len(),
@@ -83,7 +89,6 @@ fn a_field_declares_its_writer_and_history() {
     behavior = "judge_field_history",
     verify = "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
 )]
-#[ignore = "K4 T3"]
 fn a_kind_and_a_pass_declare_history() {
     let kinds = json!([
         {"name": "log", "keyword": "log", "append_only": true},
@@ -123,7 +128,6 @@ fn a_kind_and_a_pass_declare_history() {
     behavior = "judge_field_history",
     verify = "lifecycle_field is read and ignored: a kind that sends it loads without W138"
 )]
-#[ignore = "K4 T3"]
 fn lifecycle_field_is_read_and_ignored() {
     let kinds = json!([{"name": "thing", "keyword": "thing", "lifecycle_field": "nosuch",
         "fields": [{"name": "status", "field_type": "string"}]}]);

@@ -547,3 +547,31 @@ fn a_1_10_guest_is_asked_for_codes() {
     .unwrap();
     assert!(asked_codes);
 }
+
+#[test]
+fn the_writer_and_history_keys_round_trip_and_stay_off_the_wire_when_unset() {
+    let wire = json!({
+        "name": "thing", "append_only": true,
+        "fields": [{"name": "s", "field_type": "string", "writer": "computed", "immutable": true,
+                    "append_only": true}],
+    });
+    let kind: EntityKindDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    assert!(kind.append_only);
+    assert_eq!(kind.fields[0].writer.as_deref(), Some("computed"));
+    assert_eq!(
+        serde_json::to_value(&kind).unwrap()["fields"][0]["writer"],
+        "computed"
+    );
+    let plain = serde_json::to_value(field("a")).unwrap();
+    for key in ["writer", "immutable", "append_only"] {
+        assert!(plain.get(key).is_none(), "{key}");
+    }
+    let pass: CompilerPassDescriptor = serde_json::from_value(
+        json!({"name": "p", "computes": ["thing.s"], "baseline": ["thing"]}),
+    )
+    .unwrap();
+    assert_eq!(
+        (pass.computes, pass.baseline),
+        (vec!["thing.s".into()], vec!["thing".into()])
+    );
+}

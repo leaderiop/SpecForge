@@ -34,6 +34,10 @@ use crate::{
 /// checks, and its diagnostics are the compile's.
 pub const CHECK_PHASE: &str = "check";
 
+/// The phase a pass declares to give computed field values (ADR 0287): the compiled project runs it before the
+/// rules, and the values it answers join the entity snapshot beside the graph.
+pub const COMPUTE_PHASE: &str = "compute";
+
 /// What a diagnostic of the registry build is about (CONTEXT "Setup part").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BuildPart {
@@ -99,6 +103,21 @@ impl DeclaredPass {
     /// than under `specforge analyze`.
     pub fn is_check_phase(&self) -> bool {
         self.pass.phase.as_deref() == Some(CHECK_PHASE)
+    }
+
+    /// Whether the pass runs before the rules and gives computed values ([`COMPUTE_PHASE`]).
+    pub fn is_compute_phase(&self) -> bool {
+        self.pass.phase.as_deref() == Some(COMPUTE_PHASE)
+    }
+
+    /// The computed fields the pass answers (`kind.field` or `kind.field.member`).
+    pub fn computes(&self) -> &[String] {
+        &self.pass.computes
+    }
+
+    /// The kinds whose baseline entities the pass receives as `previous`.
+    pub fn baseline(&self) -> &[String] {
+        &self.pass.baseline
     }
 
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
@@ -309,9 +328,16 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_check_phase())
     }
 
+    /// The passes that give computed values (`phase: "compute"`), in order: they run before the rules.
+    pub fn compute_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
+        self.passes.iter().filter(|p| p.is_compute_phase())
+    }
+
     /// The passes `specforge analyze` runs, in order.
     pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
-        self.passes.iter().filter(|p| !p.is_check_phase())
+        self.passes
+            .iter()
+            .filter(|p| !p.is_check_phase() && !p.is_compute_phase())
     }
 
     /// (name, version) of each loaded extension, in load order.
