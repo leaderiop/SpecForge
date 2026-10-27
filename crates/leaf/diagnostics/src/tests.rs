@@ -176,7 +176,7 @@ fn code_constants_are_their_catalog_entries() {
 
 /// C3: hand-written docs cite only catalogued codes. `docs/diagnostics.md`
 /// is generated from the catalog, and ADRs are dated records that quote
-/// the codes of their time; the third-party ranges are never catalogued.
+/// the codes of their time; an extension's local code (E901) is never in the static catalog.
 #[test]
 fn hand_written_docs_cite_only_catalogued_codes() {
     let docs = repo_root().join("docs");

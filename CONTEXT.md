@@ -1397,8 +1397,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   its reply (ADR 0022 D7, ADR 0057). The CLI, the LSP and the operations keep no event.
 - **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
   each code's title, owner, level and explanation. It generates `CATALOG`, which the explain operation
-  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document; in a project it
-  also answers the codes the loaded extensions' rules declare, ADR 0278),
+  (`specforge_ops::read::explain`: `specforge explain` and MCP `specforge.explain`, one document, over the
+  **code book**),
   diagnostics JSON titles, doctor and the LSP hover read and from which
   `docs/diagnostics.md` is generated, and a **code constant** for every core code.
 - **Code constant**: a core diagnostic code as a typed value, `specforge_diagnostics::codes::W112`
@@ -1407,16 +1407,22 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   compile. The host builds a diagnostic from one (`specforge_common::Diagnostic::new`, or
   `Diagnostic::graded` with the pass's severity), so its severity is the code's catalog level. Codes
   an extension reports cross the protocol as text and have no constant (`Diagnostic::from_extension`); they
-  are checked against the catalog where they enter the host (`check_extension_code`, W150).
+  are checked against the extension's own catalog where they enter the host (`Codebook::check`, W150).
 - **Diagnostic origin**: the extension that reported a diagnostic (`Diagnostic::origin`, JSON `origin`;
   a rule's declaring extension, a pass's extension; absent for the host's own). The catalog describes
-  a diagnostic (title, explanation, docs link: `CodeEntry::docs_href`) only for the host's own or for the code's owner
-  (`specforge_diagnostics::describes`), so an extension's finding with a code it may not use (W150) is
+  a diagnostic (title, explanation, docs link) only for the host's own or for the code's owner
+  (`Codebook::describes`), so an extension's finding with a code it may not use (W150) is
   kept but never presented as that code's owner's.
-- **Declared code**: a diagnostic code the catalog does not have that a loaded extension's validation rule
-  declares and the host takes from that extension (no W150): a third-party extension's own, E900–E998,
-  W900–W998, I900–I998. `specforge explain` and `specforge.explain` answer it in the project from those rules
-  (`specforge_ops::read::explain::declared`, ADR 0278), with the rule's description when it has one.
+- **Code namespace**: the prefix of a third-party extension's code, computed from its package name
+  (`@gsd/core` is `gsd`, `@gsd/security` is `gsd.security`, a local `lint` is `lint`; `specforge_diagnostics::code_namespace`).
+  A code prints as `<namespace>/<letter><3 digits>` (`gsd/W304`); `@specforge/*` builtins and core keep bare
+  codes. Two loaded extensions that share a namespace are E039.
+- **Code book**: every code the host can describe: the static catalog plus each loaded extension's own
+  `codes` catalog (`specforge_diagnostics::Codebook`, built by the registry as `RegistryBuild::codes()`).
+  It checks a code an extension reports (`check`: listed in the extension's catalog, at the level its
+  letter states, else W150) and describes one for every surface (`describes`: title, owner, level,
+  explanation, optional docs URL). An extension lists its codes with `c.code` (the `codes` category,
+  protocol 1.7.0); `specforge explain acme.lint/W101` answers one (ADR 0286).
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named, the declaration an E002, W060, E076, E081 or I005 is about). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's

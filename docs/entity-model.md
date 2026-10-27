@@ -207,8 +207,10 @@ the quick reference name.
 Each rule belongs to the extension that declares it and runs only when that extension is loaded; core adds the
 structural checks every kind gets (references resolve, ids are unique, required fields are present, values have
 their declared types, blocks have titles). Every code, its meaning and its owner (`core` or the emitting
-extension) is in [diagnostics.md](diagnostics.md), generated from the `specforge explain` catalog. Codes
-`E900`–`E998`, `W900`–`W998` and `I900`–`I998` are reserved for third-party extensions.
+extension) is in [diagnostics.md](diagnostics.md), generated from the `specforge explain` catalog. A
+third-party extension's code is its namespace and a code it lists in its own `codes` catalog
+(`example.marketing/E903`); `specforge explain example.marketing/E903` answers it in a project that loads the
+extension.
 
 ## What belongs in the graph
 

@@ -36,13 +36,14 @@ without anyone searching a slide deck.
 
 | Code | Level | Catches |
 |---|---|---|
-| E901 | error | A campaign that targets no audience: money spent on nobody |
-| E902 | error | A message that cites no brand rule: copy that skipped the brand check |
-| E903 | error | A campaign that ends before it starts: a calendar typo |
-| W901 | warning | A brand rule no message obeys: a rule nobody checks against |
+| example.marketing/E901 | error | A campaign that targets no audience: money spent on nobody |
+| example.marketing/E902 | error | A message that cites no brand rule: copy that skipped the brand check |
+| example.marketing/E903 | error | A campaign that ends before it starts: a calendar typo |
+| example.marketing/W901 | warning | A brand rule no message obeys: a rule nobody checks against |
 
-These codes are this extension's own (third-party extensions number theirs E900 to E998,
-W900 to W998); `specforge explain E903` run in this folder prints what the extension says of each.
+These codes are this extension's own: its namespace, `example.marketing`, and the codes it lists in its
+catalog. `specforge explain example.marketing/E903` run in this folder prints what the extension says of
+each; the bare `E903` is refused, with the full form as a hint.
 
 The plan in `spec/` passes all of them:
 
@@ -71,7 +72,7 @@ message teaser "Something big is coming" {
 What `specforge check` says:
 
 ```
-[E901] Error: campaign 'summer_teaser' targets no audience
+[example.marketing/E901] Error: campaign 'summer_teaser' targets no audience
    ╭─[ spec/oops.spec:3:1 ]
    │
  3 │ ╭─▶ campaign summer_teaser "Summer teaser" {
@@ -81,7 +82,7 @@ What `specforge check` says:
    │ ╰───────
 ───╯
 
-[E902] Error: message 'teaser' cites no brand rule
+[example.marketing/E902] Error: message 'teaser' cites no brand rule
     ╭─[ spec/oops.spec:11:1 ]
     │
  11 │ ╭─▶ message teaser "Something big is coming" {
@@ -91,7 +92,7 @@ What `specforge check` says:
     │ ╰───────
 ────╯
 
-[E903] Error: campaign 'summer_teaser' ends (2027-06-01) before it starts
+[example.marketing/E903] Error: campaign 'summer_teaser' ends (2027-06-01) before it starts
    ╭─[ spec/oops.spec:3:1 ]
    │
  3 │ ╭─▶ campaign summer_teaser "Summer teaser" {
@@ -101,9 +102,9 @@ What `specforge check` says:
    │ ╰───────
 ───╯
 3 errors, 0 warnings, 0 infos
-  E901 (1)
-  E902 (1)
-  E903 (1)
+  example.marketing/E901 (1)
+  example.marketing/E902 (1)
+  example.marketing/E903 (1)
 ```
 
 ### The rules hold for every editor, people and agents alike
@@ -114,7 +115,7 @@ campaign's end date before its start:
 ```
 $ specforge set customer_upgrade ends 2027-02-01
 error[E080]: the edit would leave the project with 1 error it does not have; nothing was written
-  error[E903]: campaign 'customer_upgrade' ends (2027-02-01) before it starts
+  error[example.marketing/E903]: campaign 'customer_upgrade' ends (2027-02-01) before it starts
 ```
 
 ### How an AI agent plans a campaign over MCP
@@ -150,6 +151,7 @@ extension SDK ([docs/extension-sdk.md](../../docs/extension-sdk.md)). It was sca
   `starts`/`ends`, a `Vocabulary` for `channel`, `FieldType::ReferenceList` for links).
 - **Edges**: a reference field names its edge (`.edge("CampaignTargetsAudience")`), and
   `c.edge(..)` declares each one with its source and target kinds.
+- **Codes**: `c.code(..)` lists each code the rules report, with its title and explanation.
 - **Rules**: E901, E902 and W901 are declarative (`CheckKind::NoOutgoingEdges` and
   `NoIncomingEdges` on one edge type). E903 is a custom rule: `CheckKind::Custom` with a
   `validate` function that compares the two dates.
