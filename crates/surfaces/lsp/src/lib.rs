@@ -8,6 +8,7 @@ pub mod backend;
 mod capabilities;
 pub mod changes;
 pub mod completion;
+pub mod config_document;
 mod document;
 pub mod editor;
 pub mod files;

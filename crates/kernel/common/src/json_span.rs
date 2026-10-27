@@ -161,6 +161,11 @@ impl Scan<'_> {
         }
         loop {
             self.skip_space();
+            // A comma before the closing brace is not JSON, but it is what an editor holds while a member is
+            // being typed: the object still ends there.
+            if !members.is_empty() && self.eat(b'}').is_some() {
+                return Some(());
+            }
             let key_start = self.at;
             let key = self.string()?;
             let key_range = key_start..self.at;
@@ -214,6 +219,9 @@ impl Scan<'_> {
         let mut index = 0usize;
         loop {
             self.skip_space();
+            if index > 0 && self.eat(b']').is_some() {
+                return Some(());
+            }
             let entry = self.entries.len();
             path.push(index.to_string());
             self.entries.push(Located {

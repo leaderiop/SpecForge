@@ -118,7 +118,11 @@ export async function startClient(
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: "file", language: "specforge" }],
+    // The project's specforge.json too: the server completes, hovers and checks its `settings` (ADR 0288).
+    documentSelector: [
+      { scheme: "file", language: "specforge" },
+      { scheme: "file", pattern: "**/specforge.json" },
+    ],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/*.spec"),
     },
