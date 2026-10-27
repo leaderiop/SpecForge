@@ -125,6 +125,15 @@ impl Assembled {
         ]))
     }
 
+    /// A project loading the settings tests' extensions (`@t/s` and its follower `@t/f`, see
+    /// [`super::settings_extension`]), enabled by a config with no `settings`; set them with
+    /// [`Self::config_json`] and [`super::settings_config`].
+    pub fn settings() -> Self {
+        Self::new()
+            .declarations(super::settings_declarations())
+            .config_json(super::settings_config(serde_json::json!({})))
+    }
+
     /// A project whose environment the test makes at its root (a fresh temp directory).
     pub fn assembling(env: impl FnOnce(&Path) -> Environment) -> Self {
         let dir = TempDir::new().expect("a temp dir");

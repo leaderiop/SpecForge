@@ -34,6 +34,7 @@ mod policy;
 pub mod providers;
 mod raises;
 mod session;
+mod settings;
 mod setup;
 mod sources;
 #[cfg(feature = "testing")]
@@ -68,6 +69,7 @@ pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintP
 pub use providers::Providers;
 pub use raises::Raises;
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
+pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeAspect, NodeChange, compute_graph_delta,
@@ -144,6 +146,10 @@ pub struct Environment {
     /// the loaded declarations (ADR 0004 D3-c): with any scheme registered,
     /// a ref with another scheme is I005.
     providers: Providers,
+    /// The `settings` specforge.json sets, resolved against the loaded declarations (ADR 0288), and the E086,
+    /// E087 and W166 found.
+    settings: ResolvedSettings,
+    settings_diagnostics: Vec<Diagnostic>,
     /// One E069 per config problem. The extension load's diagnostics are on
     /// [`Self::enabled`] ([`Installed::load_diagnostics`] orders them).
     config_diagnostics: Vec<Diagnostic>,
@@ -180,6 +186,8 @@ impl Environment {
             sources: SourceRoot::default(),
             registries: RegistryBuild::default(),
             providers: Providers::default(),
+            settings: ResolvedSettings::default(),
+            settings_diagnostics: Vec::new(),
             config_diagnostics: Vec::new(),
             structural_only: None,
             runtime: None,
@@ -311,6 +319,8 @@ impl Environment {
             )
         });
         let sources = read.config.sources(installed.root());
+        let (settings, settings_diagnostics) =
+            ResolvedSettings::resolve(read.config.text.as_deref(), registries.settings(), &enabled);
         Environment {
             read,
             installed,
@@ -318,6 +328,8 @@ impl Environment {
             sources,
             registries,
             providers,
+            settings,
+            settings_diagnostics,
             config_diagnostics,
             structural_only,
             runtime,
@@ -412,6 +424,12 @@ impl Environment {
     /// declarations (ADR 0004 D3-c).
     pub fn providers(&self) -> &Providers {
         &self.providers
+    }
+
+    /// The settings `specforge.json` sets, resolved: each extension's effective values, the codes they gate and
+    /// the severities they raise (ADR 0288).
+    pub fn settings(&self) -> &ResolvedSettings {
+        &self.settings
     }
 
     /// The runtime the extensions were loaded in, where every extension
@@ -548,7 +566,7 @@ impl Environment {
     /// loaded; the lock's E033 once, before the first entry it left
     /// unloaded), provider registration (W118; E057 is a collision), I002,
     /// then the registry build's, in its order
-    /// ([`specforge_registry::RegistryBuild::reported`]).
+    /// ([`specforge_registry::RegistryBuild::reported`]), then the settings' (E086, E087, W166).
     pub fn setup_diagnostics(&self) -> Vec<SetupDiagnostic<'_>> {
         let of = |part, diagnostic| SetupDiagnostic { part, diagnostic };
         let mut all: Vec<SetupDiagnostic<'_>> = self
@@ -580,6 +598,11 @@ impl Environment {
             self.registries
                 .reported()
                 .map(|(part, d)| of(part.into(), d)),
+        );
+        all.extend(
+            self.settings_diagnostics
+                .iter()
+                .map(|d| of(SetupPart::Settings, d)),
         );
         all
     }

@@ -100,6 +100,8 @@ pub struct ProjectConfig {
     pub exclude: Exclude,
     pub inference: InferenceConfig,
     pub raw: Option<serde_json::Value>,
+    /// The text `raw` was parsed from: what the settings resolver locates a key in (ADR 0288).
+    pub text: Option<String>,
 }
 
 impl ProjectConfig {
@@ -136,7 +138,7 @@ pub enum ConfigProblem {
     NotAnObject { path: PathBuf },
     /// A key the config defines has the wrong JSON type (`name`,
     /// `version`, `spec_root`: a string; `extensions`, `exclude`: an
-    /// array). That key's default is used; every other key is kept.
+    /// array; `settings`: an object). That key's default is used; every other key is kept.
     WrongType {
         path: PathBuf,
         key: &'static str,
@@ -349,11 +351,18 @@ pub fn parse_project_config(path: &Path, content: &str) -> ConfigRead {
             "spec_root" => config.spec_root = string_key(&path, "spec_root", item, &mut problems),
             "extensions" => config.extensions = list_key(&path, "extensions", item, &mut problems),
             "exclude" => config.exclude = exclude_key(&path, item, &mut problems),
+            // Read where the settings resolve (ADR 0288); here only its type.
+            "settings" if !item.is_object() => problems.push(ConfigProblem::WrongType {
+                path: path.clone(),
+                key: "settings",
+                expected: "an object",
+            }),
             _ => {}
         }
     }
     config.inference = parse_inference_config(&value);
     config.raw = Some(value);
+    config.text = Some(content.to_string());
     ConfigRead {
         config,
         problems,

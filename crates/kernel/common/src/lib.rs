@@ -11,6 +11,7 @@ pub mod discovery;
 mod exclude;
 pub mod fresh;
 mod interner;
+pub mod json_span;
 pub mod package;
 pub mod peers;
 mod present;

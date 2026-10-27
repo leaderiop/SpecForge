@@ -23,6 +23,7 @@ pub mod assembled;
 pub mod gsd;
 pub mod history;
 pub mod scoped;
+pub mod settings;
 pub mod specs;
 pub mod typed;
 
@@ -33,6 +34,10 @@ pub use gsd::{
 };
 pub use history::FakeHistory;
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
+pub use settings::{
+    FOLLOWER_EXTENSION, SETTINGS_EXTENSION, follower_extension, settings_config,
+    settings_declarations, settings_extension,
+};
 pub use typed::{TYPED_EXTENSION, declare_rules, typed_extension, typed_kinds, typed_runtime};
 
 use std::path::{Path, PathBuf};

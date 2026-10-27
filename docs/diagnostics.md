@@ -1174,6 +1174,47 @@ Owner: core
 Level: error
 ```
 
+## E086
+
+```
+E086: Setting not used as written
+
+A key of `settings` in `specforge.json` is not used as written (ADR 0288).
+`settings` is keyed by extension, then by flat dotted setting name
+(`"@gsd/core": { "workflow.tdd_mode": true }`), and each name is checked against
+the extension's declared settings when the project loads: an unknown name (the
+message suggests the nearest one, or the extension that declares it), a family
+key outside its list, a value of the wrong type or outside the setting's bounds
+and vocabulary, `null` on a setting that has a default, or an extension's value
+that is not an object. The message names the key, never the written value, and
+the diagnostic points at the key in `specforge.json`. A value that cannot be
+used is ignored: the preset, else the default, applies. `specforge settings`
+lists every setting with its type and effective value, and `specforge schema
+--config` writes the project's config schema for an editor.
+
+Owner: core
+Level: error
+```
+
+## E087
+
+```
+E087: Secret in specforge.json
+
+A key under an extension's `settings` in `specforge.json` is a secret the
+extension declares, or is named like a credential (`api_key`, `token`, `secret`,
+`password`, `credentials`, `private_key`; words bounded by `_` or `-`, so
+`max_prompt_tokens` is not one) and is no declared setting (ADR 0288). A secret
+is read from its environment variable only: SpecForge never reads it from a file
+a repository holds, and no message or output repeats a written value. The value
+is ignored. Remove it from `specforge.json`, set the variable the message names,
+and rotate the secret if it was committed. `specforge settings` shows whether
+each declared secret is set.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -3496,6 +3537,21 @@ entity the project does not hold, for a field the pass does not list in its
 field refuses (the field's own type, bounds and enum values apply). The value is
 dropped. A check or analyze pass that answers `values` is W165 once, and its
 values are ignored: only a pass in the `compute` phase gives values.
+
+Owner: core
+Level: warning
+```
+
+## W166
+
+```
+W166: Settings for an extension that is not enabled
+
+`settings` in `specforge.json` holds an object for an extension that no entry of
+`extensions` enables (ADR 0288), so nothing reads it, as W118 says of a
+provider. Add the extension to `extensions` (`specforge add <name>`), or remove
+its settings. An enabled extension that failed to load keeps its settings
+unchecked and reports its own failure (E028, E070).
 
 Owner: core
 Level: warning
