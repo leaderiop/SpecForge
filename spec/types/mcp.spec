@@ -402,6 +402,58 @@ type McpProvidersResult "Mcp Providers Result" {
   verify unit "McpProvidersResult schema is valid"
 }
 
+type McpSettingsResult "Mcp Settings Result" {
+  extensions  McpExtensionSettings[]
+  /// The settings listed.
+  count       integer
+  /// The codes reported by no source now, as they print.
+  gated       string[]
+  /// The codes the selected presets raise.
+  raised      McpRaisedCode[]
+  /// E086, E087 and W166 from specforge.json.
+  diagnostics Diagnostic[]
+  verify unit "McpSettingsResult schema is valid"
+}
+
+type McpExtensionSettings "Mcp Extension Settings" {
+  extension string @readonly
+  settings  McpSettingRow[]
+  secrets   McpSecretRow[]
+  verify unit "McpExtensionSettings schema is valid"
+}
+
+type McpSettingRow "Mcp Setting Row" {
+  /// The name; a family's key as written.
+  name        string @readonly
+  field_type  string
+  /// The effective value; absent: unset.
+  value       any    @optional
+  /// "explicit", "preset", "default" or "unset".
+  origin      string
+  /// For a preset, the setting and value that selected it.
+  preset      string @optional
+  default     any    @optional
+  /// The codes this bool setting gates while it is false.
+  gates       string[]
+  description string @optional
+  verify unit "McpSettingRow schema is valid"
+}
+
+type McpSecretRow "Mcp Secret Row" {
+  name string @readonly
+  env  string
+  /// Whether the environment variable is set; its value is never sent.
+  set  boolean
+  verify unit "McpSecretRow schema is valid"
+}
+
+type McpRaisedCode "Mcp Raised Code" {
+  code     string @readonly
+  /// "error", "warning" or "info".
+  severity string
+  verify unit "McpRaisedCode schema is valid"
+}
+
 type McpProviderInfo "Mcp Provider Info" {
   scheme    string @readonly
   alias     string

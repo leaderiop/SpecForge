@@ -101,6 +101,7 @@ fn each_named_shape_is_defined_once_per_document() {
         "migrate",
         "providers",
         "rename",
+        "settings",
     ];
     assert_eq!(holding.keys().copied().collect::<Vec<_>>(), expected);
     let migrate = documents()

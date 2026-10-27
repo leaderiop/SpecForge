@@ -1,6 +1,5 @@
 //! Which project an MCP call acts on, and whether it is current with disk
-//! (architecture plan 01): a call's optional `path` and its tool's target
-//! decide it before the handler runs.
+//! (architecture plan 01): a call's optional `path` and its tool's target decide it before the handler runs.
 
 use crate::support::*;
 use serde_json::{Value, json};
@@ -951,6 +950,7 @@ const NOTHING_SERVED_PROBES: &[(Entry, &str, &str)] = &[
     (Entry::Tool, "specforge.migrate", r#"{"dry_run":true}"#),
     (Entry::Tool, "specforge.extensions", "{}"),
     (Entry::Tool, "specforge.providers", "{}"),
+    (Entry::Tool, "specforge.settings", "{}"),
     (Entry::Tool, "specforge.doctor", "{}"),
     (Entry::Tool, "specforge.collect", "{}"),
     (Entry::Tool, "specforge.render", r#"{"format":"brief"}"#),

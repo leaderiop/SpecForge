@@ -17,6 +17,7 @@ mod peer_set;
 mod publish;
 mod remove;
 mod resolve;
+mod settings;
 mod update;
 
 pub use add::{
@@ -40,6 +41,9 @@ pub use remove::{
     RemoveDocument, RemoveField, RemoveOutcome, RemoveRequest, StrandedEntity, remove,
 };
 pub use resolve::{resolve, upgrade};
+pub use settings::{
+    ExtensionSettingsRow, RaisedRow, SecretRow, SettingRow, SettingsDocument, settings,
+};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateDocument, UpdateOutcome, UpdateRequest,
     UpdateRow, UpdateStatus, UpgradeCompleted, update,

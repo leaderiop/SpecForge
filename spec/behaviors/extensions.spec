@@ -173,6 +173,7 @@ behavior load_extension_settings "Load Extension Settings" {
   features   [extension_management]
   invariants [zero_domain_knowledge_core]
   category   command
+  types      [McpSettingsResult]
   ports      [WasmRuntime]
   contract   """
     An extension declares typed settings, presets and secrets (ADR 0288); specforge.json sets them. A project

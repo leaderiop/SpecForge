@@ -104,6 +104,14 @@
         "$ref": "#/$defs/provider"
       }
     },
+    "settings": {
+      "type": "object",
+      "description": "Each extension's typed settings, by extension name, then setting name (a family's key is written whole, `models.planning`). `specforge settings` lists what they resolve to; `specforge schema --config` writes this schema with every loaded extension's settings typed. A secret is never written here (E087).",
+      "additionalProperties": {
+        "type": "object",
+        "description": "One extension's settings: a setting name to its value."
+      }
+    },
     "personas": {
       "type": "object",
       "description": "Persona definitions for capability validation. Keys are persona IDs.",
@@ -250,5 +258,5 @@
       ]
     }
   },
-  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
+  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. 'settings' is resolved against each loaded extension's declaration (E086, E087, W166). Registry client reads 'registries'; inference is typed on ProjectConfig."
 }

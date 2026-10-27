@@ -136,8 +136,12 @@ pub(crate) struct SchemaArgs {
     validation_rules: bool,
 
     /// Publish as standalone JSON Schema (draft 2020-12)
-    #[arg(long)]
+    #[arg(long, conflicts_with = "config")]
     publish: bool,
+
+    /// Write the JSON Schema of this project's specforge.json, with every loaded extension's settings typed
+    #[arg(long, conflicts_with_all = ["kind", "no_edges", "validation_rules", "publish", "format"])]
+    config: bool,
 
     /// Export format the published schema describes
     // clap waives requires = "publish" beside an argument that conflicts with --publish
@@ -173,7 +177,13 @@ impl SchemaArgs {
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
         let view = ProjectView::of(&project);
-        let output = if self.publish {
+        let output = if self.config {
+            let schema = specforge_ops::read::schema::config_schema(&view);
+            Ok(specforge_ops::Noticed::new(
+                serde_json::to_string_pretty(&schema).expect("a config schema serializes"),
+                Vec::new(),
+            ))
+        } else if self.publish {
             specforge_ops::read::schema::json_schema(&view, self.format).map(|published| {
                 published.map(|schema| {
                     serde_json::to_string_pretty(&schema).expect("a published schema serializes")

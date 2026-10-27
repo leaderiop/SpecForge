@@ -41,6 +41,7 @@ mod remove;
 mod review;
 mod scaffold;
 mod search;
+mod settings;
 mod stats;
 mod terminal;
 mod trace;
@@ -126,6 +127,8 @@ enum Commands {
     Logout(login::LogoutArgs),
     /// List configured providers
     Providers(providers::Args),
+    /// List each extension's settings: the value, where it came from, what it gates and each secret's status
+    Settings(settings::Args),
     /// Run the project's test runners and record which entities their tests prove
     Collect(collect::Args),
     /// The harness ledger: specforge-harness records the values only a command's plan sets
@@ -248,6 +251,7 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Login(args) => args.run(terminal),
         Commands::Logout(args) => args.run(terminal),
         Commands::Providers(args) => args.run(terminal),
+        Commands::Settings(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
         Commands::Harness { action } => action.run(terminal),
         Commands::Doctor(args) => args.run(terminal),

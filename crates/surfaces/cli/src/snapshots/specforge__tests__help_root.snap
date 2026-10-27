@@ -37,6 +37,7 @@ Commands:
   login         Authenticate with a registry
   logout        Remove registry credentials
   providers     List configured providers
+  settings      List each extension's settings: the value, where it came from, what it gates and each secret's status
   collect       Run the project's test runners and record which entities their tests prove
   harness       The harness ledger: specforge-harness records the values only a command's plan sets
   doctor        Run health checks on installed extensions

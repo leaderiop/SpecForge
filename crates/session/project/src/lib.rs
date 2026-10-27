@@ -454,6 +454,11 @@ impl Environment {
         &self.settings
     }
 
+    /// The E086, E087 and W166 the settings produced, in file order.
+    pub fn settings_diagnostics(&self) -> &[Diagnostic] {
+        &self.settings_diagnostics
+    }
+
     /// The runtime the extensions were loaded in, where every extension
     /// call over this project runs; none: nothing loaded (ADR 0015 R1, R3).
     pub fn runtime(&self) -> Option<&SharedRuntime> {

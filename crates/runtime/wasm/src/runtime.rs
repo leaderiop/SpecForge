@@ -31,6 +31,12 @@ impl ExtensionSettings {
         self.values.is_empty() && self.secrets.is_empty()
     }
 
+    /// Whether the environment variable `var` a secret is read from is set and not empty. The value is read
+    /// nowhere else.
+    pub fn secret_is_set(var: &str) -> bool {
+        std::env::var_os(var).is_some_and(|v| !v.is_empty())
+    }
+
     /// The members the host adds to a call's input object: `settings`, and `secrets` (name -> set), the
     /// environment read now.
     pub fn members(&self) -> serde_json::Map<String, serde_json::Value> {
