@@ -18,6 +18,7 @@ mod emitter_error;
 mod gsd_ids;
 mod model;
 mod outline;
+mod outline_codes;
 mod outline_owner;
 mod schema;
 mod scope;
