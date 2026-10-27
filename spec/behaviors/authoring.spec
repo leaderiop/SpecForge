@@ -362,6 +362,8 @@ behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
   """
   verify unit "an interrupted write is rolled back by the next writer"
   verify unit "an interrupted write is W167 until the next writer rolls it back"
+  verify unit "a session reports a journal that appears and drops one that goes"
+  verify unit "a pending journal another writer holds is no error this write adds"
   verify unit "rollback restores exactly the files at their after digest"
   verify unit "a typed edit of a project with a writing command and no harness field takes the write lock"
   verify unit "a journal marked done is removed by the next writer and rolls nothing back"

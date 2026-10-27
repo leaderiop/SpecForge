@@ -62,8 +62,8 @@ pub fn digest(bytes: &[u8]) -> String {
 
 /// W167 when the project at `root` has a journal, read through the checks' `disk`, so the check records it as an
 /// input.
-pub(crate) fn pending(root: &Path) -> Option<Diagnostic> {
-    let journal = Journal::parse(&std::fs::read(root.join(JOURNAL_FILE)).ok()?)?;
+pub(crate) fn pending(root: &Path, disk: &dyn specforge_registry::Disk) -> Option<Diagnostic> {
+    let journal = Journal::parse(&disk.read(&root.join(JOURNAL_FILE)).ok()?)?;
     if journal.done {
         return None;
     }

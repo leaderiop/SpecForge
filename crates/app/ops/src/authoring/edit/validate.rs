@@ -45,6 +45,10 @@ pub(crate) fn added(
     }
     let (mut errors, mut rest) = (Vec::new(), Vec::new());
     for d in after {
+        // Another writer's journal, live while this write is planned, is not a thing this write adds.
+        if d.code == "W167" {
+            continue;
+        }
         match had.get_mut(&key(&d)) {
             Some(n) if *n > 0 => *n -= 1,
             _ if d.severity == Severity::Error => errors.push(d),
@@ -151,4 +155,22 @@ fn undeclared(beyond: &GraphDelta) -> Refusal<EditField> {
     OpError::new(OpErrorKind::CompilationFailed, UNDECLARED_CHANGE, message)
         .with_data(serde_json::json!({ "delta": beyond }))
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "roll_back_interrupted_write",
+        verify = "a pending journal another writer holds is no error this write adds"
+    )]
+    fn a_pending_journal_is_not_an_error_a_write_adds() {
+        let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
+        // A preset that raises W167 makes it an error of the edited project.
+        pending.severity = Severity::Error;
+        let (errors, rest) = added(&[], vec![pending]);
+        assert!(errors.is_empty() && rest.is_empty());
+    }
 }
