@@ -427,6 +427,38 @@ plan 05-01 "Plan" {
 
 #[specforge_test(
     behavior = "link_entity_references",
+    verify = "a name outside the holder's chain is E003 naming each entity that bears it, and never links silently"
+)]
+fn a_rooted_miss_names_the_entities_bearing_the_name_elsewhere() {
+    let build = scoped(&[(
+        "a.spec",
+        r#"
+milestone v1.0 "One" { }
+milestone v2.0 "Two" { }
+phase 03 "Phase Three" { milestone v1.0 }
+phase 05 "Phase Five" { milestone v2.0 }
+decision D-07 "Lone" { phase v1.0/03 }
+plan 05-01 "Plan" {
+  phase v2.0/05
+  decisions [/D-07]
+}
+"#,
+    )]);
+    let found = build
+        .diagnostics()
+        .iter()
+        .find(|d| d.code == "E003")
+        .unwrap_or_else(|| panic!("no E003: {:?}", build.diagnostics()));
+    assert_eq!(
+        serde_json::to_value(found.data.as_deref()).unwrap()["candidates"],
+        serde_json::json!(["v1.0/03/D-07"]),
+        "{}",
+        found.message
+    );
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
     verify = "a scope field takes a unique suffix, and several matches are E003 naming each"
 )]
 fn a_scope_field_takes_a_unique_suffix() {

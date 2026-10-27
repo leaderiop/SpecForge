@@ -213,7 +213,7 @@ impl Scopes {
 
     /// The paths that equal `written` or end with it on a segment boundary, of a kind `admits` takes, sorted.
     fn suffixed(&self, written: &str, admits: &dyn Fn(&str) -> bool) -> Vec<Sym> {
-        if written.starts_with('/') || written.contains(':') {
+        if written.contains(':') {
             return Vec::new();
         }
         let Some(paths) = self.by_name.get(&Sym::new(last_segment(written))) else {
@@ -244,17 +244,16 @@ impl Scopes {
         if matches!(found, Found::One(_)) {
             return found;
         }
-        let suffixed = self.suffixed(written, admits);
-        if from.is_none() {
+        // A rooted miss names the entities bearing the name elsewhere, as an unrooted one does; only an unrooted
+        // surface input takes the suffix.
+        let rooted = written.starts_with('/');
+        let suffixed = self.suffixed(written.strip_prefix('/').unwrap_or(written), admits);
+        if from.is_none() && !rooted {
             match suffixed.as_slice() {
                 [path] => return Found::One(*path),
                 [_, _, ..] => return Found::Ambiguous(suffixed),
                 [] => {}
             }
-            if let Found::Mistyped(_) = found {
-                return found;
-            }
-            return Found::None(Vec::new());
         }
         match found {
             Found::Mistyped(_) => found,
