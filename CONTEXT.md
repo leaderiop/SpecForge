@@ -1609,6 +1609,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
+- **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
+  never written to a file; written by hand it is E082 (ADR 0287).
+- **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
+  (`specforge-harness`, one `path key digest` line per recorded value, merged by union) says it was; with no line it
+  is E083. A **Move record** (`<new> moved:<old>`) follows an entity across a rename so its lines and its history do.
+- **History port**: the trait (`specforge_project::history::History`) that locates the repository, names commits and
+  merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the `History` port only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.

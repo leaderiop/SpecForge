@@ -1,6 +1,6 @@
 # An unknown type name is the host's E004, and a project has one spec block
 
-**Status:** accepted (2026-10-26, architecture round 29, plan 06). Narrows the `link_derived_references` contract of
+**Status:** accepted (2026-10-26, architecture round 29, plan 06). Extended by [ADR 0287](0287-who-writes-a-field-is-declared.md) (a computed field is never read as type syntax: E082 alone, never E004). Narrows the `link_derived_references` contract of
 `spec/behaviors/graph.spec` ("reporting undeclared names stays with the extension that owns the kind"), beside
 [ADR 0127](0127-the-linker-records-where-each-edge-is-written.md) D3 and [ADR 0163](0163-a-written-token-is-found-by-one-finder.md),
 which still hold. Applies [ADR 0249](0249-the-editor-client-is-an-adapter-over-the-language-server.md) D7. Extended by [ADR 0283](0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) (a type name written whole may hold `-` and `.`). Extended by [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (a type name resolves from its holder outward; one spec block stays project-wide).
