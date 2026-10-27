@@ -88,6 +88,7 @@ fn describe(field: &FieldRecord) -> String {
         | ValueShape::TypeUnion => field.text.clone(),
         ValueShape::List | ValueShape::Variants => "a list".to_string(),
         ValueShape::Block => "a block".to_string(),
+        ValueShape::Blocks => "a list of blocks".to_string(),
         ValueShape::Expression => "an expression".to_string(),
     }
 }

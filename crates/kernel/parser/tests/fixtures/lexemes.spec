@@ -62,3 +62,19 @@ requirement D-01 "Dashed" {
 
 requirement G-03-1 "Dashed twice" {
 }
+
+requirement H-01 "Typed members" {
+  tags [threshold, jump]
+  requires [
+    { phase 02 plan 03-02 }
+    { phase 03 note "x" },
+  ]
+  gate {
+    inner { score 5 }
+  }
+  empty []
+}
+
+requirement H-02 "x" {
+  r [ { plan 03-02 } ]
+}

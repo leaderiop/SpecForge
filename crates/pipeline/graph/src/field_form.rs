@@ -44,6 +44,8 @@ pub enum ValueShape {
     Variants,
     TypeUnion,
     Block,
+    /// `[ { … } { … } ]`: a list of blocks (ADR 0285).
+    Blocks,
     /// An `expr { … }` group.
     Expression,
 }
@@ -62,13 +64,14 @@ impl ValueShape {
             FieldValue::VariantList(_) => Self::Variants,
             FieldValue::TypeUnion(_) => Self::TypeUnion,
             FieldValue::Block(_) => Self::Block,
+            FieldValue::Blocks(_) => Self::Blocks,
             FieldValue::Expression(_) => Self::Expression,
         }
     }
 
-    /// A list, or a variant list.
+    /// A list, a variant list or a list of blocks.
     pub fn is_list(self) -> bool {
-        matches!(self, Self::List | Self::Variants)
+        matches!(self, Self::List | Self::Variants | Self::Blocks)
     }
 }
 

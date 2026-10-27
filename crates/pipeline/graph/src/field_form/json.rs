@@ -10,7 +10,7 @@ use specforge_parser::{FieldMap, FieldValue};
 /// A field value as every output writes it: the Graph Protocol's field
 /// value. Made only by [`write`]. Its shape (named `FieldJson`) is the schema
 /// of every value `write` can produce, declared or not: a string, an
-/// integer, a boolean, an array of strings, integers and booleans, or an object whose values are `FieldJson`.
+/// integer, a boolean, an array of strings, integers, booleans and objects, or an object whose values are `FieldJson`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct FieldJson(Value);
@@ -34,6 +34,7 @@ impl Shape for FieldJson {
                 {"type": "string"},
                 {"type": "integer"},
                 {"type": "boolean"},
+                {"type": "object", "additionalProperties": this},
             ]}},
             {"type": "object", "additionalProperties": this},
         ]})
@@ -80,6 +81,19 @@ pub fn write(value: &FieldValue) -> FieldJson {
             items
                 .iter()
                 .map(|m| Value::String(m.text.clone()))
+                .collect(),
+        ),
+        FieldValue::Blocks(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| {
+                    Value::Object(
+                        write_fields(&item.fields)
+                            .into_iter()
+                            .map(|(key, written)| (key, written.0))
+                            .collect::<Map<_, _>>(),
+                    )
+                })
                 .collect(),
         ),
         FieldValue::Block(inner) => Value::Object(

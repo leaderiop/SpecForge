@@ -644,6 +644,11 @@ impl Walk<'_> {
                     self.set(i, Role::Other);
                 }
             }
+            // A list of blocks (ADR 0285): each item opens a block whose close returns to the list.
+            Some('{') if state == Expect::List => {
+                self.set(i, Role::Other);
+                self.open(FrameKind::Block, key, None, Expect::List, Expect::Body);
+            }
             Some(']') if state == Expect::List => {
                 self.close(i, ']');
             }

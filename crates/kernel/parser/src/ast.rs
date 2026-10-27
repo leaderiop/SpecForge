@@ -196,8 +196,22 @@ impl FieldMap {
             }
             seen.push(entry.key);
             let mut kept = entry.clone();
-            if let FieldValue::Block(inner) = &entry.value {
-                kept.value = FieldValue::Block(inner.first_of_each_key());
+            match &entry.value {
+                FieldValue::Block(inner) => {
+                    kept.value = FieldValue::Block(inner.first_of_each_key());
+                }
+                FieldValue::Blocks(items) => {
+                    kept.value = FieldValue::Blocks(
+                        items
+                            .iter()
+                            .map(|item| BlockItem {
+                                fields: item.fields.first_of_each_key(),
+                                span: item.span.clone(),
+                            })
+                            .collect(),
+                    );
+                }
+                _ => {}
             }
             out.push_entry(kept);
         }
@@ -224,8 +238,16 @@ impl FieldMap {
                 }),
                 None => {
                     firsts.push(entry);
-                    if let FieldValue::Block(inner) = &entry.value {
-                        inner.collect_repeats(&format!("{path}."), out);
+                    match &entry.value {
+                        FieldValue::Block(inner) => {
+                            inner.collect_repeats(&format!("{path}."), out);
+                        }
+                        FieldValue::Blocks(items) => {
+                            for (i, item) in items.iter().enumerate() {
+                                item.fields.collect_repeats(&format!("{path}[{i}]."), out);
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -338,6 +360,13 @@ pub const UNION_VARIANTS_FIELD: &str = "variants";
 /// name is the parser's own: no extension declares it.
 pub const REF_SCHEME_FIELD: &str = "scheme";
 
+/// One `{ … }` of a block list: its fields as written and the span of its braces.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockItem {
+    pub fields: FieldMap,
+    pub span: SourceSpan,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldValue {
     String(String),
@@ -349,6 +378,8 @@ pub enum FieldValue {
     /// [`UNION_VARIANTS_FIELD`] only; [`FieldMap::is_union`] reads it.
     VariantList(Vec<TypeMember>),
     Block(FieldMap),
+    /// `[ { … } { … } ]` (ADR 0285): a list of blocks, each with its own fields and span.
+    Blocks(Vec<BlockItem>),
     /// First-class formal expressions: `metric expr { a < 10ms, b > 5 }`.
     /// Spans are absolute file positions.
     Expression(Vec<SpannedExpr>),

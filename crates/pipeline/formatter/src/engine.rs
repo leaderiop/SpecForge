@@ -232,7 +232,7 @@ fn holds_comment(node: Node) -> bool {
     let children: Vec<Node> = node.children(&mut cursor).collect();
     children.into_iter().any(|child| match child.kind() {
         kind::COMMENT => true,
-        kind::NESTED_BLOCK | kind::LIST => false,
+        kind::NESTED_BLOCK | kind::LIST | kind::BLOCK_LIST => false,
         _ => holds_comment(child),
     })
 }

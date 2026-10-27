@@ -192,7 +192,6 @@ fn format_writes_every_bare_word_as_written() {
     behavior = "apply_format_rules",
     verify = "a list of blocks is written one item a line, indented, with no commas"
 )]
-#[ignore = "K3 T4"]
 fn format_writes_a_block_list_one_item_a_line() {
     let source = "thing t \"T\" {\n  f [ {a 1}, {b \"x\" c 2}   ]\n}\n";
     let formatted = fmt(source);

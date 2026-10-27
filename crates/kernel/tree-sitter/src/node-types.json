@@ -39,6 +39,21 @@
     }
   },
   {
+    "type": "block_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "nested_block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "define_block",
     "named": true,
     "fields": {
@@ -336,6 +351,10 @@
         "types": [
           {
             "type": "array_type",
+            "named": true
+          },
+          {
+            "type": "block_list",
             "named": true
           },
           {

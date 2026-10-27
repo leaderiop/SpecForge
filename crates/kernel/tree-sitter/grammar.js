@@ -203,6 +203,7 @@ module.exports = grammar({
         $.triple_quoted_string,
         $.string,
         $.list,
+        $.block_list,
         $.nested_block,
         $.array_type,
         $.identifier,
@@ -313,6 +314,14 @@ module.exports = grammar({
         $.identifier,
         alias($._bare, $.identifier),
         $.reference_path,
+      ),
+
+    // A list of blocks (ADR 0285): each item a `{ ... }`, commas optional. `[]` stays a `list`.
+    block_list: ($) =>
+      seq(
+        "[",
+        repeat1(seq($.nested_block, optional(","))),
+        choice("]", $._close),
       ),
 
     // Nested block: { key value ... }

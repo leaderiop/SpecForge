@@ -62,6 +62,8 @@ pub const FUNCTION_TYPE: &str = "function_type";
 pub const TYPE_UNION: &str = "type_union";
 /// `[a, b, …]`.
 pub const LIST: &str = "list";
+/// `[{ … } { … }]`: a list of blocks (ADR 0285).
+pub const BLOCK_LIST: &str = "block_list";
 /// `{ key value … }` as a field's value.
 pub const NESTED_BLOCK: &str = "nested_block";
 /// `expr { … }`.
@@ -122,6 +124,7 @@ pub const ALL: &[&str] = &[
     FUNCTION_TYPE,
     TYPE_UNION,
     LIST,
+    BLOCK_LIST,
     NESTED_BLOCK,
     EXPR_GROUP,
     EXPR_OR,

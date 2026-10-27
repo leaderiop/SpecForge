@@ -233,6 +233,11 @@ impl Reader<'_> {
                 }
                 (None | Some(Frame::Expr), _) => self.copy(),
                 (Some(Frame::Use), _) => self.binding(&mut open),
+                // A list of blocks (ADR 0285): an item's members are a block's.
+                (Some(Frame::List), LexemeKind::Punct('{')) => {
+                    self.copy();
+                    open.push(Frame::Block, false);
+                }
                 (Some(Frame::List), _) => {
                     if open.slot() && self.starts_word() {
                         self.word(false);

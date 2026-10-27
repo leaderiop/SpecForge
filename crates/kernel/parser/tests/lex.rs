@@ -724,7 +724,6 @@ fn an_identifier_is_the_grammars_identifier_whole() {
     behavior = "lex_spec_text",
     verify = "the lexer agrees with the grammar on a list of blocks, a nested typed block and an enum list"
 )]
-#[ignore = "K3 T4"]
 fn the_lexer_agrees_on_block_lists() {
     let text = "thing t \"T\" {\n  requires [\n    { phase 02 provides \"x\" }\n    { phase 01 files [a, b] }\n  ]\n  completion { at 2026-10-27 inner { n 3 } }\n  reasons [threshold, jump]\n}\n";
     let (file, tree) = parse_incremental(text, "t.spec", None);

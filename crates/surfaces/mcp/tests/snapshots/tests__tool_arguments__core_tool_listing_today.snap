@@ -107,6 +107,12 @@ expression: listing
                   },
                   {
                     "type": "boolean"
+                  },
+                  {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/FieldJson"
+                    },
+                    "type": "object"
                   }
                 ]
               },
@@ -2630,6 +2636,12 @@ expression: listing
                   },
                   {
                     "type": "boolean"
+                  },
+                  {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/FieldJson"
+                    },
+                    "type": "object"
                   }
                 ]
               },

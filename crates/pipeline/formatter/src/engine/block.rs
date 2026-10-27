@@ -285,6 +285,11 @@ fn field_member(
             key,
             annotations,
         },
+        kind::BLOCK_LIST => Member::Field {
+            value: block_list_value(value, source, config, depth),
+            key,
+            annotations,
+        },
         kind::EXPR_GROUP => {
             // `expr {` follows the key; each expression line is indented one
             // level inside it; `}` closes at the field's level
@@ -365,6 +370,57 @@ fn list_value(
     lines.extend(items.iter().map(|item| format!("{outer}{indent}{item},")));
     lines.push(format!("{outer}]"));
     lines
+}
+
+/// `[ { a 1 } { b 2 } ]` (ADR 0285): `[`, one item a line, `]`, no commas. An item stays on one line when its members
+/// are plain `key value` fields without comments and it fits; else its members go one a line between braces. A list
+/// holding a comment of its own is kept as written.
+fn block_list_value(node: Node, source: &str, config: &FormatConfig, depth: usize) -> Vec<String> {
+    let mut cursor = node.walk();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    if children.iter().any(|c| c.kind() == kind::COMMENT) {
+        return lines_keeping_strings(node, source);
+    }
+    let indent = config.indent_str();
+    let outer = indent.repeat(depth);
+    let inner = indent.repeat(depth + 1);
+    let mut lines = vec!["[".to_string()];
+    for item in children.iter().filter(|c| c.kind() == kind::NESTED_BLOCK) {
+        let mut body = Vec::new();
+        format_body(*item, source, config, depth + 2, None, &mut body);
+        let one_line = format!(
+            "{inner}{{ {} }}",
+            body.iter().map(|l| l.trim()).collect::<Vec<_>>().join(" ")
+        );
+        let plain = body
+            .iter()
+            .all(|l| !l.trim().is_empty() && !l.contains('\n'))
+            && body.len() == count_kind(*item, kind::FIELD)
+            && !body.iter().any(|l| {
+                l.trim_end().ends_with('{')
+                    || l.trim().starts_with('#')
+                    || l.trim().starts_with("//")
+            })
+            && one_line.len() <= config.max_width;
+        if body.is_empty() {
+            lines.push(format!("{inner}{{}}"));
+        } else if plain {
+            lines.push(one_line);
+        } else {
+            lines.push(format!("{inner}{{"));
+            lines.extend(body);
+            lines.push(format!("{inner}}}"));
+        }
+    }
+    lines.push(format!("{outer}]"));
+    lines
+}
+
+fn count_kind(node: Node, wanted: &str) -> usize {
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .filter(|c| c.kind() == wanted)
+        .count()
 }
 
 /// `node`, a value of one field (`Place::Whole`) or one item of its list, written in its field's form when the

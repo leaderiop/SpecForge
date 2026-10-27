@@ -395,5 +395,6 @@ fn format_field_value(fv: &FieldValue) -> String {
             let count = map.entries().len();
             format!("{{…}} ({} fields)", count)
         }
+        FieldValue::Blocks(items) => format!("[{{…}} × {}]", items.len()),
     }
 }

@@ -49,6 +49,7 @@ fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<&'r str> {
         | ValueShape::Boolean => vec![written.text.as_str()],
         ValueShape::List => written.items.iter().flatten().map(String::as_str).collect(),
         ValueShape::Block
+        | ValueShape::Blocks
         | ValueShape::Expression
         | ValueShape::Variants
         | ValueShape::TypeUnion => Vec::new(),

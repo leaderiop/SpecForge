@@ -97,7 +97,6 @@ fn a_value_token_reads_as_the_parse_stores_it() {
     behavior = "parse_all_block_types",
     verify = "a list of blocks parses to its items, commas optional, and a key twice in an item is E081"
 )]
-#[ignore = "K3 T4"]
 fn a_block_list_is_a_list_of_blocks() {
     let parsed = |body: &str| parse(&format!("thing t \"T\" {{\n  f {body}\n}}\n"), "t.spec");
     for body in [

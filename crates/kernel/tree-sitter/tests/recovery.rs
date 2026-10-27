@@ -357,7 +357,6 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     behavior = "recover_from_syntax_errors",
     verify = "a list of blocks left half-typed ends where the next top-level form starts"
 )]
-#[ignore = "K3 T4"]
 fn a_half_typed_block_list_ends_at_the_next_form() {
     let closed = "port p \"P\" {\n  requires [ { phase 02 } ]\n}\n";
     assert!(

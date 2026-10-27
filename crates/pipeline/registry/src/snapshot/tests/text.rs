@@ -27,6 +27,7 @@ fn texts(source: &str) -> Vec<(String, &'static str, String)> {
                 FieldValue::TypeUnion(_) => "TypeUnion",
                 FieldValue::Expression(_) => "Expression",
                 FieldValue::Block(_) => "Block",
+                FieldValue::Blocks(_) => "Blocks",
             };
             // The text is the items joined, for every list-shaped value.
             if let Some(items) = field_items(&e.value) {

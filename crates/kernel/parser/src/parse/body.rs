@@ -130,6 +130,7 @@ impl<'a> ParseContext<'a> {
             kind::EXPR_GROUP => FieldValue::Expression(self.parse_expr_group(node)),
             kind::TYPE_UNION => FieldValue::TypeUnion(self.parse_type_union(node)),
             kind::LIST => self.parse_list(node),
+            kind::BLOCK_LIST => self.parse_block_list(node),
             kind::NESTED_BLOCK => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
         }
@@ -157,7 +158,7 @@ impl<'a> ParseContext<'a> {
     /// Each comment inside `node`, a field's value, recorded as a value comment: a list's at any depth, an expression
     /// group's. A nested block's are its members' (`parse_nested_block` reads them).
     fn comments_inside(&mut self, node: Node) {
-        if node.kind() == kind::NESTED_BLOCK {
+        if matches!(node.kind(), kind::NESTED_BLOCK | kind::BLOCK_LIST) {
             return;
         }
         let mut cursor = node.walk();
@@ -169,6 +170,26 @@ impl<'a> ParseContext<'a> {
                 self.comments_inside(child);
             }
         }
+    }
+
+    /// A list of blocks: each `{ … }` child read as a nested block, with its span. Its comments are its members'.
+    fn parse_block_list(&mut self, node: Node) -> FieldValue {
+        let mut items = Vec::new();
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == kind::COMMENT {
+                let span = self.span(child);
+                self.value_comments.push(span);
+            } else if child.kind() == kind::NESTED_BLOCK
+                && let FieldValue::Block(fields) = self.parse_nested_block(child)
+            {
+                items.push(BlockItem {
+                    fields,
+                    span: self.span(child),
+                });
+            }
+        }
+        FieldValue::Blocks(items)
     }
 
     fn parse_nested_block(&mut self, node: Node) -> FieldValue {
