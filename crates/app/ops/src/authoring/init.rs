@@ -71,7 +71,7 @@ pub const GITIGNORE: [&str; 3] = [
     ".specforge/",
 ];
 
-/// The line `.gitattributes` gets: two branches that each recorded a harness value merge by keeping both lines.
+/// The line `.gitattributes` gets (init, when an extension declares a harness field; a ledger write): two branches that each recorded a harness value merge by keeping both lines.
 pub const GITATTRIBUTES: [&str; 1] = ["/specforge-harness merge=union"];
 
 /// The field of an init's request a refusal can be about (ADR 0072).
@@ -307,6 +307,9 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
         );
     }
     let dir = req.dir;
+    // The union merge attribute is for the ledger: a project whose extensions declare no harness field has none, and
+    // the first ledger write adds the attribute if one ever does.
+    let harness = !specforge_project::harness::Harness::of(&build).is_empty();
     let files = vec![
         Also {
             path: dir.join(".gitignore"),
@@ -326,7 +329,9 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
                 let before = file
                     .read_if_there()
                     .map_err(|e| change::unreadable(Path::new(".gitattributes"), &e))?;
-                if let Some(after) = gitattributes_with(before.as_deref().unwrap_or_default()) {
+                if harness
+                    && let Some(after) = gitattributes_with(before.as_deref().unwrap_or_default())
+                {
                     change.stage(file, before, after);
                 }
                 Ok(())

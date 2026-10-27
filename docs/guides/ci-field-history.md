@@ -17,4 +17,4 @@ branch against where it left its base instead:
 git, or before a first commit, the check says so with I204 and judges nothing.
 
 The harness ledger (`specforge-harness`) merges by union (`/specforge-harness merge=union` in `.gitattributes`,
-added by `specforge init` and by the first ledger write); `specforge harness gc` rewrites it canonically.
+added by `specforge init` when an extension declares a harness field, and by the first ledger write); `specforge harness gc` rewrites it canonically.

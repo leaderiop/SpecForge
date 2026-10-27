@@ -39,12 +39,7 @@ fn init_writes_include_gitignore_only_when_it_changed() {
     let outcome = init(&fresh, &[]);
     assert_eq!(
         listed(&outcome.writes, &fresh),
-        [
-            ".gitattributes",
-            ".gitignore",
-            "spec/hello.spec",
-            "specforge.json"
-        ]
+        [".gitignore", "spec/hello.spec", "specforge.json"]
     );
     assert_eq!(
         changed_since(&fresh, &Snapshot::new()),
@@ -134,7 +129,6 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
     assert_eq!(
         listed(&outcome.writes, &dir),
         [
-            ".gitattributes",
             ".gitignore",
             MODULE,
             "spec/hello.spec",

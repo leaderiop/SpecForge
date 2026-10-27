@@ -34,7 +34,7 @@ stops one from writing a verdict or rewriting the past.
 - **D4. The harness ledger.** `specforge-harness` at the project root, one line per recorded harness value:
   `path key digest`, sorted, `# specforge-harness 1` header, digest `sha256(path NUL key NUL value)`. It is a check
   input. A value is recorded when any line of its key matches, so a union merge of two branches stays valid.
-  `/specforge-harness merge=union` goes into `.gitattributes` (init, the first ledger write, `harness gc`). W163 is a
+  `/specforge-harness merge=union` goes into `.gitattributes` (init when an extension declares a harness field, the first ledger write, `harness gc`). W163 is a
   line that is not a line, I203 a file the host would write differently.
 - **D5. Every host write keeps the ledger.** A `PlannedChange` carries a `LedgerChange`; `apply` takes
   `.specforge/write.lock`, re-reads the ledger and rewrites it (`Ledger::rewritten`) when another writer changed it,

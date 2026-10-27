@@ -1388,7 +1388,7 @@ fn init_lists_every_file_it_wrote() {
         .map(str::trim)
         .collect();
     let written = changed_since(dir.root(), &Default::default());
-    assert_eq!(written[0], ".gitattributes");
+    assert_eq!(written[0], ".gitignore");
     assert_eq!(listed, written, "{stdout}");
 
     // JSON, with a local extension: its module and the lock too.
@@ -1415,7 +1415,6 @@ fn init_lists_every_file_it_wrote() {
     assert_eq!(
         written,
         [
-            ".gitattributes",
             ".gitignore",
             ".specforge/extensions/@sdk/greet/extension.wasm",
             "spec/hello.spec",
