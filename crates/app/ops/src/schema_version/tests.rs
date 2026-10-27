@@ -36,6 +36,7 @@ fn sample_schema() -> GraphProtocolSchema {
                     minimum: None,
                     maximum: None,
                     file_base: None,
+                    ..Default::default()
                 }],
             },
             SchemaEntityKind {
@@ -71,6 +72,7 @@ fn optional_field(name: &str) -> SchemaField {
         minimum: None,
         maximum: None,
         file_base: None,
+        ..Default::default()
     }
 }
 

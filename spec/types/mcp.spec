@@ -206,6 +206,8 @@ type McpInspectResult "Mcp Inspect Result" {
   /// Every field the entity declares, by name (its verify statements are
   /// `verify_declarations`).
   fields              object
+  /// The written paths of the fields and members in `fields` a compute pass gave; absent when none.
+  computed            string[]     @optional
   /// Each annotated field's annotations, by its name (a block field's entry's by outer.key); absent when none.
   annotations         object       @optional
   /// Its methods, as the graph export writes them; absent when none.

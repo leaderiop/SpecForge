@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use specforge_coverage::Status;
-use specforge_graph::{Graph, Node, Selected};
+use specforge_graph::{Computed, Graph, Members, Node, Selected};
 use specforge_registry::{FieldRegistry, RegistryBuild};
 
 use crate::budget::TokenBudget;
@@ -58,6 +58,9 @@ pub struct EmitOptions<'a> {
     /// `coverage_status` (graph, context and brief; DOT draws none), and a
     /// token budget counts the key. Default: None — no node carries one.
     pub coverage: Option<&'a BTreeMap<String, Status>>,
+    /// The values compute passes gave (ADR 0287). With it, every node's `fields` hold them and its `computed`
+    /// names them (graph, context and markdown). Default: None — only the authored values.
+    pub computed: Option<&'a Computed>,
 }
 
 /// Default: graph format 1.0 of the whole graph against the unversioned
@@ -72,6 +75,7 @@ impl Default for EmitOptions<'_> {
             token_budget: None,
             registries: no_extensions(),
             coverage: None,
+            computed: None,
         }
     }
 }
@@ -136,6 +140,7 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         attach: options.attach_schema.then_some(attach),
         fields: options.registries.fields(),
         coverage: options.coverage,
+        computed: options.computed,
     };
     match options.token_budget {
         None => shape.render(&selected, None),
@@ -186,6 +191,7 @@ struct Shape<'a> {
     attach: Option<SchemaAttachment>,
     fields: &'a FieldRegistry,
     coverage: Option<&'a BTreeMap<String, Status>>,
+    computed: Option<&'a Computed>,
 }
 
 impl Shape<'_> {
@@ -197,7 +203,7 @@ impl Shape<'_> {
                 .envelope(
                     graph,
                     Some(ExportVersion::V1),
-                    graph_nodes(graph, self.coverage),
+                    graph_nodes(graph, self.coverage, self.computed),
                     budget,
                 )
                 .to_json(),
@@ -205,7 +211,7 @@ impl Shape<'_> {
                 .envelope(
                     graph,
                     None,
-                    context_nodes(graph, self.fields, self.coverage),
+                    context_nodes(graph, self.fields, self.coverage, self.computed),
                     budget,
                 )
                 .to_json(),
@@ -261,11 +267,12 @@ fn status_of(node: &Node, coverage: Option<&BTreeMap<String, Status>>) -> Option
 fn graph_nodes(
     graph: &Graph,
     coverage: Option<&BTreeMap<String, Status>>,
+    computed: Option<&Computed>,
 ) -> Vec<crate::json::JsonNode> {
     graph
         .nodes()
         .into_iter()
-        .map(|n| crate::json::graph_node(n, status_of(n, coverage)))
+        .map(|n| crate::json::graph_node(n, status_of(n, coverage), computed))
         .collect()
 }
 
@@ -273,11 +280,12 @@ fn context_nodes(
     graph: &Graph,
     fields: &FieldRegistry,
     coverage: Option<&BTreeMap<String, Status>>,
+    computed: Option<&Computed>,
 ) -> Vec<crate::context::ContextNode> {
     graph
         .nodes()
         .into_iter()
-        .map(|n| crate::context::context_node(n, fields, status_of(n, coverage)))
+        .map(|n| crate::context::context_node(n, fields, status_of(n, coverage), computed))
         .collect()
 }
 
@@ -290,4 +298,13 @@ fn brief_nodes(
         .into_iter()
         .map(|n| crate::brief::brief_node(n, status_of(n, coverage)))
         .collect()
+}
+
+/// `node`'s members, with the values compute passes gave it when `computed` holds any (ADR 0287).
+pub(crate) fn members_of(node: &Node, computed: Option<&Computed>) -> Members {
+    let members = Members::of(node);
+    match computed {
+        Some(computed) => members.with_computed(node.id.raw.as_str(), computed),
+        None => members,
+    }
 }

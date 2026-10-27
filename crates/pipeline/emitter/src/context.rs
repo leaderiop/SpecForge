@@ -4,10 +4,10 @@ use specforge_common::shape::Shape;
 use specforge_coverage::Status;
 use specforge_graph::Node;
 use specforge_graph::field_form::FieldJson;
-use specforge_graph::{AnnotationJson, Members, MethodJson, Obligation};
+use specforge_graph::{AnnotationJson, Computed, Members, MethodJson, Obligation};
 use specforge_registry::FieldRegistry;
 use specforge_registry::snapshot::field_text;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Serialize, Shape)]
 pub(crate) struct ContextNode {
@@ -34,10 +34,13 @@ pub(crate) struct ContextNode {
     /// shows.
     #[serde(skip_serializing_if = "Option::is_none")]
     coverage_status: Option<Status>,
+    /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); omitted when none.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    computed: BTreeSet<String>,
 }
 
 /// Keys a context node has of its own, which no headline field may take.
-const NODE_KEYS: [&str; 8] = [
+const NODE_KEYS: [&str; 9] = [
     "id",
     "kind",
     "title",
@@ -46,6 +49,7 @@ const NODE_KEYS: [&str; 8] = [
     "annotations",
     "methods",
     "coverage_status",
+    "computed",
 ];
 
 /// The fields of `node` its extension declares `headline`, as their field text
@@ -103,13 +107,15 @@ pub(crate) fn context_node(
     n: &Node,
     registry: &FieldRegistry,
     coverage_status: Option<Status>,
+    computed: Option<&Computed>,
 ) -> ContextNode {
     let headline = headline_fields(n, registry);
     let Members {
         mut fields,
         annotations,
         methods,
-    } = Members::of(n);
+        computed,
+    } = crate::emit::members_of(n, computed);
     // A lifted field is not written twice.
     fields.retain(|name, _| !headline.contains_key(name));
     ContextNode {
@@ -125,5 +131,6 @@ pub(crate) fn context_node(
         },
         fields,
         coverage_status,
+        computed,
     }
 }

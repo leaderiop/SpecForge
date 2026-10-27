@@ -98,7 +98,7 @@ pub fn inspect<'v>(
     } = view.entity(entity_id, EntityField::EntityId)?;
     Ok(EntityFacts {
         node,
-        members: Members::of(node),
+        members: Members::of(node).with_computed(node.id.raw.as_str(), view.computed()),
         kind: view.registries().kinds().get(node.kind.raw.as_str()),
         headline: specforge_emitter::context::headline_statement(node, view.registries().fields()),
         standing,

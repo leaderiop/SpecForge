@@ -138,6 +138,15 @@ pub struct SchemaField {
     /// Where a file field's relative paths start, when it is not the spec root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_base: Option<String>,
+    /// Who writes the field besides its author, `computed` or `harness` (ADR 0287).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writer: Option<String>,
+    /// A value set at the baseline never changes (ADR 0287).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub immutable: bool,
+    /// The baseline list is a prefix of the current one (ADR 0287).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub append_only: bool,
 }
 
 /// A plain optional string field: tests spell only what they exercise.
@@ -158,6 +167,9 @@ impl Default for SchemaField {
             minimum: None,
             maximum: None,
             file_base: None,
+            writer: None,
+            immutable: false,
+            append_only: false,
         }
     }
 }
@@ -215,6 +227,9 @@ impl SchemaField {
             minimum: declared.minimum,
             maximum: declared.maximum,
             file_base: declared.file_base.clone(),
+            writer: declared.writer.clone(),
+            immutable: declared.immutable,
+            append_only: declared.append_only,
         }
     }
 }

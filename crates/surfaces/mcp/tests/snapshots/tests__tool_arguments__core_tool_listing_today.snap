@@ -312,6 +312,9 @@ expression: listing
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
+            "append_only": {
+              "type": "boolean"
+            },
             "default_value": {
               "type": "string"
             },
@@ -347,6 +350,9 @@ expression: listing
             "file_base": {
               "type": "string"
             },
+            "immutable": {
+              "type": "boolean"
+            },
             "maximum": {
               "type": "integer"
             },
@@ -376,6 +382,9 @@ expression: listing
                 "type": "string"
               },
               "type": "array"
+            },
+            "writer": {
+              "type": "string"
             }
           },
           "required": [
@@ -461,6 +470,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "computed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "coverage_status": {
                     "enum": [
@@ -568,6 +583,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "computed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "coverage_status": {
                     "enum": [
@@ -1748,6 +1769,9 @@ expression: listing
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
+            "append_only": {
+              "type": "boolean"
+            },
             "default_value": {
               "type": "string"
             },
@@ -1783,6 +1807,9 @@ expression: listing
             "file_base": {
               "type": "string"
             },
+            "immutable": {
+              "type": "boolean"
+            },
             "maximum": {
               "type": "integer"
             },
@@ -1812,6 +1839,9 @@ expression: listing
                 "type": "string"
               },
               "type": "array"
+            },
+            "writer": {
+              "type": "string"
             }
           },
           "required": [
@@ -2758,6 +2788,12 @@ expression: listing
             "type": "array"
           },
           "type": "object"
+        },
+        "computed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "contract": {
           "type": "string"

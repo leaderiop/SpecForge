@@ -239,6 +239,11 @@ impl<'a> ProjectView<'a> {
         self.project.entities()
     }
 
+    /// The values compute passes gave at the project's last check (ADR 0287).
+    pub fn computed(&self) -> &'a specforge_graph::Computed {
+        self.project.computed()
+    }
+
     /// The Graph Protocol schema the loaded extensions produce, unversioned
     /// (what the model diagram renders).
     pub fn schema(&self) -> GraphProtocolSchema {

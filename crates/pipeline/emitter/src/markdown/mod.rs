@@ -92,7 +92,7 @@ fn section(graph: &Graph, node: &Node, options: &EmitOptions<'_>) -> String {
     let span = &node.source_span;
     let mut blocks = vec![heading, format!("`{}:{}`", span.file, span.start_line)];
 
-    let members = Members::of(node);
+    let members = crate::emit::members_of(node, options.computed);
     let links = links(graph, node, options.registries.field_forms(), &members);
     let linked: BTreeSet<&str> = links.iter().map(|r| r.field).collect();
     let mut fields = Vec::new();
@@ -122,6 +122,27 @@ fn section(graph: &Graph, node: &Node, options: &EmitOptions<'_>) -> String {
             let value = format!("{}{}", field_text(&entry.value), noted(key, &members));
             fields.push(vec![key.to_string(), cell(&value)]);
         }
+    }
+    // A computed field is no entry of the node; it is a row of its own (ADR 0287).
+    let written: BTreeSet<&str> = node
+        .fields
+        .entries()
+        .iter()
+        .map(|e| e.key.as_str())
+        .collect();
+    for path in members
+        .computed
+        .iter()
+        .filter(|p| !p.contains(['.', '[']) && !written.contains(p.as_str()))
+    {
+        let value = members
+            .fields
+            .get(path)
+            .map_or_else(String::new, |v| match v.as_value() {
+                serde_json::Value::String(text) => text.clone(),
+                other => other.to_string(),
+            });
+        fields.push(vec![path.clone(), cell(&format!("{value} *(computed)*"))]);
     }
     if !fields.is_empty() {
         blocks.push(format!(

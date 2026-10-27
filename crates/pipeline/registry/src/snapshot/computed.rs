@@ -2,7 +2,7 @@
 //! pass reads. The graph keeps authored values only.
 
 use serde_json::Value;
-use specforge_graph::field_form::declared_path;
+use specforge_graph::field_form::{declared_path, json::set_path};
 use specforge_graph::{Computed, ValueShape};
 use specforge_protocol_types::FieldType;
 
@@ -33,7 +33,7 @@ impl EntitySnapshot {
                         };
                         put(&mut top.members, path, &declared, value, date);
                         if let Some(written) = &mut top.written {
-                            set(written, &path[at..], value);
+                            set_path(written, &path[at..], value);
                         }
                     }
                 }
@@ -55,43 +55,6 @@ fn put(records: &mut Vec<FieldRecord>, key: &str, declared: &str, value: &Value,
         }
         None => records.push(record),
     }
-}
-
-/// Set the value at `path` (`[0].status`, `.phase`) inside `into`, when the item it names is there.
-fn set(into: &mut Value, path: &str, value: &Value) {
-    let (step, rest) = match path.strip_prefix('[') {
-        Some(tail) => match tail.split_once(']') {
-            Some((index, rest)) => (Step::Item(index.parse().unwrap_or(usize::MAX)), rest),
-            None => return,
-        },
-        None => {
-            let tail = path.strip_prefix('.').unwrap_or(path);
-            let end = tail.find(['.', '[']).unwrap_or(tail.len());
-            (Step::Key(&tail[..end]), &tail[end..])
-        }
-    };
-    let next = match (step, &mut *into) {
-        (Step::Item(i), Value::Array(items)) => items.get_mut(i),
-        (Step::Key(key), Value::Object(entries)) if rest.is_empty() => {
-            entries.insert(key.to_string(), value.clone());
-            return;
-        }
-        (Step::Key(key), Value::Object(entries)) => entries.get_mut(key),
-        _ => None,
-    };
-    if let Some(next) = next {
-        if rest.is_empty() {
-            *next = value.clone();
-        } else {
-            set(next, rest, value);
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-enum Step<'a> {
-    Item(usize),
-    Key(&'a str),
 }
 
 /// A computed value as a record: its text and items as the field text rule writes them.

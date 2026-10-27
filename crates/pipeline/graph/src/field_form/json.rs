@@ -25,6 +25,11 @@ impl FieldJson {
     pub fn as_value(&self) -> &Value {
         &self.0
     }
+
+    /// Set the value at `path` below this field's own (see [`set_path`]).
+    pub fn set_path(&mut self, path: &str, value: &FieldJson) {
+        set_path(&mut self.0, path, &value.0);
+    }
 }
 
 impl From<FieldJson> for Value {
@@ -126,4 +131,36 @@ pub(crate) fn write_fields(fields: &FieldMap) -> BTreeMap<String, FieldJson> {
             .or_insert_with(|| write(&entry.value));
     }
     out
+}
+
+/// Set the value at `path` (`[0].status`, `.phase`: below the field's own name) inside `into`, when the item it
+/// names is there (ADR 0287).
+pub fn set_path(into: &mut Value, path: &str, value: &Value) {
+    let (item, key, rest) = match path.strip_prefix('[') {
+        Some(tail) => match tail.split_once(']') {
+            Some((index, rest)) => (Some(index.parse().unwrap_or(usize::MAX)), "", rest),
+            None => return,
+        },
+        None => {
+            let tail = path.strip_prefix('.').unwrap_or(path);
+            let end = tail.find(['.', '[']).unwrap_or(tail.len());
+            (None, &tail[..end], &tail[end..])
+        }
+    };
+    let next = match (item, &mut *into) {
+        (Some(i), Value::Array(items)) => items.get_mut(i),
+        (None, Value::Object(entries)) if rest.is_empty() => {
+            entries.insert(key.to_string(), value.clone());
+            return;
+        }
+        (None, Value::Object(entries)) => entries.get_mut(key),
+        _ => None,
+    };
+    if let Some(next) = next {
+        if rest.is_empty() {
+            *next = value.clone();
+        } else {
+            set_path(next, rest, value);
+        }
+    }
 }

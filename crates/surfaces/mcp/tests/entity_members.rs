@@ -3,6 +3,8 @@
 
 use crate::support::*;
 use serde_json::{Value, json};
+use specforge_project::SharedRuntime;
+use specforge_project::testing::{GSD_EXTENSION, gsd_history_runtime};
 use specforge_test::prelude::*;
 
 const TEXT: &str = r#"type Order "Order" {
@@ -197,8 +199,23 @@ fn mcp_inspect_shows_blocks_and_edits_them() {
     behavior = "compute_field_values",
     verify = "MCP inspect shows a computed value"
 )]
-#[ignore = "K4 T5"]
 fn mcp_inspect_shows_a_computed_value() {
-    // specforge.inspect fields carry status and computed
-    unimplemented!("K4 T5: specforge.inspect fields carry status and computed");
+    let runtime: SharedRuntime = std::sync::Arc::new(gsd_history_runtime(
+        json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
+    ));
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .file(
+            "a.spec",
+            "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nverification V \"V\" {\n  phase 03\n}\n",
+        );
+    let mut server = Served::initialized_in(project, runtime);
+    let inspected = tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "v1.0/03/V"}),
+    );
+    assert_eq!(inspected["fields"]["status"], "passed", "{inspected}");
+    assert_eq!(inspected["computed"], json!(["status"]), "{inspected}");
 }

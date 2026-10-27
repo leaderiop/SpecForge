@@ -540,8 +540,8 @@ pub mod prelude {
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
         FieldConstraintBuilder, FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer,
         PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
-        PassInput, PassOutput, PassSeverity, PassSpan, RuleBuilder, ScanRequest, ScanResponse,
-        ScannedItem, TestResult, TestResults, TestStatus, Vocabulary,
+        PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder, ScanRequest,
+        ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, Vocabulary,
     };
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,

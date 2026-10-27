@@ -331,6 +331,7 @@ fn export_versioned(
         token_budget: request.max_tokens,
         registries: view.registries(),
         coverage: statuses.as_ref(),
+        computed: Some(view.computed()),
     };
     let document = emit(view.graph(), &options).map_err(failure)?;
     Ok(Noticed::new(document, selection.into_notices()))

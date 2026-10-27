@@ -4,14 +4,14 @@
 //! graph, context and markdown exports, inspect (MCP, the context prompt, the hover), the outline and
 //! the graph delta read it; nothing else writes a node's members.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_parser::{Annotation, FieldMap, FieldValue, MethodDecl, Parameter, VerifyStatement};
 
-use crate::Node;
 use crate::field_form::{FieldJson, spell, write_fields};
+use crate::{Computed, Node};
 
 /// One `verify` statement as every output writes it and `specforge.edit` reads it (ADR 0273): its
 /// kind, absent for a bare `verify "…"` (test `!kind.is_empty()`, not an `Option`), and its text. An
@@ -144,6 +144,9 @@ pub struct Members {
     pub annotations: BTreeMap<String, Vec<AnnotationJson>>,
     /// Its methods, in written order.
     pub methods: Vec<MethodJson>,
+    /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); empty on
+    /// [`Members::new`] and [`Members::of`], which read the node alone.
+    pub computed: BTreeSet<String>,
 }
 
 impl Members {
@@ -156,7 +159,29 @@ impl Members {
             fields: write_fields(fields),
             annotations,
             methods: methods.iter().map(MethodJson::of).collect(),
+            computed: BTreeSet::new(),
         }
+    }
+
+    /// These members with the values compute passes gave the entity `id` (ADR 0287): a computed field is one of
+    /// `fields`, a computed member is set inside its field's value, and each is named in `computed`. A member of an
+    /// item the entity does not write is left out.
+    pub fn with_computed(mut self, id: &str, computed: &Computed) -> Members {
+        for (path, value) in computed.of(id) {
+            match path.find(['.', '[']) {
+                None => {
+                    self.fields.insert(path.to_string(), value.clone());
+                }
+                Some(at) => {
+                    let Some(top) = self.fields.get_mut(&path[..at]) else {
+                        continue;
+                    };
+                    top.set_path(&path[at..], value);
+                }
+            }
+            self.computed.insert(path.to_string());
+        }
+        self
     }
 
     /// `Members::new(&node.fields, &node.methods)`.

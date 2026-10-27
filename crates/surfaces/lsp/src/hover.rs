@@ -170,7 +170,7 @@ pub fn entity(
     }
 
     // Section 5: Fields, but the headline, which the summary quotes
-    let fields: Vec<String> = node
+    let mut fields: Vec<String> = node
         .fields
         .entries()
         .iter()
@@ -190,6 +190,21 @@ pub fn entity(
             format!("- `{key}` = {value}{noted}")
         })
         .collect();
+    // A computed field is no entry of the node: its value joins the fields, marked (ADR 0287).
+    for path in facts
+        .members
+        .computed
+        .iter()
+        .filter(|p| !p.contains(['.', '[']) && node.fields.get(p).is_none())
+    {
+        if let Some(value) = facts.members.fields.get(path) {
+            let value = match value.as_value() {
+                serde_json::Value::String(text) => text.clone(),
+                other => other.to_string(),
+            };
+            fields.push(format!("- `{path}` = {value} *(computed)*"));
+        }
+    }
     if !fields.is_empty() {
         sections.push(format!("**Fields**\n{}", fields.join("\n")));
     }
