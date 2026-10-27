@@ -286,7 +286,7 @@ fn inspect_diagnostics_are_the_entitys_own() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|d| d["code"].as_str().unwrap().to_string())
+            .map(|d| d["code"].as_str().unwrap().replace("test.ext/", ""))
             .collect::<Vec<_>>()
     };
     assert_eq!(codes(&mut server, "task"), vec!["W100", "W101"]);
@@ -334,10 +334,10 @@ fn inspect_attributes_spanless_diagnostics_by_data() {
         .state()
         .diagnostics()
         .into_iter()
-        .find(|d| d.code == "W900")
+        .find(|d| d.code == "test.ext/W900")
         .expect("the pass reports W900");
     assert!(w900.span.is_none() && w900.data.is_none(), "{w900:?}");
-    assert!(!codes(&mut server, "gamma").contains(&"W900".to_string()));
+    assert!(!codes(&mut server, "gamma").contains(&"test.ext/W900".to_string()));
 }
 
 // --- specforge.find_definition ---

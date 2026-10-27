@@ -66,3 +66,11 @@ impl<'a> CodeRef<'a> {
         }
     }
 }
+
+/// Whether `text` is a local code: `E`, `W` or `I` and three digits, no `/`.
+pub fn is_local_code(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.len() == 4
+        && matches!(bytes[0], b'E' | b'W' | b'I')
+        && bytes[1..].iter().all(u8::is_ascii_digit)
+}

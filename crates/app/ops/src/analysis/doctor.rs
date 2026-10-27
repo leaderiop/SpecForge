@@ -182,7 +182,7 @@ pub enum About {
     Rule,
     /// An extension's surfaces (E055).
     Surface,
-    /// Two contributions claim one name (E026, W018, W023, E039, E057); a
+    /// Two contributions claim one name (E026, W018, E039, E057); a
     /// kind keyword registered twice names the keyword it shadows.
     Conflict {
         #[serde(skip_serializing_if = "Option::is_none")]

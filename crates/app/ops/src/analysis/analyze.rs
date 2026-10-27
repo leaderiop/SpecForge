@@ -393,6 +393,7 @@ pub fn analyze(
                     .filter(|p| selection.runs(&p.full_name())),
                 &context,
                 runtime.as_ref(),
+                registries.codes(),
             )
             .into_iter()
             .map(|r| PassOutcome {

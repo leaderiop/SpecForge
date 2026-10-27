@@ -36,7 +36,7 @@ expression: found
     "field 'size' of gadget 'g_size' is declared integer, but was given \"big\""
   ],
   [
-    "W900",
+    "test.shapes/W900",
     "widget 'w_one' links nothing"
   ],
   [

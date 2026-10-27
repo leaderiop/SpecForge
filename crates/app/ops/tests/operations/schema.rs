@@ -208,7 +208,7 @@ fn serve_schema_contract() {
     };
     let trimmed = schema_json(&view, &request);
     assert!(trimmed.get("edge_types").is_none(), "{trimmed}");
-    assert_eq!(trimmed["validation_rules"][0]["code"], "W901");
+    assert_eq!(trimmed["validation_rules"][0]["code"], "t.soft/W901");
     assert_eq!(trimmed["validation_rules"][0]["extension"], "@t/soft");
 
     // error for unknown kind

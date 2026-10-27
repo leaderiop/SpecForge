@@ -442,7 +442,7 @@ type McpDoctorReport "Mcp Doctor Report" {
   ok              boolean
   /// No error-level finding about an installed binary, an extension load or a peer requirement.
   extensions_ok   boolean
-  /// The check of each conflict finding: two contributions claiming one name (E026, W018, W023, E039, E057).
+  /// The check of each conflict finding: two contributions claiming one name (E026, W018, E039, E057).
   conflicts       string[]
   /// "stale" when an installed binary is missing or its hash drifted.
   cache_status    "ok" | "stale"

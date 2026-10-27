@@ -1,12 +1,11 @@
 //! Declared descriptor → [`Rule`]: its shape checked (W112 for a rule that
 //! cannot work as declared), its references resolved against the
-//! registries, then the host's E006 and E016 rules. ([`duplicate_codes`] is W023, which the
-//! registry build reports as a collision.)
+//! registries, then the host's E006 and E016 rules.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use specforge_common::{Diagnostic, Severity, codes};
-use specforge_diagnostics::{CodeMisuse, Level, check_extension_code};
+use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_protocol_types::{
     CheckKind, ConstraintKind, ExtensionDeclaration, FileBase, ValidationRuleDescriptor,
     ValidationSeverity,
@@ -21,6 +20,7 @@ const VERIFY_FIELD: &str = "verify";
 pub(super) fn build(
     declarations: &[ExtensionDeclaration],
     registries: Registries<'_>,
+    codes: &Codebook,
 ) -> (Rules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut rules = Vec::new();
@@ -30,7 +30,7 @@ pub(super) fn build(
         // extension declares for several target kinds is reported once.
         let mut misused = HashSet::new();
         for descriptor in &declaration.validation_rules {
-            diagnostics.extend(code_misuse(extension, descriptor, &mut misused));
+            diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
                 let unread = ignore_unread(descriptor, &mut rule);
                 Ok((resolve(rule, registries)?, unread))
@@ -52,15 +52,16 @@ pub(super) fn build(
 }
 
 /// W150 when `extension` may not report `descriptor`'s code at its
-/// severity (`check_extension_code`), once per (code, severity) of an
-/// extension. The rule is registered as declared.
+/// severity (`Codebook::check`), once per (code, severity) of an extension.
+/// The rule is registered as declared, under the extension's namespace.
 fn code_misuse(
+    codes: &Codebook,
     extension: &str,
     descriptor: &ValidationRuleDescriptor,
     reported: &mut HashSet<(String, Level)>,
 ) -> Option<Diagnostic> {
-    let misuse = declared_level(extension, descriptor).err()?;
     let level = level_of(&descriptor.severity);
+    let misuse = codes.check(extension, &descriptor.code, level).err()?;
     if !reported.insert((descriptor.code.clone(), level)) {
         return None;
     }
@@ -73,20 +74,9 @@ fn code_misuse(
             ),
         )
         .with_suggestion(
-            "renumber the rule in the extension's range, or, for a first-party extension, \
-             catalogue the code",
+            "catalogue the code in the extension's `codes` (`c.code`), at its letter's level",
         ),
     )
-}
-
-/// The level a declared rule reports at, when the host takes its code from `extension` (the
-/// verdict W150 reports otherwise, ADR 0026 D4): the one reading of a rule's severity.
-pub fn declared_level(
-    extension: &str,
-    rule: &ValidationRuleDescriptor,
-) -> Result<Level, CodeMisuse> {
-    let level = level_of(&rule.severity);
-    check_extension_code(extension, &rule.code, level).map(|()| level)
 }
 
 /// The diagnostic level a rule's declared severity is.
@@ -206,7 +196,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
             ),
         ));
     };
-    let fail = |why: &str| cannot_fire(extension, &r.code, why);
+    let fail = |why: &str| cannot_fire(extension, &qualify(extension, &r.code), why);
     let requires_field = || {
         r.field.clone().ok_or_else(|| {
             fail(&format!(
@@ -263,7 +253,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                                 codes::W112,
                                 format!(
                                     "extension '{extension}': rule '{}': invalid regex pattern '{pattern}': {err}",
-                                    r.code
+                                    qualify(extension, &r.code)
                                 ),
                             ));
                         }
@@ -340,7 +330,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
     };
 
     Ok(Rule {
-        code: r.code.clone(),
+        code: qualify(extension, &r.code),
         severity: match r.severity {
             ValidationSeverity::Error => Severity::Error,
             ValidationSeverity::Warning => Severity::Warning,
@@ -555,35 +545,4 @@ fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> FileBase {
         .fields
         .get_path(kind, path)
         .map_or(FileBase::Spec, |(_, form)| form.base())
-}
-
-/// W023: a validation rule code a later extension declares again, once
-/// per repeat, naming the code, that extension and the first one. A code
-/// one extension repeats is not reported. Every declared rule counts,
-/// including one W112 rejects.
-pub(super) fn duplicate_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-    let mut first: HashMap<&str, &str> = HashMap::new();
-    let mut diagnostics = Vec::new();
-    for declaration in declarations {
-        for rule in &declaration.validation_rules {
-            match first.get(rule.code.as_str()) {
-                None => {
-                    first.insert(&rule.code, declaration.name());
-                }
-                Some(owner) if *owner != declaration.name() => {
-                    diagnostics.push(Diagnostic::new(
-                        codes::W023,
-                        format!(
-                            "validation rule code '{}' from '{}' duplicates code from '{}'",
-                            rule.code,
-                            declaration.name(),
-                            owner
-                        ),
-                    ));
-                }
-                Some(_) => {}
-            }
-        }
-    }
-    diagnostics
 }

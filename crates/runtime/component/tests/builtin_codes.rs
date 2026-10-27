@@ -2,7 +2,7 @@
 //! them. The builtins write their rule codes as text and do not link the
 //! catalog (a guest that did would be rebuilt on every explanation edit,
 //! ADR 0026 D4); the registry build checks each rule when it registers it
-//! (`check_extension_code`, W150), and this test checks them all, so a
+//! (`Codebook::check`, W150), and this test checks them all, so a
 //! mismatch fails a test and not only a user's compile.
 #![allow(
     clippy::unwrap_used,
@@ -11,7 +11,7 @@
 
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
-use specforge_diagnostics::{Level, check_extension_code};
+use specforge_diagnostics::{Codebook, Level};
 use specforge_protocol_types::ValidationSeverity;
 use specforge_wasm::WasmRuntime as _;
 use specforge_wasm::protocol::load_declaration;
@@ -38,10 +38,12 @@ fn builtin_rules_use_their_own_codes() {
             .expect("builtin declares itself")
             .declaration;
         assert_eq!(declaration.name(), *name, "a builtin is named by its blob");
+        // A builtin's codes are in the static catalog, bare (ADR 0286 D2).
+        assert!(declaration.codes.is_empty(), "{name} declares `codes`");
         for rule in &declaration.validation_rules {
             checked += 1;
             if let Err(misuse) =
-                check_extension_code(declaration.name(), &rule.code, level(&rule.severity))
+                Codebook::default().check(declaration.name(), &rule.code, level(&rule.severity))
             {
                 problems.push(format!(
                     "{name}: rule '{}' ({:?}) uses {misuse}",

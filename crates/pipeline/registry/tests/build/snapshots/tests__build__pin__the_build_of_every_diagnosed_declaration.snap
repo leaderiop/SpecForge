@@ -80,9 +80,9 @@ expression: digest(&build)
       "extension '@pin/software': unrecognized validation pattern kind 'bogus'"
     ],
     [
-      "W023",
+      "W150",
       "Warning",
-      "validation rule code 'W900' from '@pin/product' duplicates code from '@pin/software'"
+      "extension '@pin/product': rule 'W900' uses a code its extension's catalog does not list"
     ],
     [
       "E055",
@@ -153,15 +153,15 @@ expression: digest(&build)
   ],
   "rules": [
     [
-      "W900",
-      "@pin/software",
-      "behavior",
+      "pin.product/W900",
+      "@pin/product",
+      null,
       null
     ],
     [
-      "W900",
-      "@pin/product",
-      null,
+      "pin.software/W900",
+      "@pin/software",
+      "behavior",
       null
     ],
     [

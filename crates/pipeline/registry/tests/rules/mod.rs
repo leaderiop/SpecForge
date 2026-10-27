@@ -49,7 +49,7 @@ pub fn rules_of(declarations: Vec<ExtensionDeclaration>) -> Built {
     let build = build(declarations);
     let diagnostics = build
         .diagnostics()
-        .filter(|d| ["W112", "W147", "W023"].contains(&d.code.as_str()))
+        .filter(|d| ["W112", "W147"].contains(&d.code.as_str()))
         .cloned()
         .collect();
     Built {
@@ -62,8 +62,24 @@ pub fn rules_of(declarations: Vec<ExtensionDeclaration>) -> Built {
 /// An extension `@test` declaring `rules` and nothing else.
 pub fn declaring(rules: Vec<ValidationRuleDescriptor>) -> ExtensionDeclaration {
     let mut declaration = declare("@test", |_| {});
+    declaration.codes = catalog_of(&rules);
     declaration.validation_rules = rules;
     declaration
+}
+
+/// A `codes` entry for each distinct rule code, so the extension reports no W150.
+fn catalog_of(rules: &[ValidationRuleDescriptor]) -> Vec<specforge_protocol_types::CodeDescriptor> {
+    let mut seen = std::collections::BTreeSet::new();
+    rules
+        .iter()
+        .filter(|rule| seen.insert(rule.code.clone()))
+        .map(|rule| specforge_protocol_types::CodeDescriptor {
+            code: rule.code.clone(),
+            title: "A test rule".to_string(),
+            explanation: "A test rule's finding.".to_string(),
+            docs: None,
+        })
+        .collect()
 }
 
 /// An extension `@test` declaring `rules` and, for each kind they target,
@@ -80,6 +96,7 @@ pub fn declaring_with_kinds(rules: Vec<ValidationRuleDescriptor>) -> ExtensionDe
             });
         }
     });
+    declaration.codes = catalog_of(&rules);
     declaration.validation_rules = rules;
     declaration
 }

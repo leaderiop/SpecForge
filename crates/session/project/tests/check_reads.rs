@@ -122,7 +122,7 @@ fn a_file_beside_a_missing_file_exists_file_changes_its_suggestion() {
             .project()
             .diagnostics()
             .iter()
-            .find(|d| d.code == "F001")
+            .find(|d| d.code.ends_with("/F001"))
             .unwrap_or_else(|| panic!("{:?}", session.project().diagnostics()))
             .suggestion
             .clone()

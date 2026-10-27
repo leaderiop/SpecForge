@@ -4,9 +4,9 @@
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_diagnostics::{CodeEntry, lookup, retired};
+use specforge_diagnostics::{CodeEntry, Codebook, Level, lookup, retired};
 use specforge_protocol_types::{ExtensionDeclaration, ValidationRuleDescriptor};
-use specforge_registry::declared_level;
+use specforge_registry::extension_codes;
 
 use crate::{OpError, OpErrorKind, Refusal};
 
@@ -101,6 +101,25 @@ impl Entry {
     }
 }
 
+/// The level a declared rule reports at when the host takes its code from its extension (no
+/// W150: the extension catalogs it, at its letter's level). Until the code book answers explain
+/// (ADR 0286), the one-extension code book stands in for the project's.
+fn declared_level(
+    declaration: &ExtensionDeclaration,
+    rule: &ValidationRuleDescriptor,
+) -> Option<Level> {
+    let level = match rule.severity {
+        specforge_protocol_types::ValidationSeverity::Error => Level::Error,
+        specforge_protocol_types::ValidationSeverity::Warning => Level::Warning,
+        specforge_protocol_types::ValidationSeverity::Info => Level::Info,
+    };
+    let mut book = Codebook::default();
+    book.add(declaration.name(), extension_codes(declaration))
+        .ok()?;
+    book.check(declaration.name(), &rule.code, level).ok()?;
+    Some(level)
+}
+
 /// The rules among `declarations` that declare `code` (any case, trimmed) and whose code the host
 /// takes from their extension (no W150), in load order, with their extension's name.
 pub fn declared<'d>(
@@ -115,7 +134,7 @@ pub fn declared<'d>(
             .validation_rules
             .iter()
             .filter(move |rule| {
-                rule.code.eq_ignore_ascii_case(&code) && declared_level(extension, rule).is_ok()
+                rule.code.eq_ignore_ascii_case(&code) && declared_level(declaration, rule).is_some()
             })
             .map(move |rule| (extension, rule))
     })
@@ -157,7 +176,7 @@ pub fn explain(
 fn declared_answer(code: &str, declarations: &[ExtensionDeclaration]) -> Option<Explanation> {
     // Accepted rules of one code agree on its level: the first one's.
     let (extension, first) = declared(code, declarations).next()?;
-    let level = declared_level(extension, first).ok()?;
+    let level = declared_level(declarations.iter().find(|d| d.name() == extension)?, first)?;
     let rules = declared(code, declarations)
         .map(|(extension, rule)| DeclaredRule {
             extension: extension.to_string(),
@@ -328,7 +347,9 @@ mod tests {
         }
     }
 
+    // T6 deletes it: a code book answers for one namespace, never a list.
     #[test]
+    #[ignore = "K10 T6"]
     fn every_extension_declaring_a_code_is_listed() {
         let both = [
             declaring("@a/one", "E950", Error),

@@ -46,8 +46,8 @@ fn rules_extension() -> InProcessRuntime {
         c.kind("gadget", |k| {
             k.keyword("gadget");
         });
-        c.raw_category(
-            specforge_extension_sdk::DeclaredCategory::ValidationRules,
+        specforge_project::testing::declare_rules(
+            &mut c,
             serde_json::json!([
                 {
                     "code": "W900", "severity": "warning", "check": "no_incoming_edges",
@@ -142,7 +142,7 @@ fn an_unresolvable_wasm_function_is_w112_on_load() {
     let warnings = w112_naming(&diagnostics, "'validate__absent'");
     assert_eq!(warnings.len(), 1, "{diagnostics:?}");
     assert_eq!(warnings[0].severity, Severity::Warning);
-    for part in ["'@test/rules'", "'E902'"] {
+    for part in ["'@test/rules'", "'test.rules/E902'"] {
         assert!(
             warnings[0].message.contains(part),
             "{}",
@@ -167,7 +167,7 @@ fn a_custom_rule_without_a_wasm_function_is_w112_and_not_registered() {
     let env = dir.environment_in(Arc::new(rules_extension()));
 
     let diagnostics: Vec<Diagnostic> = env.diagnostics().cloned().collect();
-    let warnings = w112_naming(&diagnostics, "'E903'");
+    let warnings = w112_naming(&diagnostics, "'test.rules/E903'");
     assert_eq!(warnings.len(), 1, "{diagnostics:?}");
     assert!(
         warnings[0].message.contains("requires a wasm_function"),
@@ -213,9 +213,9 @@ fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
     assert_eq!(
         registered,
         [
-            ("E901", EXTENSION),
-            ("E902", EXTENSION),
-            ("W900", EXTENSION)
+            ("test.rules/E901", EXTENSION),
+            ("test.rules/E902", EXTENSION),
+            ("test.rules/W900", EXTENSION)
         ]
     );
 
@@ -232,12 +232,15 @@ fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
         "{diagnostics:?}"
     );
     // wasm_runtime_available: the resolvable rule ran in the extension.
-    let failures: Vec<&Diagnostic> = diagnostics.iter().filter(|d| d.code == "E901").collect();
+    let failures: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|d| d.code.ends_with("/E901"))
+        .collect();
     assert_eq!(failures.len(), 1, "{diagnostics:?}");
     assert_eq!(failures[0].severity, Severity::Error);
     assert_eq!(failures[0].message, "gadget 'bad' failed present");
     assert!(
-        !diagnostics.iter().any(|d| d.code == "E902"),
+        !diagnostics.iter().any(|d| d.code.ends_with("/E902")),
         "{diagnostics:?}"
     );
 }

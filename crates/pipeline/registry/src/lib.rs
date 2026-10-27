@@ -10,7 +10,6 @@ mod disk;
 pub mod entity;
 mod registries;
 pub mod rules;
-pub use rules::declared_level;
 pub mod snapshot;
 
 #[cfg(test)]
@@ -54,6 +53,7 @@ pub use snapshot::{EntitySnapshot, Standing};
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild, build_registries,
+    extension_codes,
 };
 
 // Module paths external code names directly (`specforge_registry::surface::`).

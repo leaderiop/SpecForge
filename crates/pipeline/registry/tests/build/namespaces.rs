@@ -15,15 +15,13 @@ fn warns(name: &str, code: &str) -> specforge_protocol_types::ExtensionDeclarati
     })
 }
 
-// Pins K10-D1: today two extensions declaring `E901` collide (W023); T5 un-ignores it.
 #[spec(
     behavior = "registry_build_rules",
     verify = "one local code from two extensions is two codes"
 )]
-#[ignore = "K10 T5"]
 fn one_local_code_from_two_extensions_is_two_codes() {
     let build = build([warns("@acme/a", "W901"), warns("@beta/b", "W901")]);
-    assert!(coded(&build, "W023").is_empty());
+    assert!(codes(&build).is_empty(), "{:?}", codes(&build));
     let codes: Vec<_> = rule_codes(&build)
         .into_iter()
         .map(|(code, _)| code)
@@ -40,12 +38,10 @@ fn cataloguing(name: &str) -> specforge_protocol_types::ExtensionDeclaration {
     })
 }
 
-// Pins K10-D1: today a shared namespace is not detected; T5 un-ignores it.
 #[spec(
     behavior = "registry_build_rules",
     verify = "two loaded extensions that share a code namespace are E039"
 )]
-#[ignore = "K10 T5"]
 fn two_extensions_sharing_a_namespace_are_e039() {
     let build = build([cataloguing("gsd"), cataloguing("@gsd/core")]);
     let shared = coded(&build, "E039");
@@ -57,9 +53,7 @@ fn two_extensions_sharing_a_namespace_are_e039() {
     );
 }
 
-// Pins K10-D2: today a malformed code entry is accepted; T5 un-ignores it.
 #[test]
-#[ignore = "K10 T5"]
 fn a_malformed_code_entry_is_e030() {
     let entry = |c: &mut ContributionsBuilder, code: &str, title: &str, docs: Option<&str>| {
         c.code(code, |d| {

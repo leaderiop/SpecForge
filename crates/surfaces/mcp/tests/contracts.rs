@@ -604,7 +604,7 @@ fn contract_search() {
 fn contract_stats() {
     // An orphan feature, one nothing references, is a warning: a rule the
     // extension declares (W901, NoIncomingEdges on `feature`).
-    let mut server = contracts_project().serve(&[extension().declaring(|c| {
+    let mut server = contracts_project().serve(&[extension().coding("W901").declaring(|c| {
         c.rule("W901", |r| {
             r.check(CheckKind::NoIncomingEdges)
                 .target_kind("feature")
@@ -679,7 +679,7 @@ fn contract_inspect() {
         .iter()
         .map(|d| d["code"].as_str().unwrap())
         .collect();
-    assert_eq!(codes, ["W001"]);
+    assert_eq!(codes, ["test.ext/W001"]);
     assert_eq!(details["source_span"]["file"], "test.spec");
     assert_eq!(details["source_span"]["start_line"], 1);
 
@@ -2270,7 +2270,7 @@ fn contract_diagnostics_resource() {
             "broken.spec",
             "behavior broken \"Broken\" {\n    features [ghost]\n}\nbehavior lonely \"Lonely\" {\n}\n",
         )
-        .serve(&[extension().declaring(|c| {
+        .serve(&[extension().coding("W901").declaring(|c| {
             c.rule("W901", |r| {
                 r.check(CheckKind::NoOutgoingEdges)
                     .target_kind("behavior")
@@ -2291,7 +2291,7 @@ fn contract_diagnostics_resource() {
              "suggestion": null,
              "data": {"kind": "unresolved_reference", "target": "ghost", "entity": "broken", "field": "features"},
              "file": "broken.spec", "line": 2, "column": 15},
-            {"code": "W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 4, "column": 1},
+            {"code": "test.ext/W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning", "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2}, "suggestion": null, "file": "broken.spec", "line": 4, "column": 1},
         ])
     );
 

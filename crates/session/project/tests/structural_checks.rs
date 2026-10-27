@@ -57,6 +57,9 @@ fn shapes() -> InProcessRuntime {
         c.kind("widget", |k| {
             k.keyword("widget");
         });
+        c.code("W900", |d| {
+            d.title("A test rule").explanation("A test rule's finding.");
+        });
         c.rule("W900", |r| {
             r.check(CheckKind::NoOutgoingEdges)
                 .severity(ValidationSeverity::Warning)
@@ -82,7 +85,16 @@ gadget g_size { size \"big\" }
 ";
 
 const ORDER: [&str; 10] = [
-    "E022", "W012", "E024", "E013", "E014", "W020", "W158", "E061", "W900", "E016",
+    "E022",
+    "W012",
+    "E024",
+    "E013",
+    "E014",
+    "W020",
+    "W158",
+    "E061",
+    "test.shapes/W900",
+    "E016",
 ];
 
 /// E022 first, the linker's, reported with the graph build's diagnostics (ADR 0117); then every
@@ -105,6 +117,9 @@ fn structural_checks_report_in_one_order() {
 fn kindless() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/kindless", "1.0.0"));
+        c.code("W902", |d| {
+            d.title("A test rule").explanation("A test rule's finding.");
+        });
         c.rule("W902", |r| {
             r.check(CheckKind::NoIncomingEdges)
                 .severity(ValidationSeverity::Warning)
@@ -151,6 +166,9 @@ fn ghost_rules() -> InProcessRuntime {
         c.kind("anchor", |k| {
             k.keyword("anchor");
         });
+        c.code("W901", |d| {
+            d.title("A test rule").explanation("A test rule's finding.");
+        });
         c.rule("W901", |r| {
             r.check(CheckKind::NoIncomingEdges)
                 .severity(ValidationSeverity::Warning)
@@ -167,7 +185,7 @@ fn ghost_rules() -> InProcessRuntime {
 fn a_rule_is_inert_for_an_undeclared_target_kind() {
     let dir = project(&["@test/ghost-rules"], "ghost g1 { }\n");
 
-    let found = reported(ghost_rules(), &dir, &["E024", "W901"]);
+    let found = reported(ghost_rules(), &dir, &["E024", "test.ghost-rules/W901"]);
 
     assert_eq!(codes_of(&found), ["E024"], "{found:#?}");
 }

@@ -1,4 +1,4 @@
-use super::is_third_party;
+use super::is_example_local_code;
 use specforge_repo_root::repo_root;
 use std::path::{Path, PathBuf};
 
@@ -234,14 +234,14 @@ pub(super) struct GuestSite {
 }
 
 /// Every code literal in the guests' production source, with its
-/// directory's owner. The third-party ranges are never catalogued.
+/// directory's owner. The examples' local codes are never catalogued.
 pub(super) fn guest_sites() -> Vec<GuestSite> {
     let mut sites = Vec::new();
     for (dir, owner) in guest_owners() {
         for (rel, lines) in production_source(&dir) {
             for (index, line) in lines.iter().enumerate() {
                 for (code, range) in code_literals(line) {
-                    if is_third_party(code) {
+                    if is_example_local_code(code) {
                         continue;
                     }
                     sites.push(GuestSite {
@@ -355,7 +355,8 @@ pub(super) fn cited_codes(text: &str) -> Vec<(usize, &str)> {
     for (index, line) in text.lines().enumerate() {
         let b = line.as_bytes();
         for i in 0..b.len() {
-            if i > 0 && word(b[i - 1]) {
+            // A code after a `/` is an extension's local code in its namespace (`gsd/E101`).
+            if i > 0 && (word(b[i - 1]) || b[i - 1] == b'/') {
                 continue;
             }
             let Some(end) = code_shape_end(b, i) else {

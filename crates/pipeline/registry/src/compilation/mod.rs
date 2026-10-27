@@ -8,6 +8,7 @@
 
 mod build;
 mod candidates;
+mod codes;
 mod declaration;
 mod edge_types;
 mod graph_inputs;
@@ -18,3 +19,4 @@ mod validate;
 
 pub use build::{BuildPart, CHECK_PHASE, DeclaredPass, RegistryBuild, build_registries};
 pub use candidates::CandidateVocabulary;
+pub use codes::extension_codes;

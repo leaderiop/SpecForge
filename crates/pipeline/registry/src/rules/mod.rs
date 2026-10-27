@@ -19,13 +19,13 @@ mod files;
 mod verdicts;
 
 use specforge_common::{Diagnostic, Severity};
+use specforge_diagnostics::Codebook;
 use specforge_protocol_types::{CheckKind, ConstraintKind, ExtensionDeclaration};
 
 use crate::entity::RuleInput;
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use check::Check;
 
-pub use build::declared_level;
 pub use verdicts::{CustomCall, CustomVerdicts, NoVerdicts, Subject, Verdict, VerdictError};
 
 /// The registries a rule resolves against: target kinds, the edge types
@@ -181,19 +181,15 @@ impl Rules {
     /// `file_reference` field.
     ///
     /// Diagnostics, per extension and per rule in declaration order, W150,
-    /// W147 or W112 (the rule cannot work as declared, not registered). Pure.
+    /// W147 or W112 (the rule cannot work as declared, not registered). Each
+    /// rule is registered under its extension's namespace (`acme.lint/W001`).
+    /// Pure.
     pub(crate) fn build(
         declarations: &[ExtensionDeclaration],
         registries: Registries<'_>,
+        codes: &Codebook,
     ) -> (Rules, Vec<Diagnostic>) {
-        build::build(declarations, registries)
-    }
-
-    /// W023 for a code a later extension declares again, once per repeat
-    /// ([`Self::build`] does not report it: it is a collision of two
-    /// extensions, which the registry build reports after the rules').
-    pub(crate) fn duplicate_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-        build::duplicate_codes(declarations)
+        build::build(declarations, registries, codes)
     }
 
     /// Run every rule over `input`: each rule in order, its entities by id

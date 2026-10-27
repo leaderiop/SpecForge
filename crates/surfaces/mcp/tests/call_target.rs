@@ -588,7 +588,7 @@ fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
     );
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(
-        parsed["passes"][0]["findings"][0]["code"], "W900",
+        parsed["passes"][0]["findings"][0]["code"], "test.cmds/W900",
         "{parsed}"
     );
 

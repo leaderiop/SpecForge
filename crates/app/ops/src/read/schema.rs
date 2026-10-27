@@ -7,6 +7,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use specforge_common::shape::Shape;
+use specforge_diagnostics::qualify;
 use specforge_emitter::{SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaVersion};
 
 use crate::read::export::{self, AGENT_FORMAT, FORMAT};
@@ -101,7 +102,10 @@ pub fn schema(
             .iter()
             .flat_map(|declaration| {
                 declaration.validation_rules.iter().map(|rule| {
+                    let code = qualify(declaration.name(), &rule.code);
                     let mut rule = rule_json(rule);
+                    // The code as a diagnostic, explain and the code book spell it (ADR 0286).
+                    rule["code"] = Value::from(code);
                     rule["extension"] = Value::from(declaration.name());
                     rule
                 })

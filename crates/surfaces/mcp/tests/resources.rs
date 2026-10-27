@@ -241,7 +241,7 @@ fn diagnostics_resource_returns_array() {
     assert_eq!(diags.len(), 2, "{parsed}");
     assert_eq!(diags[0]["code"], "E003");
     assert_eq!(diags[0]["message"], UNRESOLVED_GHOST);
-    assert_eq!(diags[1]["code"], "W901");
+    assert_eq!(diags[1]["code"], "test.ext/W901");
     assert_eq!(diags[1]["message"], "orphan entity");
 }
 
@@ -772,7 +772,7 @@ fn diagnostics_resource_gives_catalogued_codes_their_title() {
     assert_eq!(bag[0]["code"], "E003");
     assert_eq!(bag[0]["title"], "Unresolved reference");
     assert!(bag[0].get("origin").is_none(), "{bag}");
-    assert_eq!(bag[1]["code"], "W901");
+    assert_eq!(bag[1]["code"], "test.ext/W901");
     assert_eq!(bag[1]["title"], Value::Null, "{bag}");
     assert_eq!(bag[1]["origin"], "@test/ext", "{bag}");
 }

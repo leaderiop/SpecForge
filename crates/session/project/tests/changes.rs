@@ -553,7 +553,7 @@ fn a_file_a_file_exists_rule_names_reruns_the_checks() {
             .project()
             .diagnostics()
             .iter()
-            .filter(|d| d.code.starts_with('F'))
+            .filter(|d| d.code.contains("/F"))
             .map(|d| d.message.clone())
             .collect()
     };

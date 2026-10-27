@@ -66,7 +66,7 @@ type RegistryBuild "What the registry build derives from the loaded declarations
   graph_inputs GraphInputs            @readonly
   // Every diagnostic it reports, in one order: the declarations' own (E030,
   // W021, E073 and E027, W145), the registries' (E026, W018, W019, W021,
-  // I004, W017, the rule set's W150, W147 or W112, then W023), the custom
+  // I004, W017, the rule set's W150, W147 or W112), the custom
   // rules' probes (W112), then the surfaces' (E055, E039); each group
   // extension by extension in load order
   diagnostics  Diagnostic[]           @readonly

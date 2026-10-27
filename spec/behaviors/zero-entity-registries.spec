@@ -565,7 +565,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   }
   ensures {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
-    duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
+    duplicates_warned      "A local code two extensions declare is two codes, and two extensions that share a code namespace are E039"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
     files_enforced         "Every field registered as a file reference has a host-generated E016 rule"
     unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares is not registered, so it reports nothing"
@@ -576,9 +576,9 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     into one rule set, each rule with the extension that declared it
     (custom rules are dispatched to it), ordered by code; rules sharing a
     code keep load order. A rule that does not parse is W112
-    (parse_validation_rule_pattern). A code two extensions declare MUST
-    produce a W023 warning naming the code and both extensions; both rules
-    are kept. A rule's target kind and edge type are resolved against the
+    (parse_validation_rule_pattern). A code is its extension's namespace and a
+    local code, so one local code from two extensions is two codes; two
+    loaded extensions that share a namespace are E039. A rule's target kind and edge type are resolved against the
     loaded registries: a rule whose target kind or edge type no loaded
     extension declares is not registered, so it reports nothing when rules
     run (and the entities written with that keyword are E024), since it
@@ -596,16 +596,14 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     file_exists rule for every field registered as a file reference.
 
     Each rule's code is checked against the diagnostic catalog when it
-    is registered: an extension's rule uses its own catalogued code at
-    the catalogued level, or a code in E900-E998, W900-W998 or I900-I998
-    whose prefix states the rule's severity. Any other is reported as
+    is registered: an extension's rule uses a code its own catalog lists,
+    at the level its letter states. Any other is reported as
     W150 naming the extension, the code and why, once per code and
     severity; the rule is still registered and runs with the code it
     declares.
   """
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
-  verify unit "a rule code two extensions declare is W023 and both rules are kept"
   verify unit "one local code from two extensions is two codes"
   verify unit "two loaded extensions that share a code namespace are E039"
   verify unit "the build drops a rule whose target kind or edge type no loaded extension declares"
@@ -742,7 +740,7 @@ behavior registry_build_load_order "Registry Build Orders the Extensions" {
   contract   """
     The registry build MUST put the loaded declarations in load order
     before it reads them, and every first-wins rule (E026 kinds, W018 edge
-    labels, enhancement fields, W023 rule codes, surfaces and short names)
+    labels, enhancement fields, rule codes, surfaces and short names)
     and every in-order list (passes, rules, the extensions a schema names,
     migration hooks) MUST follow it. Load order is entry order, except that
     an extension comes after the peers it declares: every required one,

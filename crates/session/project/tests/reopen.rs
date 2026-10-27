@@ -106,5 +106,5 @@ fn a_reopen_is_the_update_of_the_replacement() {
     assert!(update.previous_diagnostics.is_empty());
     assert_eq!(update.verification, None);
     // The source given was used, not the detached session's.
-    assert!(update.diagnostics.iter().any(|d| d.code == "I990"));
+    assert!(update.diagnostics.iter().any(|d| d.code.ends_with("/I990")));
 }

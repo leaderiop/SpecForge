@@ -107,8 +107,9 @@ term t_diagnostic "diagnostic" {
     diagnostic catalog (`specforge explain`, rendered to
     docs/diagnostics.md), which also gives every core code a typed
     constant. Codes an extension reports are checked where they enter
-    the host. Third-party extensions use E900-E998, W900-W998,
-    I900-I998 (I999 is core), at the level the prefix states.
+    the host. A third-party extension's code is its namespace and a
+    local code (`acme.audit/W101`); the extension lists it in its own
+    catalog, at the level its letter states.
   """
   aliases    ["compiler diagnostic", "validation message"]
 }

@@ -167,3 +167,19 @@ pub fn typed_kinds(c: &mut ContributionsBuilder) {
         serde_json::to_value(typed_extension().entities).expect("kinds serialize"),
     );
 }
+
+/// Declare `rules` as the wire carries them (`raw_category`, so a rule the SDK builder would refuse
+/// can be declared) and a `codes` entry for each distinct rule code, so the extension reports no W150
+/// for them (ADR 0286).
+pub fn declare_rules(c: &mut ContributionsBuilder, rules: Value) {
+    let mut seen = std::collections::BTreeSet::new();
+    let catalog: Vec<Value> = rules
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|rule| seen.insert(rule["code"].to_string()))
+        .map(|rule| json!({"code": rule["code"], "title": "A test rule", "explanation": "A test rule's finding."}))
+        .collect();
+    c.raw_category(DeclaredCategory::ValidationRules, rules);
+    c.raw_category(DeclaredCategory::Codes, json!(catalog));
+}

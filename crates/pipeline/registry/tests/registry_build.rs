@@ -58,6 +58,10 @@ fn software() -> ExtensionDeclaration {
             .target_kind("behavior")
             .edge_type("uses");
     });
+    c.code("W901", |d| {
+        d.title("Behavior uses nothing")
+            .explanation("A behavior uses no type.");
+    });
     hello(&mut c, "hello");
     c.declaration()
 }
@@ -118,7 +122,10 @@ fn rules_include_the_manifest_rules_and_the_required_field_rules() {
         .collect();
     // The extension's rule keeps its origin (for custom-rule dispatch);
     // the host-generated E006 rule for `contract` has none.
-    assert!(codes.contains(&("W901", "@test/software")), "{codes:?}");
+    assert!(
+        codes.contains(&("test.software/W901", "@test/software")),
+        "{codes:?}"
+    );
     assert!(codes.contains(&("E006", "")), "{codes:?}");
 }
 
@@ -190,36 +197,6 @@ fn surface_conflicts_come_last_in_the_builds_diagnostics() {
     );
 }
 
-/// Two extensions declaring one rule code: the build warns (W023), after
-/// the rule-parse diagnostics, and keeps both rules.
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "a rule code two extensions declare is W023 and both rules are kept"
-)]
-fn a_rule_code_declared_by_two_extensions_warns() {
-    let rule = |name: &str| {
-        let mut c = extension(name, "1.0.0");
-        c.rule("W900", |r| {
-            r.severity(ValidationSeverity::Warning)
-                .message_template("m")
-                .check(CheckKind::NoIncomingEdges);
-        });
-        c.declaration()
-    };
-
-    let build = build_registries(vec![rule("@ext/a"), rule("@ext/b")]);
-
-    assert_eq!(codes(&build), ["W023"]);
-    let message = &diagnostics(&build)[0].message;
-    for part in ["'W900'", "'@ext/a'", "'@ext/b'"] {
-        assert!(message.contains(part), "{message}");
-    }
-    assert_eq!(
-        build.rules().iter().filter(|r| r.code() == "W900").count(),
-        2
-    );
-}
-
 /// With no extension loaded the host knows no kind, field or edge: every
 /// registry starts empty and stays so.
 #[spec(
@@ -262,6 +239,13 @@ fn one_rule(name: &str, code: &str, severity: ValidationSeverity) -> ExtensionDe
     c.edge("uses", |e| {
         e.source_kind("thing").target_kind("thing");
     });
+    // A first-party extension's codes are in the host catalog; any other catalogs its own.
+    if !name.starts_with("@specforge/") {
+        c.code(code, |d| {
+            d.title("Thing uses nothing")
+                .explanation("A thing refers to nothing.");
+        });
+    }
     c.rule(code, |r| {
         r.severity(severity)
             .message_template("thing '{id}' uses nothing")
@@ -299,7 +283,7 @@ fn a_rule_with_a_code_it_may_not_use_is_reported() {
     )]);
 
     assert_eq!(
-        registered(&build, "E001"),
+        registered(&build, "acme.squat/E001"),
         [(specforge_common::Severity::Info, "@acme/squat".to_string())]
     );
     let all = diagnostics(&build);
@@ -310,8 +294,12 @@ fn a_rule_with_a_code_it_may_not_use_is_reported() {
     assert_eq!(w150.severity, specforge_common::Severity::Warning);
     assert!(w150.message.contains("'@acme/squat'"), "{}", w150.message);
     assert!(w150.message.contains("rule 'E001'"), "{}", w150.message);
-    assert!(w150.message.contains("core owns"), "{}", w150.message);
-    assert!(w150.message.contains("Parse error"), "{}", w150.message);
+    // Its own `E001`, never core's: only its letter contradicts the level it reports at.
+    assert!(
+        w150.message.contains("letter contradicts"),
+        "{}",
+        w150.message
+    );
 }
 
 /// The same code declared for several target kinds is one W150 per
@@ -342,46 +330,45 @@ fn a_misused_code_declared_for_several_kinds_is_reported_once_per_severity() {
     let w150 = coded(&build, "W150");
     // W001 at Warning (declared twice) and at Error.
     assert_eq!(w150.len(), 2, "{w150:?}");
-    assert_eq!(registered(&build, "W001").len(), 3);
+    assert_eq!(registered(&build, "acme.squat/W001").len(), 3);
 }
 
-/// `declared_level` is the verdict W150 reports: the level when the host takes the code from the
+/// `Codebook::check` is the verdict W150 reports: Ok when the host takes the code from the
 /// extension, the misuse otherwise.
 #[spec(
     behavior = "registry_build_rules",
     verify = "a rule whose code the extension may not use is reported (W150) and still registered"
 )]
-fn declared_level_is_the_level_w150_accepts() {
+fn the_code_book_is_the_verdict_w150_reports() {
     use specforge_diagnostics::{CodeMisuse, Level};
-    use specforge_registry::declared_level;
-    let level = |name: &str, code: &str, severity| {
-        let declaration = one_rule(name, code, severity);
-        declared_level(name, &declaration.validation_rules[0])
+    let check = |name: &str, code: &str, severity| {
+        let level = level_of(&severity);
+        let build = build_registries(vec![one_rule(name, code, severity)]);
+        build.codes().check(name, code, level)
     };
+    fn level_of(severity: &ValidationSeverity) -> Level {
+        match severity {
+            ValidationSeverity::Error => Level::Error,
+            ValidationSeverity::Warning => Level::Warning,
+            ValidationSeverity::Info => Level::Info,
+        }
+    }
+    assert_eq!(check("@acme/x", "E950", ValidationSeverity::Error), Ok(()));
     assert_eq!(
-        level("@acme/x", "E950", ValidationSeverity::Error),
-        Ok(Level::Error)
-    );
-    assert_eq!(
-        level("@acme/x", "W950", ValidationSeverity::Error),
+        check("@acme/x", "W950", ValidationSeverity::Error),
         Err(CodeMisuse::PrefixContradictsLevel)
     );
-    assert!(
-        matches!(
-            level("@acme/x", "W041", ValidationSeverity::Warning),
-            Err(CodeMisuse::NotItsCode {
-                owner: "@specforge/product",
-                ..
-            })
-        ),
-        "W041 is product's"
+    // Its own `W041`, never product's: the catalog's owner has no claim on an extension's number.
+    assert_eq!(
+        check("@acme/x", "W041", ValidationSeverity::Warning),
+        Ok(())
     );
     assert_eq!(
-        level("@specforge/product", "W041", ValidationSeverity::Warning),
-        Ok(Level::Warning)
+        check("@specforge/product", "W041", ValidationSeverity::Warning),
+        Ok(())
     );
     assert_eq!(
-        level("@specforge/rust", "W950", ValidationSeverity::Warning),
+        check("@specforge/rust", "W950", ValidationSeverity::Warning),
         Err(CodeMisuse::Uncatalogued)
     );
 }
@@ -425,7 +412,7 @@ fn a_first_party_rule_is_checked_against_the_catalog() {
 }
 
 #[test]
-fn third_party_rule_codes_in_their_range_register_silently() {
+fn a_third_party_rule_code_its_extension_catalogues_registers_silently() {
     let build = build_registries(vec![one_rule(
         "@acme/x",
         "W950",
@@ -433,7 +420,7 @@ fn third_party_rule_codes_in_their_range_register_silently() {
     )]);
 
     assert_eq!(
-        registered(&build, "W950"),
+        registered(&build, "acme.x/W950"),
         [(specforge_common::Severity::Warning, "@acme/x".to_string())]
     );
     assert!(

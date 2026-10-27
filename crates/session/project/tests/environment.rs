@@ -24,8 +24,8 @@ fn rules() -> ContributionsBuilder {
     c.kind("gadget", |k| {
         k.keyword("gadget");
     });
-    c.raw_category(
-        specforge_extension_sdk::DeclaredCategory::ValidationRules,
+    specforge_project::testing::declare_rules(
+        &mut c,
         json!([{
             "code": "E902", "severity": "error", "check": "custom",
             "message_template": "gadget '{id}' failed the absent check",

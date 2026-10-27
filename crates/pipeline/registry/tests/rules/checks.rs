@@ -263,7 +263,7 @@ fn conditional_field_required_fires_only_when_its_condition_holds_and_the_field_
     assert!(
         diagnostics
             .iter()
-            .all(|d| d.code == "I059" && d.severity == Severity::Info)
+            .all(|d| d.code == "test/I059" && d.severity == Severity::Info)
     );
 }
 
@@ -349,13 +349,13 @@ fn obligation_rule(code: &str, target: Option<&str>, field: &str) -> ValidationR
 fn applies_to_reads_target_kind_once() {
     let built = rules(vec![
         obligation_rule("W004", Some("behavior"), "verify"),
-        obligation_rule("P300", None, "verify"),
+        obligation_rule("E300", None, "verify"),
     ]);
     let (p300, w004) = {
         let mut iter = built.rules.iter();
         (iter.next().unwrap(), iter.next().unwrap())
     };
-    assert_eq!((p300.code(), w004.code()), ("P300", "W004"));
+    assert_eq!((p300.code(), w004.code()), ("test/E300", "test/W004"));
     assert!(w004.applies_to("behavior"));
     assert!(!w004.applies_to("event"));
     assert!(p300.applies_to("behavior") && p300.applies_to("event"));
@@ -371,9 +371,9 @@ fn applies_to_reads_target_kind_once() {
     assert_eq!(
         reported,
         [
-            ("P300", "behavior 'b' has no verify"),
-            ("P300", "event 'e' has no verify"),
-            ("W004", "behavior 'b' has no verify"),
+            ("test/E300", "behavior 'b' has no verify"),
+            ("test/E300", "event 'e' has no verify"),
+            ("test/W004", "behavior 'b' has no verify"),
         ]
     );
     assert!(diagnostics.iter().all(|d| d.severity == Severity::Warning));
@@ -385,18 +385,18 @@ fn applies_to_reads_target_kind_once() {
     let built = rules(vec![
         other,
         obligation_rule("W004", Some("behavior"), "verify"),
-        obligation_rule("P300", None, "verify"),
+        obligation_rule("E300", None, "verify"),
         obligation_rule("W009", Some("event"), "verify"),
     ]);
     let code = |kind| built.rules.verify_rule_for(kind).map(|r| r.code());
-    assert_eq!(code("behavior"), Some("P300"));
-    assert_eq!(code("event"), Some("P300"));
-    assert_eq!(code("type"), Some("P300"));
+    assert_eq!(code("behavior"), Some("test/E300"));
+    assert_eq!(code("event"), Some("test/E300"));
+    assert_eq!(code("type"), Some("test/E300"));
     assert!(built.rules.obligates("type"));
     let only_w004 = one(obligation_rule("W004", Some("behavior"), "verify"));
     assert_eq!(
         only_w004.rules.verify_rule_for("behavior").unwrap().code(),
-        "W004"
+        "test/W004"
     );
     assert!(only_w004.rules.verify_rule_for("type").is_none());
     assert!(!only_w004.rules.obligates("type"));
@@ -426,9 +426,9 @@ fn execute_validation_pattern_contract() {
     assert_eq!(
         reported,
         [
-            ("W100", "orphan behavior 'b1'"),
-            ("W200", "orphan behavior 'b1'"),
-            ("W200", "orphan behavior 'b2'"),
+            ("test/W100", "orphan behavior 'b1'"),
+            ("test/W200", "orphan behavior 'b1'"),
+            ("test/W200", "orphan behavior 'b2'"),
         ]
     );
     // Identical across runs.
@@ -480,7 +480,7 @@ fn diagnostic_code_matches_pattern_code() {
     let mut declared = rule("E999", "no_incoming_edges");
     declared.message_template = "test".to_string();
     let diagnostics = check(&one(declared), &[entity("b1", "behavior", 0, 0)]);
-    assert_eq!(diagnostics[0].code, "E999");
+    assert_eq!(diagnostics[0].code, "test/E999");
 }
 
 #[spec(
@@ -515,7 +515,7 @@ fn emit_diagnostic_from_pattern_contract() {
         messages(&diagnostics),
         ["behavior 'b1' orphan, {field} {value} {allowed}"]
     );
-    assert_eq!(diagnostics[0].code, "W100");
+    assert_eq!(diagnostics[0].code, "test/W100");
     assert_eq!(diagnostics[0].severity, Severity::Warning);
 }
 

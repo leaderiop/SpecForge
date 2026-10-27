@@ -25,14 +25,14 @@ fn the_fixture_serves_its_declaration_through_the_registry_build() {
             .unwrap_or_else(|| panic!("{kind} is not registered"));
         assert_eq!(entry.source_extension, EXT, "{kind}");
     }
-    // One W004 rule, targeting `behavior`: the behavior that declares no
+    // One W904 rule, targeting `behavior`: the behavior that declares no
     // obligation is reported, the invariant (a testable kind no rule
     // obligates) is not.
     let w004: Vec<String> = served
         .state()
         .diagnostics()
         .into_iter()
-        .filter(|d| d.code == "W004")
+        .filter(|d| d.code == "test.ext/W904")
         .map(|d| d.message)
         .collect();
     assert_eq!(

@@ -2,9 +2,9 @@
 //! catalogs (their `codes` category). Every surface that titles, explains or
 //! links a code reads it (ADR 0286).
 
-use crate::extension::{CodeMisuse, check_extension_code};
-use crate::namespace::{CodeRef, FIRST_PARTY, code_namespace};
-use crate::{Level, lookup};
+use crate::extension::CodeMisuse;
+use crate::namespace::{CodeRef, FIRST_PARTY, code_namespace, is_local_code};
+use crate::{Level, lookup, retired};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
@@ -66,14 +66,6 @@ fn letter_level(local: &str) -> Option<Level> {
         b'I' => Some(Level::Info),
         _ => None,
     }
-}
-
-/// `[EWI]` and three digits.
-fn is_local_code(code: &str) -> bool {
-    let bytes = code.as_bytes();
-    bytes.len() == 4
-        && matches!(bytes[0], b'E' | b'W' | b'I')
-        && bytes[1..].iter().all(u8::is_ascii_digit)
 }
 
 impl Codebook {
@@ -149,14 +141,20 @@ impl Codebook {
 
     /// Whether extension `extension` may report `code` at `level`.
     ///
-    /// - A first-party extension is checked against the static catalog
-    ///   (`check_extension_code`).
+    /// - A first-party extension reports only the static catalog's codes it
+    ///   owns, at their catalogued level (at any level for an `A###` code,
+    ///   whose pass sets it); core's or another owner's code is
+    ///   [`CodeMisuse::NotItsCode`], a retired one [`CodeMisuse::Retired`], a
+    ///   code the catalog lacks [`CodeMisuse::Uncatalogued`].
     /// - Any other extension reports a local code (`[EWI]` and three digits,
-    ///   no `/`) its own catalog lists ([`CodeMisuse::Uncatalogued`]), at the
-    ///   level its letter states ([`CodeMisuse::PrefixContradictsLevel`]).
+    ///   no `/`; [`CodeMisuse::NotALocalCode`]) its own catalog lists
+    ///   ([`CodeMisuse::Uncatalogued`]), at the level its letter states
+    ///   ([`CodeMisuse::PrefixContradictsLevel`]). Its code never reaches
+    ///   core's or another extension's: the host prints it under its
+    ///   namespace.
     pub fn check(&self, extension: &str, code: &str, level: Level) -> Result<(), CodeMisuse> {
         if extension.starts_with(FIRST_PARTY) {
-            return check_extension_code(extension, code, level);
+            return first_party(extension, code, level);
         }
         if !is_local_code(code) {
             return Err(CodeMisuse::NotALocalCode);
@@ -190,5 +188,210 @@ impl Codebook {
             },
             Some(_) => self.describes(code, None).map(|described| described.level),
         }
+    }
+}
+
+/// The static catalog's verdict on a `@specforge/*` extension reporting `code`.
+fn first_party(extension: &str, code: &str, level: Level) -> Result<(), CodeMisuse> {
+    if let Some(entry) = lookup(code) {
+        if entry.owner != extension {
+            return Err(CodeMisuse::NotItsCode {
+                owner: entry.owner,
+                title: entry.title,
+            });
+        }
+        return match entry.level {
+            Level::SetByPass => Ok(()),
+            catalogued if catalogued == level => Ok(()),
+            catalogued => Err(CodeMisuse::WrongLevel { catalogued }),
+        };
+    }
+    match retired(code) {
+        Some(replaced_by) => Err(CodeMisuse::Retired { replaced_by }),
+        None => Err(CodeMisuse::Uncatalogued),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_test_macros::test as specforge_test;
+
+    fn book(extension: &str, codes: &[&str]) -> Codebook {
+        let mut book = Codebook::default();
+        let entries = codes
+            .iter()
+            .map(|code| ExtensionCode {
+                local: (*code).into(),
+                title: "t".into(),
+                explanation: "e".into(),
+                docs: None,
+            })
+            .collect();
+        book.add(extension, entries).unwrap();
+        book
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_core_code_is_not_a_first_party_extensions() {
+        let none = Codebook::default();
+        let misuse = none
+            .check("@specforge/product", "E001", Level::Error)
+            .unwrap_err();
+        assert_eq!(
+            misuse,
+            CodeMisuse::NotItsCode {
+                owner: "core",
+                title: "Parse error"
+            }
+        );
+        let text = misuse.to_string();
+        assert!(text.contains("core owns"), "{text}");
+        assert!(text.contains("Parse error"), "{text}");
+        let other = none
+            .check("@specforge/rust", "W041", Level::Warning)
+            .unwrap_err();
+        assert!(
+            other.to_string().contains("@specforge/product owns"),
+            "{other}"
+        );
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_first_party_extensions_own_code_at_its_level_is_accepted() {
+        let none = Codebook::default();
+        assert_eq!(
+            none.check("@specforge/product", "W041", Level::Warning),
+            Ok(())
+        );
+        assert_eq!(
+            none.check("@specforge/product", "I068", Level::Info),
+            Ok(())
+        );
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_first_party_code_at_another_level_is_refused() {
+        let misuse = Codebook::default()
+            .check("@specforge/product", "W041", Level::Error)
+            .unwrap_err();
+        assert_eq!(
+            misuse,
+            CodeMisuse::WrongLevel {
+                catalogued: Level::Warning
+            }
+        );
+        assert!(misuse.to_string().contains("warning"), "{misuse}");
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_graded_code_accepts_any_level() {
+        // The testing extension's A-codes are graded by its pass.
+        let entry = lookup("A001").expect("A001 is catalogued");
+        assert_eq!(entry.level, Level::SetByPass);
+        for level in [Level::Error, Level::Warning, Level::Info] {
+            assert_eq!(
+                Codebook::default().check(entry.owner, "A001", level),
+                Ok(()),
+                "{level:?}"
+            );
+        }
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_retired_code_is_refused_to_a_first_party_extension() {
+        let none = Codebook::default();
+        assert_eq!(
+            none.check("@specforge/product", "E047", Level::Error),
+            Err(CodeMisuse::Retired {
+                replaced_by: Some("W139")
+            })
+        );
+        assert_eq!(
+            none.check("@specforge/product", "W024", Level::Warning),
+            Err(CodeMisuse::Retired { replaced_by: None })
+        );
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_first_party_uncatalogued_code_is_refused() {
+        let none = Codebook::default();
+        for code in ["W500", "W950"] {
+            assert_eq!(
+                none.check("@specforge/rust", code, Level::Warning),
+                Err(CodeMisuse::Uncatalogued),
+                "{code}"
+            );
+        }
+    }
+
+    // Flips K10-D3: an extension owns its whole number space, `E101` and `E001` included.
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "a third-party extension's code is its namespace and its own local code"
+    )]
+    fn a_third_party_extension_owns_its_whole_number_space() {
+        let gsd = book("@gsd/core", &["E101", "E001"]);
+        assert_eq!(gsd.check("@gsd/core", "E101", Level::Error), Ok(()));
+        // Its own `E001`, never core's: the host prints it `gsd/E001`.
+        assert_eq!(gsd.check("@gsd/core", "E001", Level::Error), Ok(()));
+        assert_eq!(
+            gsd.check("@gsd/core", "E102", Level::Error),
+            Err(CodeMisuse::Uncatalogued)
+        );
+        assert_eq!(
+            gsd.check("@gsd/core", "gsd/E101", Level::Error),
+            Err(CodeMisuse::NotALocalCode)
+        );
+        for code in ["", "A001", "e101", "E1011", "X101"] {
+            assert_eq!(
+                gsd.check("@gsd/core", code, Level::Error),
+                Err(CodeMisuse::NotALocalCode),
+                "{code:?}"
+            );
+        }
+        // Another extension's catalog is not this one's.
+        assert_eq!(
+            gsd.check("@acme/x", "E101", Level::Error),
+            Err(CodeMisuse::Uncatalogued)
+        );
+    }
+
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
+    )]
+    fn a_third_party_letter_states_its_level() {
+        let acme = book("@acme/x", &["W950", "E950", "I950"]);
+        for (code, level) in [
+            ("W950", Level::Error),
+            ("E950", Level::Info),
+            ("I950", Level::Warning),
+        ] {
+            assert_eq!(
+                acme.check("@acme/x", code, level),
+                Err(CodeMisuse::PrefixContradictsLevel),
+                "{code}"
+            );
+        }
+        assert_eq!(acme.check("@acme/x", "W950", Level::Warning), Ok(()));
     }
 }

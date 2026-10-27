@@ -7,6 +7,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use specforge_common::{Diagnostic, codes};
+use specforge_diagnostics::is_local_code;
 use specforge_protocol_types::{
     CompilerPassDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, is_valid_short,
 };
@@ -20,7 +21,7 @@ fn e030(message: String) -> Diagnostic {
 /// E030: a declaration the host cannot use as declared: an empty name or
 /// version, an `ext_short` that is not lowercase kebab case (it names a CLI
 /// subcommand and an MCP tool prefix), an analyzer without a language,
-/// file extensions or exports.
+/// file extensions or exports, or a malformed `codes` entry.
 pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -42,6 +43,7 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
             ),
         );
     }
+    diagnostics.extend(code_entries(declaration));
     for analyzer in &declaration.analyzers {
         if analyzer.language.is_empty() {
             diagnostics.push(e030(format!(
@@ -65,6 +67,46 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
                     analyzer.language
                 )));
             }
+        }
+    }
+    diagnostics
+}
+
+/// E030 for each `codes` entry the host cannot use as declared: a code that is not a local code
+/// (`E`, `W` or `I` and three digits; the host adds the namespace, so a `/` is refused), a code
+/// catalogued twice, an empty title or explanation, a `docs` that is not an absolute `http(s)` URL;
+/// and, once, a first-party extension declaring any (its codes are in the host catalog, ADR 0286).
+fn code_entries(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
+    let name = declaration.name();
+    let mut diagnostics = Vec::new();
+    if name.starts_with("@specforge/") && !declaration.codes.is_empty() {
+        diagnostics.push(e030(format!(
+            "extension '{name}': a first-party extension declares no `codes`; its codes are in the host catalog"
+        )));
+    }
+    let mut seen = HashSet::new();
+    for entry in &declaration.codes {
+        let code = &entry.code;
+        let about = |problem: &str| e030(format!("extension '{name}': code '{code}' {problem}"));
+        if !is_local_code(code) {
+            diagnostics.push(about("is not a local code (`E`, `W` or `I` and three digits; the host adds the namespace)"));
+        } else if !seen.insert(code.as_str()) {
+            diagnostics.push(about("is catalogued twice"));
+        }
+        if entry.title.trim().is_empty() {
+            diagnostics.push(about("has an empty title"));
+        }
+        if entry.explanation.trim().is_empty() {
+            diagnostics.push(about("has an empty explanation"));
+        }
+        let absolute = |scheme: &str| {
+            entry.docs.as_deref().is_some_and(|docs| {
+                docs.strip_prefix(scheme)
+                    .is_some_and(|rest| !rest.is_empty() && !rest.contains(char::is_whitespace))
+            })
+        };
+        if entry.docs.is_some() && !absolute("https://") && !absolute("http://") {
+            diagnostics.push(about("has a `docs` that is not an absolute http(s) URL"));
         }
     }
     diagnostics

@@ -41,9 +41,14 @@ pub(crate) fn run(
         ..PassContext::of(entities)
     };
     diagnostics.extend(
-        run_extension_passes(env.registries().check_passes(), &context, runtime)
-            .into_iter()
-            .flat_map(|report| report.findings),
+        run_extension_passes(
+            env.registries().check_passes(),
+            &context,
+            runtime,
+            env.registries().codes(),
+        )
+        .into_iter()
+        .flat_map(|report| report.findings),
     );
     diagnostics
 }

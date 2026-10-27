@@ -245,7 +245,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
     it is about: a declaration (E030, W021, W145), the peers (E073, E027),
     the registries (W019, W021, I004, W017), a rule (W150, W147, W112), a
     surface (E055), or a collision of two contributions on one name (E026,
-    W018, W023, E039). A custom rule whose function
+    W018, E039). A custom rule whose function
     its extension cannot answer through is W112, after the registries'
     diagnostics, once, when the build is probed in the runtime its
     extensions loaded in. It MUST be pure: the probe, through the

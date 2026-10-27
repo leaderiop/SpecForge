@@ -19,11 +19,14 @@ prefix doesn't state the severity; no other family is accepted. Each entry's
 `Level` is the severity a diagnostic of that code has when it is reported;
 `specforge check --strict` raises warnings to errors afterwards. A code an
 extension reports at another level, or a code it does not own, is reported as
-W150. The ranges
-`E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
-extensions and never appear in this catalog; `specforge explain` run in a
-project explains them from the rules its extensions declare. `I999` is a core
-code.
+W150.
+
+A third-party extension's codes are not in this catalog. Each is
+`<namespace>/<letter><three digits>` (`acme.lint/W001`): the namespace is the
+extension's package name (`@gsd/core` is `gsd`, `@gsd/security` is
+`gsd.security`, a local `lint` is `lint`), and the extension catalogs its own
+codes in its `codes`. `specforge explain` run in a project explains them from
+the loaded extensions' `codes`.
 
 Regenerate this page after editing the catalog table:
 
@@ -408,11 +411,15 @@ E030: Invalid extension declaration
 An extension's declaration (its handshake and describe answers) can't be used as
 declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
-prefix), or an analyzer has no language, no file extensions or an empty export
-name. The registry build reports it on every load, and `specforge publish`
-refuses such a binary before any network call. Fix the declaration in the
-extension's source (with the SDK: `#[extension(name, version, short)]` and the
-builders) and rebuild it.
+prefix), an analyzer has no language, no file extensions or an empty export
+name, or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
+three digits (a `/` included: the host adds the namespace), a code catalogued
+twice, an empty title or explanation, or a `docs` that is not an absolute
+`http(s)` URL; a first-party extension declares no `codes`, its codes are in
+this catalog. The registry build reports it on every load, and `specforge
+publish` refuses such a binary before any network call. Fix the declaration in
+the extension's source (with the SDK: `#[extension(name, version, short)]` and
+the builders) and rebuild it.
 
 Owner: core
 Level: error
@@ -489,15 +496,19 @@ Level: error
 ## E039
 
 ```
-E039: Duplicate surface contribution
+E039: Duplicate contribution name
 
 Two contributions claim one name. Two commands route under one name, `specforge
 <short> <command>`: one short name, and ids that spell one command name (`_` and
 `-` alike), whether from two extensions or declared twice by one; the first in
 load order is routed and the later runs on no surface. Or two extensions
-register one MCP tool name, or one MCP resource name. One command id under two
-short names is two names, not a collision. Rename the later contribution, or
-give its extension another short name (`ext_short`; the SDK's `short`).
+register one MCP tool name, or one MCP resource name. Or two loaded extensions
+share one code namespace (the namespace is the package name's scope and name:
+`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
+`a.b.c`): the first in load order owns the namespace and the later extension's
+codes are described by nobody. One command id under two short names is two
+names, not a collision. Rename the later contribution, or give its extension
+another short name (`ext_short`; the SDK's `short`).
 
 Owner: core
 Level: error
@@ -2404,18 +2415,6 @@ Owner: core
 Level: warning
 ```
 
-## W023
-
-```
-W023: Duplicate validation rule code
-
-Two extensions register a validation rule using the same diagnostic code. Change
-one extension's rule to use a unique code.
-
-Owner: core
-Level: warning
-```
-
 ## W027
 
 ```
@@ -3194,14 +3193,16 @@ Level: warning
 W150: Extension reports a code it may not use
 
 An extension declared a validation rule, or a pass reported a diagnostic, with a
-code it may not use: a code the catalog gives to core or to another extension,
-its own code at a level the catalog does not give it, a retired code, a
-first-party extension's uncatalogued code, or a third-party code outside
-`E900`-`E998`, `W900`-`W998` and `I900`-`I998` or whose prefix contradicts its
-level. The rule still runs and the finding is still reported, with the code as
-given, so its title and docs link may describe another diagnostic. Renumber it
-in the extension's range (a third-party extension) or catalogue it (a
-first-party one).
+code it may not use. A first-party extension may report only the codes this
+catalog gives it, at the catalogued level: a code the catalog gives to core or
+to another extension, a retired code and an uncatalogued one are refused. Any
+other extension reports a local code, `E`, `W` or `I` and three digits, that its
+own `codes` catalog lists, at the level its letter states: a code it did not
+catalogue, a code that holds a `/` or is not three digits, and a code whose
+letter contradicts the level reported are refused. The rule still runs and the
+finding is still reported, under the extension's namespace (`acme.lint/W001`),
+so its title and docs link never describe another diagnostic. Catalogue the code
+in the extension's `codes` (`c.code` in the SDK), at its letter's level.
 
 Owner: core
 Level: warning
@@ -3387,6 +3388,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | I086 | [E061](#e061) |
 | I087 | [E061](#e061) |
 | W011 | (nothing) |
+| W023 | [E039](#e039) |
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |

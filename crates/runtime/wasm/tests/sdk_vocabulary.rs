@@ -38,6 +38,12 @@ fn extension() -> ContributionsBuilder {
         });
     });
     // The rule `specforge extension init` scaffolds.
+    for code in ["W900", "E901"] {
+        c.code(code, |d| {
+            d.title("A vocabulary rule")
+                .explanation("A rule of the vocabulary extension.");
+        });
+    }
     c.rule("W900", |r| {
         r.check(CheckKind::MissingRequiredField);
         r.target_kind("thing");
@@ -130,7 +136,7 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         );
     }
 
-    for code in ["W900", "E901"] {
+    for code in ["you.vocab/W900", "you.vocab/E901"] {
         assert!(
             build.rules().iter().any(|rule| rule.code() == code),
             "rule {code} not registered"
@@ -151,14 +157,14 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         &[("description", "a thing"), ("style", "warm")],
     )];
 
-    let w900 = fired("W900", &bare);
+    let w900 = fired("you.vocab/W900", &bare);
     assert_eq!(w900.len(), 1, "{w900:?}");
     assert_eq!(w900[0].message, "thing 'bare' is missing a description");
-    let g101 = fired("E901", &bare);
+    let g101 = fired("you.vocab/E901", &bare);
     assert_eq!(g101.len(), 1, "{g101:?}");
-    assert_eq!(g101[0].code, "E901");
-    assert!(fired("W900", &fine).is_empty());
-    assert!(fired("E901", &fine).is_empty());
+    assert_eq!(g101[0].code, "you.vocab/E901");
+    assert!(fired("you.vocab/W900", &fine).is_empty());
+    assert!(fired("you.vocab/E901", &fine).is_empty());
 }
 
 /// Rules written by SDK releases before the vocabulary was shared still
@@ -181,8 +187,18 @@ fn older_sdk_check_names_still_load() {
         .filter(|d| d.code == "W019" || d.code == "W112")
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
-    assert!(build.rules().iter().any(|rule| rule.code() == "W900"));
-    assert!(build.rules().iter().any(|rule| rule.code() == "E901"));
+    assert!(
+        build
+            .rules()
+            .iter()
+            .any(|rule| rule.code() == "you.vocab/W900")
+    );
+    assert!(
+        build
+            .rules()
+            .iter()
+            .any(|rule| rule.code() == "you.vocab/E901")
+    );
 }
 
 /// Every constraint kind the SDK can name loads on the check that reads it:
@@ -220,7 +236,12 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
             });
         });
         for (i, (kind, check)) in uses.iter().enumerate() {
-            c.rule(&format!("X{i:03}"), |r| {
+            let code = format!("E{}", 800 + i);
+            c.code(&code, |d| {
+                d.title("A constraint rule")
+                    .explanation("A rule of the constraints extension.");
+            });
+            c.rule(&code, |r| {
                 r.check(*check);
                 r.target_kind("thing");
                 if *check != CheckKind::VerifyKindAllowlist {
@@ -253,7 +274,7 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
     for (i, (kind, _)) in uses.iter().enumerate() {
-        let code = format!("X{i:03}");
+        let code = format!("you.constraints/E{}", 800 + i);
         let rule = build
             .rules()
             .iter()
