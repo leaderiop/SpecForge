@@ -44,6 +44,7 @@ fn hostile() -> ContributionsBuilder {
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
+                plan: None,
             });
     });
     c
@@ -222,5 +223,6 @@ fn command_input() -> specforge_protocol_types::CommandInput<specforge_protocol_
         graph: specforge_protocol_types::RawGraph::new(r#"{"nodes":[],"edges":[]}"#.into())
             .unwrap(),
         evidence: Default::default(),
+        revisions: Default::default(),
     }
 }

@@ -89,6 +89,7 @@ fn full() -> ExtensionDeclaration {
                     description: None,
                     minimum: Some(0),
                 }],
+                writes: false,
             }],
             ..Default::default()
         },

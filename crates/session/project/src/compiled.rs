@@ -206,9 +206,17 @@ impl CompiledProject {
     }
 
     /// Whether a write of this project is serialized by the write lock (ADR 0289): the project declares a field
-    /// whose ledger a write keeps true. Plain projects write without taking it.
+    /// whose ledger a write keeps true, or an extension that writes through a plan (a writing command or
+    /// collector) or judges a write (a guard pass). Plain projects write without taking it.
     pub fn serializes_writes(&self) -> bool {
         self.declares_harness()
+            || self.env.registries().declarations().iter().any(|d| {
+                d.surfaces.commands.iter().any(|c| c.writes)
+                    || d.collectors.iter().any(|c| c.writes)
+                    || d.passes
+                        .iter()
+                        .any(|p| p.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE))
+            })
     }
 
     /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's

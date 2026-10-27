@@ -189,13 +189,18 @@ impl ExtensionCommand {
             short: short.to_string(),
             declaration: declaration.clone(),
             args,
-            refusal: command_args::refusal(&declaration.args),
+            refusal: command_args::refusal_of(&declaration.args, declaration.writes),
         }
     }
 
     /// The declaring extension's name.
     pub fn extension(&self) -> &str {
         &self.extension
+    }
+
+    /// Whether it answers an edit plan the host applies (ADR 0289).
+    pub fn writes(&self) -> bool {
+        self.declaration.writes
     }
 
     /// The declaring extension's short name, which routes its commands.
@@ -483,6 +488,11 @@ fn run_on(
         today: today.to_string(),
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
+        revisions: if command.writes() {
+            crate::revision::of_project(view.project())
+        } else {
+            Default::default()
+        },
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(

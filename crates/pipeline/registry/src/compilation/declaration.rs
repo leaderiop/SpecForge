@@ -208,6 +208,30 @@ pub(crate) fn consistency(
     };
     let warn = |message: String| Diagnostic::new(codes::W021, message);
 
+    // ADR 0289: a kind's `writer` is only `human`, and a `human` field a kind's agents must write is no field an
+    // agent can leave out: required on a kind not human-only, no agent could create the entity.
+    for kind in &declaration.entities {
+        let kind_keyword = keyword(kind);
+        let human_kind = kind.writer.as_deref() == Some("human");
+        if let Some(writer) = kind.writer.as_deref().filter(|w| *w != "human") {
+            diagnostics.push(warn(format!(
+                "extension '{}': kind '{}' declares writer '{}'; only 'human' is a kind writer",
+                name, kind_keyword, writer
+            )));
+        }
+        if !human_kind {
+            for field in &kind.fields {
+                field.for_each_path(&field.name, &mut |path, f| {
+                    if f.required && f.writer.as_deref() == Some("human") {
+                        diagnostics.push(warn(format!(
+                            "extension '{}': field '{}' on kind '{}' is human and required, so no agent can create an entity of the kind; make the kind human or the field optional",
+                            name, path, kind_keyword
+                        )));
+                    }
+                });
+            }
+        }
+    }
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
         for field in &kind.fields {
@@ -292,6 +316,14 @@ pub(crate) fn consistency(
     let mut claimed: Vec<(&str, &str)> = Vec::new();
     for pass in &declaration.passes {
         let compute = pass.phase.as_deref() == Some(super::build::COMPUTE_PHASE);
+        if pass.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE)
+            && !pass.computes.is_empty()
+        {
+            diagnostics.push(warn(format!(
+                "extension '{}': guard pass '{}' declares computes; a guard answers diagnostics only",
+                name, pass.name
+            )));
+        }
         if !pass.computes.is_empty() && !compute {
             diagnostics.push(warn(format!(
                 "extension '{}': pass '{}' declares computes, but its phase is not 'compute'",

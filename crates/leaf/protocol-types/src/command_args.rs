@@ -22,6 +22,10 @@ pub const INVALID_INPUT: &str = "INVALID_INPUT";
 /// (`--path`, `--format`, `--help`), which no declared arg may take.
 pub const HOST_OPTIONS: &[&str] = &["path", "format", "help"];
 
+/// The options the host gives a command that declares `writes` as well (`--dry-run`, ADR 0289): no arg of a
+/// writing command may take one. A read-only command's args are not checked against it.
+pub const WRITE_HOST_OPTIONS: &[&str] = &["dry-run"];
+
 /// An arg's name as an option on the command line: `_` spelled `-`
 /// (`sort_order` is `--sort-order`). Two args whose names spell one option
 /// are one arg twice.
@@ -275,10 +279,17 @@ impl fmt::Display for ArgRefusal {
 /// The first refusal of `args`, in declaration order, if any
 /// ([`ArgRefusal`]).
 pub fn refusal(args: &[CommandArgDescriptor]) -> Option<ArgRefusal> {
+    refusal_of(args, false)
+}
+
+/// [`refusal`] for a command that declares `writes` or not: a writing command's args may not take
+/// [`WRITE_HOST_OPTIONS`] either.
+pub fn refusal_of(args: &[CommandArgDescriptor], writes: bool) -> Option<ArgRefusal> {
     let mut seen: Vec<String> = Vec::new();
     for arg in args {
         let name = option_name(&arg.name);
-        if let Some(option) = HOST_OPTIONS.iter().find(|o| **o == name) {
+        let writing = if writes { WRITE_HOST_OPTIONS } else { &[] };
+        if let Some(option) = HOST_OPTIONS.iter().chain(writing).find(|o| **o == name) {
             return Some(ArgRefusal::HostOption {
                 arg: arg.name.clone(),
                 option,

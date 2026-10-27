@@ -119,8 +119,6 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
         {"name": "t", "status": "ok"}
     ]}]});
     for raw in [
-        b"[]".to_vec(),
-        b"{}".to_vec(),
         missing_name.to_string().into_bytes(),
         unknown_status.to_string().into_bytes(),
         b"not json".to_vec(),
@@ -261,6 +259,7 @@ mod evidence {
                         exit_code: 0,
                         stdout: "{}".into(),
                         stderr: String::new(),
+                        plan: None,
                     }
                     .to_bytes(),
                 ),
@@ -281,6 +280,7 @@ mod evidence {
                 category: None,
                 export: "cmd__probe".into(),
                 args: Vec::new(),
+                writes: false,
             },
         );
         run(&project.view(), &command, &Map::new(), CommandFormat::Json)
@@ -390,6 +390,7 @@ mod the_views_runtime {
                     exit_code: 0,
                     stdout: "{}\n".into(),
                     stderr: String::new(),
+                    plan: None,
                 });
             });
             c

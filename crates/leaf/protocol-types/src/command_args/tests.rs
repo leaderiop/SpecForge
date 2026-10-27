@@ -149,6 +149,13 @@ fn a_refusal_names_the_first_contradiction() {
             Some(format!("its arg '{name}' takes the host's --{name}"))
         );
     }
+    // `--dry-run` is the host's for a writing command only.
+    let dry = [arg("dry_run", CommandArgType::Bool)];
+    assert_eq!(refusal(&dry), None);
+    assert_eq!(
+        refusal_of(&dry, true).map(|r| r.to_string()),
+        Some("its arg 'dry_run' takes the host's --dry-run".to_string())
+    );
     let twice = [
         arg("all_kinds", CommandArgType::Bool),
         arg("all-kinds", CommandArgType::Bool),

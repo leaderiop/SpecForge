@@ -367,6 +367,7 @@ behavior judge_field_history "Judge Field History" {
   verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
   verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
   verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
+  verify unit "a kind and a field may be human-only and a pass a guard, or W021"
   verify unit "lifecycle_field is read and ignored: a kind that sends it loads without W138"
   verify unit "an immutable value that differs from its baseline is E084"
   verify unit "an immutable field unset at the baseline may be set once"

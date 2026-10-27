@@ -79,6 +79,10 @@ pub fn dispatch(
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
+        cwd: None,
+        today: None,
+        graph: None,
+        revisions: Default::default(),
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(

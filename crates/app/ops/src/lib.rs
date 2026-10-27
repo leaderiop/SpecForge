@@ -39,6 +39,7 @@ pub mod read;
 mod refusal;
 pub mod registry;
 mod report;
+pub mod revision;
 pub mod schema_version;
 pub mod solver;
 mod source_key;

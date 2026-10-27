@@ -51,6 +51,7 @@ fn extension() -> ContributionsBuilder {
                     }],
                 }],
                 unlinked: Vec::new(),
+                plan: None,
             })
         });
     });

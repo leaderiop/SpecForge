@@ -216,6 +216,7 @@ impl Surfaces {
                 category: None,
                 export,
                 args: Vec::new(),
+                writes: false,
             },
             handler: None,
         }
@@ -410,6 +411,17 @@ impl CommandBuilder {
         self
     }
 
+    /// The command answers an edit plan ([`CommandOutput::with_plan`]) the host applies (ADR 0289). It receives
+    /// the `revisions` of the project's sources, and the host gives it `--dry-run`, so no arg may take that name.
+    pub fn writes(&mut self) -> &mut Self {
+        self.descriptor.writes = true;
+        let id = &self.descriptor.id;
+        if let Some(refused) = command_args::refusal_of(&self.descriptor.args, true) {
+            panic!("command '{id}' is refused by the host: {refused}");
+        }
+        self
+    }
+
     /// Declare the arg `name` (a string unless `f` says otherwise). On the
     /// command line a required arg is positional, in declaration order; any
     /// other, and every flag, is `--<name with _ as ->`.
@@ -444,7 +456,9 @@ impl CommandBuilder {
             "command '{id}' declares the flag '{name}' required: a flag is false unless set"
         );
         self.descriptor.args.push(arg);
-        if let Some(refused) = command_args::refusal(&self.descriptor.args) {
+        if let Some(refused) =
+            command_args::refusal_of(&self.descriptor.args, self.descriptor.writes)
+        {
             panic!("command '{id}' is refused by the host: {refused}");
         }
         self
@@ -638,6 +652,11 @@ impl<'a> CommandCall<'a> {
     /// The compiled project's graph.
     pub fn graph(&self) -> &'a CommandGraph {
         &self.input.graph
+    }
+
+    /// A builder for the edit plan this command answers: each op takes the revision of its file from this call.
+    pub fn plan(&self) -> crate::PlanBuilder {
+        crate::PlanBuilder::of_graph(&self.input.graph, &self.input.revisions)
     }
 
     /// The format the caller asked for.

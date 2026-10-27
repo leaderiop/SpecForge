@@ -1,0 +1,34 @@
+{
+  "exit_code": 0,
+  "plan": {
+    "ops": [
+      {
+        "entity": "f1",
+        "field": "status",
+        "op": "set",
+        "revision": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "value": "done"
+      },
+      {
+        "fields": {
+          "status": "todo"
+        },
+        "file": "new.spec",
+        "id": "f2",
+        "kind": "feature",
+        "op": "create",
+        "revision": "absent",
+        "title": "Two",
+        "verify": [
+          {
+            "kind": "unit",
+            "text": "f2 works"
+          }
+        ]
+      }
+    ],
+    "title": "record f1"
+  },
+  "stderr": "",
+  "stdout": "ok\n"
+}

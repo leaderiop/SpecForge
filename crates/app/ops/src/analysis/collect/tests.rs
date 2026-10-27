@@ -66,6 +66,7 @@ fn collected(entries: &[(&str, &str, TestStatus)]) -> CollectOutput {
             })
             .collect(),
         unlinked: Vec::new(),
+        plan: None,
     }
 }
 

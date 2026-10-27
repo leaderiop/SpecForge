@@ -35,6 +35,7 @@ mod code_catalog;
 pub mod command_args;
 mod declaration;
 mod field;
+mod plan;
 mod settings;
 pub mod tool_input;
 mod vocabulary;
@@ -44,11 +45,14 @@ pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
 pub use field::FieldDescriptor;
+pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
     UnreadableItem, is_segment, valid_name,
 };
-pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, ProofRole};
+pub use vocabulary::{
+    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, ProofRole,
+};
 
 /// Protocol version for the extension wire format (semver). The host loads
 /// every guest of its major version. The minor moves when a payload's
@@ -71,8 +75,10 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase
 /// 0287's: a field declares who writes it (`writer`) and its history (`immutable`, `append_only`), a kind may be
 /// `append_only`, a pass declares `phase: "compute"`, the fields it `computes` and the `baseline` kinds it reads
 /// and answers `values`, and a pass's `previous` is the git baseline; the same 1.8.0 is ADR 0288's: an extension declares typed `settings`
-/// (a new describe category), and a call input may carry the extension's own `settings`.
-pub const PROTOCOL_VERSION: &str = "1.8.0";
+/// (a new describe category), and a call input may carry the extension's own `settings`; 1.9.0 is ADR 0289's: a command or collector may
+/// `writes` and answer an edit `plan` the host applies, a kind or field may be written by a `human` only, a pass may be
+/// a `guard`, and a writing command's input carries the `revisions` of the sources it was compiled from.
+pub const PROTOCOL_VERSION: &str = "1.9.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -305,6 +311,10 @@ pub struct EntityKindDescriptor {
     /// value.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub append_only: bool,
+    /// Who writes its entities other than their author (protocol 1.9.0, ADR 0289): only `human` (an agent-facing
+    /// write is refused).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writer: Option<String>,
 }
 
 // ── Edge Type Descriptor ──
@@ -423,6 +433,9 @@ pub struct CommandDescriptor {
     pub export: String,
     #[serde(default)]
     pub args: Vec<CommandArgDescriptor>,
+    /// It answers an edit plan the host applies (protocol 1.9.0, ADR 0289).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub writes: bool,
 }
 
 /// Describes an argument to a CLI command.
@@ -515,6 +528,9 @@ pub struct CollectorDescriptor {
     pub report: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capture: Option<String>,
+    /// It answers an edit plan the host applies, and receives the graph and revisions (protocol 1.9.0).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub writes: bool,
 }
 
 // ── Analyzer Protocol Types ──

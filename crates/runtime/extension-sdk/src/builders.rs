@@ -7,7 +7,7 @@ use crate::{
 };
 use specforge_protocol_types::{
     AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
-    CompilerPassDescriptor,
+    CompilerPassDescriptor, GUARD_PHASE,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -77,6 +77,12 @@ impl KindBuilder {
     /// The kind's entities are a log (ADR 0287): one the baseline holds stays, and keeps every authored value.
     pub fn append_only(&mut self) -> &mut Self {
         self.0.append_only = true;
+        self
+    }
+    /// Only a person writes the kind's entities (ADR 0289): create, edit, delete and rename by an extension's
+    /// plan, the MCP tools or a non-interactive CLI are refused.
+    pub fn human(&mut self) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Human.as_str().to_string());
         self
     }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
@@ -153,6 +159,12 @@ impl FieldBuilder {
     /// (ADR 0287).
     pub fn harness(&mut self) -> &mut Self {
         self.0.writer = Some(FieldWriter::Harness.as_str().to_string());
+        self
+    }
+    /// Only a person writes the field (ADR 0289): an extension's plan, the MCP tools and a non-interactive CLI
+    /// are refused. A `required` field of a kind not human-only is W021: an agent could then create no entity.
+    pub fn human(&mut self) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Human.as_str().to_string());
         self
     }
     /// A value set at the baseline never changes (ADR 0287): a field unset there may be set once.
@@ -512,6 +524,11 @@ impl PassBuilder {
         self.descriptor.phase = Some(p.to_string());
         self
     }
+    /// Run in the `guard` phase (ADR 0289): the pass runs only when a write is judged, receives the project
+    /// before the write as `previous`, and its error diagnostics refuse the write (E080). It answers no values.
+    pub fn guard(&mut self) -> &mut Self {
+        self.phase(GUARD_PHASE)
+    }
     /// Run in the `compute` phase (ADR 0287): before the rules, answering [`PassOutput::values`] for the fields
     /// named in [`Self::computes`].
     pub fn compute(&mut self) -> &mut Self {
@@ -603,6 +620,7 @@ impl CollectorBuilder {
                 run: Vec::new(),
                 report: None,
                 capture: None,
+                writes: false,
             },
             collect: None,
         }
@@ -615,6 +633,12 @@ impl CollectorBuilder {
         handler: impl Fn(&CollectInput) -> Result<CollectOutput, String> + 'static,
     ) -> &mut Self {
         self.collect = Some(operations::wire("collect", handler));
+        self
+    }
+    /// The collector answers an edit plan ([`CollectOutput::plan`]) the host applies after the report, and
+    /// receives the project root, the date, the graph and the revisions of its sources (ADR 0289).
+    pub fn writes(&mut self) -> &mut Self {
+        self.descriptor.writes = true;
         self
     }
     /// A report format the collector reads (informational).

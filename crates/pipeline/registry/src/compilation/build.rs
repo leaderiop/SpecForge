@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use specforge_common::Diagnostic;
 use specforge_diagnostics::Codebook;
 use specforge_graph::{FieldForms, GraphBuild, GraphConfig, GraphInputs, SpecFile};
-use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
+use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration, GUARD_PHASE};
 
 use super::candidates::CandidateVocabulary;
 use super::codes;
@@ -103,6 +103,11 @@ impl DeclaredPass {
     /// than under `specforge analyze`.
     pub fn is_check_phase(&self) -> bool {
         self.pass.phase.as_deref() == Some(CHECK_PHASE)
+    }
+
+    /// Whether the pass runs only when a write is judged ([`GUARD_PHASE`]).
+    pub fn is_guard_phase(&self) -> bool {
+        self.pass.phase.as_deref() == Some(GUARD_PHASE)
     }
 
     /// Whether the pass runs before the rules and gives computed values ([`COMPUTE_PHASE`]).
@@ -340,11 +345,16 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_compute_phase())
     }
 
+    /// The passes that run only when a write is judged (`phase: "guard"`, ADR 0289), in order.
+    pub fn guard_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
+        self.passes.iter().filter(|p| p.is_guard_phase())
+    }
+
     /// The passes `specforge analyze` runs, in order.
     pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
         self.passes
             .iter()
-            .filter(|p| !p.is_check_phase() && !p.is_compute_phase())
+            .filter(|p| !p.is_check_phase() && !p.is_compute_phase() && !p.is_guard_phase())
     }
 
     /// (name, version) of each loaded extension, in load order.

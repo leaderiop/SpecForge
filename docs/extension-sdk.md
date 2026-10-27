@@ -221,6 +221,7 @@ impl Contributions for Greet {
                     Ok(CollectOutput {
                         entity_results,
                         unlinked: Vec::new(),
+                        plan: None,
                     })
                 });
         });

@@ -173,6 +173,10 @@ vocabulary! {
     aliases {}
 }
 
+/// The `phase` of a guard pass (ADR 0289): it runs only when a write is judged, reads the project before the write
+/// and refuses it through E080.
+pub const GUARD_PHASE: &str = "guard";
+
 vocabulary! {
     /// Who writes a field other than its author (ADR 0287). On the wire `FieldDescriptor::writer` stays a string,
     /// so an unknown writer costs the field a diagnostic (W021), not the describe payload.
@@ -183,6 +187,9 @@ vocabulary! {
         /// Only a host write a command or collector plan makes, recorded by a line of `specforge-harness`
         /// (E083).
         Harness = "harness",
+        /// Only a person writes it (ADR 0289): an agent-facing write (an extension's plan, the MCP tools, a
+        /// non-interactive CLI) is refused.
+        Human = "human",
     }
     aliases {}
 }

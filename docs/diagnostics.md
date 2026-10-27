@@ -2556,23 +2556,26 @@ twice or not one identifier, a member that declares `derived_from`,
 than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
 `spec` or `project`, or without `file_reference`; a `scoped_by` field with
 `target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
-`writer` other than `computed` or `harness`, `harness` on a member, a computed
-field that is also `required`, `immutable`, `append_only` or `derived_from`,
-`append_only` on a field that is not a list, a computed field no compute pass
-lists in `computes`, a `computes` entry that is not a computed field of the
-extension or that two passes list or whose pass is not in the `compute` phase,
-and a `baseline` naming a kind no loaded extension declares. The `settings`
-category is checked too (ADR 0288): a setting named twice or not a dotted name
-or a family (`*` segments), of a type the field forms do not have, with a
-default its type refuses, with `gates` on a type other than `bool` or on a
-family (only a setting named whole gates codes), or naming a code the extension
-does not catalog, or with `keys` that do not match its `*`s; a preset whose
-source is not an enum or bool setting of the extension or of a loaded peer, that
-names a value its source does not take, that sets a setting the extension does
-not declare to a value its type refuses, or that raises a code the extension
-does not catalog; a secret named twice or whose environment variable is not a
-name; and an item of a kind the host does not know. The item is dropped, the
-rest of the category is kept.
+`writer` other than `computed`, `harness` or `human`, `harness` on a member, a
+computed field that is also `required`, `immutable`, `append_only` or
+`derived_from`, `append_only` on a field that is not a list, a computed field no
+compute pass lists in `computes`, a `computes` entry that is not a computed
+field of the extension or that two passes list or whose pass is not in the
+`compute` phase, and a `baseline` naming a kind no loaded extension declares.
+Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
+`human`, a `human` field marked `required` on a kind that is not human-only (an
+agent could then create no entity of the kind), and a `guard` pass that declares
+`computes`. The `settings` category is checked too (ADR 0288): a setting named
+twice or not a dotted name or a family (`*` segments), of a type the field forms
+do not have, with a default its type refuses, with `gates` on a type other than
+`bool` or on a family (only a setting named whole gates codes), or naming a code
+the extension does not catalog, or with `keys` that do not match its `*`s; a
+preset whose source is not an enum or bool setting of the extension or of a
+loaded peer, that names a value its source does not take, that sets a setting
+the extension does not declare to a value its type refuses, or that raises a
+code the extension does not catalog; a secret named twice or whose environment
+variable is not a name; and an item of a kind the host does not know. The item
+is dropped, the rest of the category is kept.
 
 Owner: core
 Level: warning

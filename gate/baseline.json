@@ -13,7 +13,7 @@
     "crates/pipeline/emitter/tests/schema.rs": 1596,
     "crates/pipeline/graph/tests/graph.rs": 1596,
     "crates/runtime/wasm/tests/calls.rs": 838,
-    "crates/session/project/tests/compile.rs": 1186,
+    "crates/session/project/tests/compile.rs": 1178,
     "crates/session/project/tests/e2e_pipeline.rs": 989,
     "crates/session/project/tests/product_rules.rs": 1248,
     "crates/session/project/tests/session.rs": 3033,

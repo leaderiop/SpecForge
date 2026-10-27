@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use serde_json::{Map, Value};
 
+use crate::EditPlan;
+
 // ── Command (`cmd__<id>`) ──────────────────────────────────────────────────
 
 /// The output a command is asked for: `human` (the CLI default) or `json`
@@ -85,6 +87,10 @@ pub struct CommandInput<G = GraphWire> {
     /// (`none`) when no report is recorded or the host sends none.
     #[serde(default, skip_serializing_if = "CommandEvidence::is_none")]
     pub evidence: CommandEvidence,
+    /// The revision of every source of the compile, by the key `GraphNode::file` holds (`sha256:<hex>`); sent
+    /// only to a command that declares `writes` (protocol 1.9.0, ADR 0289).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub revisions: BTreeMap<String, String>,
 }
 
 /// What a command's input says the recorded tests prove. On the wire an
@@ -187,6 +193,9 @@ pub struct GraphNode {
     pub title: Option<String>,
     #[serde(default)]
     pub fields: BTreeMap<String, Value>,
+    /// The source file declaring the entity, as the graph export writes it (protocol 1.9.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
 }
 
 impl GraphNode {
@@ -231,6 +240,9 @@ pub struct CommandOutput {
     pub stdout: String,
     #[serde(default)]
     pub stderr: String,
+    /// What a command that declares `writes` asks the host to write (protocol 1.9.0, ADR 0289).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<EditPlan>,
 }
 
 impl CommandOutput {
@@ -240,7 +252,14 @@ impl CommandOutput {
             exit_code: 0,
             stdout: stdout.into(),
             stderr: String::new(),
+            plan: None,
         }
+    }
+
+    /// This output carrying `plan`.
+    pub fn with_plan(mut self, plan: EditPlan) -> Self {
+        self.plan = Some(plan);
+        self
     }
 
     /// Failure with exit code 1, printing `stderr`.
@@ -249,6 +268,7 @@ impl CommandOutput {
             exit_code: 1,
             stdout: String::new(),
             stderr: stderr.into(),
+            plan: None,
         }
     }
 
@@ -277,6 +297,7 @@ impl CommandOutput {
             exit_code,
             stdout: String::new(),
             stderr,
+            plan: None,
         }
     }
 
@@ -654,12 +675,36 @@ impl TestResults {
 /// What the host passes to a `collect__<name>` export: the runner's report
 /// files, read from the declared report location, and the command's
 /// standard output when the collector captures it.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CollectInput {
+///
+/// A collector that declares `writes` also receives the project root, the host's date, the graph and the
+/// revisions of the sources (protocol 1.9.0). `G` is how the graph is held, as in [`CommandInput`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CollectInput<G = GraphWire> {
     #[serde(default)]
     pub reports: Vec<CollectReportFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stdout: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub today: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph: Option<G>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub revisions: BTreeMap<String, String>,
+}
+
+impl<G> Default for CollectInput<G> {
+    fn default() -> Self {
+        CollectInput {
+            reports: Vec::new(),
+            stdout: None,
+            cwd: None,
+            today: None,
+            graph: None,
+            revisions: BTreeMap::new(),
+        }
+    }
 }
 
 /// One report file: its path relative to the project root, and its text.
@@ -674,9 +719,13 @@ pub struct CollectReportFile {
 /// entity, which the host links by naming convention when it can.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CollectOutput {
+    #[serde(default)]
     pub entity_results: Vec<CollectEntityResult>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unlinked: Vec<CollectUnlinkedTest>,
+    /// What a collector that declares `writes` asks the host to write (protocol 1.9.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<EditPlan>,
 }
 
 /// A test the report doesn't link to an entity: its name, the name split

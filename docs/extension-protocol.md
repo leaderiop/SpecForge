@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.8.0" }
+{ "host_version": "1.9.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.8.0",
+  "protocol_version": "1.9.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -694,6 +694,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.6.0` | the same as `1.0.0` |
 | `1.7.0` | the same as `1.0.0` |
 | `1.8.0` | the same as `1.0.0` |
+| `1.9.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -717,6 +718,7 @@ or answered.
 | `1.6.0` | A field's `field_type` may be `date` (ADR 0234), and a validator's `primitives` include `date`; a 1.5 host drops a `date` field with W019. (`identifier`, ADR 0147, came under 1.5.0 without a bump.) |
 | `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. An extension catalogs its codes (`codes`, ADR 0286); a guest older than 1.7 is not asked for the category and loads with none. A validation rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; a guest that still sends it loads, and the key is W138. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
 | `1.8.0` | A field and a block member may declare `writer` (`computed` or `harness`), `immutable` and `append_only`, and a kind `append_only` (ADR 0287): E082 a hand-written computed value, E083 a harness value with no line in `specforge-harness`, E084 an immutable value that differs from its git baseline, E085 an append-only list or kind that rewrites it. A pass may declare `baseline` and `computes`, phase `compute` runs it before the checks, and `PassOutput.values` gives it computed values (W165 for a field that is not computed). `previous` is the git baseline of the kinds `baseline` names, not the build cache (`specforge-cache.json` and `check --cache` are gone). `lifecycle_field` is ignored. An extension may declare the `settings` category (ADR 0288): typed settings, presets and secrets, and an older guest is not asked for it. A 1.7 host ignores the new keys. |
+| `1.9.0` | A command or collector may declare `writes` and answer an edit `plan` the host checks and applies (ADR 0289); a writing command's input carries `revisions`, a graph node its `file`, and a writing collector the graph, `cwd`, `today` and `revisions`. A kind and a field may declare `writer: "human"`, and a pass `phase: "guard"`. A 1.8 host ignores the new keys. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

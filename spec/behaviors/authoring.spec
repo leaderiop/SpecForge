@@ -318,6 +318,8 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "a read-only command's tool keeps its annotations and schema"
   verify unit "a read-only command's help and output are unchanged"
   verify unit "a typed edit writes the same bytes and report"
+  verify unit "an edit plan and a writing command's input read back as they were written"
+  verify unit "a writing declaration reaches the wire and its plan carries the call's revisions"
   verify unit "a writing command receives the revision of every source and its plan is applied"
   verify unit "a plan is all or nothing, the ledger included"
   verify unit "two plans on disjoint files both land with their ledger lines"

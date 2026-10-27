@@ -19,6 +19,7 @@ fn milestone_completion_counts_done_features_in_declared_order() {
         ]
         .into_iter()
         .collect(),
+        file: None,
     });
     let mc = milestone_completion(&g.build(), "ms1").unwrap();
     assert_eq!(mc.total_features, 2);

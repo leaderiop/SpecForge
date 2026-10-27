@@ -41,6 +41,7 @@ fn contribution() -> CommandDescriptor {
                 Some("asc"),
             ),
         ],
+        writes: false,
     }
 }
 
@@ -105,6 +106,7 @@ fn every_shape() -> Vec<CommandDescriptor> {
         category: None,
         export: format!("cmd__x_{id}"),
         args,
+        writes: false,
     };
     vec![
         command(

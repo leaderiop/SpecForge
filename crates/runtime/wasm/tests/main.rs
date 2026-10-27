@@ -7,6 +7,7 @@ mod calls;
 mod extension_text;
 mod handshake_conformance;
 mod load_declaration;
+mod plan_wire;
 mod protocol_host;
 mod protocol_types;
 mod read_only;
