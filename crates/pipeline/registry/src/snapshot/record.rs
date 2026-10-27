@@ -3,12 +3,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use specforge_graph::{Direction, Graph, Node, Obligation, ValueShape};
-use specforge_parser::{FieldMap, FieldValue};
+use specforge_parser::{FieldEntry, FieldMap, FieldValue};
 
 use super::text::{field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
     EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ParamRecord,
+    UnknownMember,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
 
@@ -92,27 +93,7 @@ pub(super) fn record(
         span: node.source_span.clone(),
         fields: entries
             .iter()
-            .map(|entry| FieldRecord {
-                key: entry.key.to_string(),
-                text: field_text(&entry.value),
-                annotations: entry
-                    .annotations
-                    .iter()
-                    .map(|a| a.name.to_string())
-                    .collect(),
-                items: field_items(&entry.value),
-                shape: ValueShape::of(&entry.value),
-                value_span: entry.value_span.clone(),
-                rewrites: written
-                    .and_then(|w| w.entry(entry.key.as_str()))
-                    .map_or_else(Vec::new, |entry| {
-                        registries.field_forms().rewrites(
-                            node.kind.raw.as_str(),
-                            entry,
-                            &node.source_span,
-                        )
-                    }),
-            })
+            .map(|entry| field_record(registries, node, written, entry))
             .collect(),
         obligations: node.obligations.iter().map(Obligation::of).collect(),
         incoming,
@@ -183,4 +164,64 @@ fn is_set(value: &FieldValue) -> bool {
         FieldValue::List(items) => !items.is_empty(),
         _ => false,
     }
+}
+
+/// `entry` as its record, with a record for each typed member written inside it (ADR 0285).
+fn field_record(
+    registries: &RegistryBuild,
+    node: &Node,
+    written: Option<&FieldMap>,
+    entry: &FieldEntry,
+) -> FieldRecord {
+    let forms = registries.field_forms();
+    let kind = node.kind.raw.as_str();
+    let rewrites = written
+        .and_then(|w| w.entry(entry.key.as_str()))
+        .map_or_else(Vec::new, |entry| {
+            forms.rewrites(kind, entry, &node.source_span)
+        });
+    let record = |key: String, declared: String, entry: &FieldEntry, rewrites| FieldRecord {
+        key,
+        declared,
+        members: Vec::new(),
+        missing: Vec::new(),
+        unknown: Vec::new(),
+        text: field_text(&entry.value),
+        annotations: entry
+            .annotations
+            .iter()
+            .map(|a| a.name.to_string())
+            .collect(),
+        items: field_items(&entry.value),
+        shape: ValueShape::of(&entry.value),
+        value_span: entry.value_span.clone(),
+        rewrites,
+    };
+    let mut top = record(
+        entry.key.to_string(),
+        entry.key.to_string(),
+        entry,
+        rewrites,
+    );
+    top.members = forms
+        .walk(kind, entry)
+        .skip(1)
+        .map(|m| record(m.path.to_string(), m.path.declared(), m.entry, Vec::new()))
+        .collect();
+    top.unknown = forms
+        .undeclared(kind, entry)
+        .into_iter()
+        .map(|(container, member)| UnknownMember {
+            container: container.to_string(),
+            declared: container.declared(),
+            key: member.key.to_string(),
+            span: member.value_span.clone(),
+        })
+        .collect();
+    top.missing = forms
+        .missing(kind, entry)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    top
 }

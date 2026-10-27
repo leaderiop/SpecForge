@@ -135,6 +135,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
   verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
+  verify unit "a field_value_constraint over a declared member path judges each item of a typed block"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 
@@ -520,5 +521,6 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a block list takes a list of blocks and a typed block writes an object closed to its members"
   verify unit "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"
   verify unit "a member of a typed block is respelled by its own form, in a block and in each item of a block list"
+  verify unit "a member written in another form than its type gives is W159 at the member, named by its path"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
 }

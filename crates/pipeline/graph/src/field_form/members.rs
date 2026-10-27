@@ -156,6 +156,82 @@ impl FieldForms {
     }
 }
 
+impl FieldForms {
+    /// The required members `entry`, as the graph build stores it, leaves unwritten: the written path of each, in
+    /// source order (`out_of_scope[0].why`). Only members of a block that is written are missing; an absent block is
+    /// its field's own E006.
+    pub fn missing(&self, kind: &str, entry: &FieldEntry) -> Vec<MemberPath> {
+        let mut out = Vec::new();
+        self.containers(kind, entry, &mut |path, members, map| {
+            for (name, member) in members.iter() {
+                if member.required() && map.entry(name).is_none() {
+                    out.push(path.member(name));
+                }
+            }
+        });
+        out
+    }
+
+    /// The entries of a typed block (or of a block-list item) inside `entry` that the block declares no member for,
+    /// each with the written path of its container (`constraints[1]`) and its declared path (`constraints`).
+    pub fn undeclared<'e>(
+        &self,
+        kind: &str,
+        entry: &'e FieldEntry,
+    ) -> Vec<(MemberPath, &'e FieldEntry)> {
+        let mut out = Vec::new();
+        self.containers(kind, entry, &mut |path, members, map| {
+            for member in map.entries() {
+                if members.get(member.key.as_str()).is_none() {
+                    out.push((path.clone(), member));
+                }
+            }
+        });
+        out
+    }
+
+    /// Calls `f` with the path of each typed block inside `entry` (a block, or each item of a block list, at any
+    /// depth), the members it declares and its entries.
+    fn containers<'e>(
+        &self,
+        kind: &str,
+        entry: &'e FieldEntry,
+        f: &mut dyn FnMut(&MemberPath, &BlockMembers, &'e FieldMap),
+    ) {
+        if let Reading::Declared(form) = self.reading(kind, entry.key.as_str()) {
+            containers_in(form, &MemberPath::of(entry.key.as_str()), &entry.value, f);
+        }
+    }
+}
+
+fn containers_in<'e>(
+    form: &FieldForm,
+    path: &MemberPath,
+    value: &'e FieldValue,
+    f: &mut dyn FnMut(&MemberPath, &BlockMembers, &'e FieldMap),
+) {
+    let Some(members) = form.members() else {
+        return;
+    };
+    let mut block = |path: &MemberPath, map: &'e FieldMap| {
+        f(path, members, map);
+        for entry in map.entries() {
+            if let Some(member) = members.get(entry.key.as_str()) {
+                containers_in(member, &path.member(entry.key.as_str()), &entry.value, f);
+            }
+        }
+    };
+    match value {
+        FieldValue::Block(map) => block(path, map),
+        FieldValue::Blocks(items) => {
+            for (i, item) in items.iter().enumerate() {
+                block(&path.item(i), &item.fields);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn descend<'f, 'e>(
     form: &'f FieldForm,
     path: &MemberPath,

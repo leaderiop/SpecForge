@@ -176,6 +176,8 @@ pub struct Respell {
 /// the whole entry's value as the field writes it on one line (what W159's message prints).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rewrite {
+    /// The field, or the member (`requires[1].phase`), the value is written in.
+    pub field: String,
     pub span: SourceSpan,
     pub text: String,
     pub to: Written,
@@ -243,15 +245,22 @@ impl FieldForms {
     /// [`Self::rewrite`] would write otherwise, in source order. A scalar
     /// without a value span is reported at `fallback`.
     pub fn rewrites(&self, kind: &str, entry: &FieldEntry, fallback: &SourceSpan) -> Vec<Rewrite> {
-        self.rewrites_at(kind, entry.key.as_str(), entry, fallback)
+        self.rewrites_at(
+            kind,
+            entry.key.as_str(),
+            entry.key.as_str(),
+            entry,
+            fallback,
+        )
     }
 
-    /// [`Self::rewrites`] for `entry` read at the declared member path `field`; a typed block's members, and those
-    /// of each block-list item, follow (ADR 0285).
+    /// [`Self::rewrites`] for `entry` read at the declared member path `field`, written at `shown` (the same with its
+    /// item indices); a typed block's members, and those of each block-list item, follow (ADR 0285).
     fn rewrites_at(
         &self,
         kind: &str,
         field: &str,
+        shown: &str,
         entry: &FieldEntry,
         fallback: &SourceSpan,
     ) -> Vec<Rewrite> {
@@ -273,6 +282,7 @@ impl FieldForms {
                 }
             };
             Some(Rewrite {
+                field: shown.to_string(),
                 span: span.clone(),
                 text,
                 to: respell.to,
@@ -314,6 +324,7 @@ impl FieldForms {
                     .zip(respelled)
                     .filter_map(|(i, r)| {
                         r.map(|r| Rewrite {
+                            field: shown.to_string(),
                             span: i.span.clone(),
                             text: i.text.clone(),
                             to: r.to,
@@ -323,10 +334,19 @@ impl FieldForms {
                     })
                     .collect()
             }
-            FieldValue::Block(map) => self.rewrites_in(kind, field, map, fallback),
+            FieldValue::Block(map) => self.rewrites_in(kind, field, shown, map, fallback),
             FieldValue::Blocks(items) => items
                 .iter()
-                .flat_map(|item| self.rewrites_in(kind, field, &item.fields, fallback))
+                .enumerate()
+                .flat_map(|(i, item)| {
+                    self.rewrites_in(
+                        kind,
+                        field,
+                        &format!("{shown}[{i}]"),
+                        &item.fields,
+                        fallback,
+                    )
+                })
                 .collect(),
             _ => Vec::new(),
         }
@@ -336,6 +356,7 @@ impl FieldForms {
         &self,
         kind: &str,
         field: &str,
+        shown: &str,
         map: &FieldMap,
         fallback: &SourceSpan,
     ) -> Vec<Rewrite> {
@@ -343,7 +364,8 @@ impl FieldForms {
             .iter()
             .flat_map(|member| {
                 let path = format!("{field}.{}", member.key);
-                self.rewrites_at(kind, &path, member, fallback)
+                let shown = format!("{shown}.{}", member.key);
+                self.rewrites_at(kind, &path, &shown, member, fallback)
             })
             .collect()
     }

@@ -99,7 +99,6 @@ fn a_typed_block_coerces_and_admits_each_member() {
     behavior = "check_field_value_types",
     verify = "a typed block reads and admits each member by its own declared type"
 )]
-#[ignore = "K3 T7"]
 fn a_member_of_a_typed_block_is_admitted_at_its_own_span() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal \"x\" }\n}\n");
     let e061 = coded(&diagnostics, "E061");
@@ -135,7 +134,6 @@ fn an_integer_outside_its_bounds_is_e061() {
     behavior = "check_field_value_types",
     verify = "an integer outside its declared minimum or maximum is E061 naming the bounds"
 )]
-#[ignore = "K3 T7"]
 fn a_bounded_member_is_e061_at_its_own_span() {
     let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal 120 }\n}\n");
     let e061 = coded(&diagnostics, "E061");
@@ -260,10 +258,9 @@ fn the_finder_holds_member_tokens_by_their_entity() {
     behavior = "check_field_value_types",
     verify = "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
 )]
-#[ignore = "K3 T7"]
 fn checks_reach_block_members() {
     let (_, diagnostics) = compile(
-        "project p1 \"P\" {\n  constraints [\n    { kind timelin what \"a\" }\n    { kind timeline what \"b\" wy \"c\" }\n  ]\n}\n\
+        "project p1 \"P\" {\n  constraints [\n    { kind timelin what \"a\" }\n    { kind timeline what \"b\" whyy \"c\" }\n  ]\n}\n\
          milestone v1.0 \"One\" {\n}\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\
          plan 03-02 \"Plan\" {\n  phase v1.0/03\n  files_modified [\"src/a.ts\"]\n  coupling_justified [{ peer 03-02 }]\n}\n",
     );
@@ -277,12 +274,12 @@ fn checks_reach_block_members() {
     let span = e061[0].span.as_ref().unwrap();
     assert_eq!(
         (span.start_line, span.start_col),
-        (3, 15),
+        (3, 12),
         "the member's own span"
     );
     let w020 = coded(&diagnostics, "W020");
     assert_eq!(w020.len(), 1, "{diagnostics:#?}");
-    assert!(w020[0].message.contains("'wy'"), "{}", w020[0].message);
+    assert!(w020[0].message.contains("'whyy'"), "{}", w020[0].message);
     assert_eq!(w020[0].suggestion.as_deref(), Some("did you mean 'why'?"));
     let e006 = coded(&diagnostics, "E006");
     assert_eq!(e006.len(), 1, "{diagnostics:#?}");
@@ -432,4 +429,20 @@ fn an_export_writes_blocks_and_their_schema() {
         published.contains("\"required\":[\"phase\",\"provides\"]"),
         "{published}"
     );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a member written in another form than its type gives is W159 at the member, named by its path"
+)]
+fn an_off_form_member_is_w159_at_the_member() {
+    let (_, diagnostics) = compile("discussion d1 \"D\" {\n  scores { goal \"3\" }\n}\n");
+    let w159 = coded(&diagnostics, "W159");
+    assert_eq!(w159.len(), 1, "{diagnostics:#?}");
+    assert!(
+        w159[0].message.contains("member 'scores.goal'"),
+        "{}",
+        w159[0].message
+    );
+    assert!(coded(&diagnostics, "E061").is_empty(), "{diagnostics:#?}");
 }

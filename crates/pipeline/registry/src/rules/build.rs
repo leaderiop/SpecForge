@@ -478,21 +478,28 @@ fn host_rules(registries: Registries<'_>) -> Vec<Rule> {
     rules
 }
 
-/// One E006 rule per `required` field, owned by the host, by (kind, field).
+/// One E006 rule per `required` field or member of a typed block, owned by the host, by (kind, declared path): a
+/// member's rule reports each written item of its block that leaves it out (ADR 0285).
 fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut required: Vec<(String, String)> = registries
-        .fields
-        .iter()
-        .filter(|(_, _, entry)| entry.declared().required)
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
+    let mut required: Vec<(String, String)> = Vec::new();
+    for (kind, field, entry) in registries.fields.iter() {
+        entry.declared().for_each_path(field, &mut |path, d| {
+            if d.required {
+                required.push((kind.to_string(), path));
+            }
+        });
+    }
     required.sort();
     required
         .into_iter()
         .map(|(kind, field)| Rule {
             code: codes::E006.id().to_string(),
             severity: Severity::of(codes::E006),
-            template: format!("{kind} '{{id}}' is missing required field '{field}'"),
+            template: if field.contains('.') {
+                format!("{kind} '{{id}}' is missing required member '{field}'")
+            } else {
+                format!("{kind} '{{id}}' is missing required field '{field}'")
+            },
             target: Some(kind),
             message_field: Some(field.clone()),
             origin: Origin::Host,

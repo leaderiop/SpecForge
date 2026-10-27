@@ -50,7 +50,19 @@ pub struct EntityRecord {
 /// `@`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldRecord {
+    /// The field's name; on a member (see `members`) its written path, `requires[1].phase`.
     pub key: String,
+    /// The declared path the field's registered form is found at: `key` on a field, `requires.phase` on a member.
+    pub declared: String,
+    /// Every typed member written inside this field's block or block list (ADR 0285), depth first, each a record of
+    /// its own; empty on a member and on any other field. Host-internal: never on the wire.
+    pub members: Vec<FieldRecord>,
+    /// The written path of each required member this field's block or block list leaves unwritten
+    /// (`out_of_scope[0].why`). Host-internal: never on the wire.
+    pub missing: Vec<String>,
+    /// The entries this field's typed blocks hold that they declare no member for (W020). Host-internal: never on
+    /// the wire.
+    pub unknown: Vec<UnknownMember>,
     pub text: String,
     pub annotations: Vec<String>,
     /// A list-shaped value's items, unjoined (each item's text), so a host
@@ -68,6 +80,18 @@ pub struct FieldRecord {
     /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
     pub rewrites: Vec<Rewrite>,
+}
+
+/// An entry of a typed block that the block declares no member for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownMember {
+    /// The written path of the block holding it (`constraints[1]`).
+    pub container: String,
+    /// The declared path of that block (`constraints`).
+    pub declared: String,
+    pub key: String,
+    /// Where its value is written.
+    pub span: Option<SourceSpan>,
 }
 
 /// Edge counts in one direction, to or from other entities: an edge from the entity to itself
@@ -205,6 +229,10 @@ impl EntityRecord {
     pub fn with_list(mut self, key: &str, items: &[&str]) -> Self {
         self.fields.push(FieldRecord {
             key: key.to_string(),
+            declared: key.to_string(),
+            members: Vec::new(),
+            missing: Vec::new(),
+            unknown: Vec::new(),
             text: items.join(", "),
             annotations: Vec::new(),
             items: Some(items.iter().map(|item| item.to_string()).collect()),
@@ -221,6 +249,10 @@ impl EntityRecord {
     pub fn with_value(mut self, key: &str, shape: ValueShape, text: &str) -> Self {
         self.fields.push(FieldRecord {
             key: key.to_string(),
+            declared: key.to_string(),
+            members: Vec::new(),
+            missing: Vec::new(),
+            unknown: Vec::new(),
             text: text.to_string(),
             annotations: Vec::new(),
             items: shape.is_list().then(|| vec![text.to_string()]),

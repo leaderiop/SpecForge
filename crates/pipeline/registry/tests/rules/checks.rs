@@ -603,3 +603,29 @@ fn an_sdk_declared_rule_runs_as_declared() {
     );
     assert_eq!(messages(&diagnostics), ["behavior 'b1' has no verify"]);
 }
+
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "a field_value_constraint over a declared member path judges each item of a typed block"
+)]
+fn a_constraint_over_a_member_path_judges_each_item() {
+    let mut declared = rule("W103", "field_value_constraint");
+    declared.message_template = "{kind} '{id}' has invalid {field}='{value}'".to_string();
+    declared.field = Some("items.kind".to_string());
+    declared.constraint = Some(constraint("one_of", None, &["cli", "api"]));
+    let mut block = entity("b1", "behavior", 1, 0).with_field("items", "");
+    let member = |index: usize, text: &str| {
+        let mut record = entity("m", "behavior", 1, 0)
+            .with_field("kind", text)
+            .fields
+            .remove(0);
+        record.key = format!("items[{index}].kind");
+        record.declared = "items.kind".to_string();
+        record
+    };
+    block.fields[0].members = vec![member(0, "cli"), member(1, "web")];
+    assert_eq!(
+        messages(&check(&one(declared), &[block])),
+        ["behavior 'b1' has invalid items[1].kind='web'"]
+    );
+}

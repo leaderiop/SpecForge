@@ -42,7 +42,7 @@ pub use surface::{
 // --- What the checks after the graph build read about an entity (ADR 0019) ---
 pub use entity::{
     Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord,
-    ParamRecord, RuleInput,
+    ParamRecord, RuleInput, UnknownMember,
 };
 
 // --- E014: the shortest and longest entity IDs ---
