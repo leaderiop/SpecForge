@@ -501,7 +501,13 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
             continue;
         }
         let written = match request.mode {
-            Mode::Write => match write_formatted(&outcome.root, held, &source, &formatted) {
+            Mode::Write => match write_formatted(
+                &outcome.root,
+                configs.serialized_root(&target).as_deref(),
+                held,
+                &source,
+                &formatted,
+            ) {
                 Ok(()) => true,
                 Err(e) => {
                     outcome.failures.push(Failure::Write {
@@ -532,12 +538,15 @@ pub fn run(request: &Request) -> Result<Outcome, Refusal<FormatField>> {
 /// since it was read is kept (ADR 0289).
 fn write_formatted(
     root: &Path,
+    locking: Option<&Path>,
     held: crate::Held,
     source: &str,
     formatted: &str,
 ) -> Result<(), OpError> {
-    let _lock =
-        crate::change::lock_if_harnessed(root).map_err(|e| crate::change::unwritable(root, &e))?;
+    let _lock = locking
+        .map(|project| crate::change::lock_if(true, project))
+        .transpose()
+        .map_err(|e| crate::change::unwritable(root, &e))?;
     let mut change = crate::change::ProjectChange::new(root, "cannot format");
     change.stage(
         held,

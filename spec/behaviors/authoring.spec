@@ -333,6 +333,7 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "set_verdict checks the rule and its basis"
   verify unit "set_verdict writes its verdict and its ledger line"
   verify unit "format does not overwrite a concurrent write"
+  verify unit "format locks a project with a writing extension and not one that merely has a .specforge directory"
 }
 
 behavior refuse_stale_revision "Refuse a Stale Revision" {

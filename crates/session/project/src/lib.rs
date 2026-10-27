@@ -444,6 +444,19 @@ impl Environment {
         &self.registries
     }
 
+    /// Whether a write of this project is serialized by the write lock (ADR 0289): it declares a harness field, or an
+    /// enabled extension has a writing command or collector or a guard pass. A plain project writes without it.
+    pub fn serializes_writes(&self) -> bool {
+        !crate::harness::Harness::of(self.registries()).is_empty()
+            || self.registries().declarations().iter().any(|d| {
+                d.surfaces.commands.iter().any(|c| c.writes)
+                    || d.collectors.iter().any(|c| c.writes)
+                    || d.passes
+                        .iter()
+                        .any(|p| p.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE))
+            })
+    }
+
     /// The configured providers, registered once against the loaded
     /// declarations (ADR 0004 D3-c).
     pub fn providers(&self) -> &Providers {

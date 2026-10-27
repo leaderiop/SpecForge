@@ -325,11 +325,11 @@ mod owned_tests;
 #[cfg(test)]
 mod tests;
 
-/// The project's write lock, for a project that has a `.specforge/` (a harness, a writing extension, a migration
-/// record): a project without one gets none made by a write (ADR 0289).
-pub(crate) fn lock_if_harnessed(root: &Path) -> std::io::Result<Option<std::fs::File>> {
-    root.join(".specforge")
-        .is_dir()
+/// The project's write lock when `serialized` (its extensions declare a harness field, a writing command or
+/// collector, or a guard pass, ADR 0289); none otherwise, so a plain project gets no `.specforge/` and a read-only one
+/// still formats.
+pub(crate) fn lock_if(serialized: bool, root: &Path) -> std::io::Result<Option<std::fs::File>> {
+    serialized
         .then(|| specforge_project::harness::lock(root))
         .transpose()
 }
