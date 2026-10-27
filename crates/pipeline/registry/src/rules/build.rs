@@ -8,7 +8,8 @@ use std::collections::{HashMap, HashSet};
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_diagnostics::{CodeMisuse, Level, check_extension_code};
 use specforge_protocol_types::{
-    CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
+    CheckKind, ConstraintKind, ExtensionDeclaration, FileBase, ValidationRuleDescriptor,
+    ValidationSeverity,
 };
 
 use super::check::{Check, EdgeScope, Obligations, ValueConstraint};
@@ -233,6 +234,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         },
         CheckKind::FileExists => Check::FileExists {
             field: requires_field()?,
+            base: FileBase::Spec,
         },
         CheckKind::FieldValueConstraint => {
             let Some(c) = r.constraint.as_ref() else {
@@ -391,6 +393,12 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
     {
         return Ok(None);
     }
+    // An extension's own `file_exists` rule reads its field's base too (ADR 0285).
+    if let (Check::FileExists { field, base }, Some(kind)) =
+        (&mut rule.check, rule.target.as_deref())
+    {
+        *base = base_of(registries, kind, field);
+    }
     let reads_statements = matches!(
         rule.check,
         Check::VerifyKindAllowlist { .. }
@@ -510,30 +518,43 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
         .collect()
 }
 
-/// One E016 rule per `file_reference` field, owned by the host, by (kind, field): a
-/// `file_exists` rule over the field (ADR 0118).
+/// One E016 rule per `file_reference` field or member, owned by the host, by (kind, declared path): a
+/// `file_exists` rule over the field (ADR 0118), reading its paths from the base the field declares (ADR 0285).
 fn file_reference_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut referenced: Vec<(String, String)> = registries
-        .fields
-        .iter()
-        .filter(|(_, _, entry)| entry.declared().file_reference)
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
+    let mut referenced: Vec<(String, String)> = Vec::new();
+    for (kind, field, entry) in registries.fields.iter() {
+        entry.declared().for_each_path(field, &mut |path, d| {
+            if d.file_reference {
+                referenced.push((kind.to_string(), path));
+            }
+        });
+    }
     referenced.sort();
     referenced
         .into_iter()
-        .map(|(kind, field)| Rule {
-            code: codes::E016.id().to_string(),
-            severity: Severity::of(codes::E016),
-            template: "file reference '{value}' in entity '{id}' does not exist".to_string(),
-            target: Some(kind),
-            message_field: Some(field.clone()),
-            origin: Origin::Host,
-            check_kind: CheckKind::FileExists,
-            check: Check::FileExists { field },
-            declared: Declared::default(),
+        .map(|(kind, field)| {
+            let base = base_of(registries, &kind, &field);
+            Rule {
+                code: codes::E016.id().to_string(),
+                severity: Severity::of(codes::E016),
+                template: "file reference '{value}' in entity '{id}' does not exist".to_string(),
+                target: Some(kind),
+                message_field: Some(field.clone()),
+                origin: Origin::Host,
+                check_kind: CheckKind::FileExists,
+                check: Check::FileExists { field, base },
+                declared: Declared::default(),
+            }
         })
         .collect()
+}
+
+/// The base the field or member `path` of `kind` declares; the spec root when it declares none.
+fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> FileBase {
+    registries
+        .fields
+        .get_path(kind, path)
+        .map_or(FileBase::Spec, |(_, form)| form.base())
 }
 
 /// W023: a validation rule code a later extension declares again, once

@@ -145,6 +145,7 @@ pub fn over(entities: &[EntityRecord]) -> RuleInput<'_> {
         entities,
         edges: &[],
         spec_root: Path::new(""),
+        project_root: Path::new(""),
         disk: &NoDisk,
     }
 }
@@ -155,6 +156,7 @@ pub fn with_edges<'a>(entities: &'a [EntityRecord], edges: &'a [EdgeRecord]) -> 
         entities,
         edges,
         spec_root: Path::new(""),
+        project_root: Path::new(""),
         disk: &NoDisk,
     }
 }

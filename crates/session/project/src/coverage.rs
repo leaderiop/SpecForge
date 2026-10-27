@@ -418,6 +418,7 @@ mod tests {
                 &self.graph,
                 &self.registries,
                 Path::new(""),
+                Path::new(""),
             ))
         }
     }

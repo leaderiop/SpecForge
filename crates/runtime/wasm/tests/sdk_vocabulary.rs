@@ -109,6 +109,7 @@ fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
         entities,
         edges: &[],
         spec_root: std::path::Path::new(""),
+        project_root: std::path::Path::new(""),
         disk: &NoDisk,
     }
 }

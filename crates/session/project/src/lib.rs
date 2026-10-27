@@ -388,7 +388,7 @@ impl Environment {
     /// the relative paths the rules read. The one place a snapshot is
     /// taken from an environment.
     pub fn entity_snapshot(&self, graph: &GraphBuild) -> EntitySnapshot {
-        EntitySnapshot::of(graph, &self.registries, self.sources.dir())
+        EntitySnapshot::of(graph, &self.registries, self.sources.dir(), self.root())
     }
 
     /// Every check a compile runs over the entity snapshot `entities` of a

@@ -180,6 +180,8 @@ pub struct RuleInput<'a> {
     pub entities: &'a [EntityRecord],
     pub edges: &'a [EdgeRecord],
     pub spec_root: &'a Path,
+    /// The directory holding `specforge.json`: where a file field declaring the `project` base starts its paths.
+    pub project_root: &'a Path,
     pub disk: &'a dyn Disk,
 }
 
@@ -189,6 +191,7 @@ impl std::fmt::Debug for RuleInput<'_> {
             .field("entities", &self.entities)
             .field("edges", &self.edges)
             .field("spec_root", &self.spec_root)
+            .field("project_root", &self.project_root)
             .finish_non_exhaustive()
     }
 }

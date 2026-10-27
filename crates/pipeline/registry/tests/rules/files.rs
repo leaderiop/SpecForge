@@ -44,6 +44,7 @@ fn e016(disk: &MemoryDisk, paths: &[&str]) -> Vec<Diagnostic> {
             entities: &records,
             edges: &[],
             spec_root: std::path::Path::new(ROOT),
+            project_root: std::path::Path::new(ROOT),
             disk,
         },
         &NoVerdicts,
@@ -236,6 +237,7 @@ fn the_checks_read_only_through_their_disk() {
             entities: &records,
             edges: &[],
             spec_root: std::path::Path::new("/spec"),
+            project_root: std::path::Path::new("/spec"),
             disk: &disk,
         },
         &NoVerdicts,
@@ -290,6 +292,7 @@ fn reads_and_errors(records: &[EntityRecord]) -> (Vec<PathBuf>, Vec<Diagnostic>)
         entities: records,
         edges: &[],
         spec_root: std::path::Path::new("/nonexistent/spec"),
+        project_root: std::path::Path::new("/nonexistent/spec"),
         disk: &disk,
     };
     let diags = build.check(&input, &NoVerdicts);
@@ -460,6 +463,7 @@ fn file_exists_reports_missing_file_reference_field_targets() {
         entities: &entities,
         edges: &[],
         spec_root: Path::new("/spec"),
+        project_root: Path::new("/spec"),
         disk: &disk,
     };
     let diagnostics = built.rules.check(&input, &NoVerdicts);
@@ -488,6 +492,7 @@ fn file_exists_resolves_against_the_spec_root_not_the_working_directory() {
         entities: &entities,
         edges: &[],
         spec_root: Path::new("/spec"),
+        project_root: Path::new("/spec"),
         disk: &beside,
     };
     assert_eq!(
@@ -527,6 +532,7 @@ fn file_exists_checks_each_item_of_a_list_field() {
         entities: &entities,
         edges: &[],
         spec_root: root,
+        project_root: root,
         disk: &disk,
     };
 

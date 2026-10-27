@@ -41,13 +41,20 @@ pub struct EntitySnapshot {
     /// In id order.
     declared_types: Vec<String>,
     spec_root: PathBuf,
+    project_root: PathBuf,
 }
 
 impl EntitySnapshot {
     /// The snapshot of the graph `build` holds, read with `registries`, the
     /// Registry build it was built in (`RegistryBuild::graph_of`, ADR 0123);
-    /// relative file paths in it resolve against `spec_root`.
-    pub fn of(build: &GraphBuild, registries: &RegistryBuild, spec_root: &Path) -> Self {
+    /// relative file paths in it resolve against `spec_root`, or `project_root` where a field declares that base
+    /// (ADR 0285).
+    pub fn of(
+        build: &GraphBuild,
+        registries: &RegistryBuild,
+        spec_root: &Path,
+        project_root: &Path,
+    ) -> Self {
         debug_assert!(
             build.inputs() == registries.graph_inputs(),
             "an entity snapshot reads only a graph built in its Registry build (RegistryBuild::graph_of, ADR 0123)"
@@ -117,6 +124,7 @@ impl EntitySnapshot {
             edges,
             declared_types,
             spec_root: spec_root.to_path_buf(),
+            project_root: project_root.to_path_buf(),
         }
     }
 
@@ -131,6 +139,7 @@ impl EntitySnapshot {
             entities: &self.records,
             edges: &self.edges,
             spec_root: &self.spec_root,
+            project_root: &self.project_root,
             disk,
         }
     }

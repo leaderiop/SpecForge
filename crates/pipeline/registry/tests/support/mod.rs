@@ -158,6 +158,7 @@ pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic>
             entities: records,
             edges: &[],
             spec_root: Path::new("/spec"),
+            project_root: Path::new("/spec"),
             disk: &NoDisk,
         },
         &NoVerdicts,

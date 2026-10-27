@@ -13,6 +13,7 @@ use super::{Origin, Rule};
 use crate::entity::{Direction, EntityRecord, FieldRecord, RuleInput};
 use specforge_common::SourceSpan;
 use specforge_graph::field_form::declared_path;
+use specforge_protocol_types::FileBase;
 
 /// One variant per check kind; each carries what it reads, resolved.
 #[derive(Debug, Clone)]
@@ -42,8 +43,10 @@ pub(crate) enum Check {
     Cycle {
         edge_type: String,
     },
+    /// Every path `field` (a declared path) names exists under `base`.
     FileExists {
         field: String,
+        base: FileBase,
     },
     VerifyKindAllowlist {
         allowed: Vec<String>,
@@ -115,8 +118,8 @@ pub(super) fn run(
     if let Check::Cycle { edge_type } = &rule.check {
         return cycle_rule(rule, edge_type, input);
     }
-    if let Check::FileExists { field } = &rule.check {
-        return missing_files(rule, field, input);
+    if let Check::FileExists { field, base } = &rule.check {
+        return missing_files(rule, field, *base, input);
     }
     let mut diagnostics = Vec::new();
     let mut failures = Vec::new();
@@ -484,10 +487,15 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
 /// A `file_exists` rule over `input`: each path an entity it applies to names in `field` that
 /// does not exist, by entity id then path order, with a close sibling as the help
 /// ([`files::missing`], ADR 0118). `{value}` is the missing path.
-fn missing_files(rule: &Rule, field: &str, input: &RuleInput<'_>) -> Vec<Diagnostic> {
+fn missing_files(
+    rule: &Rule,
+    field: &str,
+    base: FileBase,
+    input: &RuleInput<'_>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
-        for missing in files::missing(record, field, input) {
+        for missing in files::missing(record, field, base, input) {
             let violation = Violation {
                 suggestion: missing.suggestion,
                 ..Violation::value(missing.path)

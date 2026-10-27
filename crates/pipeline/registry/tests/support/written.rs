@@ -59,7 +59,12 @@ pub fn tickets() -> ExtensionDeclaration {
 /// The snapshot of `files` read with `build`. Panics on a parse error: a test's text is valid
 /// `.spec`.
 pub fn snapshot_of(build: &RegistryBuild, files: &[(&str, &str)]) -> EntitySnapshot {
-    EntitySnapshot::of(&graph_of(build, files), build, Path::new("/spec"))
+    EntitySnapshot::of(
+        &graph_of(build, files),
+        build,
+        Path::new("/spec"),
+        Path::new("/"),
+    )
 }
 
 /// The graph build of `files` with `build`'s own graph inputs.

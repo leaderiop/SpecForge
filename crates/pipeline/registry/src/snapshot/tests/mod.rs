@@ -89,7 +89,12 @@ fn declared(
 }
 
 fn snapshot(source: &str, registries: &RegistryBuild) -> EntitySnapshot {
-    EntitySnapshot::of(&graph_of(source, registries), registries, Path::new(""))
+    EntitySnapshot::of(
+        &graph_of(source, registries),
+        registries,
+        Path::new(""),
+        Path::new(""),
+    )
 }
 
 /// The ids W004 reports on `source` (rules on `behavior` and `type`).
@@ -128,6 +133,7 @@ fn a_graph_built_in_another_registry_build_is_not_read() {
             HashSet::new(),
         ),
         &registries,
+        Path::new(""),
         Path::new(""),
     );
 }

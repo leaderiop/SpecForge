@@ -31,6 +31,7 @@ fn the_validator_context_names_each_reference_once_dangling_included() {
         &super::graph_of(source, &registries),
         &registries,
         Path::new(""),
+        Path::new(""),
     );
 
     let context = snapshot.validator_context("a").expect("a is an entity");

@@ -294,7 +294,6 @@ fn checks_reach_block_members() {
     behavior = "validate_file_reference_paths",
     verify = "a file field declaring the project base reads its relative paths from the directory of specforge.json"
 )]
-#[ignore = "K3 T8"]
 fn a_project_file_field_reads_from_the_project_root() {
     let dir = TestProject::new()
         .config(|c| {
@@ -311,7 +310,8 @@ fn a_project_file_field_reads_from_the_project_root() {
         .file("src/missing.ts", "");
     let compiled = dir.compile_in(Arc::new(typed_runtime()));
     let diagnostics = compiled.diagnostics();
-    let e016 = coded(&diagnostics, "E016");
+    let mut e016 = coded(&diagnostics, "E016");
+    e016.sort_by(|a, b| a.message.cmp(&b.message));
     let missing: Vec<_> = e016.iter().map(|d| d.message.as_str()).collect();
     assert_eq!(missing.len(), 2, "{diagnostics:#?}");
     assert!(missing[0].contains("'src/c.ts'"), "{missing:?}");

@@ -13,7 +13,7 @@ fn an_entitys_edge_counts_leave_out_an_edge_to_itself() {
     let source = "behavior loop \"Loop\" {\n  features [loop, other]\n}\n\n\
                   behavior other \"Other\" {\n}\n";
     let build = graph_of(source, &registries);
-    let snapshot = EntitySnapshot::of(&build, &registries, Path::new(""));
+    let snapshot = EntitySnapshot::of(&build, &registries, Path::new(""), Path::new(""));
     let by_id = |id: &str| {
         snapshot
             .records()
