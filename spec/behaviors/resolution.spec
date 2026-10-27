@@ -154,12 +154,15 @@ behavior link_entity_references "Link Entity References" {
     no_silent_ignoring      "No reference is silently ignored"
   }
   contract   """
-    The resolver MUST link every entity ID in a reference list to the
-    declaration site of that entity. Each resolved reference MUST be
+    The resolver MUST link every entity name or path in a reference list to
+    the declaration site of that entity. A reference resolves from its holder
+    outward: the holder itself, each enclosing scope, then the project, a
+    path at the nearest level where the whole path resolves, a leading "/"
+    at the project only; a scope field alone also takes a unique suffix. Each resolved reference MUST be
     recorded as a pending edge (source, target, edge type) for the
     graph builder to materialize. Unresolvable references MUST produce
     an E003 diagnostic with a "did you mean?" suggestion when a close
-    match exists. A reference whose field declares a target kind and that
+    match exists, and naming the entities that bear the name elsewhere. A reference whose field declares a target kind and that
     names an existing entity of another kind MUST be E022 at the
     reference, whether or not a loaded extension declares that kind; it
     still links, so navigation and rename reach it. A quoted reference is

@@ -174,6 +174,8 @@ Returns entity kind descriptors. Each descriptor declares a DSL keyword, its fie
 }
 ```
 
+A kind may add `"scoped_by": "<field>"` (protocol 1.7.0, ADR 0284): the name of one optional `reference` field with a target kind. The target kind then opens a scope, an entity's name is unique within its scope, and its id is its scope's path and its name (`v1.0/03/D-01`). A pass's `PassEntity.id` and edge ends are such paths, so a pass that keys its own tables by id keeps working unchanged.
+
 Optional flags, `false` and omitted from the wire unless set (ADR 0007): on
 a kind, `contract_target` (a reference field that targets the kind is a
 contract obligation, A010) and `declares_types` (its entity ids are the type

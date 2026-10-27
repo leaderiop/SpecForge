@@ -128,7 +128,7 @@ term t_entity "entity" {
 
 term t_entity_id "entity ID" {
   definition """
-    A globally unique free-form identifier for an entity. Any name (words of
+    A free-form name, unique within its scope, that with its scope's path is an entity's ID. Any name (words of
     letters, digits and underscores, joined by single dashes or dots, 2-60
     chars: AUTH-01, 03.1, v1.0), and not a reserved word (E013). A spec block's ID is its
     header's string, held to length and reserved words, not to the grammar. No

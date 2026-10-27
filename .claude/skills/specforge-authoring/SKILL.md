@@ -118,7 +118,7 @@ feature order_tracking "Order Tracking" {
 
 `<kind> <id> "<title>" { <field> <value> ... }`.
 
-- **ID** -- words of letters, digits and underscores joined by single `-` or `.` (`AUTH-01`, `v1.0`), 2-60 characters (E014), unique within its kind (E002) and best unique
+- **ID** -- words of letters, digits and underscores joined by single `-` or `.` (`AUTH-01`, `v1.0`), 2-60 characters (E014), unique within its scope and kind (E002; a name is also W060 against another kind in its scope) and best unique
   across kinds (W060). A kind keyword or structural keyword cannot be an ID (E013).
 - **Title** -- required (E076). `specforge migrate` adds one to blocks that lack it.
 - **One field, one line** -- a block writes each field once (E081): give a list all its items in one `[...]`.

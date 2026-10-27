@@ -64,9 +64,10 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
     duplicate_ids_diagnosed "Every duplicate entity ID has an E002 diagnostic emitted naming both declaration sites"
   }
   contract   """
-    The validator MUST detect entity IDs declared more than once across
-    all .spec files. Duplicate IDs MUST produce an E002 diagnostic that
-    names both declaration sites (file, line, column).
+    The validator MUST detect entity names declared more than once in one
+    scope across all .spec files; the same name in two scopes is two
+    entities. Duplicates MUST produce an E002 diagnostic that names both
+    declaration sites (file, line, column).
   """
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"

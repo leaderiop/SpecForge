@@ -373,7 +373,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     (e.g., a "deps" field with a target_kind constraint filters to
     entities of that kind), suggestions MUST be filtered to entities of
     that kind. When no target_kind constraint exists, all entity IDs
-    MUST be suggested. Entity IDs are globally unique regardless of
+    MUST be suggested. Entity names are unique within their scope regardless of
     kind — the filtering is a UX optimization based on
     extension-declared field metadata, not a compiler requirement.
     Suggestions are ranked by the shared ranking over IDs and titles

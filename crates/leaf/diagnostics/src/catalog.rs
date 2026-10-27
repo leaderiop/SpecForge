@@ -108,10 +108,10 @@ catalog! {
         "A `.spec` file could not be parsed — invalid syntax such as a missing brace, unclosed string, or malformed field at the reported location; the same code also covers an internal reparse failure in the language server, and the formatter's parser producing no syntax tree at all. Fix the syntax at the reported span and re-save.";
     E002: Error core,
         "Duplicate entity ID",
-        "Two entities of the same kind declare the same ID, or a project writes a second `spec` block (a project has one, whatever its name); the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.";
+        "Two entities of the same kind declare the same ID, or a project writes a second `spec` block (a project has one, whatever its name); the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each name is unique within its scope and kind (a name is unique within its scope: the entity its kind's scope field names, or the project).";
     E003: Error core,
         "Unresolved reference",
-        "A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. A `string_list` field's other items are strings, never references. Fix the typo or add the missing entity; a `did you mean` suggestion is included when a close match exists.";
+        "A reference field names an entity ID that doesn't resolve to any declared entity: a `reference` field's value or a `reference_list` field's item, quoted or not, or a scheme ref ID in a string list. A `string_list` field's other items are strings, never references. A reference resolves from its holder outward (the holder itself, each enclosing scope, then the project; a leading `/` names the project only), a path such as `03/D-01` resolving at the nearest level where the whole path does. A name outside that chain lists the entities that bear it as candidates; a scope field or a surface's short form naming several entities is ambiguous. Fix the typo, write one of the candidates, or add the missing entity; a `did you mean` suggestion is included when a close match exists.";
     E004: Error core,
         "Unknown type name",
         "A name written as a type (a member's type or a member of its union, a port method's parameter or return type: any field an extension derives from type syntax) is no primitive and names no entity of the field's target kind. A union body's variants and a list's items may be an enum's words and are not checked. Declare the type, or name a declared type or a primitive (see `docs/entities/type.md`).";
@@ -558,7 +558,7 @@ catalog! {
         "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.";
     W027: Warning core,
         "Import binding not found",
-        "A selective import, `use { A, B } from \"target\"` or `pub use { A, B } from \"target\"`, names a binding the target file does not export: an entity it neither declares nor re-exports with `pub use`. References resolve without `use`, so the binding changes nothing, but it names nothing either; a rename and a delete keep bindings in step with the entities they name (ADR 0233). Correct the binding's name, or remove it.";
+        "A selective import, `use { A, B } from \"target\"` or `pub use { A, B } from \"target\"`, names a binding the target file does not export: an entity it neither declares nor re-exports with `pub use`. A binding may be a path (`use { 03/D-01 }`). References resolve without `use`, so the binding changes nothing, but it names nothing either; a rename and a delete keep bindings in step with the entities they name (ADR 0233). Correct the binding's name, or remove it.";
     W029: Warning formal,
         "Event never consumed",
         "An `event` entity is produced by one or more behaviors but has no consumer, meaning nothing reacts to it. Add a behavior that consumes the event, or remove the unused production.";
@@ -618,7 +618,7 @@ catalog! {
         "A `milestone` entity has `status: completed` but no `exit_criteria` field. Add an `exit_criteria` field describing how completion was verified.";
     W060: Warning core,
         "Cross-kind ID collision",
-        "The same entity ID is declared with two different entity kinds, either within the same compilation pass or across different files. Entity IDs share one flat namespace regardless of kind, so rename one of the conflicting declarations; the first declaration encountered is retained and later ones are skipped.";
+        "The same entity ID is declared with two different entity kinds, either within the same compilation pass or across different files. Entity names share one namespace per scope regardless of kind, so rename one of the conflicting declarations; the first declaration encountered is retained and later ones are skipped.";
     W061: Warning core,
         "Reference cycle detected",
         "The resolved reference graph contains a cycle among entity references. Cycles that share an entity are one warning, whose path walks every entity on them. Break each cycle by removing or inverting one of its references.";

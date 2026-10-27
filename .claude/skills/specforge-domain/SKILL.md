@@ -116,7 +116,7 @@ specforge explain <code>                         # a diagnostic code
 specforge infer-guide [kind]                     # what each declared kind holds and how to find it in code
 specforge schema [--kind K] / model              # the declared kinds, fields and edges
 specforge new|set|unset|link|unlink|delete       # typed edits (refuse one that adds errors: E080)
-specforge query / trace <id> / explore / review  # read the graph
+specforge query / trace <id> / explore / review  # read the graph (<id>: a path such as v1.0/03/D-01, or a unique short form)
 specforge stats / export / format / migrate
 specforge analyze                                # analysis passes declared by extensions (e.g. formal)
 specforge collect                                # run declared test runners, record what their tests prove

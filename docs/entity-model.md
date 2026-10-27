@@ -73,7 +73,7 @@ invariant email_uniqueness "Email Uniqueness" {
 ```
 
 - **Keyword** (`behavior`): the kind, declared by an extension.
-- **Id** (`create_user`): unique across the whole project, whatever the kind (E002). 2 to 60 characters (E014),
+- **Id** (`create_user`): unique within its scope, whatever the kind (E002, W060): the entity its kind's scope field names, or the project; its path is its scope's path and its name (`v1.0/03/D-01`). 2 to 60 characters (E014),
   made of words of letters, digits and `_`, joined by single `-` or `.` (`create_user`, `AUTH-01`, `v1.0`, `03`). An id may not be a structural keyword or any declared kind (E013).
 - **Title** (`"Create User"`): required (E076). It is the one label every surface shows. `specforge migrate` writes
   missing titles.
