@@ -812,6 +812,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   """
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
+  verify integration "a preset raises a code before strict, in every surface"
   verify unit "exit 1 with warnings in strict mode"
   verify unit "a raised severity only raises a code, before strict"
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"

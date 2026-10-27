@@ -415,10 +415,15 @@ pub fn analyze(
         });
     }
 
-    // Strictness, once, over every report; the verdict reads the promoted
-    // findings.
+    // Settings (a gated code, a raised severity), then strictness, once, over every report; the
+    // verdict reads the promoted findings.
     let policy = specforge_project::DiagnosticPolicy::strict(options.strict);
+    let settings = view.env().settings();
     for r in &mut passes_run {
+        r.findings = std::mem::take(&mut r.findings)
+            .into_iter()
+            .filter_map(|d| settings.effective(d))
+            .collect();
         policy.promote(&mut r.findings);
     }
     let gate = Gate::of(options.min, &passes_run);

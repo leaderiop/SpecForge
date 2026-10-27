@@ -308,6 +308,8 @@ impl CompiledProject {
                 .chain(self.graph.diagnostics())
                 .chain(&self.check_diagnostics)
                 .cloned()
+                // Settings, once, for every source: a gated code is dropped, a raised one is raised.
+                .filter_map(|d| self.env.settings().effective(d))
                 .map(|d| d.placed_at_subject(|id| graph.node(id).map(|n| n.source_span.clone())))
                 .collect()
         }))
