@@ -152,3 +152,36 @@ fn a_json_key_is_located_at_its_text() {
     // Not JSON: indexed as far as it is well formed.
     assert!(locate("{\"a\": 1, \"b\": ", &["a"]).is_some());
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a JSON key is located at its own text and the path at an offset names the key or value there"
+)]
+fn a_half_typed_member_is_found_by_its_nearest_enclosing_member() {
+    // `"lev"` has no colon yet: the cursor is in the extension's object.
+    let text = r#"{"settings": {"@t/s": {"flag": true, "lev"}}}"#;
+    let at = path_at(text, text.find("lev").unwrap() + 2).unwrap();
+    assert_eq!(at.path, ["settings", "@t/s"]);
+
+    // `"profile": ` has no value yet: the cursor, even in blanks after the colon, is at that member.
+    let text = "{\"settings\": {\"@t/s\": {\"profile\":   }}}";
+    let at = path_at(text, text.rfind(':').unwrap() + 2).unwrap();
+    assert_eq!(at.path, ["settings", "@t/s", "profile"]);
+
+    // An unterminated key at the end of the text.
+    let text = r#"{"settings": {"@t/s": {"le"#;
+    let at = path_at(text, text.len()).unwrap();
+    assert_eq!(at.path, ["settings", "@t/s"]);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a JSON key is located at its own text and the path at an offset names the key or value there"
+)]
+fn only_the_last_of_three_repeated_keys_is_live() {
+    let text = r#"{"a": 1, "a": 2, "a": 3}"#;
+    let live = index(text);
+    let children = live.children(&[]);
+    assert_eq!(children.len(), 1, "{children:?}");
+    assert_eq!(&text[children[0].value.clone()], "3");
+}

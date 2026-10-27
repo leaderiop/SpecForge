@@ -41,8 +41,9 @@ pub fn index(text: &str) -> JsonIndex {
         value: start..start,
         superseded: false,
     });
-    let ended = scan.value(&mut Vec::new(), 0);
-    scan.entries[0].value.end = if ended.is_some() { scan.at } else { start };
+    let _ = scan.value(&mut Vec::new(), 0);
+    // A value that stops short (a half-typed one) still covers what was read of it.
+    scan.entries[0].value.end = scan.at.max(start);
     JsonIndex {
         entries: scan.entries,
     }
@@ -171,6 +172,8 @@ impl Scan<'_> {
             let key_range = key_start..self.at;
             self.skip_space();
             self.eat(b':')?;
+            // A value being typed starts at the colon, so a cursor in the blank after it is inside the value.
+            let colon_end = self.at;
             self.skip_space();
             let entry = self.entries.len();
             path.push(key.clone());
@@ -182,12 +185,13 @@ impl Scan<'_> {
             });
             let ended = self.value(path, depth + 1);
             path.pop();
-            self.entries[entry].value.end = if ended.is_some() {
-                self.at
+            if ended.is_some() {
+                self.entries[entry].value.end = self.at;
             } else {
-                self.entries[entry].value.start
-            };
-            if let Some(earlier) = members.iter().find(|(k, _)| *k == key).map(|(_, i)| *i) {
+                // Half-typed: the value covers what was read of it, from the colon.
+                self.entries[entry].value = colon_end..self.at.max(colon_end);
+            }
+            if let Some(earlier) = members.iter().rfind(|(k, _)| *k == key).map(|(_, i)| *i) {
                 self.supersede(earlier, entry);
             }
             members.push((key, entry));
@@ -232,11 +236,7 @@ impl Scan<'_> {
             });
             let ended = self.value(path, depth + 1);
             path.pop();
-            self.entries[entry].value.end = if ended.is_some() {
-                self.at
-            } else {
-                self.entries[entry].value.start
-            };
+            self.entries[entry].value.end = self.at.max(self.entries[entry].value.start);
             ended?;
             index += 1;
             self.skip_space();
