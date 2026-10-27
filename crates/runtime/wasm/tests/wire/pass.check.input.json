@@ -74,11 +74,27 @@
     }
   ],
   "previous": {
-    "statuses": {
+    "entities": {
       "a": {
-        "kind": "gadget",
-        "status": "draft"
+        "fields": {
+          "needs": "b",
+          "status": "active"
+        },
+        "kind": "gadget"
+      },
+      "b": {
+        "fields": {
+          "status": "retired"
+        },
+        "kind": "gadget"
+      },
+      "c": {
+        "fields": {
+          "abstract": true
+        },
+        "kind": "gadget"
       }
-    }
+    },
+    "revision": "1a2b3c4d00000000000000000000000000000000"
   }
 }

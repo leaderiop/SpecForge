@@ -448,10 +448,25 @@ impl Environment {
         let mut diagnostics = Vec::new();
         let mut computed = Computed::default();
         let mut merged = None;
+        // The baseline with the ledger's moves applied: what the passes get as `previous`, and what history is
+        // judged against.
+        let translated = match (baseline, build) {
+            (Ok(Some(baseline)), Some(build)) => {
+                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
+                    &disk
+                        .read(&self.root().join(harness::LEDGER_FILE))
+                        .unwrap_or_default(),
+                ))
+                .ledger;
+                Some(baseline.translated(&ledger, build.graph()))
+            }
+            (Ok(Some(baseline)), None) => Some((**baseline).clone()),
+            _ => None,
+        };
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
-            let (values, reported) = compute::run(self, entities, runtime);
+            let (values, reported) = compute::run(self, entities, runtime, translated.as_ref());
             diagnostics.extend(reported);
             if !values.is_empty() {
                 merged = Some(entities.with_computed(&values, self.registries.fields()));
@@ -479,28 +494,25 @@ impl Environment {
                 ));
             }
             if let Some(runtime) = runtime {
-                diagnostics.extend(check_passes::run(self, entities, runtime, disk));
+                diagnostics.extend(check_passes::run(
+                    self,
+                    entities,
+                    runtime,
+                    translated.as_ref(),
+                ));
             }
         }
-        match baseline {
-            Err(notice) => diagnostics.push(notice.clone()),
-            Ok(Some(baseline)) => {
-                if let Some(build) = build {
-                    let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
-                        &disk
-                            .read(&self.root().join(harness::LEDGER_FILE))
-                            .unwrap_or_default(),
-                    ))
-                    .ledger;
-                    diagnostics.extend(history::check::check(
-                        &baseline.translated(&ledger, build.graph()),
-                        build.graph(),
-                        self.registries.field_forms(),
-                        &self.registries,
-                    ));
-                }
+        match (baseline, &translated, build) {
+            (Err(notice), ..) => diagnostics.push(notice.clone()),
+            (_, Some(translated), Some(build)) => {
+                diagnostics.extend(history::check::check(
+                    translated,
+                    build.graph(),
+                    self.registries.field_forms(),
+                    &self.registries,
+                ));
             }
-            Ok(None) => {}
+            _ => {}
         }
         Checked {
             diagnostics,

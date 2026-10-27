@@ -488,9 +488,11 @@ none, runs the pass only under `specforge analyze`, which skips check passes.
 A pass receives `PassInput`: `entities` (each with its field texts by name
 ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
-check pass), and `previous`: when
-`specforge-cache.json` exists, the statuses of the build that wrote it
-(`previous.statuses["<id>"].kind` / `.status`), else `None`. Give a
+check pass), and `previous`: when the pass names kinds in
+`.baseline(&[..])`, the project at the git commit `HEAD` names, for those kinds
+(`previous.revision`, `previous.entities["<id>"].kind` / `.fields["<field>"]`;
+references are their targets' full paths and computed values are included),
+else `None`. Give a
 diagnostic the entity it is about with `PassDiagnostic::with_entity(id)`: with
 no span of its own, the host attaches that entity's.
 

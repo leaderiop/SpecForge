@@ -500,8 +500,10 @@ neither). An entity's `id`, and an edge's `source` and `target`, are entity path
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
-`previous` (check passes only) is the build cache, `{"statuses": {"<id>":
-{"kind", "status"}}}`, when `specforge-cache.json` exists. See
+`previous` (compute and check passes that name kinds in `baseline`) is the
+git baseline of those kinds, `{"revision", "entities": {"<id>": {"kind",
+"fields": {...}}}}`; it is absent with no baseline (not in a git repository, no
+commit yet). See
 [Operate](#operate) for every operation's input and answer.
 
 ```json

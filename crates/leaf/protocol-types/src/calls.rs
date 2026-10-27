@@ -337,8 +337,8 @@ pub fn pass_export(pass: &str) -> String {
 
 /// What a `__pass_<name>` export receives: the compiled project's entity
 /// snapshot and its resolved references, with the recorded test results,
-/// the claims the prove pass entailed and the previous build's statuses
-/// when the host has them.
+/// the claims the prove pass entailed and the baseline of the kinds the pass
+/// names when the host has one.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PassInput {
     pub entities: Vec<PassEntity>,
@@ -354,12 +354,10 @@ pub struct PassInput {
     /// absent when the prove pass did not run.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proved_claims: Option<Vec<String>>,
-    /// The build cache (`specforge-cache.json`, written by `specforge check
-    /// --cache`): the statuses of the build that wrote it. Check-phase
-    /// passes only; absent without the file (a first build), when it is
-    /// invalid (the host warns W144), and for analyze passes.
+    /// The baseline of the kinds the pass names in `baseline`; absent when it names none or the project has no
+    /// baseline (not in a git repository, no commit yet), and for analyze passes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous: Option<PassBuildCache>,
+    pub previous: Option<PassBaseline>,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
@@ -429,20 +427,23 @@ pub struct PassSpan {
     pub end_col: usize,
 }
 
-/// The previous build's statuses, handed to check-phase passes.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PassBuildCache {
-    /// Per entity id: its kind and status in that build. Entities without
-    /// a lifecycle state are absent.
+/// The baseline (the project at the commit `HEAD` names, ADR 0287) of the kinds a pass names in `baseline`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PassBaseline {
+    /// The commit.
+    pub revision: String,
+    /// By the id the entity has now (a rename through SpecForge is followed): its kind and each field's value, as
+    /// the host reads it (references are their targets' full paths), computed values included.
     #[serde(default)]
-    pub statuses: BTreeMap<String, PassCachedStatus>,
+    pub entities: BTreeMap<String, PassBaselineEntity>,
 }
 
-/// One entity's kind and status in the previous build.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PassCachedStatus {
+/// One entity at the baseline.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PassBaselineEntity {
     pub kind: String,
-    pub status: String,
+    #[serde(default)]
+    pub fields: BTreeMap<String, serde_json::Value>,
 }
 
 /// A pass diagnostic's severity, on the wire as the host's (`"Error"`,

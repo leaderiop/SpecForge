@@ -539,7 +539,7 @@ pub mod prelude {
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
         FieldConstraintBuilder, FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer,
-        PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
+        PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge, PassEntity,
         PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder, ScanRequest,
         ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, Vocabulary,
     };
@@ -594,7 +594,7 @@ pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
     CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests,
     GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest, MigrationInput,
-    PassAnswer, PassBuildCache, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassInput,
+    PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput,
     PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest, ScanResponse, ScannedItem,
     TestResult, TestResults, TestStatus,
 };

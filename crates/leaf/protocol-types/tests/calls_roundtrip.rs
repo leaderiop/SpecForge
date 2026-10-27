@@ -79,7 +79,9 @@ fn the_host_payloads_decode_as_their_protocol_types() {
     assert_eq!(tests[0].status, TestStatus::Passed);
     assert_eq!(tests[0].duration_ms, Some(1.5));
     let check: PassInput = round_trips(&wire("pass.check.input.json"));
-    assert_eq!(check.previous.unwrap().statuses["a"].status, "draft");
+    let previous = check.previous.unwrap();
+    assert_eq!(previous.revision.len(), 40);
+    assert_eq!(previous.entities["a"].fields["status"], "active");
     let collect: CollectInput = round_trips(&wire("collect.input.json"));
     assert_eq!(collect.stdout, None);
     let Value::Array(contexts) = wire("validate.input.json") else {

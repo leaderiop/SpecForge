@@ -11,6 +11,7 @@ use specforge_registry::{DeclaredPass, EntitySnapshot};
 use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
 use crate::Environment;
+use crate::baseline::Baseline;
 use crate::passes::{PassContext, pass_findings, pass_input};
 
 /// Run `env`'s compute passes over `authored`: what they computed, and what they reported (their findings, E028
@@ -19,16 +20,21 @@ pub(crate) fn run(
     env: &Environment,
     authored: &EntitySnapshot,
     runtime: &dyn WasmRuntime,
+    baseline: Option<&Baseline>,
 ) -> (Computed, Vec<Diagnostic>) {
     let mut computed = Computed::default();
     let mut diagnostics = Vec::new();
     let calls = ExtensionCalls::new(runtime);
     let mut seen = authored.clone();
-    let mut encoded = None;
     for declared in env.registries().compute_passes() {
-        let input = encoded
-            .get_or_insert_with(|| ExtensionCalls::encode(&pass_input(&PassContext::of(&seen))));
-        let output = match calls.run_pass(&declared.extension, &declared.pass.name, input) {
+        let input = {
+            let mut payload = pass_input(&PassContext::of(&seen));
+            payload.previous = baseline
+                .filter(|_| !declared.baseline().is_empty())
+                .map(|b| b.pass_view(declared.baseline()));
+            ExtensionCalls::encode(&payload)
+        };
+        let output = match calls.run_pass(&declared.extension, &declared.pass.name, &input) {
             Ok(output) => output,
             Err(error) => {
                 diagnostics.push(error.diagnostic());
@@ -62,7 +68,6 @@ pub(crate) fn run(
         }
         if computed != before {
             seen = authored.with_computed(&computed, env.registries().fields());
-            encoded = None;
         }
     }
     (computed, diagnostics)

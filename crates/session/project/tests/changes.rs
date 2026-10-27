@@ -13,7 +13,7 @@ use specforge_project::{Buffer, ProjectSession, SharedRuntime, UpdateKind, Watch
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
-use crate::check_passes::{SPEC, passes_extension, project as passes_project, write_cache};
+use crate::check_passes::{passes_extension, project as passes_project};
 
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
@@ -378,59 +378,6 @@ fn an_unloaded_wasm_changes_nothing() {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "specforge-cache.json re-runs the checks without re-parsing"
-)]
-fn the_build_cache_reruns_the_checks_only() {
-    let dir = passes_project(SPEC);
-    let root = dir.root();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
-    let cache = root.join(specforge_project::BUILD_CACHE_FILE);
-    assert!(
-        session
-            .inputs()
-            .watched()
-            .contains(&Watched::File(cache.clone()))
-    );
-    assert!(
-        session
-            .project()
-            .diagnostics()
-            .iter()
-            .all(|d| d.code != "W144")
-    );
-
-    // An invalid cache: the check passes report W144 when they read it.
-    write_cache(&dir, "{ not json");
-    let changes = session.changes([cache.as_path()]);
-    assert_eq!(changes.check_inputs(), vec![cache.clone()]);
-    assert!(changes.environment().is_empty() && changes.sources().is_empty());
-
-    let update = session.apply(&changes).expect("a check input changed");
-    assert_eq!(update.kind, UpdateKind::Checks);
-    assert!(
-        update.rebuilt_files.is_empty(),
-        "{:?}",
-        update.rebuilt_files
-    );
-    assert!(update.delta.is_empty());
-    assert!(update.diagnostics.iter().any(|d| d.code == "W144"));
-
-    // Without a check pass, the cache is no input at all.
-    let (plain, session) = open(json!({"name": "c", "version": "0.1.0"}), &[("a.spec", "")]);
-    let cache = plain.root().join(specforge_project::BUILD_CACHE_FILE);
-    assert!(
-        !session
-            .inputs()
-            .watched()
-            .contains(&Watched::File(cache.clone()))
-    );
-    fs::write(&cache, "{}").unwrap();
-    assert!(session.changes([cache.as_path()]).is_empty());
-}
-
-#[specforge_test(
-    behavior = "classify_project_changes",
     verify = "a file a file_reference field names re-runs the checks"
 )]
 fn a_referenced_file_reruns_the_checks() {
@@ -735,7 +682,6 @@ fn every_input_lies_under_a_watch_root() {
         root.join("specforge.json"),
         root.join("specforge.lock"),
         layout.module.clone(),
-        root.join(specforge_project::BUILD_CACHE_FILE),
         layout.out_guide.clone(),
         layout.missing_sub.clone(),
         layout.far_guide.clone(),

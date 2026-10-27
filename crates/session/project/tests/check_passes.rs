@@ -366,118 +366,6 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
     assert_eq!(with_code(&diagnostics, "W952")[0].span, None);
 }
 
-// ── the build cache, read ──────────────────────────────────────────────────
-
-pub(crate) fn write_cache(dir: &TestProject, text: &str) {
-    dir.write(specforge_project::BUILD_CACHE_FILE, text);
-}
-
-#[specforge_test(
-    behavior = "read_build_cache",
-    verify = "check passes receive the cached statuses as previous"
-)]
-fn check_passes_receive_the_cached_statuses() {
-    let dir = project(SPEC);
-    write_cache(
-        &dir,
-        r#"{"format": 1, "statuses": {
-            "good": {"kind": "gadget", "status": "proposed"},
-            "gone": {"kind": "gadget", "status": "done"}
-        }}"#,
-    );
-    let ext = Arc::new(passes_extension());
-
-    let diagnostics = dir.compile_in(ext.clone()).diagnostics();
-
-    let expected = json!({
-        "statuses": {
-            "gone": {"kind": "gadget", "status": "done"},
-            "good": {"kind": "gadget", "status": "proposed"}
-        }
-    });
-    for pass in ["__pass_audit", "__pass_first", "__pass_second"] {
-        assert_eq!(last_input(&ext, pass)["previous"], expected, "{pass}");
-    }
-    assert!(
-        with_code(&diagnostics, "W144").is_empty(),
-        "{diagnostics:?}"
-    );
-
-    // A session reads it too, and sees a cache written after it opened.
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as specforge_project::SharedRuntime);
-    assert_eq!(last_input(&ext, "__pass_audit")["previous"], expected);
-    write_cache(
-        &dir,
-        r#"{"format": 1, "statuses": {"good": {"kind": "gadget", "status": "active"}}}"#,
-    );
-    let cache = dir.root().join(specforge_project::BUILD_CACHE_FILE);
-    session
-        .apply(&session.changes([cache.as_path()]))
-        .expect("the cache is a check input");
-    assert_eq!(
-        last_input(&ext, "__pass_audit")["previous"]["statuses"]["good"]["status"],
-        "active"
-    );
-}
-
-#[specforge_test(
-    behavior = "read_build_cache",
-    verify = "without a cache file previous is absent"
-)]
-fn without_a_cache_previous_is_absent() {
-    let dir = project(SPEC);
-    let ext = Arc::new(passes_extension());
-
-    let diagnostics = dir.compile_in(ext.clone()).diagnostics();
-
-    let input = last_input(&ext, "__pass_audit");
-    assert!(input.get("previous").is_none(), "{input}");
-    assert!(
-        with_code(&diagnostics, "W144").is_empty(),
-        "{diagnostics:?}"
-    );
-}
-
-#[specforge_test(
-    behavior = "read_build_cache",
-    verify = "an invalid cache file is W144 and previous is absent"
-)]
-fn an_invalid_cache_is_w144() {
-    for (text, problem) in [
-        ("{ not json", "does not parse"),
-        (r#"{"statuses": {}}"#, "does not parse"),
-        (r#"{"format": 2, "statuses": {}}"#, "declares format 2"),
-    ] {
-        let dir = project(SPEC);
-        write_cache(&dir, text);
-        let ext = Arc::new(passes_extension());
-
-        let diagnostics = dir.compile_in(ext.clone()).diagnostics();
-
-        let warnings = with_code(&diagnostics, "W144");
-        assert_eq!(warnings.len(), 1, "{text}: {diagnostics:?}");
-        assert_eq!(warnings[0].severity, Severity::Warning);
-        assert!(
-            warnings[0].message.contains(problem),
-            "{}",
-            warnings[0].message
-        );
-        assert!(last_input(&ext, "__pass_audit").get("previous").is_none());
-        // The passes still ran.
-        assert_eq!(with_code(&diagnostics, "E951").len(), 1);
-    }
-
-    // With no check pass loaded, the file is not read.
-    let dir = TestProject::new().without_config().file("a.spec", SPEC);
-    write_cache(&dir, "{ not json");
-    let diagnostics = dir.compile_bare().diagnostics();
-    assert!(
-        with_code(&diagnostics, "W144").is_empty(),
-        "{diagnostics:?}"
-    );
-}
-
 /// What the coverage rule needs to read from each entity, read the way a
 /// guest built with the SDK reads it: through the SDK's own `PassEntity`.
 #[specforge_test(
@@ -619,10 +507,27 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
     behavior = "run_check_phase_passes",
     verify = "previous is the baseline of the kinds a pass names"
 )]
-#[ignore = "K4 T9"]
 fn previous_is_the_baseline_of_the_declared_kinds() {
-    // previous.revision is HEAD sha, entities only the named kinds with the computed status, ids translated
-    unimplemented!(
-        "K4 T9: previous.revision is HEAD sha, entities only the named kinds with the computed status, ids translated"
-    );
+    let spec = "verification V \"V\" {\n  phase 03\n}\n\ndecision D \"D\" {\n  phase 03\n  origin context\n}\n";
+    let head = format!("{}{spec}", crate::computed::BASE);
+    let project = crate::computed::project(spec);
+    let sha = "9f8e7d6000000000000000000000000000000000";
+    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+        project.root(),
+        sha,
+        vec![("a.spec".into(), head.into_bytes())],
+    ));
+    let _installed = specforge_project::testing::history::install(fake);
+    let runtime = Arc::new(specforge_project::testing::gsd_history_runtime(
+        json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
+    ));
+    project.compile_in(runtime.clone());
+    let input = last_input(&runtime, "__pass_verify_status");
+    let previous = &input["previous"];
+    assert_eq!(previous["revision"], sha);
+    let ids: Vec<&String> = previous["entities"].as_object().unwrap().keys().collect();
+    assert_eq!(ids, ["v1.0/03/V"], "only the kinds the pass names");
+    let fields = &previous["entities"]["v1.0/03/V"]["fields"];
+    assert_eq!(fields["phase"], "v1.0/03");
+    assert_eq!(fields["status"], "passed", "computed values are included");
 }

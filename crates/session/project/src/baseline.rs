@@ -60,6 +60,30 @@ pub fn declared(registries: &RegistryBuild) -> bool {
 pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
 
 impl Baseline {
+    /// What a pass that names `kinds` in `baseline` receives as `previous`: the entities of those kinds, each field
+    /// as the host reads it, a computed value under its written path.
+    pub fn pass_view(&self, kinds: &[String]) -> specforge_protocol_types::PassBaseline {
+        specforge_protocol_types::PassBaseline {
+            revision: self.revision.as_str().to_string(),
+            entities: self
+                .entities
+                .iter()
+                .filter(|(_, e)| kinds.contains(&e.kind))
+                .map(|(id, e)| {
+                    let mut fields = e.values.clone();
+                    fields.extend(e.computed.clone());
+                    (
+                        id.clone(),
+                        specforge_protocol_types::PassBaselineEntity {
+                            kind: e.kind.clone(),
+                            fields,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
     /// This baseline with each move record of `ledger` applied whose new path `current` holds and this baseline does
     /// not: every entity at or under the old path is at the new one, and every reference to it is rewritten. Deeper
     /// old paths first, so nested moves compose; a record whose new path the baseline holds is from before it.
@@ -249,7 +273,7 @@ impl Baseline {
         let snapshot = env.entity_snapshot(&built.graph);
         let computed = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
-                crate::compute::run(env, &snapshot, &**runtime as &dyn WasmRuntime).0
+                crate::compute::run(env, &snapshot, &**runtime as &dyn WasmRuntime, None).0
             }
             _ => Default::default(),
         };

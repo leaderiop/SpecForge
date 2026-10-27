@@ -232,7 +232,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     `exempt`: it owes no obligations of its own, decided from the
     registries), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
-    statuses of the build cache (read_build_cache). It answers the same
+    git baseline of the kinds the pass names in `baseline`. It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it (W150 beside it when the extension may not use the code). One
@@ -331,37 +331,6 @@ behavior write_build_cache "Write the Build Cache" {
   verify unit "a check that passes records the cache and says so"
   verify unit "a cache that cannot be written refuses the check, under --format json with the error document alone"
   verify integration "MCP validate never writes the build cache"
-}
-
-behavior read_build_cache "Read the Build Cache" {
-  features [ci_integration]
-  category validation
-  types    [Diagnostic]
-  ports    [FileSystem]
-  requires {
-    check_pass_loaded "at least one check-phase pass is loaded"
-  }
-  ensures {
-    previous_given     "when specforge-cache.json parses, every check pass receives its statuses as previous"
-    absent_is_none     "without the file, previous is absent"
-    invalid_is_warning "a file that cannot be read or parsed, or declares another format, is W144 and previous is absent"
-    passes_only        "the file is read on each compile with a check pass, by every surface, and never otherwise"
-  }
-  contract """
-    When the project root has `specforge-cache.json`, each compile reads
-    it as a declared input and hands it to the check passes as
-    `previous: {"statuses": {"<entity id>": {"kind", "status"}}}`. With
-    no file, `previous` is absent, so history rules stay silent on a
-    first build. A file that cannot be read, is not valid JSON, or has a
-    `format` other than 1 is a W144 warning and `previous` is absent. The
-    file is read on every compile that runs a check pass (check, watch,
-    the LSP, MCP), so a cache another command just wrote is seen by the
-    next compile; with no check pass loaded, it is not read.
-  """
-  produces []
-  verify unit "check passes receive the cached statuses as previous"
-  verify unit "without a cache file previous is absent"
-  verify unit "an invalid cache file is W144 and previous is absent"
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {

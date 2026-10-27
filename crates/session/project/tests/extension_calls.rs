@@ -99,7 +99,7 @@ fn extension() -> ContributionsBuilder {
             .validate(|_| ValidatorVerdict::Pass);
     });
     c.pass("audit", |p| {
-        p.phase("check").run(no_findings);
+        p.phase("check").baseline(&["gadget"]).run(no_findings);
     });
     c.pass("report", |p| {
         p.run(no_findings);
@@ -170,13 +170,15 @@ fn c4_the_pass_input_of_an_analysis() {
     behavior = "call_extension_exports",
     verify = "every extension call encodes its input as the protocol type the SDK decodes"
 )]
-fn c4_the_pass_input_of_a_compile_carries_previous() {
+fn c4_the_pass_input_of_a_compile_carries_the_baseline() {
     let dir = project();
-    fs::write(
-        dir.root().join("specforge-cache.json"),
-        json!({"format": 1, "statuses": {"a": {"kind": "gadget", "status": "draft"}}}).to_string(),
-    )
-    .unwrap();
+    let head = fs::read(dir.root().join("a.spec")).unwrap();
+    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+        dir.root(),
+        "1a2b3c4d00000000000000000000000000000000",
+        vec![("a.spec".into(), head)],
+    ));
+    let _installed = specforge_project::testing::history::install(fake);
     let runtime = Arc::new(runtime());
     dir.compile_in(runtime.clone());
     // flipped in T6: `test_results` and `proved_claims` are absent, not null
