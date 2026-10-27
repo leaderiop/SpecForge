@@ -110,3 +110,17 @@ fn a_verify_line_being_typed_is_told_apart() {
         assert_eq!(body_statement_at(text, &lex(text), 0), Field, "{text:?}");
     }
 }
+
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "a field named verdict stays a field when no rule, outcome and block follow it"
+)]
+fn a_field_named_verdict_stays_a_field() {
+    // `spec/types/wasm.spec` declares one: `verdict ValidatorVerdictKind`.
+    let text = "type ValidatorVerdict \"V\" {\n  verdict ValidatorVerdictKind\n  field   string @optional\n  value   string @optional\n}\n";
+    let file = specforge_parser::parse(text, "wasm.spec");
+    assert!(file.errors.is_empty(), "{:?}", file.errors);
+    let entity = &file.entities[0];
+    assert!(entity.fields.get("verdict").is_some());
+    assert!(entity.fields.get("field").is_some());
+}

@@ -33,6 +33,7 @@ mod guards;
 mod harness;
 mod history;
 mod journal;
+mod judged;
 mod link_identity;
 mod namespaced_codes;
 mod one_side;
