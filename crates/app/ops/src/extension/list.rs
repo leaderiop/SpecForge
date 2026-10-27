@@ -140,7 +140,10 @@ pub fn providers(view: &ProjectView) -> ProvidersDocument {
     ProvidersDocument {
         count: providers.len(),
         providers,
-        diagnostics: DiagnosticList(registered.diagnostics().cloned().collect()),
+        diagnostics: DiagnosticList::new(
+            registered.diagnostics().cloned().collect(),
+            view.registries().codes(),
+        ),
     }
 }
 

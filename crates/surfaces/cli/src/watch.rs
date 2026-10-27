@@ -13,8 +13,8 @@ use crate::terminal::{Terminal, errln, outln};
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::project::ProjectArg;
 use serde::Serialize;
-use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
+use specforge_common::{Codebook, DiagnosticList};
 use specforge_ops::analysis::check::Counts;
 use specforge_ops::{OpError, OpErrorKind};
 use specforge_project::{DiagnosticsDelta, GraphDelta, ProjectSession, UpdateKind};
@@ -101,7 +101,14 @@ fn watch_project(
         for event in watch.changed(&batch) {
             match event {
                 WatchEvent::Applied(applied) => {
-                    let rendered = render(&applied, format, unix_seconds());
+                    let codes = watch
+                        .session()
+                        .project()
+                        .environment()
+                        .registries()
+                        .codes()
+                        .clone();
+                    let rendered = render(&applied, &codes, format, unix_seconds());
                     outln!(terminal, "{}", rendered.line);
                     if let Some(warning) = rendered.warning {
                         errln!(terminal, "{warning}");
@@ -142,7 +149,10 @@ fn print_ready(session: &ProjectSession, format: OutputFormat, terminal: &Termin
             edges: session.project().graph().edge_count(),
             errors,
             warnings,
-            diagnostics: DiagnosticList(diagnostics),
+            diagnostics: DiagnosticList::new(
+                diagnostics,
+                session.project().environment().registries().codes(),
+            ),
         });
         outln!(terminal, "{}", line.json());
     } else {
@@ -236,7 +246,7 @@ struct Rendered {
 /// `rechecked` for check inputs (with the same fields as `rebuilt`),
 /// `rebuilt` for sources. `stamp` (seconds since the epoch) heads a text
 /// line.
-fn render(applied: &Applied, format: OutputFormat, stamp: u64) -> Rendered {
+fn render(applied: &Applied, codes: &Codebook, format: OutputFormat, stamp: u64) -> Rendered {
     let update = &applied.update;
     let Counts {
         errors, warnings, ..
@@ -249,8 +259,8 @@ fn render(applied: &Applied, format: OutputFormat, stamp: u64) -> Rendered {
                 nodes: applied.nodes,
                 errors,
                 warnings,
-                diagnostics: DiagnosticList(update.diagnostics.to_vec()),
-                diagnostics_delta: update.diagnostics_delta(),
+                diagnostics: DiagnosticList::new(update.diagnostics.to_vec(), codes),
+                diagnostics_delta: update.diagnostics_delta().titled(codes),
             })
             .json()
         } else {
@@ -279,8 +289,8 @@ fn render(applied: &Applied, format: OutputFormat, stamp: u64) -> Rendered {
             delta: &update.delta,
             errors,
             warnings,
-            diagnostics: DiagnosticList(update.diagnostics.to_vec()),
-            diagnostics_delta: update.diagnostics_delta(),
+            diagnostics: DiagnosticList::new(update.diagnostics.to_vec(), codes),
+            diagnostics_delta: update.diagnostics_delta().titled(codes),
             verification_failed: update.divergence().is_some(),
             verification: match &update.verification {
                 None => None,
@@ -324,6 +334,10 @@ mod tests {
     use specforge_common::{Diagnostic, Severity, SourceSpan};
     use specforge_project::{GraphDelta, Update};
     use std::sync::Arc;
+
+    fn render(applied: &Applied, format: OutputFormat, stamp: u64) -> Rendered {
+        super::render(applied, &Codebook::default(), format, stamp)
+    }
 
     fn applied(kind: UpdateKind, verification: Option<Result<(), String>>) -> Applied {
         Applied {

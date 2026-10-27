@@ -29,7 +29,7 @@ pub struct SharedNamespace {
     pub other: String,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct Owned {
     extension: String,
     codes: BTreeMap<String, ExtensionCode>,
@@ -37,7 +37,7 @@ struct Owned {
 
 /// Every code the host can describe. `Codebook::default()` reads the static
 /// catalog only.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Codebook {
     namespaces: BTreeMap<String, Owned>,
 }

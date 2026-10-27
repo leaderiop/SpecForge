@@ -288,7 +288,7 @@ impl McpState {
                     self.surfaces.diagnostics(),
                 ));
             }
-            delta
+            delta.titled(self.session.project().environment().registries().codes())
         });
         self.subscriptions
             .updated(&Changes::of(&update, diagnostics), &mut *self.events);

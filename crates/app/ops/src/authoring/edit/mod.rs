@@ -612,7 +612,7 @@ impl<'v> Planner<'v> {
             entities: change.entities(),
             affected_files: change.affected_files().map(String::from).collect(),
             diff: change.diff(),
-            added: DiagnosticList(added),
+            added: DiagnosticList::new(added, self.view.registries().codes()),
         };
         Ok(EditPlan { change, report })
     }

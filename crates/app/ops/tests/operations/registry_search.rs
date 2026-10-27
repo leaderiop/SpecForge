@@ -43,7 +43,7 @@ fn the_search_document_writes_failures_in_the_shared_diagnostic_shape() {
 
     let json = serde_json::to_value(searched.document("x", None)).unwrap();
 
-    let shared = serde_json::to_value(DiagnosticList(searched.failures.clone())).unwrap();
+    let shared = serde_json::to_value(DiagnosticList::from(searched.failures.clone())).unwrap();
     assert_eq!(json["diagnostics"], shared);
     assert!(json["diagnostics"][0].get("title").is_some(), "{json}");
 }

@@ -221,7 +221,7 @@ impl Outcome {
             pending: self.pending,
             from_version: self.from.to_string(),
             to_version: self.to.to_string(),
-            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            diagnostics: DiagnosticList::from(self.diagnostics.clone()),
             migrated: self.migrated(),
             dry_run: self.dry_run,
             files_migrated: self.summary.migrated_count,
@@ -232,9 +232,11 @@ impl Outcome {
             backups: self.summary.backups.clone(),
             hooks_invoked: self.verdict.hooks_invoked.clone(),
             hook_failures: self.verdict.hook_failures.clone(),
-            structural_differences: DiagnosticList(self.structural_differences()),
+            structural_differences: DiagnosticList::from(self.structural_differences()),
             post_migration_validated: self.verdict.compared,
-            post_migration_errors: DiagnosticList(self.verdict.post_errors().cloned().collect()),
+            post_migration_errors: DiagnosticList::from(
+                self.verdict.post_errors().cloned().collect::<Vec<_>>(),
+            ),
         }
     }
 

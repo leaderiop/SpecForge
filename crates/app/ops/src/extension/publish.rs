@@ -160,7 +160,7 @@ impl Validated {
             short: self.declaration.short().to_string(),
             protocol: self.protocol.clone(),
             component: self.binary.display().to_string(),
-            diagnostics: DiagnosticList(self.diagnostics.clone()),
+            diagnostics: DiagnosticList::from(self.diagnostics.clone()),
             declaration: self.declaration.clone(),
         }
     }

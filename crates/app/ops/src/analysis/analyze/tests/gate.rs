@@ -187,6 +187,7 @@ fn the_verdict_folds_the_gate_in() {
         passes: Vec::new(),
         gate,
         stray_records: Vec::new(),
+        codes: Default::default(),
     };
     let landed = |pct: f64| (pct, 50.0, 1, 4);
     let (pct, min, proven, total) = landed(25.0);
@@ -232,6 +233,7 @@ fn the_gate_document_is_byte_stable() {
                 passes: Vec::new(),
                 gate,
                 stray_records: Vec::new(),
+                codes: Default::default(),
             }
             .document(),
         )

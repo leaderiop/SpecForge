@@ -216,7 +216,7 @@ pub trait AfterWrite: Object + Serialize + 'static {
     /// The report. `diagnostics` are the target's, once brought up to date,
     /// after a successful call when [`Self::READS_DIAGNOSTICS`]; `None`
     /// otherwise (a preview included).
-    fn of(diagnostics: Option<Vec<Diagnostic>>) -> Self;
+    fn of(diagnostics: Option<DiagnosticList>) -> Self;
 }
 
 /// The reply carries nothing after the write.
@@ -226,7 +226,7 @@ pub struct NoDiagnostics {}
 impl AfterWrite for NoDiagnostics {
     const READS_DIAGNOSTICS: bool = false;
 
-    fn of(_: Option<Vec<Diagnostic>>) -> Self {
+    fn of(_: Option<DiagnosticList>) -> Self {
         NoDiagnostics {}
     }
 }
@@ -244,10 +244,8 @@ pub struct FreshDiagnostics {
 impl AfterWrite for FreshDiagnostics {
     const READS_DIAGNOSTICS: bool = true;
 
-    fn of(diagnostics: Option<Vec<Diagnostic>>) -> Self {
-        FreshDiagnostics {
-            diagnostics: diagnostics.map(DiagnosticList),
-        }
+    fn of(diagnostics: Option<DiagnosticList>) -> Self {
+        FreshDiagnostics { diagnostics }
     }
 }
 
@@ -338,13 +336,17 @@ pub(crate) fn complete<R: MutationReply>(
     };
     let reads = mutation.is_ok() && <R::After as AfterWrite>::READS_DIAGNOSTICS;
     let diagnostics = (wrote || reads).then(|| call.bring_up_to_date());
+    // Titled from the project the call brought up to date, as `check` titles them.
+    let diagnostics = diagnostics
+        .filter(|_| reads)
+        .map(|found| DiagnosticList::new(found, call.view().registries().codes()));
     let root = call.written_root().map(Path::to_path_buf);
     finished(
         tool,
         schema,
         root.as_deref(),
         mutation,
-        diagnostics.filter(|_| reads),
+        diagnostics,
         call.events(),
     )
 }
@@ -402,7 +404,7 @@ fn finished<R: MutationReply>(
     schema: &Value,
     root: Option<&Path>,
     mutation: Mutation<R>,
-    diagnostics: Option<Vec<Diagnostic>>,
+    diagnostics: Option<DiagnosticList>,
     events: &mut dyn EventSink,
 ) -> ToolOutcome {
     match mutation {
@@ -680,7 +682,7 @@ mod tests {
                 FreshProbe { name: "x".into() },
                 Written::of(Writes::from_iter(["/p/a.spec"])),
             )),
-            Some(vec![w001.clone()]),
+            Some(vec![w001.clone()].into()),
             &mut EventLog::new(),
         );
         let sent = payload(&outcome);

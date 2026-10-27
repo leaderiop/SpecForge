@@ -84,7 +84,7 @@ impl Noticed<Exploration> {
             starting_points: exploration.starting_points.clone(),
             high_connectivity: exploration.most_connected.clone(),
             unconnected: exploration.unconnected.clone(),
-            notices: DiagnosticList(self.notices().to_vec()),
+            notices: DiagnosticList::from(self.notices().to_vec()),
         }
     }
 }

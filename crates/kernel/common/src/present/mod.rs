@@ -148,14 +148,22 @@ pub struct DiagnosticJson<'a> {
 }
 
 /// Diagnostics as every surface prints them ([`diagnostics_json`]), owned so
-/// a reply can hold them: serializes as the [`DiagnosticJson`] array.
+/// a reply can hold them: serializes as the [`DiagnosticJson`] array, titled
+/// from the code book it was built with (the project's, so an extension's
+/// code is titled as `check --format json` titles it).
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct DiagnosticList(pub Vec<Diagnostic>);
+pub struct DiagnosticList(pub Vec<Diagnostic>, Codebook);
+
+impl DiagnosticList {
+    /// `diagnostics`, titled from `codes`.
+    pub fn new(diagnostics: Vec<Diagnostic>, codes: &Codebook) -> Self {
+        DiagnosticList(diagnostics, codes.clone())
+    }
+}
 
 impl Serialize for DiagnosticList {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        // shortcut: an owned list has no project, so only the static catalog titles it.
-        diagnostics_json(&self.0, &Codebook::default()).serialize(serializer)
+        diagnostics_json(&self.0, &self.1).serialize(serializer)
     }
 }
 
@@ -169,12 +177,18 @@ impl crate::shape::Shape for DiagnosticList {
 /// a document can hold it: serializes as one [`DiagnosticJson`], and its
 /// schema refers to the named `Diagnostic` shape.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DiagnosticDocument(pub Diagnostic);
+pub struct DiagnosticDocument(pub Diagnostic, Codebook);
+
+impl DiagnosticDocument {
+    /// `diagnostic`, titled from `codes`.
+    pub fn new(diagnostic: Diagnostic, codes: &Codebook) -> Self {
+        DiagnosticDocument(diagnostic, codes.clone())
+    }
+}
 
 impl Serialize for DiagnosticDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        diagnostics_json(std::slice::from_ref(&self.0), &Codebook::default())[0]
-            .serialize(serializer)
+        diagnostics_json(std::slice::from_ref(&self.0), &self.1)[0].serialize(serializer)
     }
 }
 
@@ -186,7 +200,7 @@ impl crate::shape::Shape for DiagnosticDocument {
 
 impl From<Vec<Diagnostic>> for DiagnosticList {
     fn from(diagnostics: Vec<Diagnostic>) -> Self {
-        DiagnosticList(diagnostics)
+        DiagnosticList(diagnostics, Codebook::default())
     }
 }
 

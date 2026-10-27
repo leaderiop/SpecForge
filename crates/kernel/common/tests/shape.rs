@@ -464,9 +464,9 @@ fn every_derived_schema_accepts_what_serde_writes() {
             candidates: Vec::new(),
         });
     for list in [
-        DiagnosticList(vec![]),
-        DiagnosticList(vec![bare.clone()]),
-        DiagnosticList(vec![bare, spanned, with_data]),
+        DiagnosticList::from(vec![]),
+        DiagnosticList::from(vec![bare.clone()]),
+        DiagnosticList::from(vec![bare, spanned, with_data]),
     ] {
         accepts(&list);
     }

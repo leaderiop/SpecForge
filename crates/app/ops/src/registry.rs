@@ -362,7 +362,7 @@ impl Searched {
             query: query.to_string(),
             contributes: contributes.map(|c| c.name().to_string()),
             results: self.found.clone(),
-            diagnostics: DiagnosticList(self.failures.clone()),
+            diagnostics: DiagnosticList::from(self.failures.clone()),
         }
     }
 

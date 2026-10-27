@@ -17,7 +17,7 @@ use serde_json::Value;
 use specforge_common::shape::Shape;
 
 use crate::analysis::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
-use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_common::{Codebook, Diagnostic, DiagnosticList, Severity, codes};
 use specforge_graph::Graph;
 use specforge_project::coverage;
 use specforge_project::coverage::TestReport;
@@ -127,6 +127,8 @@ pub struct AnalyzeOutcome {
     pub gate: Option<Gate>,
     /// Stray test records, outside the pass reports.
     pub stray_records: Vec<StrayRecord>,
+    /// The project's code book: it titles an extension's finding in the document.
+    pub codes: Codebook,
 }
 
 /// Where the proof-coverage gate landed, when `min` was set: part of the
@@ -260,7 +262,7 @@ impl AnalyzeOutcome {
                 .iter()
                 .map(|r| PassDocument {
                     pass: r.name.clone(),
-                    findings: DiagnosticList(r.findings.clone()),
+                    findings: DiagnosticList::new(r.findings.clone(), &self.codes),
                     summary: r.summary.clone(),
                 })
                 .collect(),
@@ -424,6 +426,7 @@ pub fn analyze(
         passes: passes_run,
         gate,
         stray_records,
+        codes: registries.codes().clone(),
     })
 }
 
