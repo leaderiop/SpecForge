@@ -158,3 +158,48 @@ fn a_command_sees_secret_presence_not_its_value() {
         "the value is in no input"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
+)]
+fn an_exact_setting_inside_a_family_is_listed_and_typed_once() {
+    use specforge_ops::extension::settings;
+    use specforge_ops::read::schema::config_schema;
+    let runtime = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/m", "1.0.0"));
+        c.setting("models.*", |s| {
+            s.string();
+        });
+        c.setting("models.default", |s| {
+            s.enum_values(&["a", "b"]).default("a");
+        });
+        c
+    }));
+    let dir = TempDir::new().unwrap();
+    let config = json!({"name": "p", "version": "0.1.0", "extensions": ["@t/m"],
+        "settings": {"@t/m": {"models.default": "b", "models.other": "x"}}});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_installed::testing::install(dir.path(), &*runtime, &["@t/m"]);
+    std::fs::write(dir.path().join("main.spec"), "behavior a \"A\" {\n}\n").unwrap();
+    let shared: SharedRuntime = runtime.clone();
+    let compiled = compile_at(dir.path(), Some(shared));
+    let view = ProjectView::of(&compiled);
+
+    let listed = settings(&view, true, None);
+    let names: Vec<&str> = listed.extensions[0]
+        .settings
+        .iter()
+        .map(|s| s.name.as_str())
+        .collect();
+    assert_eq!(names, ["models.other", "models.default"]);
+    assert_eq!(listed.count, 2);
+
+    // The family's pattern leaves the exact name to its own property.
+    let schema = config_schema(&view);
+    let typed = &schema["properties"]["settings"]["properties"]["@t/m"];
+    assert!(typed["properties"]["models.default"].is_object());
+    let patterns = typed["patternProperties"].as_object().unwrap();
+    let pattern = patterns.keys().next().unwrap();
+    assert!(pattern.contains(r"(?!(models\.default)$)"), "{pattern}");
+}

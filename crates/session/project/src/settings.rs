@@ -59,10 +59,11 @@ impl ExtensionValues {
         self.values.iter().map(|(k, v)| (k.as_str(), v))
     }
 
-    /// The keys of `family` (`models.*`) that are written or preset.
+    /// The keys of `family` (`models.*`) that are written or preset. An exact setting inside the family's
+    /// pattern (`models.default`) is its own, not a key of it.
     pub fn family<'a>(&'a self, family: &'a str) -> impl Iterator<Item = (&'a str, &'a Setting)> {
         self.iter()
-            .filter(move |(key, _)| Family::is_family(family) && Family::matches(family, key))
+            .filter(move |(_, setting)| Family::is_family(family) && setting.declared == family)
     }
 }
 

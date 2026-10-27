@@ -46,7 +46,7 @@ pub use declaration::{
 pub use field::FieldDescriptor;
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
-    UnreadableItem, valid_name,
+    UnreadableItem, is_segment, valid_name,
 };
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, ProofRole};
 

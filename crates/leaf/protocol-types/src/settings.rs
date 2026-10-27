@@ -95,7 +95,7 @@ pub struct SettingDescriptor {
     /// A block's members, each a field of the block (ADR 0285).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<FieldDescriptor>,
-    /// The value when nothing sets it; absent: unset. For a family, every key not written.
+    /// The value when nothing sets it; absent: unset. A family has none (W021): no key would receive it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -156,17 +156,21 @@ pub fn valid_name(name: &str) -> Result<(), String> {
         return Err("the name is empty".to_string());
     }
     for segment in name.split('.') {
-        let plain = !segment.is_empty()
-            && segment
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-        if segment != "*" && !plain {
+        if segment != "*" && !is_segment(segment) {
             return Err(format!(
                 "'{segment}' is not a segment: use [A-Za-z0-9_-]+, or '*' alone for a family"
             ));
         }
     }
     Ok(())
+}
+
+/// Whether `segment` is one segment of a key: `[A-Za-z0-9_-]+`.
+pub fn is_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// The one matcher of a family name against a written key: the registry, the resolver, the schema writer, the
@@ -197,7 +201,7 @@ impl Family {
         loop {
             match (names.next(), keys.next()) {
                 (None, None) => return Some(stars),
-                (Some("*"), Some(k)) if !k.is_empty() => stars.push(k),
+                (Some("*"), Some(k)) if is_segment(k) => stars.push(k),
                 (Some(n), Some(k)) if n == k && n != "*" => {}
                 _ => return None,
             }

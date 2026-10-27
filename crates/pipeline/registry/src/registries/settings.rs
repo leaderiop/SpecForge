@@ -11,7 +11,7 @@ use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
     ExtensionDeclaration, Family, FieldDescriptor, FieldType, PresetDescriptor, SecretDescriptor,
-    SettingDescriptor, SettingsItem, ValidationSeverity, valid_name,
+    SettingDescriptor, SettingsItem, ValidationSeverity, is_segment, valid_name,
 };
 
 use super::field::{FieldProblem, FieldRegistryEntry, UnknownFieldType};
@@ -196,6 +196,17 @@ fn register(mut setting: SettingDescriptor, out: &mut ExtensionSettings, found: 
             setting.keys.len()
         ));
         setting.keys.clear();
+    }
+    if let Some(bad) = setting.keys.iter().flatten().find(|k| !is_segment(k)) {
+        found.w021(format!(
+            "setting '{name}' lists the key '{bad}', which is not a segment ([A-Za-z0-9_-]+): the setting is dropped"
+        ));
+        return;
+    }
+    if Family::is_family(&name) && setting.default.take().is_some() {
+        found.w021(format!(
+            "setting family '{name}' declares a default: a default applies to a setting named whole, so it is dropped"
+        ));
     }
     let field = FieldDescriptor {
         name: name.clone(),

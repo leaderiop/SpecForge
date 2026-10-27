@@ -100,6 +100,20 @@ pub fn config_schema(view: &ProjectView) -> Value {
                 object.insert("default".into(), default.clone());
             }
             if Family::is_family(&descriptor.name) {
+                // An exact setting inside the family's pattern is typed by its own property only: a value
+                // legal for it must not also have to fit the family's type.
+                let own: Vec<&str> = declared
+                    .settings
+                    .iter()
+                    .map(|s| s.descriptor.name.as_str())
+                    .filter(|n| !Family::is_family(n) && descriptor.admits_key(n))
+                    .collect();
+                let except = if own.is_empty() {
+                    String::new()
+                } else {
+                    format!("(?!({})$)", own.join("|").replace('.', "\\."))
+                };
+                // Keys and name segments are `[A-Za-z0-9_-]+` (the registry refuses others): no regex escape.
                 let mut star = 0;
                 let segments: Vec<String> = descriptor
                     .name
@@ -116,7 +130,7 @@ pub fn config_schema(view: &ProjectView) -> Value {
                         }
                     })
                     .collect();
-                patterns.insert(format!("^{}$", segments.join("\\.")), typed);
+                patterns.insert(format!("^{except}{}$", segments.join("\\.")), typed);
             } else {
                 properties.insert(descriptor.name.clone(), typed);
             }
@@ -144,7 +158,10 @@ pub fn config_schema(view: &ProjectView) -> Value {
     // The definitions the settings' types refer to join the file's own.
     if let Some(defined) = defs.finish(json!({}))["$defs"].as_object() {
         for (name, body) in defined {
-            schema["$defs"][name] = body.clone();
+            // A shipped definition is never replaced.
+            if schema["$defs"].get(name).is_none() {
+                schema["$defs"][name] = body.clone();
+            }
         }
     }
     schema

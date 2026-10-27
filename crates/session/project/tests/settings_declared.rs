@@ -149,6 +149,21 @@ fn the_registry_refuses_a_malformed_setting() {
             "declares no values",
             Some("noenum"),
         ),
+        (
+            setting("kk.*", json!({"keys": [["a b"]]})),
+            "not a segment",
+            None,
+        ),
+        (
+            setting("kk2.*", json!({"keys": [["a", "*"]]})),
+            "not a segment",
+            None,
+        ),
+        (
+            setting("fd.*", json!({"default": "x"})),
+            "declares a default",
+            Some("fd.*"),
+        ),
         (json!({"kind": "mystery"}), "mystery", None),
         (
             json!({"kind": "secret", "name": "k", "env": "bad-env"}),
@@ -273,4 +288,28 @@ fn the_registry_refuses_a_malformed_setting() {
     let follow = preset("@t/p:mode", json!({"a": {"severities": {"W901": "error"}}}));
     let (followed, _) = faults_of(vec![follow]);
     assert!(followed.is_empty(), "{followed:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the registry refuses a malformed setting, preset or secret with W021 and keeps the rest"
+)]
+fn a_family_keeps_no_default() {
+    let mut all = base();
+    all.push(setting("fd.*", json!({"default": "x"})));
+    all.push(setting("whole", json!({"default": "y"})));
+    let build = declare(Value::Array(all));
+    let declared = build.settings().of(EXT).unwrap();
+    let default_of = |name: &str| {
+        declared
+            .settings
+            .iter()
+            .find(|s| s.descriptor.name == name)
+            .unwrap()
+            .descriptor
+            .default
+            .clone()
+    };
+    assert_eq!(default_of("fd.*"), None, "no key would receive it");
+    assert_eq!(default_of("whole"), Some(json!("y")));
 }

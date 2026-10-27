@@ -42,6 +42,11 @@ fn a_family_matches_its_keys() {
     assert!(setting("tiers.*.*", &[&[], &["opus"]]).admits_key("tiers.any.opus"));
     assert!(!setting("tiers.*.*", &[&[], &["opus"]]).admits_key("tiers.any.haiku"));
 
+    // A key segment is `[A-Za-z0-9_-]+`: an open family takes neither a space nor a `*`.
+    assert!(!Family::matches("models.*", "models.a b"));
+    assert!(!Family::matches("models.*", "models.*"));
+    assert!(!setting("models.*", &[]).admits_key("models.a.b"));
+
     let all = [setting("models.*", &[]), setting("models.default", &[])];
     assert_eq!(
         Family::pick(&all, "models.default").unwrap().name,
