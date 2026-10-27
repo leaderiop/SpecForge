@@ -43,6 +43,7 @@ mod registry_order;
 mod reopen;
 mod rooted;
 mod rules;
+mod scopes;
 mod self_reference;
 mod session;
 mod source_disk;

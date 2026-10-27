@@ -181,6 +181,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "an open-fields kind's undeclared field references nothing"
   verify unit "an unresolved reference in a field whose target kind no extension declares is I004 naming the extension"
   verify unit "an unresolved reference to a loaded or undeclared target kind is E003 alone"
+  verify unit "no builtin kind declares a scope field, so every builtin entity id is its name"
   verify unit "a reference naming an existing entity of the absent target kind links without a diagnostic"
   verify unit "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
   verify unit "a single reference to an existing entity of another kind than its field's target kind is E022 at the reference"

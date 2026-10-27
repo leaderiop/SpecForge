@@ -71,6 +71,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
+  verify unit "a project with no scoped kind keeps each id its name, each edge its written text, and E002 and W060 on the same declarations"
   verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 }
 

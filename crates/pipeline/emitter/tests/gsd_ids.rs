@@ -58,3 +58,27 @@ fn every_export_writes_an_id_holding_a_dash_or_a_dot_as_written() {
         }
     }
 }
+
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "an export of a project with no scoped kind writes each id as its name and each edge as written"
+)]
+fn an_unscoped_export_is_unchanged() {
+    // The matrix golden (`emit_matrix`) pins the whole text; this states the link K2 must keep:
+    // an unscoped entity's id is its name and an edge target is the written reference.
+    let (graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
+        "behavior alpha \"A\" { contract \"x\" invariants [inv_one] }\n\
+         invariant inv_one \"I\" { contract \"y\" }\n",
+        "main.spec",
+    )]);
+    let json = crate::support::emit_json(&graph);
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let ids: Vec<&str> = value["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["alpha", "inv_one"], "{json}");
+    assert_eq!(value["edges"][0]["target"], "inv_one", "{json}");
+}

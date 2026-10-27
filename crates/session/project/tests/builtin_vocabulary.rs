@@ -36,3 +36,16 @@ fn no_builtin_reference_field_declares_a_default() {
     }
     assert!(checked > 40, "only {checked} reference fields were found");
 }
+
+#[specforge_test_macros::test(
+    behavior = "link_entity_references",
+    verify = "no builtin kind declares a scope field, so every builtin entity id is its name"
+)]
+fn no_builtin_kind_is_scoped() {
+    let declarations = pinned_builtin_declarations().unwrap();
+    let text = serde_json::to_string(&declarations).unwrap();
+    assert!(
+        !text.contains("scoped_by"),
+        "a builtin kind declares a scope"
+    );
+}
