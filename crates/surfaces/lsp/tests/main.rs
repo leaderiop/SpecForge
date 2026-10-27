@@ -21,6 +21,7 @@ mod field_references;
 mod follow;
 mod format_forms;
 mod format_parity;
+mod gsd_names;
 mod hostile_files;
 mod hover;
 mod hover_declared;

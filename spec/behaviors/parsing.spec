@@ -136,6 +136,7 @@ behavior parse_use_imports "Parse Use Imports" {
   """
   verify unit "parse full use import"
   verify unit "parse selective use import with braces"
+  verify unit "a selective use binding may import a name holding a dash or a dot"
   verify contract "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted"
 }
 
@@ -193,6 +194,9 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "unknown keyword parsed without error"
   verify unit "optional and annotated parameters, nested arrays, unit and function types, and string-literal unions parse"
   verify unit "a minus in an expression, a union variant and a scheme ref read as before a value is one word"
+  verify unit "an entity header names an entity with a word holding a dash or a dot, or all digits"
+  verify unit "a field value or list item is one word, tagged by shape and kept as written"
+  verify unit "a union's name stays an identifier: a dash in it is a syntax error"
   verify unit "every bare scalar value of the repository's spec keeps its written text"
   verify unit "a type may declare a field named verify next to verify statements"
   verify unit "every spec in the repository parses without a syntax error"
@@ -417,6 +421,7 @@ behavior lex_spec_text "Lex Spec Text" {
   verify unit "the lexer agrees with the grammar on every spec file of the repository"
   verify unit "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
   verify unit "a scheme ref ID is one lexeme"
+  verify unit "a word is one lexeme in a value, list item, header name or binding slot and nowhere else"
   verify unit "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
   verify unit "strings and comments are lexemes of their own and hold no others"
   verify unit "a line starts a top-level form exactly where the grammar reads one, on every spec file of the repository"

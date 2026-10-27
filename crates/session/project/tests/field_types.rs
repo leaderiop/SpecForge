@@ -33,6 +33,8 @@ fn ticket_manifest() -> ExtensionDeclaration {
                 field("points", "integer", &[]),
                 field("labels", "string_list", &[]),
                 field("summary", "string", &[]),
+                field("depends_on", "reference_list", &[]),
+                field("parent", "reference", &[]),
             ],
             ..EntityKindDescriptor::default()
         }],
@@ -232,4 +234,50 @@ fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
         checked > 100,
         "only {checked} reference values were checked"
     );
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
+)]
+#[ignore = "K1 T4"]
+fn a_reference_field_names_a_gsd_entity() {
+    let (graph, diags) = build_and_check(
+        r#"ticket 03-02 "A" {
+}
+ticket 03 "B" {
+}
+ticket 10 "C" {
+}
+ticket 2-1 "D" {
+}
+ticket v1.0 "E" {
+}
+ticket t1 "T" {
+  parent 2-1
+  depends_on [03-02, 03, v1.0]
+}
+ticket t2 "T" {
+  parent 10
+}
+ticket t3 "T" {
+  parent -5
+}
+"#,
+    );
+    let targets = |id: &str| -> Vec<String> {
+        let mut t: Vec<String> = graph
+            .edges_from(id)
+            .iter()
+            .map(|e| e.target.to_string())
+            .collect();
+        t.sort();
+        t
+    };
+    assert_eq!(targets("t1"), ["03", "03-02", "2-1", "v1.0"]);
+    assert_eq!(targets("t2"), ["10"]);
+    let errors = e061(&diags);
+    assert_eq!(errors.len(), 1, "{diags:?}");
+    assert!(errors[0].message.contains("parent") && errors[0].message.contains("t3"));
+    assert!(diags.iter().all(|d| d.code != "E003"), "{diags:?}");
 }

@@ -89,3 +89,23 @@ fn a_spec_blocks_name_is_not_renamed() {
         "{message}"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "rename_entity_id",
+    verify = "rename takes a new ID holding a dash or a dot"
+)]
+#[ignore = "K1 T5"]
+fn a_rename_to_a_gsd_name_is_planned() {
+    let p = crate::navigate::compile(
+        crate::navigate::SOFTWARE,
+        &[("limit.spec", LIMIT), ("login.spec", LOGIN)],
+    );
+    for new in ["AUTH-01", "v1.0", "03-02", "10"] {
+        let plan = rename::plan(&p.navigator(), "session_limit", new);
+        assert!(
+            plan.is_ok(),
+            "{new}: {:?}",
+            plan.err().map(|e| e.error.message)
+        );
+    }
+}

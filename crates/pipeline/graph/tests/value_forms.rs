@@ -288,3 +288,101 @@ fn a_list_on_a_number_a_boolean_or_a_date_field_keeps_its_items() {
         );
     }
 }
+
+// -- K1: a declared type reads a bare word ------------------------------------------------------
+
+/// What the build stores for `value` on a field of `form`, or E061's remedy: the coerced value, then `admit`.
+fn read(form: &FieldForm, value: FieldValue) -> Result<FieldValue, Option<String>> {
+    let stored = form.coerce(&value, None).unwrap_or(value);
+    let text = match &stored {
+        FieldValue::Identifier(t) | FieldValue::String(t) | FieldValue::Date(t) => t.clone(),
+        FieldValue::Integer(n) => n.to_string(),
+        FieldValue::Boolean(b) => b.to_string(),
+        other => panic!("{other:?}"),
+    };
+    form.admit(ValueShape::of(&stored), &text)
+        .map(|()| stored)
+        .map_err(|refusal| refusal.suggestion)
+}
+
+fn word(text: &str) -> FieldValue {
+    FieldValue::Identifier(text.into())
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
+)]
+#[ignore = "K1 T4"]
+fn a_declared_type_reads_a_bare_word() {
+    let reference = FieldForm::new(FieldType::Reference, Vec::new());
+    assert_eq!(read(&reference, word("03")), Ok(word("03")));
+    assert_eq!(read(&reference, word("2-1")), Ok(word("2-1")));
+    assert_eq!(read(&reference, FieldValue::Integer(10)), Ok(word("10")));
+    assert_eq!(
+        read(&reference, FieldValue::Date("2026-10-26".into())),
+        Ok(word("2026-10-26"))
+    );
+    assert_eq!(
+        read(&reference, FieldValue::Boolean(true)),
+        Ok(word("true"))
+    );
+    assert_eq!(
+        read(&reference, FieldValue::Integer(-5)),
+        Err(Some("a name never starts with '-'".to_string()))
+    );
+
+    let integer = FieldForm::new(FieldType::Integer, Vec::new());
+    for (text, value) in [("2-1", 1), ("03-02", 1), ("007", 7)] {
+        assert_eq!(
+            read(&integer, word(text)),
+            Ok(FieldValue::Integer(value)),
+            "{text}"
+        );
+    }
+    assert_eq!(
+        read(&integer, FieldValue::Integer(-5)),
+        Ok(FieldValue::Integer(-5))
+    );
+    assert_eq!(
+        read(&integer, FieldValue::Date("2026-10-26".into())),
+        Ok(FieldValue::Integer(1990))
+    );
+    for (text, remedy) in [
+        (
+            "1.5",
+            "an integer has no fraction (there is no decimal type)",
+        ),
+        ("AUTH-01", "'AUTH' is no number"),
+        (
+            "99999999999999999999",
+            "'99999999999999999999' is outside -9223372036854775808..9223372036854775807",
+        ),
+    ] {
+        let refused = read(&integer, word(text)).unwrap_err().unwrap_or_default();
+        assert!(refused.contains(remedy), "{text}: {refused}");
+    }
+    // A quoted difference is read as a bare one, and respelled bare once (W159); a bare one is in form.
+    assert_eq!(
+        read(&integer, FieldValue::String("2-1".into())),
+        Ok(FieldValue::Integer(1))
+    );
+    let forms = forms();
+    assert_eq!(
+        forms
+            .rewrite("k", "num", Written::Quoted, "2-1", Place::Whole)
+            .map(|r| (r.to, r.spelling)),
+        Some((Written::Literal, "2-1".to_string()))
+    );
+    assert_eq!(
+        forms.rewrite("k", "num", Written::Bare, "2-1", Place::Whole),
+        None
+    );
+
+    let date = FieldForm::new(FieldType::Date, Vec::new());
+    let refused = read(&date, word("03-02")).unwrap_err().unwrap_or_default();
+    assert!(refused.contains("a calendar day"), "{refused}");
+
+    let identifier = FieldForm::new(FieldType::Identifier, Vec::new());
+    assert!(read(&identifier, word("a-b")).is_err());
+}

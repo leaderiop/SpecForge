@@ -160,6 +160,7 @@ behavior link_derived_references "Link Derived References" {
     find it there (ADR 0176).
   """
   verify unit "a name in a type-syntax field value links through the derived field"
+  verify unit "a type name written whole may hold a dash or a dot: it links as one name and is one E004 when undeclared"
   verify unit "a name in a method parameter or return type links through the derived field"
   verify unit "a member, a union variant or a method type naming no type is E004 at the name"
   verify unit "a primitive, a container or a declared type is no E004"

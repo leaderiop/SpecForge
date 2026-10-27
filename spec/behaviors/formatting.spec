@@ -364,6 +364,7 @@ behavior apply_format_rules "Apply Format Rules" {
     format rules, they MUST be applied in extension load order.
   """
   verify unit "indentation rules normalize to configured indent style"
+  verify unit "format writes every bare word as it was written, a number-like word and a difference included"
   verify unit "spacing rules normalize single spaces between tokens"
   verify unit "alignment rules align field values within blocks"
   verify unit "statements keep their source order"

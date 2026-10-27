@@ -141,3 +141,22 @@ fn link_appends_to_a_list_written_as_one_value() {
     assert!(text.contains("invariants [inv_a, inv_b]"), "{text}");
     assert!(is_canonical(&c, &text));
 }
+
+#[specforge_test_macros::test(
+    behavior = "edit_entity_link",
+    verify = "unlink removes a single reference written as a number"
+)]
+#[ignore = "K1 T4"]
+fn unlink_removes_a_reference_written_as_a_number() {
+    let events =
+        "type 10 \"Ten\" {\n  id string\n}\n\nevent task_done \"Task Done\" {\n  payload 10\n}\n";
+    assert!(
+        specforge_parser::parse(events, "events.spec")
+            .errors
+            .is_empty()
+    );
+    let c = project(&[("events.spec", events)]);
+    let text = after(&c, "events.spec", &[unlink("task_done", "payload", "10")]);
+    assert!(!text.contains("payload"), "{text}");
+    assert!(is_canonical(&c, &text), "{text}");
+}

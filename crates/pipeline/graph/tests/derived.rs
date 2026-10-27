@@ -364,3 +364,33 @@ fn a_primitive_a_container_or_a_declared_type_is_no_e004() {
 
     assert!(e004s(&diagnostics).is_empty(), "{diagnostics:?}");
 }
+
+#[specforge_test(
+    behavior = "link_derived_references",
+    verify = "a type name written whole may hold a dash or a dot: it links as one name and is one E004 when undeclared"
+)]
+#[ignore = "K1 T4"]
+fn a_type_name_holding_a_dash_links_whole_and_is_no_e004() {
+    let source = "shape Money-v2 \"M\" {\n  id string\n}\nshape t \"T\" {\n  amount Money-v2\n}\nshape u \"U\" {\n  amount Nope-v2\n}\nshape w \"W\" {\n  amount 2-1\n}\n";
+    let (graph, diagnostics) = build(source, derived());
+
+    assert_eq!(edges_from(&graph, "t"), vec![edge("Money-v2", "parts")]);
+    let found = e004s(&diagnostics);
+    assert_eq!(found.len(), 2, "{diagnostics:?}");
+    assert_eq!(
+        found[0],
+        (
+            "shape 'u' field 'amount' references unknown type 'Nope-v2'".to_string(),
+            8,
+            10
+        )
+    );
+    assert_eq!(
+        found[1],
+        (
+            "shape 'w' field 'amount' references unknown type '2-1'".to_string(),
+            11,
+            10
+        )
+    );
+}
