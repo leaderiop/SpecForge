@@ -112,8 +112,49 @@ fn strict_promotes_what_the_raise_left_as_warnings() {
     behavior = "load_extension_settings",
     verify = "a command and a tool see whether a secret is set and never its value"
 )]
-#[ignore = "K6 T7"]
 fn a_command_sees_secret_presence_not_its_value() {
-    // `secrets.api_key` is true with T_API_KEY set; the value is in no recorded input.
-    unimplemented!("K6 T7: secrets");
+    use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
+    let runtime = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/k", "1.0.0"));
+        // PATH is set in any test process; the other variable is set in none.
+        c.secret("present", "PATH", "A secret that is set");
+        c.secret("absent", "SPECFORGE_K6_NEVER_SET", "A secret that is not");
+        c.command("hello", |cmd| {
+            cmd.title("Hello").handler(|_| CommandOutput {
+                exit_code: 0,
+                stdout: "{}\n".into(),
+                stderr: String::new(),
+            });
+        });
+        c
+    }));
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","extensions":["@t/k"]}"#,
+    )
+    .unwrap();
+    specforge_installed::testing::install(dir.path(), &*runtime, &["@t/k"]);
+    std::fs::write(dir.path().join("main.spec"), "behavior a \"A\" {\n}\n").unwrap();
+    let shared: SharedRuntime = runtime.clone();
+    let compiled = compile_at(dir.path(), Some(shared));
+    let view = ProjectView::of(&compiled);
+    let commands = ExtensionCommands::build(view.registries());
+    let hello = commands.all().iter().find(|c| c.id() == "hello").unwrap();
+    run(&view, hello, &serde_json::Map::new(), CommandFormat::Json).unwrap();
+    let call = runtime
+        .calls()
+        .into_iter()
+        .rev()
+        .find(|c| c.export == "cmd__hello")
+        .unwrap();
+    assert_eq!(
+        call.input["secrets"],
+        json!({"present": true, "absent": false})
+    );
+    let path = std::env::var("PATH").unwrap();
+    assert!(
+        !call.input.to_string().contains(&path),
+        "the value is in no input"
+    );
 }

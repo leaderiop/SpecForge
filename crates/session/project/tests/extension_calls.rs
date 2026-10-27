@@ -427,9 +427,70 @@ fn runtime_with_trap() -> InProcessRuntime {
     behavior = "load_extension_settings",
     verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
 )]
-#[ignore = "K6 T7"]
 fn every_guest_call_but_describe_carries_its_settings() {
-    // Recorded inputs of pass, validator, command, collect, scan, migrate, resource and tool hold `settings`; handshake and
-    // describe do not; another extension's settings never appear.
-    unimplemented!("K6 T7: call_raw splice");
+    use specforge_project::testing::{
+        FOLLOWER_EXTENSION, SETTINGS_EXTENSION, follower_extension, settings_extension,
+    };
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(settings_extension)
+            .with(follower_extension),
+    );
+    let project = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["settings"] = json!({"@t/s": {"level": 2, "models.planning": "opus"}});
+        })
+        .enabling(&[SETTINGS_EXTENSION, FOLLOWER_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", "gadget w \"W\" {}\n");
+    let _ = project.compile_in(runtime.clone());
+
+    let calls = runtime.calls();
+    for call in calls
+        .iter()
+        .filter(|c| c.export == "__handshake" || c.export == "__describe")
+    {
+        assert!(call.input.get("settings").is_none(), "{call:?}");
+    }
+    let pass = calls
+        .iter()
+        .find(|c| c.extension == SETTINGS_EXTENSION && c.export == "__pass_audit")
+        .expect("the pass was called");
+    let carried = &pass.input["settings"];
+    assert_eq!(carried["level"], 2);
+    assert_eq!(carried["models.planning"], "opus");
+    // The defaults a setting has are carried too; an unset one and a secret's value are not.
+    assert_eq!(carried["profile"], "compat");
+    assert_eq!(carried["flag"], false);
+    assert!(
+        carried.get("mode").is_none() && carried.get("api_key").is_none(),
+        "{carried}"
+    );
+    assert!(
+        pass.input["secrets"]["api_key"].is_boolean(),
+        "{}",
+        pass.input
+    );
+    // The follower declares no setting: it carries nothing, and not its peer's.
+    let follower = calls
+        .iter()
+        .find(|c| c.extension == FOLLOWER_EXTENSION && c.export == "__pass_audit")
+        .expect("the follower's pass was called");
+    assert!(
+        follower.input.get("settings").is_none(),
+        "{}",
+        follower.input
+    );
+
+    // A tool call: the client's `settings` is dropped and the host's is sent.
+    let calls = specforge_wasm::ExtensionCalls::new(runtime.as_ref());
+    let _ = calls.call_mcp_tool(
+        SETTINGS_EXTENSION,
+        "mcp__x",
+        &json!({"settings": {"level": 3}, "q": 1}),
+    );
+    let tool = runtime.calls().pop().expect("recorded");
+    assert_eq!(tool.input["settings"]["level"], 2, "{}", tool.input);
+    assert_eq!(tool.input["q"], 1);
 }

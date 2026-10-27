@@ -287,6 +287,12 @@ impl WasmRuntime for Recording {
     fn apply_limits(&self, extension_name: &str, limits: specforge_wasm::Limits) {
         self.inner.apply_limits(extension_name, limits)
     }
+    fn apply_settings(&self, extension_name: &str, settings: specforge_wasm::ExtensionSettings) {
+        self.inner.apply_settings(extension_name, settings)
+    }
+    fn settings_of(&self, extension_name: &str) -> Option<specforge_wasm::ExtensionSettings> {
+        self.inner.settings_of(extension_name)
+    }
 }
 
 #[specforge_test_macros::test(

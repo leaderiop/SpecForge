@@ -17,7 +17,7 @@ use specforge_extension_sdk::{
     no_other_exports,
 };
 
-use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use crate::runtime::{ExtensionSettings, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
 
 /// What builds an extension's contributions, per call (as its guest does).
@@ -73,6 +73,7 @@ pub struct InProcessRuntime {
     faults: Vec<(String, String)>,
     calls: Mutex<Vec<RecordedCall>>,
     limits: Mutex<Vec<(String, Limits)>>,
+    settings: Mutex<std::collections::HashMap<String, ExtensionSettings>>,
 }
 
 impl InProcessRuntime {
@@ -271,6 +272,21 @@ impl WasmRuntime for InProcessRuntime {
             .lock()
             .expect("limits lock")
             .push((extension.to_string(), limits));
+    }
+
+    fn apply_settings(&self, extension: &str, settings: ExtensionSettings) {
+        self.settings
+            .lock()
+            .expect("settings lock")
+            .insert(extension.to_string(), settings);
+    }
+
+    fn settings_of(&self, extension: &str) -> Option<ExtensionSettings> {
+        self.settings
+            .lock()
+            .expect("settings lock")
+            .get(extension)
+            .cloned()
     }
 
     fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {

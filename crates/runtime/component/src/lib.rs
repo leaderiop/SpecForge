@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::runtime::{ExtensionSettings, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use specforge_wasm::sandbox::Limits;
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
@@ -165,6 +165,9 @@ struct PluginInstance {
     /// a component instance that trapped cannot be entered again.
     component: Component,
     fuel: u64,
+    /// What each call carries (ADR 0288): held with the plugin, not its store, so a restarted instance carries
+    /// it too.
+    settings: Option<ExtensionSettings>,
 }
 
 /// Deterministic instruction budget, given whole to every call (refilled
@@ -337,6 +340,7 @@ impl ComponentRuntime {
                 limits: Limits::CEILING,
                 component,
                 fuel,
+                settings: None,
             })),
         );
         Ok(())
@@ -470,6 +474,7 @@ impl WasmRuntime for ComponentRuntime {
             limits,
             component,
             fuel,
+            ..
         } = &mut *instance;
         // Every call gets the whole fuel budget and the whole wall-clock
         // budget: a long session never spends one call's allowance on the
@@ -554,6 +559,23 @@ impl WasmRuntime for ComponentRuntime {
             plugin.limits = limits;
             plugin.store.data_mut().memory.bytes = MemoryCeiling::of(limits).bytes;
         }
+    }
+
+    fn apply_settings(&self, extension_name: &str, settings: ExtensionSettings) {
+        let Ok(plugins) = self.plugins.lock() else {
+            return;
+        };
+        if let Some(plugin) = plugins.get(extension_name)
+            && let Ok(mut plugin) = plugin.lock()
+        {
+            plugin.settings = Some(settings);
+        }
+    }
+
+    fn settings_of(&self, extension_name: &str) -> Option<ExtensionSettings> {
+        let plugin = Arc::clone(self.plugins.lock().ok()?.get(extension_name)?);
+        let plugin = plugin.lock().ok()?;
+        plugin.settings.clone()
     }
 }
 

@@ -321,6 +321,28 @@ impl Environment {
         let sources = read.config.sources(installed.root());
         let (settings, settings_diagnostics) =
             ResolvedSettings::resolve(read.config.text.as_deref(), registries.settings(), &enabled);
+        // Each loaded extension's calls carry its own settings and its secrets' presence (ADR 0288).
+        if let Some(runtime) = runtime.as_deref() {
+            for extension in enabled.iter().filter(|e| e.loaded) {
+                let secrets =
+                    registries
+                        .settings()
+                        .of(&extension.name)
+                        .map_or_else(Vec::new, |s| {
+                            s.secrets
+                                .iter()
+                                .map(|s| (s.name.clone(), s.env.clone()))
+                                .collect()
+                        });
+                runtime.apply_settings(
+                    &extension.name,
+                    specforge_wasm::ExtensionSettings {
+                        values: settings.wire(&extension.name),
+                        secrets,
+                    },
+                );
+            }
+        }
         Environment {
             read,
             installed,

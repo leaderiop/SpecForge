@@ -85,8 +85,32 @@ fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
     behavior = "load_extension_settings",
     verify = "an instance restarted after a trap still carries the extension's settings"
 )]
-#[ignore = "K6 T7"]
 fn a_restarted_instance_keeps_its_settings() {
-    // After a trap the next call still carries them, on both adapters.
-    unimplemented!("K6 T7: apply_settings");
+    use serde_json::json;
+    use specforge_wasm::{ExtensionCalls, ExtensionSettings};
+    let runtime = InProcessRuntime::new().with(crashing);
+    let settings = ExtensionSettings {
+        values: json!({"level": 2}).as_object().unwrap().clone(),
+        secrets: Vec::new(),
+    };
+    runtime.apply_settings("@contract/crash", settings.clone());
+    let calls = ExtensionCalls::new(&runtime);
+    // A guest panic traps; the next call is a fresh instance's and carries them.
+    assert!(
+        calls
+            .call_mcp_tool("@contract/crash", "cmd__crash", &json!({}))
+            .is_err()
+    );
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__again", &json!({"q": 1}));
+    let last = runtime.calls().pop().unwrap();
+    assert_eq!(last.input, json!({"q": 1, "settings": {"level": 2}}));
+    assert_eq!(runtime.settings_of("@contract/crash"), Some(settings));
+    assert_eq!(runtime.settings_of("@contract/other"), None);
+    // Settings are spliced into an object input only, at its end.
+    let calls = ExtensionCalls::new(&runtime);
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__empty", &json!({}));
+    assert_eq!(
+        runtime.calls().pop().unwrap().input,
+        json!({"settings": {"level": 2}})
+    );
 }

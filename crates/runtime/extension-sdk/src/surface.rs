@@ -356,10 +356,15 @@ impl Surfaces {
                 .map(|output| Ok(output.to_bytes()));
         }
         if let Some(tool) = self.tools.iter().find(|t| t.descriptor.export == export) {
-            let input: Value = match serde_json::from_slice(input) {
+            let mut input: Value = match serde_json::from_slice(input) {
                 Ok(input) => input,
                 Err(e) => return Some(Err(format!("invalid tool input: {e}"))),
             };
+            // A tool's arguments are the client's: what the host carries is read with `Settings::current`.
+            if let Some(object) = input.as_object_mut() {
+                object.remove("settings");
+                object.remove("secrets");
+            }
             return Some((tool.handler)(&input).map(|out| out.to_string().into_bytes()));
         }
         let resource = self

@@ -1,8 +1,11 @@
 //! Declaring settings, presets and secrets (ADR 0288).
 
-use serde_json::Value;
+use std::cell::RefCell;
+
+use serde::Deserialize;
+use serde_json::{Map, Value};
 use specforge_protocol_types::{
-    FieldType, PresetDescriptor, PresetEntry, SettingDescriptor, ValidationSeverity,
+    FieldType, PresetDescriptor, PresetEntry, SettingDescriptor, SettingsItem, ValidationSeverity,
 };
 
 use crate::FieldBuilder;
@@ -133,4 +136,99 @@ impl PresetEntryBuilder {
         self.0.severities.insert(code.to_string(), severity);
         self
     }
+}
+
+/// What the host sent with the call being answered (ADR 0288): the extension's own settings, and whether each of
+/// its secrets is set. Read it with [`Settings::current`] in a pass, a validator, a command, a tool or any other
+/// handler; a tool's arguments never hold it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Settings {
+    values: Map<String, Value>,
+    secrets: Map<String, Value>,
+}
+
+thread_local! {
+    static CURRENT: RefCell<Settings> = RefCell::new(Settings::default());
+}
+
+impl Settings {
+    /// The settings of the call being answered: the host's, else each declared default. Outside a call: none.
+    pub fn current() -> Settings {
+        CURRENT.with(|current| current.borrow().clone())
+    }
+
+    /// The value of `name` (a dotted name, a family's key as written), `None` when it is unset.
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.values.get(name)
+    }
+
+    /// `name` as a bool, `None` when unset or not one.
+    pub fn bool(&self, name: &str) -> Option<bool> {
+        self.get(name)?.as_bool()
+    }
+
+    /// `name` as a string, `None` when unset or not one.
+    pub fn string(&self, name: &str) -> Option<&str> {
+        self.get(name)?.as_str()
+    }
+
+    /// `name` as a whole number, `None` when unset or not one.
+    pub fn integer(&self, name: &str) -> Option<i64> {
+        self.get(name)?.as_i64()
+    }
+
+    /// Every setting under `prefix.` (a family's keys), by the rest of its name.
+    pub fn under<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Value)> {
+        self.values.iter().filter_map(move |(name, value)| {
+            Some((name.strip_prefix(prefix)?.strip_prefix('.')?, value))
+        })
+    }
+
+    /// Whether the secret `name` is set in the environment. The value is never sent.
+    pub fn secret_set(&self, name: &str) -> bool {
+        self.secrets
+            .get(name)
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }
+}
+
+/// The part of a call's input the host adds.
+#[derive(Deserialize, Default)]
+struct Carried {
+    #[serde(default)]
+    settings: Option<Map<String, Value>>,
+    #[serde(default)]
+    secrets: Option<Map<String, Value>>,
+}
+
+/// Holds a call's settings as the current ones until dropped.
+pub(crate) struct Entered(Settings);
+
+impl Drop for Entered {
+    fn drop(&mut self) {
+        CURRENT.with(|current| *current.borrow_mut() = std::mem::take(&mut self.0));
+    }
+}
+
+/// Make the settings `input` carries the current ones (each `declared` default for a setting it does not carry)
+/// until the guard drops.
+pub(crate) fn enter(declared: &[SettingsItem], input: &[u8]) -> Entered {
+    let carried: Carried = serde_json::from_slice(input).unwrap_or_default();
+    let mut values = carried.settings.unwrap_or_default();
+    for item in declared {
+        if let SettingsItem::Setting(setting) = item
+            && let Some(default) = &setting.default
+            && !setting.name.contains('*')
+        {
+            values
+                .entry(setting.name.clone())
+                .or_insert_with(|| default.clone());
+        }
+    }
+    let now = Settings {
+        values,
+        secrets: carried.secrets.unwrap_or_default(),
+    };
+    Entered(CURRENT.with(|current| std::mem::replace(&mut *current.borrow_mut(), now)))
 }

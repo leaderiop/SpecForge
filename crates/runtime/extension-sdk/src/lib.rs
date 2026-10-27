@@ -70,7 +70,7 @@ pub use builders::{
 };
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
-pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder};
+pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]
@@ -331,6 +331,7 @@ impl ContributionsBuilder {
     /// declaration has it. The generated guest routes every export but
     /// `__handshake` and `__describe` here first.
     pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        let _settings = settings::enter(&self.decl.settings, input);
         self.surfaces
             .dispatch(export, input)
             .or_else(|| self.operations.dispatch(export, input))
@@ -575,7 +576,7 @@ pub mod prelude {
         FieldConstraintBuilder, FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer,
         PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge, PassEntity,
         PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder, ScanRequest,
-        ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, Vocabulary,
+        ScanResponse, ScannedItem, Settings, TestResult, TestResults, TestStatus, Vocabulary,
     };
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,

@@ -116,3 +116,26 @@ fn a_refused_load_names_no_load_key() {
     );
     assert!(!reason.contains("@acme/the-key"), "{reason}");
 }
+
+#[test]
+fn a_trap_keeps_the_settings_the_next_call_carries() {
+    use serde_json::json;
+    use specforge_wasm::{ExtensionCalls, ExtensionSettings};
+    let runtime = loaded();
+    let settings = ExtensionSettings {
+        values: json!({"level": 2}).as_object().unwrap().clone(),
+        secrets: Vec::new(),
+    };
+    runtime.apply_settings("@test/component", settings.clone());
+    assert!(matches!(
+        runtime.call_export("@test/component", "__does_not_exist", b""),
+        WasmCallResult::Trap(_)
+    ));
+    assert_eq!(runtime.settings_of("@test/component"), Some(settings));
+    // The echo answers the bytes it was sent: the call carries the settings, and the handshake would not.
+    let echoed = ExtensionCalls::new(&runtime)
+        .call_mcp_tool("@test/component", "__echo", &json!({"q": 1}))
+        .unwrap();
+    assert_eq!(echoed, json!({"q": 1, "settings": {"level": 2}}));
+    assert_eq!(runtime.settings_of("@no/such"), None);
+}

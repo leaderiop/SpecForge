@@ -545,6 +545,24 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
 }
 ```
 
+### Category: settings
+
+Returns typed settings, presets and secrets (protocol 1.8.0, ADR 0288). `specforge.json` sets a setting under `"settings": {"<extension>": {"<name>": value}}`; a feature flag is a bool setting. Each item is told apart by `kind`:
+
+```json
+{
+  "category": "settings",
+  "items": [
+    {"kind": "setting", "name": "tdd_mode", "field_type": "bool", "default": false, "gates": ["T201"]},
+    {"kind": "setting", "name": "models.*", "field_type": "enum", "enum_values": ["opus", "sonnet"], "keys": [["planning", "execution"]]},
+    {"kind": "preset", "source": "profile", "values": {"strict": {"settings": {"tdd_mode": true}, "severities": {"T202": "error"}}}},
+    {"kind": "secret", "name": "api_key", "env": "MY_API_KEY"}
+  ]
+}
+```
+
+A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false. A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
+
 ### Category: codes
 
 Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one entry per code the extension's rules and passes report. `code` is the extension's own code, `[EWI]` and three digits, never qualified (the host adds the extension's namespace). `title` and `explanation` are required; `docs` (optional) is an absolute `http(s)` URL.
@@ -574,6 +592,8 @@ Every input and answer is a type of `specforge_protocol_types` (module
 `calls`), the same definitions the SDK re-exports, so a Rust guest built with
 the SDK cannot answer the wrong shape; a guest in another language reads the
 table below and the goldens in `crates/runtime/wasm/tests/wire/`.
+
+Every call but the handshake and describe also carries the extension's own `settings` (a JSON object of its effective values by name, a family's keys written out; omitted when it has none) and `secrets` (each declared secret's name, `true` when its environment variable is set, never the value), added at the end of the input object. Another extension's settings are never sent, a client's `settings` or `secrets` argument of an MCP tool is dropped, and an explicit tool's input schema may not declare `settings` (I017). The SDK reads them with `Settings::current()`, which falls back to each declared default.
 
 | Operation | Export | Input | Answer |
 |---|---|---|---|

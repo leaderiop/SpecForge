@@ -35,8 +35,14 @@ fn a_schema_declaring_a_target_argument_is_refused() {
     behavior = "load_extension_settings",
     verify = "a tool schema declaring the reserved settings argument is refused"
 )]
-#[ignore = "K6 T7"]
 fn a_tool_schema_declaring_settings_is_refused() {
     // I017 names `settings` as it names `path`.
-    unimplemented!("K6 T7: HOST_ARGUMENTS");
+    let schema = json!({"type": "object", "properties": {"settings": {"type": "object"}}});
+    let refused = refusal(&schema).expect("settings is reserved");
+    assert_eq!(refused.argument, "settings");
+    assert_eq!(
+        refused.to_string(),
+        "its input schema declares 'settings', which the host sends with every call"
+    );
+    assert_eq!(HOST_ARGUMENTS, ["path", "settings"]);
 }
