@@ -114,10 +114,12 @@ fn classify(
         {
             let fields = view.registries().fields();
             if syntax.reference_position(text, i as u32, view.registries().field_forms()) {
-                let token = view
-                    .graph()
-                    .node(lexeme.text(text))
-                    .map_or("variable", |node| kind_token(view, node.kind.raw.as_str()));
+                let graph = view.graph();
+                let token = match graph.find(lexeme.text(text)) {
+                    specforge_graph::Found::One(path) => graph.node(path.as_str()),
+                    _ => None,
+                }
+                .map_or("variable", |node| kind_token(view, node.kind.raw.as_str()));
                 return Some((token, MOD_REFERENCE));
             }
             if role != Role::Value {

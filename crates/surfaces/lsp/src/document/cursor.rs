@@ -447,10 +447,12 @@ impl<'d> Cursor<'d> {
         let word = self.word_index();
         let entity = |i: usize| {
             let lexeme = self.syntax.lexemes[i];
-            let id = lexeme.text(self.text);
-            view.graph().node(id)?;
+            // A stale buffer's word: a path, or a short form that names one entity (ADR 0284).
+            let specforge_graph::Found::One(id) = view.graph().find(lexeme.text(self.text)) else {
+                return None;
+            };
             Some(Target::Entity {
-                id: Sym::new(id),
+                id,
                 origin: Range {
                     start: self.index.position(lexeme.start),
                     end: self.index.position(lexeme.end),

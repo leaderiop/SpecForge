@@ -2,7 +2,7 @@
 //! the project view's registries and graph (ADR 0023). Where the cursor is
 //! is the document module's to say.
 
-use specforge_common::structural;
+use specforge_common::{Sym, structural};
 use specforge_graph::Reading;
 use specforge_ops::authoring::edit::{Skeleton, Skeletons, SlotOf};
 use specforge_ops::authoring::format::Place;
@@ -30,6 +30,7 @@ pub fn items(
 ) -> Vec<CompletionItem> {
     let registries = view.registries();
     let edit = cursor.word_edit();
+    let holder = holder(cursor, view, place);
     let mut items = match cursor.completion() {
         CompletionSite::Keywords { prefix } => keywords(prefix, view, &Skeletons::at(view, place)),
         CompletionSite::Fields { kind, prefix } => {
@@ -85,24 +86,35 @@ pub fn items(
                 // A reference list: the ids of its target kind.
                 Reading::Declared(form) if form.field_type() == FieldType::ReferenceList => {
                     let target = entry.and_then(|e| e.declared().target_kind.as_deref());
-                    entity_ids(view, prefix, target)
+                    entity_ids(view, prefix, target, holder)
                 }
                 // A string list's items are strings; the only entities it
                 // names are the refs a scheme ref ID names.
                 Reading::Declared(form) if form.field_type() == FieldType::StringList => {
-                    entity_ids(view, prefix, Some(structural::REF))
+                    entity_ids(view, prefix, Some(structural::REF), holder)
                 }
                 Reading::Declared(_) => Vec::new(),
                 // An undeclared field, or a member of an open-fields kind
                 // (whose lists name types): every id.
-                Reading::Member | Reading::Undeclared => entity_ids(view, prefix, None),
+                Reading::Member | Reading::Undeclared => entity_ids(view, prefix, None, holder),
             }
         }
         CompletionSite::Value {
             kind,
             field,
             prefix,
-        } => value(registries.fields(), kind, field, prefix, view),
+        } => {
+            // A scope field is read from the project, not from its holder (ADR 0284).
+            let from = holder.filter(|_| {
+                view.registries()
+                    .graph_inputs()
+                    .scopes
+                    .get(kind)
+                    .map(String::as_str)
+                    != Some(field)
+            });
+            value(registries.fields(), kind, field, prefix, view, from)
+        }
         CompletionSite::Nothing => Vec::new(),
     };
     for item in &mut items {
@@ -125,6 +137,32 @@ pub fn items(
         item.filter_text = Some(item.label.clone());
     }
     items
+}
+
+/// The path of the entity block around the cursor: the one of its kind and name whose block holds the cursor's line.
+fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
+    let at = cursor.entity()?;
+    let name = at.id?;
+    let line = cursor.position().line as usize + 1;
+    let Place::File(file) = place else {
+        return None;
+    };
+    let nodes = view.graph().nodes();
+    let same: Vec<_> = nodes
+        .iter()
+        .filter(|node| {
+            node.kind.raw == at.kind
+                && node.name() == name
+                && file.ends_with(node.source_span.file.as_str())
+        })
+        .collect();
+    match same.as_slice() {
+        [one] => Some(one.id.raw),
+        _ => same
+            .iter()
+            .find(|n| n.source_span.start_line <= line && line <= n.source_span.end_line)
+            .map(|n| n.id.raw),
+    }
 }
 
 /// Whether `label` starts with `prefix`, ignoring case.
@@ -198,9 +236,10 @@ fn value(
     field: &str,
     prefix: &str,
     view: &ProjectView,
+    from: Option<Sym>,
 ) -> Vec<CompletionItem> {
     let Some(entry) = fields.get(kind, field) else {
-        return entity_ids(view, prefix, None);
+        return entity_ids(view, prefix, None, from);
     };
     let constant = |label: &str, item_kind| CompletionItem {
         label: label.to_string(),
@@ -209,7 +248,9 @@ fn value(
         ..Default::default()
     };
     match entry.field_type() {
-        FieldType::Reference => entity_ids(view, prefix, entry.declared().target_kind.as_deref()),
+        FieldType::Reference => {
+            entity_ids(view, prefix, entry.declared().target_kind.as_deref(), from)
+        }
         FieldType::Enum => entry
             .enum_values()
             .iter()
@@ -227,7 +268,14 @@ fn value(
 
 /// The entity IDs matching `prefix`, of `kind` when one is given, ranked
 /// as completion, workspace symbols and MCP search rank them.
-fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<CompletionItem> {
+/// `from` is the block the id is written in (none: the project): the shortest spelling that resolves from it is what
+/// completion inserts (ADR 0284).
+fn entity_ids(
+    view: &ProjectView,
+    prefix: &str,
+    kind: Option<&str>,
+    from: Option<Sym>,
+) -> Vec<CompletionItem> {
     let kinds: Vec<&str> = kind.into_iter().collect();
     let query = EntityQuery {
         kinds: &kinds,
@@ -244,8 +292,18 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
                 .as_ref()
                 .map(|t| format!("{kind} — {t}"))
                 .unwrap_or_else(|| kind.to_string());
+            let name = node.name();
+            let path = node.id.raw;
+            // An entity of a scope shows its path and inserts the shortest spelling from the cursor's block.
+            let (detail, insert_text) = if path.as_str() == name {
+                (detail, None)
+            } else {
+                let spelled = view.graph().scopes().spell(from, path, &|_| true);
+                (format!("{path} · {detail}"), Some(spelled))
+            };
             CompletionItem {
-                label: node.id.raw.to_string(),
+                label: name.to_string(),
+                insert_text,
                 kind: Some(CompletionItemKind::REFERENCE),
                 detail: Some(detail),
                 // C4-06: preserve the server's ranking in the editor.

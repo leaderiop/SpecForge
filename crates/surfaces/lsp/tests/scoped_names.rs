@@ -55,7 +55,6 @@ fn at(line_has: &str, needle: &str, offset: usize) -> Position {
     behavior = "go_to_definition",
     verify = "go-to-definition, prepare rename and rename take a path one segment at a time"
 )]
-#[ignore = "K2 T9"]
 fn navigation_takes_a_path_one_segment_at_a_time() {
     let served = served();
     let uri = served.uri("main.spec");
@@ -91,7 +90,6 @@ fn navigation_takes_a_path_one_segment_at_a_time() {
     behavior = "autocomplete_entity_ids",
     verify = "completion offers an entity by its name, shows its path and inserts the shortest spelling from the cursor's block"
 )]
-#[ignore = "K2 T9"]
 fn completion_inserts_the_shortest_spelling() {
     let text = SOURCE.replace("decisions [03/D-01]", "decisions []");
     let served = Served::new(&[("main.spec", &text)])
@@ -131,7 +129,6 @@ fn completion_inserts_the_shortest_spelling() {
     behavior = "hover_information",
     verify = "hover and workspace symbols show an entity's full path"
 )]
-#[ignore = "K2 T9"]
 fn hover_and_symbols_show_the_path() {
     let served = served();
     let hover = served.hover("main.spec", 11, 10).expect("a hover");
