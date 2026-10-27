@@ -23,6 +23,7 @@ mod buffers;
 mod build_cache;
 mod check_passes;
 mod compiled;
+mod compute;
 pub mod coverage;
 mod diagnostics_delta;
 mod ledger;
@@ -47,7 +48,7 @@ use specforge_common::{
     ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, ProjectRoot, SourceRoot, codes,
     project_config_from,
 };
-use specforge_graph::{GraphBuild, SpecFile};
+use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
     CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries,
@@ -101,6 +102,14 @@ pub enum ExtensionLoad {
         runtime: SharedRuntime,
         loaded: Loaded,
     },
+}
+
+/// What [`Environment::checked`] found: the diagnostics, and the compute passes' values with the snapshot that has
+/// them merged in (`None` when none gave a value).
+pub struct Checked {
+    pub diagnostics: Vec<Diagnostic>,
+    pub entities: Option<EntitySnapshot>,
+    pub computed: Computed,
 }
 
 /// Everything derived from `specforge.json` and the loaded extensions,
@@ -400,20 +409,47 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
+        self.checked(entities, disk).diagnostics
+    }
+
+    /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
+    /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
+    /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
+    /// pass gave a value.
+    pub fn checked(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
-        let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
-            Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
-            None => Box::new(NoVerdicts),
-        };
-        diagnostics.extend(
-            self.registries
-                .check(&entities.rule_input(disk), verdicts.as_ref()),
-        );
-        if let Some(runtime) = runtime {
-            diagnostics.extend(check_passes::run(self, entities, runtime, disk));
+        let mut computed = Computed::default();
+        let mut merged = None;
+        if let Some(runtime) = runtime
+            && self.registries.compute_passes().next().is_some()
+        {
+            let (values, reported) = compute::run(self, entities, runtime);
+            diagnostics.extend(reported);
+            if !values.is_empty() {
+                merged = Some(entities.with_computed(&values, self.registries.fields()));
+                computed = values;
+            }
         }
-        diagnostics
+        {
+            let entities = merged.as_ref().unwrap_or(entities);
+            let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
+                Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
+                None => Box::new(NoVerdicts),
+            };
+            diagnostics.extend(
+                self.registries
+                    .check(&entities.rule_input(disk), verdicts.as_ref()),
+            );
+            if let Some(runtime) = runtime {
+                diagnostics.extend(check_passes::run(self, entities, runtime, disk));
+            }
+        }
+        Checked {
+            diagnostics,
+            entities: merged,
+            computed,
+        }
     }
 
     /// The diagnostics reported before any source, each with the part of

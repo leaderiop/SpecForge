@@ -127,6 +127,7 @@ fn coverage(summary: Value) -> impl Fn() -> ContributionsBuilder + Send + Sync +
             p.run(move |_: &PassInput| PassOutput {
                 diagnostics: Vec::new(),
                 summary: summary.as_object().cloned().unwrap_or_default(),
+                values: Vec::new(),
             });
         });
         c

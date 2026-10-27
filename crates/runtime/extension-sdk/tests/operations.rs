@@ -34,6 +34,7 @@ fn extension() -> ContributionsBuilder {
             PassOutput {
                 diagnostics: Vec::new(),
                 summary,
+                values: Vec::new(),
             }
         });
     });

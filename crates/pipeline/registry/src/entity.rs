@@ -83,6 +83,18 @@ pub struct FieldRecord {
     /// gives it (ADR 0147), read from the value as written, in source order. Host-internal: never on the
     /// wire.
     pub rewrites: Vec<Rewrite>,
+    /// Who gave the value (ADR 0287).
+    pub origin: Origin,
+}
+
+/// Who gave a field's value: the spec file's author, a compute pass, or a compute pass over a value the author
+/// wrote by hand (the pass wins; E082 reports the written one at `value_span`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Origin {
+    #[default]
+    Authored,
+    Computed,
+    Overwritten,
 }
 
 /// An entry of a typed block that the block declares no member for.
@@ -246,6 +258,7 @@ impl EntityRecord {
             shape: ValueShape::List,
             value_span: None,
             rewrites: Vec::new(),
+            origin: Origin::Authored,
         });
         self
     }
@@ -267,6 +280,7 @@ impl EntityRecord {
             shape,
             value_span: None,
             rewrites: Vec::new(),
+            origin: Origin::Authored,
         });
         self
     }

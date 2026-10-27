@@ -23,6 +23,7 @@ fn findings(
     let output = PassOutput {
         diagnostics: vec![PassDiagnostic::new(code, severity, "x")],
         summary: Default::default(),
+        values: Vec::new(),
     };
     specforge_project::passes::pass_findings(
         extension,

@@ -518,6 +518,18 @@ pub struct PassOutput {
     pub diagnostics: Vec<PassDiagnostic>,
     #[serde(default)]
     pub summary: Map<String, Value>,
+    /// The values a compute pass gives (protocol 1.8.0, ADR 0287); the host reads them from a compute pass only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<PassValue>,
+}
+
+/// One computed value a compute pass answers (ADR 0287): `field` is the declared field, or the written path of a
+/// member (`status`, `checks[0].status`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PassValue {
+    pub entity: String,
+    pub field: String,
+    pub value: Value,
 }
 
 /// What a pass may answer: bare diagnostics, or diagnostics with a summary.
@@ -537,6 +549,7 @@ impl PassAnswer {
             PassAnswer::Bare(diagnostics) => PassOutput {
                 diagnostics,
                 summary: Map::new(),
+                values: Vec::new(),
             },
             PassAnswer::WithSummary(output) => output,
         }

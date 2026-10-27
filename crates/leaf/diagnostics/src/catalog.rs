@@ -274,6 +274,9 @@ catalog! {
     E081: Error core,
         "Field written twice in one block",
         "A block writes one field (an entry of a block field, a member of a type) more than once. A field holds one value: the graph keeps the first and every output, check and rule reads it; the message names the first's line. Delete the later line, or give every value in the first: a list field takes all its items in one list (`ports [a, b]`), a block field all its entries in one block. A typed edit that changes the field (`set`, `unset`, `link`, `unlink`) removes the later lines itself. A repeat in a `defaults` block is E078.";
+    E082: Error core,
+        "Computed field written in a spec file",
+        "A spec file writes a field, or a member of a block item, that its extension declares `writer: computed` (ADR 0287). A compute pass of the extension gives its value when the project is checked; the value lives beside the graph and in every output, and is never in a `.spec` file. The pass's value wins; this code reports the written one at its value. Delete the line.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";
@@ -748,4 +751,7 @@ catalog! {
     W162: Warning core,
         "Relation declared from both sides",
         "A relation has two fields: one extension declares it from both of its ends. Either a reference field's `inverse_of` names a field its target kind registers (`milestone.behaviors` naming `features`, when `behavior` has its own `features`), or two different kinds each register a reference field targeting the other (`parent.children` and `child.parent`). A relation is written from one side (ADR 0150): the other side is derived, so `query` and `trace` already show it. Both fields still register, and an entity can write either. Remove one field, or drop the `inverse_of` or name a word the target kind does not use. The builtin extensions declare none.";
+    W165: Warning core,
+        "Computed value refused",
+        "A compute pass answered a value the host does not take, once per value: for an entity the project does not hold, for a field the pass does not list in its `computes`, for a member of a block item that is not written, or in a form the field refuses (the field's own type, bounds and enum values apply). The value is dropped. A check or analyze pass that answers `values` is W165 once, and its values are ignored: only a pass in the `compute` phase gives values.";
 }

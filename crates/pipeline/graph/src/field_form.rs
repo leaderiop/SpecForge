@@ -17,6 +17,7 @@ use specforge_protocol_types::{FieldType, FieldWriter, FileBase};
 
 use crate::Graph;
 
+mod admit;
 pub mod json;
 pub mod members;
 pub mod targets;

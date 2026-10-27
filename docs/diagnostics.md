@@ -1103,6 +1103,21 @@ Owner: core
 Level: error
 ```
 
+## E082
+
+```
+E082: Computed field written in a spec file
+
+A spec file writes a field, or a member of a block item, that its extension
+declares `writer: computed` (ADR 0287). A compute pass of the extension gives
+its value when the project is checked; the value lives beside the graph and in
+every output, and is never in a `.spec` file. The pass's value wins; this code
+reports the written one at its value. Delete the line.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -3364,6 +3379,22 @@ side (ADR 0150): the other side is derived, so `query` and `trace` already show
 it. Both fields still register, and an entity can write either. Remove one
 field, or drop the `inverse_of` or name a word the target kind does not use. The
 builtin extensions declare none.
+
+Owner: core
+Level: warning
+```
+
+## W165
+
+```
+W165: Computed value refused
+
+A compute pass answered a value the host does not take, once per value: for an
+entity the project does not hold, for a field the pass does not list in its
+`computes`, for a member of a block item that is not written, or in a form the
+field refuses (the field's own type, bounds and enum values apply). The value is
+dropped. A check or analyze pass that answers `values` is W165 once, and its
+values are ignored: only a pass in the `compute` phase gives values.
 
 Owner: core
 Level: warning

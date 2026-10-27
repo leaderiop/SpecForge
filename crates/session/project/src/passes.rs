@@ -181,13 +181,26 @@ pub fn run_extension_passes<'p>(
             Ok(output) => {
                 let extra = output.summary.clone();
                 summary.extend(extra);
-                pass_findings(
+                let refused = (!output.values.is_empty() && !declared.is_compute_phase())
+                    .then_some(output.values.len());
+                let mut findings = pass_findings(
                     &declared.extension,
                     &pass.name,
                     output,
                     context.entities,
                     codes,
-                )
+                );
+                // Only a compute pass gives values (ADR 0287): once per pass, and ignored.
+                if let Some(count) = refused {
+                    findings.push(Diagnostic::new(
+                        codes::W165,
+                        format!(
+                            "pass '{}' of '{}' answered {count} value(s), but is not a compute pass: they are ignored",
+                            pass.name, declared.extension
+                        ),
+                    ));
+                }
+                findings
             }
             Err(error) => {
                 summary.insert("failed".into(), true.into());

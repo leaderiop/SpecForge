@@ -595,8 +595,8 @@ pub use specforge_protocol_types::{
     CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests,
     GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest, MigrationInput,
     PassAnswer, PassBuildCache, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassInput,
-    PassOutput, PassSeverity, PassSpan, ScanRequest, ScanResponse, ScannedItem, TestResult,
-    TestResults, TestStatus,
+    PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest, ScanResponse, ScannedItem,
+    TestResult, TestResults, TestStatus,
 };
 
 #[cfg(test)]

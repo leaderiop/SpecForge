@@ -95,6 +95,7 @@ fn audit(input: &PassInput) -> PassOutput {
     PassOutput {
         diagnostics,
         summary,
+        values: Vec::new(),
     }
 }
 
@@ -568,6 +569,7 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
             PassDiagnostic::new("W950", PassSeverity::Warning, "fine"),
         ],
         summary: Default::default(),
+        values: Vec::new(),
     };
 
     let mut book = specforge_diagnostics::Codebook::default();

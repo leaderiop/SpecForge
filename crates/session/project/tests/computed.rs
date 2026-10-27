@@ -30,7 +30,6 @@ const VERIFICATION: &str = "verification V \"V\" {\n  phase 03\n}\n";
     behavior = "compute_field_values",
     verify = "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
 )]
-#[ignore = "K4 T4"]
 fn a_compute_pass_gives_a_value_the_rules_read() {
     let runtime = Arc::new(gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
@@ -59,7 +58,6 @@ fn a_compute_pass_gives_a_value_the_rules_read() {
     behavior = "refuse_written_computed",
     verify = "a computed field written in a spec file is E082 at the value, and the computed value wins"
 )]
-#[ignore = "K4 T4"]
 fn a_computed_field_written_by_hand_is_e082() {
     let runtime = Arc::new(gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
@@ -88,7 +86,6 @@ fn a_computed_field_written_by_hand_is_e082() {
     behavior = "compute_field_values",
     verify = "a value the pass may not give is W165 and dropped"
 )]
-#[ignore = "K4 T4"]
 fn a_value_the_pass_may_not_give_is_w165() {
     let values = json!([
         {"entity": "v1.0/03/V", "field": "phase", "value": "03"},
@@ -106,7 +103,6 @@ fn a_value_the_pass_may_not_give_is_w165() {
     behavior = "compute_field_values",
     verify = "a computed field or member is never required and never scaffolded"
 )]
-#[ignore = "K4 T4"]
 fn no_computed_field_is_required_or_scaffolded() {
     let spec = "deliverable D \"D\" {\n  checks [ { kind unit  ref \"t\" } ]\n}\n";
     let runtime = gsd_history_runtime(json!([

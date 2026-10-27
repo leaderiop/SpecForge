@@ -282,3 +282,19 @@ mod evidence {
         assert_eq!(decoded.failing, 0, "failing defaults to none");
     }
 }
+
+#[test]
+fn a_pass_answer_carries_computed_values_and_omits_none() {
+    let answer: PassAnswer = serde_json::from_value(
+        json!({"diagnostics": [], "values": [{"entity": "a", "field": "checks[0].status", "value": "pass"}]}),
+    )
+    .unwrap();
+    let output = answer.into_output();
+    assert_eq!(output.values[0].field, "checks[0].status");
+    assert!(
+        serde_json::to_value(PassOutput::default())
+            .unwrap()
+            .get("values")
+            .is_none()
+    );
+}

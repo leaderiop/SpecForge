@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, ProjectRoot, codes};
-use specforge_graph::{Applied, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes};
+use specforge_graph::{
+    Applied, Computed, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes,
+};
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
@@ -50,6 +52,8 @@ pub struct CompiledProject {
     /// and the extensions' rules, then the check-phase passes. Empty when
     /// the last update skipped them.
     check_diagnostics: Vec<Diagnostic>,
+    /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
+    computed: Arc<Computed>,
     /// The graph's entity snapshot, the recorded test report and the
     /// coverage: seeded with the snapshot the checks read; made over the
     /// graph on first use after an update that skipped them.
@@ -251,6 +255,12 @@ impl CompiledProject {
         self.memo().entities()
     }
 
+    /// The values the compute passes gave at the last check (ADR 0287), beside the graph: empty when no pass gave
+    /// one or the checks were skipped.
+    pub fn computed(&self) -> &Computed {
+        &self.computed
+    }
+
     /// [`Self::entities`], shared: a test holds it across an update.
     #[cfg(feature = "testing")]
     pub fn shared_entities(&self) -> Arc<EntitySnapshot> {
@@ -298,6 +308,7 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
@@ -318,6 +329,7 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -343,6 +355,7 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
@@ -387,6 +400,7 @@ impl CompiledProject {
             graph,
             import_diagnostics: imports,
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -428,12 +442,15 @@ impl CompiledProject {
         let graph = &self.graph;
         let mut outcome = None;
         reads.run_checks(|disk| {
-            let entities = Arc::new(env.entity_snapshot(graph));
-            outcome = Some((env.run_checks(&entities, disk), entities));
+            let authored = env.entity_snapshot(graph);
+            let checked = env.checked(&authored, disk);
+            let entities = Arc::new(checked.entities.unwrap_or(authored));
+            outcome = Some((checked.diagnostics, entities, checked.computed));
         });
         self.checks_skipped = false;
-        if let Some((diagnostics, entities)) = outcome {
+        if let Some((diagnostics, entities, computed)) = outcome {
             self.check_diagnostics = diagnostics;
+            self.computed = Arc::new(computed);
             self.recorded = OnceLock::from(RecordedCoverage::of(entities));
             self.reported = OnceLock::new();
         }
@@ -443,6 +460,7 @@ impl CompiledProject {
     /// memo is made over the graph on first use.
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
+        self.computed = Arc::default();
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.checks_skipped = true;

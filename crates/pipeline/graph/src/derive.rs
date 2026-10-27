@@ -13,6 +13,7 @@ use crate::{Edge, Graph, Reading};
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, codes};
 use specforge_parser::lex::{LexemeKind, is_path, lex};
 use specforge_parser::{FieldEntry, FieldValue, MethodDecl, Written};
+use specforge_protocol_types::FieldWriter;
 
 /// The type names that are no entity: what an unknown type name is checked against (E004, ADR 0282 D1), and what the
 /// registry sends validators as `context.primitives`. `number`, `integer`, `boolean`, `timestamp` and `date` are the
@@ -154,6 +155,11 @@ fn type_expressions<'v>(
         DerivedFrom::TypeExpressions => {
             for entry in entries {
                 let reading = forms.reading(kind, entry.key.as_str());
+                // A computed field is never written: it is E082 alone, not a type nobody declared too.
+                if matches!(&reading, Reading::Declared(form) if form.writer() == Some(FieldWriter::Computed))
+                {
+                    continue;
+                }
                 written.extend(expressions(&reading, entry));
             }
         }

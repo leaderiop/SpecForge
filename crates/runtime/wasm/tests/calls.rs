@@ -74,8 +74,6 @@ fn resource_answer(uri: &str) -> McpResourceContent {
 }
 
 fn pass_answer() -> PassOutput {
-    let mut summary = Map::new();
-    summary.insert("audited".into(), json!(2));
     PassOutput {
         diagnostics: vec![
             PassDiagnostic::warning("W1", "unspanned").with_entity("a"),
@@ -89,7 +87,8 @@ fn pass_answer() -> PassOutput {
                 })
                 .with_suggestion("fix it"),
         ],
-        summary,
+        summary: Map::from_iter([("audited".into(), json!(2))]),
+        ..Default::default()
     }
 }
 
@@ -729,7 +728,7 @@ fn a_pass_answer_is_bare_or_with_a_summary_and_its_diagnostics_are_canonical() {
             PassDiagnostic::warning("X", "a").with_entity("a"),
             PassDiagnostic::warning("X", "none").with_entity("ghost"),
         ],
-        summary: Map::new(),
+        ..Default::default()
     };
     let order: Vec<String> = pass_diagnostics(EXT, output, span_of)
         .into_iter()

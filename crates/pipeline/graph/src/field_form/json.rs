@@ -15,6 +15,18 @@ use specforge_parser::{FieldMap, FieldValue};
 #[serde(transparent)]
 pub struct FieldJson(Value);
 
+impl FieldJson {
+    /// A value a form admitted ([`FieldForm::admit_json`](super::FieldForm::admit_json)).
+    pub(super) fn of(value: Value) -> Self {
+        Self(value)
+    }
+
+    /// The JSON.
+    pub fn as_value(&self) -> &Value {
+        &self.0
+    }
+}
+
 impl From<FieldJson> for Value {
     fn from(written: FieldJson) -> Self {
         written.0
