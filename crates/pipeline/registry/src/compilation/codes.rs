@@ -3,14 +3,32 @@
 //! share a namespace are E039; the first in load order owns it.
 
 use specforge_common::{Diagnostic, codes};
-use specforge_diagnostics::{Codebook, ExtensionCode};
+use specforge_diagnostics::{Codebook, ExtensionCode, is_local_code};
 use specforge_protocol_types::ExtensionDeclaration;
 
-/// `declaration`'s `codes` as the code book reads them.
+/// Whether `docs` is an absolute `http(s)` URL: the only link a surface may print.
+pub(crate) fn is_http_url(docs: &str) -> bool {
+    ["https://", "http://"].iter().any(|scheme| {
+        docs.strip_prefix(scheme)
+            .is_some_and(|rest| !rest.is_empty() && !rest.contains(char::is_whitespace))
+    })
+}
+
+/// `declaration`'s `codes` as the code book reads them: an entry E030 refuses (not a local
+/// code, an empty title or explanation, a `docs` that is no http(s) URL, a code already
+/// catalogued: the first wins) never reaches it, so no surface prints what the load refused.
 pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode> {
+    let mut seen = std::collections::HashSet::new();
     declaration
         .codes
         .iter()
+        .filter(|entry| {
+            is_local_code(&entry.code)
+                && !entry.title.trim().is_empty()
+                && !entry.explanation.trim().is_empty()
+                && entry.docs.as_deref().is_none_or(is_http_url)
+                && seen.insert(entry.code.to_uppercase())
+        })
         .map(|entry| ExtensionCode {
             local: entry.code.clone(),
             title: entry.title.clone(),

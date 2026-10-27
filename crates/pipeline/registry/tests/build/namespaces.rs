@@ -75,4 +75,14 @@ fn a_malformed_code_entry_is_e030() {
     let build = build([bad, first_party]);
     // One per bad entry: the code shape (2), the duplicate, the empty title, the docs, first party.
     assert_eq!(coded(&build, "E030").len(), 6, "{:?}", codes(&build));
+    // None of them reaches the code book but the first of the duplicates.
+    let book = build.codes();
+    for refused in ["E1", "E103", "E104"] {
+        assert!(!book.catalogued("@acme/lint", refused), "{refused}");
+    }
+    assert!(book.describes("acme.lint/E101", None).is_none());
+    assert_eq!(
+        book.describes("acme.lint/E102", None).unwrap().title,
+        "Twice"
+    );
 }

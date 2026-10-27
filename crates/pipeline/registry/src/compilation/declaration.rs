@@ -99,13 +99,11 @@ fn code_entries(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
         if entry.explanation.trim().is_empty() {
             diagnostics.push(about("has an empty explanation"));
         }
-        let absolute = |scheme: &str| {
-            entry.docs.as_deref().is_some_and(|docs| {
-                docs.strip_prefix(scheme)
-                    .is_some_and(|rest| !rest.is_empty() && !rest.contains(char::is_whitespace))
-            })
-        };
-        if entry.docs.is_some() && !absolute("https://") && !absolute("http://") {
+        if entry
+            .docs
+            .as_deref()
+            .is_some_and(|docs| !super::codes::is_http_url(docs))
+        {
             diagnostics.push(about("has a `docs` that is not an absolute http(s) URL"));
         }
     }

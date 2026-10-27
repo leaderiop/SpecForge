@@ -172,8 +172,10 @@ impl Codebook {
     /// first-party extension (it declares no `codes`) and for an extension
     /// that does not own its namespace.
     pub fn catalogued(&self, extension: &str, local: &str) -> bool {
-        self.owned_by(extension)
-            .is_some_and(|owned| owned.codes.contains_key(&local.to_uppercase()))
+        is_local_code(local)
+            && self
+                .owned_by(extension)
+                .is_some_and(|owned| owned.codes.contains_key(&local.to_uppercase()))
     }
 
     /// The qualified forms (`gsd/W304`) of a bare `local` code that loaded

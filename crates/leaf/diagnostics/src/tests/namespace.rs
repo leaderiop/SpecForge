@@ -82,6 +82,9 @@ fn a_codebook_answers_what_an_extension_catalogues_and_a_codes_letter() {
     assert!(book.catalogued("@gsd/core", "W304"));
     assert!(!book.catalogued("@gsd/core", "W999"));
     assert!(!book.catalogued("@specforge/product", "W041"));
+    // A code that is no local code is never catalogued, whatever was added.
+    book.add("@gsd/core", vec![code("E1")]).unwrap();
+    assert!(!book.catalogued("@gsd/core", "E1"));
     assert_eq!(book.letter("gsd/W304"), Some(Level::Warning));
     assert_eq!(book.letter("E001"), Some(Level::Error));
     assert_eq!(book.letter("A010"), None);
