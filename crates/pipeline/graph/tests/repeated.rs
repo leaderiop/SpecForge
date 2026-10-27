@@ -74,7 +74,7 @@ fn a_later_entrys_names_are_tokens_and_link_nothing() {
         ..Default::default()
     };
     let (graph, _) = specforge_graph::build_graph_with_config(std::slice::from_ref(&file), &config);
-    let tokens = written_tokens(&file, &inputs, |n| graph.node(n).map(|n| n.kind.raw));
+    let tokens = written_tokens(&file, &inputs, graph.scopes());
     let later: Vec<_> = tokens
         .iter()
         .filter(|t| t.target.as_str() == "P2")

@@ -38,6 +38,7 @@ fn build_graph() -> Graph {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         });
     }
 

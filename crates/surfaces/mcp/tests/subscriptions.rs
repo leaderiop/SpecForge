@@ -29,7 +29,6 @@ fn subscribe_adds_subscription() {
         json!({"uri": "specforge://graph"}),
     );
     assert_eq!(reply["result"], json!({}), "{reply}");
-
     assert_eq!(
         server.state().subscriptions().subscribed(),
         ["specforge://graph"]
@@ -833,6 +832,7 @@ fn a_notified_diagnostic_is_presented_as_check_presents_it() {
         entity: "beta".to_string(),
         field: "depends_on".to_string(),
         did_you_mean: Some("alpha".to_string()),
+        candidates: Vec::new(),
     });
     let delta = GraphDelta::default();
     let mut subscriptions = Subscriptions::new();

@@ -14,6 +14,7 @@ use crate::read::navigate::{Navigator, Precision, TextEdit, apply_edits};
 use crate::view::EntityField;
 use crate::{Caller, OpError, OpErrorKind, Refusal, Wrote};
 use serde::Serialize;
+use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Form, Holder, Node, written_tokens};
 use specforge_parser::lex::lex;
@@ -202,13 +203,19 @@ pub fn plan(
 /// each, in key order. A type name in `node`'s own block is not one: a block derives no edge to itself.
 fn captured(nav: &Navigator<'_>, node: &Node, new_id: &str) -> Vec<String> {
     let inputs = nav.view().registries().graph_inputs();
-    let kind = node.kind.raw;
-    let kind_of = |name: &str| (name == new_id).then_some(kind);
+    let new_path = node
+        .scope
+        .map_or_else(|| new_id.to_string(), |scope| format!("{scope}/{new_id}"));
+    let scopes = nav
+        .view()
+        .graph()
+        .scopes()
+        .added(Sym::new(&new_path), node.kind.raw, node.scope);
     let mut places = Vec::new();
     for (_, file) in nav.view().project().parsed() {
-        for token in written_tokens(file, inputs, kind_of) {
+        for token in written_tokens(file, inputs, &scopes) {
             let own = token.holder == Holder::Block(node.id.raw) && token.form == Form::Derived;
-            if token.target.as_str() != new_id || own {
+            if token.target.as_str() != new_path || own {
                 continue;
             }
             let place = token.place();

@@ -192,6 +192,7 @@ mod dot_escape_tests {
             kind: EntityKind {
                 raw: Sym::new("behavior"),
             },
+            scope: None,
             title: Some("}\"; hack graph".to_string()),
             fields,
             source_span: SourceSpan {

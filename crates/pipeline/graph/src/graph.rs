@@ -1,3 +1,4 @@
+use crate::scope::{Found, Scopes};
 use specforge_common::{SourceSpan, Sym};
 use specforge_cycles::Cycle;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
@@ -14,6 +15,8 @@ pub use select::Selected;
 
 #[derive(Debug, Clone)]
 pub struct Node {
+    /// The entity's path: its scope's path and its name (`v1.0/03/D-01`), or its name alone in the project scope
+    /// (ADR 0284).
     pub id: EntityId,
     pub kind: EntityKind,
     pub title: Option<String>,
@@ -25,10 +28,28 @@ pub struct Node {
     /// `verify` statements in declaration order (ADR 0094): an entity's own
     /// member, never a field.
     pub obligations: Vec<specforge_parser::VerifyStatement>,
+    /// The path of the entity this one is scoped by, as its scope field resolved, or as it is written when it
+    /// resolves to none; `None`: the project. Never derived by splitting `id` on `/`, since a scheme ref id may hold
+    /// one.
+    pub scope: Option<Sym>,
 }
 
 impl Node {
-    /// A node of `kind` named `id` at `source_span`, with no title, field, method or
+    /// The name the entity is declared with: its path without its scope's.
+    pub fn name(&self) -> &str {
+        match self.scope {
+            Some(scope) => self
+                .id
+                .raw
+                .as_str()
+                .strip_prefix(scope.as_str())
+                .and_then(|rest| rest.strip_prefix('/'))
+                .unwrap_or(self.id.raw.as_str()),
+            None => self.id.raw.as_str(),
+        }
+    }
+
+    /// A node of `kind` named `id` at `source_span`, in the project scope, with no title, field, method or
     /// obligation.
     pub fn new(id: &str, kind: &str, source_span: SourceSpan) -> Node {
         Node {
@@ -41,6 +62,7 @@ impl Node {
             source_span,
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         }
     }
 }
@@ -74,6 +96,8 @@ pub struct Graph {
     source_index: HashMap<Sym, Vec<usize>>,
     /// Index: target sym -> indices into `edges`
     target_index: HashMap<Sym, Vec<usize>>,
+    /// Who is in which scope: kept with `nodes`.
+    scopes: Scopes,
 }
 
 impl Default for Graph {
@@ -89,17 +113,45 @@ impl Graph {
             edges: Vec::new(),
             source_index: HashMap::new(),
             target_index: HashMap::new(),
+            scopes: Scopes::new(),
         }
     }
 
     pub fn add_node(&mut self, node: Node) {
+        self.scopes.insert(node.id.raw, node.kind.raw, node.scope);
         self.nodes.insert(node.id.raw, node);
     }
 
     /// Remove every node `file` contributed; the build re-links every edge
     /// afterwards.
     pub(crate) fn remove_entities_of_file(&mut self, file: Sym) {
-        self.nodes.retain(|_, n| n.source_span.file != file);
+        let gone: Vec<Sym> = self
+            .nodes
+            .values()
+            .filter(|n| n.source_span.file == file)
+            .map(|n| n.id.raw)
+            .collect();
+        for id in gone {
+            self.remove_node(id);
+        }
+    }
+
+    /// Remove the node `id`, if any; the build re-links every edge afterwards.
+    pub(crate) fn remove_node(&mut self, id: Sym) {
+        if self.nodes.remove(&id).is_some() {
+            self.scopes.remove(id);
+        }
+    }
+
+    /// Who is in which scope.
+    pub fn scopes(&self) -> &Scopes {
+        &self.scopes
+    }
+
+    /// The entity a surface's `spelling` names: a path, rooted or not, or a unique suffix of one (ADR 0284). A
+    /// surface holds no entity, so this is the one place besides a scope field that takes a suffix.
+    pub fn find(&self, spelling: &str) -> Found {
+        self.scopes.resolve(None, spelling, &|_| true)
     }
 
     /// Insert an edge. Idempotent on the (source, target, label) triple —

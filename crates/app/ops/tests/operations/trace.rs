@@ -28,6 +28,7 @@ fn node(id: &str, kind: &str) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 

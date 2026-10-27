@@ -24,7 +24,7 @@ fn find(source: &str, make: fn() -> GraphInputs) -> (specforge_graph::Graph, Vec
         ..Default::default()
     };
     let (graph, _) = build_graph_with_config(std::slice::from_ref(&file), &config);
-    let tokens = written_tokens(&file, &make(), |n| graph.node(n).map(|n| n.kind.raw));
+    let tokens = written_tokens(&file, &make(), graph.scopes());
     (graph, tokens)
 }
 

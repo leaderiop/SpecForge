@@ -187,6 +187,7 @@ mod tests {
             },
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         }
     }
 

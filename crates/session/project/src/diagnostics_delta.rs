@@ -93,6 +93,7 @@ mod tests {
             entity: "beta".into(),
             field: "behaviors".into(),
             did_you_mean: Some(did_you_mean.into()),
+            candidates: Vec::new(),
         }
     }
 

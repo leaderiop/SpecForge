@@ -777,6 +777,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -2374,6 +2380,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -3372,6 +3384,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -3795,6 +3813,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -4461,6 +4485,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -5240,6 +5270,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -5830,6 +5866,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },
@@ -6886,6 +6928,12 @@ expression: listing
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "did_you_mean": {
                       "type": "string"
                     },

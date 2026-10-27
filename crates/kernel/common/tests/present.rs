@@ -94,7 +94,6 @@ fn print_diagnostics_contract() {
         4,
     );
     let formatted = specforge_common::format_diagnostic(&diag);
-
     assert!(
         formatted.contains("src/core.spec"),
         "must include file path"
@@ -160,7 +159,6 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let entry = &parsed[0];
-
     assert_eq!(entry["code"].as_str().unwrap(), "E001");
     assert_eq!(entry["severity"].as_str().unwrap(), "Error");
     assert_eq!(
@@ -495,6 +493,7 @@ fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
             entity: "login".into(),
             field: "invariants".into(),
             did_you_mean: Some("token".into()),
+            candidates: Vec::new(),
         });
 
     // Without data the entry is byte for byte what it was before data existed.
@@ -618,6 +617,7 @@ fn subject_data_is_tagged_and_names_its_entity() {
         entity: "holder".into(),
         field: "f".into(),
         did_you_mean: None,
+        candidates: Vec::new(),
     };
     assert_eq!(unresolved.entities(), ["holder"]);
     let import = DiagnosticData::UnresolvedImport {

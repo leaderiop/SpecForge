@@ -37,6 +37,7 @@ fn build_chain_graph(n: usize) -> Graph {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            scope: None,
         });
         if i > 0 {
             graph.add_edge(Edge {

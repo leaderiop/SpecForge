@@ -311,6 +311,7 @@ impl Fixture {
                 },
                 methods: Vec::new(),
                 obligations: Vec::new(),
+                scope: None,
             });
         }
         Fixture {

@@ -145,8 +145,13 @@ impl Planner<'_> {
         kind: &str,
     ) -> Result<(Vec<Referrer>, BTreeSet<String>), Refusal<EditField>> {
         let inputs = self.view.registries().graph_inputs();
-        let kind = Sym::new(kind);
-        let kind_of = |name: &str| (name == id).then_some(kind);
+        let graph = self.view.graph();
+        // The entity being deleted is in the graph; one this plan created is not yet.
+        let scopes = if graph.scopes().contains(id) {
+            graph.scopes().clone()
+        } else {
+            graph.scopes().added(Sym::new(id), Sym::new(kind), None)
+        };
         let mut keys: BTreeSet<String> = self.texts.keys().cloned().collect();
         keys.extend(
             self.view
@@ -160,7 +165,7 @@ impl Planner<'_> {
             let Some(text) = self.text(&key) else {
                 continue;
             };
-            for token in written_tokens(&parse(&text, &key), inputs, kind_of) {
+            for token in written_tokens(&parse(&text, &key), inputs, &scopes) {
                 if token.target.as_str() != id {
                     continue;
                 }

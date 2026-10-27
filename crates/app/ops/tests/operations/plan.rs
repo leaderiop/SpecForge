@@ -27,6 +27,7 @@ fn node(id: &str, kind: &str) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 
@@ -45,6 +46,7 @@ fn testable_node(id: &str) -> Node {
             kind: "unit".to_string(),
             description: "it works".to_string(),
         }],
+        scope: None,
     }
 }
 

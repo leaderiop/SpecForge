@@ -137,9 +137,8 @@ fn an_inherited_reference_is_written_at_the_default() {
         field_forms: forms(),
         ..Default::default()
     };
-    let tokens = specforge_graph::written_tokens(&parse(&blocks(), "a.spec"), &inputs, |n| {
-        graph.node(n).map(|n| n.kind.raw)
-    });
+    let tokens =
+        specforge_graph::written_tokens(&parse(&blocks(), "a.spec"), &inputs, graph.scopes());
     assert_eq!(tokens.len(), 1, "{tokens:?}");
     let token = &tokens[0];
     let span = &token.span;

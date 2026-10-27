@@ -86,13 +86,18 @@ pub struct Diagnostic {
 pub enum DiagnosticData {
     /// E003: `entity`'s reference field `field` names `target`, which no
     /// entity declares. `did_you_mean` is the closest declared id, when one
-    /// is close enough to suggest.
+    /// is close enough to suggest. `candidates` are the entities that bear the written
+    /// name or path outside the holder's scope chain, or all that a scope field's
+    /// short form matches (ADR 0284), each spelled as the holder writes it: one fix
+    /// each; empty (and not serialized) when there are none.
     UnresolvedReference {
         target: String,
         entity: String,
         field: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         did_you_mean: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        candidates: Vec<String>,
     },
     /// E025: a `use` import names `path`, which resolves to no `.spec`
     /// file. `did_you_mean` is the closest known path, when one is close.

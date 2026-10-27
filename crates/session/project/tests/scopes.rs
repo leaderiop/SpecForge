@@ -65,10 +65,9 @@ fn check(project: &Assembled, files: Vec<SpecFile>) {
             node.id.raw
         );
     }
-    let kind_of = |name: &str| graph.node(name).map(|n| n.kind.raw);
     let tokens: HashSet<(String, String)> = files
         .iter()
-        .flat_map(|f| written_tokens(f, build.inputs(), kind_of))
+        .flat_map(|f| written_tokens(f, build.inputs(), graph.scopes()))
         .flat_map(|t| {
             t.held_by
                 .iter()
@@ -190,7 +189,6 @@ decision D-01 "Choice" { phase v2.0/03 }
     behavior = "detect_duplicate_entity_ids",
     verify = "a name repeated in another scope is another entity with another path"
 )]
-#[ignore = "K2 T5"]
 fn a_name_repeats_in_another_scope() {
     let build = scoped(&[("a.spec", TWO_MILESTONES)]);
     assert_eq!(
@@ -215,7 +213,6 @@ fn a_name_repeats_in_another_scope() {
     behavior = "detect_duplicate_entity_ids",
     verify = "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
 )]
-#[ignore = "K2 T5"]
 fn a_name_repeated_in_one_scope_is_e002_naming_the_path() {
     let build = scoped(&[(
         "a.spec",
@@ -248,7 +245,6 @@ spec "other" { }
     behavior = "link_derived_references",
     verify = "a type name resolves by its holder's chain and is no E004, a path written as a type is one name"
 )]
-#[ignore = "K2 T5"]
 fn a_type_name_resolves_by_its_chain_and_is_no_e004() {
     let build = scoped(&[(
         "a.spec",
@@ -289,7 +285,6 @@ shape Lost "Lost" {
     behavior = "link_entity_references",
     verify = "a reference resolves in its holder, each enclosing scope, then the project"
 )]
-#[ignore = "K2 T5"]
 fn a_reference_resolves_from_its_holder_outward() {
     let build = scoped(&[(
         "a.spec",
@@ -321,7 +316,6 @@ plan 03-02 "Plan" {
     behavior = "link_entity_references",
     verify = "a path resolves at the nearest level where the whole path resolves"
 )]
-#[ignore = "K2 T5"]
 fn a_path_resolves_where_the_whole_path_does() {
     let build = scoped(&[(
         "a.spec",
@@ -356,7 +350,6 @@ task v1.0 "A task named like a milestone" { plan v1.0/03/03-02 }
     behavior = "link_entity_references",
     verify = "a rooted path names an entity from the project, and a bare name is found in the chain first"
 )]
-#[ignore = "K2 T5"]
 fn a_rooted_path_names_from_the_project() {
     let build = scoped(&[(
         "a.spec",
@@ -386,7 +379,6 @@ plan 05-01 "Plan" {
     behavior = "link_entity_references",
     verify = "a name outside the holder's chain is E003 naming each entity that bears it, and never links silently"
 )]
-#[ignore = "K2 T5"]
 fn a_name_outside_the_chain_is_e003_naming_each_candidate() {
     let build = scoped(&[(
         "a.spec",
@@ -437,7 +429,6 @@ plan 05-01 "Plan" {
     behavior = "link_entity_references",
     verify = "a scope field takes a unique suffix, and several matches are E003 naming each"
 )]
-#[ignore = "K2 T5"]
 fn a_scope_field_takes_a_unique_suffix() {
     let one = scoped(&[(
         "a.spec",
@@ -470,7 +461,6 @@ fn a_scope_field_takes_a_unique_suffix() {
     behavior = "detect_duplicate_entity_ids",
     verify = "an entity that writes no scope field is in the project scope"
 )]
-#[ignore = "K2 T5"]
 fn an_absent_scope_field_is_the_project() {
     let build = scoped(&[(
         "a.spec",
@@ -489,7 +479,6 @@ fn an_absent_scope_field_is_the_project() {
     behavior = "link_entity_references",
     verify = "an entity whose scope does not resolve keeps its written scope in its path and reports E003 on the field"
 )]
-#[ignore = "K2 T5"]
 fn an_unresolved_scope_keeps_its_written_path() {
     let build = scoped(&[("a.spec", "decision D-01 \"D\" { phase 99 }\n")]);
     assert_eq!(ids(&build), ["99/D-01"]);
@@ -502,7 +491,6 @@ fn an_unresolved_scope_keeps_its_written_path() {
     behavior = "rebuild_affected_subgraph",
     verify = "an apply that moves a scope re-keys its members held in other files, equal to a cold build"
 )]
-#[ignore = "K2 T5"]
 fn a_renamed_scope_rekeys_its_members_incrementally() {
     let mut build = scoped(&[
         (
@@ -525,14 +513,12 @@ fn a_renamed_scope_rekeys_its_members_incrementally() {
     behavior = "find_all_references",
     verify = "the finder reports a final token for a path's last name and a qualifier token for each name before it"
 )]
-#[ignore = "K2 T5"]
 fn the_finder_reads_each_segment() {
     let source = "milestone v1.0 \"One\" { }\nphase 03 \"Three\" { milestone v1.0 }\n\
                   decision D-01 \"D\" { phase v1.0/03 }\nplan 05-01 \"P\" {\n  phase v1.0/03\n  decisions [v1.0/03/D-01]\n}\n";
     let build = scoped(&[("a.spec", source)]);
     let file = parse(source, "a.spec");
-    let kind_of = |name: &str| build.graph().node(name).map(|n| n.kind.raw);
-    let tokens = written_tokens(&file, build.inputs(), kind_of);
+    let tokens = written_tokens(&file, build.inputs(), build.graph().scopes());
     let line = 6;
     let in_list: Vec<_> = tokens
         .iter()

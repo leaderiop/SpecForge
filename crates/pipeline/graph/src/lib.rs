@@ -6,6 +6,7 @@
 //! tokens of a file name an entity, and `Members` and `Obligation` what an entity holds as every output writes it.
 
 mod build;
+mod declare;
 mod defaults;
 pub use defaults::{FileDefaults, Held, written_fields};
 pub mod field_form;
@@ -21,6 +22,8 @@ pub use delta::{
 mod derive;
 pub use derive::{DerivedFrom, DerivedReference, PRIMITIVE_TYPES};
 mod graph;
+mod scope;
+pub use scope::{Found, Scopes};
 mod members;
 pub mod title;
 mod tokens;

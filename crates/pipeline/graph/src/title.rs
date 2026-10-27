@@ -23,7 +23,7 @@ fn becomes_node(entity: &Entity) -> bool {
 
 /// E076: a block with no title, or a blank one. Its help names `specforge migrate` exactly where the titles step
 /// writes the title: a spec block's title is its name, which no step writes (ADR 0187 D4).
-pub(crate) fn untitled_block_error(entity: &Entity) -> Diagnostic {
+pub(crate) fn untitled_block_error(entity: &Entity, path: specforge_common::Sym) -> Diagnostic {
     let help = if entity.kind.raw == structural::SPEC {
         "a spec block's title is its name: write it in the header, spec \"…\"".to_string()
     } else {
@@ -37,6 +37,6 @@ pub(crate) fn untitled_block_error(entity: &Entity) -> Diagnostic {
         format!("{} '{}' has no title", entity.kind.raw, entity.id.raw),
     )
     .with_span(entity.span.clone())
-    .with_data(about(entity))
+    .with_data(about(path))
     .with_suggestion(help)
 }

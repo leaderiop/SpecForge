@@ -150,11 +150,11 @@ impl Navigator<'_> {
 
     pub(crate) fn definition_of(&self, node: &Node) -> Definition {
         let block = node.source_span.clone();
-        let id = node.id.raw.as_str();
+        let written = node.name();
         let name = self
             .parsed_block(node)
             .and_then(|entity| entity.name_span.clone())
-            .filter(|name| self.spelled(name, id));
+            .filter(|name| self.spelled(name, written));
         let (name, precision) = match name {
             Some(name) => (name, Precision::Token),
             None => (block.clone(), Precision::Entity),
@@ -297,15 +297,16 @@ impl Navigator<'_> {
     fn found(&self, file: &SpecFile) -> Vec<WrittenToken> {
         let graph = self.view.graph();
         let inputs = self.view.registries().graph_inputs();
-        let kind_of = |name: &str| graph.node(name).map(|n| n.kind.raw);
-        let mut tokens = written_tokens(file, inputs, kind_of);
-        tokens.retain(|t| graph.node(t.target.as_str()).is_some());
+        let mut tokens = written_tokens(file, inputs, graph.scopes());
+        tokens.retain(|t| graph.scopes().contains(t.target.as_str()));
         tokens
     }
 
     /// `token`'s span as a [`Token`]: [`Precision::Entity`] when the compiled text does not spell its target there.
     fn token(&self, token: &WrittenToken) -> Token {
-        let spelled = self.spelled(&token.span, token.target.as_str());
+        // A path is written one name at a time: the text at the span spells the entity's name, not its path.
+        let name = self.view.graph().scopes().name(token.target);
+        let spelled = self.spelled(&token.span, name);
         Token {
             target: token.target,
             span: token.span.clone(),

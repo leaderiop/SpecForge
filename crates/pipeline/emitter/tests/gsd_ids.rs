@@ -23,6 +23,7 @@ fn node(id: &str) -> Node {
         },
         methods: Vec::new(),
         obligations: Vec::new(),
+        scope: None,
     }
 }
 

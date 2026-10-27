@@ -461,6 +461,7 @@ fn every_derived_schema_accepts_what_serde_writes() {
             entity: "alpha".into(),
             field: "refines".into(),
             did_you_mean: None,
+            candidates: Vec::new(),
         });
     for list in [
         DiagnosticList(vec![]),

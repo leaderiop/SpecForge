@@ -527,6 +527,7 @@ fn unresolved(target: &str, entity: &str, field: &str, close: Option<&str>) -> D
         entity: entity.into(),
         field: field.into(),
         did_you_mean: close.map(String::from),
+        candidates: Vec::new(),
     }
 }
 
