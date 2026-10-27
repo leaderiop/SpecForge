@@ -7,7 +7,6 @@ use serde_json::json;
 use specforge_project::testing::{GSD_WRITES_EXTENSIONS, GsdWrites, TestProject};
 use specforge_test::prelude::*;
 
-#[ignore = "K5 T7"]
 #[specforge_test(
     behavior = "roll_back_interrupted_write",
     verify = "an interrupted write is W167 until the next writer rolls it back"

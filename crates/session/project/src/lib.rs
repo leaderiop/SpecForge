@@ -28,6 +28,7 @@ pub mod coverage;
 mod diagnostics_delta;
 pub mod harness;
 pub mod history;
+pub mod journal;
 mod ledger;
 pub mod passes;
 mod policy;

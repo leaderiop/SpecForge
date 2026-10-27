@@ -3576,6 +3576,25 @@ Owner: core
 Level: warning
 ```
 
+## W167
+
+```
+W167: Interrupted write pending rollback
+
+`.specforge/write-journal.json` exists (ADR 0289): a write of the project's
+files was interrupted after it recorded what it would replace and before it
+finished, so some of its files may hold part of it. The journal is the write's
+record, kept under the write lock: the next SpecForge write puts back each file
+that still holds what the interrupted one wrote, leaves a file that holds what
+it replaced, and names a file that holds neither, then removes the journal. A
+check never rolls it back, so it reports this once until a writer does. Run a
+write again, or `specforge harness gc`, to roll it back; then re-run the command
+that was interrupted, since its plan is stale.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

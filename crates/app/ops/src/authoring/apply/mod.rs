@@ -6,6 +6,7 @@
 
 mod command;
 mod flags;
+pub(crate) mod journal;
 mod lower;
 mod revision;
 

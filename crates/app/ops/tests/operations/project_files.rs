@@ -24,6 +24,12 @@ const NEEDLES: &[&str] = &[
 /// `(file under src/, needle, how many lines, why it is not a project file held by a containment)`.
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
+        "authoring/apply/journal.rs",
+        "fs::remove_file(",
+        1,
+        "the write journal under .specforge, which the host owns",
+    ),
+    (
         "analysis/collect/process.rs",
         "fs::read_to_string(",
         1,

@@ -361,6 +361,7 @@ behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
   """
   verify unit "an interrupted write is rolled back by the next writer"
   verify unit "an interrupted write is W167 until the next writer rolls it back"
+  verify unit "rollback restores exactly the files at their after digest"
 }
 
 behavior refuse_human_only_write "Refuse a Human-Only Write" {

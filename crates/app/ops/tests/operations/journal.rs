@@ -15,7 +15,6 @@ fn digest(text: &str) -> String {
     format!("sha256:{}", Sha256::of(text.as_bytes()))
 }
 
-#[ignore = "K5 T7"]
 #[specforge_test(
     behavior = "roll_back_interrupted_write",
     verify = "an interrupted write is rolled back by the next writer"

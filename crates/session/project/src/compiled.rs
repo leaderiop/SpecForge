@@ -590,7 +590,10 @@ impl CompiledProject {
             let checked = env.checked(Some(graph), &authored, disk, &read.read);
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
-            outcome = Some((checked.diagnostics, entities, checked.computed));
+            let mut diagnostics = checked.diagnostics;
+            // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.
+            diagnostics.extend(crate::journal::pending(env.root()));
+            outcome = Some((diagnostics, entities, checked.computed));
         });
         self.checks_skipped = false;
         self.baseline = baseline;
