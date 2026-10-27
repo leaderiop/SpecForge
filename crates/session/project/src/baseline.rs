@@ -455,34 +455,62 @@ impl Baseline {
             }
             _ => Default::default(),
         };
-        let graph = built.graph.graph();
-        let forms = env.registries().field_forms();
-        let mut entities = BTreeMap::new();
-        for node in graph.nodes() {
-            let path = node.id.raw.as_str();
-            let mut entity = BaselineEntity {
-                kind: node.kind.raw.to_string(),
-                ..Default::default()
-            };
-            for entry in node.fields.entries() {
-                let key = entry.key.as_str();
-                if let Some(value) = specforge_graph::wire::resolved(graph, forms, node, key) {
-                    entity
-                        .values
-                        .insert(key.to_string(), value.as_value().clone());
-                }
-            }
-            for (field, value) in computed.of(path) {
-                entity
-                    .computed
-                    .insert(field.to_string(), value.as_value().clone());
-            }
-            entities.insert(path.to_string(), entity);
-        }
+        let entities = entities_of(
+            built.graph.graph(),
+            env.registries().field_forms(),
+            &computed,
+        );
         Baseline {
             revision,
             entities,
             ledger,
+        }
+    }
+}
+
+/// Every entity of `graph`, each field as the host reads it and the values `computed` gave it.
+fn entities_of(
+    graph: &specforge_graph::Graph,
+    forms: &specforge_graph::FieldForms,
+    computed: &specforge_graph::Computed,
+) -> BTreeMap<String, BaselineEntity> {
+    let mut entities = BTreeMap::new();
+    for node in graph.nodes() {
+        let path = node.id.raw.as_str();
+        let mut entity = BaselineEntity {
+            kind: node.kind.raw.to_string(),
+            ..Default::default()
+        };
+        for entry in node.fields.entries() {
+            let key = entry.key.as_str();
+            if let Some(value) = specforge_graph::wire::resolved(graph, forms, node, key) {
+                entity
+                    .values
+                    .insert(key.to_string(), value.as_value().clone());
+            }
+        }
+        for (field, value) in computed.of(path) {
+            entity
+                .computed
+                .insert(field.to_string(), value.as_value().clone());
+        }
+        entities.insert(path.to_string(), entity);
+    }
+    entities
+}
+
+impl Baseline {
+    /// The project `project` as it is on disk, as the baseline a guard pass reads (`revision: "working"`, ADR 0289):
+    /// the project before the write being judged.
+    pub fn of_project(project: &crate::CompiledProject) -> Baseline {
+        Baseline {
+            revision: Sha::new("working"),
+            entities: entities_of(
+                project.graph(),
+                project.environment().registries().field_forms(),
+                project.computed(),
+            ),
+            ledger: String::new(),
         }
     }
 }

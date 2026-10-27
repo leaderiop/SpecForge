@@ -9,7 +9,6 @@ use specforge_test::prelude::*;
 
 const SPEC: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n";
 
-#[ignore = "K5 T12"]
 #[specforge_test(
     behavior = "run_guard_passes",
     verify = "a guard pass refuses a write and is silent on compile"
@@ -37,7 +36,10 @@ fn a_guard_pass_refuses_a_write_and_is_silent_on_compile() {
             .all(|c| c.export != "__pass_phase_complete"),
         "a compile never runs a guard pass"
     );
-    let edited = compiled.edited(&[("a.spec".to_string(), SPEC.replace("Three", "Tres"))].into());
+    let edited = compiled
+        .edited(&[("a.spec".to_string(), SPEC.replace("Three", "Tres"))].into())
+        .judged_against(&compiled);
+    // A hand edit is never guarded: the same text, edited and not judged, reports no finding.
     let guarded: Vec<_> = edited
         .diagnostics()
         .into_iter()

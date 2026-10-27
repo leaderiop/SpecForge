@@ -12,6 +12,7 @@ use specforge_graph::{
 };
 
 mod disk;
+mod judged;
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};

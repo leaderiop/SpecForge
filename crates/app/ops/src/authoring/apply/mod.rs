@@ -282,7 +282,9 @@ fn rejudge(
     }
     let before = project.edited_over_disk(&Default::default(), None);
     let ledger = change.ledger_over(&project.root_file(specforge_project::harness::LEDGER_FILE));
-    let after = project.edited_over_disk(&change.after(), ledger.as_deref());
+    let after = project
+        .edited_over_disk(&change.after(), ledger.as_deref())
+        .judged_against(&before);
     crate::authoring::edit::validate::refuse_new_errors(
         &before.checked_diagnostics(),
         after.diagnostics(),

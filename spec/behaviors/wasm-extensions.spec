@@ -1017,4 +1017,5 @@ behavior run_guard_passes "Run Guard Passes" {
     runs no guard pass and reports none.
   """
   verify unit "a guard pass refuses a write and is silent on compile"
+  verify unit "a plan a guard pass finds an error in is refused with E080 and nothing is written"
 }

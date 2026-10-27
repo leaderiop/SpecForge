@@ -506,3 +506,23 @@ fn a_malformed_plan_is_invalid_plan() {
         assert!(ran.wrote.is_empty());
     }
 }
+
+#[specforge_test(
+    behavior = "run_guard_passes",
+    verify = "a plan a guard pass finds an error in is refused with E080 and nothing is written"
+)]
+fn a_plan_a_guard_pass_refuses_writes_nothing() {
+    let p = project();
+    let finding = json!([{"code": "E700", "severity": "Error", "message": "phase 03 is not complete", "entity": "v1.0/03"}]);
+    let ops = json!([{"op": "retitle", "entity": "v1.0/03/U1", "title": "x",
+        "revision": revision(&p, "03-01.spec")}]);
+    let runtime = Arc::new(
+        GsdWrites::new()
+            .guarding(finding)
+            .answering(CORE, "cmd__record", gsd_writes_answer(0, ops))
+            .runtime(),
+    );
+    let ran = run_command(&p, &compiled(&p, &runtime), &runtime, "core", "record");
+    assert_eq!(ran.refusal.map(|(code, _)| code).as_deref(), Some("E080"));
+    assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
+}

@@ -78,7 +78,11 @@ pub fn check(
     ledger: Option<&[u8]>,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().checked_diagnostics();
-    let post = view.project().edited_with(texts, ledger);
+    // The project the write would leave, judged: the guard passes read it and the project before it (ADR 0289).
+    let post = view
+        .project()
+        .edited_with(texts, ledger)
+        .judged_against(view.project());
     let (errors, rest) = added(&before, post.diagnostics());
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
