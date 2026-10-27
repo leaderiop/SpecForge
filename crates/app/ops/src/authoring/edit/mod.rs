@@ -5,6 +5,7 @@
 //! one project change (ADR 0128).
 
 mod block;
+pub use block::Site;
 mod create;
 mod declared;
 mod defaults;
@@ -506,6 +507,24 @@ impl<'v> Planner<'v> {
             }
         }
         moves
+    }
+
+    /// A judged rule's verdict: written by the rules that judge it, and a value the ledger keeps (`verdict:<rule>`).
+    fn verdict(
+        &mut self,
+        verdict: &crate::authoring::apply::VerdictStep,
+    ) -> Result<(), Refusal<EditField>> {
+        let path = self.path_of(&verdict.entity)?;
+        self.declared.field(&path, "verdict");
+        self.on(&verdict.entity, |site, text| {
+            verdict.rules.0.write(site, text, &verdict.member)
+        })?;
+        self.sets.push((
+            self.raw_moves.len(),
+            path,
+            format!("verdict:{}", verdict.member.rule),
+        ));
+        Ok(())
     }
 
     fn apply(&mut self, edit: &Edit) -> Result<(), Refusal<EditField>> {

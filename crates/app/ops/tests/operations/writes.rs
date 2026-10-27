@@ -24,11 +24,11 @@ pub(crate) fn files_under(root: &Path) -> Snapshot {
         let Ok(entries) = std::fs::read_dir(&dir) else {
             continue;
         };
-        for path in entries.map(|entry| entry.unwrap().path()) {
+        // A concurrent writer's temporary file may be gone by the time it is read: it is no file of the project.
+        for path in entries.flatten().map(|entry| entry.path()) {
             if path.is_dir() {
                 dirs.push(path);
-            } else {
-                let bytes = std::fs::read(&path).unwrap();
+            } else if let Ok(bytes) = std::fs::read(&path) {
                 files.insert(path, bytes);
             }
         }

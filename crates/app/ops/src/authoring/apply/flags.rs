@@ -50,6 +50,8 @@ pub(crate) fn check(
     for op in ops {
         match &op.step {
             Step::Edit(edit) => edit_flags(view, origin, &mut kinds, op.number, plan, edit)?,
+            // A verdict is checked by the judged rules before it is a step.
+            Step::Verdict(_) => {}
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
                     human_kind(view, origin, op.number, plan, &kind)?;

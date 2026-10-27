@@ -19,7 +19,12 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
     Edit(Edit),
-    Rename { entity: String, to: String },
+    Rename {
+        entity: String,
+        to: String,
+    },
+    /// A judged rule's verdict, checked by the apply step: the entity's block gains or replaces its verdict member.
+    Verdict(Box<crate::authoring::apply::VerdictStep>),
 }
 
 impl Step {
@@ -27,6 +32,7 @@ impl Step {
         match self {
             Step::Edit(edit) => describe(edit),
             Step::Rename { entity, to } => format!("rename {entity} {to}"),
+            Step::Verdict(v) => format!("set_verdict {} {}", v.entity, v.member.rule),
         }
     }
 }
@@ -85,7 +91,7 @@ pub fn plan_steps(view: &ProjectView<'_>, steps: &[Step]) -> Result<EditPlan, Re
     while at < steps.len() {
         let end = match &steps[at] {
             Step::Rename { .. } => at + 1,
-            Step::Edit(_) => steps[at..]
+            Step::Edit(_) | Step::Verdict(_) => steps[at..]
                 .iter()
                 .position(|s| matches!(s, Step::Rename { .. }))
                 .map_or(steps.len(), |p| at + p),
@@ -94,7 +100,7 @@ pub fn plan_steps(view: &ProjectView<'_>, steps: &[Step]) -> Result<EditPlan, Re
             Step::Rename { entity, to } => {
                 rename_step(view, &mut carry, entity, to).map_err(|r| (0, r))
             }
-            Step::Edit(_) => edits(view, &harness, &mut carry, &steps[at..end]),
+            Step::Edit(_) | Step::Verdict(_) => edits(view, &harness, &mut carry, &steps[at..end]),
         };
         done.map_err(|(offset, mut refusal)| {
             if steps.len() > 1 {
@@ -142,8 +148,12 @@ fn edits(
     };
     let mut failed = None;
     for (offset, step) in run.iter().enumerate() {
-        let Step::Edit(edit) = step else { continue };
-        if let Err(refusal) = planner.apply(edit) {
+        let applied = match step {
+            Step::Edit(edit) => planner.apply(edit),
+            Step::Verdict(verdict) => planner.verdict(verdict),
+            Step::Rename { .. } => continue,
+        };
+        if let Err(refusal) = applied {
             failed = Some((offset, refusal));
             break;
         }

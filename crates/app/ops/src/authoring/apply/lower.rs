@@ -2,6 +2,7 @@
 //! revision of the file it was planned on kept aside. A malformed operation is `invalid_plan`, naming its number
 //! (from 1).
 
+use super::verdict::VerdictOp;
 use super::{Op, invalid};
 use crate::OpError;
 use crate::authoring::edit::{Edit, Input, Obligation, Step};
@@ -11,12 +12,12 @@ use specforge_graph::Found;
 use specforge_protocol_types::{EditPlan, PlanOp};
 use std::collections::BTreeMap;
 
-/// The plan, lowered: its operations in order, the revision it names for each file, and the numbers of the
-/// `set_verdict` operations (the judged-rules port decides those, T13).
+/// The plan, lowered: its operations in order, the revision it names for each file, and the `set_verdict`
+/// operations, each with the place among `ops` it was written at (the judged-rules port decides those).
 pub(super) struct Lowered {
     pub ops: Vec<Op>,
     pub files: BTreeMap<String, String>,
-    pub verdicts: Vec<usize>,
+    pub verdicts: Vec<(usize, VerdictOp)>,
 }
 
 /// Where the entities of the plan are: the file of each, as the project has them and as the plan's creates and
@@ -303,8 +304,32 @@ fn lower_op(
                 to: to.clone(),
             }))
         }
-        PlanOp::SetVerdict { .. } => {
-            out.verdicts.push(number);
+        PlanOp::SetVerdict {
+            entity,
+            rule,
+            outcome,
+            judge,
+            model,
+            findings,
+            cited,
+            values,
+            basis,
+        } => {
+            out.verdicts.push((
+                out.ops.len(),
+                VerdictOp {
+                    number,
+                    entity: entity.clone(),
+                    rule: rule.clone(),
+                    outcome: outcome.clone(),
+                    judge: judge.clone(),
+                    model: model.clone(),
+                    findings: findings.clone(),
+                    cited: cited.clone(),
+                    values: values.clone(),
+                    basis: basis.clone(),
+                },
+            ));
             Ok(None)
         }
     }

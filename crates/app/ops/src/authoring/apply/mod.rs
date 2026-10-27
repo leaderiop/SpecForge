@@ -10,9 +10,14 @@ mod flags;
 pub(crate) mod journal;
 mod lower;
 mod revision;
+mod verdict;
+pub use verdict::{
+    Clock, JudgedRule, JudgedRules, NoJudgedRules, Rules, SystemClock, UnknownCite,
+    VERDICT_REFUSED, VerdictMember, VerdictStep,
+};
 
 pub use collector::apply_collected;
-pub use command::{CommandRun, PlanOutcome, execute};
+pub use command::{CommandRun, PlanOutcome, execute, execute_with};
 
 use crate::authoring::edit::{EditField, Edited, Step, plan_steps};
 use crate::authoring::planned::PlannedChange;
@@ -22,6 +27,7 @@ use specforge_project::CompiledProject;
 use specforge_project::harness::LedgerChange;
 use specforge_protocol_types::EditPlan;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 /// A plan's operations are not well formed: the data names the operation's number (from 1).
 pub const INVALID_PLAN: &str = "invalid_plan";
@@ -118,19 +124,29 @@ pub fn apply_plan(
     dry_run: bool,
     caller: Caller<'_>,
 ) -> Result<Edited, Refusal<EditField>> {
+    let rules: Arc<dyn JudgedRules> = Arc::new(NoJudgedRules);
+    apply_plan_with(view, plan, origin, dry_run, caller, &rules, &SystemClock)
+}
+
+/// [`apply_plan`] for a host that judges rules: a `set_verdict` is checked through `rules` (D6) and dated by `clock`.
+pub fn apply_plan_with(
+    view: &ProjectView<'_>,
+    plan: &EditPlan,
+    origin: &Origin,
+    dry_run: bool,
+    caller: Caller<'_>,
+    rules: &Arc<dyn JudgedRules>,
+    clock: &dyn Clock,
+) -> Result<Edited, Refusal<EditField>> {
     let lowered = lower::lower(view, plan)?;
     flags::check(view, origin, &lowered.ops, true)?;
-    if let Some(number) = lowered.verdicts.first() {
-        return Err(OpError::new(
-            OpErrorKind::InvalidInput,
-            NOT_JUDGED,
-            format!("operation {number}: set_verdict names a rule, and no extension declares a judged rule"),
-        )
-        .with_data(serde_json::json!({"op": number}))
-        .into());
+    let mut steps: Vec<Step> = lowered.ops.iter().map(|op| op.step.clone()).collect();
+    // The verdicts go back where the plan wrote them, once checked.
+    for (inserted, (at, op)) in lowered.verdicts.iter().enumerate() {
+        let step = verdict::check(view, rules, clock, origin, op)?;
+        steps.insert(at + inserted, Step::Verdict(Box::new(step)));
     }
     revision::against_compile(view.project(), &lowered.files)?;
-    let steps: Vec<Step> = lowered.ops.iter().map(|op| op.step.clone()).collect();
     let planned = plan_steps(view, &steps)?;
     let report = planned.report().clone();
     let wrote = Wrote::unless_preview(dry_run, || {
@@ -329,6 +345,50 @@ pub mod testing {
     use super::{Origin, apply as write};
     use crate::authoring::planned::PlannedChange;
     use crate::{Caller, OpError, Writes};
+
+    /// A judged rule `quality` of `@t/core` (judge `judge`, version 1.0.0) over `verification`, outcomes `pass` and
+    /// `fail`, binding no value. Its one input digest is `cited`; a cited entity must exist.
+    #[derive(Debug, Clone, Default)]
+    pub struct FakeJudgedRules;
+
+    impl super::JudgedRules for FakeJudgedRules {
+        fn rule(&self, name: &str) -> Option<super::JudgedRule> {
+            (name == "quality").then(|| super::JudgedRule {
+                extension: "@t/core".into(),
+                judge: "judge".into(),
+                version: "1.0.0".into(),
+                targets: vec!["verification".into()],
+                outcomes: vec!["pass".into(), "fail".into()],
+                values: Vec::new(),
+            })
+        }
+
+        fn digests(
+            &self,
+            view: &crate::view::ProjectView<'_>,
+            _entity: &str,
+            _rule: &str,
+            cited: &[specforge_protocol_types::Cite],
+        ) -> Result<std::collections::BTreeMap<String, String>, super::UnknownCite> {
+            for cite in cited {
+                if let specforge_protocol_types::Cite::Entity { entity } = cite
+                    && !matches!(view.graph().find(entity), specforge_graph::Found::One(_))
+                {
+                    return Err(super::UnknownCite(entity.clone()));
+                }
+            }
+            Ok([("cited".to_string(), "sha256:1".to_string())].into())
+        }
+
+        fn write(
+            &self,
+            _: &crate::authoring::edit::Site<'_>,
+            text: &str,
+            _: &super::VerdictMember,
+        ) -> Result<String, crate::Refusal<crate::authoring::edit::EditField>> {
+            Ok(text.to_string())
+        }
+    }
 
     /// The origin most tests write as.
     pub fn origin() -> Origin {

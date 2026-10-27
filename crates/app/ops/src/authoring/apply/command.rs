@@ -1,12 +1,15 @@
 //! Running a writing command (ADR 0289): the command answers, and the plan it answered is applied for it.
 
-use super::{Origin, UNDECLARED_WRITE, apply_plan};
+use super::{
+    Clock, JudgedRules, NoJudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
+};
 use crate::authoring::edit::Edited;
 use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, run};
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind};
 use serde_json::{Map, Value};
 use specforge_protocol_types::CommandOutput;
+use std::sync::Arc;
 
 /// What became of the plan a command answered.
 #[derive(Debug, Clone)]
@@ -39,6 +42,34 @@ pub fn execute(
     dry_run: bool,
     caller: Caller<'_>,
 ) -> Result<CommandRun, RunError> {
+    let rules: Arc<dyn JudgedRules> = Arc::new(NoJudgedRules);
+    execute_with(
+        view,
+        command,
+        given,
+        format,
+        dry_run,
+        caller,
+        &rules,
+        &SystemClock,
+    )
+}
+
+/// [`execute`] for a host that judges rules: a `set_verdict` in the plan is checked through `rules` and dated by `clock`.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the command, its inputs, how it is applied and the judged-rules port are each one thing"
+)]
+pub fn execute_with(
+    view: &ProjectView<'_>,
+    command: &ExtensionCommand,
+    given: &Map<String, Value>,
+    format: CommandFormat,
+    dry_run: bool,
+    caller: Caller<'_>,
+    rules: &Arc<dyn JudgedRules>,
+    clock: &dyn Clock,
+) -> Result<CommandRun, RunError> {
     let output = run(view, command, given, format)?;
     let Some(plan) = &output.plan else {
         return Ok(CommandRun { output, plan: None });
@@ -59,7 +90,7 @@ pub fn execute(
         let origin = Origin::Command {
             extension: command.extension().to_string(),
         };
-        match apply_plan(view, plan, &origin, dry_run, caller) {
+        match apply_plan_with(view, plan, &origin, dry_run, caller, rules, clock) {
             Ok(edited) if edited.wrote.previewed() => PlanOutcome::Previewed(edited),
             Ok(edited) => PlanOutcome::Applied(edited),
             Err(refusal) => PlanOutcome::Refused(refusal.into_error()),
