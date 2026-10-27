@@ -190,8 +190,13 @@ impl History for GitCli {
             };
             let mut parts = meta.split(' ');
             let (mode, kind, object) = (parts.next(), parts.next(), parts.next());
+            // only what a baseline compiles: the specs and the ledger, so a repository's images, lockfiles and vendored
+            // trees are never read
+            let wanted = path.ends_with(".spec")
+                || path.rsplit('/').next() == Some(specforge_project::harness::LEDGER_FILE);
             if kind == Some("blob")
                 && mode != Some("120000")
+                && wanted
                 && let Some(object) = object
             {
                 blobs.push((PathBuf::from(path), object.to_string()));

@@ -69,3 +69,32 @@ fn history_reads_the_commits_files() {
         Located::Unavailable(_)
     ));
 }
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "history reads only the specs and the ledger of a commit"
+)]
+fn history_reads_only_the_specs_and_the_ledger() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("node_modules/x")).unwrap();
+    std::fs::write(root.join("a.spec"), "one\n").unwrap();
+    std::fs::write(root.join("specforge-harness"), "# specforge-harness 1\n").unwrap();
+    std::fs::write(root.join("logo.png"), vec![0u8; 1 << 20]).unwrap();
+    std::fs::write(root.join("node_modules/x/index.js"), "x").unwrap();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "c1"]);
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    let head = cli.commit(&place, "HEAD").unwrap().unwrap();
+    let mut files = cli.files(&place, &head, Path::new("")).unwrap();
+    files.sort();
+    let names: Vec<_> = files.iter().map(|(p, _)| p.to_string_lossy()).collect();
+    assert_eq!(names, ["a.spec", "specforge-harness"]);
+}

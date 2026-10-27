@@ -346,6 +346,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "an unreadable baseline is W164 and nothing is judged"
   verify unit "the baseline is cached by commit and environment"
   verify unit "history reads the commits files through a port"
+  verify unit "history reads only the specs and the ledger of a commit"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
   verify unit "validate since judges per request"
 }
