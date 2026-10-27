@@ -18,6 +18,7 @@ pub mod write;
 
 pub use outcome::{EditDocument, Edited, run};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
+pub use typed::takes_json;
 
 use crate::authoring::format::{Configs, Forms, Place};
 use crate::authoring::planned::PlannedChange;
@@ -114,11 +115,14 @@ pub enum Edit {
 
 /// A value as a caller gives it; the field's declaration decides how it is written. A block whose values are all
 /// text reads as `Entries` (an open block's entries, or a typed block's members); `Block` holds a member that is
-/// not text (a list, a nested block), `Blocks` a block list's items (ADR 0285).
+/// not text (a list, a nested block), `Blocks` a block list's items (ADR 0285). A JSON number or boolean is a leaf a
+/// member of integer or bool type takes, written as given.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Input {
     One(String),
+    Number(serde_json::Number),
+    Bool(bool),
     Many(Vec<String>),
     Entries(BTreeMap<String, String>),
     Block(BTreeMap<String, Input>),
@@ -132,6 +136,8 @@ impl Shape for Input {
         // anyOf: an object of texts is an `Entries` and a `Block` alike.
         serde_json::json!({"anyOf": [
             String::schema(defs),
+            serde_json::json!({"type": "number"}),
+            bool::schema(defs),
             Vec::<String>::schema(defs),
             BTreeMap::<String, String>::schema(defs),
             BTreeMap::<String, Input>::schema(defs),

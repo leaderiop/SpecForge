@@ -9,6 +9,7 @@ use super::path::{self, FieldPath, Seg};
 use super::write::{self, items_given, not_editable};
 use super::{EditField, Input};
 use crate::Refusal;
+use crate::view::ProjectView;
 use specforge_graph::field_form::{FieldForm, Reading, spell};
 use specforge_parser::{FieldEntry, FieldMap, FieldValue};
 use specforge_protocol_types::FieldType;
@@ -148,12 +149,41 @@ fn member_tree(
                 format!("'{path}' is an open block; it takes no typed member"),
             ));
         }
+        FieldType::Integer | FieldType::Bool
+            if matches!(input, Input::Number(_) | Input::Bool(_)) =>
+        {
+            // Written as given; the member's form validates it when the project is read back (E061 for a float).
+            let (written, wants) = match input {
+                Input::Number(n) => (n.to_string(), FieldType::Integer),
+                Input::Bool(b) => (b.to_string(), FieldType::Bool),
+                _ => unreachable!("matched above"),
+            };
+            if wants != field_type {
+                return Err(not_editable(
+                    EditField::Value,
+                    format!(
+                        "'{path}' is {}, not {}",
+                        type_word(field_type),
+                        type_word(wants)
+                    ),
+                ));
+            }
+            Tree::Raw(written)
+        }
         _ => {
             let text = write::one(input, path, "value")?;
             let text = spelled(site, path, &Reading::Declared(form), text);
             Tree::Raw(spell::value(form, &text))
         }
     })
+}
+
+fn type_word(field_type: FieldType) -> &'static str {
+    if field_type == FieldType::Integer {
+        "an integer"
+    } else {
+        "a boolean"
+    }
 }
 
 /// The items `input` gives a block list.
@@ -440,4 +470,34 @@ fn list_edit(
             "'{field}.{entry}' is an entry of an open block, not a block list"
         ))),
     }
+}
+
+/// Whether a value for `path` of the entity `entity_id` is JSON: the path ends at a typed block or a block list
+/// (the field, an item `f[0]` or a member), by the declaration and never by the text given (ADR 0285). False for a
+/// path the project cannot resolve; the edit then refuses it with its own message.
+pub fn takes_json(view: &ProjectView<'_>, entity_id: &str, path: &str) -> bool {
+    let kind = match view.graph().find(entity_id) {
+        specforge_graph::Found::One(found) => view.graph().node(found.as_str()),
+        _ => None,
+    };
+    let (Some(node), Some((field, segs))) = (kind, path::segments(path)) else {
+        return false;
+    };
+    let Reading::Declared(mut form) = view
+        .registries()
+        .field_forms()
+        .reading(node.kind.raw.as_str(), field)
+    else {
+        return false;
+    };
+    for seg in &segs {
+        match seg {
+            Seg::Index(_) => {}
+            Seg::Key(name) => match form.members().and_then(|members| members.get(name)) {
+                Some(member) => form = member,
+                None => return false,
+            },
+        }
+    }
+    form.members().is_some()
 }

@@ -88,6 +88,10 @@ pub(super) fn one<'i>(
     match input {
         Input::One(text) => Ok(text),
         Input::Many(items) if items.len() == 1 => Ok(&items[0]),
+        Input::Number(_) | Input::Bool(_) => Err(not_editable(
+            EditField::Value,
+            format!("'{key}' takes text; give a string, not a number or a boolean"),
+        )),
         _ => Err(not_editable(
             EditField::Value,
             format!("'{key}' takes one {what}; give a single value"),
@@ -110,7 +114,11 @@ pub(super) fn items_given(
     let texts: &[String] = match input {
         Input::Many(items) => items,
         Input::One(text) => std::slice::from_ref(text),
-        Input::Entries(_) | Input::Block(_) | Input::Blocks(_) => {
+        Input::Entries(_)
+        | Input::Block(_)
+        | Input::Blocks(_)
+        | Input::Number(_)
+        | Input::Bool(_) => {
             return Err(not_editable(
                 EditField::Value,
                 format!("'{key}' is a list; give its items"),

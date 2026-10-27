@@ -4223,6 +4223,12 @@ expression: listing
                   "type": "string"
                 },
                 {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
                   "items": {
                     "type": "string"
                   },

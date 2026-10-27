@@ -37,7 +37,7 @@ pub fn top(path: &str) -> &str {
 
 /// `path` as its field and the steps after it; `None` when a name is not one identifier or an index is not
 /// a base-10 number without a leading zero.
-fn segments(path: &str) -> Option<(&str, Vec<Seg>)> {
+pub(super) fn segments(path: &str) -> Option<(&str, Vec<Seg>)> {
     let field = top(path);
     if !is_word(field) {
         return None;

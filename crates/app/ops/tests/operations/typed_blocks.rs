@@ -38,6 +38,10 @@ summary 03-02-S \"S\" {
 refactor_proposal r1 \"R\" {
   reasons [threshold]
 }
+
+discussion d1 \"D\" {
+  scores { goal 10 }
+}
 ";
 
 fn edit(wire: serde_json::Value) -> Edit {
@@ -149,4 +153,66 @@ fn a_skeleton_writes_typed_fields_empty() {
     }
     let words = skeletons.member("refactor_proposal", "reasons").unwrap();
     assert!(words.text.starts_with("reasons ["), "{}", words.text);
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
+)]
+fn a_json_number_or_boolean_is_a_leaf_of_an_integer_or_bool_member() {
+    let set = run(json!({"op": "set", "entity_id": "d1", "field": "scores", "value": {"goal": 50, "ambiguity": 7}}))
+        .unwrap();
+    let squeezed = set.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(squeezed.contains("scores { goal 50 ambiguity 7 }"), "{set}");
+    let member =
+        run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": 60})).unwrap();
+    assert!(
+        member
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .contains("goal 60"),
+        "{member}"
+    );
+    // The member's own form judges the number: out of range and not an integer are both E061.
+    for bad in [json!(500), json!(1.5)] {
+        let (_, message) =
+            run(json!({"op": "set", "entity_id": "d1", "field": "scores.goal", "value": bad}))
+                .unwrap_err();
+        assert!(message.contains("E061"), "{bad}: {message}");
+    }
+    // A text member and a bool given the wrong leaf are refused by name, not as "is a block".
+    for (field, value, fragment) in [
+        ("requires[0].provides", json!(5), "takes text"),
+        ("scores.goal", json!(true), "an integer, not a boolean"),
+    ] {
+        let (code, message) = run(json!({"op": "set", "entity_id": if field.starts_with("scores") { "d1" } else { "03-02-S" }, "field": field, "value": value})).unwrap_err();
+        assert_eq!(code, "not_editable", "{message}");
+        assert!(message.contains(fragment), "{field}: {message}");
+    }
+}
+
+#[specforge_test(
+    behavior = "edit_entity_field",
+    verify = "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
+)]
+fn a_value_is_json_exactly_where_the_declaration_is_a_block() {
+    let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
+    let view = project.view();
+    for (entity, path, json) in [
+        ("d1", "scores", true),
+        ("03-02-S", "requires", true),
+        ("03-02-S", "requires[0]", true),
+        ("03-02-S", "requires[0].provides", false),
+        ("v1.0", "completion", true),
+        ("v1.0", "completion.at", false),
+        ("r1", "reasons", false),
+        ("r1", "nope", false),
+    ] {
+        assert_eq!(
+            edit::takes_json(&view, entity, path),
+            json,
+            "{entity} {path}"
+        );
+    }
 }
