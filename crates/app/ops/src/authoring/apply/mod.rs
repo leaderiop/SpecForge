@@ -144,6 +144,7 @@ pub fn apply_plan_with(
     // The verdicts go back where the plan wrote them, once checked.
     for (inserted, (at, op)) in lowered.verdicts.iter().enumerate() {
         let step = verdict::check(view, rules, clock, origin, op)?;
+        flags::verdict(view, origin, &step)?;
         steps.insert(at + inserted, Step::Verdict(Box::new(step)));
     }
     revision::against_compile(view.project(), &lowered.files)?;
@@ -154,8 +155,16 @@ pub fn apply_plan_with(
         let project = view.project();
         let files = lowered.files.clone();
         let sources = view.env().sources().clone();
+        let verdicts: Vec<&verdict::VerdictStep> = steps
+            .iter()
+            .filter_map(|step| match step {
+                Step::Verdict(verdict) => Some(&**verdict),
+                _ => None,
+            })
+            .collect();
         change.apply_checked(caller, || {
             revision::against_disk(&sources, caller, &files)?;
+            verdict::against_disk(project, &verdicts)?;
             rejudge(project, &change, &files)
         })
     })?;
@@ -347,19 +356,27 @@ pub mod testing {
     use crate::{Caller, OpError, Writes};
 
     /// A judged rule `quality` of `@t/core` (judge `judge`, version 1.0.0) over `verification`, outcomes `pass` and
-    /// `fail`, binding no value. Its one input digest is `cited`; a cited entity must exist.
+    /// `fail`, binding no value. Its one input digest is `cited`, which reads `sha256:1` until the project holds an
+    /// entity `Z` (`sha256:2`); a cited entity must exist. Two more rules exist to be refused by the field flags:
+    /// `person` judges `override` (a human-only kind) and `computed` binds the computed field `status`.
     #[derive(Debug, Clone, Default)]
     pub struct FakeJudgedRules;
 
     impl super::JudgedRules for FakeJudgedRules {
         fn rule(&self, name: &str) -> Option<super::JudgedRule> {
-            (name == "quality").then(|| super::JudgedRule {
+            let (target, values) = match name {
+                "quality" => ("verification", Vec::new()),
+                "person" => ("override", Vec::new()),
+                "computed" => ("verification", vec!["status".to_string()]),
+                _ => return None,
+            };
+            Some(super::JudgedRule {
                 extension: "@t/core".into(),
                 judge: "judge".into(),
                 version: "1.0.0".into(),
-                targets: vec!["verification".into()],
+                targets: vec![target.into()],
                 outcomes: vec!["pass".into(), "fail".into()],
-                values: Vec::new(),
+                values,
             })
         }
 
@@ -377,7 +394,11 @@ pub mod testing {
                     return Err(super::UnknownCite(entity.clone()));
                 }
             }
-            Ok([("cited".to_string(), "sha256:1".to_string())].into())
+            let digest = match view.graph().find("Z") {
+                specforge_graph::Found::One(_) => "sha256:2",
+                _ => "sha256:1",
+            };
+            Ok([("cited".to_string(), digest.to_string())].into())
         }
 
         fn write(

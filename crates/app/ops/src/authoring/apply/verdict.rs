@@ -156,6 +156,8 @@ pub(crate) struct VerdictOp {
 /// A verdict the host checked and will write.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerdictStep {
+    /// The operation's number in the plan.
+    pub number: usize,
     pub entity: String,
     pub member: VerdictMember,
     pub rules: Rules,
@@ -246,23 +248,9 @@ pub(crate) fn check(
                 format!("it cites '{cite}', which the project does not hold"),
             )
         })?;
-    let stale: Vec<Value> = current
-        .iter()
-        .filter(|(name, digest)| op.basis.get(*name) != Some(*digest))
-        .map(|(name, digest)| json!({"name": name, "basis": op.basis.get(name), "current": digest}))
-        .collect();
-    if !stale.is_empty() {
-        return Err(OpError::new(
-            OpErrorKind::Conflict,
-            STALE_REVISION,
-            format!(
-                "operation {}: the verdict was judged over inputs that have changed; nothing was written",
-                op.number
-            ),
-        )
-        .with_data(json!({"op": op.number, "inputs": stale})));
-    }
+    stale(op.number, &op.basis, &current)?;
     Ok(VerdictStep {
+        number: op.number,
         entity: op.entity.clone(),
         member: VerdictMember {
             rule: op.rule.clone(),
@@ -277,4 +265,61 @@ pub(crate) fn check(
         },
         rules: Rules(Arc::clone(rules)),
     })
+}
+
+/// `stale_revision` when an input's digest is not the one the verdict was judged over.
+fn stale(
+    number: usize,
+    basis: &BTreeMap<String, String>,
+    current: &BTreeMap<String, String>,
+) -> Result<(), OpError> {
+    let stale: Vec<Value> = current
+        .iter()
+        .filter(|(name, digest)| basis.get(*name) != Some(*digest))
+        .map(|(name, digest)| json!({"name": name, "basis": basis.get(name), "current": digest}))
+        .collect();
+    if stale.is_empty() {
+        return Ok(());
+    }
+    Err(OpError::new(
+        OpErrorKind::Conflict,
+        STALE_REVISION,
+        format!(
+            "operation {number}: the verdict was judged over inputs that have changed; nothing was written"
+        ),
+    )
+    .with_data(json!({"op": number, "inputs": stale})))
+}
+
+/// Under the write lock: the digests of each verdict's inputs over the disk as it is now are the ones it was judged
+/// over (the compile's), else `stale_revision`. A verdict has no file revision, so this is its only check against a
+/// writer that landed since the compile.
+pub(crate) fn against_disk(
+    project: &specforge_project::CompiledProject,
+    verdicts: &[&VerdictStep],
+) -> Result<(), OpError> {
+    if verdicts.is_empty() {
+        return Ok(());
+    }
+    let disk = project.edited_over_disk(&Default::default(), None);
+    let view = ProjectView::of(&disk);
+    for step in verdicts {
+        let current = step
+            .rules
+            .0
+            .digests(&view, &step.entity, &step.member.rule, &step.member.cited)
+            .map_err(|UnknownCite(cite)| {
+                OpError::new(
+                    OpErrorKind::InvalidInput,
+                    VERDICT_REFUSED,
+                    format!(
+                        "operation {}: it cites '{cite}', which the project no longer holds",
+                        step.number
+                    ),
+                )
+                .with_data(json!({"op": step.number, "reason": "cite"}))
+            })?;
+        stale(step.number, &step.member.inputs, &current)?;
+    }
+    Ok(())
 }

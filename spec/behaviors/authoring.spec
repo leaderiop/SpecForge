@@ -331,6 +331,8 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "a writing command previews its plan with --dry-run and writes it otherwise on the command line"
   verify unit "set_verdict is refused without a judged rule"
   verify unit "set_verdict checks the rule and its basis"
+  verify unit "set_verdict is refused on a human-only kind and for a computed value"
+  verify unit "set_verdict compares its inputs with the disk under the lock"
   verify unit "set_verdict writes its verdict and its ledger line"
   verify unit "format does not overwrite a concurrent write"
   verify unit "format locks a project with a writing extension and not one that merely has a .specforge directory"

@@ -64,6 +64,26 @@ pub(crate) fn check(
     Ok(())
 }
 
+/// A verdict is a write to its entity and to the fields its rule binds: the same flags as any other write.
+pub(crate) fn verdict(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    step: &super::VerdictStep,
+) -> Result<(), OpError> {
+    let kinds = Kinds {
+        view,
+        made: BTreeMap::new(),
+    };
+    let Some(kind) = kinds.of(&step.entity) else {
+        return Ok(());
+    };
+    human_kind(view, origin, step.number, true, &kind)?;
+    for field in step.member.values.keys() {
+        write(view, origin, step.number, true, &kind, field, None)?;
+    }
+    Ok(())
+}
+
 fn edit_flags(
     view: &ProjectView<'_>,
     origin: &Origin,
