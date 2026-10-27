@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-exclude = ["extensions", "fixtures"]
+exclude = ["extensions", "fixtures", "gsd"]
 members = [
     # leaf
     "crates/leaf/coverage",
