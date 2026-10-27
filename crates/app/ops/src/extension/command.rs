@@ -269,6 +269,13 @@ impl ExtensionCommand {
             "properties": properties,
             "additionalProperties": false,
         });
+        if self.writes() {
+            // The host's option on a writing command's tool (ADR 0289), beside the command's own args.
+            schema["properties"]["dry_run"] = json!({
+                "type": "boolean",
+                "description": "Plan the command's edits and write nothing",
+            });
+        }
         let required: Vec<&str> = self
             .args
             .iter()

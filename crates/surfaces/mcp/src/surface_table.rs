@@ -27,7 +27,7 @@ use specforge_registry::RegistryBuild;
 use crate::lifecycle::Revision;
 use crate::registry::{Listed, ToolDescriptor};
 use crate::resource::ResourceSpec;
-use crate::tool::{Category, ToolGroup, ToolSpec, read_only_annotations};
+use crate::tool::{Category, ToolGroup, ToolSpec, WriteHints, read_only_annotations};
 
 /// The code reporting an extension contribution MCP does not serve under
 /// its name.
@@ -107,6 +107,7 @@ impl ToolEntry {
             ToolKind::McpTool { input_schema, .. } => input_schema.clone(),
             ToolKind::Command(command) => command.input_schema(),
         };
+        let writes = self.writes();
         ToolDescriptor {
             name: self.name.clone(),
             description: self.description.clone(),
@@ -116,15 +117,32 @@ impl ToolEntry {
                 .filter(|_| revision.sends_structured_content()),
             category: Category::from(self.group),
             source: self.extension.clone(),
-            annotations: read_only_annotations(),
+            annotations: if writes {
+                WriteHints {
+                    destructive: false,
+                    idempotent: false,
+                    open_world: false,
+                }
+                .annotations()
+            } else {
+                read_only_annotations()
+            },
         }
     }
 
+    /// Whether it is a writing command's tool: a mutation (ADR 0289).
+    fn writes(&self) -> bool {
+        matches!(&self.kind, ToolKind::Command(command) if command.writes())
+    }
+
     /// The schema its structured output conforms to: an explicit tool's
-    /// declared one; a command declares none.
+    /// declared one; a command declares none, but a writing one's is its mutation reply's.
     pub fn output_schema(&self) -> Option<&Value> {
         match &self.kind {
             ToolKind::McpTool { output_schema, .. } => output_schema.as_ref(),
+            ToolKind::Command(command) if command.writes() => {
+                Some(crate::extension_dispatch::writing::output_schema())
+            }
             ToolKind::Command(_) => None,
         }
     }

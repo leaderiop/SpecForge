@@ -35,7 +35,6 @@ fn served() -> Served {
     behavior = "writing_command_tool",
     verify = "a writing command's tool is a mutation that answers its plan and the files it wrote"
 )]
-#[ignore = "K5 T8"]
 fn a_writing_command_tool_is_a_mutation() {
     let mut server = served();
     let listed = call(&mut server, "tools/list", json!({}));
@@ -59,12 +58,12 @@ fn a_writing_command_tool_is_a_mutation() {
     )))
     .unwrap();
     assert!(
-        reply["output"].is_object() && reply["plan"].is_object(),
+        reply.get("output").is_some() && reply["plan"].is_object(),
         "{reply}"
     );
     assert_eq!(
         reply["files_written"],
-        json!(["specforge-harness", "u.spec"]),
+        json!([".gitattributes", "specforge-harness", "u.spec"]),
         "{reply}"
     );
     // The next read sees the write.

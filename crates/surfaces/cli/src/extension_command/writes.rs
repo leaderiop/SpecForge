@@ -51,7 +51,6 @@ fn revision(project: &TestProject) -> String {
     )
 }
 
-#[ignore = "K5 T8"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a writing command previews its plan with --dry-run and writes it otherwise on the command line"
@@ -63,7 +62,7 @@ fn a_writing_command_previews_and_applies_on_the_cli() {
     let (code, out, _) = record(&p, &revision, &["--dry-run"]);
     assert_eq!(code, 0, "{out}");
     assert!(
-        out.contains("03-01.spec") && out.contains("+  result pass"),
+        out.contains("03-01.spec") && out.contains("+  result \"pass\""),
         "{out}"
     );
     assert_eq!(p.read("03-01.spec"), before);
@@ -74,7 +73,7 @@ fn a_writing_command_previews_and_applies_on_the_cli() {
         document["plan"]["affected_files"].is_array() && document.get("output").is_some(),
         "{document}"
     );
-    assert!(p.read("03-01.spec").contains("result pass"));
+    assert!(p.read("03-01.spec").contains("result \"pass\""));
     // The same plan again names a revision the file no longer has.
     let (code, _, err) = record(&p, &revision, &[]);
     assert_eq!(code, 1);

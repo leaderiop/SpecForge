@@ -14,8 +14,9 @@
 //! module renders that derivation as clap's command line, routes the
 //! command over the project's environment, compiles the project from that
 //! environment, and runs the command through
-//! `specforge_ops::extension::command::run`; the export's stdout and stderr are printed
-//! as they are, and its exit code is the CLI's.
+//! `specforge_ops::authoring::apply::execute`; the export's stdout and stderr are printed
+//! as they are, and its exit code is the CLI's. A command that declares `writes` also takes `--dry-run`, and the plan
+//! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
 use crate::project::ProjectArg;
@@ -36,6 +37,9 @@ use std::sync::Arc;
 
 /// The host's own option on every extension command: the output asked for.
 const FORMAT: &str = "format";
+
+/// The host's option on a writing command: show its plan, write nothing.
+const DRY_RUN: &str = "dry-run";
 
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
@@ -180,9 +184,23 @@ pub(crate) fn run_in(
     // its sources read, its graph built and checked (ADR 0011, "One
     // operation runs a command", O3).
     let project = CompiledProject::of(env);
-    let outcome =
-        specforge_ops::extension::command::run(&ProjectView::of(&project), command, &given, format);
-    ended(outcome, format, terminal)
+    let dry_run = command.writes() && matches.get_flag(DRY_RUN);
+    let output_format = match format {
+        CommandFormat::Json => crate::outcome::OutputFormat::Json,
+        CommandFormat::Human => crate::outcome::OutputFormat::Human,
+    };
+    let outcome = specforge_ops::authoring::apply::execute(
+        &ProjectView::of(&project),
+        command,
+        &given,
+        format,
+        dry_run,
+        crate::caller::of(false, output_format, terminal),
+    );
+    match outcome {
+        Ok(run) => plan::ended(run, format, root.dir(), terminal),
+        Err(error) => ended(Err(error), format, terminal),
+    }
 }
 
 /// What a command's run writes, and the exit code: the output's stdout and
@@ -417,6 +435,14 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .default_value(CommandFormat::Human.as_str())
                     .help("Output format"),
             );
+        if command.writes() {
+            sub = sub.arg(
+                Arg::new(DRY_RUN)
+                    .long(DRY_RUN)
+                    .action(ArgAction::SetTrue)
+                    .help("Show the plan the command answers and write nothing"),
+            );
+        }
         cli = cli.subcommand(sub);
     }
     cli
@@ -488,6 +514,7 @@ fn arg_values(command: &ExtensionCommand, matches: &ArgMatches) -> Map<String, V
     args
 }
 
+mod plan;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
