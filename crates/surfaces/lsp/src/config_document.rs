@@ -14,11 +14,29 @@ use tower_lsp::lsp_types::{
 
 use crate::LspState;
 
-/// Whether `uri` names a project's `specforge.json`.
-pub fn is_config(uri: &Url) -> bool {
-    crate::uri::path_of(uri)
-        .file_name()
-        .is_some_and(|name| name == "specforge.json")
+/// The served project's own `specforge.json`.
+pub fn config_path(state: &LspState) -> std::path::PathBuf {
+    state.environment().root().join("specforge.json")
+}
+
+/// Whether `uri` names the served project's own `specforge.json`. A nested project's file of the same name is a
+/// source of nothing here: it is not this project's config and its extensions are not this project's.
+pub fn is_config(state: &LspState, uri: &Url) -> bool {
+    let (path, own) = (crate::uri::path_of(uri), config_path(state));
+    path == own || matches!((path.canonicalize(), own.canonicalize()), (Ok(a), Ok(b)) if a == b)
+}
+
+/// Whether `diagnostic` is a settings finding about `specforge.json`: published by [`diagnostics`] at its key in
+/// the file, the one publisher, never with the project's diagnostics (which cannot place a span in that file).
+pub fn is_finding(diagnostic: &specforge_common::Diagnostic) -> bool {
+    use specforge_common::codes;
+    [codes::E086, codes::E087, codes::W166]
+        .iter()
+        .any(|code| diagnostic.is(*code))
+        && diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|s| s.file.as_str() == "specforge.json")
 }
 
 fn resolve(state: &LspState, text: &str) -> (ResolvedSettings, Vec<specforge_common::Diagnostic>) {
@@ -29,19 +47,23 @@ fn resolve(state: &LspState, text: &str) -> (ResolvedSettings, Vec<specforge_com
     )
 }
 
-/// The E086, E087 and W166 the open buffer `uri` has now, as the client receives them.
+/// The E086, E087 and W166 `specforge.json` has now, as the client receives them: of the open buffer, else of the
+/// file on disk.
 pub fn diagnostics(state: &LspState, uri: &Url) -> Vec<Diagnostic> {
-    let Some(document) = state.document(uri) else {
-        return Vec::new();
+    let text = match state.document(uri) {
+        Some(document) => document.text().to_string(),
+        None => match std::fs::read_to_string(crate::uri::path_of(uri)) {
+            Ok(text) => text,
+            Err(_) => return Vec::new(),
+        },
     };
+    let lines = crate::LineIndex::new(&text);
     let codes = state.registries().codes();
-    resolve(state, document.text())
+    resolve(state, &text)
         .1
         .iter()
         .map(|found| {
-            crate::publish::diagnostic_to_lsp(found, codes, |span| {
-                Some(document.index().range(span))
-            })
+            crate::publish::diagnostic_to_lsp(found, codes, |span| Some(lines.range(span)))
         })
         .collect()
 }

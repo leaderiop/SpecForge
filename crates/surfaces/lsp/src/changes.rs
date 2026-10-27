@@ -93,7 +93,9 @@ impl Plan {
                 let mut open: Vec<String> = Vec::new();
                 for uri in &uris {
                     let key = state.key_of(uri);
-                    if files.document(&key).is_some() && !crate::config_document::is_config(uri) {
+                    if files.document(&key).is_some()
+                        && !crate::config_document::is_config(state, uri)
+                    {
                         open.retain(|k| *k != key);
                         open.push(key);
                     }

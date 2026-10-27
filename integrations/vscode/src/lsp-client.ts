@@ -118,10 +118,15 @@ export async function startClient(
   };
 
   const clientOptions: LanguageClientOptions = {
-    // The project's specforge.json too: the server completes, hovers and checks its `settings` (ADR 0288).
+    // The project's own specforge.json too: the server completes, hovers and checks its `settings`
+    // (ADR 0288). Only each workspace folder's root file: a nested project's specforge.json is that
+    // project's, not the served one's.
     documentSelector: [
       { scheme: "file", language: "specforge" },
-      { scheme: "file", pattern: "**/specforge.json" },
+      ...(vscode.workspace.workspaceFolders ?? []).map((folder) => ({
+        scheme: "file",
+        pattern: `${folder.uri.path.replace(/[*?[\]{}]/g, "[$&]")}/specforge.json`,
+      })),
     ],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/*.spec"),

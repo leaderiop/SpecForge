@@ -129,7 +129,7 @@ fn config_diagnostics_follow_the_buffer_and_reload_on_save() {
     // E086 at its range on an unsaved edit; cleared on fix; a save reloads (a raise is visible in the .spec diagnostics).
     let typo = "{\n  \"settings\": {\n    \"@t/s\": {\n      \"levl\": 2\n    }\n  }\n}\n";
     let (mut served, uri, _) = editing(&format!("{typo}|"));
-    assert!(config_document::is_config(&uri));
+    assert!(config_document::is_config(&served.state(), &uri));
     let sent = served.sent();
     let shown = publications(&sent, &uri);
     let last = shown.last().expect("the buffer is checked when it opens");
@@ -171,4 +171,69 @@ fn config_diagnostics_follow_the_buffer_and_reload_on_save() {
         })
     });
     assert!(raised, "{sent:#?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "completion in specforge.json offers extension names, unwritten setting names and values"
+)]
+fn completion_works_on_half_typed_json() {
+    // VS Code closes the quote: `"lev|"` has no colon or value yet.
+    let (served, uri, at) = editing(
+        "{\n  \"settings\": {\n    \"@t/s\": {\n      \"flag\": true,\n      \"lev|\"\n    }\n  }\n}\n",
+    );
+    let names = labels(&served, &uri, at);
+    assert!(names.contains(&"level".to_string()), "{names:?}");
+    assert!(!names.contains(&"flag".to_string()), "{names:?}");
+    // `"profile": |`: the value is not written yet.
+    let (served, uri, at) =
+        editing("{\n  \"settings\": {\n    \"@t/s\": {\n      \"profile\": |\n    }\n  }\n}\n");
+    assert_eq!(labels(&served, &uri, at), ["\"compat\"", "\"strict\""]);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
+)]
+fn a_nested_specforge_json_is_not_the_projects_config() {
+    let served = Served::new(&[
+        ("a.spec", "gadget w \"W\" {}\n"),
+        ("sub/specforge.json", "{}"),
+    ])
+    .extension("@t/s", |c| *c = settings_extension())
+    .open(&["a.spec"]);
+    let state = served.state();
+    assert!(config_document::is_config(
+        &state,
+        &served.uri("specforge.json")
+    ));
+    assert!(!config_document::is_config(
+        &state,
+        &served.uri("sub/specforge.json")
+    ));
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
+)]
+fn specforge_json_findings_are_published_once_at_their_key() {
+    let mut served = Served::new(&[("a.spec", "gadget w \"W\" {}\n")])
+        .extension("@t/s", |c| *c = settings_extension())
+        .settings(json!({"@t/s": {"levl": 2}}))
+        .open(&["a.spec"]);
+    // A plain .spec edit republishes the project's diagnostics: the config's must not move to 0:0.
+    served.type_text("a.spec", "gadget w \"W2\" {}\n");
+    served.apply(Change::Edited(vec![served.uri("a.spec")]));
+    let uri = served.uri("specforge.json");
+    let mut sent = served.opening().to_vec();
+    sent.extend(served.sent());
+    let shown = publications(&sent, &uri);
+    assert!(!shown.is_empty(), "the config is checked when it opens");
+    for list in shown.iter().flatten() {
+        assert_ne!(list.range.start, Position::new(0, 0), "{list:?}");
+    }
+    let last = shown.last().unwrap();
+    assert_eq!(last.len(), 1, "{last:?}");
+    assert!(last[0].message.contains("'levl'"), "{last:?}");
 }

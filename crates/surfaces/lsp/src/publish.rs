@@ -60,6 +60,10 @@ impl Publication {
         let mut by_file: BTreeMap<String, FilePublication> = BTreeMap::new();
         let mut anchor = None;
         for diagnostic in &diagnostics {
+            // `specforge.json`'s settings findings have their own publisher, which places them in its text.
+            if crate::config_document::is_finding(diagnostic) {
+                continue;
+            }
             let key = match &diagnostic.span {
                 Some(span) => span.file.as_str().to_string(),
                 None => match &nowhere {
