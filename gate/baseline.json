@@ -6,7 +6,7 @@
     "crates/app/ops/tests/operations/query.rs": 896,
     "crates/app/ops/tests/operations/schema.rs": 1149,
     "crates/kernel/common/tests/present.rs": 1082,
-    "crates/kernel/parser/tests/parse_test.rs": 2456,
+    "crates/kernel/parser/tests/parse_test.rs": 2440,
     "crates/pipeline/emitter/tests/contracts.rs": 841,
     "crates/pipeline/emitter/tests/model.rs": 1518,
     "crates/pipeline/emitter/tests/outline.rs": 1150,

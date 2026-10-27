@@ -2,8 +2,8 @@
 //! checked against tree-sitter's grammar over the repository's spec.
 
 use specforge_parser::lex::{
-    Lexeme, LexemeKind, form_starts, is_entity_id, is_identifier, is_ref_id_prefix, lex,
-    line_indent, runs_into_text, starts_top_level_form,
+    Lexeme, LexemeKind, form_starts, is_entity_id, is_identifier, is_number_word, is_ref_id_prefix,
+    lex, line_indent, runs_into_text, starts_top_level_form,
 };
 use specforge_parser::parse_incremental;
 use specforge_test_macros::test as specforge_test;
@@ -27,8 +27,10 @@ pub(crate) fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
 
 /// The lexeme kind a grammar leaf of kind `node` is, when it is one the
 /// lexer reads whole.
-fn kind_of(node: &str) -> Option<LexemeKind> {
+fn kind_of(node: &str, text: &str, name: bool) -> Option<LexemeKind> {
     Some(match node {
+        // A value or list item with the shape of a number or a date is read as one (ADR 0285); a name is a word.
+        kind::IDENTIFIER if !name && is_number_word(text) => LexemeKind::Number,
         kind::IDENTIFIER => LexemeKind::Ident,
         kind::SCHEME_REF_ID => LexemeKind::RefId,
         kind::STRING | kind::TRIPLE_QUOTED_STRING => LexemeKind::Str { closed: true },
@@ -40,10 +42,19 @@ fn kind_of(node: &str) -> Option<LexemeKind> {
 
 /// Every leaf of `node`'s tree the lexer must read whole, as
 /// (start, end, kind).
-fn grammar_leaves(node: tree_sitter::Node, out: &mut Vec<(usize, usize, LexemeKind)>) {
+pub(crate) fn grammar_leaves(
+    node: tree_sitter::Node,
+    source: &str,
+    out: &mut Vec<(usize, usize, LexemeKind)>,
+) {
     if node.child_count() == 0 {
         if node.is_named()
-            && let Some(kind) = kind_of(node.kind())
+            && let Some(kind) = kind_of(
+                node.kind(),
+                &source[node.byte_range()],
+                node.parent()
+                    .is_some_and(|p| matches!(p.kind(), kind::ENTITY_BLOCK | kind::IMPORT_BINDING)),
+            )
         {
             out.push((node.start_byte(), node.end_byte(), kind));
         }
@@ -51,7 +62,7 @@ fn grammar_leaves(node: tree_sitter::Node, out: &mut Vec<(usize, usize, LexemeKi
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        grammar_leaves(child, out);
+        grammar_leaves(child, source, out);
     }
 }
 
@@ -81,7 +92,7 @@ fn lexer_agrees_with_the_grammar() {
             assert!(!tree.root_node().has_error(), "the fixture has a CST error");
         }
         let mut leaves = Vec::new();
-        grammar_leaves(tree.root_node(), &mut leaves);
+        grammar_leaves(tree.root_node(), &text, &mut leaves);
         let lexemes = lex(&text);
         let by_start: std::collections::HashMap<usize, &Lexeme> =
             lexemes.iter().map(|l| (l.start, l)).collect();
@@ -670,11 +681,22 @@ fn an_entity_id_is_an_identifier_or_a_scheme_ref_id() {
         "doc.page:v1+2",
         "gh.pr:org/repo#12",
         "web.page:https://example.org/a//b",
+        "AUTH-01",
+        "03-02",
+        "03.1",
+        "999.1",
+        "v1.0",
+        "G-03-1",
+        "03",
+        "1abc",
+        "a.b",
+        "9lives",
     ] {
         assert!(is_entity_id(id), "{id}");
     }
     for text in [
-        "", "1abc", "a.b", "a.b-c:d", "a:b", "a b", "x.y:", "x.y:a b", "x.y:a\"b", "émile", "!@#$",
+        "", "a--b", "-a", "a-", "a.", ".a", "a..b", "a.b-c:d", "a:b", "a b", "x.y:", "x.y:a b",
+        "x.y:a\"b", "émile", "!@#$",
     ] {
         assert!(!is_entity_id(text), "{text:?}");
     }

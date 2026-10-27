@@ -511,3 +511,27 @@ fn highlights_captures_triple_quoted_string() {
         captures
     );
 }
+
+#[specforge_test(
+    behavior = "provide_syntax_highlighting_queries",
+    verify = "highlights.scm colours a number, a date and a boolean by the shape of the word"
+)]
+fn highlights_colour_a_number_a_date_and_a_boolean_by_shape() {
+    let source = "behavior b \"B\" {\n  a 42\n  b -5\n  c 2026-10-26\n  d true\n  e AUTH-01\n  f [03, 2026-10-26, false, v1.0]\n}\n";
+    let captures = highlight_captures(source);
+    let colour = |text: &str| -> Vec<&str> {
+        captures
+            .iter()
+            .filter(|(_, t)| t == text)
+            .map(|(n, _)| n.as_str())
+            .collect()
+    };
+    assert!(colour("42").contains(&"number"), "{captures:?}");
+    assert!(colour("-5").contains(&"number"), "{captures:?}");
+    assert!(colour("2026-10-26").contains(&"number"), "{captures:?}");
+    assert!(colour("03").contains(&"number"), "{captures:?}");
+    assert!(colour("true").contains(&"keyword.boolean"), "{captures:?}");
+    assert!(colour("false").contains(&"keyword.boolean"), "{captures:?}");
+    assert!(!colour("AUTH-01").contains(&"number"), "{captures:?}");
+    assert!(!colour("v1.0").contains(&"number"), "{captures:?}");
+}

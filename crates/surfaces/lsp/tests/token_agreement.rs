@@ -185,7 +185,10 @@ fn agrees(path: &Path, text: &str, view: &ProjectView, declared: &[&str]) {
             }
             kind::IDENTIFIER | kind::SCHEME_REF_ID
                 if node.parent().is_some_and(|p| p.kind() == kind::LIST)
-                    && !within(node, &[kind::NESTED_BLOCK]) =>
+                    && !within(node, &[kind::NESTED_BLOCK])
+                    // A number, a date or true/false names nothing (ADR 0285): it is a literal item.
+                    && specforge_parser::value_token(node, text)
+                        .is_none_or(|(written, _)| written != specforge_parser::Written::Literal) =>
             {
                 let token = token_at(node).unwrap_or_else(|| panic!("{}", where_(node)));
                 assert_ne!(token.1 & MOD_REFERENCE, 0, "{}", where_(node));

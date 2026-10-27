@@ -5,8 +5,6 @@
 "ref" @keyword
 "define" @keyword
 "verify" @keyword
-"true" @keyword.boolean
-"false" @keyword.boolean
 
 ; Generic entity block — kind is a keyword, name is a constant
 (entity_block
@@ -46,9 +44,26 @@
 (string) @string
 (triple_quoted_string) @string
 
-; Numbers
+; Numbers, dates and booleans are words; their shape decides the colour (ADR 0285)
 (integer) @number
-(date_literal) @number
+(field
+  value: (identifier) @number
+  (#match? @number "^-?[0-9]+$"))
+(field
+  value: (identifier) @number
+  (#match? @number "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+(field
+  value: (identifier) @keyword.boolean
+  (#match? @keyword.boolean "^(true|false)$"))
+(list
+  (identifier) @number
+  (#match? @number "^-?[0-9]+$"))
+(list
+  (identifier) @number
+  (#match? @number "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+(list
+  (identifier) @keyword.boolean
+  (#match? @keyword.boolean "^(true|false)$"))
 
 ; Comments
 (comment) @comment

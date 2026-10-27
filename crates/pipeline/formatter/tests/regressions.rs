@@ -180,9 +180,8 @@ fn a_text_holding_a_control_character_is_left_as_written() {
     behavior = "apply_format_rules",
     verify = "format writes every bare word as it was written, a number-like word and a difference included"
 )]
-#[ignore = "K1 T3"]
 fn format_writes_every_bare_word_as_written() {
-    let canonical = "thing AUTH-01 \"T\" {\n  points 2-1\n  more 007\n  parent 03\n  refs [03, v1.0]\n}\n\ntype L = 01 | 2\n";
+    let canonical = "thing AUTH-01 \"T\" {\n  points 2-1\n  more   007\n  parent 03\n  refs   [03, v1.0]\n}\n\ntype L = 01 | 2\n";
     assert_eq!(fmt(canonical), canonical);
     // Read, not left alone as an error: the indentation is normalised and the words stay.
     let untidy = canonical.replace("  points", "      points");

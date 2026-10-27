@@ -78,20 +78,17 @@ pub const EXPR_ADD: &str = "expr_add";
 pub const EXPR_ATOM: &str = "expr_atom";
 /// `100`, `100ms`, `1.5s` in an expression.
 pub const NUMBER_WITH_UNIT: &str = "number_with_unit";
-/// `[a-zA-Z_][a-zA-Z0-9_]*`.
+/// `[a-zA-Z_][a-zA-Z0-9_]*`, or, as a value, a list item, an entity name or a use binding, a word
+/// `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (no leading `-` in a name): `AUTH-01`, `03`, `2026-10-07`, `true`.
 pub const IDENTIFIER: &str = "identifier";
 /// `"…"`.
 pub const STRING: &str = "string";
 /// `"""…"""`.
 pub const TRIPLE_QUOTED_STRING: &str = "triple_quoted_string";
-/// `2026-10-07`.
-pub const DATE_LITERAL: &str = "date_literal";
 /// `42`.
 pub const INTEGER: &str = "integer";
 /// `-42`.
 pub const NEGATIVE_INTEGER: &str = "negative_integer";
-/// `true`, `false`.
-pub const BOOLEAN: &str = "boolean";
 
 /// Every constant above.
 pub const ALL: &[&str] = &[
@@ -133,8 +130,6 @@ pub const ALL: &[&str] = &[
     IDENTIFIER,
     STRING,
     TRIPLE_QUOTED_STRING,
-    DATE_LITERAL,
     INTEGER,
     NEGATIVE_INTEGER,
-    BOOLEAN,
 ];

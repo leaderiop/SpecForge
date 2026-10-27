@@ -129,6 +129,27 @@ static bool read_word(TSLexer *lexer, char word[WORD_MAX]) {
   return lexer->eof(lexer) || lexer->lookahead != '.';
 }
 
+// A name, as the lexer reads one where an entity is named (ADR 0285): word characters in runs joined by a single
+// `-` or `.`, e.g. `AUTH-01`, `03.1`, `v1.0`. False when none starts here, or when a joining `-` or `.` is not
+// followed by a word character (the name then ends before it, and a `-` or `.` is no form's next lexeme).
+static bool read_name(TSLexer *lexer) {
+  if (lexer->eof(lexer) || !is_word(lexer->lookahead)) {
+    return false;
+  }
+  for (;;) {
+    while (!lexer->eof(lexer) && is_word(lexer->lookahead)) {
+      advance(lexer);
+    }
+    if (lexer->eof(lexer) || (lexer->lookahead != '-' && lexer->lookahead != '.')) {
+      return true;
+    }
+    advance(lexer);
+    if (lexer->eof(lexer) || !is_word(lexer->lookahead)) {
+      return false;
+    }
+  }
+}
+
 static bool read_ascii_ident(TSLexer *lexer) {
   if (lexer->eof(lexer) || !starts_ascii_ident(lexer->lookahead)) {
     return false;
@@ -224,8 +245,7 @@ static bool line_starts_form(TSLexer *lexer) {
     skip_line_space(lexer);
     return read_title(lexer);
   }
-  char name[WORD_MAX];
-  if (!read_word(lexer, name)) {
+  if (!read_name(lexer)) {
     return false;
   }
   skip_line_space(lexer);

@@ -61,15 +61,14 @@ fn a_minus_a_union_variant_and_a_scheme_ref_read_as_before() {
     };
     assert_eq!(right.expr, Expr::Num(1.5, "s".into()));
 
-    let text = "x expr { a-b }";
+    let text = "thing t \"T\" {\n  m expr { a-b }\n}\n";
     let words: Vec<(LexemeKind, &str)> = lex(text).iter().map(|l| (l.kind, l.text(text))).collect();
     assert_eq!(
-        words[3..],
+        words[7..10],
         [
             (LexemeKind::Ident, "a"),
             (LexemeKind::Punct('-'), "-"),
             (LexemeKind::Ident, "b"),
-            (LexemeKind::Punct('}'), "}"),
         ]
     );
 
@@ -134,7 +133,6 @@ const GSD_NAMES: [&str; 9] = [
     behavior = "parse_all_block_types",
     verify = "an entity header names an entity with a word holding a dash or a dot, or all digits"
 )]
-#[ignore = "K1 T3"]
 fn a_gsd_name_names_an_entity() {
     for name in GSD_NAMES {
         let file = parse(&format!("thing {name} \"T\" {{\n}}\n"), "t.spec");
@@ -148,7 +146,6 @@ fn a_gsd_name_names_an_entity() {
     behavior = "parse_all_block_types",
     verify = "a field value or list item is one word, tagged by shape and kept as written"
 )]
-#[ignore = "K1 T3"]
 fn a_bare_value_or_list_item_is_one_word() {
     for (word, tag) in [
         ("03-02", "id"),
@@ -198,7 +195,6 @@ fn a_bare_value_or_list_item_is_one_word() {
     behavior = "parse_use_imports",
     verify = "a selective use binding may import a name holding a dash or a dot"
 )]
-#[ignore = "K1 T3"]
 fn a_use_binding_may_import_a_gsd_name() {
     let file = parse(
         "use { AUTH-01, v1.0 as release } from \"./gsd\"\n",
@@ -217,7 +213,6 @@ fn a_use_binding_may_import_a_gsd_name() {
     behavior = "lex_spec_text",
     verify = "a word is one lexeme in a value, list item, header name or binding slot and nowhere else"
 )]
-#[ignore = "K1 T3"]
 fn a_word_is_one_lexeme_in_a_value_or_name_slot_only() {
     let text = "thing AUTH-01 \"x\" {\n  a 03-02\n  b [v1.0, 2-1]\n  c 2026-10-26\n  d 007\n  m expr { a-b }\n}\nuse { D-01 } from \"x\"\n";
     let read: Vec<(LexemeKind, &str)> = lex(text).iter().map(|l| (l.kind, l.text(text))).collect();

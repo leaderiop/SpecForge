@@ -35,17 +35,24 @@
 //! operators joined), and what `parse_expression` reads from an `expr { }`
 //! group's text is what the grammar read.
 
+mod slots;
+
 /// What a lexeme is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LexemeKind {
     /// Letters, digits and `_`, not starting with a digit; any non-ASCII
-    /// byte continues it, so a word is never split.
+    /// byte continues it, so a word is never split. Where the grammar reads
+    /// a bare word (a value, a list item, an entity's name or a `use`
+    /// binding, ADR 0285) it is the whole word, `AUTH-01`, `03`, `v1.0`,
+    /// unless the word has the shape of a number or a date.
     Ident,
     /// `scheme.kind:id` (`gh.issue:42`, the grammar's `scheme_ref_id`): a
     /// ref's ID, one lexeme.
     RefId,
     /// A word starting with a digit, with an optional `.digits` part:
-    /// `42`, `10ms`, `1.5`. A leading `-` is its own `Punct`.
+    /// `42`, `10ms`, `1.5`; a leading `-` is its own `Punct`. In a value or list item
+    /// slot (ADR 0285) it is a bare word with the shape of an integer or a date
+    /// (`42`, `-5`, `007`, `2026-10-26`, [`is_number_word`]), whole, sign included.
     Number,
     /// `"…"` (with `\` escapes) or `"""…"""`, quotes included, read as the
     /// grammar's `string` and `triple_quoted_string` tokens read it: across
@@ -159,11 +166,14 @@ pub fn starts_top_level_form(text: &str, lexemes: &[Lexeme], max_indent: usize) 
         Some("pub") => word(1) == Some("use") && import(2),
         Some("spec") => title(1) && punct(2, '{'),
         Some("ref") => kind(1) == Some(LexemeKind::RefId) && title(2),
-        Some(_) if word(1).is_some() => {
-            let open = if title(2) { 3 } else { 2 };
+        Some(_) => {
+            let Some(name) = name_len(text, line, 1) else {
+                return false;
+            };
+            let open = if title(1 + name) { 2 + name } else { 1 + name };
             punct(open, '{') || punct(open, '=')
         }
-        _ => false,
+        None => false,
     }
 }
 
@@ -292,6 +302,135 @@ fn next_form_line(text: &str, from: usize, max_indent: usize) -> Option<usize> {
     None
 }
 
+/// The end of the bare word starting at `at`, the grammar's `_bare` (`-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*`,
+/// ADR 0285), or, with `minus` false, its `_name` (no leading `-`). `None` when none starts there. ASCII only:
+/// a non-ASCII byte ends it, and the caller sees the lexeme it cuts.
+pub(crate) fn word_end(bytes: &[u8], at: usize, minus: bool) -> Option<usize> {
+    let word = |b: Option<&u8>| b.is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_');
+    let mut end = at;
+    if minus && bytes.get(end) == Some(&b'-') {
+        end += 1;
+    }
+    if !word(bytes.get(end)) {
+        return None;
+    }
+    loop {
+        while word(bytes.get(end)) {
+            end += 1;
+        }
+        if matches!(bytes.get(end), Some(b'.' | b'-')) && word(bytes.get(end + 1)) {
+            end += 1;
+        } else {
+            return Some(end);
+        }
+    }
+}
+
+/// Whether `text` is one name as the grammar reads one where an entity is named (`_name`, ADR 0285): word
+/// characters in runs joined by a single `-` or `.`, never starting with `-` (`AUTH-01`, `03`, `v1.0`).
+pub fn is_name(text: &str) -> bool {
+    word_end(text.as_bytes(), 0, false) == Some(text.len())
+}
+
+/// Whether `text` is one bare value word as the grammar reads one (`_bare`, ADR 0285): a name, with one leading
+/// `-` allowed (`-5`).
+pub fn is_bare_word(text: &str) -> bool {
+    word_end(text.as_bytes(), 0, true) == Some(text.len())
+}
+
+/// What a bare word is by its shape alone: the parser's tag, which loses nothing (ADR 0285). The field's declared
+/// type, which the parser never reads, decides what a word means.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiteralShape {
+    /// A canonical integer, `-?(0|[1-9][0-9]*)` within `i64`, not `-0`.
+    Integer(i64),
+    /// `true` or `false`.
+    Boolean(bool),
+    /// `YYYY-MM-DD` as written; whether the day exists is a `date` field's to say.
+    Date,
+    /// Any other word: `007`, `2-1`, `v1.0`, `AUTH-01`, `1.5`, an integer too large for `i64`.
+    Other,
+}
+
+/// The [`LiteralShape`] of `word`, a bare word. The one function the parser's value tag, its list items' form,
+/// the lexer and their agreement test ask.
+pub fn literal_shape(word: &str) -> LiteralShape {
+    let bytes = word.as_bytes();
+    let digits = |b: &[u8]| !b.is_empty() && b.iter().all(u8::is_ascii_digit);
+    match word {
+        "true" => return LiteralShape::Boolean(true),
+        "false" => return LiteralShape::Boolean(false),
+        _ => {}
+    }
+    if bytes.len() == 10
+        && digits(&bytes[..4])
+        && bytes[4] == b'-'
+        && digits(&bytes[5..7])
+        && bytes[7] == b'-'
+        && digits(&bytes[8..])
+    {
+        return LiteralShape::Date;
+    }
+    let magnitude = word.strip_prefix('-').unwrap_or(word);
+    let canonical =
+        digits(magnitude.as_bytes()) && (magnitude == "0" || !magnitude.starts_with('0'));
+    if canonical
+        && word != "-0"
+        && let Ok(n) = word.parse::<i64>()
+    {
+        return LiteralShape::Integer(n);
+    }
+    LiteralShape::Other
+}
+
+/// Whether `word` has the shape of a number or a date (`-?[0-9]+`, or `YYYY-MM-DD`): what the lexer reads as a
+/// `Number` where a bare word is expected, and what a list item writes as a literal.
+pub fn is_number_word(word: &str) -> bool {
+    let magnitude = word.strip_prefix('-').unwrap_or(word);
+    (!magnitude.is_empty() && magnitude.bytes().all(|b| b.is_ascii_digit()))
+        || literal_shape(word) == LiteralShape::Date
+}
+
+/// The number of lexemes from `lexemes[at]` that spell one entity name: a run of adjacent lexemes whose bytes are
+/// a `_name` word, or a single identifier (which may hold non-ASCII bytes). `None` when none starts there.
+pub(crate) fn name_len(text: &str, lexemes: &[Lexeme], at: usize) -> Option<usize> {
+    let first = lexemes.get(at)?;
+    if let Some((len, _)) = word_run(text, lexemes, at, false) {
+        return Some(len);
+    }
+    (first.kind == LexemeKind::Ident).then_some(1)
+}
+
+/// The lexemes from `lexemes[at]` that are, byte for byte and with no gap, one bare word
+/// ([`word_end`]): their count and the word's end. `None` when no word starts there, or when it ends inside a
+/// lexeme (a non-ASCII byte or a scheme ref ID's `:` continues it).
+pub(crate) fn word_run(
+    text: &str,
+    lexemes: &[Lexeme],
+    at: usize,
+    minus: bool,
+) -> Option<(usize, usize)> {
+    let first = lexemes.get(at)?;
+    let end = word_end(text.as_bytes(), first.start, minus)?;
+    let mut position = first.start;
+    let mut len = 0;
+    for lexeme in &lexemes[at..] {
+        if lexeme.start >= end {
+            break;
+        }
+        let part = matches!(
+            lexeme.kind,
+            LexemeKind::Ident | LexemeKind::Number | LexemeKind::Punct('-' | '.')
+        );
+        if !part || lexeme.start != position {
+            return None;
+        }
+        position = lexeme.end;
+        len += 1;
+    }
+    (position == end).then_some((len, end))
+}
+
 /// A byte that continues an identifier: what the grammar's identifiers are
 /// made of, and any non-ASCII byte, so a lexeme never splits a word.
 fn is_word(byte: u8) -> bool {
@@ -392,10 +531,10 @@ pub fn is_identifier(text: &str) -> bool {
     ascii_ident_end(text.as_bytes(), 0) == Some(text.len())
 }
 
-/// Whether `text` is one entity ID as the grammar reads one, whole: an `identifier`
-/// ([`is_identifier`]) or a `scheme_ref_id` (`scheme.kind:id`, `gh.issue:42`).
+/// Whether `text` is one entity ID as the grammar reads one, whole: a name ([`is_name`]: an `identifier`, or
+/// a word holding `-` or `.`, `AUTH-01`, `03`) or a `scheme_ref_id` (`scheme.kind:id`, `gh.issue:42`).
 pub fn is_entity_id(text: &str) -> bool {
-    is_identifier(text) || ref_id_end(text.as_bytes(), 0) == Some(text.len())
+    is_name(text) || ref_id_end(text.as_bytes(), 0) == Some(text.len())
 }
 
 /// The end of the `"…"` string opening at `open`, and whether the grammar
@@ -474,10 +613,18 @@ pub fn nested_too_deep(text: &str) -> Option<usize> {
 
 /// The lexemes of `text`, in order, whitespace skipped. Text that starts
 /// inside a string is read as code: callers lex from a statement's start.
+/// Where the grammar reads a bare word (a field's value, a list item, an entity's name, a selective
+/// `use`'s binding), the word is one lexeme (ADR 0285); elsewhere `a-b` is `a`, `-`, `b`.
 /// A string the grammar would not close is marked `Str { closed: false }`:
 /// a `"…"` ends at its first line's end, a `"""…"""` at the end of the line
 /// before the next line that starts a top-level form, else at the text's end.
 pub fn lex(text: &str) -> Vec<Lexeme> {
+    slots::read_words(text, lex_base(text))
+}
+
+/// The lexemes as the lexer cuts them without knowing where it is: an identifier, a number or a punctuation
+/// character at a time. [`slots::read_words`] joins the ones a word slot spans.
+fn lex_base(text: &str) -> Vec<Lexeme> {
     let bytes = text.as_bytes();
     let find = |from: usize, needle: &[u8]| {
         bytes[from.min(bytes.len())..]

@@ -20,7 +20,6 @@ fn prepared(text: &str, at: Position) -> Option<(Position, Position)> {
     behavior = "prepare_rename",
     verify = "prepare rename ranges a name holding a dash or a dot whole"
 )]
-#[ignore = "K1 T3"]
 fn prepare_rename_ranges_a_gsd_name_whole() {
     for (name, end) in [("AUTH-01", 12), ("v1.0", 9), ("03-02", 10)] {
         let text = format!("type {name} \"T\" {{\n}}\n");
@@ -36,7 +35,6 @@ fn prepare_rename_ranges_a_gsd_name_whole() {
     behavior = "prepare_rename",
     verify = "an entity named with digits only is a name to the editor"
 )]
-#[ignore = "K1 T3"]
 fn an_all_digit_entity_name_is_a_name_to_the_editor() {
     assert_eq!(
         prepared("type 03 \"T\" {\n}\n", Position::new(0, 6)),

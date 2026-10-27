@@ -39,11 +39,6 @@
     }
   },
   {
-    "type": "boolean",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "define_block",
     "named": true,
     "fields": {
@@ -344,14 +339,6 @@
             "named": true
           },
           {
-            "type": "boolean",
-            "named": true
-          },
-          {
-            "type": "date_literal",
-            "named": true
-          },
-          {
             "type": "expr_group",
             "named": true
           },
@@ -360,15 +347,7 @@
             "named": true
           },
           {
-            "type": "integer",
-            "named": true
-          },
-          {
             "type": "list",
-            "named": true
-          },
-          {
-            "type": "negative_integer",
             "named": true
           },
           {
@@ -510,10 +489,6 @@
       "types": [
         {
           "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "integer",
           "named": true
         },
         {
@@ -1170,19 +1145,11 @@
     "extra": true
   },
   {
-    "type": "date_literal",
-    "named": true
-  },
-  {
     "type": "define",
     "named": false
   },
   {
     "type": "expr",
-    "named": false
-  },
-  {
-    "type": "false",
     "named": false
   },
   {
@@ -1244,10 +1211,6 @@
   {
     "type": "triple_quoted_string",
     "named": true
-  },
-  {
-    "type": "true",
-    "named": false
   },
   {
     "type": "use",

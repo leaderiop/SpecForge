@@ -13,6 +13,7 @@ mod format_header;
 mod format_version;
 mod guide_spec_blocks;
 mod lex;
+mod lex_edits;
 mod line_breaks;
 mod member_comments;
 mod methods_test;
