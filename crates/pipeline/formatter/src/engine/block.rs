@@ -439,10 +439,10 @@ fn block_list_value(
 /// Whether a comment sits anywhere under `node`: a trailing one would swallow the rest of a joined line.
 fn item_has_comment(node: Node) -> bool {
     let mut cursor = node.walk();
-    let found = node
-        .children(&mut cursor)
-        .any(|c| c.kind() == kind::COMMENT || item_has_comment(c));
-    found
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    children
+        .into_iter()
+        .any(|c| c.kind() == kind::COMMENT || item_has_comment(c))
 }
 
 /// A body line `key   value` with the padding that aligns its key in a body dropped, for an item written on one line.
