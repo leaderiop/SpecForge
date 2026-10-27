@@ -114,3 +114,34 @@ fn a_restarted_instance_keeps_its_settings() {
         json!({"settings": {"level": 2}})
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
+)]
+fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
+    use serde_json::json;
+    use specforge_protocol_types::PassInput;
+    use specforge_wasm::{ExtensionCalls, ExtensionSettings};
+    let runtime = InProcessRuntime::new().with(crashing);
+    runtime.apply_settings(
+        "@contract/crash",
+        ExtensionSettings {
+            values: json!({"level": 2}).as_object().unwrap().clone(),
+            // PATH is set in any test process.
+            secrets: vec![("token".into(), "PATH".into())],
+        },
+    );
+    let calls = ExtensionCalls::new(&runtime);
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__t", &json!({}));
+    assert_eq!(
+        runtime.calls().pop().unwrap().input,
+        json!({"settings": {"level": 2}, "secrets": {"token": true}})
+    );
+    // A pass's result must be the same on every machine: it is told the settings, not whether a variable is set.
+    let input: PassInput = serde_json::from_value(json!({"entities": []})).unwrap();
+    let _ = calls.run_pass("@contract/crash", "audit", &ExtensionCalls::encode(&input));
+    let carried = runtime.calls().pop().unwrap().input;
+    assert_eq!(carried["settings"], json!({"level": 2}));
+    assert!(carried.get("secrets").is_none(), "{carried}");
+}

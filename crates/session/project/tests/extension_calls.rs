@@ -467,11 +467,8 @@ fn every_guest_call_but_describe_carries_its_settings() {
         carried.get("mode").is_none() && carried.get("api_key").is_none(),
         "{carried}"
     );
-    assert!(
-        pass.input["secrets"]["api_key"].is_boolean(),
-        "{}",
-        pass.input
-    );
+    // A pass is not told whether a secret is set: that is the machine's, and its result must not depend on it.
+    assert!(pass.input.get("secrets").is_none(), "{}", pass.input);
     // The follower declares no setting: it carries nothing, and not its peer's.
     let follower = calls
         .iter()
@@ -493,4 +490,10 @@ fn every_guest_call_but_describe_carries_its_settings() {
     let tool = runtime.calls().pop().expect("recorded");
     assert_eq!(tool.input["settings"]["level"], 2, "{}", tool.input);
     assert_eq!(tool.input["q"], 1);
+    // A tool is told whether the extension's secret is set.
+    assert!(
+        tool.input["secrets"]["api_key"].is_boolean(),
+        "{}",
+        tool.input
+    );
 }

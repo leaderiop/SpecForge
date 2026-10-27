@@ -557,7 +557,7 @@ c.secret("api_key", "MY_API_KEY", "The service key");
 
 A dotted name or a family (`*` segments) has a type, an optional default and the codes it gates: while a bool setting is false, those codes are reported by no source. A preset maps each value of an enum or bool setting (the extension's own, or a peer's as `@ext:name`) to settings it sets and codes it raises, never lowers. `c.feature_flag(name, default, description)` is a bool setting. A secret is never written in `specforge.json` (E087); the extension is told only whether its variable is set.
 
-A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)`. A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
+A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)` (in a command, a tool or a resource; a pass or validator always reads `false`, as its result must not depend on the machine). A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
 
 ## Host Functions
 

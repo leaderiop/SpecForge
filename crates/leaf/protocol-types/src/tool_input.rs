@@ -13,9 +13,9 @@ use std::fmt;
 /// exactly these.
 pub const TARGET_ARGUMENTS: &[&str] = &["path"];
 
-/// Every argument the host owns in a tool call: the target's, and `settings`, which the host adds to every call to
-/// carry the extension's own (ADR 0288; a client's is dropped). No explicit tool may declare one.
-pub const HOST_ARGUMENTS: &[&str] = &["path", "settings"];
+/// Every argument the host owns in a tool call: the target's, and `settings` and `secrets`, which the host adds to
+/// a call to carry the extension's own (ADR 0288; a client's are dropped). No explicit tool may declare one.
+pub const HOST_ARGUMENTS: &[&str] = &["path", "settings", "secrets"];
 
 /// Why the host refuses an explicit MCP tool: MCP serves no tool for it
 /// (I017), and the SDK refuses to build an extension declaring it.

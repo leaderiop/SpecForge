@@ -440,7 +440,12 @@ impl<'r> ExtensionCalls<'r> {
         if matches!(operation, Operation::Handshake | Operation::Describe) {
             return None;
         }
-        let members = self.runtime.settings_of(extension)?.members();
+        // Secret presence only where a person runs something on this machine (see `ExtensionSettings::members`).
+        let secrets = matches!(
+            operation,
+            Operation::Command | Operation::McpTool | Operation::McpResource
+        );
+        let members = self.runtime.settings_of(extension)?.members(secrets);
         (!members.is_empty()).then_some(members)
     }
 
@@ -487,7 +492,9 @@ fn splice(bytes: &[u8], members: &serde_json::Map<String, Value>) -> Vec<u8> {
         return bytes.to_vec();
     }
     let mut first = body.trim_ascii_start()[1..].trim_ascii().is_empty();
-    let mut out = body.to_vec();
+    // One allocation: the input is copied once, with room for the members, not grown by them.
+    let mut out = Vec::with_capacity(body.len() + 256);
+    out.extend_from_slice(body);
     for (name, value) in members {
         if !first {
             out.push(b',');

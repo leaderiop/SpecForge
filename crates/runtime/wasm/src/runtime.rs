@@ -37,14 +37,20 @@ impl ExtensionSettings {
         std::env::var_os(var).is_some_and(|v| !v.is_empty())
     }
 
-    /// The members the host adds to a call's input object: `settings`, and `secrets` (name -> set), the
-    /// environment read now.
-    pub fn members(&self) -> serde_json::Map<String, serde_json::Value> {
+    /// The members the host adds to a call's input object: `settings`, and with `secrets` the presence of each
+    /// declared secret (name -> set), the environment read now. An extension that declares no secret has no
+    /// `secrets` member.
+    ///
+    /// Presence is the machine's, not the project's: CI has a token a laptop lacks. Nothing the host hashes,
+    /// records or baselines holds it, so an input that carries it cannot be reproduced from the project. The
+    /// caller adds it only to what a person runs on a machine (commands, tools, resources), never to a pass,
+    /// validator, collector, scanner or migration, whose results must be the same on every machine.
+    pub fn members(&self, secrets: bool) -> serde_json::Map<String, serde_json::Value> {
         let mut members = serde_json::Map::new();
         if !self.values.is_empty() {
             members.insert("settings".into(), self.values.clone().into());
         }
-        if !self.secrets.is_empty() {
+        if secrets && !self.secrets.is_empty() {
             let set = |var: &str| std::env::var_os(var).is_some_and(|v| !v.is_empty());
             let secrets = self
                 .secrets

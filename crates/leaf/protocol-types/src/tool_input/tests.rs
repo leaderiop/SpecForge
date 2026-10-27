@@ -44,5 +44,11 @@ fn a_tool_schema_declaring_settings_is_refused() {
         refused.to_string(),
         "its input schema declares 'settings', which the host sends with every call"
     );
-    assert_eq!(HOST_ARGUMENTS, ["path", "settings"]);
+    assert_eq!(HOST_ARGUMENTS, ["path", "settings", "secrets"]);
+    // `secrets` is the host's as well: the host and the SDK both strip it from a tool's arguments.
+    let schema = json!({"type": "object", "required": ["secrets"]});
+    assert_eq!(
+        refusal(&schema).expect("secrets is reserved").argument,
+        "secrets"
+    );
 }
