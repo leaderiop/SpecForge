@@ -204,6 +204,20 @@ behavior create_task "Create a task" {
 > Every item of a `reference_list` field (and the value of a `reference` field) must resolve to
 > a real entity of the kind the field names, or you get an error. A `string_list` field's items are
 > opaque quoted strings. Reference fields build the graph; string lists don't.
+>
+> A field may also hold a list of words (`reasons [threshold, jump]`, each from its vocabulary, once), a block
+> with declared members (`completion { at 2026-10-27 audit v1.0-audit }`; a reference inside it links like any
+> other) or a list of such blocks, one `{ ... }` item a line, no commas:
+>
+> ```spec
+> requires [
+>   { phase 02 provides "the login form" }
+>   { phase 03 provides "sessions" }
+> ]
+> ```
+>
+> `specforge set <id> 'requires[0].phase' 03` changes one member, `specforge set <id> requires '[{"phase":"02","provides":"x"}]'`
+> a whole list, and the MCP `specforge.edit` tool's `append` and `remove` add and drop an item.
 
 **Comments** are line-only (`//`). References resolve across the whole project, so `use` is
 optional: it records that a file depends on another (an `imports` edge), and a path that names no

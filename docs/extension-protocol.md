@@ -186,8 +186,8 @@ as `contract`) and `exempts_obligations` (an entity that sets it owes no
 `verify` obligations).
 
 Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
-`bool`, `date` (one calendar day, `YYYY-MM-DD`, written as a string), `enum` (values in `enum_values`), `identifier` (one word from an open set, written bare), `string_list`, `reference`,
-`reference_list`, `block`. The host also reads the `_type`-suffixed
+`bool`, `date` (one calendar day, `YYYY-MM-DD`, written as a string), `enum` (values in `enum_values`), `enum_list` (a list of those values, each once), `identifier` (one word from an open set, written bare), `string_list`, `reference`,
+`reference_list`, `block` and `block_list` (protocol 1.7.0, ADR 0285). The host also reads the `_type`-suffixed
 spellings (`string_type`, ...) and `boolean`; an unknown type drops the
 field with W019. Every host output names a field type by these names — the
 Graph Protocol schema and exports, the published JSON Schema, the model,
@@ -197,7 +197,9 @@ What a field takes and what is written for it (ADR 0064): `string` takes text, a
 union or an `expr { }` group, and is written as a string (a group as its conjuncts, one per line); `enum` one of
 its `enum_values`; `identifier` one word (letters, digits and `_`, starting with a letter or `_`), written as a string; `integer` and `bool` their JSON scalars; `date` one calendar day, `YYYY-MM-DD`, written as a string (a quoted day is read as the day); `reference` one id, written as a string;
 `string_list` and `reference_list` a list (a single value is stored as a one-item list; a list is stored as written), written as an
-array of strings; `block` a block, written as an object of its entries. Anything else is E061.
+array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
+
+A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
 `graph` input, the exports and MCP carry exactly these forms.

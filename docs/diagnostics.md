@@ -188,7 +188,9 @@ Level: error
 E006: Missing required field
 
 An entity is missing a field marked `required: true` for its kind in the field
-registry. Add the missing field to the entity.
+registry, or an item of a typed block or block list is missing a member marked
+`required: true` (the message names the member's path, `requires[1].provides`).
+Add the missing field or member.
 
 Owner: core
 Level: error
@@ -262,9 +264,11 @@ Level: error
 ```
 E016: Referenced file does not exist
 
-A file-reference field on an entity points at a path that doesn't exist under
-the spec root. Fix the path, or create the missing file; a similarly-named file
-is suggested when one is found.
+A file-reference field on an entity, or a file-reference member of a typed block
+or block list item, points at a path that doesn't exist under the field's base:
+the spec root, or, when the field declares `file_base` `project`, the project
+root. Fix the path, or create the missing file; a similarly-named file is
+suggested when one is found.
 
 Owner: core
 Level: error
@@ -717,13 +721,17 @@ like, are enum fields); an integer field an integer, an integer difference like
 `2-1` or a date (the message names the operand that is no number); a bool field
 true or false; a date field one calendar day, `YYYY-MM-DD`, that exists
 (`2026-02-30` is none); a reference field one name, a number or a date written
-as one (`10`, `2026-10-26`) included, never one starting with `-`; a string_list
-or reference_list field a list; a block field a block. Values that can be read
-as the declared type are converted without a diagnostic: a single string, id,
-integer, boolean or date on a list field becomes a one-item list, a list is
-stored as written, a quoted integer, boolean or calendar day the number, boolean
-or date. Fix the value, or check the field's type with `specforge schema --kind
-<kind>`.
+as one (`10`, `2026-10-26`) included, never one starting with `-`; a
+string_list, reference_list or enum_list field a list (an enum_list's words are
+each one of its declared values and appear once); a block field a block, whose
+members, when it declares them, are each read by their own type, and a
+block_list field a list of blocks, `[ { a 1 } { a 2 } ]`; a reference field with
+`target_kinds` names an entity of any of the listed kinds; an integer field with
+a `minimum` or `maximum` an integer inside them. Values that can be read as the
+declared type are converted without a diagnostic: a single string, id, integer,
+boolean or date on a list field becomes a one-item list, a list is stored as
+written, a quoted integer, boolean or calendar day the number, boolean or date.
+Fix the value, or check the field's type with `specforge schema --kind <kind>`.
 
 Owner: core
 Level: error
@@ -2340,8 +2348,10 @@ W019: Unknown field type
 
 An extension manifest declares a field whose `field_type` value the compiler
 doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
-`enum`, `identifier`, `string_list`, `reference`, `reference_list`, or `block`).
-Correct the field's `field_type` in the manifest.
+`enum`, `enum_list`, `identifier`, `string_list`, `reference`, `reference_list`,
+`block` or `block_list`); a member of a block or block list is a field and is
+read the same way, and one with an unknown type is dropped. Correct the field's
+`field_type` in the manifest.
 
 Owner: core
 Level: warning
@@ -2353,8 +2363,9 @@ Level: warning
 W020: Unrecognized field
 
 An entity sets a field that isn't declared for its kind by any installed
-extension. Remove the field, fix a typo in its name, or install the extension
-that declares it.
+extension, or a typed block or block list item sets a key its field declares no
+member for. Remove it, fix a typo in its name, or install the extension that
+declares it.
 
 Owner: core
 Level: warning
@@ -2379,7 +2390,15 @@ no extension loads or the kind itself, or closes a scope cycle (the kind is then
 unscoped), an `enum` field that declares no values, or a `default_value` an enum
 field does not take. A field that writes a declared edge type from a kind
 outside its declared `source_kind`, or to a kind outside its declared
-`target_kind`, is W021 too, and its edges are of no edge type.
+`target_kind`, is W021 too, and its edges are of no edge type. So is a typed
+field the registry refuses and drops the attribute of: `members` on a type other
+than `block` or `block_list`, a `block_list` with none, a member named twice or
+not one identifier, a member that declares `derived_from`, `target_kinds`
+together with `target_kind`, on a type other than `reference` or
+`reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
+than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
+`spec` or `project`, or without `file_reference`; a `scoped_by` field with
+`target_kinds` scopes nothing.
 
 Owner: core
 Level: warning

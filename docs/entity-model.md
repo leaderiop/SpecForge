@@ -84,7 +84,7 @@ invariant email_uniqueness "Email Uniqueness" {
 
 ### Field types
 
-Extensions declare each field with one of ten types (`specforge_protocol_types::FieldType`):
+Extensions declare each field with one of twelve types (`specforge_protocol_types::FieldType`):
 
 | Type | Value | Checked |
 |------|-------|---------|
@@ -93,12 +93,16 @@ Extensions declare each field with one of ten types (`specforge_protocol_types::
 | `bool` | `true` / `false` | |
 | `date` | one calendar day, `2026-06-30`, written bare | |
 | `enum` | one of the values the field lists | E061 otherwise |
+| `enum_list` | `[low, high]`, words the field lists | E061 for another word or a repeat |
 | `identifier` | one bare word from an open set | |
 | `string_list` | `["a", "b"]` | |
 | `reference` | one entity id | must resolve (E003), to the right kind (E022) |
 | `reference_list` | `[id, id]` | each must resolve (E003), to the right kind (E022) |
-| `block` | a nested `{ ... }` block | read by the extension's passes |
+| `block` | a nested `{ ... }` block; with declared members, each is read by its own type | read by the extension's passes; E061 and E006 per member |
+| `block_list` | `[ { a 1 } { a 2 } ]`, a list of blocks with the same declared members | E061 and E006 per member of each item |
 
+A reference may name any of several kinds (`target_kinds`), an integer may be bounded (`minimum`, `maximum`), and a
+`file_reference` field reads its paths from the spec root or, declaring `file_base project`, the project root.
 A field can also declare an `edge` (its references become typed graph edges), `required`, `file_reference` (each
 value is a path that must exist), `normative` (it states what the entity promises; the review document quotes it
 whole) and `headline` (it is the entity's one-line statement, as a behavior's `contract` is). The core knows none of

@@ -56,6 +56,8 @@ specforge link archive_task --verify unit:"archiving an unknown task fails"
 specforge delete archive_task --unlink-references
 ```
 
+A member of a typed block or block list is addressed by its path: `specforge set <id> 'requires[0].phase' 03`, `specforge unset <id> completion.audit`; a whole block list is JSON (`specforge set <id> requires '[{"phase":"02","provides":"x"}]'`), and the MCP `specforge.edit` tool adds an item with `append` and drops one with `remove` (a list of words changes by `link`/`unlink`).
+
 `--in` is relative to the project root and must be inside the spec root. `specforge new <kind> --help` lists that
 kind's field flags, read from the loaded extensions -- so the same commands work for any domain's kinds.
 

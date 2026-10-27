@@ -97,8 +97,9 @@ Planned or in progress -- say so, never imply they work:
 
 An extension is a WASM component built with the Rust SDK (`specforge-extension-sdk`). Its declaration contributes:
 
-- **kinds** with typed fields (string, identifier, enum, reference, reference_list, string_list, date, integer, bool,
-  block), required flags, and an inference guide;
+- **kinds** with typed fields (string, identifier, enum, enum_list, reference (one kind or a union), reference_list, string_list, date,
+  integer (optionally bounded), bool, block and block_list (typed members), file references from the spec root or the
+  project root), required flags, and an inference guide;
 - **edges** between kinds, and **enhancements** that add fields to another extension's kind;
 - **validation rules** (each with a diagnostic code), **passes** (e.g. formal analysis), **collectors** (test runners)
   and **commands** surfaced as `specforge <extension> <command>` and as MCP tools.

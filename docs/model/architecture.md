@@ -49,7 +49,7 @@ The IR types are private to the emitter (`pub(crate)`); the JSON format serializ
   entities and the relationships.
 - `ModelEntity`: a kind's name, its extension, its description, its declared `dot_color`, its fields, and the
   extensions that enhance it (`enhanced_by`).
-- `ModelField`: name, `FieldType` (the protocol's ten types), required, description, default, enum values,
+- `ModelField`: name, `FieldType` (the protocol's twelve types), required, description, default, enum values,
   whether it is the synthetic key, the kind it references, the extension that contributed it when that is not
   the kind's own (`contributed_by`), and its edge (`contribution`, as `EdgeLabel -> target`).
 - `ModelRelationship`: the edge label, source and target kinds, cardinality (`1:1`, `1:N`, `N:1`, `N:M`) and the

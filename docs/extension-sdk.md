@@ -298,7 +298,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)` and `file_reference()` (string values are file paths). `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -311,7 +311,9 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `StringList` | a list of quoted strings |
 | `Reference` | one entity id; creates an edge |
 | `ReferenceList` | a list of entity ids; creates one edge per id |
-| `Block` | a triple-quoted text block |
+| `EnumList` | a list of its vocabulary's values, each once (declared with `enum_list`) |
+| `Block` | a block of entries; with `member(..)`, of typed members |
+| `BlockList` | a list of blocks with the same `member(..)`s |
 
 ### Vocabularies
 

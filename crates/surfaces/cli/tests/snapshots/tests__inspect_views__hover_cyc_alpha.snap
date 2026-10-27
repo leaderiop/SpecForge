@@ -16,7 +16,7 @@ The resolved reference graph contains a cycle among entity references. Cycles th
 
 unrecognized field 'depends_on' on entity 'alpha' of kind 'behavior' at a.spec
 
-An entity sets a field that isn't declared for its kind by any installed extension. Remove the field, fix a typo in its name, or install the extension that declares it.
+An entity sets a field that isn't declared for its kind by any installed extension, or a typed block or block list item sets a key its field declares no member for. Remove it, fix a typo in its name, or install the extension that declares it.
 
 [Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w020)
 
@@ -36,7 +36,7 @@ A `behavior` entity has no `category` field, which agents rely on for task routi
 
 behavior 'alpha' is missing required field 'contract'
 
-An entity is missing a field marked `required: true` for its kind in the field registry. Add the missing field to the entity.
+An entity is missing a field marked `required: true` for its kind in the field registry, or an item of a typed block or block list is missing a member marked `required: true` (the message names the member's path, `requires[1].provides`). Add the missing field or member.
 
 [Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e006)
 
