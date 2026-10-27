@@ -629,16 +629,21 @@ fn diff_field(
         ));
     }
     attributes.extend(scalar(Scalar::Edge, old_edge.clone(), new_edge.clone()));
-    attributes.extend(scalar(
-        Scalar::TargetKind,
-        old_target_kind.clone(),
-        new_target_kind.clone(),
-    ));
-    attributes.extend(members(
-        Members::TargetKinds,
-        old_target_kinds,
-        new_target_kinds,
-    ));
+    // `target_kind: A` becoming `target_kinds: [A, B]` widens the targets: the single kind is the set's first member.
+    let widened = old_target_kind
+        .as_ref()
+        .is_some_and(|a| new_target_kind.is_none() && new_target_kinds.contains(a));
+    let mut old_set = old_target_kinds.clone();
+    if widened {
+        old_set.extend(old_target_kind.clone());
+    } else {
+        attributes.extend(scalar(
+            Scalar::TargetKind,
+            old_target_kind.clone(),
+            new_target_kind.clone(),
+        ));
+    }
+    attributes.extend(members(Members::TargetKinds, &old_set, new_target_kinds));
     attributes.extend(scalar(
         Scalar::Minimum,
         old_minimum.map(|n| n.to_string()),
