@@ -31,7 +31,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "0.2.0"
+specforge-extension-sdk = "0.3.0"
 serde_json = "1.0"
 ```
 

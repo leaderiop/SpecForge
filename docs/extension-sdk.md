@@ -60,7 +60,7 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-specforge-extension-sdk = "0.2.0"
+specforge-extension-sdk = "0.3.0"
 ```
 
 That is an outside author's crate. `specforge extension init` writes this dependency line, in a crate that
@@ -596,7 +596,7 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
 
 ```toml
 [dev-dependencies]
-specforge-extension-sdk = { version = "0.2.0", features = ["testing"] }   # MockHost, call_every_command
+specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }   # MockHost, call_every_command
 ```
 
 `specforge-wasm`'s `InProcessRuntime` and `specforge-test` are not published: the builtins in this
