@@ -12,6 +12,9 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(crate) struct Declared {
     changes: BTreeMap<String, Change>,
     whole: BTreeSet<String>,
+    /// The files a rename of the plan rewrites: it changes the graph by a substitution only (ADR 0198), so every
+    /// entity of these files may read differently afterwards.
+    renamed: BTreeSet<String>,
 }
 
 #[derive(Debug, Default)]
@@ -48,6 +51,11 @@ impl Declared {
         self.whole.insert(new.to_string());
     }
 
+    /// A rename of the plan rewrites `files`.
+    pub(crate) fn renamed<'a>(&mut self, files: impl IntoIterator<Item = &'a str>) {
+        self.renamed.extend(files.into_iter().map(String::from));
+    }
+
     /// `field` of `id` may change (also a delete's referrer, ADR 0163).
     pub(crate) fn field(&mut self, id: &str, field: &str) {
         self.changes
@@ -73,7 +81,7 @@ impl Declared {
         delta.removed_nodes.retain(|n| !self.whole.contains(&n.id));
         let no_change = Change::default();
         delta.modified_nodes.retain_mut(|node| {
-            if self.whole.contains(&node.id) {
+            if self.whole.contains(&node.id) || self.renamed.contains(&node.file) {
                 return false;
             }
             let declared = self.changes.get(&node.id).unwrap_or(&no_change);

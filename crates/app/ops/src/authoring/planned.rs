@@ -147,6 +147,18 @@ impl PlannedChange {
         self.ledger.as_ref().map(|l| l.after.as_slice())
     }
 
+    /// The bytes the change writes to `specforge-harness` when the file holds `now` when it is applied: the planned
+    /// bytes, or the change made again over what is there (another writer may have landed since).
+    pub(crate) fn ledger_over(&self, now: &[u8]) -> Option<Vec<u8>> {
+        self.ledger.as_ref().map(|ledger| {
+            if now == ledger.planned_on {
+                ledger.after.clone()
+            } else {
+                (ledger.redo)(now)
+            }
+        })
+    }
+
     /// Nothing to write.
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
@@ -241,6 +253,22 @@ impl PlannedChange {
     /// 0104): checked against the text it was planned on, then replaced or created; on any failure, every file
     /// already written is put back (one that cannot be is the error's writes). Returns the files it wrote.
     pub(crate) fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
+        self.apply_checked(caller, || Ok(()))
+    }
+
+    /// This change taking the write lock whatever the project declares: an extension's plan always does (ADR 0289).
+    pub(crate) fn serialized(mut self) -> Self {
+        self.locked = true;
+        self
+    }
+
+    /// [`Self::apply`], running `under_lock` once the lock is held and before anything is staged: it reads the
+    /// disk as it is and may refuse the change (a stale revision, a union that adds an error).
+    pub(crate) fn apply_checked(
+        &self,
+        caller: Caller<'_>,
+        under_lock: impl FnOnce() -> Result<(), OpError>,
+    ) -> Result<Writes, OpError> {
         // A project with no harness field has no ledger to serialize: it gets no `.specforge/` from a write.
         let _lock = (self.locked || self.ledger.is_some())
             .then(|| specforge_project::harness::lock(self.sources.base()))
@@ -252,6 +280,7 @@ impl PlannedChange {
                     format!("{}: cannot take the write lock: {e}", self.doing),
                 )
             })?;
+        under_lock()?;
         let mut change = ProjectChange::new(self.sources.base(), self.doing.as_str());
         for (key, (before, after)) in &self.files {
             let held = caller.containment().resolve(&self.sources.path(key))?;

@@ -8,7 +8,8 @@
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
-use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
+use specforge_ops::authoring::apply::{PlanOutcome, execute};
+use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
 use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
 use specforge_project::testing::{
@@ -105,7 +106,22 @@ pub fn run_command(
         .of(short)
         .find(|c| c.id() == id)
         .unwrap_or_else(|| panic!("no command {short} {id}"));
-    run(&view, command, &Map::new(), CommandFormat::Json).unwrap();
+    let run = execute(
+        &view,
+        command,
+        &Map::new(),
+        CommandFormat::Json,
+        false,
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    let refusal = match run.plan {
+        Some(PlanOutcome::Refused(error)) => Some((
+            error.code.to_string(),
+            error.data.map_or(Value::Null, |data| *data),
+        )),
+        _ => None,
+    };
     let wrote = changed_since(project.root(), &before)
         .into_iter()
         .filter(|f| !f.starts_with(".specforge/"))
@@ -113,7 +129,7 @@ pub fn run_command(
     Ran {
         calls: runtime.calls(),
         wrote,
-        refusal: None,
+        refusal,
     }
 }
 
@@ -146,7 +162,6 @@ fn record_one(project: &TestProject) -> Vec<(&'static str, &'static str, i32, Va
     vec![(CORE, "cmd__record", 0, ops)]
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a writing command receives the revision of every source and its plan is applied"
@@ -176,13 +191,12 @@ fn a_writing_command_gets_revisions_and_answers_a_plan() {
     assert!(
         std::fs::read_to_string(p.root().join("03-01.spec"))
             .unwrap()
-            .contains("result pass")
+            .contains("result \"pass\"")
     );
     assert!(ledger(&p).contains(&line("v1.0/03/U1", "result", "\"pass\"")));
     assert_eq!(codes(&p, &runtime, "E083"), 0);
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "refuse_stale_revision",
     verify = "a plan naming a stale revision is refused and writes nothing"
@@ -204,7 +218,6 @@ fn a_plan_naming_a_stale_revision_is_refused() {
 }
 
 #[cfg(unix)]
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a plan is all or nothing, the ledger included"
@@ -236,7 +249,6 @@ fn a_plan_is_all_or_nothing() {
     assert!(ledger(&p).is_empty());
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "two plans on disjoint files both land with their ledger lines"
@@ -268,18 +280,21 @@ fn two_plans_on_disjoint_files_both_land() {
     )]);
     let (one, two) = (compiled(&p, &first), compiled(&p, &second));
     std::thread::scope(|scope| {
-        scope.spawn(|| run_command(&p, &one, &first, "core", "record"));
-        scope.spawn(|| run_command(&p, &two, &second, "core", "record"));
+        let a = scope.spawn(|| run_command(&p, &one, &first, "core", "record"));
+        let b = scope.spawn(|| run_command(&p, &two, &second, "core", "record"));
+        for ran in [a.join().unwrap(), b.join().unwrap()] {
+            assert!(ran.refusal.is_none(), "{:?}", ran.refusal);
+        }
     });
     assert!(
         std::fs::read_to_string(p.root().join("03-01.spec"))
             .unwrap()
-            .contains("result pass")
+            .contains("result \"pass\"")
     );
     assert!(
         std::fs::read_to_string(p.root().join("03-02.spec"))
             .unwrap()
-            .contains("result fail")
+            .contains("result \"fail\"")
     );
     let ledger = ledger(&p);
     assert!(
@@ -292,7 +307,6 @@ fn two_plans_on_disjoint_files_both_land() {
     );
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "refuse_stale_revision",
     verify = "two plans whose union adds an error refuse the later"
@@ -328,7 +342,6 @@ pub(crate) fn refused(
         .map(|(code, _)| code)
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a plan may not write a computed value"
@@ -347,7 +360,6 @@ fn a_plan_may_not_write_a_computed_value() {
     );
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a harness value is set only by a plan of its extension or of a peer"
@@ -389,7 +401,6 @@ fn a_harness_value_is_set_only_by_its_extension_or_a_peer() {
     assert_eq!(error.error.code, "harness_field");
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a plan from a command that does not declare writes, or that failed, is not applied"
@@ -419,7 +430,6 @@ fn a_plan_from_a_command_that_does_not_declare_writes_is_refused() {
     );
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a plan renames in order and re-keys the ledger once"
@@ -469,7 +479,6 @@ fn a_plan_renames_in_order() {
     assert_eq!(codes(&p, &runtime, "E083"), 0, "{ledger}");
 }
 
-#[ignore = "K5 T6"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "a malformed plan is invalid_plan and names the operation"

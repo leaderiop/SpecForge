@@ -15,7 +15,9 @@ use specforge_test_macros::test as specforge_test;
 
 const BASE: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\n";
 
-fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> bool {
+/// The code a typed edit is refused with: the field flags' (`computed_field`, `harness_field`, ADR 0289) before it is
+/// planned, else E080 once it is judged.
+fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> Option<String> {
     let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
     edit::run(
         &ProjectView::of(&compiled),
@@ -24,7 +26,8 @@ fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> boo
         &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
-    .is_err_and(|e| e.error.is(specforge_common::codes::E080))
+    .err()
+    .map(|e| e.error.code.to_string())
 }
 
 fn gsd(spec: &str) -> TestProject {
@@ -41,9 +44,15 @@ fn gsd(spec: &str) -> TestProject {
 )]
 fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
     let verification = gsd("verification V \"V\" {\n  phase 03\n}\n");
-    assert!(refused(&verification, "v1.0/03/V", "status", "passed"));
+    assert_eq!(
+        refused(&verification, "v1.0/03/V", "status", "passed").as_deref(),
+        Some("computed_field")
+    );
     let uat = gsd("uat_test U \"U\" {\n  phase 03\n}\n");
-    assert!(refused(&uat, "v1.0/03/U", "result", "pass"));
+    assert_eq!(
+        refused(&uat, "v1.0/03/U", "result", "pass").as_deref(),
+        Some("harness_field")
+    );
     let decision = "decision D \"D\" {\n  phase 03\n  origin context\n}\n";
     let committed = gsd(decision);
     let fake = Arc::new(FakeHistory::repo(
@@ -52,7 +61,10 @@ fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
         vec![("a.spec".into(), format!("{BASE}{decision}").into_bytes())],
     ));
     let _installed = history::install(fake);
-    assert!(refused(&committed, "v1.0/03/D", "origin", "project"));
+    assert_eq!(
+        refused(&committed, "v1.0/03/D", "origin", "project").as_deref(),
+        Some("E080")
+    );
 }
 
 /// The ledger line that records `value` (JSON text) for `field` of `path`.

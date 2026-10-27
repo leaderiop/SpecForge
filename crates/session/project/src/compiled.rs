@@ -11,6 +11,8 @@ use specforge_graph::{
     Applied, Computed, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes,
 };
 
+mod disk;
+
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
 use crate::sources::{Read, SourceCache};
@@ -243,11 +245,18 @@ impl CompiledProject {
         let ledger = Ledger::parse(&String::from_utf8_lossy(current)).ledger;
         let mut rewritten = ledger.rewritten(&view(self, false), &view(after, errors), change);
         if keep_unseen {
-            // The ledger was rewritten by another writer since this change was planned: its lines for entities
-            // neither project holds are that writer's, and stay.
-            for line in ledger.lines().filter(|l| {
-                self.graph().node(&l.path).is_none() && after.graph().node(&l.path).is_none()
-            }) {
+            // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
+            // for values, neither project holds are that writer's, and stay.
+            let held = |project: &CompiledProject, l: &crate::harness::Line| {
+                if l.is_field() {
+                    harness
+                        .value(project.graph(), forms, &l.path, &l.key)
+                        .is_some()
+                } else {
+                    project.graph().node(&l.path).is_some()
+                }
+            };
+            for line in ledger.lines().filter(|l| !held(self, l) && !held(after, l)) {
                 rewritten.insert(line.clone());
             }
         }

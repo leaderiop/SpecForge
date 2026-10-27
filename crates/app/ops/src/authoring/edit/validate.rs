@@ -54,6 +54,20 @@ pub(crate) fn added(
     (errors, rest)
 }
 
+/// Refuse (E080) when `after` has an error `before` does not.
+pub(crate) fn refuse_new_errors(
+    before: &[Diagnostic],
+    after: Vec<Diagnostic>,
+    codes: &Codebook,
+) -> Result<(), Refusal<EditField>> {
+    let (errors, _) = added(before, after);
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(new_errors(errors, codes))
+    }
+}
+
 /// What the project reports once `texts` are written that its checked report does not have now: the warnings and
 /// infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
 /// `undeclared_change` (ADR 0198) naming the remainder.

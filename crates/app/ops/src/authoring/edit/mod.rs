@@ -12,15 +12,18 @@ mod keep;
 mod outcome;
 mod path;
 mod skeleton;
+mod steps;
 mod typed;
 pub(crate) mod validate;
 pub mod write;
 
 pub use outcome::{EditDocument, Edited, run};
 pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
+use steps::compose;
+pub use steps::{Step, plan, plan_steps};
 pub use typed::takes_json;
 
-use crate::authoring::format::{Configs, Forms, Place};
+use crate::authoring::format::{Configs, Place};
 use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
@@ -31,7 +34,7 @@ use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
 use specforge_graph::{Found, Scopes};
 use specforge_parser::LineBreak;
-use specforge_project::harness::LedgerChange;
+use specforge_project::harness::Harness;
 use std::collections::BTreeMap;
 
 /// One typed edit. The MCP `specforge.edit` tool reads a list of them (`op` names the variant); each CLI verb
@@ -290,6 +293,10 @@ pub struct EditPlan {
 }
 
 impl EditPlan {
+    pub(super) fn made(change: PlannedChange, report: EditReport) -> Self {
+        EditPlan { change, report }
+    }
+
     pub fn report(&self) -> &EditReport {
         &self.report
     }
@@ -317,6 +324,11 @@ struct Planner<'v> {
     declared: declared::Declared,
     /// The entities the plan's edits move so far, composed: what the harness ledger re-keys.
     moves: Vec<(String, String)>,
+    /// Every move so far, as it was made, in order: a harness value set before a move is at its new path after it.
+    raw_moves: Vec<(String, String)>,
+    /// The harness values the edits set: (moves made before, path then, field).
+    sets: Vec<(usize, String, String)>,
+    harness: &'v Harness,
 }
 
 /// Where an entity is.
@@ -495,15 +507,13 @@ impl<'v> Planner<'v> {
         self.declared.edit(edit, &path);
         for (old, new) in &moves {
             self.declared.moved(old, new);
-            // A chain of moves composes: `a → b` then `b → c` is `a → c`.
-            match self.moves.iter_mut().find(|(_, to)| to == old) {
-                Some((_, to)) => *to = new.clone(),
-                None => self.moves.push((old.clone(), new.clone())),
-            }
+            compose(&mut self.moves, old, new);
+            self.raw_moves.push((old.clone(), new.clone()));
         }
         let creates = matches!(edit, Edit::Create { .. });
         let before = (creates || !moves.is_empty()).then(|| self.snapshot());
         self.apply_edit(edit, &path)?;
+        self.record_sets(edit, &path);
         let Some(before) = before else {
             return Ok(());
         };
@@ -540,6 +550,29 @@ impl<'v> Planner<'v> {
         self.files.extend(files);
         self.scopes = rekey.after;
         Ok(())
+    }
+
+    /// The harness fields `edit` writes: each is a value the ledger records for the entity at `path` (ADR 0287).
+    fn record_sets(&mut self, edit: &Edit, path: &str) {
+        let (kind, fields): (String, Vec<&str>) = match edit {
+            Edit::Create { kind, fields, .. } => {
+                (kind.clone(), fields.keys().map(|k| path::top(k)).collect())
+            }
+            Edit::Set { field, .. }
+            | Edit::Unset { field, .. }
+            | Edit::Append { field, .. }
+            | Edit::Remove { field, .. }
+            | Edit::Link { field, .. }
+            | Edit::Unlink { field, .. } => match self.scopes.kind(path) {
+                Some(kind) => (kind.to_string(), vec![path::top(field)]),
+                None => return,
+            },
+            _ => return,
+        };
+        for field in fields.into_iter().filter(|f| self.harness.has(&kind, f)) {
+            self.sets
+                .push((self.raw_moves.len(), path.to_string(), field.to_string()));
+        }
     }
 
     fn apply_edit(&mut self, edit: &Edit, path: &str) -> Result<(), Refusal<EditField>> {
@@ -599,47 +632,10 @@ impl<'v> Planner<'v> {
             } => self.delete(&path, *unlink_references),
         }
     }
-
-    fn finish(self) -> Result<EditPlan, Refusal<EditField>> {
-        let project = self.view.project();
-        let change = PlannedChange::new(
-            self.view.env().sources().clone(),
-            "cannot apply the edits",
-            self.texts.into_iter().map(|(key, after)| {
-                let before = project.source_text(&key);
-                let line_break = LineBreak::of(before.as_deref().unwrap_or(""));
-                (key, before, line_break.write(&after).into_owned())
-            }),
-        );
-        let change = change.keeping_ledger(
-            project,
-            LedgerChange {
-                moves: self.moves,
-                ..Default::default()
-            },
-        );
-        let added = if change.is_empty() {
-            Vec::new()
-        } else {
-            validate::check(
-                self.view,
-                &change.after(),
-                &self.declared,
-                change.ledger_after(),
-            )?
-        };
-        let report = EditReport {
-            entities: change.entities(),
-            affected_files: change.affected_files().map(String::from).collect(),
-            diff: change.diff(),
-            added: DiagnosticList::new(added, self.view.registries().codes()),
-        };
-        Ok(EditPlan { change, report })
-    }
 }
 
 /// What an edit is, for the refusal that names it.
-fn describe(edit: &Edit) -> String {
+pub(super) fn describe(edit: &Edit) -> String {
     match edit {
         Edit::Create { kind, id, .. } => format!("create {kind} {id}"),
         Edit::Set {
@@ -663,35 +659,4 @@ fn describe(edit: &Edit) -> String {
         Edit::RemoveVerify { entity_id, .. } => format!("remove_verify {entity_id}"),
         Edit::Delete { entity_id, .. } => format!("delete {entity_id}"),
     }
-}
-
-/// Plan `edits`, in order, over the project `view` reads: each edit reads the text the ones before it left.
-/// Refused with the first edit that cannot be made (with several edits its message starts with
-/// `edit <n> (<op> <entity>): `). Each file is laid out with its format configuration, read once per plan
-/// through the view's disk (ADR 0169).
-pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<EditField>> {
-    crate::config::refuse_rewrite(view.env().config_problems())?;
-    view.project_root()?;
-    let disk = view.containment().disk();
-    let mut planner = Planner {
-        view,
-        configs: Configs::new(Forms::none(), &disk),
-        texts: BTreeMap::new(),
-        scopes: view.graph().scopes().clone(),
-        files: BTreeMap::new(),
-        declared: declared::Declared::default(),
-        moves: Vec::new(),
-    };
-    for (n, edit) in edits.iter().enumerate() {
-        planner.apply(edit).map_err(|mut refusal| {
-            if edits.len() > 1 {
-                refusal.error =
-                    refusal
-                        .error
-                        .prefixed(format!("edit {} ({}): ", n + 1, describe(edit)));
-            }
-            refusal
-        })?;
-    }
-    planner.finish()
 }

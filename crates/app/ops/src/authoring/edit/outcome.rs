@@ -25,6 +25,7 @@ pub fn run(
     origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Edited, Refusal<EditField>> {
+    apply::check_edits(view, origin, edits)?;
     let planned = plan(view, edits)?;
     let wrote = Wrote::unless_preview(dry_run, || apply::apply(planned.change(), origin, caller))?;
     Ok(Edited {

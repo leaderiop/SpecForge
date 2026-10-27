@@ -12,7 +12,12 @@ pub const ABSENT: &str = "absent";
 
 /// The revision of `text`.
 pub fn of_text(text: &str) -> String {
-    let digest = Sha256::digest(text.as_bytes());
+    of_bytes(text.as_bytes())
+}
+
+/// The revision of a file holding `bytes`.
+pub fn of_bytes(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     format!("sha256:{hex}")
 }
