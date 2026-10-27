@@ -29,6 +29,7 @@ mod extension_calls;
 mod field_types;
 mod fixture;
 mod link_identity;
+mod namespaced_codes;
 mod one_side;
 mod one_update;
 mod placement;

@@ -57,4 +57,6 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
   verify unit "a core code's constant carries its catalogued level and owner"
   verify unit "a host diagnostic's severity is its code's catalogued level"
   verify unit "an extension reports only its own catalogued codes, or third-party codes whose prefix states their level"
+  verify unit "a third-party extension's code is its namespace and its own local code"
+  verify unit "an extension's code never prints as a core code or another extension's"
 }

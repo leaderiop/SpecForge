@@ -296,4 +296,17 @@ mod tests {
             Err(CodeMisuse::PrefixContradictsLevel)
         );
     }
+
+    // Pins K10-D3: today's shared 900-998 range; T5 rewrites this on `Codebook::check`.
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "a third-party extension's code is its namespace and its own local code"
+    )]
+    #[ignore = "K10 T5"]
+    fn a_third_party_extension_owns_its_whole_number_space() {
+        assert_eq!(
+            check_extension_code("@gsd/core", "E101", Level::Error),
+            Ok(())
+        );
+    }
 }
