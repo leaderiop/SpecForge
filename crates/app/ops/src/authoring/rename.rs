@@ -294,6 +294,7 @@ pub fn run(
     origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Renamed, Refusal<RenameField>> {
+    apply::check_rename(nav.view(), origin, old_id, new_id)?;
     let plan = plan(nav, old_id, new_id)?;
     let wrote = Wrote::unless_preview(dry_run, || apply::apply(plan.change(), origin, caller))?;
     Ok(Renamed { plan, wrote })

@@ -2,7 +2,7 @@
 //! operation and not a later E080. A computed value is never written; a harness value only by the extension that
 //! declares the field or one that names it a peer; `verdict` is no field.
 
-use super::{COMPUTED_FIELD, HARNESS_FIELD, Op, Origin, invalid};
+use super::{COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
 use crate::OpError;
 use crate::OpErrorKind;
 use crate::authoring::edit::{Edit, Step};
@@ -52,6 +52,7 @@ pub(crate) fn check(
             Step::Edit(edit) => edit_flags(view, origin, &mut kinds, op.number, plan, edit)?,
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
+                    human_kind(view, origin, op.number, plan, &kind)?;
                     kinds.made.insert(to.clone(), kind);
                 }
             }
@@ -72,6 +73,7 @@ fn edit_flags(
         Edit::Create {
             kind, id, fields, ..
         } => {
+            human_kind(view, origin, number, plan, kind)?;
             for field in fields.keys() {
                 write(view, origin, number, plan, kind, field)?;
             }
@@ -99,10 +101,68 @@ fn edit_flags(
             Some(kind) => write(view, origin, number, plan, &kind, field),
             None => Ok(()),
         },
-        Edit::Retitle { .. }
-        | Edit::AddVerify { .. }
-        | Edit::RemoveVerify { .. }
-        | Edit::Delete { .. } => Ok(()),
+        Edit::Retitle { entity_id, .. }
+        | Edit::AddVerify { entity_id, .. }
+        | Edit::RemoveVerify { entity_id, .. }
+        | Edit::Delete { entity_id, .. } => match kinds.of(entity_id) {
+            Some(kind) => human_kind(view, origin, number, plan, &kind),
+            None => Ok(()),
+        },
+    }
+}
+
+/// Whether `origin` is an agent's: an extension, MCP, or the command line with nobody at a terminal. The editor's own
+/// edits and a person at a terminal are not.
+fn agent_facing(origin: &Origin) -> bool {
+    match origin {
+        Origin::Command { .. } | Origin::Collector { .. } | Origin::Hook { .. } => true,
+        Origin::Core { surface } => match surface {
+            Surface::Mcp => true,
+            Surface::Cli { interactive } => !interactive,
+            Surface::Lsp => false,
+        },
+    }
+}
+
+/// A write to an entity of `kind`, refused when the kind is human-only and `origin` an agent's.
+fn human_kind(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    kind: &str,
+) -> Result<(), OpError> {
+    let human = view
+        .registries()
+        .kinds()
+        .get(kind)
+        .is_some_and(|entry| entry.is_human_only());
+    if human && agent_facing(origin) {
+        return Err(human_only(
+            number,
+            plan,
+            format!("{kind} entities are written by a person"),
+        ));
+    }
+    Ok(())
+}
+
+fn human_only(number: usize, plan: bool, what: String) -> OpError {
+    let at = if plan {
+        format!("operation {number}: ")
+    } else {
+        String::new()
+    };
+    let error = OpError::new(
+        OpErrorKind::PermissionDenied,
+        HUMAN_ONLY,
+        format!("{at}{what}, in the editor or by hand, not through an agent's write"),
+    )
+    .with_suggestion("write it in your editor");
+    if plan {
+        error.with_data(serde_json::json!({"op": number}))
+    } else {
+        error
     }
 }
 
@@ -167,6 +227,11 @@ fn write(
                 ),
             ))
         }
+        Some(FieldWriter::Human) if agent_facing(origin) => Err(human_only(
+            number,
+            plan,
+            format!("'{field}' of {kind} is written by a person"),
+        )),
         _ => Ok(()),
     }
 }

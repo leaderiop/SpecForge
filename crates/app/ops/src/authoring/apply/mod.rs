@@ -27,6 +27,8 @@ use std::collections::BTreeSet;
 pub const INVALID_PLAN: &str = "invalid_plan";
 /// A plan from a command that does not declare `writes`.
 pub const UNDECLARED_WRITE: &str = "undeclared_write";
+/// A kind, field or member only a person writes, asked of an agent.
+pub const HUMAN_ONLY: &str = "human_only";
 /// A plan writes a computed value.
 pub const COMPUTED_FIELD: &str = "computed_field";
 /// A plan, or a typed edit, sets a harness value its origin may not set.
@@ -148,6 +150,23 @@ pub(crate) fn check_edits(
         })
         .collect();
     flags::check(view, origin, &ops, false)
+}
+
+/// Check the rename of `old_id` to `new_id` for `origin`: a human-only entity is renamed by a person.
+pub(crate) fn check_rename(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    old_id: &str,
+    new_id: &str,
+) -> Result<(), OpError> {
+    let op = Op {
+        number: 1,
+        step: Step::Rename {
+            entity: old_id.to_string(),
+            to: new_id.to_string(),
+        },
+    };
+    flags::check(view, origin, &[op], false)
 }
 
 /// A rule named by `set_verdict` is not judged.

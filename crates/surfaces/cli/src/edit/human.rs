@@ -41,7 +41,6 @@ fn new_override(facts: Facts) -> (bool, String, TestProject) {
     )
 }
 
-#[ignore = "K5 T10"]
 #[specforge_test(
     behavior = "refuse_human_only_write",
     verify = "the command line writes a human-only value from a terminal and refuses it without one"

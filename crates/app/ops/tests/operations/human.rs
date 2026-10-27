@@ -12,7 +12,6 @@ use crate::plans::{project, refused};
 
 const OVERRIDE: &str = "override O1 \"O\" {\n  phase 03\n}\n";
 
-#[ignore = "K5 T10"]
 #[specforge_test(
     behavior = "refuse_human_only_write",
     verify = "a human-only value is refused in an agents write"
