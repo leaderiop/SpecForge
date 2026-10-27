@@ -31,7 +31,6 @@ fn diagnostics_with(ledger: Option<&str>, spec: &str) -> Vec<specforge_common::D
     behavior = "record_harness_values",
     verify = "a harness value with no matching line in specforge-harness is E083"
 )]
-#[ignore = "K4 T6"]
 fn a_harness_value_without_its_line_is_e083() {
     let header = "# specforge-harness 1\n";
     let _ = BASE;
@@ -57,7 +56,6 @@ fn a_harness_value_without_its_line_is_e083() {
     behavior = "record_harness_values",
     verify = "a malformed ledger line is W163 and ignored, and a bad header makes every harness value E083"
 )]
-#[ignore = "K4 T6"]
 fn a_malformed_ledger_line_is_w163_and_ignored() {
     let recorded = line("v1.0/03/U1", "result", "\"pass\"");
     let bad = format!(
@@ -80,7 +78,6 @@ fn a_malformed_ledger_line_is_w163_and_ignored() {
     behavior = "record_harness_values",
     verify = "a union-merged ledger reads, and is I203 once"
 )]
-#[ignore = "K4 T6"]
 fn a_union_merged_ledger_reads_and_is_i203() {
     let current = line("v1.0/03/U1", "result", "\"pass\"");
     let stale = line("v1.0/03/U1", "result", "\"fail\"");

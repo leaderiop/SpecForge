@@ -1118,6 +1118,25 @@ Owner: core
 Level: error
 ```
 
+## E083
+
+```
+E083: Harness value not recorded
+
+A field its extension declares `writer: harness` holds a value that no line of
+`specforge-harness` records (ADR 0287). Only a command's plan sets such a field,
+and the host writes the line with the value; a value typed in a spec file, or
+changed by hand, has none. When a line of the same field records this value
+under a path no entity has, the message names it: the entity was renamed by
+hand, and the ledger was not told. Restore the value from git, or set it through
+the command that owns it. A harness value is recorded by its line (the digest of
+the entity's path, the field and the value, with each reference resolved to its
+target's path), so spelling a reference another way does not change it.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -1685,6 +1704,21 @@ A source file produced an unusually high number of inferred entities relative to
 its line count, exceeding the configured density threshold. Review the file for
 over-eager inference, or adjust the density threshold if that density is
 expected.
+
+Owner: core
+Level: info
+```
+
+## I203
+
+```
+I203: Harness ledger not canonical
+
+`specforge-harness` is not the file the host would write: a line out of order,
+repeated, blank, a second header, a line for an entity or field that is gone, or
+a stale line for a value that has a current one. A union merge of two branches'
+ledgers leaves it so. Nothing is wrong with what it records. Run `specforge
+harness gc` to write it again; `check` never does.
 
 Owner: core
 Level: info
@@ -3379,6 +3413,22 @@ side (ADR 0150): the other side is derived, so `query` and `trace` already show
 it. Both fields still register, and an entity can write either. Remove one
 field, or drop the `inverse_of` or name a word the target kind does not use. The
 builtin extensions declare none.
+
+Owner: core
+Level: warning
+```
+
+## W163
+
+```
+W163: Malformed harness ledger line
+
+A line of `specforge-harness` is not `path key digest` with a SHA-256 digest, or
+the file does not start with `# specforge-harness 1` (ADR 0287). git's conflict
+markers are such lines when the file's `merge=union` attribute is missing. The
+line is ignored; with a bad header the whole ledger is read as empty, so every
+harness value is E083. Run `specforge harness gc` to write the file again from
+what it records, or restore it from git.
 
 Owner: core
 Level: warning

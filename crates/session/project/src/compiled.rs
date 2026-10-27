@@ -443,7 +443,7 @@ impl CompiledProject {
         let mut outcome = None;
         reads.run_checks(|disk| {
             let authored = env.entity_snapshot(graph);
-            let checked = env.checked(&authored, disk);
+            let checked = env.checked(Some(graph), &authored, disk);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             outcome = Some((checked.diagnostics, entities, checked.computed));
         });

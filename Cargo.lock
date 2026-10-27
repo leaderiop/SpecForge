@@ -3188,6 +3188,7 @@ name = "specforge-project"
 version = "0.3.0"
 dependencies = [
  "insta",
+ "proptest",
  "serde",
  "serde_json",
  "specforge-common",

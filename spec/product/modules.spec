@@ -209,6 +209,7 @@ module specforge_project "specforge-project" {
     specforge_extension_sdk,
     specforge_graph,
     specforge_installed,
+    specforge_package,
     specforge_parser,
     specforge_protocol_types,
     specforge_registry,

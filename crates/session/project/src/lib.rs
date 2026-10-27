@@ -26,6 +26,7 @@ mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod harness;
 mod ledger;
 pub mod passes;
 mod policy;
@@ -409,14 +410,20 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
-        self.checked(entities, disk).diagnostics
+        self.checked(None, entities, disk).diagnostics
     }
 
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
     /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
     /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
-    /// pass gave a value.
-    pub fn checked(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Checked {
+    /// pass gave a value. With the graph `build` the snapshot was taken from, the harness ledger is checked too
+    /// ([`harness::check`]).
+    pub fn checked(
+        &self,
+        build: Option<&GraphBuild>,
+        entities: &EntitySnapshot,
+        disk: &dyn Disk,
+    ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
         let mut computed = Computed::default();
@@ -441,6 +448,16 @@ impl Environment {
                 self.registries
                     .check(&entities.rule_input(disk), verdicts.as_ref()),
             );
+            if let Some(build) = build {
+                diagnostics.extend(harness::check(
+                    &harness::Harness::of(&self.registries),
+                    build.graph(),
+                    self.registries.field_forms(),
+                    self.root(),
+                    disk,
+                    build.files().any(|(_, file)| !file.errors.is_empty()),
+                ));
+            }
             if let Some(runtime) = runtime {
                 diagnostics.extend(check_passes::run(self, entities, runtime, disk));
             }

@@ -17,7 +17,7 @@ pub struct FieldJson(Value);
 
 impl FieldJson {
     /// A value a form admitted ([`FieldForm::admit_json`](super::FieldForm::admit_json)).
-    pub(super) fn of(value: Value) -> Self {
+    pub(crate) fn of(value: Value) -> Self {
         Self(value)
     }
 

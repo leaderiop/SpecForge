@@ -22,6 +22,7 @@ specforge-component = { workspace = true }
 specforge-coverage = { path = "../../leaf/coverage" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
 specforge-graph = { path = "../../pipeline/graph" }
+specforge-package = { path = "../../leaf/package" }
 specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { workspace = true }
@@ -44,7 +45,7 @@ specforge-component = { path = "../../runtime/component", features = ["testing"]
 # The pipeline tests render what they compile.
 specforge-emitter = { path = "../../pipeline/emitter" }
 insta = { workspace = true }
-specforge-package = { path = "../../leaf/package" }
+proptest = { version = "1.11", default-features = false, features = ["std"] }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 specforge-wasm = { workspace = true, features = ["testing"] }

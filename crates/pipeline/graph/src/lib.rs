@@ -30,6 +30,7 @@ pub use scope::{Found, Scopes};
 mod members;
 pub mod title;
 mod tokens;
+pub mod wire;
 pub use members::{AnnotationJson, Members, MethodJson, Obligation, ParameterJson};
 pub use specforge_cycles::Cycle;
 pub use tokens::{Form, Holder, WrittenToken, written_tokens};
