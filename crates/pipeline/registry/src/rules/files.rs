@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use specforge_common::find_close_match;
+use specforge_common::{SourceSpan, find_close_match};
 use specforge_graph::ValueShape;
 
 use specforge_protocol_types::FileBase;
@@ -16,6 +16,8 @@ pub(super) struct Missing<'r> {
     pub path: &'r str,
     /// `did you mean '<dir>/<name>'?`: a close sibling in the missing path's directory.
     pub suggestion: Option<String>,
+    /// Where a block member writes the path; `None` for a field, which the entity's span stands for.
+    pub span: Option<SourceSpan>,
 }
 
 /// The paths `record` names in `field`, in order, that `input.disk` says do not exist under `base`'s root: the spec
@@ -34,10 +36,11 @@ pub(super) fn missing<'r>(
     };
     named(record, field)
         .into_iter()
-        .filter(|path| !input.disk.exists(&root.join(path)))
-        .map(|path| Missing {
+        .filter(|(path, _)| !input.disk.exists(&root.join(path)))
+        .map(|(path, span)| Missing {
             path,
             suggestion: sibling(path, root, input),
+            span,
         })
         .collect()
 }
@@ -46,8 +49,9 @@ pub(super) fn missing<'r>(
 /// item when it is a list, never an empty one. A block, an expression group, a variant list and a
 /// type union name none; a joined text is never split (ADR 0019). A member path names those of
 /// each of its members.
-fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<&'r str> {
-    let written: Vec<&FieldRecord> = if field.contains('.') {
+fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<(&'r str, Option<SourceSpan>)> {
+    let member = field.contains('.');
+    let written: Vec<&FieldRecord> = if member {
         record
             .fields
             .iter()
@@ -65,20 +69,28 @@ fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<&'r str> {
     };
     written
         .into_iter()
-        .flat_map(|written| match written.shape {
-            ValueShape::String
-            | ValueShape::Identifier
-            | ValueShape::Date
-            | ValueShape::Integer
-            | ValueShape::Boolean => vec![written.text.as_str()],
-            ValueShape::List => written.items.iter().flatten().map(String::as_str).collect(),
-            ValueShape::Block
-            | ValueShape::Blocks
-            | ValueShape::Expression
-            | ValueShape::Variants
-            | ValueShape::TypeUnion => Vec::new(),
+        .flat_map(|written| -> Vec<(&'r str, Option<SourceSpan>)> {
+            let span = if member {
+                written.value_span.clone()
+            } else {
+                None
+            };
+            let paths: Vec<&str> = match written.shape {
+                ValueShape::String
+                | ValueShape::Identifier
+                | ValueShape::Date
+                | ValueShape::Integer
+                | ValueShape::Boolean => vec![written.text.as_str()],
+                ValueShape::List => written.items.iter().flatten().map(String::as_str).collect(),
+                ValueShape::Block
+                | ValueShape::Blocks
+                | ValueShape::Expression
+                | ValueShape::Variants
+                | ValueShape::TypeUnion => Vec::new(),
+            };
+            paths.into_iter().map(|p| (p, span.clone())).collect()
         })
-        .filter(|name| !name.is_empty())
+        .filter(|(name, _)| !name.is_empty())
         .collect()
 }
 

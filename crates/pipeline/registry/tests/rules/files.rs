@@ -555,3 +555,39 @@ fn file_exists_checks_each_item_of_a_list_field() {
         ]
     );
 }
+
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "file_exists checks each item of a list field as its own path"
+)]
+fn a_missing_path_in_a_block_member_points_at_the_member() {
+    let mut declared = rule("E102", "file_exists");
+    declared.field = Some("docs.path".to_string());
+    declared.message_template = "{id}: missing '{value}'".to_string();
+    let built = one(declared);
+    let root = Path::new("/spec");
+    let mut record = entity("b1", "behavior", 0, 0).with_field("docs", "");
+    let mut member = entity("m", "behavior", 0, 0)
+        .with_field("path", "gone.md")
+        .fields
+        .remove(0);
+    member.key = "docs[0].path".to_string();
+    member.declared = "docs.path".to_string();
+    let mut at = span("main.spec").clone();
+    at.start_line = 7;
+    member.value_span = Some(at);
+    record.fields[0].members = vec![member];
+    let disk = MemoryDisk::new();
+    let input = RuleInput {
+        entities: &[record],
+        edges: &[],
+        spec_root: root,
+        project_root: root,
+        disk: &disk,
+    };
+
+    let diagnostics = built.rules.check(&input, &NoVerdicts);
+
+    assert_eq!(messages(&diagnostics), ["b1: missing 'gone.md'"]);
+    assert_eq!(diagnostics[0].span.as_ref().map(|s| s.start_line), Some(7));
+}

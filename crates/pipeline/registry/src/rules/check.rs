@@ -498,6 +498,7 @@ fn missing_files(
         for missing in files::missing(record, field, base, input) {
             let violation = Violation {
                 suggestion: missing.suggestion,
+                span: missing.span,
                 ..Violation::value(missing.path)
             };
             diagnostics.push(report(rule, record, violation));
