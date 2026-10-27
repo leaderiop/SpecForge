@@ -27,7 +27,7 @@ Never assume a kind exists. Before writing anything:
 specforge extensions                 # which extensions are enabled and loaded
 specforge infer-guide                # every declared kind, its extension and its fields (* = required)
 specforge infer-guide <kind>         # one kind: each field's type and enum values, a guide and an example
-specforge schema --kind <kind>       # the exact fields and edge types, as JSON
+specforge schema --kind <kind>       # the exact fields and edge types, as JSON (a field may be computed, harness, immutable or append_only: never write a computed or harness value by hand)
 specforge model --fields all         # every kind and relationship, grouped by extension
 ```
 

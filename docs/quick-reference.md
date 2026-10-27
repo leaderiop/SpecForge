@@ -15,6 +15,8 @@ core knows only `spec`, `ref`, `use`, `define` and `defaults`, and a project's e
 specforge init                       # scaffold a new project
 specforge check                      # validate .spec files
 specforge check --strict             # promote warnings to errors
+specforge check --since origin/main  # judge field history against the merge-base with a revision
+specforge harness gc                 # rewrite specforge-harness canonically (--dry-run prints the diff)
 specforge check --severity error     # show only errors (the exit code still counts everything)
 
 # Graph access (for agents and humans)

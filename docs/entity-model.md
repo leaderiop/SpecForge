@@ -82,6 +82,22 @@ invariant email_uniqueness "Email Uniqueness" {
 - **Statements**: `verify [kind] "..."` lines (test obligations; `@specforge/testing` says which kinds a kind
   accepts) and, for kinds that take them, `method name(...) -> Type` lines (`port`).
 
+### Who writes a field
+
+A field is written by the author unless its extension says otherwise (ADR 0287):
+
+| Writer | Value comes from | Checked by |
+|---|---|---|
+| author (default) | the `.spec` text | the usual rules |
+| `computed` | a compute pass, held beside the graph and never written to a file | E082 when written by hand |
+| `harness` | a command's plan, recorded by a line in `specforge-harness` | E083 when no line records it |
+
+Independently, a field may be `immutable` (E084 when its value differs from the git baseline, `HEAD`, or the
+merge-base with `check --since <rev>`; unset at the baseline, it may be set once) or `append_only` (E085 when a
+list rewrites its baseline's items), and a kind may be `append_only` (E085 when an entity of it is removed).
+`specforge harness gc` rewrites the ledger canonically; a rename or a scope move re-keys its lines and records
+`<new> moved:<old>`, so a moved value stays recorded and its history follows it.
+
 ### Field types
 
 Extensions declare each field with one of twelve types (`specforge_protocol_types::FieldType`):

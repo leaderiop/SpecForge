@@ -843,6 +843,7 @@ You can now author and validate real specs. To go from competent to expert:
   triggers it, and how to fix it.
 - **[Model your domain](model-your-domain.md)** — the same method for kinds that are not software.
 - **[Connect an agent](connect-an-agent.md)** — let Claude or any MCP client read and edit the graph.
+- **[Field history in CI](ci-field-history.md)** — judge immutable and append-only fields against a branch's base.
 - **[spec-writing-flow.md](../spec-writing-flow.md)** — the phased authoring flow in depth.
 - **[Quick Reference](../quick-reference.md)** & **[Entity Model](../entity-model.md)** —
   the full field/edge/diagnostic reference of record.

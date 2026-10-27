@@ -99,7 +99,8 @@ An extension is a WASM component built with the Rust SDK (`specforge-extension-s
 
 - **kinds** with typed fields (string, identifier, enum, enum_list, reference (one kind or a union), reference_list, string_list, date,
   integer (optionally bounded), bool, block and block_list (typed members), file references from the spec root or the
-  project root), required flags, and an inference guide;
+  project root), required flags, who writes each (`computed` by a compute pass, `harness` by a command's plan; E082/E083),
+  history flags (`immutable` E084, `append_only` E085, judged against git), and an inference guide;
 - **edges** between kinds, and **enhancements** that add fields to another extension's kind;
 - **validation rules** (each with a diagnostic code), **passes** (e.g. formal analysis), **collectors** (test runners)
   and **commands** surfaced as `specforge <extension> <command>` and as MCP tools.

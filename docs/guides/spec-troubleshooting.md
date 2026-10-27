@@ -95,6 +95,7 @@ are suggestions, not problems.
 ```bash
 specforge check                  # errors, warnings and info-level advice
 specforge check --strict         # promote warnings to errors (CI gate)
+specforge check --since origin/main  # judge immutable and append-only fields against a revision (E084, E085)
 specforge check --severity error # show only errors (the exit code still counts everything)
 specforge check --severity info  # show only the info-level advice
 specforge check --format=json    # machine-readable diagnostics
