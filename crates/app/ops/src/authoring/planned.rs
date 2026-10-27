@@ -26,6 +26,8 @@ pub struct PlannedChange {
     files: BTreeMap<String, (Option<Arc<str>>, String)>,
     /// The harness ledger the change rewrites (ADR 0287): a harness value a write moves or re-resolves stays recorded.
     ledger: Option<LedgerWrite>,
+    /// The project declares a harness field: every write of it takes the write lock, the ledger changing or not.
+    locked: bool,
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -65,6 +67,7 @@ impl PlannedChange {
             doing: doing.into(),
             files,
             ledger: None,
+            locked: false,
         }
     }
 
@@ -85,6 +88,7 @@ impl PlannedChange {
         if before.root().is_none() || !before.declares_harness() {
             return self;
         }
+        self.locked = true;
         let current = before.root_file(LEDGER_FILE);
         let after = before.edited(&self.after());
         let bytes = before.rewritten_ledger(&after, &current, &change, false);
@@ -205,12 +209,9 @@ impl PlannedChange {
     /// 0104): checked against the text it was planned on, then replaced or created; on any failure, every file
     /// already written is put back (one that cannot be is the error's writes). Returns the files it wrote.
     pub fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
-        // shortcut: only a change that rewrites the ledger takes the write lock; K5 widens it to every host write
-        // (`.specforge/write.lock`) when its plans need to be serialized.
-        let _lock = self
-            .ledger
-            .as_ref()
-            .map(|_| specforge_project::harness::lock(self.sources.base()))
+        // A project with no harness field has no ledger to serialize: it gets no `.specforge/` from a write.
+        let _lock = (self.locked || self.ledger.is_some())
+            .then(|| specforge_project::harness::lock(self.sources.base()))
             .transpose()
             .map_err(|e| {
                 OpError::new(

@@ -25,6 +25,7 @@ pub fn gsd_history_wire() -> Value {
         {"name": "milestone", "keyword": "milestone"},
         {"name": "phase", "keyword": "phase", "scoped_by": "milestone", "fields": [
             {"name": "milestone", "field_type": "reference", "target_kind": "milestone"},
+            {"name": "goal", "field_type": "string"},
         ]},
         {"name": "decision", "keyword": "decision", "scoped_by": "phase", "fields": [
             {"name": "phase", "field_type": "reference", "target_kind": "phase", "required": true, "immutable": true},
@@ -68,6 +69,7 @@ pub fn gsd_history_wire() -> Value {
 pub fn gsd_member_history_wire(with_journal: bool) -> Value {
     let mut kinds = json!([
         {"name": "deliverable", "keyword": "deliverable", "fields": [
+            {"name": "owner", "field_type": "string"},
             {"name": "checks", "field_type": "block_list", "members": [
                 {"name": "kind", "field_type": "string", "immutable": true},
                 {"name": "ref", "field_type": "string"},

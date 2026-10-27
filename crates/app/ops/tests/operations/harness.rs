@@ -203,3 +203,47 @@ fn harness_gc_rewrites_the_ledger_canonically() {
     gc(false);
     assert_eq!(ledger(), format!("# specforge-harness 1\n{kept}"));
 }
+
+#[specforge_test(
+    behavior = "collect_harness_ledger",
+    verify = "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
+)]
+fn every_write_takes_the_lock_only_where_a_ledger_can_exist() {
+    let owner = |project: &TestProject,
+                 runtime: Arc<specforge_wasm::testing::InProcessRuntime>,
+                 entity: &str,
+                 field: &str| {
+        let compiled = project.compile_in(runtime);
+        edit::run(
+            &ProjectView::of(&compiled),
+            &[crate::edit::set(entity, field, Input::One("x".into()))],
+            false,
+            specforge_ops::testing::caller(),
+        )
+        .unwrap();
+    };
+    // a harness project: an edit that leaves the ledger as it is still takes the lock
+    let harnessed = gsd("");
+    owner(
+        &harnessed,
+        Arc::new(gsd_history_runtime(json!([]))),
+        "v1.0/03",
+        "goal",
+    );
+    assert!(harnessed.root().join(".specforge/write.lock").exists());
+    // a project with no harness field has no ledger to serialize: no lock file
+    let plain = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", "deliverable D \"D\" {}\n");
+    owner(
+        &plain,
+        Arc::new(specforge_project::testing::gsd_member_history_runtime(
+            false,
+        )),
+        "D",
+        "owner",
+    );
+    assert!(!plain.root().join(".specforge/write.lock").exists());
+}

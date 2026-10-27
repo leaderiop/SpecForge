@@ -294,11 +294,12 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   category   mutation
   contract   """
     Every host write keeps `specforge-harness` (ADR 0287): a planned change carries its ledger rewrite, applied
-    under `.specforge/write.lock` to the ledger as read, so two writers on disjoint files both land their lines.
+    under `.specforge/write.lock` (every write of a project that declares a harness field takes it) to the ledger as read, so two writers on disjoint files both land their lines.
     A rename or scope move writes a move record and re-keys its lines. `specforge harness gc` rewrites the ledger
     canonically, and the first ledger write adds `/specforge-harness merge=union` to `.gitattributes`.
   """
   verify unit "harness gc rewrites the ledger canonically and --dry-run writes nothing"
   verify unit "harness gc leaves a ledger alone when no loaded extension declares a harness field"
+  verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
 }
