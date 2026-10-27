@@ -44,10 +44,17 @@ pub struct Baseline {
 
 /// Whether the loaded extensions declare anything that reads history.
 pub fn declared(registries: &RegistryBuild) -> bool {
+    fn flagged(form: &specforge_graph::FieldForm) -> bool {
+        form.immutable()
+            || form.append_only()
+            || form
+                .members()
+                .is_some_and(|m| m.iter().any(|(_, f)| flagged(f)))
+    }
     registries
         .fields()
         .iter()
-        .any(|(_, _, f)| f.immutable() || f.append_only())
+        .any(|(_, _, f)| flagged(f.form()))
         || registries
             .kinds()
             .iter()

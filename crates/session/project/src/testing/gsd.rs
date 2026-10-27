@@ -57,6 +57,41 @@ pub fn gsd_history_wire() -> Value {
     ])
 }
 
+/// The only history flag sits on a block member: `deliverable.checks[].kind` is immutable (plan U8(a)). With
+/// `with_journal`, `journal` is also an append-only kind whose `parts[].kind` is immutable.
+pub fn gsd_member_history_wire(with_journal: bool) -> Value {
+    let mut kinds = json!([
+        {"name": "deliverable", "keyword": "deliverable", "fields": [
+            {"name": "checks", "field_type": "block_list", "members": [
+                {"name": "kind", "field_type": "string", "immutable": true},
+                {"name": "ref", "field_type": "string"},
+            ]},
+        ]},
+    ]);
+    if with_journal {
+        kinds.as_array_mut().expect("an array").push(json!(
+            {"name": "journal", "keyword": "journal", "append_only": true, "fields": [
+                {"name": "parts", "field_type": "block_list", "members": [
+                    {"name": "kind", "field_type": "string", "immutable": true},
+                ]},
+            ]}
+        ));
+    }
+    kinds
+}
+
+/// `@test/gsd` declaring [`gsd_member_history_wire`] and no pass, served in process.
+pub fn gsd_member_history_runtime(with_journal: bool) -> InProcessRuntime {
+    InProcessRuntime::new().with(move || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(GSD_EXTENSION, "1.0.0"));
+        c.raw_category(
+            DeclaredCategory::Entities,
+            gsd_member_history_wire(with_journal),
+        );
+        c
+    })
+}
+
 /// The pass that computes the verification's fields, reading the verification kind's baseline.
 pub fn gsd_history_passes() -> Value {
     json!([{

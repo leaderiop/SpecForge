@@ -425,3 +425,56 @@ fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
         assert!(roots.iter().any(|r| r.dir == dir), "{dir:?} in {roots:?}");
     }
 }
+
+/// `now` checked against a `HEAD` holding `head`, over a project whose only history flags sit on block members.
+fn judged_members(journal: bool, head: &str, now: &str) -> Vec<specforge_common::Diagnostic> {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[specforge_project::testing::GSD_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", now);
+    let fake = Arc::new(FakeHistory::repo(
+        project.root(),
+        HEAD,
+        vec![("a.spec".into(), head.as_bytes().to_vec())],
+    ));
+    let _installed = specforge_project::testing::history::install(fake);
+    project
+        .compile_in(Arc::new(
+            specforge_project::testing::gsd_member_history_runtime(journal),
+        ))
+        .diagnostics()
+}
+
+#[specforge_test(
+    behavior = "judge_field_history",
+    verify = "a history flag that sits only on a block member is judged"
+)]
+fn a_flag_only_on_a_member_is_judged() {
+    let checks = |kind: &str| {
+        format!("deliverable D \"D\" {{\n  checks [ {{ kind {kind}  ref \"t\" }} ]\n}}\n")
+    };
+    let same = judged_members(false, &checks("unit"), &checks("unit"));
+    assert!(computed::with_code(&same, "E084").is_empty(), "{same:?}");
+    assert!(computed::with_code(&same, "I204").is_empty(), "{same:?}");
+    let changed = judged_members(false, &checks("unit"), &checks("e2e"));
+    assert_eq!(
+        computed::with_code(&changed, "E084").len(),
+        1,
+        "{changed:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "judge_field_history",
+    verify = "a change inside a block of an append-only kind is one E084"
+)]
+fn a_member_change_in_an_append_only_kind_is_reported_once() {
+    let journal = |kind: &str| format!("journal J \"J\" {{\n  parts [ {{ kind {kind} }} ]\n}}\n");
+    let changed = judged_members(true, &journal("a"), &journal("b"));
+    assert_eq!(
+        computed::with_code(&changed, "E084").len(),
+        1,
+        "{changed:?}"
+    );
+}

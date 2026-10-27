@@ -27,7 +27,10 @@ pub mod specs;
 pub mod typed;
 
 pub use assembled::Assembled;
-pub use gsd::{GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime};
+pub use gsd::{
+    GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
+    gsd_member_history_runtime,
+};
 pub use history::FakeHistory;
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 pub use typed::{TYPED_EXTENSION, declare_rules, typed_extension, typed_kinds, typed_runtime};

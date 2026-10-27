@@ -372,6 +372,8 @@ behavior judge_field_history "Judge Field History" {
   verify unit "an append-only list must extend its baseline"
   verify unit "an append-only kind keeps its entities"
   verify unit "a renamed scope is judged through its move record"
+  verify unit "a history flag that sits only on a block member is judged"
+  verify unit "a change inside a block of an append-only kind is one E084"
 }
 
 behavior refuse_written_computed "Refuse a Written Computed Value" {

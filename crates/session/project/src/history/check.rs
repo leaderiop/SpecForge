@@ -50,17 +50,13 @@ pub fn check(
                 .unwrap_or_else(|| node.source_span.clone());
             let mut found = Vec::new();
             match forms.reading(kind, key) {
-                Reading::Declared(form) => {
-                    judge(form, key, base, now.as_ref(), &mut found);
-                }
-                _ if appends => judge_whole(key, base, now.as_ref(), &mut found),
-                _ => {}
-            }
-            if appends && let Reading::Declared(form) = forms.reading(kind, key) {
-                // every authored field of an append-only kind is immutable
-                if !form.immutable() && !form.append_only() {
+                // every authored field of an append-only kind is immutable: judged whole, once
+                Reading::Declared(form) if appends && !form.immutable() && !form.append_only() => {
                     judge_whole(key, base, now.as_ref(), &mut found);
                 }
+                Reading::Declared(form) => judge(form, key, base, now.as_ref(), &mut found),
+                _ if appends => judge_whole(key, base, now.as_ref(), &mut found),
+                _ => {}
             }
             for (code, what) in found {
                 out.push(
