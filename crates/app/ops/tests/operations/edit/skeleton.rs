@@ -98,7 +98,9 @@ fn a_filled_skeleton_is_the_block_new_writes() {
                         .map(|(_, input)| match input {
                             Input::One(text) => text.clone(),
                             Input::Many(items) => items.join(", "),
-                            Input::Entries(_) => unreachable!(),
+                            Input::Entries(_) | Input::Block(_) | Input::Blocks(_) => {
+                                unreachable!()
+                            }
                         })
                 }
                 SlotOf::End => None,

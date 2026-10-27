@@ -4219,7 +4219,43 @@ expression: listing
           "type": "boolean"
         },
         "edits": {
-          "description": "The edits, in order: each names its `op` (create, set, unset, retitle, link, unlink, add_verify, remove_verify or delete) and what it changes",
+          "$defs": {
+            "EditInput": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/EditInput"
+                  },
+                  "type": "object"
+                },
+                {
+                  "items": {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/EditInput"
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              ]
+            }
+          },
+          "description": "The edits, in order: each names its `op` (create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify or delete) and what it changes",
           "items": {
             "oneOf": [
               {
@@ -4227,23 +4263,7 @@ expression: listing
                 "properties": {
                   "fields": {
                     "additionalProperties": {
-                      "oneOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
-                        },
-                        {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "type": "object"
-                        }
-                      ]
+                      "$ref": "#/$defs/EditInput"
                     },
                     "type": "object"
                   },
@@ -4315,23 +4335,7 @@ expression: listing
                     "type": "string"
                   },
                   "value": {
-                    "oneOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "items": {
-                          "type": "string"
-                        },
-                        "type": "array"
-                      },
-                      {
-                        "additionalProperties": {
-                          "type": "string"
-                        },
-                        "type": "object"
-                      }
-                    ]
+                    "$ref": "#/$defs/EditInput"
                   }
                 },
                 "required": [
@@ -4362,6 +4366,61 @@ expression: listing
                   "op",
                   "entity_id",
                   "field"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "append"
+                    ],
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/EditInput"
+                  }
+                },
+                "required": [
+                  "op",
+                  "entity_id",
+                  "field",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "entity_id": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "index": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "op": {
+                    "enum": [
+                      "remove"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op",
+                  "entity_id",
+                  "field",
+                  "index"
                 ],
                 "type": "object"
               },

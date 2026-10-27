@@ -21,7 +21,7 @@ struct Change {
 }
 
 impl Declared {
-    /// What `edit` about the entity at `path` declares: `set` and `unset` their field (a `field.entry` path's field), `link` and `unlink` their
+    /// What `edit` about the entity at `path` declares: `set`, `unset`, `append` and `remove` their field (a `field.entry` or `field[i].member` path's field), `link` and `unlink` their
     /// field, `retitle` the title, `add_verify` and `remove_verify` the obligations, `create` and `delete` their
     /// entity whole.
     pub(crate) fn edit(&mut self, edit: &Edit, path: &str) {
@@ -29,9 +29,9 @@ impl Declared {
             Edit::Set { field, .. }
             | Edit::Unset { field, .. }
             | Edit::Link { field, .. }
-            | Edit::Unlink { field, .. } => {
-                self.field(path, field.split('.').next().unwrap_or(field))
-            }
+            | Edit::Unlink { field, .. }
+            | Edit::Append { field, .. }
+            | Edit::Remove { field, .. } => self.field(path, super::path::top(field)),
             Edit::Retitle { .. } => self.aspect(path, NodeAspect::Title),
             Edit::AddVerify { .. } | Edit::RemoveVerify { .. } => {
                 self.aspect(path, NodeAspect::Obligations);

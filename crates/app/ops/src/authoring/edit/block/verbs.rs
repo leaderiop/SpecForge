@@ -2,6 +2,7 @@
 
 use super::super::defaults::{self, Change};
 use super::super::path::{self, FieldPath};
+use super::super::typed;
 use super::super::write::not_editable;
 use super::super::{EditField, Input};
 use super::{Block, Items, Site, items_of, list_text, unreadable};
@@ -29,7 +30,7 @@ fn finish_edit(
 /// `text` as `field` of `site`'s entity writes a reference to the entity it names (ADR 0284): the shortest spelling
 /// that resolves from the entity, a scope field's as a full path from the project. Text that names no one entity
 /// stays as given.
-fn spelled(site: &Site<'_>, field: &str, reading: &Reading<'_>, text: &str) -> String {
+pub fn spelled(site: &Site<'_>, field: &str, reading: &Reading<'_>, text: &str) -> String {
     let Reading::Declared(form) = reading else {
         return text.to_string();
     };
@@ -65,11 +66,14 @@ pub fn set(
                         .map(|one| spelled(site, name, &reading, one))
                         .collect(),
                 ),
-                entries @ Input::Entries(_) => entries.clone(),
+                other => other.clone(),
             };
             block.put(site, name, reading, input, annotations)?;
             Ok(Change::Changed)
         }),
+        FieldPath::Member { field, segs } => {
+            typed::set(site, text, field, &segs, input, annotations)
+        }
         FieldPath::Entry {
             field: outer,
             entry: inner,
@@ -90,6 +94,7 @@ pub fn set(
 /// block nor its file's defaults hold it. An inherited list becomes `[]`, an inherited block field `{}`.
 pub fn unset(site: &Site<'_>, text: &str, field: &str) -> Result<String, Refusal<EditField>> {
     match path::resolve(site, field, None)? {
+        FieldPath::Member { field, segs } => typed::unset(site, text, field, &segs),
         FieldPath::Entry {
             field: outer,
             entry: inner,
@@ -192,6 +197,15 @@ pub fn link(
                 entry,
             ));
         }
+        FieldPath::Member { field, .. } => {
+            return Err(not_editable(
+                EditField::Field,
+                format!(
+                    "{} takes a whole word list; '{field}' is a block: use set, append or remove",
+                    if add { "link" } else { "unlink" }
+                ),
+            ));
+        }
         FieldPath::Field { reading, .. } => reading,
     };
     let Reading::Declared(form) = reading else {
@@ -217,7 +231,9 @@ pub fn link(
     };
     let target = target_text.as_str();
     let item = match form.field_type() {
-        FieldType::ReferenceList | FieldType::StringList => spell::value(form, target),
+        FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
+            spell::value(form, target)
+        }
         FieldType::Reference if !add => String::new(),
         _ => {
             return Err(not_editable(

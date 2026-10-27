@@ -12,6 +12,7 @@ mod keep;
 mod outcome;
 mod path;
 mod skeleton;
+mod typed;
 pub(crate) mod validate;
 pub mod write;
 
@@ -61,6 +62,19 @@ pub enum Edit {
     /// `field` (or `field.entry`) holds none afterwards: removed, or, over a file default, written `[]` (a list) or
     /// `{}` (a block field); refused for a field of one value with a default. A second unset changes nothing.
     Unset { entity_id: String, field: String },
+    /// A new last item `value` (a block) of the block list `field` names (`requires`, or nested `a[0].b`). Refused
+    /// on any other type: a list of words changes by `link` and `unlink` (ADR 0285).
+    Append {
+        entity_id: String,
+        field: String,
+        value: Input,
+    },
+    /// The item at `index` (0-based) of the block list `field` names goes; the later items shift down.
+    Remove {
+        entity_id: String,
+        field: String,
+        index: usize,
+    },
     /// The header's title becomes `title`; a blank one is refused (`invalid_title`).
     Retitle { entity_id: String, title: String },
     /// `target` is added to the list `field`. No change when it is already there (own or inherited).
@@ -98,21 +112,30 @@ pub enum Edit {
     },
 }
 
-/// A value as a caller gives it; the field's declaration decides how it is written.
+/// A value as a caller gives it; the field's declaration decides how it is written. A block whose values are all
+/// text reads as `Entries` (an open block's entries, or a typed block's members); `Block` holds a member that is
+/// not text (a list, a nested block), `Blocks` a block list's items (ADR 0285).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Input {
     One(String),
     Many(Vec<String>),
     Entries(BTreeMap<String, String>),
+    Block(BTreeMap<String, Input>),
+    Blocks(Vec<BTreeMap<String, Input>>),
 }
 
 impl Shape for Input {
+    const NAME: Option<&'static str> = Some("EditInput");
+
     fn body(defs: &mut Definitions) -> serde_json::Value {
-        serde_json::json!({"oneOf": [
+        // anyOf: an object of texts is an `Entries` and a `Block` alike.
+        serde_json::json!({"anyOf": [
             String::schema(defs),
             Vec::<String>::schema(defs),
             BTreeMap::<String, String>::schema(defs),
+            BTreeMap::<String, Input>::schema(defs),
+            Vec::<BTreeMap<String, Input>>::schema(defs),
         ]})
     }
 }
@@ -216,6 +239,8 @@ pub struct FieldInfo {
     pub description: String,
     /// Whether the kind requires the field.
     pub required: bool,
+    /// Whether the field declares members: a value for it is a JSON object (a block) or array (a block list).
+    pub typed: bool,
 }
 
 /// The fields `kind` declares, in the order a new block writes them (the kind's own, then its enhancements');
@@ -229,6 +254,7 @@ pub fn fields_of(view: &ProjectView<'_>, kind: &str) -> Vec<FieldInfo> {
                 field_type: entry.field_type(),
                 description: entry.declared().description.clone().unwrap_or_default(),
                 required: entry.declared().required,
+                typed: !entry.declared().members.is_empty(),
                 name,
             })
         })
@@ -407,6 +433,8 @@ impl<'v> Planner<'v> {
             | Edit::Retitle { entity_id, .. }
             | Edit::Link { entity_id, .. }
             | Edit::Unlink { entity_id, .. }
+            | Edit::Append { entity_id, .. }
+            | Edit::Remove { entity_id, .. }
             | Edit::AddVerify { entity_id, .. }
             | Edit::RemoveVerify { entity_id, .. }
             | Edit::Delete { entity_id, .. } => self.path_of(entity_id),
@@ -514,6 +542,12 @@ impl<'v> Planner<'v> {
             Edit::Unset { field, .. } => {
                 self.on_members(&path, |site, text| block::unset(site, text, field))
             }
+            Edit::Append { field, value, .. } => {
+                self.on_members(&path, |site, text| typed::append(site, text, field, value))
+            }
+            Edit::Remove { field, index, .. } => {
+                self.on_members(&path, |site, text| typed::remove(site, text, field, *index))
+            }
             Edit::Retitle { title, .. } => {
                 create::require_title(title)?;
                 self.on(&path, |site, text| block::retitle(site, text, title))
@@ -586,6 +620,12 @@ fn describe(edit: &Edit) -> String {
             entity_id, field, ..
         } => format!("set {entity_id} {field}"),
         Edit::Unset { entity_id, field } => format!("unset {entity_id} {field}"),
+        Edit::Append {
+            entity_id, field, ..
+        } => format!("append {entity_id} {field}"),
+        Edit::Remove {
+            entity_id, field, ..
+        } => format!("remove {entity_id} {field}"),
         Edit::Retitle { entity_id, .. } => format!("retitle {entity_id}"),
         Edit::Link {
             entity_id, field, ..

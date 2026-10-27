@@ -410,7 +410,10 @@ fn block_list_value(
         format_body(*item, source, config, depth + 2, inside, &mut body);
         let one_line = format!(
             "{inner}{{ {} }}",
-            body.iter().map(|l| l.trim()).collect::<Vec<_>>().join(" ")
+            body.iter()
+                .map(|l| unpadded(l))
+                .collect::<Vec<_>>()
+                .join(" ")
         );
         let plain = body
             .iter()
@@ -434,6 +437,14 @@ fn block_list_value(
     }
     lines.push(format!("{outer}]"));
     lines
+}
+
+/// A body line `key   value` with the padding that aligns its key in a body dropped, for an item written on one line.
+fn unpadded(line: &str) -> String {
+    match line.trim().split_once(char::is_whitespace) {
+        Some((key, value)) => format!("{key} {}", value.trim_start()),
+        None => line.trim().to_string(),
+    }
 }
 
 /// The declared path a block under `key` writes its members at, with the dot: `requires.`.

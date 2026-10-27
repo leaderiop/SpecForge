@@ -64,6 +64,7 @@ behavior create_entity "Create an Entity" {
   verify integration "new refuses a command line whose --path a field's value spells"
   verify unit "new writes into a spec root outside the project by the file check names"
   verify unit "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
+  verify unit "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
 }
 
 behavior edit_entity_field "Edit an Entity Field" {
@@ -139,6 +140,7 @@ behavior edit_entity_field "Edit an Entity Field" {
   verify unit "a plan's edits read the project as the edits before them leave it"
   verify unit "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
   verify unit "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
+  verify unit "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
 }
 
 behavior edit_entity_link "Edit an Entity Reference List" {

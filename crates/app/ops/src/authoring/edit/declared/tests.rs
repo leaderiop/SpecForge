@@ -63,6 +63,8 @@ fn declaring(edits: &[Edit]) -> Declared {
         | Edit::Retitle { entity_id: id, .. }
         | Edit::Link { entity_id: id, .. }
         | Edit::Unlink { entity_id: id, .. }
+        | Edit::Append { entity_id: id, .. }
+        | Edit::Remove { entity_id: id, .. }
         | Edit::AddVerify { entity_id: id, .. }
         | Edit::RemoveVerify { entity_id: id, .. }
         | Edit::Delete { entity_id: id, .. }

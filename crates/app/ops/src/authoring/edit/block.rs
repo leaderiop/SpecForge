@@ -3,6 +3,7 @@
 //! changes. `site` holds what the kind's registry answers about the entity; `verbs` the edits that change a block.
 
 use super::path;
+use super::typed;
 use super::write::{NOT_EDITABLE, written};
 use super::{EditField, Input};
 use crate::view::ProjectView;
@@ -21,7 +22,7 @@ mod verbs;
 mod tests;
 
 pub use site::{Site, order};
-pub use verbs::{link, retitle, set, unset, verify};
+pub use verbs::{link, retitle, set, spelled, unset, verify};
 
 /// The entity's block holds a region the parser could not read whole.
 pub const BLOCK_UNREADABLE: &str = "block_unreadable";
@@ -431,7 +432,10 @@ impl Block {
         input: &Input,
         annotations: Option<&[String]>,
     ) -> Result<(), Refusal<EditField>> {
-        let value = written(reading, name, input, &self.lead_of(name), &self.config)?;
+        let value = match typed::written(site, name, &reading, input) {
+            Some(value) => value?,
+            None => written(reading, name, input, &self.lead_of(name), &self.config)?,
+        };
         self.place(site, name, &value, annotations)
     }
 

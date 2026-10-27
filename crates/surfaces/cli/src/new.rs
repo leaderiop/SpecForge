@@ -147,6 +147,8 @@ pub(crate) fn command(kind: Option<(&str, &[FieldInfo])>) -> Command {
             .help(field.description.clone());
         arg = match field.field_type {
             FieldType::ReferenceList => arg.value_name("ID,…"),
+            FieldType::Block if field.typed => arg.value_name("JSON"),
+            FieldType::BlockList => arg.value_name("JSON"),
             FieldType::Block => arg.value_name("NAME=TEXT"),
             FieldType::Date => arg.value_name("YYYY-MM-DD"),
             _ => arg.value_name("VALUE"),
@@ -165,7 +167,26 @@ fn inputs(fields: &[FieldInfo], matches: &ArgMatches) -> Result<BTreeMap<String,
         };
         let values: Vec<String> = values.cloned().collect();
         let input = match field.field_type {
-            FieldType::ReferenceList | FieldType::StringList => Input::Many(values),
+            FieldType::ReferenceList | FieldType::StringList | FieldType::EnumList => {
+                Input::Many(values)
+            }
+            // A typed block or a block list is JSON: an object, or an array of objects (ADR 0285).
+            FieldType::BlockList | FieldType::Block if field.typed => {
+                let [json] = values.as_slice() else {
+                    return Err(OpError::new(
+                        OpErrorKind::InvalidInput,
+                        "invalid_edit",
+                        format!("--{} takes one JSON value", field.name),
+                    ));
+                };
+                serde_json::from_str(json).map_err(|e| {
+                    OpError::new(
+                        OpErrorKind::InvalidInput,
+                        "invalid_edit",
+                        format!("--{} takes JSON: {e}", field.name),
+                    )
+                })?
+            }
             FieldType::Block => {
                 let mut entries = BTreeMap::new();
                 for value in &values {
@@ -310,6 +331,7 @@ mod tests {
             field_type: FieldType::String,
             description: String::new(),
             required: false,
+            typed: false,
         }
     }
 

@@ -161,7 +161,6 @@ fn every_reply_writes_an_obligation_as_the_graph_export_does() {
     behavior = "inspect_entity_facts",
     verify = "inspect writes a block list as an array of objects, and specforge.edit appends an item to it"
 )]
-#[ignore = "K3 T10"]
 fn mcp_inspect_shows_blocks_and_edits_them() {
     use specforge_project::testing::{TYPED_EXTENSION, typed_kinds};
     let mut server = TestProject::new()

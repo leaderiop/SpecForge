@@ -140,7 +140,7 @@ impl SetArgs {
         };
         let value = match self.values.as_slice() {
             [] => return Err(usage("set needs a value (unset removes a field)")),
-            [one] => Input::One(one.clone()),
+            [one] => json_block(one).unwrap_or_else(|| Input::One(one.clone())),
             many => Input::Many(many.to_vec()),
         };
         Ok(vec![Edit::Set {
@@ -150,6 +150,17 @@ impl SetArgs {
             annotations: (!self.annotations.is_empty()).then(|| self.annotations.clone()),
         }])
     }
+}
+
+/// `text` as a block or a block list when it is a JSON object or an array of objects (a typed block's or a block
+/// list's value, ADR 0285); `None` for any other text, which is one value.
+fn json_block(text: &str) -> Option<Input> {
+    let text = text.trim();
+    let compact: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+    if !(compact.starts_with('{') || compact.starts_with("[{")) {
+        return None;
+    }
+    serde_json::from_str(text).ok()
 }
 
 /// `specforge unset <entity> <field>`.
@@ -312,5 +323,28 @@ impl DeleteArgs {
             self.output.format,
             terminal,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[specforge_test_macros::test(
+        behavior = "edit_entity_field",
+        verify = "set reads a JSON object or an array of objects as a typed block or a block list, and any other text as one value"
+    )]
+    fn set_reads_json_objects_as_blocks() {
+        assert!(matches!(
+            json_block(r#"[{"phase": "02", "provides": "x"}]"#),
+            Some(Input::Blocks(items)) if items.len() == 1
+        ));
+        assert!(matches!(
+            json_block(r#"{"at": "2026-10-27"}"#),
+            Some(Input::Entries(_))
+        ));
+        for text in ["plain", "[a, b]", "{not json", "[{\"a\":"] {
+            assert_eq!(json_block(text), None, "{text}");
+        }
     }
 }

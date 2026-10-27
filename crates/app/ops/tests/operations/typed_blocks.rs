@@ -47,6 +47,7 @@ fn edit(wire: serde_json::Value) -> Edit {
 /// The text of `a.spec` once `wire` is planned, or the refusal's code and message.
 fn run(wire: serde_json::Value) -> Result<String, (String, String)> {
     let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
+    project.write("src/a.ts", "");
     match edit::plan(&project.view(), &[edit(wire)]) {
         Ok(planned) => Ok(planned
             .change()
@@ -61,7 +62,6 @@ fn run(wire: serde_json::Value) -> Result<String, (String, String)> {
     behavior = "edit_entity_field",
     verify = "a typed edit sets a block member, appends and removes a block-list item, and refuses the other ways to change one"
 )]
-#[ignore = "K3 T10"]
 fn a_typed_edit_sets_appends_and_removes_block_items() {
     let set = run(
         json!({"op": "set", "entity_id": "03-02-S", "field": "requires[0].phase", "value": "03"}),
@@ -87,7 +87,11 @@ fn a_typed_edit_sets_appends_and_removes_block_items() {
 
     let unset =
         run(json!({"op": "unset", "entity_id": "v1.0", "field": "completion.audit"})).unwrap();
-    assert!(unset.contains("completion { at 2026-10-27 }"), "{unset}");
+    assert!(
+        unset.contains("completion {\n    at 2026-10-27\n  }")
+            && !unset.contains("audit v1.0-audit\n  }"),
+        "{unset}"
+    );
 
     let linked =
         run(json!({"op": "link", "entity_id": "r1", "field": "reasons", "target": "jump"}))
@@ -123,4 +127,26 @@ fn a_typed_edit_sets_appends_and_removes_block_items() {
             "{wire}: {message}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "create_entity",
+    verify = "a skeleton writes a block list and a typed block empty, and a list of words with a slot"
+)]
+fn a_skeleton_writes_typed_fields_empty() {
+    use specforge_ops::authoring::edit::Skeletons;
+    use specforge_ops::authoring::format::Place;
+    let project = Assembled::typed().sources(&[("a.spec", SOURCE)]);
+    let view = project.view();
+    let path = view.env().spec_root().join("new.spec");
+    let skeletons = Skeletons::at(&view, Place::File(&path));
+    for (kind, field, text) in [
+        ("summary", "requires", "requires []"),
+        ("milestone", "completion", "completion {}"),
+    ] {
+        let skeleton = skeletons.member(kind, field).expect("a skeleton");
+        assert_eq!(skeleton.text, text, "{kind}.{field}");
+    }
+    let words = skeletons.member("refactor_proposal", "reasons").unwrap();
+    assert!(words.text.starts_with("reasons ["), "{}", words.text);
 }

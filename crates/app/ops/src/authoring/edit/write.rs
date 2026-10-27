@@ -80,7 +80,11 @@ pub fn list(items: &[String]) -> String {
     format!("[{}]", items.join(", "))
 }
 
-fn one<'i>(input: &'i Input, key: &str, what: &str) -> Result<&'i str, Refusal<EditField>> {
+pub(super) fn one<'i>(
+    input: &'i Input,
+    key: &str,
+    what: &str,
+) -> Result<&'i str, Refusal<EditField>> {
     match input {
         Input::One(text) => Ok(text),
         Input::Many(items) if items.len() == 1 => Ok(&items[0]),
@@ -106,7 +110,7 @@ pub(super) fn items_given(
     let texts: &[String] = match input {
         Input::Many(items) => items,
         Input::One(text) => std::slice::from_ref(text),
-        Input::Entries(_) => {
+        Input::Entries(_) | Input::Block(_) | Input::Blocks(_) => {
             return Err(not_editable(
                 EditField::Value,
                 format!("'{key}' is a list; give its items"),
