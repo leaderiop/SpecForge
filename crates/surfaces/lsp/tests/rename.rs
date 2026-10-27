@@ -435,6 +435,61 @@ mod ledger {
         }
         assert_eq!(ledger_on_disk(&served), before);
     }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "an applied LSP rename whose buffers are closed unsaved is undone"
+    )]
+    fn an_applied_lsp_rename_whose_buffers_are_closed_unsaved_is_undone() {
+        let mut served = served();
+        let before = ledger_on_disk(&served);
+        rename_and_type(&mut served);
+        assert_eq!(served.state().pending().open().len(), 1);
+        served.close("m.spec");
+        served.close("u.spec");
+        assert!(served.state().pending().open().is_empty());
+        // What the editor was last told of each file: the ledger is no longer read as renamed.
+        let sent = served.sent();
+        for file in ["m.spec", "u.spec"] {
+            let codes = crate::recorder::last_codes(&sent, &served.uri(file)).unwrap_or_default();
+            assert!(!codes.iter().any(|c| c == "E083"), "{file}: {codes:?}");
+        }
+        assert_eq!(ledger_on_disk(&served), before);
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "a rename whose ledger write fails stays pending and lands on the next event"
+    )]
+    fn a_rename_whose_ledger_write_fails_stays_pending() {
+        let mut served = served();
+        rename_and_type(&mut served);
+        // `.specforge` is a file: the write lock cannot be taken.
+        let _ = std::fs::remove_dir_all(served.root().join(".specforge"));
+        served.write(".specforge", "in the way");
+        save(&mut served);
+        assert_eq!(served.state().pending().open().len(), 1, "not done");
+        assert!(!ledger_on_disk(&served).contains("v1.0/05"));
+        std::fs::remove_file(served.root().join(".specforge")).unwrap();
+        save(&mut served);
+        assert!(ledger_on_disk(&served).contains("v1.0/05"));
+        assert!(served.state().pending().open().is_empty());
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "a saved LSP rename lands its ledger change at shutdown"
+    )]
+    fn a_saved_lsp_rename_lands_its_ledger_change_at_shutdown() {
+        let mut served = served();
+        rename_and_type(&mut served);
+        // Saved, and the server exits before the watch event.
+        for (file, text) in [("m.spec", M), ("u.spec", U)] {
+            served.write(file, &text.replace("phase 03", "phase 05"));
+        }
+        served.shutdown();
+        assert!(ledger_on_disk(&served).contains(&line("v1.0/05/U1", "result", "\"pass\"")));
+    }
 }
 
 #[spec(

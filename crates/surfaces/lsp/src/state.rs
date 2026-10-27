@@ -293,7 +293,11 @@ impl LspState {
     pub fn shutdown(&mut self) {
         self.shutdown = true;
         self.files.clear();
-        // A rename that has not landed is dropped: its values then read as renamed by hand (E083 names the old path).
+        // A rename the editor saved and whose event has not come lands now; one not saved is dropped, and its values
+        // then read as renamed by hand (E083 names the old path).
+        if let Project::Held(session) = &self.project {
+            self.pending.flush(session);
+        }
         self.pending = Pending::default();
         // Dropping the session frees its graph and its Wasm runtime.
         self.project = Project::Held(Box::new(ProjectSession::detached()));

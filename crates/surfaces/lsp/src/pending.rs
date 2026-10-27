@@ -5,7 +5,8 @@
 //! - **waiting**: the answer was given; the declaring file's buffer still holds the old name;
 //! - **showing**: the buffer holds the new name; the session's checks read the ledger as the rename will have written
 //!   it, so the editor shows no E083 between the rename and its save;
-//! - **undone**: the buffer holds the old name again after showing the new one; the change is dropped, nothing written;
+//! - **undone**: the buffer holds the old name again after showing the new one, or the declaring file was closed
+//!   with the disk still holding the old name; the change is dropped, nothing written;
 //! - **landed**: the file on disk holds the new name; the ledger is written under the write lock.
 
 use std::sync::{Arc, Mutex};
@@ -116,27 +117,38 @@ impl PendingLedger {
         }
     }
 
+    /// The declaring file's buffer was closed and the disk holds `text`: a rename shown and never saved is dropped.
+    /// `true` when it was.
+    fn closed(&self, text: &str) -> bool {
+        let dropped = self.phase() == Phase::Showing && self.reading(text) == Reading::Old;
+        if dropped {
+            self.set(Phase::Done);
+        }
+        dropped
+    }
+
     /// The file on disk is `text`: when it holds the new name, the ledger is written once, over the project the
-    /// session shows. `true` when it was.
+    /// session shows. `true` when it was. A write that fails leaves the rename pending, so the next event or the
+    /// shutdown tries again; the overlay keeps showing the ledger as renamed meanwhile.
     fn lands(&self, text: &str, session: &ProjectSession) -> bool {
         if self.is_done() || self.reading(text) != Reading::New {
             return false;
         }
-        self.set(Phase::Done);
         let caller = Caller::new(&UNBOUNDED, Asking::Nobody);
         let origin = Origin::Core {
             surface: Surface::Lsp,
         };
-        // A write that fails leaves the ledger as it was: the values then read as renamed by hand (E083 names the
-        // old path), which the author sees and repairs.
-        let _ = land_ledger(
+        let written = land_ledger(
             self.overlay.before(),
             session.project(),
             self.overlay.change().clone(),
             &origin,
             caller,
         );
-        true
+        if written.is_ok() {
+            self.set(Phase::Done);
+        }
+        written.is_ok()
     }
 }
 
@@ -175,6 +187,18 @@ impl Pending {
     }
 }
 
+impl Pending {
+    /// The server is shutting down: a rename whose declaring file was saved and whose event never came lands now.
+    pub fn flush(&self, session: &ProjectSession) {
+        for p in self.open() {
+            let path = session.project().environment().sources().path(&p.declaring);
+            if let Ok(text) = std::fs::read_to_string(path) {
+                p.lands(&text, session);
+            }
+        }
+    }
+}
+
 /// What a watched-file event asks of the pending renames: the ones that edit a file it names, to land if the disk
 /// says so.
 pub struct Landing {
@@ -204,6 +228,29 @@ impl Landing {
             .pending
             .iter()
             .any(|p| self.keys.iter().any(|k| p.touches(k)))
+    }
+
+    /// The buffer of the source `keys` names was closed: a rename shown in its declaring file and never saved is
+    /// dropped, and the checks stop reading its ledger. `true` when the session needs its checks again.
+    pub fn discard(&self, session: &mut ProjectSession) -> bool {
+        let mut dropped = false;
+        for p in self
+            .pending
+            .iter()
+            .filter(|p| self.keys.iter().any(|k| *k == p.declaring))
+        {
+            let path = session.project().environment().sources().path(&p.declaring);
+            if let Ok(text) = std::fs::read_to_string(path) {
+                dropped |= p.closed(&text);
+            }
+        }
+        let showing = self
+            .pending
+            .iter()
+            .filter(|p| p.is_showing())
+            .map(|p| Arc::clone(&p.overlay))
+            .collect();
+        session.overlay_ledger(showing) || dropped
     }
 
     /// Land the renames whose declaring file on disk holds the new name, then show only those still showing.

@@ -52,7 +52,7 @@ enum Step {
     /// watched files finish (ADR 0289); never both empty.
     Disk { changes: Changes, landing: Landing },
     /// Release the buffer of the document closed at this absolute path.
-    Release(PathBuf),
+    Release { path: PathBuf, landing: Landing },
     /// Hold these open buffers (by absolute path, the session keys them; never empty) as one
     /// update. `edited` is the session key of the last one edited, where a diagnostic about no
     /// entity goes.
@@ -131,7 +131,11 @@ impl Plan {
                 if state.document(&uri).is_some() {
                     return None;
                 }
-                Step::Release(uri::path_of(&uri))
+                let landing = Landing::of(state.pending(), vec![state.key_of(&uri)]);
+                Step::Release {
+                    path: uri::path_of(&uri),
+                    landing,
+                }
             }
             Change::Watched(events) => {
                 let paths: Vec<PathBuf> = events
@@ -184,7 +188,15 @@ impl Plan {
                 }
                 applied.touched.extend(changes.sources().iter().cloned());
             }
-            Step::Release(path) => applied.close(session, &path),
+            Step::Release { path, landing } => {
+                // A rename shown in this buffer and never saved is over: the checks stop reading its ledger.
+                let dropped = landing.discard(session);
+                applied.close(session, &path);
+                if dropped {
+                    applied.record(session.recheck());
+                    applied.changed = true;
+                }
+            }
             Step::Hold {
                 buffers,
                 edited,
