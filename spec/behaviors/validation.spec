@@ -322,3 +322,40 @@ behavior report_entities_without_contract_obligations "Report Entities Without C
   verify unit "a single contract reference is a contract obligation"
   verify unit "the contracts pass's suggestion names the kind's contract fields, sorted"
 }
+
+behavior read_git_baseline "Read the Git Baseline" {
+  features [ci_integration]
+  category validation
+  ports    [FileSystem]
+  requires {
+    history_declared "an immutable or append-only field, an append-only kind, or a pass naming a baseline kind is loaded"
+  }
+  ensures {
+    declared_only "git is never run, and no ref or ledger is a check input, unless something declares history"
+    same_without  "a project that declares no history reports the same inside and outside a repository"
+  }
+  contract """
+    History is the git baseline (ADR 0287): HEAD, or under check --since the merge-base of the revision and HEAD,
+    compiled in the current environment. It is read only when something declares history, so a project that declares
+    none runs no process and watches no ref.
+  """
+  produces []
+  verify unit "a project that declares no history reads no git and watches no ref and no ledger"
+  verify unit "check reports the same inside and outside a git repository when nothing declares history"
+}
+
+behavior judge_field_history "Judge Field History" {
+  category validation
+  requires {
+    registries_populated_fired "the field registry holds each field's declared writer and history flags"
+  }
+  ensures {
+    flags_declared "only an extension that declares a writer, immutable or append_only flag is judged by it"
+  }
+  contract """
+    A field declares who writes it (writer: computed or harness) and its history (immutable, append_only); a kind may
+    be append-only (ADR 0287). The builtins declare none, so their projects see no new diagnostic.
+  """
+  produces []
+  verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+}

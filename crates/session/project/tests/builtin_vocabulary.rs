@@ -107,3 +107,37 @@ fn no_builtin_field_declares_a_k3_attribute() {
     }
     assert!(files > 20, "only {files} declaration files were found");
 }
+
+#[specforge_test_macros::test(
+    behavior = "judge_field_history",
+    verify = "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+)]
+fn no_builtin_declares_a_writer_or_history_flag() {
+    let mut files = 0;
+    for dir in std::fs::read_dir(specforge_component::committed::snapshots()).unwrap() {
+        for file in std::fs::read_dir(dir.unwrap().path()).unwrap() {
+            let path = file.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            let declared = ["entities", "shared_fields", "enhancements", "passes"];
+            if !declared
+                .iter()
+                .any(|f| name == format!("describe_{f}.json"))
+            {
+                continue;
+            }
+            let value: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            let mut found = Vec::new();
+            keys_and_types(&value, &mut found);
+            for word in ["writer", "immutable", "append_only", "baseline", "computes"] {
+                assert!(
+                    !found.iter().any(|f| f == word),
+                    "{} declares '{word}'",
+                    path.display()
+                );
+            }
+            files += 1;
+        }
+    }
+    assert!(files > 20, "only {files} declaration files were found");
+}

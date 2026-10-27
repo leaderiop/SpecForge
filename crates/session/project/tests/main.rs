@@ -28,6 +28,7 @@ mod environment_reads;
 mod extension_calls;
 mod field_types;
 mod fixture;
+mod history;
 mod link_identity;
 mod namespaced_codes;
 mod one_side;
