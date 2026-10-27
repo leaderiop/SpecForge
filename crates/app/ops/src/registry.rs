@@ -424,6 +424,11 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             DeclaredCategory::FeatureFlags,
         ),
         category("codes", "diagnostic code catalog", DeclaredCategory::Codes),
+        category(
+            "settings",
+            "typed settings, presets and secrets",
+            DeclaredCategory::Settings,
+        ),
     ],
     default: None,
 };

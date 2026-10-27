@@ -17,7 +17,8 @@ use crate::{
     CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, McpResourceDescriptor,
-    McpToolDescriptor, PeerDependency, ProtocolError, SurfaceDescriptor, ValidationRuleDescriptor,
+    McpToolDescriptor, PeerDependency, PresetDescriptor, ProtocolError, SecretDescriptor,
+    SettingDescriptor, SettingsItem, SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -49,10 +50,13 @@ pub struct ExtensionDeclaration {
     /// The diagnostic codes it reports (protocol 1.7.0, ADR 0286).
     #[serde(default)]
     pub codes: Vec<CodeDescriptor>,
+    /// The settings, presets and secrets it declares (protocol 1.8.0, ADR 0288).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<SettingsItem>,
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these eleven and nothing else
+/// protocol defines no other: a guest answers these twelve and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -67,12 +71,13 @@ pub enum DeclaredCategory {
     Passes,
     FeatureFlags,
     Codes,
+    Settings,
 }
 
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 11] = [
+    pub const ALL: [DeclaredCategory; 12] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -84,6 +89,7 @@ impl DeclaredCategory {
         DeclaredCategory::Passes,
         DeclaredCategory::FeatureFlags,
         DeclaredCategory::Codes,
+        DeclaredCategory::Settings,
     ];
 
     /// Its wire name (`shared_fields`).
@@ -100,6 +106,7 @@ impl DeclaredCategory {
             DeclaredCategory::Passes => "passes",
             DeclaredCategory::FeatureFlags => "feature_flags",
             DeclaredCategory::Codes => "codes",
+            DeclaredCategory::Settings => "settings",
         }
     }
 
@@ -108,6 +115,7 @@ impl DeclaredCategory {
     pub const fn since(self) -> (u64, u64) {
         match self {
             DeclaredCategory::Codes => (1, 7),
+            DeclaredCategory::Settings => (1, 8),
             _ => (1, 0),
         }
     }
@@ -134,6 +142,7 @@ impl DeclaredCategory {
             DeclaredCategory::Passes => &PASS,
             DeclaredCategory::FeatureFlags => &FEATURE_FLAG,
             DeclaredCategory::Codes => &CODE,
+            DeclaredCategory::Settings => &SETTING,
         }
     }
 }
@@ -232,6 +241,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Passes => !self.passes.is_empty(),
             DeclaredCategory::FeatureFlags => !self.feature_flags.is_empty(),
             DeclaredCategory::Codes => !self.codes.is_empty(),
+            DeclaredCategory::Settings => !self.settings.is_empty(),
         }
     }
 
@@ -260,6 +270,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Passes => to_items(&self.passes),
             DeclaredCategory::FeatureFlags => to_items(&self.feature_flags),
             DeclaredCategory::Codes => to_items(&self.codes),
+            DeclaredCategory::Settings => to_items(&self.settings),
         }
     }
 
@@ -290,6 +301,7 @@ impl ExtensionDeclaration {
             DeclaredCategory::Passes => self.passes = parse(name, items)?,
             DeclaredCategory::FeatureFlags => self.feature_flags = parse(name, items)?,
             DeclaredCategory::Codes => self.codes = parse(name, items)?,
+            DeclaredCategory::Settings => self.settings = parse(name, items)?,
         }
         Ok(())
     }
@@ -451,6 +463,20 @@ static CODE: Shape = Shape {
     fields: struct_fields::<CodeDescriptor>,
     nested: &[],
 };
+/// A settings item's shape depends on its `kind`; this one is the setting's, the walk picks by kind
+/// ([`settings_shape`]).
+static SETTING: Shape = Shape {
+    fields: struct_fields::<SettingDescriptor>,
+    nested: &[("members", Nested::List(&FIELD))],
+};
+static PRESET: Shape = Shape {
+    fields: struct_fields::<PresetDescriptor>,
+    nested: &[],
+};
+static SECRET: Shape = Shape {
+    fields: struct_fields::<SecretDescriptor>,
+    nested: &[],
+};
 static FEATURE_FLAG: Shape = Shape {
     fields: struct_fields::<FeatureFlagDescriptor>,
     nested: &[],
@@ -465,13 +491,35 @@ fn report_unknown_keys(
         return;
     };
     for (index, item) in items.iter().enumerate() {
+        let (shape, item) = if category == DeclaredCategory::Settings {
+            // The `kind` tag picks the shape and is no key of the descriptor; an unreadable item is W021's.
+            let Some(shape) = settings_shape(item.get("kind").and_then(Value::as_str)) else {
+                continue;
+            };
+            let mut untagged = item.clone();
+            if let Some(object) = untagged.as_object_mut() {
+                object.remove("kind");
+            }
+            (shape, Cow::Owned(untagged))
+        } else {
+            (category.shape(), Cow::Borrowed(item))
+        };
         walk(
             category.name(),
-            category.shape(),
-            &item_name(item, index),
-            item,
+            shape,
+            &item_name(&item, index),
+            &item,
             unknown,
         );
+    }
+}
+
+fn settings_shape(kind: Option<&str>) -> Option<&'static Shape> {
+    match kind? {
+        "setting" => Some(&SETTING),
+        "preset" => Some(&PRESET),
+        "secret" => Some(&SECRET),
+        _ => None,
     }
 }
 

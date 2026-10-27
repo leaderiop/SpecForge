@@ -11,7 +11,8 @@ use specforge_protocol_types::{
     CompilerPassDescriptor, DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
     FeatureFlagDescriptor, FieldDescriptor, HandshakeResponse, PROTOCOL_VERSION, PeerDependency,
-    ProtocolError, SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
+    ProtocolError, SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey,
+    ValidationRuleDescriptor, ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -117,6 +118,11 @@ fn full() -> ExtensionDeclaration {
                 docs: None,
             },
         ],
+        settings: vec![SettingsItem::Setting(SettingDescriptor {
+            name: "verbose".to_string(),
+            field_type: "bool".to_string(),
+            ..Default::default()
+        })],
     }
 }
 
@@ -580,21 +586,83 @@ fn the_writer_and_history_keys_round_trip_and_stay_off_the_wire_when_unset() {
     behavior = "load_extension_settings",
     verify = "a settings category round-trips its three item kinds and an unknown kind costs that item"
 )]
-#[ignore = "K6 T3"]
 fn a_settings_category_round_trips() {
-    // The `settings` category holds setting, preset and secret items by `kind`; an item of an unknown kind or one that
-    // does not decode costs that item (W021), not the payload; an older guest is not asked for it.
-    assert!(DeclaredCategory::from_name("settings").is_some());
-    unimplemented!("K6 T3: SettingsItem round trip");
+    let items = json!([
+        {"kind": "setting", "name": "workflow.tdd_mode", "field_type": "bool", "default": false,
+         "gates": ["E403"]},
+        {"kind": "preset", "source": "profile", "values": {"strict": {
+            "settings": {"workflow.tdd_mode": true}, "severities": {"W103": "error"}}}},
+        {"kind": "secret", "name": "brave_api_key", "env": "BRAVE_API_KEY"},
+        {"kind": "mystery", "name": "x"},
+        {"kind": "setting", "field_type": "bool"},
+    ]);
+    let mut declared = ExtensionDeclaration::default();
+    declared
+        .set_category(DeclaredCategory::Settings, &items)
+        .unwrap();
+    assert!(declared.declares(DeclaredCategory::Settings));
+    assert!(matches!(declared.settings[0], SettingsItem::Setting(_)));
+    assert!(matches!(declared.settings[1], SettingsItem::Preset(_)));
+    assert!(matches!(declared.settings[2], SettingsItem::Secret(_)));
+    // An unknown kind and a setting with no name cost those items, not the category.
+    for bad in &declared.settings[3..] {
+        assert!(matches!(bad, SettingsItem::Unreadable(_)), "{bad:?}");
+    }
+    assert_eq!(declared.describe_items(DeclaredCategory::Settings), items);
+    // A 1.7 guest is not asked for it; a key the descriptor does not define is W138.
+    let mut handshake = full().handshake;
+    handshake.protocol_version = "1.7.0".to_string();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            assert_ne!(category, DeclaredCategory::Settings);
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([]),
+            })
+        },
+        |_| {},
+    )
+    .unwrap();
+    let mut unknown = Vec::new();
+    let mut handshake = full().handshake;
+    handshake.protocol_version = PROTOCOL_VERSION.to_string();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: if category == DeclaredCategory::Settings {
+                    json!([{"kind": "secret", "name": "k", "env": "K", "enviro": "x"}])
+                } else {
+                    json!([])
+                },
+            })
+        },
+        |key| unknown.push((key.category, key.item, key.key)),
+    )
+    .unwrap();
+    assert_eq!(
+        unknown,
+        [("settings", "k".to_string(), "enviro".to_string())]
+    );
 }
 
 #[specforge_test_macros::test(
     behavior = "load_extension_settings",
-    verify = "a feature flag reads as a bool setting and a flag and a setting of one name is refused"
+    verify = "a feature flag reads as a bool setting of its name and default"
 )]
-#[ignore = "K6 T3"]
 fn a_feature_flag_reads_as_a_bool_setting() {
-    // `feature_flags` [{name, default_enabled}] reads as a bool setting of that name and default; the same name
-    // declared as a flag and as a setting is refused (W021).
-    unimplemented!("K6 T3: FeatureFlagDescriptor -> a bool SettingDescriptor");
+    let flag = FeatureFlagDescriptor {
+        name: "experimental".to_string(),
+        description: Some("Try it".to_string()),
+        default_enabled: true,
+    };
+    let setting = flag.as_setting();
+    assert_eq!(
+        (setting.name.as_str(), setting.field_type.as_str()),
+        ("experimental", "bool")
+    );
+    assert_eq!(setting.default, Some(json!(true)));
+    assert_eq!(setting.description.as_deref(), Some("Try it"));
 }

@@ -30,9 +30,10 @@ pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, FieldWr
 pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    HandshakeResponse, PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor,
-    ValidationSeverity, ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod,
-    ValidatorParam, ValidatorRef, ValidatorVerdict,
+    HandshakeResponse, PeerDependency, ProtocolError, SandboxPolicy, SecretDescriptor,
+    SettingDescriptor, SettingsItem, ValidationRuleDescriptor, ValidationSeverity,
+    ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam,
+    ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{DescribeResponse, pass_export};
@@ -62,12 +63,14 @@ pub use vocabulary::Vocabulary;
 mod builders;
 mod command_graph;
 mod guest;
+mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
     FieldConstraintBuilder, KindBuilder, PassBuilder, RuleBuilder,
 };
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
+pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder};
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]
@@ -368,18 +371,49 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Contribute a feature flag.
+    /// Contribute a feature flag: a bool setting of that name, default and description (ADR 0288).
     pub fn feature_flag(
         &mut self,
         name: &str,
         default_enabled: bool,
         description: &str,
     ) -> &mut Self {
-        self.decl.feature_flags.push(FeatureFlagDescriptor {
-            name: name.to_string(),
-            description: (!description.is_empty()).then(|| description.to_string()),
-            default_enabled,
-        });
+        self.setting(name, |s| {
+            s.bool().default(default_enabled);
+            if !description.is_empty() {
+                s.describe(description);
+            }
+        })
+    }
+
+    /// Declare a typed setting `specforge.json` sets under this extension's name: a dotted name, or a family with
+    /// `*` segments (ADR 0288).
+    pub fn setting(&mut self, name: &str, f: impl FnOnce(&mut SettingBuilder)) -> &mut Self {
+        let mut b = SettingBuilder::new(name);
+        f(&mut b);
+        self.decl.settings.push(SettingsItem::Setting(b.into()));
+        self
+    }
+
+    /// Declare what each value of the enum or bool setting `source` (this extension's `profile`, or a peer's
+    /// `@gsd/core:profile`) presets: settings and raised severities (ADR 0288).
+    pub fn preset(&mut self, source: &str, f: impl FnOnce(&mut PresetBuilder)) -> &mut Self {
+        let mut b = PresetBuilder::new(source);
+        f(&mut b);
+        self.decl.settings.push(SettingsItem::Preset(b.0));
+        self
+    }
+
+    /// Declare a secret: `name` is read from the environment variable `env`, never from `specforge.json` and never
+    /// into a guest call (ADR 0288).
+    pub fn secret(&mut self, name: &str, env: &str, description: &str) -> &mut Self {
+        self.decl
+            .settings
+            .push(SettingsItem::Secret(SecretDescriptor {
+                name: name.to_string(),
+                env: env.to_string(),
+                description: (!description.is_empty()).then(|| description.to_string()),
+            }));
         self
     }
 

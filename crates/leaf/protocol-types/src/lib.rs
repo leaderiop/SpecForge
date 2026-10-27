@@ -35,6 +35,7 @@ mod code_catalog;
 pub mod command_args;
 mod declaration;
 mod field;
+mod settings;
 pub mod tool_input;
 mod vocabulary;
 pub use calls::*;
@@ -43,6 +44,10 @@ pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
 pub use field::FieldDescriptor;
+pub use settings::{
+    Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
+    UnreadableItem, valid_name,
+};
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, ProofRole};
 
 /// Protocol version for the extension wire format (semver). The host loads
@@ -65,7 +70,8 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase
 /// rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; 1.8.0 is ADR
 /// 0287's: a field declares who writes it (`writer`) and its history (`immutable`, `append_only`), a kind may be
 /// `append_only`, a pass declares `phase: "compute"`, the fields it `computes` and the `baseline` kinds it reads
-/// and answers `values`, and a pass's `previous` is the git baseline.
+/// and answers `values`, and a pass's `previous` is the git baseline; the same 1.8.0 is ADR 0288's: an extension declares typed `settings`
+/// (a new describe category), and a call input may carry the extension's own `settings`.
 pub const PROTOCOL_VERSION: &str = "1.8.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
