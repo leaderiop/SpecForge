@@ -312,6 +312,9 @@ expression: listing
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
+            "append_only": {
+              "type": "boolean"
+            },
             "default_value": {
               "type": "string"
             },
@@ -347,6 +350,9 @@ expression: listing
             "file_base": {
               "type": "string"
             },
+            "immutable": {
+              "type": "boolean"
+            },
             "maximum": {
               "type": "integer"
             },
@@ -376,6 +382,9 @@ expression: listing
                 "type": "string"
               },
               "type": "array"
+            },
+            "writer": {
+              "type": "string"
             }
           },
           "required": [
@@ -461,6 +470,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "computed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "coverage_status": {
                     "enum": [
@@ -568,6 +583,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "computed": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "coverage_status": {
                     "enum": [
@@ -741,6 +762,10 @@ expression: listing
             "warning",
             "info"
           ],
+          "type": "string"
+        },
+        "since": {
+          "description": "Judge immutable and append-only history against the merge-base of this git revision and HEAD, for this call only",
           "type": "string"
         },
         "strict": {
@@ -1748,6 +1773,9 @@ expression: listing
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
+            "append_only": {
+              "type": "boolean"
+            },
             "default_value": {
               "type": "string"
             },
@@ -1783,6 +1811,9 @@ expression: listing
             "file_base": {
               "type": "string"
             },
+            "immutable": {
+              "type": "boolean"
+            },
             "maximum": {
               "type": "integer"
             },
@@ -1812,6 +1843,9 @@ expression: listing
                 "type": "string"
               },
               "type": "array"
+            },
+            "writer": {
+              "type": "string"
             }
           },
           "required": [
@@ -2758,6 +2792,12 @@ expression: listing
             "type": "array"
           },
           "type": "object"
+        },
+        "computed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "contract": {
           "type": "string"
@@ -6251,6 +6291,433 @@ expression: listing
       "required": [
         "providers",
         "count",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "category": "management",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "specforge.settings",
+    "description": "List each extension's settings: the value, where it came from, what it gates, and each secret's status (never its value)",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "default": false,
+          "description": "List the settings nothing sets and that have no default too",
+          "type": "boolean"
+        },
+        "extension": {
+          "description": "List only this extension's settings",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "$defs": {
+        "Diagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "column": {
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "did_you_mean": {
+                      "type": "string"
+                    },
+                    "entity": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "unresolved_reference"
+                      ],
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "target",
+                    "entity",
+                    "field"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "did_you_mean": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "unresolved_import"
+                      ],
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "keyword": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "shadowed_keyword"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "keyword"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "reference_cycle"
+                      ],
+                      "type": "string"
+                    },
+                    "path": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "entity": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "subject"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "entity"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "failures": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entity": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entity",
+                          "error"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "function": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "custom_rule_failures"
+                      ],
+                      "type": "string"
+                    },
+                    "rule": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "rule",
+                    "function",
+                    "failures"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "type": "object"
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "severity": {
+              "enum": [
+                "Error",
+                "Warning",
+                "Info"
+              ],
+              "type": "string"
+            },
+            "span": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SourceSpan"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "suggestion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "title",
+            "severity",
+            "message",
+            "span",
+            "suggestion",
+            "file",
+            "line",
+            "column"
+          ],
+          "type": "object"
+        },
+        "SourceSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          },
+          "type": "array"
+        },
+        "extensions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "extension": {
+                "type": "string"
+              },
+              "secrets": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "env": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "set": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "env",
+                    "set"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "settings": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "default": {},
+                    "description": {
+                      "type": "string"
+                    },
+                    "field_type": {
+                      "type": "string"
+                    },
+                    "gates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": "string"
+                    },
+                    "preset": {
+                      "type": "string"
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "name",
+                    "field_type",
+                    "origin",
+                    "gates"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "extension",
+              "settings",
+              "secrets"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "gated": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "raised": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "severity"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "extensions",
+        "count",
+        "gated",
+        "raised",
         "diagnostics"
       ],
       "type": "object"

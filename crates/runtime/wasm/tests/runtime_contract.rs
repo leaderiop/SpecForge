@@ -80,3 +80,68 @@ fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
     assert!(runtime.load("@acme/y", b"\0asm other").is_err());
     assert_eq!(runtime.declared_by("@acme/y", b"\0asm other"), None);
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "an instance restarted after a trap still carries the extension's settings"
+)]
+fn a_restarted_instance_keeps_its_settings() {
+    use serde_json::json;
+    use specforge_wasm::{ExtensionCalls, ExtensionSettings};
+    let runtime = InProcessRuntime::new().with(crashing);
+    let settings = ExtensionSettings {
+        values: json!({"level": 2}).as_object().unwrap().clone(),
+        secrets: Vec::new(),
+    };
+    runtime.apply_settings("@contract/crash", settings.clone());
+    let calls = ExtensionCalls::new(&runtime);
+    // A guest panic traps; the next call is a fresh instance's and carries them.
+    assert!(
+        calls
+            .call_mcp_tool("@contract/crash", "cmd__crash", &json!({}))
+            .is_err()
+    );
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__again", &json!({"q": 1}));
+    let last = runtime.calls().pop().unwrap();
+    assert_eq!(last.input, json!({"q": 1, "settings": {"level": 2}}));
+    assert_eq!(runtime.settings_of("@contract/crash"), Some(settings));
+    assert_eq!(runtime.settings_of("@contract/other"), None);
+    // Settings are spliced into an object input only, at its end.
+    let calls = ExtensionCalls::new(&runtime);
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__empty", &json!({}));
+    assert_eq!(
+        runtime.calls().pop().unwrap().input,
+        json!({"settings": {"level": 2}})
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
+)]
+fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
+    use serde_json::json;
+    use specforge_protocol_types::PassInput;
+    use specforge_wasm::{ExtensionCalls, ExtensionSettings};
+    let runtime = InProcessRuntime::new().with(crashing);
+    runtime.apply_settings(
+        "@contract/crash",
+        ExtensionSettings {
+            values: json!({"level": 2}).as_object().unwrap().clone(),
+            // PATH is set in any test process.
+            secrets: vec![("token".into(), "PATH".into())],
+        },
+    );
+    let calls = ExtensionCalls::new(&runtime);
+    let _ = calls.call_mcp_tool("@contract/crash", "mcp__t", &json!({}));
+    assert_eq!(
+        runtime.calls().pop().unwrap().input,
+        json!({"settings": {"level": 2}, "secrets": {"token": true}})
+    );
+    // A pass's result must be the same on every machine: it is told the settings, not whether a variable is set.
+    let input: PassInput = serde_json::from_value(json!({"entities": []})).unwrap();
+    let _ = calls.run_pass("@contract/crash", "audit", &ExtensionCalls::encode(&input));
+    let carried = runtime.calls().pop().unwrap().input;
+    assert_eq!(carried["settings"], json!({"level": 2}));
+    assert!(carried.get("secrets").is_none(), "{carried}");
+}

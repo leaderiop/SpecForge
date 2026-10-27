@@ -22,6 +22,7 @@ specforge-component = { workspace = true }
 specforge-coverage = { path = "../../leaf/coverage" }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
 specforge-graph = { path = "../../pipeline/graph" }
+specforge-package = { path = "../../leaf/package" }
 specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { workspace = true }
@@ -37,6 +38,8 @@ specforge-extension-sdk = { path = "../../runtime/extension-sdk", optional = tru
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-project = { path = ".", features = ["testing"] }
+# A real git, for the tests that commit.
+specforge-git = { path = "../../adapters/git" }
 # The corpus the reference-field guard reads.
 specforge-parser = { workspace = true, features = ["testing"] }
 # The builtins, loaded outside the extension load by the tests.
@@ -44,7 +47,7 @@ specforge-component = { path = "../../runtime/component", features = ["testing"]
 # The pipeline tests render what they compile.
 specforge-emitter = { path = "../../pipeline/emitter" }
 insta = { workspace = true }
-specforge-package = { path = "../../leaf/package" }
+proptest = { version = "1.11", default-features = false, features = ["std"] }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 specforge-wasm = { workspace = true, features = ["testing"] }

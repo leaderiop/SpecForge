@@ -113,8 +113,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
 
     A run that finds errors is a successful call (isError false, ADR 0004
     D4-a); whether the check passed is in _meta["specforge/check"].ok,
-    over every reported diagnostic whatever severity_filter shows. The
-    tool never writes the build cache.
+    over every reported diagnostic whatever severity_filter shows.
   """
   verify unit "each catalogued diagnostic carries its title"
   verify unit "specforge.validate tool triggers compilation"

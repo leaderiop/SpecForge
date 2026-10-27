@@ -1,7 +1,7 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
+    FieldType, FieldWriter, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
     ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
     operations,
 };
@@ -67,18 +67,16 @@ impl KindBuilder {
         self.0.declares_types = true;
         self
     }
-    /// The field holding the kind's lifecycle state, whose previous value
-    /// the build cache records for check-phase passes. Must be one of the
-    /// kind's fields.
-    pub fn lifecycle_field(&mut self, field: &str) -> &mut Self {
-        self.0.lifecycle_field = Some(field.to_string());
-        self
-    }
     /// The single `reference` field (with a target kind) naming the entity this kind's entities are scoped by:
     /// a name is unique within its scope, and an entity's id is its scope's path and its name (ADR 0284).
     /// The field may be absent from an entity, which is then in the project scope.
     pub fn scoped_by(&mut self, field: &str) -> &mut Self {
         self.0.scoped_by = Some(field.to_string());
+        self
+    }
+    /// The kind's entities are a log (ADR 0287): one the baseline holds stays, and keeps every authored value.
+    pub fn append_only(&mut self) -> &mut Self {
+        self.0.append_only = true;
         self
     }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
@@ -143,6 +141,28 @@ impl FieldBuilder {
     }
     pub fn required(&mut self) -> &mut Self {
         self.0.required = true;
+        self
+    }
+    /// A compute pass of this extension gives the field's value (ADR 0287); it is never written in a `.spec`
+    /// file. Some pass must list the field in [`PassBuilder::computes`].
+    pub fn computed(&mut self) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Computed.as_str().to_string());
+        self
+    }
+    /// Only a host write a command or collector plan makes sets the field, recorded in `specforge-harness`
+    /// (ADR 0287).
+    pub fn harness(&mut self) -> &mut Self {
+        self.0.writer = Some(FieldWriter::Harness.as_str().to_string());
+        self
+    }
+    /// A value set at the baseline never changes (ADR 0287): a field unset there may be set once.
+    pub fn immutable(&mut self) -> &mut Self {
+        self.0.immutable = true;
+        self
+    }
+    /// The baseline list is a prefix of the current one (ADR 0287). A list field only.
+    pub fn append_only(&mut self) -> &mut Self {
+        self.0.append_only = true;
         self
     }
     pub fn description(&mut self, d: &str) -> &mut Self {
@@ -459,9 +479,7 @@ impl PassBuilder {
         Self {
             descriptor: CompilerPassDescriptor {
                 name: name.to_string(),
-                after: None,
-                before: None,
-                phase: None,
+                ..Default::default()
             },
             run: None,
         }
@@ -492,6 +510,21 @@ impl PassBuilder {
     /// runs it only under `specforge analyze`.
     pub fn phase(&mut self, p: &str) -> &mut Self {
         self.descriptor.phase = Some(p.to_string());
+        self
+    }
+    /// Run in the `compute` phase (ADR 0287): before the rules, answering [`PassOutput::values`] for the fields
+    /// named in [`Self::computes`].
+    pub fn compute(&mut self) -> &mut Self {
+        self.phase("compute")
+    }
+    /// The computed fields the pass answers, `kind.field` or `kind.field.member` (compute phase only).
+    pub fn computes(&mut self, fields: &[&str]) -> &mut Self {
+        self.descriptor.computes = fields.iter().map(|f| f.to_string()).collect();
+        self
+    }
+    /// The kinds whose git-baseline entities the pass receives as `previous` (compute and check phases).
+    pub fn baseline(&mut self, kinds: &[&str]) -> &mut Self {
+        self.descriptor.baseline = kinds.iter().map(|k| k.to_string()).collect();
         self
     }
 }

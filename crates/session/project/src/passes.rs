@@ -9,11 +9,11 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
-use specforge_protocol_types::{PassBuildCache, PassInput, PassOutput, PassSeverity};
-use specforge_wasm::ExtensionCalls;
+use specforge_protocol_types::{PassInput, PassOutput, PassSeverity};
+use specforge_wasm::{Encoded, ExtensionCalls};
 use std::collections::HashSet;
 
-use crate::BuildCache;
+use crate::baseline::Baseline;
 use crate::coverage::TestReport;
 use specforge_registry::EntitySnapshot;
 
@@ -32,14 +32,14 @@ pub struct PassContext<'a> {
     /// a proved claim discharges `verify property` obligations without
     /// executable tests.
     pub proved_claims: Option<&'a HashSet<String>>,
-    /// The build cache (check phase only, when `specforge-cache.json`
-    /// parses; ADR 0009 C).
-    pub previous: Option<&'a BuildCache>,
+    /// The baseline, moves applied (ADR 0287): handed to a pass as `previous`, restricted to the kinds it names in
+    /// `baseline`.
+    pub previous: Option<&'a Baseline>,
 }
 
 impl<'a> PassContext<'a> {
     /// `entities`, and nothing beside them: what a compile has before it
-    /// reads the build cache.
+    /// reads the baseline.
     pub fn of(entities: &'a EntitySnapshot) -> Self {
         Self {
             entities,
@@ -73,7 +73,8 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         edges: input.entities.pass_edges(),
         test_results: input.test_results.map(|r| r.results(input.entities)),
         proved_claims: input.proved_claims.map(sorted_ids),
-        previous: input.previous.map(PassBuildCache::from),
+        // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
+        previous: None,
     }
 }
 
@@ -166,6 +167,9 @@ pub fn run_extension_passes<'p>(
     let payload = pass_input(context);
     let entities_analyzed = payload.entities.len();
     let encoded = ExtensionCalls::encode(&payload);
+    // `previous` differs by the kinds a pass names: encoded once per distinct set.
+    let mut with_baseline: std::collections::HashMap<Vec<String>, Encoded<PassInput>> =
+        Default::default();
     let calls = ExtensionCalls::new(runtime);
 
     let mut reports = Vec::new();
@@ -176,18 +180,44 @@ pub fn run_extension_passes<'p>(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        let answer = calls.run_pass(&declared.extension, &pass.name, &encoded);
+        let input: &Encoded<PassInput> = match context.previous {
+            Some(baseline) if !declared.baseline().is_empty() => {
+                let mut kinds = declared.baseline().to_vec();
+                kinds.sort();
+                with_baseline.entry(kinds).or_insert_with_key(|kinds| {
+                    ExtensionCalls::encode(&PassInput {
+                        previous: Some(baseline.pass_view(kinds)),
+                        ..payload.clone()
+                    })
+                })
+            }
+            _ => &encoded,
+        };
+        let answer = calls.run_pass(&declared.extension, &pass.name, input);
         let findings = match answer {
             Ok(output) => {
                 let extra = output.summary.clone();
                 summary.extend(extra);
-                pass_findings(
+                let refused = (!output.values.is_empty() && !declared.is_compute_phase())
+                    .then_some(output.values.len());
+                let mut findings = pass_findings(
                     &declared.extension,
                     &pass.name,
                     output,
                     context.entities,
                     codes,
-                )
+                );
+                // Only a compute pass gives values (ADR 0287): once per pass, and ignored.
+                if let Some(count) = refused {
+                    findings.push(Diagnostic::new(
+                        codes::W165,
+                        format!(
+                            "pass '{}' of '{}' answered {count} value(s), but is not a compute pass: they are ignored",
+                            pass.name, declared.extension
+                        ),
+                    ));
+                }
+                findings
             }
             Err(error) => {
                 summary.insert("failed".into(), true.into());

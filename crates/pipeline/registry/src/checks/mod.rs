@@ -11,6 +11,7 @@ mod obligations;
 mod refs;
 mod value_forms;
 mod values;
+mod writers;
 
 use specforge_common::Diagnostic;
 
@@ -58,6 +59,16 @@ impl RegistryBuild {
                 &self.fields,
                 &self.candidates,
             )); // W020, E079
+            diagnostics.extend(writers::hand_written(
+                entities,
+                &self.fields,
+                |kind, field| {
+                    let entry = format!("{kind}.{field}");
+                    self.compute_passes()
+                        .find(|pass| pass.computes().contains(&entry))
+                        .map(|pass| format!("pass '{}' of '{}'", pass.pass.name, pass.extension))
+                },
+            )); // E082
             diagnostics.extend(obligations::refused(entities, &self.kinds)); // W158
             diagnostics.extend(values::mistyped(entities, &self.kinds, &self.fields)); // E061
             diagnostics.extend(value_forms::off_form(entities, &self.kinds, &self.fields)); // W159

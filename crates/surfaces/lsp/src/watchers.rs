@@ -26,8 +26,7 @@ pub fn default_watchers() -> Vec<FileSystemWatcher> {
 /// The watchers that cover every file a session is built from, read from
 /// its `inputs`: the `.spec` files and every `specforge.json` under its
 /// spec root (a nested project's marker), its config and
-/// lock, the module of each extension it loads, the build cache its check
-/// passes read, and each file the checks read. With `relative_patterns`
+/// lock, the module of each extension it loads, and each file the checks read. With `relative_patterns`
 /// (the client declared `relativePatternSupport`) each is a pattern
 /// relative to its directory; otherwise an absolute glob. Detached inputs
 /// get [`default_watchers`].

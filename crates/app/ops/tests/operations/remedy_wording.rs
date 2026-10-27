@@ -334,7 +334,7 @@ fn a_command_clause_holding_a_placeholder_is_written_by_hand() {
         "no specforge project at {}",
         "failed to load specforge grammar: {e}",
         "this specforge build's builtin extensions are broken",
-        "rewrite it with `specforge check --cache`, or delete {FILE}",
+        "rewrite it with `specforge harness gc`, or delete {FILE}",
         "run: specforge login --registry <alias> --token <NEW_TOKEN> (for {root})",
         "specforge update --major moves them together",
         "{{literal braces}} specforge add {{x}}",

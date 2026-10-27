@@ -227,7 +227,7 @@ type PassInput "What a __pass_<name> export receives: the entity snapshot, the r
   // The recorded test report, without each test's runner.
   test_results  TestResults @optional
   proved_claims string[]    @optional
-  // The build cache's statuses: per entity id, its kind and status.
+  // The baseline of the kinds the pass names: { revision, entities: { id: { kind, fields } } }.
   previous      object      @optional
   verify unit "PassInput schema is valid"
 }

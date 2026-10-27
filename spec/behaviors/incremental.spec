@@ -90,7 +90,7 @@ behavior classify_project_changes "Classify Project Changes" {
     installed extension's extension.wasm, a local .wasm entry) are
     environment inputs, and the target of each of these that is a
     symlink; every path the checks read is a check input:
-    specforge-cache.json when a check-phase pass read it, every file a
+    every file a
     file_reference field or a file_exists rule names, which the checks
     look for, and every directory a missing named file's suggestion listed, and the
     target of each of these that is a symlink; a specforge.json
@@ -131,7 +131,6 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a discovered .spec file is a source keyed from the project root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
   verify unit "a .wasm file no extension loads changes nothing"
-  verify unit "specforge-cache.json re-runs the checks without re-parsing"
   verify unit "a file a file_reference field names re-runs the checks"
   verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "a file beside a missing file a file_exists rule names changes its suggestion"
@@ -671,4 +670,24 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "the LSP and MCP check each rebuild in a debug build"
   verify unit "a rebuild that passes the check is reported as passed"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
+}
+
+behavior watch_baseline_refs "Watch the Baseline's Refs" {
+  category command
+  ports    [FileSystem]
+  requires {
+    history_declared "something declares history, so the session reads a baseline"
+  }
+  ensures {
+    commit_rechecks    "a commit, checkout, reset or pull re-checks watch and the language server"
+    refs_not_recursive "a ref outside the root is watched through its directory's own entries, never recursively"
+  }
+  contract """
+    The refs that name the baseline (HEAD, the loose ref, packed-refs, or reftable's tables.list) are check inputs of
+    their own class (ADR 0287). A change to one makes the session resolve the baseline again.
+  """
+  produces []
+  verify unit "a commit re-checks the session"
+  verify unit "refs outside the root are watched by their directories own entries"
+  verify unit "the LSP republishes after a commit"
 }

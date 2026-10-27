@@ -9,7 +9,7 @@ use specforge_ops::authoring::format::Place;
 use specforge_ops::read::infer::{KindGuide, guide};
 use specforge_ops::read::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_ops::view::ProjectView;
-use specforge_protocol_types::FieldDescriptor;
+use specforge_protocol_types::{FieldDescriptor, FieldWriter};
 use specforge_registry::{FieldRegistry, FieldType};
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, InsertReplaceEdit,
@@ -42,6 +42,8 @@ pub fn items(
             fields
                 .into_iter()
                 .filter(|field| starts_with(&field.declared().name, prefix))
+                // A computed field is given by its pass, never written (ADR 0287).
+                .filter(|field| field.writer() != Some(FieldWriter::Computed))
                 .filter(|field| !written.contains(&field.declared().name.as_str()))
                 .map(|field| {
                     let name = &field.declared().name;
@@ -87,6 +89,7 @@ pub fn items(
                         .members
                         .iter()
                         .filter(|member| starts_with(&member.name, prefix))
+                        .filter(|member| member.writer.as_deref() != Some("computed"))
                         .filter(|member| !written.contains(&member.name.as_str()))
                         .map(|member| CompletionItem {
                             label: member.name.clone(),

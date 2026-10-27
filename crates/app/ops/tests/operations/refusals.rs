@@ -68,8 +68,8 @@ fn check_and_trace_refusals_are_pinned_field_by_field() {
         specforge_project::testing::Assembled::over(RegistryBuild::default()).reporting(reported);
     let rootless = rootless.rootless_view();
     let no_root = |options: CheckOptions| {
-        let error = check(&rootless, &options).unwrap_err();
-        line(&error, None::<CheckField>)
+        let refusal = check(&rootless, &options).unwrap_err();
+        line(&refusal.error, None::<CheckField>)
     };
 
     let mut graph = Graph::new();
@@ -82,7 +82,7 @@ fn check_and_trace_refusals_are_pinned_field_by_field() {
         line(&refusal.error, refusal.subject)
     };
 
-    let no_project = "PreconditionFailed no_project | a lint profile or the build cache needs a \
+    let no_project = "PreconditionFailed no_project | a lint profile needs a \
                       project root, and this project has none | - | - | -";
     let rows: Vec<(&str, String, &str)> = vec![
         (
@@ -109,14 +109,6 @@ fn check_and_trace_refusals_are_pinned_field_by_field() {
             "lint profile, none close",
             profiles(&["nonsense"]),
             "InvalidInput unknown_lint_profile | Unknown lint profile 'nonsense' (available: inferred, pedantic) | - | - | Some(LintProfiles)",
-        ),
-        (
-            "check, cache without a root",
-            no_root(CheckOptions {
-                record_cache: true,
-                ..CheckOptions::default()
-            }),
-            no_project,
         ),
         (
             "check, lint without a root",

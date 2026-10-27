@@ -33,6 +33,7 @@ members = [
     # app
     "crates/app/ops",
     # adapters
+    "crates/adapters/git",
     "crates/adapters/ops-registry",
     "crates/adapters/registry-client",
     "crates/adapters/registry-wire",

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use specforge_graph::FieldForm;
 use specforge_graph::field_form::BlockMembers;
-use specforge_protocol_types::{FieldDescriptor, FieldType, FileBase, ProofRole};
+use specforge_protocol_types::{FieldDescriptor, FieldType, FieldWriter, FileBase, ProofRole};
 
 /// A declared field type this host does not read. The registry build
 /// reports it as W019 and registers nothing.
@@ -132,6 +132,21 @@ impl FieldRegistryEntry {
     /// What the prove pass reads the field as, when it declares a known role.
     pub fn proof_role(&self) -> Option<ProofRole> {
         self.proof_role
+    }
+
+    /// Who writes the field besides its author, when it declares a writer the registry accepts (ADR 0287).
+    pub fn writer(&self) -> Option<FieldWriter> {
+        self.form.writer()
+    }
+
+    /// A value set at the baseline never changes (ADR 0287).
+    pub fn immutable(&self) -> bool {
+        self.form.immutable()
+    }
+
+    /// The baseline list is a prefix of the current one (ADR 0287).
+    pub fn append_only(&self) -> bool {
+        self.form.append_only()
     }
 
     /// The field as its extension declared it (its type named canonically).
@@ -451,9 +466,21 @@ fn read(
         declared.edge = None;
     }
 
+    let writer = read_writer(declared, is_member, path, problems);
+    if declared.append_only && !field_type.is_list() {
+        refuse(
+            problems,
+            path,
+            format!("declares append_only, but its type is '{ty}': only a list has a prefix"),
+        );
+        declared.append_only = false;
+    }
+
     let mut form = FieldForm::new(field_type, declared.enum_values.clone())
         .bounded(declared.minimum, declared.maximum)
-        .requiring(is_member && declared.required);
+        .requiring(is_member && declared.required)
+        .written_by(writer)
+        .historied(declared.immutable, declared.append_only);
     form = match &declared.target_kind {
         Some(kind) => form.targeting(kind),
         None => form.targeting_any(&declared.target_kinds),
@@ -467,4 +494,66 @@ fn read(
         form = form.with_members(BlockMembers::new(forms));
     }
     form
+}
+
+/// The writer `declared` states, with whatever contradicts it dropped and listed in `problems` (ADR 0287): an
+/// unknown writer is dropped; `harness` on a member is dropped (a ledger key is an entity and a field); a computed
+/// field is never `required`, `immutable` or `append_only` (those are dropped), and one that is also `derived_from`
+/// has two writers, so its writer is dropped.
+fn read_writer(
+    declared: &mut FieldDescriptor,
+    is_member: bool,
+    path: &str,
+    problems: &mut Vec<FieldProblem>,
+) -> Option<FieldWriter> {
+    let name = declared.writer.clone()?;
+    let writer = match FieldWriter::parse(&name) {
+        None => {
+            refuse(
+                problems,
+                path,
+                format!("declares writer '{name}': expected 'computed' or 'harness'"),
+            );
+            declared.writer = None;
+            return None;
+        }
+        Some(FieldWriter::Harness) if is_member => {
+            refuse(
+                problems,
+                path,
+                "declares writer 'harness' on a member: a ledger key is an entity and a field"
+                    .into(),
+            );
+            declared.writer = None;
+            return None;
+        }
+        Some(writer) => writer,
+    };
+    if writer == FieldWriter::Computed {
+        if declared.derived_from.is_some() {
+            refuse(
+                problems,
+                path,
+                "is computed and derived_from: two writers for one field".into(),
+            );
+            declared.writer = None;
+            return None;
+        }
+        for (set, what) in [
+            (&mut declared.required, "required"),
+            (&mut declared.immutable, "immutable"),
+            (&mut declared.append_only, "append_only"),
+        ] {
+            if std::mem::take(set) {
+                refuse(
+                    problems,
+                    path,
+                    format!(
+                        "is computed and {what}: a computed value is never authored, and its history is its inputs'"
+                    ),
+                );
+            }
+        }
+    }
+    Some(writer)
 }

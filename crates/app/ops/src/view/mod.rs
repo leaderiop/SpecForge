@@ -95,6 +95,16 @@ impl<'a> ProjectView<'a> {
         self.project
     }
 
+    /// [`Self::reported`] as it would be over `project` instead (the same surface additions).
+    pub fn reported_over(&self, project: &CompiledProject) -> Vec<Diagnostic> {
+        let mut diagnostics = self
+            .listed
+            .map(<[Diagnostic]>::to_vec)
+            .unwrap_or_else(|| project.diagnostics());
+        diagnostics.extend(self.also_reported.iter().cloned());
+        diagnostics
+    }
+
     /// The project's graph.
     pub fn graph(&self) -> &'a Graph {
         self.project.graph()
@@ -237,6 +247,11 @@ impl<'a> ProjectView<'a> {
     /// cannot read another graph's.
     pub fn entities(&self) -> &'a EntitySnapshot {
         self.project.entities()
+    }
+
+    /// The values compute passes gave at the project's last check (ADR 0287).
+    pub fn computed(&self) -> &'a specforge_graph::Computed {
+        self.project.computed()
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned

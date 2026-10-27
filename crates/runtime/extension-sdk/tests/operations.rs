@@ -34,6 +34,7 @@ fn extension() -> ContributionsBuilder {
             PassOutput {
                 diagnostics: Vec::new(),
                 summary,
+                values: Vec::new(),
             }
         });
     });
@@ -300,4 +301,73 @@ fn a_pass_is_routed_at_the_export_the_host_calls() {
     let answer = b.dispatch_export(&pass_export("audit"), br#"{"entities":[],"edges":[]}"#);
     assert!(matches!(answer, Some(Ok(_))), "{answer:?}");
     assert!(b.dispatch_export("__pass_other", b"{}").is_none());
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the SDK reads a call's settings or the declared defaults and a tool handler never sees settings"
+)]
+fn the_sdk_reads_a_setting_or_its_declared_default() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/set", "1.0.0"));
+    c.setting("level", |s| {
+        s.integer().default(1);
+    });
+    c.setting("models.*", |s| {
+        s.string().default("opus");
+    });
+    c.setting("notes", |s| {
+        s.string();
+    });
+    c.pass("read", |p| {
+        p.run(|_: &PassInput| {
+            let settings = Settings::current();
+            vec![PassDiagnostic::new(
+                "W1",
+                PassSeverity::Warning,
+                format!(
+                    "level {:?}, notes {:?}, key {:?}, secret {}",
+                    settings.integer("level"),
+                    settings.string("notes"),
+                    settings.under("models").collect::<Vec<_>>(),
+                    settings.secret_set("api_key"),
+                ),
+            )]
+        });
+    });
+    c.mcp_tool("acme.seen", |t| {
+        t.input_schema(json!({"type": "object"}))
+            .handler(|arguments| Ok(arguments.clone()));
+    });
+    let message = |input: &str| -> String {
+        let answer = c
+            .dispatch_export(&pass_export("read"), input.as_bytes())
+            .unwrap()
+            .unwrap();
+        let answered: serde_json::Value = serde_json::from_slice(&answer).unwrap();
+        answered[0]["message"].as_str().unwrap().to_string()
+    };
+    let bare = r#"{"entities":[],"edges":[]}"#;
+    // No `settings` key: the declared defaults (a family has none to give).
+    assert_eq!(
+        message(bare),
+        r#"level Some(1), notes None, key [], secret false"#
+    );
+    let carried = r#"{"entities":[],"edges":[],"settings":{"level":3,"notes":"n","models.planning":"x"},"secrets":{"api_key":true}}"#;
+    assert_eq!(
+        message(carried),
+        r#"level Some(3), notes Some("n"), key [("planning", String("x"))], secret true"#
+    );
+    // Outside a call there are none; a tool's arguments never hold what the host carried.
+    assert_eq!(Settings::current(), Settings::default());
+    let answer = c
+        .dispatch_export(
+            "mcp__acme_seen",
+            br#"{"q":1,"settings":{"level":3},"secrets":{}}"#,
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&answer).unwrap(),
+        json!({"q": 1})
+    );
 }

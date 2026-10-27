@@ -13,6 +13,10 @@ use std::fmt;
 /// exactly these.
 pub const TARGET_ARGUMENTS: &[&str] = &["path"];
 
+/// Every argument the host owns in a tool call: the target's, and `settings` and `secrets`, which the host adds to
+/// a call to carry the extension's own (ADR 0288; a client's are dropped). No explicit tool may declare one.
+pub const HOST_ARGUMENTS: &[&str] = &["path", "settings", "secrets"];
+
 /// Why the host refuses an explicit MCP tool: MCP serves no tool for it
 /// (I017), and the SDK refuses to build an extension declaring it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,15 +27,20 @@ pub struct ToolRefusal {
 
 impl fmt::Display for ToolRefusal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let takes = if TARGET_ARGUMENTS.contains(&self.argument) {
+            "the call target takes"
+        } else {
+            "the host sends with every call"
+        };
         write!(
             f,
-            "its input schema declares '{}', which the call target takes",
+            "its input schema declares '{}', which {takes}",
             self.argument
         )
     }
 }
 
-/// The refusal of `input_schema`, if any: the first target argument it
+/// The refusal of `input_schema`, if any: the first host argument it
 /// declares as a top-level property or a required name. A schema that is no
 /// object declares nothing here (E055 is the registry's refusal of it).
 pub fn refusal(input_schema: &Value) -> Option<ToolRefusal> {
@@ -41,7 +50,7 @@ pub fn refusal(input_schema: &Value) -> Option<ToolRefusal> {
                 .as_array()
                 .is_some_and(|required| required.iter().any(|n| n == name))
     };
-    TARGET_ARGUMENTS
+    HOST_ARGUMENTS
         .iter()
         .find(|name| declares(name))
         .map(|argument| ToolRefusal { argument })

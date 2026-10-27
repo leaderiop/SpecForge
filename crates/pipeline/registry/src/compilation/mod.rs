@@ -17,6 +17,8 @@ mod populate;
 mod sides;
 mod validate;
 
-pub use build::{BuildPart, CHECK_PHASE, DeclaredPass, RegistryBuild, build_registries};
+pub use build::{
+    BuildPart, CHECK_PHASE, COMPUTE_PHASE, DeclaredPass, RegistryBuild, build_registries,
+};
 pub use candidates::CandidateVocabulary;
 pub use codes::extension_codes;

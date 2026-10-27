@@ -11,7 +11,8 @@ use specforge_protocol_types::{
     CompilerPassDescriptor, DECLARED_CATEGORIES, DeclaredCategory, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, ExtensionDeclaration,
     FeatureFlagDescriptor, FieldDescriptor, HandshakeResponse, PROTOCOL_VERSION, PeerDependency,
-    ProtocolError, SurfaceDescriptor, UnknownKey, ValidationRuleDescriptor, ValidationSeverity,
+    ProtocolError, SettingDescriptor, SettingsItem, SurfaceDescriptor, UnknownKey,
+    ValidationRuleDescriptor, ValidationSeverity,
 };
 
 fn field(name: &str) -> FieldDescriptor {
@@ -117,6 +118,11 @@ fn full() -> ExtensionDeclaration {
                 docs: None,
             },
         ],
+        settings: vec![SettingsItem::Setting(SettingDescriptor {
+            name: "verbose".to_string(),
+            field_type: "bool".to_string(),
+            ..Default::default()
+        })],
     }
 }
 
@@ -546,4 +552,117 @@ fn a_1_10_guest_is_asked_for_codes() {
     )
     .unwrap();
     assert!(asked_codes);
+}
+
+#[test]
+fn the_writer_and_history_keys_round_trip_and_stay_off_the_wire_when_unset() {
+    let wire = json!({
+        "name": "thing", "append_only": true,
+        "fields": [{"name": "s", "field_type": "string", "writer": "computed", "immutable": true,
+                    "append_only": true}],
+    });
+    let kind: EntityKindDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    assert!(kind.append_only);
+    assert_eq!(kind.fields[0].writer.as_deref(), Some("computed"));
+    assert_eq!(
+        serde_json::to_value(&kind).unwrap()["fields"][0]["writer"],
+        "computed"
+    );
+    let plain = serde_json::to_value(field("a")).unwrap();
+    for key in ["writer", "immutable", "append_only"] {
+        assert!(plain.get(key).is_none(), "{key}");
+    }
+    let pass: CompilerPassDescriptor = serde_json::from_value(
+        json!({"name": "p", "computes": ["thing.s"], "baseline": ["thing"]}),
+    )
+    .unwrap();
+    assert_eq!(
+        (pass.computes, pass.baseline),
+        (vec!["thing.s".into()], vec!["thing".into()])
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a settings category round-trips its three item kinds and an unknown kind costs that item"
+)]
+fn a_settings_category_round_trips() {
+    let items = json!([
+        {"kind": "setting", "name": "workflow.tdd_mode", "field_type": "bool", "default": false,
+         "gates": ["E403"]},
+        {"kind": "preset", "source": "profile", "values": {"strict": {
+            "settings": {"workflow.tdd_mode": true}, "severities": {"W103": "error"}}}},
+        {"kind": "secret", "name": "brave_api_key", "env": "BRAVE_API_KEY"},
+        {"kind": "mystery", "name": "x"},
+        {"kind": "setting", "field_type": "bool"},
+    ]);
+    let mut declared = ExtensionDeclaration::default();
+    declared
+        .set_category(DeclaredCategory::Settings, &items)
+        .unwrap();
+    assert!(declared.declares(DeclaredCategory::Settings));
+    assert!(matches!(declared.settings[0], SettingsItem::Setting(_)));
+    assert!(matches!(declared.settings[1], SettingsItem::Preset(_)));
+    assert!(matches!(declared.settings[2], SettingsItem::Secret(_)));
+    // An unknown kind and a setting with no name cost those items, not the category.
+    for bad in &declared.settings[3..] {
+        assert!(matches!(bad, SettingsItem::Unreadable(_)), "{bad:?}");
+    }
+    assert_eq!(declared.describe_items(DeclaredCategory::Settings), items);
+    // A 1.7 guest is not asked for it; a key the descriptor does not define is W138.
+    let mut handshake = full().handshake;
+    handshake.protocol_version = "1.7.0".to_string();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            assert_ne!(category, DeclaredCategory::Settings);
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([]),
+            })
+        },
+        |_| {},
+    )
+    .unwrap();
+    let mut unknown = Vec::new();
+    let mut handshake = full().handshake;
+    handshake.protocol_version = PROTOCOL_VERSION.to_string();
+    ExtensionDeclaration::from_wire(
+        handshake,
+        |category| {
+            Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: if category == DeclaredCategory::Settings {
+                    json!([{"kind": "secret", "name": "k", "env": "K", "enviro": "x"}])
+                } else {
+                    json!([])
+                },
+            })
+        },
+        |key| unknown.push((key.category, key.item, key.key)),
+    )
+    .unwrap();
+    assert_eq!(
+        unknown,
+        [("settings", "k".to_string(), "enviro".to_string())]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a feature flag reads as a bool setting of its name and default"
+)]
+fn a_feature_flag_reads_as_a_bool_setting() {
+    let flag = FeatureFlagDescriptor {
+        name: "experimental".to_string(),
+        description: Some("Try it".to_string()),
+        default_enabled: true,
+    };
+    let setting = flag.as_setting();
+    assert_eq!(
+        (setting.name.as_str(), setting.field_type.as_str()),
+        ("experimental", "bool")
+    );
+    assert_eq!(setting.default, Some(json!(true)));
+    assert_eq!(setting.description.as_deref(), Some("Try it"));
 }

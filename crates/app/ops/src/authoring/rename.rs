@@ -18,6 +18,7 @@ use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Form, Holder, Node, written_tokens};
 use specforge_parser::lex::lex;
+use specforge_project::harness::LedgerChange;
 use std::collections::BTreeSet;
 
 /// The field of a rename's request a refusal can be about (ADR 0072).
@@ -209,6 +210,13 @@ pub fn plan(
             moved.push((member.id.raw.to_string(), format!("{new_path}/{rest}")));
         }
     }
+    let change = change.keeping_ledger(
+        nav.view().project(),
+        LedgerChange {
+            moves: moved.clone(),
+            ..Default::default()
+        },
+    );
     Ok(RenamePlan {
         old_id: old_id.to_string(),
         new_id: new_path,

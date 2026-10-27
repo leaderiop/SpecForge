@@ -2,9 +2,9 @@ use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_coverage::Status;
 use specforge_graph::field_form::FieldJson;
-use specforge_graph::{AnnotationJson, Graph, Members, MethodJson, Node, Obligation};
+use specforge_graph::{AnnotationJson, Computed, Graph, Members, MethodJson, Node, Obligation};
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::budget::TokenBudget;
 use crate::error::EmitterError;
@@ -90,15 +90,23 @@ pub(crate) struct JsonNode {
     /// shows.
     #[serde(skip_serializing_if = "Option::is_none")]
     coverage_status: Option<Status>,
+    /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); omitted when none.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    computed: BTreeSet<String>,
 }
 
 /// `n` as the graph export writes an entity.
-pub(crate) fn graph_node(n: &Node, coverage_status: Option<Status>) -> JsonNode {
+pub(crate) fn graph_node(
+    n: &Node,
+    coverage_status: Option<Status>,
+    computed: Option<&Computed>,
+) -> JsonNode {
     let Members {
         fields,
         annotations,
         methods,
-    } = Members::of(n);
+        computed,
+    } = crate::emit::members_of(n, computed);
     JsonNode {
         id: n.id.raw.to_string(),
         kind: n.kind.raw.to_string(),
@@ -111,6 +119,7 @@ pub(crate) fn graph_node(n: &Node, coverage_status: Option<Status>) -> JsonNode 
         verify: (!n.obligations.is_empty())
             .then(|| n.obligations.iter().map(Obligation::of).collect()),
         coverage_status,
+        computed,
     }
 }
 

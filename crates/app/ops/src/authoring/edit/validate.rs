@@ -61,9 +61,10 @@ pub fn check(
     view: &ProjectView<'_>,
     texts: &BTreeMap<String, String>,
     declared: &Declared,
+    ledger: Option<&[u8]>,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().checked_diagnostics();
-    let post = view.project().edited(texts);
+    let post = view.project().edited_with(texts, ledger);
     let (errors, rest) = added(&before, post.diagnostics());
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));

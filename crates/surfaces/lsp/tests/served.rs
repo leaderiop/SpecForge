@@ -37,6 +37,8 @@ pub struct Served {
     reaction: Option<Reaction<Recorder>>,
     runtime: Runtime,
     extensions: Vec<(String, Declare)>,
+    /// The `settings` object of the written `specforge.json`.
+    settings: serde_json::Value,
     /// The runtime serving the declared extensions, built when the reaction is: its recorded
     /// calls are what the project ran.
     served: Option<Arc<InProcessRuntime>>,
@@ -52,6 +54,7 @@ impl Served {
             reaction: None,
             runtime,
             extensions: Vec::new(),
+            settings: serde_json::Value::Null,
             served: None,
             opening: Vec::new(),
         }
@@ -96,6 +99,12 @@ impl Served {
         declare: impl Fn(&mut ContributionsBuilder) + Send + Sync + 'static,
     ) -> Served {
         self.extensions.push((name.to_string(), Arc::new(declare)));
+        self
+    }
+
+    /// The written `specforge.json` carries `settings` (ADR 0288).
+    pub fn settings(mut self, settings: serde_json::Value) -> Served {
+        self.settings = settings;
         self
     }
 
@@ -169,7 +178,11 @@ impl Served {
     pub fn open_in(mut self, subdir: &str, files: &[&str]) -> Served {
         if let Runtime::InProcess = self.runtime {
             let names: Vec<&str> = self.extensions.iter().map(|(n, _)| n.as_str()).collect();
-            let config = serde_json::json!({"name": "t", "version": "0.1.0", "extensions": names});
+            let mut config =
+                serde_json::json!({"name": "t", "version": "0.1.0", "extensions": names});
+            if !self.settings.is_null() {
+                config["settings"] = self.settings.clone();
+            }
             std::fs::write(self.dir.path().join("specforge.json"), config.to_string()).unwrap();
             // What the in-process runtime serves, the project has installed.
             specforge_installed::testing::install(self.dir.path(), &*self.in_process(), &names);

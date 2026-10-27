@@ -3,7 +3,7 @@
 **Status:** accepted (2026-10-23, architecture round 26, plan 10). Extends [ADR 0014](0014-the-session-keeps-itself-current.md)
 ("The MCP call target") and [ADR 0033](0033-a-tools-arguments-are-one-typed-definition.md) D3 to every handler; amends
 [ADR 0024](0024-one-mcp-request-pipeline.md) D5 (handlers are handed arguments without the target's) and
-[ADR 0017](0017-one-extension-surface-table.md) (I017's reasons, and the SDK's refusal).
+[ADR 0017](0017-one-extension-surface-table.md) (I017's reasons, and the SDK's refusal). Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): `settings` is reserved.
 
 ## Context
 

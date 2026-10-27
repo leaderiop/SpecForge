@@ -209,6 +209,7 @@ module specforge_project "specforge-project" {
     specforge_extension_sdk,
     specforge_graph,
     specforge_installed,
+    specforge_package,
     specforge_parser,
     specforge_protocol_types,
     specforge_registry,
@@ -246,6 +247,13 @@ module specforge_ops "specforge-ops" {
     specforge_wasm,
   ]
   tags        ["app"]
+}
+
+module specforge_git "specforge-git" {
+  family      integration
+  description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
+  depends_on  [specforge_common, specforge_project]
+  tags        ["adapters"]
 }
 
 module specforge_ops_registry "specforge-ops-registry" {
@@ -286,6 +294,7 @@ module specforge_cli "specforge-cli" {
   description "The specforge binary: every command's arguments, the terminal it writes to and asks from, and its exit code, over specforge-ops (ADR 0029)"
   features    [project_initialization, ci_integration]
   depends_on  [
+    specforge_git,
     specforge_common,
     specforge_component,
     specforge_diagnostics,
@@ -313,6 +322,7 @@ module specforge_lsp "specforge-lsp" {
     outline_and_symbol_search,
   ]
   depends_on  [
+    specforge_git,
     specforge_common,
     specforge_diagnostics,
     specforge_graph,

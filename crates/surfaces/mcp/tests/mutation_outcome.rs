@@ -308,7 +308,6 @@ fn init_beside_a_complete_gitignore_writes_two_files() {
         "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
     )
     .unwrap();
-
     let (reply, changed) = wrote(
         &mut server,
         &dir,

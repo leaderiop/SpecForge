@@ -33,6 +33,12 @@ pub struct Reaction<E> {
     runtime: RuntimeSource,
     /// The watchers the editor holds for the server ([`crate::watchers`]).
     following: Following<Vec<FileSystemWatcher>>,
+    /// The `specforge.json` buffers the editor holds open: checked as they are typed, never compiled as a source
+    /// ([`crate::config_document`]).
+    configs: std::collections::BTreeSet<Url>,
+    /// The `specforge.json` files last published with findings: a file nobody holds open is published to only
+    /// to show or to clear them.
+    shown: std::collections::BTreeSet<Url>,
 }
 
 impl<E: Editor> Reaction<E> {
@@ -44,7 +50,54 @@ impl<E: Editor> Reaction<E> {
             state,
             runtime,
             following: Following::default(),
+            configs: Default::default(),
+            shown: Default::default(),
         }
+    }
+
+    /// What of `change` is the project session's to apply: a `specforge.json` buffer is checked and
+    /// published here instead ([`crate::config_document`]), and closing one clears what was published.
+    fn sources_of(&mut self, change: Change) -> Option<Change> {
+        match change {
+            Change::Edited(uris) => {
+                let (configs, sources): (Vec<Url>, Vec<Url>) = {
+                    let state = self.state.blocking_read();
+                    uris.into_iter()
+                        .partition(|uri| crate::config_document::is_config(&state, uri))
+                };
+                for uri in configs {
+                    self.configs.insert(uri.clone());
+                    self.publish_config(&uri);
+                }
+                (!sources.is_empty()).then_some(Change::Edited(sources))
+            }
+            Change::Closed(uri)
+                if crate::config_document::is_config(&self.state.blocking_read(), &uri) =>
+            {
+                // Closed, the file is checked as saved: what the buffer showed is replaced, not cleared.
+                self.configs.remove(&uri);
+                self.publish_config(&uri);
+                None
+            }
+            change => Some(change),
+        }
+    }
+
+    /// Publish the settings diagnostics of `specforge.json` `uri`: the open buffer's, else the file's. The one
+    /// publisher of them ([`crate::config_document::is_finding`]).
+    fn publish_config(&mut self, uri: &Url) {
+        let (diagnostics, version) = {
+            let state = self.state.blocking_read();
+            let version = state.document(uri).and_then(|d| d.version());
+            (crate::config_document::diagnostics(&state, uri), version)
+        };
+        if diagnostics.is_empty() && !self.shown.remove(uri) && !self.configs.contains(uri) {
+            return;
+        }
+        if !diagnostics.is_empty() {
+            self.shown.insert(uri.clone());
+        }
+        self.editor.publish(uri.clone(), diagnostics, version);
     }
 
     /// The workspace opens (`initialized`) at `root`, or with no root: the project `root` is in
@@ -129,9 +182,27 @@ impl<E: Editor> Reaction<E> {
     /// `None` when there was nothing to apply, or the update panicked (the session is then lost
     /// for a detached one, and the editor is told).
     pub fn react(&mut self, change: Change) -> Option<Applied> {
+        let change = self.sources_of(change)?;
         let opens = matches!(change, Change::Open(_));
         let applied = self.apply(change);
         if let Some(applied) = &applied {
+            if applied.environment {
+                // The environment loaded again: `specforge.json` (its open buffers, else the file) is checked
+                // against it.
+                let mut configs: Vec<Url> = self.configs.iter().cloned().collect();
+                if configs.is_empty() {
+                    let path = {
+                        let state = self.state.blocking_read();
+                        crate::config_document::config_path(&state)
+                    };
+                    if path.is_file() {
+                        configs.push(crate::uri::uri_of(&path));
+                    }
+                }
+                for uri in configs {
+                    self.publish_config(&uri);
+                }
+            }
             if applied.environment && !opens {
                 // The environment loaded again (hardening-plan H4 / R-5): the spec root
                 // re-indexed and everything republished.

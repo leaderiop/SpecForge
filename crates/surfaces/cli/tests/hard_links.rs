@@ -26,30 +26,6 @@ fn plant(dir: &Path, names: &[&str]) -> (TempDir, std::path::PathBuf) {
     invariant = "mcp_served_project_consistency",
     verify = "a mutation writes no file through a hard link to a file outside the project"
 )]
-fn check_cache_temp_is_not_written_through_a_hard_link() {
-    let dir = TestProject::new().raw_config(
-        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/governance"]}"#,
-    )
-    .file("spec/main.spec", specs::SOFTWARE);
-    let (_outside, victim) = plant(
-        dir.root(),
-        &[".specforge-cache.json.tmp", "specforge-cache.json.tmp"],
-    );
-
-    Cli::on(&dir)
-        .command(&["check", "--cache"])
-        .assert()
-        .success();
-
-    assert_eq!(fs::read_to_string(&victim).unwrap(), "ORIGINAL");
-    assert!(dir.root().join("specforge-cache.json").is_file());
-}
-
-#[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
 fn export_schema_cache_temp_is_not_written_through_a_hard_link() {
     let dir = TestProject::new().raw_config(
         r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,

@@ -8,7 +8,7 @@ use specforge_parser::{FieldEntry, FieldMap, FieldValue};
 use super::text::{field_items, field_text};
 use crate::compilation::RegistryBuild;
 use crate::entity::{
-    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, ParamRecord,
+    EdgeCounts, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord, Origin, ParamRecord,
     UnknownMember,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
@@ -197,6 +197,7 @@ fn field_record(
         shape: ValueShape::of(&entry.value),
         value_span: entry.value_span.clone(),
         rewrites,
+        origin: Origin::Authored,
     };
     let mut top = record(
         entry.key.to_string(),

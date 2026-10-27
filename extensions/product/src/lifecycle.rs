@@ -270,6 +270,7 @@ pub fn pass_delivery_evidence(input: &PassInput) -> PassOutput {
         return PassOutput {
             diagnostics: Vec::new(),
             summary,
+            ..Default::default()
         };
     };
     let proved: BTreeSet<&str> = input
@@ -353,5 +354,6 @@ pub fn pass_delivery_evidence(input: &PassInput) -> PassOutput {
     PassOutput {
         diagnostics,
         summary,
+        ..Default::default()
     }
 }

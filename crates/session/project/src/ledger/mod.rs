@@ -124,21 +124,32 @@ pub(crate) trait Reads {
 /// checks read the plain file system, as the ledger's do (ADR 0145 D3).
 pub(crate) struct Unrecorded<'d> {
     sources: &'d dyn Disk,
+    /// The disk the checks read: the plain file system, or a plan's overlay of it.
+    checks: &'d dyn Disk,
 }
 
 impl<'d> Unrecorded<'d> {
     /// Reads each source through `sources`.
     pub(crate) fn through(sources: &'d dyn Disk) -> Self {
-        Unrecorded { sources }
+        Unrecorded {
+            sources,
+            checks: &PlainDisk,
+        }
+    }
+
+    /// Reads every source plain and the checks through `checks`.
+    pub(crate) fn checking(checks: &'d dyn Disk) -> Self {
+        Unrecorded {
+            sources: &PlainDisk,
+            checks,
+        }
     }
 }
 
 impl Unrecorded<'static> {
     /// Reads every step from the plain file system (the CLI's compile; a step that reads no source).
     pub(crate) fn plain() -> Self {
-        Unrecorded {
-            sources: &PlainDisk,
-        }
+        Unrecorded::through(&PlainDisk)
     }
 }
 
@@ -160,7 +171,7 @@ impl Reads for Unrecorded<'_> {
     }
 
     fn run_checks(&mut self, check: impl FnOnce(&dyn Disk)) {
-        check(&PlainDisk);
+        check(self.checks);
     }
 }
 
@@ -394,13 +405,15 @@ impl Ledger {
 
 /// What a read the ledger records is (how a later change to it is reached).
 pub(crate) enum Reading {
-    /// A file: its bytes or its existence (the build cache, a file a
+    /// A file: its bytes or its existence (a file a
     /// `file_reference` field or a `file_exists` rule names). Reached by its
     /// own path or a directory above it.
     File,
     /// A directory's entries (the E016 suggestion lists a missing file's
     /// directory). Also reached by any file directly in it.
     Listing,
+    /// A file the git baseline is named by: reached as a file, watched by its directory's own entries.
+    Ref,
 }
 
 /// One run of reads the ledger records (ADR 0106 D4, ADR 0114). Reading needs

@@ -67,10 +67,9 @@ fn analyze_writes_a_stray_record_only_in_its_document() {
 )]
 fn check_writes_no_note_beside_its_document() {
     let failing = bare("behavior parse_input \"A\" {\n}\nbehavior parse_input \"B\" {\n}\n");
-    let run = Cli::on(&failing).run(&["check", "--cache", "--format", "json"]);
+    let run = Cli::on(&failing).run(&["check", "--format", "json"]);
     assert_eq!(run.code, 1, "{}", run.stderr);
     assert_eq!(run.stderr, "");
-    assert!(!failing.root().join("specforge-cache.json").exists());
 
     let passing = bare("behavior parse_input \"A\" {\n}\n");
     let run = Cli::on(&passing).run(&["check", "--lint", "pedantic", "--format", "json"]);
@@ -81,14 +80,10 @@ fn check_writes_no_note_beside_its_document() {
 #[test]
 fn check_tells_a_person_its_notes() {
     let failing = bare("behavior parse_input \"A\" {\n}\nbehavior parse_input \"B\" {\n}\n");
-    let run = Cli::on(&failing).run(&["check", "--cache", "--lint", "pedantic"]);
+    let run = Cli::on(&failing).run(&["check", "--lint", "pedantic"]);
     assert_eq!(run.code, 1, "{}", run.stderr);
-    for note in [
-        "note: --lint pedantic is the default: info diagnostics are always reported",
-        "note: specforge-cache.json not written: the check failed",
-    ] {
-        assert_eq!(run.stderr.matches(note).count(), 1, "{}", run.stderr);
-    }
+    let note = "note: --lint pedantic is the default: info diagnostics are always reported";
+    assert_eq!(run.stderr.matches(note).count(), 1, "{}", run.stderr);
 }
 
 #[specforge_test(

@@ -141,6 +141,7 @@ fn render(view: ProjectView<'_>, args: Args) -> Result<Prompted<Payload>, Box<Mc
             fields,
             annotations,
             methods,
+            computed: _,
         } = Members::of(constraint);
         constraint_entities.push(ConstraintEntity {
             entity_id: constraint.id.raw.to_string(),

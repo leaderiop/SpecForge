@@ -24,6 +24,9 @@ Options:
       --publish
           Publish as standalone JSON Schema (draft 2020-12)
 
+      --config
+          Write the JSON Schema of this project's specforge.json, with every loaded extension's settings typed
+
       --format <FORMAT>
           Export format the published schema describes
 

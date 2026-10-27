@@ -76,7 +76,7 @@ privileged; they ride the same protocol you are about to use.
 | **Edges** | Typed relationships between kinds, with visual styling for diagrams |
 | **Validation rules** | Structural checks the compiler runs on every build |
 | **Compiler passes** | Analysis that runs during `specforge analyze`, receiving the resolved graph and returning diagnostics |
-| **Feature flags** | User-configurable behavior, read from `specforge.json` |
+| **Settings** | Typed, user-configurable behavior set in `specforge.json` (`"settings": {"@you/ext": {…}}`): defaults, presets, codes a setting gates or raises, and secrets read from the environment; a feature flag is a bool setting |
 | **Commands** | Queries over the compiled graph: `specforge <ext> <command>` on the CLI, the tool `specforge.<ext>.<command>` over MCP |
 
 ---

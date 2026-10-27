@@ -20,12 +20,13 @@ pub use disk::{Asked, Disk, MemoryDisk, PlainDisk};
 
 // --- Core registries ---
 pub use registries::{
-    EdgeRegistry, EdgeRegistryEntry, EdgeWriter, FieldProblem, FieldRegistry, FieldRegistryEntry,
-    KindRegistry, KindRegistryEntry, UnknownFieldType,
+    DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter, ExtensionSettings, FieldProblem,
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, SettingsRegistry,
+    UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
-pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, ProofRole};
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, FieldWriter, ProofRole};
 // --- What a registry entry embeds: the descriptor its extension declared ---
 pub use specforge_protocol_types::{EdgeTypeDescriptor, EntityKindDescriptor, FieldDescriptor};
 
@@ -41,7 +42,7 @@ pub use surface::{
 // --- What the checks after the graph build read about an entity (ADR 0019) ---
 pub use entity::{
     Direction, EdgeCounts, EdgeRecord, EntityRecord, Exemption, FieldRecord, Linked, MethodRecord,
-    ParamRecord, RuleInput, UnknownMember,
+    Origin, ParamRecord, RuleInput, UnknownMember,
 };
 
 // --- E014: the shortest and longest entity IDs ---
@@ -52,8 +53,8 @@ pub use snapshot::{EntitySnapshot, Standing};
 
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
-    BuildPart, CHECK_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild, build_registries,
-    extension_codes,
+    BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
+    build_registries, extension_codes,
 };
 
 // Module paths external code names directly (`specforge_registry::surface::`).

@@ -232,7 +232,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     `exempt`: it owes no obligations of its own, decided from the
     registries), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
-    statuses of the build cache (read_build_cache). It answers the same
+    git baseline of the kinds the pass names in `baseline`. It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it (W150 beside it when the extension may not use the code). One
@@ -255,83 +255,36 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a pass entity carries whether the host found it exempt"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
   verify unit "a pass receives a typed block and a block list structured beside their text"
+  verify unit "previous is the baseline of the kinds a pass names"
+  verify unit "check --cache is a usage error and a specforge-cache.json is not read"
 }
 
-behavior write_build_cache "Write the Build Cache" {
-  features [ci_integration]
-  category command
-  types    [Graph, Diagnostic]
-  ports    [FileSystem]
+behavior compute_field_values "Compute Field Values" {
+  features   [contribution_based_extensions]
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
+  ports      [WasmRuntime]
   requires {
-    project_compiled "the project compiled and its diagnostics are known"
+    graph_built "the graph is built and its authored values are known"
   }
   ensures {
-    statuses_recorded "check --cache writes every entity whose kind declares a lifecycle field, with its kind and that field's value, to specforge-cache.json at the project root"
-    deterministic     "the file is byte-identical for the same sources"
-    opt_in            "check without --cache never writes the file, and no other command or surface writes it"
-    clean_builds_only "the file is written only when check exits 0; otherwise the previous file is left as it was"
+    values_beside_the_graph "a compute pass's values join the snapshot before the rules and never the graph"
+    refused_is_w165         "a value the pass may not give is W165 and dropped"
+    shown_as_a_field        "every surface shows a computed value as a field and marks it computed"
   }
-  contract """
-    The build cache is the explicit, opt-in record of the lifecycle states
-    of one build, so history rules (status transitions) compare against a
-    declared input, never hidden state. `specforge check --cache` writes
-    it after the compile, to `specforge-cache.json` beside
-    `specforge.json`:
-    `{"format": 1, "statuses": {"<entity id>": {"kind": "<kind>",
-    "status": "<status>"}}}`, entities sorted by id, pretty-printed with
-    a final newline. Only entities whose kind declares a `lifecycle_field`
-    (ADR 0009) and that give it a text value are recorded, the value under
-    `status` whatever the field is called; no field name is known to the
-    cache. The file is replaced atomically (written beside, then
-    renamed). A check that exits non-zero (errors, or warnings under
-    `--strict`) does not write it: a broken build is not a baseline.
-    A check that passes but cannot write the file refuses with
-    cache_write_failed: the diagnostics, then the refusal, under human
-    output; under --format json the error document alone.
-    A --severity filter does not change whether the file is written.
-    CI may commit the file to check transitions across builds.
+  contract   """
+    A pass declared with `phase: "compute"` names the fields it `computes` and answers `values` (ADR 0287). The
+    compiled project holds them beside the graph; rules, checks, query, MCP, the language server and exports read
+    them as fields, marked computed. A computed field is never required and never scaffolded.
   """
-  produces []
-  verify unit "check --cache records each entity's kind and lifecycle state"
-  verify unit "a kind without a lifecycle field is not recorded"
-  verify unit "the cache file is deterministic"
-  verify integration "check without --cache never writes the cache"
-  verify unit "check --cache with errors leaves the cache untouched"
-  verify unit "check --strict --cache with warnings leaves the cache untouched"
-  verify unit "a check that passes records the cache and says so"
-  verify unit "a cache that cannot be written refuses the check, under --format json with the error document alone"
-  verify integration "MCP validate never writes the build cache"
-}
-
-behavior read_build_cache "Read the Build Cache" {
-  features [ci_integration]
-  category validation
-  types    [Diagnostic]
-  ports    [FileSystem]
-  requires {
-    check_pass_loaded "at least one check-phase pass is loaded"
-  }
-  ensures {
-    previous_given     "when specforge-cache.json parses, every check pass receives its statuses as previous"
-    absent_is_none     "without the file, previous is absent"
-    invalid_is_warning "a file that cannot be read or parsed, or declares another format, is W144 and previous is absent"
-    passes_only        "the file is read on each compile with a check pass, by every surface, and never otherwise"
-  }
-  contract """
-    When the project root has `specforge-cache.json`, each compile reads
-    it as a declared input and hands it to the check passes as
-    `previous: {"statuses": {"<entity id>": {"kind", "status"}}}`. With
-    no file, `previous` is absent, so history rules stay silent on a
-    first build. A file that cannot be read, is not valid JSON, or has a
-    `format` other than 1 is a W144 warning and `previous` is absent. The
-    file is read on every compile that runs a check pass (check, watch,
-    the LSP, MCP), so a cache another command just wrote is seen by the
-    next compile; with no check pass loaded, it is not read.
-  """
-  produces []
-  verify unit "check passes receive the cached statuses as previous"
-  verify unit "without a cache file previous is absent"
-  verify unit "an invalid cache file is W144 and previous is absent"
+  produces   []
+  verify unit "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
+  verify unit "a value the pass may not give is W165 and dropped"
+  verify unit "a computed field or member is never required and never scaffolded"
+  verify unit "every surface shows a computed value as a field and marks it computed"
+  verify unit "hover marks a computed field and completion offers none"
+  verify unit "MCP inspect shows a computed value"
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {

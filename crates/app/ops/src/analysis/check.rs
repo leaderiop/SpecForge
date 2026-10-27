@@ -3,23 +3,18 @@
 //! One operation serves the CLI (`specforge check`) and MCP
 //! (`specforge.validate`): it applies the diagnostic policy (lint profiles,
 //! then strict), takes the verdict over everything reported, records the
-//! build cache when asked and only when the check passed, and says which
-//! diagnostics the caller's severity filter shows. The filter never changes
-//! the verdict or the cache decision. Surfaces keep the choice of what was
+//! verdict over everything reported, and says which diagnostics the caller's
+//! severity filter shows. The filter never changes the verdict. Surfaces keep the choice of what was
 //! compiled (`reported`), rendering, exit codes and `isError` (ADR 0018).
-
-use std::path::Path;
 
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
-use specforge_project::{
-    BUILD_CACHE_FILE, BuildCache, DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile,
-};
+use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 
-/// What to report and record. `Default` is a plain `specforge check`.
+/// What to report. `Default` is a plain `specforge check`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CheckOptions {
     /// Promote warnings to errors, before the verdict.
@@ -27,33 +22,19 @@ pub struct CheckOptions {
     pub lint_profiles: Vec<LintProfile>,
     /// Show only this severity (after strict promotion). Never the verdict.
     pub severity: Option<Severity>,
-    /// Write `specforge-cache.json` when the check passes (`--cache`).
-    pub record_cache: bool,
+    /// Judge history against the merge-base of this revision and `HEAD` (`--since`) instead of `HEAD`.
+    pub since: Option<String>,
 }
 
 pub use specforge_common::Counts;
 
-/// What became of the build cache.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CacheRecord {
-    NotRequested,
-    Written,
-    /// The check failed (errors, or warnings under strict): the previous
-    /// file is left as it was.
-    NotWritten,
-    /// The check passed, but the file could not be written: the refusal to report (its kind the I/O
-    /// failure's, [`OpErrorKind::of_io`]). A failed write is not a failed check.
-    WriteFailed(OpError),
-}
-
-/// What a check reported, and what it did with the build cache.
+/// What a check reported.
 #[derive(Debug, Clone)]
 pub struct CheckOutcome {
     /// Everything reported, policy applied, in `check`'s order.
     pub reported: Vec<Diagnostic>,
     pub counts: Counts,
     pub severity: Option<Severity>,
-    pub cache: CacheRecord,
 }
 
 impl CheckOutcome {
@@ -90,10 +71,12 @@ pub enum CheckField {
     Severity,
     /// The lint profiles.
     LintProfiles,
+    /// The revision history is judged since.
+    Since,
 }
 
-/// A passing check whose build cache could not be written ([`CacheRecord::WriteFailed`]).
-pub const CACHE_WRITE_FAILED: &str = "cache_write_failed";
+/// A `since` revision the repository does not name (`InvalidInput`).
+pub const UNKNOWN_REVISION: &str = "unknown_revision";
 /// A severity filter naming no severity (`InvalidInput`).
 pub const UNKNOWN_SEVERITY: &str = "unknown_severity";
 /// A lint profile naming no profile (`InvalidInput`).
@@ -102,10 +85,8 @@ pub const UNKNOWN_LINT_PROFILE: &str = "unknown_lint_profile";
 /// The severities a filter names, lowercase. Matched ignoring ASCII case.
 pub const SEVERITY_NAMES: &[&str] = &["error", "warning", "info"];
 
-/// Why `check` refuses a rootless view: a lint profile or the cache needs the
-/// root (`no_project`).
-const NO_ROOT: &str =
-    "a lint profile or the build cache needs a project root, and this project has none";
+/// Why `check` refuses a rootless view: a lint profile needs the root (`no_project`).
+const NO_ROOT: &str = "a lint profile needs a project root, and this project has none";
 
 /// The severity `name` names, ignoring ASCII case (`"Error"`, the
 /// payload's own spelling, is `error`). Any other name is
@@ -166,43 +147,50 @@ fn unknown(code: &'static str, what: &str, requested: &str, names: &[&str]) -> O
 }
 
 /// Report what the compile of `view` reported (`view.reported()`) under
-/// `options`: the policy applied, the verdict taken over all of it, and the
-/// build cache recorded when asked and the check passed. The one refusal is
-/// of the project, so it is about no field: a lint profile or the cache on a
-/// view with no root.
-pub fn check(view: &ProjectView<'_>, options: &CheckOptions) -> Result<CheckOutcome, OpError> {
-    let needs_root = options.record_cache || !options.lint_profiles.is_empty();
-    let root = match view.root() {
-        Some(root) => root,
-        None if needs_root => return Err(OpError::no_project(NO_ROOT)),
-        None => Path::new(""),
-    };
+/// `options`: the policy applied and the verdict taken over all of it. The one
+/// refusal is of the project, so it is about no field: a lint profile on a view
+/// with no root.
+pub fn check(
+    view: &ProjectView<'_>,
+    options: &CheckOptions,
+) -> Result<CheckOutcome, Refusal<CheckField>> {
+    if view.root().is_none() && !options.lint_profiles.is_empty() {
+        return Err(OpError::no_project(NO_ROOT).into());
+    }
+    let since = options
+        .since
+        .as_deref()
+        .map(|revision| {
+            view.project().judged_since(revision).map_err(|unknown| {
+                Refusal::about(
+                    CheckField::Since,
+                    OpError::new(
+                        OpErrorKind::InvalidInput,
+                        UNKNOWN_REVISION,
+                        format!("unknown revision '{}'", unknown.0),
+                    ),
+                )
+            })
+        })
+        .transpose()?;
     let policy = DiagnosticPolicy {
         strict: options.strict,
         lint_profiles: options.lint_profiles.clone(),
     };
-    let reported = policy.apply(view.reported(), |profile| match profile {
-        LintProfile::Inferred => crate::read::infer::lint(view),
-        LintProfile::Pedantic => Vec::new(),
-    });
-    let counts = Counts::of(&reported);
-    let cache = match (options.record_cache, counts.errors == 0) {
-        (false, _) => CacheRecord::NotRequested,
-        (true, false) => CacheRecord::NotWritten,
-        (true, true) => match BuildCache::of(view.graph(), view.registries().kinds()).write(root) {
-            Ok(()) => CacheRecord::Written,
-            Err(e) => CacheRecord::WriteFailed(OpError::new(
-                OpErrorKind::of_io(&e),
-                CACHE_WRITE_FAILED,
-                format!("cannot write {BUILD_CACHE_FILE}: {e}"),
-            )),
+    let reported = policy.apply(
+        since
+            .as_ref()
+            .map_or_else(|| view.reported(), |judged| view.reported_over(judged)),
+        |profile| match profile {
+            LintProfile::Inferred => crate::read::infer::lint(view),
+            LintProfile::Pedantic => Vec::new(),
         },
-    };
+    );
+    let counts = Counts::of(&reported);
     Ok(CheckOutcome {
         reported,
         counts,
         severity: options.severity,
-        cache,
     })
 }
 
@@ -215,10 +203,6 @@ mod tests {
     use specforge_test_macros::test as specforge_test;
     use tempfile::TempDir;
 
-    const CACHE: &str = specforge_project::BUILD_CACHE_FILE;
-
-    /// Product declares `status` the lifecycle field of features, so a
-    /// passing check records something.
     const CONFIG: &str =
         r#"{"extensions": ["@specforge/software", "@specforge/governance", "@specforge/product"]}"#;
 
@@ -259,14 +243,13 @@ mod tests {
 
     #[specforge_test(
         behavior = "check_diagnostic_policy",
-        verify = "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
+        verify = "the verdict is taken over every reported diagnostic, never the filtered ones"
     )]
-    fn the_verdict_and_cache_ignore_the_severity_filter() {
+    fn the_verdict_ignores_the_severity_filter() {
         let dir = project(&[CLEAN, ERROR]);
         let compiled = compile(&dir);
         let options = CheckOptions {
             severity: Some(Severity::Info),
-            record_cache: true,
             ..CheckOptions::default()
         };
         let outcome = run(&compiled, &options);
@@ -279,8 +262,6 @@ mod tests {
             severities(&shown),
             vec![Severity::Info; outcome.counts.infos]
         );
-        assert_eq!(outcome.cache, CacheRecord::NotWritten);
-        assert!(!dir.path().join(CACHE).exists());
         assert_eq!(
             outcome.verdict_json(),
             json!({
@@ -328,127 +309,20 @@ mod tests {
         assert_eq!(errors_only.shown().len(), lenient.counts.warnings);
     }
 
-    #[specforge_test(
-        behavior = "write_build_cache",
-        verify = "check --strict --cache with warnings leaves the cache untouched"
-    )]
-    fn a_strict_check_with_warnings_leaves_the_cache_untouched() {
-        let dir = project(&[CLEAN, WARNING]);
-        let previous = "{\"format\": 1, \"statuses\": {}}\n";
-        std::fs::write(dir.path().join(CACHE), previous).unwrap();
-        let compiled = compile(&dir);
-
-        let outcome = run(
-            &compiled,
-            &CheckOptions {
-                strict: true,
-                record_cache: true,
-                ..CheckOptions::default()
-            },
-        );
-        assert_eq!(outcome.cache, CacheRecord::NotWritten);
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join(CACHE)).unwrap(),
-            previous
-        );
-
-        // Without strict the same warnings pass, and the cache is written.
-        let lenient = run(
-            &compiled,
-            &CheckOptions {
-                record_cache: true,
-                ..CheckOptions::default()
-            },
-        );
-        assert_eq!(lenient.cache, CacheRecord::Written);
-    }
-
-    #[specforge_test(
-        behavior = "write_build_cache",
-        verify = "a check that passes records the cache and says so"
-    )]
-    fn a_passing_check_records_the_cache() {
-        let dir = project(&[CLEAN]);
-        let compiled = compile(&dir);
-
-        let outcome = run(
-            &compiled,
-            &CheckOptions {
-                record_cache: true,
-                ..CheckOptions::default()
-            },
-        );
-        assert!(outcome.ok(), "{:?}", outcome.reported);
-        assert_eq!(outcome.cache, CacheRecord::Written);
-        let expected = BuildCache::of(
-            compiled.graph(),
-            compiled.environment().registries().kinds(),
-        );
-        assert!(expected.statuses.contains_key("alpha"), "{expected:?}");
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join(CACHE)).unwrap(),
-            expected.to_json()
-        );
-
-        // Not asked: nothing written, whatever the verdict.
-        let other = project(&[CLEAN]);
-        let compiled = compile(&other);
-        let outcome = run(&compiled, &CheckOptions::default());
-        assert_eq!(outcome.cache, CacheRecord::NotRequested);
-        assert!(!other.path().join(CACHE).exists());
-    }
-
-    #[cfg(unix)]
     #[test]
-    fn write_failure_is_data() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = project(&[CLEAN]);
-        let compiled = compile(&dir);
-        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
-        let outcome = run(
-            &compiled,
-            &CheckOptions {
-                record_cache: true,
-                ..CheckOptions::default()
-            },
-        );
-        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
-        let CacheRecord::WriteFailed(error) = &outcome.cache else {
-            panic!("{:?}", outcome.cache);
-        };
-        assert_eq!(error.code, CACHE_WRITE_FAILED);
-        assert_eq!(error.kind, OpErrorKind::PermissionDenied);
-        assert!(
-            error
-                .message
-                .starts_with("cannot write specforge-cache.json: "),
-            "{}",
-            error.message
-        );
-        assert!(outcome.ok(), "a failed write is not a failed check");
-    }
-
-    #[test]
-    fn no_root_with_cache_or_lint_is_refused() {
+    fn no_root_with_lint_is_refused() {
         let reported = vec![Diagnostic::untyped("W002", Severity::Warning, "unused")];
         let project = specforge_project::testing::Assembled::over(RegistryBuild::default())
             .reporting(reported);
         let view = crate::testing::Viewed::rootless_view(&project);
 
-        for options in [
-            CheckOptions {
-                record_cache: true,
-                ..CheckOptions::default()
-            },
-            CheckOptions {
-                lint_profiles: vec![LintProfile::Inferred],
-                ..CheckOptions::default()
-            },
-        ] {
-            let refused = check(&view, &options).unwrap_err();
-            assert_eq!(refused.code, "no_project");
-            assert_eq!(refused.kind, OpErrorKind::PreconditionFailed);
-        }
+        let options = CheckOptions {
+            lint_profiles: vec![LintProfile::Inferred],
+            ..CheckOptions::default()
+        };
+        let refused = check(&view, &options).unwrap_err();
+        assert_eq!(refused.error.code, "no_project");
+        assert_eq!(refused.error.kind, OpErrorKind::PreconditionFailed);
         // Nothing that needs the root: a rootless view checks fine.
         let outcome = check(&view, &CheckOptions::default()).unwrap();
         assert_eq!(

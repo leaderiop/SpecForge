@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, ProjectRoot, codes};
-use specforge_graph::{Applied, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes};
+use specforge_graph::{
+    Applied, Computed, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes,
+};
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
@@ -50,6 +52,8 @@ pub struct CompiledProject {
     /// and the extensions' rules, then the check-phase passes. Empty when
     /// the last update skipped them.
     check_diagnostics: Vec<Diagnostic>,
+    /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
+    computed: Arc<Computed>,
     /// The graph's entity snapshot, the recorded test report and the
     /// coverage: seeded with the snapshot the checks read; made over the
     /// graph on first use after an update that skipped them.
@@ -68,6 +72,9 @@ pub struct CompiledProject {
     /// The last update skipped the checks (the typing fast path): none is
     /// reported until an update runs them (ADR 0136 D4).
     checks_skipped: bool,
+    /// What reading the baseline gave at the last check (ADR 0287): held, so a typed edit or an update asks git
+    /// nothing again. A new commit drops it.
+    baseline: Option<Arc<crate::baseline::HeldBaseline>>,
 }
 
 impl CompiledProject {
@@ -143,6 +150,16 @@ impl CompiledProject {
     /// Compare it with [`Self::checked_diagnostics`], not [`Self::diagnostics`]: after an update that skipped the
     /// checks, only the former has them.
     pub fn edited(&self, texts: &BTreeMap<String, String>) -> CompiledProject {
+        self.edited_with(texts, None)
+    }
+
+    /// [`Self::edited`] with the harness ledger (ADR 0287) as `ledger`, the bytes a plan will write: the checks read
+    /// them for `specforge-harness`, so a rename's re-keyed lines are seen when the plan is judged.
+    pub fn edited_with(
+        &self,
+        texts: &BTreeMap<String, String>,
+        ledger: Option<&[u8]>,
+    ) -> CompiledProject {
         let mut keys: BTreeSet<String> =
             self.sources.keys().into_iter().map(String::from).collect();
         let mut planned: BTreeMap<String, &str> = BTreeMap::new();
@@ -160,8 +177,81 @@ impl CompiledProject {
             self.on_disk,
             |key| self.sources.as_read(key),
         );
-        project.check(&mut Unrecorded::plain());
+        project.baseline = self.baseline.clone();
+        match ledger {
+            Some(bytes) => {
+                let overlay = crate::harness::Overlay::new(self.env.root(), bytes);
+                project.check(&mut Unrecorded::checking(&overlay));
+            }
+            None => project.check(&mut Unrecorded::plain()),
+        }
         project
+    }
+
+    /// The bytes of the file `name` at the project root on disk now (`specforge-harness`, `.gitattributes`); empty
+    /// when there is none.
+    pub fn root_file(&self, name: &str) -> Vec<u8> {
+        use specforge_registry::Disk;
+        specforge_registry::PlainDisk
+            .read(&self.env.root().join(name))
+            .unwrap_or_default()
+    }
+
+    /// Whether an extension the project enables declares a harness field (ADR 0287).
+    pub fn declares_harness(&self) -> bool {
+        !crate::harness::Harness::of(self.env.registries()).is_empty()
+    }
+
+    /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's
+    /// bytes, empty when it has none): [`Ledger::rewritten`](crate::harness::Ledger::rewritten) over the two graphs.
+    /// With `keep_unseen`, a line of `current` for an entity
+    /// neither project holds is kept (it is another writer's).
+    pub fn rewritten_ledger<'a>(
+        &'a self,
+        after: &'a CompiledProject,
+        current: &[u8],
+        change: &crate::harness::LedgerChange,
+        keep_unseen: bool,
+    ) -> Vec<u8> {
+        use crate::harness::{Harness, Ledger, View};
+        let harness = Harness::of(self.env.registries());
+        let forms = self.env.registries().field_forms();
+        let view = |project: &'a CompiledProject, keeps_gone| View {
+            graph: project.graph(),
+            forms,
+            harness: &harness,
+            keeps_gone,
+        };
+        let errors = after.parsed().any(|(_, file)| !file.errors.is_empty());
+        let ledger = Ledger::parse(&String::from_utf8_lossy(current)).ledger;
+        let mut rewritten = ledger.rewritten(&view(self, false), &view(after, errors), change);
+        if keep_unseen {
+            // The ledger was rewritten by another writer since this change was planned: its lines for entities
+            // neither project holds are that writer's, and stay.
+            for line in ledger.lines().filter(|l| {
+                self.graph().node(&l.path).is_none() && after.graph().node(&l.path).is_none()
+            }) {
+                rewritten.insert(line.clone());
+            }
+        }
+        rewritten.canonical().into_bytes()
+    }
+
+    /// This project judged against the merge-base of `revision` and `HEAD` instead of `HEAD` (`check --since`):
+    /// the checks run again over a copy; this project keeps its own baseline.
+    pub fn judged_since(
+        &self,
+        revision: &str,
+    ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
+        let read = crate::baseline::Baseline::since(&self.env, revision)?;
+        let mut project = self.clone();
+        project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
+            stamp: None,
+            pinned: true,
+            read,
+        }));
+        project.check(&mut Unrecorded::plain());
+        Ok(project)
     }
 
     /// What `specforge check` reports for this project now: [`Self::diagnostics`], or, when the last
@@ -218,6 +308,8 @@ impl CompiledProject {
                 .chain(self.graph.diagnostics())
                 .chain(&self.check_diagnostics)
                 .cloned()
+                // Settings, once, for every source: a gated code is dropped, a raised one is raised.
+                .filter_map(|d| self.env.settings().effective(d))
                 .map(|d| d.placed_at_subject(|id| graph.node(id).map(|n| n.source_span.clone())))
                 .collect()
         }))
@@ -249,6 +341,12 @@ impl CompiledProject {
     /// one taken on first use after an update that skipped them.
     pub fn entities(&self) -> &EntitySnapshot {
         self.memo().entities()
+    }
+
+    /// The values the compute passes gave at the last check (ADR 0287), beside the graph: empty when no pass gave
+    /// one or the checks were skipped.
+    pub fn computed(&self) -> &Computed {
+        &self.computed
     }
 
     /// [`Self::entities`], shared: a test holds it across an update.
@@ -298,10 +396,12 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -318,10 +418,12 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -343,10 +445,12 @@ impl CompiledProject {
             graph,
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -387,10 +491,12 @@ impl CompiledProject {
             graph,
             import_diagnostics: imports,
             check_diagnostics: Vec::new(),
+            computed: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -427,13 +533,30 @@ impl CompiledProject {
         let env = Arc::clone(&self.env);
         let graph = &self.graph;
         let mut outcome = None;
+        let held = self.baseline.clone();
+        let mut baseline = None;
         reads.run_checks(|disk| {
-            let entities = Arc::new(env.entity_snapshot(graph));
-            outcome = Some((env.run_checks(&entities, disk), entities));
+            // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
+            let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
+            let read = match held {
+                Some(held) if held.pinned || held.stamp == stamp => held,
+                _ => Arc::new(crate::baseline::HeldBaseline {
+                    read: crate::baseline::Baseline::of_head(&env),
+                    stamp,
+                    pinned: false,
+                }),
+            };
+            let authored = env.entity_snapshot(graph);
+            let checked = env.checked(Some(graph), &authored, disk, &read.read);
+            baseline = Some(read);
+            let entities = Arc::new(checked.entities.unwrap_or(authored));
+            outcome = Some((checked.diagnostics, entities, checked.computed));
         });
         self.checks_skipped = false;
-        if let Some((diagnostics, entities)) = outcome {
+        self.baseline = baseline;
+        if let Some((diagnostics, entities, computed)) = outcome {
             self.check_diagnostics = diagnostics;
+            self.computed = Arc::new(computed);
             self.recorded = OnceLock::from(RecordedCoverage::of(entities));
             self.reported = OnceLock::new();
         }
@@ -443,6 +566,7 @@ impl CompiledProject {
     /// memo is made over the graph on first use.
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
+        self.computed = Arc::default();
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.checks_skipped = true;

@@ -140,3 +140,107 @@ fn no_unread_test_dirs_config_is_documented() {
         assert!(!text.contains("test_dirs"), "{doc} documents `test_dirs`");
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "schema --config holds every loaded setting and a valid file validates against it"
+)]
+fn the_project_config_schema_holds_every_loaded_setting() {
+    use serde_json::json;
+    use specforge_ops::view::ProjectView;
+    use specforge_project::testing::Assembled;
+
+    // properties for names, patternProperties for families, defaults; a valid file validates, an E086 one does not.
+    let project = Assembled::settings();
+    let schema = specforge_ops::read::schema::config_schema(&ProjectView::of(project.compiled()));
+    let ours = &schema["properties"]["settings"]["properties"]["@t/s"];
+    assert_eq!(ours["additionalProperties"], false);
+    assert_eq!(
+        ours["properties"]["flag"],
+        json!({"type": "boolean", "default": false, "description": "Report the gated codes"})
+    );
+    assert_eq!(
+        ours["properties"]["level"],
+        json!({"type": "integer", "minimum": 1, "maximum": 3, "default": 1})
+    );
+    assert_eq!(
+        ours["properties"]["mode"],
+        json!({"type": "string", "enum": ["a", "b"]})
+    );
+    assert!(
+        ours["properties"].get("api_key").is_none(),
+        "a secret is never written in the file"
+    );
+    assert_eq!(
+        ours["patternProperties"]["^models\\.(planning|execution)$"],
+        json!({"type": "string", "enum": ["opus", "sonnet"]})
+    );
+    assert!(
+        ours["patternProperties"]
+            .as_object()
+            .unwrap()
+            .contains_key("^tiers\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$")
+    );
+    // The project's own keys are the shipped schema's.
+    assert!(
+        schema["properties"]["extensions"].is_object() && schema["$defs"]["provider"].is_object()
+    );
+
+    let file =
+        |settings: serde_json::Value| json!({"name": "p", "version": "1.0", "settings": settings});
+    let held = |file: serde_json::Value| specforge_common::shape::violations(&schema, &file);
+    assert_eq!(
+        held(file(
+            json!({"@t/s": {"flag": true, "level": 2, "mode": "a"}})
+        )),
+        Vec::<String>::new()
+    );
+    assert!(
+        !held(file(json!({"@t/s": {"level": 9}}))).is_empty(),
+        "above the maximum"
+    );
+    assert!(
+        !held(file(json!({"@t/s": {"levl": 2}}))).is_empty(),
+        "not a setting"
+    );
+    assert!(
+        !held(file(json!({"@t/s": {"api_key": "x"}}))).is_empty(),
+        "a secret"
+    );
+    assert!(
+        !held(file(json!({"@t/other": {"a": 1}}))).is_empty(),
+        "not a loaded extension"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the shipped schema types settings by extension in both copies"
+)]
+fn the_shipped_schema_types_settings_by_extension() {
+    for path in [
+        "schema/specforge.schema.json",
+        "integrations/vscode/schemas/specforge.schema.json",
+    ] {
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(repo_root().join(path)).unwrap())
+                .unwrap();
+        assert!(
+            doc["properties"]["settings"].is_object(),
+            "{path} types no settings"
+        );
+    }
+}
+
+#[test]
+fn schema_config_writes_the_projects_config_schema() {
+    // Builtins declare no setting, so it is the shipped schema; the flag excludes the export flags.
+    let project = TestProject::new();
+    let cli = Cli::on(&project);
+    let run = cli.run(&["schema", "--config"]);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    let doc = run.json();
+    assert_eq!(doc["title"], "SpecForge Configuration");
+    assert!(doc["properties"]["settings"].is_object());
+    assert_ne!(cli.run(&["schema", "--config", "--publish"]).code, 0);
+}

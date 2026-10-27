@@ -72,6 +72,101 @@ pub fn json_schema(view: &ProjectView, format: export::Format) -> Result<Noticed
     ))
 }
 
+/// The JSON Schema of `specforge.json` that ships, which [`config_schema`] types the settings of.
+const CONFIG_SCHEMA: &str = include_str!("../../../../../schema/specforge.schema.json");
+
+/// The JSON Schema (draft 2020-12) of the view's `specforge.json` (`specforge schema --config`): the shipped one,
+/// with `settings` typed by extension for every loaded extension that declares a setting (ADR 0288): a `properties`
+/// entry for each setting, a `patternProperties` entry for each family, each with its declared type, default and
+/// description. A secret is not a property: it is never written there (E087).
+pub fn config_schema(view: &ProjectView) -> Value {
+    use serde_json::{Map, json};
+    use specforge_common::shape::Definitions;
+    use specforge_protocol_types::Family;
+
+    let mut schema: Value =
+        serde_json::from_str(CONFIG_SCHEMA).expect("the shipped schema is JSON");
+    let mut defs = Definitions::default();
+    let mut by_extension = Map::new();
+    for (name, declared) in view.registries().settings().iter() {
+        let (mut properties, mut patterns) = (Map::new(), Map::new());
+        for item in &declared.settings {
+            let descriptor = &item.descriptor;
+            let mut typed = item.form.json_schema(&mut defs);
+            if let (Some(object), Some(text)) = (typed.as_object_mut(), &descriptor.description) {
+                object.insert("description".into(), text.clone().into());
+            }
+            if let (Some(object), Some(default)) = (typed.as_object_mut(), &descriptor.default) {
+                object.insert("default".into(), default.clone());
+            }
+            if Family::is_family(&descriptor.name) {
+                // An exact setting inside the family's pattern is typed by its own property only: a value
+                // legal for it must not also have to fit the family's type.
+                let own: Vec<&str> = declared
+                    .settings
+                    .iter()
+                    .map(|s| s.descriptor.name.as_str())
+                    .filter(|n| !Family::is_family(n) && descriptor.admits_key(n))
+                    .collect();
+                let except = if own.is_empty() {
+                    String::new()
+                } else {
+                    format!("(?!({})$)", own.join("|").replace('.', "\\."))
+                };
+                // Keys and name segments are `[A-Za-z0-9_-]+` (the registry refuses others): no regex escape.
+                let mut star = 0;
+                let segments: Vec<String> = descriptor
+                    .name
+                    .split('.')
+                    .map(|segment| {
+                        if segment != "*" {
+                            return segment.to_string();
+                        }
+                        let keys = descriptor.keys.get(star).filter(|k| !k.is_empty());
+                        star += 1;
+                        match keys {
+                            Some(keys) => format!("({})", keys.join("|")),
+                            None => "[A-Za-z0-9_-]+".to_string(),
+                        }
+                    })
+                    .collect();
+                patterns.insert(format!("^{except}{}$", segments.join("\\.")), typed);
+            } else {
+                properties.insert(descriptor.name.clone(), typed);
+            }
+        }
+        if properties.is_empty() && patterns.is_empty() {
+            continue;
+        }
+        let mut typed =
+            json!({"type": "object", "properties": properties, "additionalProperties": false});
+        if !patterns.is_empty() {
+            typed["patternProperties"] = patterns.into();
+        }
+        by_extension.insert(name.to_string(), typed);
+    }
+    if by_extension.is_empty() {
+        return schema;
+    }
+    let settings = json!({
+        "type": "object",
+        "description": schema["properties"]["settings"]["description"].clone(),
+        "properties": by_extension,
+        "additionalProperties": false,
+    });
+    schema["properties"]["settings"] = settings;
+    // The definitions the settings' types refer to join the file's own.
+    if let Some(defined) = defs.finish(json!({}))["$defs"].as_object() {
+        for (name, body) in defined {
+            // A shipped definition is never replaced.
+            if schema["$defs"].get(name).is_none() {
+                schema["$defs"][name] = body.clone();
+            }
+        }
+    }
+    schema
+}
+
 /// The field of a schema request a refusal can be about (ADR 0072).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SchemaField {

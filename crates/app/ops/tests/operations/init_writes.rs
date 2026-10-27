@@ -54,6 +54,11 @@ fn init_writes_include_gitignore_only_when_it_changed() {
         "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
     )
     .unwrap();
+    std::fs::write(
+        beside.join(".gitattributes"),
+        "/specforge-harness merge=union\n",
+    )
+    .unwrap();
     let before = files_under(&beside);
     let outcome = init(&beside, &[]);
     assert_eq!(

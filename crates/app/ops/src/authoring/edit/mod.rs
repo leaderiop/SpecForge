@@ -31,6 +31,7 @@ use specforge_common::shape::{Definitions, Shape};
 use specforge_formatter::FormatConfig;
 use specforge_graph::{Found, Scopes};
 use specforge_parser::LineBreak;
+use specforge_project::harness::LedgerChange;
 use std::collections::BTreeMap;
 
 /// One typed edit. The MCP `specforge.edit` tool reads a list of them (`op` names the variant); each CLI verb
@@ -314,6 +315,8 @@ struct Planner<'v> {
     /// graph's.
     files: BTreeMap<String, Option<String>>,
     declared: declared::Declared,
+    /// The entities the plan's edits move so far, composed: what the harness ledger re-keys.
+    moves: Vec<(String, String)>,
 }
 
 /// Where an entity is.
@@ -492,6 +495,11 @@ impl<'v> Planner<'v> {
         self.declared.edit(edit, &path);
         for (old, new) in &moves {
             self.declared.moved(old, new);
+            // A chain of moves composes: `a → b` then `b → c` is `a → c`.
+            match self.moves.iter_mut().find(|(_, to)| to == old) {
+                Some((_, to)) => *to = new.clone(),
+                None => self.moves.push((old.clone(), new.clone())),
+            }
         }
         let creates = matches!(edit, Edit::Create { .. });
         let before = (creates || !moves.is_empty()).then(|| self.snapshot());
@@ -603,10 +611,22 @@ impl<'v> Planner<'v> {
                 (key, before, line_break.write(&after).into_owned())
             }),
         );
+        let change = change.keeping_ledger(
+            project,
+            LedgerChange {
+                moves: self.moves,
+                ..Default::default()
+            },
+        );
         let added = if change.is_empty() {
             Vec::new()
         } else {
-            validate::check(self.view, &change.after(), &self.declared)?
+            validate::check(
+                self.view,
+                &change.after(),
+                &self.declared,
+                change.ledger_after(),
+            )?
         };
         let report = EditReport {
             entities: change.entities(),
@@ -660,6 +680,7 @@ pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<
         scopes: view.graph().scopes().clone(),
         files: BTreeMap::new(),
         declared: declared::Declared::default(),
+        moves: Vec::new(),
     };
     for (n, edit) in edits.iter().enumerate() {
         planner.apply(edit).map_err(|mut refusal| {

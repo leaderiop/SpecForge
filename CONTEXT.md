@@ -191,7 +191,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Session inputs**: everything a project session depends on besides its sources' text: where its
   sources are discovered (the spec root and `exclude`), its **environment inputs**
   (the environment reads of its last load) and its **check inputs**
-  (the check reads of the last check run: `specforge-cache.json` when a check pass read it, each path a check looked
+  (the check reads of the last check run: each path a check looked
   for, each directory a missing named file's suggestion listed, and the target of each that is a symlink) and its **source hops**
   (each link hop a symlinked source's last read followed, its target included). They are one table of **recorded
   inputs** (ADR 0133). Every input is keyed by its own name (a symlink stays itself), and each link hop it
@@ -1178,7 +1178,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (ADR 0027). A set the project decides (analysis passes, entity kinds) is not one.
 - **Check**: the operation that turns what a compile reported into what a surface reports: the
   diagnostic policy (lint profiles, then strict), the verdict (no error among everything reported),
-  the severity filter (what is shown, never the verdict) and the opt-in build-cache record
+  the severity filter (what is shown, never the verdict)
   (`specforge_ops::analysis::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
 - **Run verdict**: whether an operation that judges the project passed, failed, or could not judge it,
@@ -1609,9 +1609,24 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
-- **Lifecycle field**: the one field of a kind that holds its entities' lifecycle state
-  (`lifecycle_field` on the kind). The build cache records its value so check-phase passes can
-  compare against the previous build (ADR 0009).
+- **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
+  never written to a file; written by hand it is E082 (ADR 0287).
+- **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
+  (`specforge-harness`, one `path key digest` line per recorded value, merged by union) says it was; with no line it
+  is E083. A **Move record** (`<new> moved:<old>`) follows an entity across a rename so its lines and its history do.
+- **History port**: the trait (`specforge_project::history::History`) that locates the repository, names commits and
+  merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
+- **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
+  read through the `History` port only when something declares history; what an immutable or append-only value is
+  judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
+- **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
+  a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288).
+- **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
+  severities upward only (ADR 0288).
+- **Gate**: a bool setting's list of codes; while it is false no source reports them (ADR 0288).
+- **Secret**: a declared environment variable an extension reads; the file may not hold it (E087) and no value
+  crosses into a guest, only whether it is set (ADR 0288).
+- **Origin**: where a setting's value came from, `SettingOrigin`: explicit, preset, default or unset (ADR 0288).
 - **Call containment**: the one **Containment** an MCP call reads and writes its project through, built when the call is
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.

@@ -282,7 +282,10 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
 | `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
-| `c.feature_flag(name, default, description)` | a flag users set in `specforge.json` | `feature_flags` |
+| `c.feature_flag(name, default, description)` | a bool setting of that name users set in `specforge.json` | `settings` |
+| `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `keys(..)` for a family | `settings` |
+| `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
+| `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
 | `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
@@ -297,13 +300,13 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 - `testable(bool)`, `singleton(bool)`, `supports_verify(bool)`, `incremental(bool)`
 - `open_fields(bool)` -- unknown fields are accepted
 - `has_body_parser()` -- declares that the kind's body carries syntax of its own; the core grammar reads every body and reports its parse errors whatever the flag says
-- `contract_target()`, `declares_types()`, `lifecycle_field(field)`, `scoped_by(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
+- `contract_target()`, `declares_types()`, `scoped_by(field)`, `verify_kinds(&[..])`, `inference_guide(..)`
 - LSP and DOT metadata, requested by the host only where it needs them: `semantic_token(..)`, `lsp_icon(..)`, `dot_shape(..)`, `dot_color(..)`, `dot_fillcolor(..)`
 - `field(name, |f| ..)` -- a field of the kind
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -488,9 +491,11 @@ none, runs the pass only under `specforge analyze`, which skips check passes.
 A pass receives `PassInput`: `entities` (each with its field texts by name
 ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
-check pass), and `previous`: when
-`specforge-cache.json` exists, the statuses of the build that wrote it
-(`previous.statuses["<id>"].kind` / `.status`), else `None`. Give a
+check pass), and `previous`: when the pass names kinds in
+`.baseline(&[..])`, the project at the git commit `HEAD` names, for those kinds
+(`previous.revision`, `previous.entities["<id>"].kind` / `.fields["<field>"]`;
+references are their targets' full paths and computed values are included),
+else `None`. Give a
 diagnostic the entity it is about with `PassDiagnostic::with_entity(id)`: with
 no span of its own, the host attaches that entity's.
 
@@ -539,9 +544,20 @@ declared with its handler, `c.migration_hook_handler(export, |input:
 files the migration will rewrite; its `Err` refuses the migration and nothing
 is written.
 
-### Feature flags
+### Settings
 
-`c.feature_flag("warning_level", false, "Promote warnings")` declares a flag users set in `specforge.json`: a name, its default (on or off) and a description.
+A setting is a typed value a user sets in `specforge.json` under the extension's name (ADR 0288):
+
+```rust
+c.setting("tdd_mode", |s| { s.bool().default(false).describe("Require a test first").gates(&["T201"]); });
+c.setting("models.*", |s| { s.enum_values(&["opus", "sonnet"]).keys(&[&["planning", "execution"]]); });
+c.preset("profile", |p| { p.when("strict", |e| { e.set("tdd_mode", true).raise("T202", ValidationSeverity::Error); }); });
+c.secret("api_key", "MY_API_KEY", "The service key");
+```
+
+A dotted name or a family (`*` segments) has a type, an optional default and the codes it gates: while a bool setting is false, those codes are reported by no source. A preset maps each value of an enum or bool setting (the extension's own, or a peer's as `@ext:name`) to settings it sets and codes it raises, never lowers. `c.feature_flag(name, default, description)` is a bool setting. A secret is never written in `specforge.json` (E087); the extension is told only whether its variable is set.
+
+A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)` (in a command, a tool or a resource; a pass or validator always reads `false`, as its result must not depend on the machine). A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
 
 ## Host Functions
 

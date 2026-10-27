@@ -9,7 +9,7 @@ use specforge_common::shape::Shape;
 use specforge_common::{Codebook, DiagnosticList, SourceSpan};
 use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
@@ -52,6 +52,9 @@ pub struct Reply {
     /// Every field, whatever the kind names its text, as every output
     /// writes it (`FieldJson`).
     fields: BTreeMap<String, FieldJson>,
+    /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287).
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    computed: BTreeSet<String>,
     /// Each annotated field's annotations, by its name (a block field's entry's by `outer.key`).
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     annotations: BTreeMap<String, Vec<AnnotationJson>>,
@@ -119,6 +122,7 @@ impl Reply {
             source_span: node.source_span.clone(),
             contract: facts.headline.as_ref().map(ToString::to_string),
             fields: facts.members.fields.clone(),
+            computed: facts.members.computed.clone(),
             annotations: facts.members.annotations.clone(),
             methods: facts.members.methods.clone(),
             verify_declarations: declared.then(|| facts.obligations.to_vec()),

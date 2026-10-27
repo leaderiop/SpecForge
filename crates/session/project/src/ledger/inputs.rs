@@ -14,8 +14,7 @@ use super::recorded::{Class, Pending, Recorded, Recording};
 /// files its environment load read (`specforge.json`, `specforge.lock`, each
 /// extension module the load read, and each hop of a symlink among them,
 /// ADR 0114) and the files its
-/// last checks read (every path a check asked about, the build cache a
-/// check-phase pass read, and every directory E016's suggestion listed,
+/// last checks read (every path a check asked about, and every directory E016's suggestion listed,
 /// recorded when read, ADR 0107), and the link hops each symlinked
 /// source's last read followed (its target included, ADR 0129), and the
 /// directory links on the way to each (ADR 0173). Behavior `classify_project_changes`, ADR 0030.
@@ -80,7 +79,7 @@ impl OnDisk {
             _ => in_canonical_dir(&path),
         };
         let pending = match class {
-            Class::Environment | Class::Check | Class::Hop(_) if root_exists => path
+            Class::Environment | Class::Check | Class::Ref | Class::Hop(_) if root_exists => path
                 .parent()
                 .and_then(|dir| Pending::toward(dir, &self.canonical_root)),
             _ => None,
@@ -163,6 +162,7 @@ impl SessionInputs {
             .chain(
                 disk.rows
                     .iter()
+                    .filter(|row| row.class != Class::Ref)
                     .filter_map(|row| row.class.directory(&row.path).map(canonical)),
             )
             .filter(|dir| dir.is_dir());
@@ -195,6 +195,20 @@ impl SessionInputs {
                     recursive: false,
                 };
                 if !covered && !watch_roots.contains(&watch) {
+                    watch_roots.push(watch);
+                }
+            }
+            // A ref's directory is watched for its own entries, unless a root covers it.
+            for row in disk.rows.iter().filter(|row| row.class == Class::Ref) {
+                let Some(dir) = row.class.directory(&row.path).map(canonical) else {
+                    continue;
+                };
+                let watch = WatchRoot {
+                    dir: dir.clone(),
+                    recursive: false,
+                };
+                let covered = roots.iter().any(|root| dir.starts_with(root));
+                if dir.is_dir() && !covered && !watch_roots.contains(&watch) {
                     watch_roots.push(watch);
                 }
             }

@@ -169,6 +169,49 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 
+behavior load_extension_settings "Load Extension Settings" {
+  features   [extension_management]
+  invariants [zero_domain_knowledge_core]
+  category   command
+  types      [McpSettingsResult]
+  ports      [WasmRuntime]
+  contract   """
+    An extension declares typed settings, presets and secrets (ADR 0288); specforge.json sets them. A project
+    that sets none reads, calls and reports as before, and the builtins declare none.
+  """
+  verify unit "a project without settings reads and calls as it did before settings existed"
+  verify unit "no builtin declares a feature flag or a setting"
+  verify unit "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
+  verify unit "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
+  verify integration "the environment reports a setting not used as written after the registry build's diagnostics"
+  verify unit "a settings category round-trips its three item kinds and an unknown kind costs that item"
+  verify unit "a feature flag reads as a bool setting of its name and default"
+  verify unit "a family matches its keys, closed or open, and an exact name beats it"
+  verify unit "the registry refuses a malformed setting, preset or secret with W021 and keeps the rest"
+  verify unit "settings that is not an object in specforge.json is E069 and the rest of the file is kept"
+  verify unit "a JSON key is located at its own text and the path at an offset names the key or value there"
+  verify unit "a setting resolves explicit, else preset, else default, else unset, and records where it came from"
+  verify unit "a preset that follows a peer extension's setting is inert while the peer is not loaded"
+  verify unit "a setting not used as written is E086 at its key with the line, the column and a suggestion"
+  verify unit "a secret written in specforge.json is E087 and no diagnostic echoes its value"
+  verify unit "settings for an extension that is not enabled are W166 once and none for one that failed to load"
+  verify integration "a code gated by a false bool setting is reported by no source"
+  verify integration "a preset raises a code upward only and the surface's strict applies after"
+  verify integration "analyze findings are gated and raised as the project's report is"
+  verify integration "a command and a tool see whether a secret is set and never its value"
+  verify integration "the language server publishes a raised severity and no gated code"
+  verify integration "completion in specforge.json offers extension names, unwritten setting names and values"
+  verify integration "hover on a setting key shows its type, default, effective value, origin and gated codes"
+  verify integration "specforge.json diagnostics follow the unsaved buffer and a save reloads the environment"
+  verify integration "every guest call but handshake and describe carries the extension's own settings and no other's"
+  verify integration "an instance restarted after a trap still carries the extension's settings"
+  verify unit "the SDK reads a call's settings or the declared defaults and a tool handler never sees settings"
+  verify unit "a tool schema declaring the reserved settings argument is refused"
+  verify integration "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
+  verify integration "schema --config holds every loaded setting and a valid file validates against it"
+  verify unit "the shipped schema types settings by extension in both copies"
+}
+
 behavior load_extension_declaration "Load Extension Declaration" {
   features   [extension_management]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]

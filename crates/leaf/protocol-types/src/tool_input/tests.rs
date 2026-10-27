@@ -30,3 +30,25 @@ fn a_schema_declaring_a_target_argument_is_refused() {
         assert_eq!(refusal(&schema), None, "{schema}");
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "a tool schema declaring the reserved settings argument is refused"
+)]
+fn a_tool_schema_declaring_settings_is_refused() {
+    // I017 names `settings` as it names `path`.
+    let schema = json!({"type": "object", "properties": {"settings": {"type": "object"}}});
+    let refused = refusal(&schema).expect("settings is reserved");
+    assert_eq!(refused.argument, "settings");
+    assert_eq!(
+        refused.to_string(),
+        "its input schema declares 'settings', which the host sends with every call"
+    );
+    assert_eq!(HOST_ARGUMENTS, ["path", "settings", "secrets"]);
+    // `secrets` is the host's as well: the host and the SDK both strip it from a tool's arguments.
+    let schema = json!({"type": "object", "required": ["secrets"]});
+    assert_eq!(
+        refusal(&schema).expect("secrets is reserved").argument,
+        "secrets"
+    );
+}

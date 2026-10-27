@@ -348,3 +348,43 @@ fn a_code_entry_is_declared_with_its_title_explanation_and_docs() {
     assert_eq!(declared.codes[1].docs, None);
     assert!(declared.declares(DeclaredCategory::Codes));
 }
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
+)]
+fn settings_presets_secrets_and_flags_are_declared() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/gsd", "0.1.0"));
+    b.setting("workflow.tdd_mode", |s| {
+        s.bool()
+            .default(false)
+            .describe("Test first")
+            .gates(&["E403"]);
+    });
+    b.setting("models.*", |s| {
+        s.enum_values(&["opus", "sonnet"]).keys(&[&["planning"]]);
+    });
+    b.setting("level", |s| {
+        s.integer().minimum(1).maximum(3).default(1);
+    });
+    b.preset("profile", |p| {
+        p.when("strict", |e| {
+            e.set("workflow.tdd_mode", true)
+                .raise("W103", ValidationSeverity::Error);
+        });
+    });
+    b.secret("brave_api_key", "BRAVE_API_KEY", "Brave key");
+    b.feature_flag("beta", true, "Try beta");
+    let declared = b.declaration();
+    assert_eq!(declared.settings.len(), 6);
+    assert!(declared.feature_flags.is_empty());
+    let wire = declared.describe_items(DeclaredCategory::Settings);
+    assert_eq!(wire[0]["gates"][0], "E403");
+    assert_eq!(wire[1]["keys"][0][0], "planning");
+    assert_eq!(wire[1]["field_type"], "enum");
+    assert_eq!(wire[2]["maximum"], 3);
+    assert_eq!(wire[3]["values"]["strict"]["severities"]["W103"], "error");
+    assert_eq!(wire[4]["env"], "BRAVE_API_KEY");
+    assert_eq!(wire[5]["field_type"], "bool");
+    assert_eq!(wire[5]["default"], true);
+}

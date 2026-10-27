@@ -8,6 +8,8 @@
 mod build;
 mod declare;
 pub use declare::block_paths;
+mod computed;
+pub use computed::Computed;
 mod defaults;
 pub use defaults::{FileDefaults, Held, written_fields};
 pub mod field_form;
@@ -28,6 +30,7 @@ pub use scope::{Found, Scopes};
 mod members;
 pub mod title;
 mod tokens;
+pub mod wire;
 pub use members::{AnnotationJson, Members, MethodJson, Obligation, ParameterJson};
 pub use specforge_cycles::Cycle;
 pub use tokens::{Form, Holder, WrittenToken, written_tokens};

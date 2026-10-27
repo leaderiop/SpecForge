@@ -35,6 +35,7 @@ mod code_catalog;
 pub mod command_args;
 mod declaration;
 mod field;
+mod settings;
 pub mod tool_input;
 mod vocabulary;
 pub use calls::*;
@@ -43,7 +44,11 @@ pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
 pub use field::FieldDescriptor;
-pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FileBase, ProofRole};
+pub use settings::{
+    Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
+    UnreadableItem, is_segment, valid_name,
+};
+pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, ProofRole};
 
 /// Protocol version for the extension wire format (semver). The host loads
 /// every guest of its major version. The minor moves when a payload's
@@ -62,8 +67,12 @@ pub use vocabulary::{CheckKind, ConstraintKind, FieldType, FileBase, ProofRole};
 /// reference field its entities are scoped by (`scoped_by`), and a pass's entity ids and edges are
 /// paths; the same 1.7.0 is ADR 0285's: a field's type may be `enum_list` or `block_list`, and a field
 /// may declare `members`, `target_kinds`, `minimum`, `maximum` and `file_base`; and the same 1.7.0 is ADR 0286's: an extension catalogs its codes (`codes`), and a
-/// rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`.
-pub const PROTOCOL_VERSION: &str = "1.7.0";
+/// rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; 1.8.0 is ADR
+/// 0287's: a field declares who writes it (`writer`) and its history (`immutable`, `append_only`), a kind may be
+/// `append_only`, a pass declares `phase: "compute"`, the fields it `computes` and the `baseline` kinds it reads
+/// and answers `values`, and a pass's `previous` is the git baseline; the same 1.8.0 is ADR 0288's: an extension declares typed `settings`
+/// (a new describe category), and a call input may carry the extension's own `settings`.
+pub const PROTOCOL_VERSION: &str = "1.8.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,9 +292,8 @@ pub struct EntityKindDescriptor {
     /// `ValidatorContext::declared_types`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub declares_types: bool,
-    /// The one field (of those this kind declares) holding its entities'
-    /// lifecycle state: the build cache records its value for check-phase
-    /// passes that compare against the previous build (ADR 0009, C).
+    /// Read and ignored since ADR 0287 (history is the git baseline, protocol 1.8.0): kept so a 1.x guest that
+    /// still sends it is no W138.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifecycle_field: Option<String>,
     /// The one field naming the entity this kind's entities are scoped by (ADR 0284): a single `reference`
@@ -293,6 +301,10 @@ pub struct EntityKindDescriptor {
     /// scope's path and its name. Absent from an entity, the entity is in the project scope.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scoped_by: Option<String>,
+    /// Its entities are a log (protocol 1.8.0, ADR 0287): one the baseline holds stays, and keeps every authored
+    /// value.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub append_only: bool,
 }
 
 // ── Edge Type Descriptor ──
@@ -602,6 +614,14 @@ pub struct CompilerPassDescriptor {
     pub before: Option<String>,
     #[serde(default)]
     pub phase: Option<String>,
+    /// The kinds whose baseline entities the pass receives as `previous` (compute and check phases; protocol
+    /// 1.8.0, ADR 0287).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub baseline: Vec<String>,
+    /// Phase `compute` only: the computed fields it answers, `kind.field` or `kind.field.member` (a member's
+    /// declared path).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub computes: Vec<String>,
 }
 
 // ── Feature Flag Descriptor ──

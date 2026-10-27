@@ -15,8 +15,9 @@ core knows only `spec`, `ref`, `use`, `define` and `defaults`, and a project's e
 specforge init                       # scaffold a new project
 specforge check                      # validate .spec files
 specforge check --strict             # promote warnings to errors
+specforge check --since origin/main  # judge field history against the merge-base with a revision
+specforge harness gc                 # rewrite specforge-harness canonically (--dry-run prints the diff)
 specforge check --severity error     # show only errors (the exit code still counts everything)
-specforge check --cache              # record statuses in specforge-cache.json (history rules)
 
 # Graph access (for agents and humans)
 specforge export --format=context    # token-efficient context for an agent
@@ -80,6 +81,8 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
   "extensions": ["@specforge/software"]
 }
 ```
+
+An extension's settings go under `settings`, by extension name (`"settings": {"@acme/ext": {"tdd_mode": true}}`); `specforge settings` lists what they resolve to, `specforge schema --config` writes the file's JSON Schema with them typed, and the editor completes and checks them. A secret is never written there.
 
 `specforge init --extensions @specforge/software` creates this for you; `specforge add` / `specforge remove` edit the `extensions` list afterwards.
 

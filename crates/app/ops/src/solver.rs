@@ -7,10 +7,12 @@
 //! `specforge_ops::testing::ScriptedSolver`.
 
 use std::ffi::OsString;
-use std::io::Read;
-use std::process::{Command, ExitStatus, Stdio};
-use std::time::{Duration, Instant};
+use std::process::{Command, ExitStatus};
+use std::time::Duration;
+#[cfg(test)]
+use std::time::Instant;
 
+use specforge_common::process::{Ran, RunError, run};
 use specforge_common::{Diagnostic, codes};
 
 /// What `specforge analyze --prove` (the prove pass) and doctor (its toolchain
@@ -109,9 +111,9 @@ impl Solver for Z3 {
             Command::new(&self.program).arg("--version"),
             self.probe_timeout,
         ) {
-            Ok(Ran { status, stdout }) if status.success() => {
+            Ok(ran) if ran.status.success() => {
                 return Availability::Ready {
-                    version: stdout.lines().next().unwrap_or("z3").trim().to_string(),
+                    version: ran.text().lines().next().unwrap_or("z3").trim().to_string(),
                 };
             }
             Ok(Ran { status, .. }) => Unrunnable::Exited(status),
@@ -137,7 +139,7 @@ impl Solver for Z3 {
         let result = run(Command::new(&self.program).arg(&tmp), self.timeout);
         let _ = std::fs::remove_file(&tmp);
         match result {
-            Ok(ran) => Ok(ran.stdout),
+            Ok(ran) => Ok(ran.text()),
             Err(RunError::TimedOut) => Err(SolveFailure::TimedOut {
                 after: self.timeout,
             }),
@@ -181,72 +183,6 @@ fn unavailable(why: Unrunnable) -> Diagnostic {
         ),
     };
     Diagnostic::new(codes::W098, message).with_suggestion(suggestion)
-}
-
-/// What a finished process left: its exit status and stdout.
-struct Ran {
-    status: ExitStatus,
-    stdout: String,
-}
-
-/// Why a process gave no output in time.
-enum RunError {
-    NotFound,
-    CannotStart(std::io::Error),
-    TimedOut,
-    Lost,
-}
-
-/// After the process exits, how long its output may still take to arrive.
-const DRAIN_GRACE: Duration = Duration::from_millis(100);
-
-/// Run `cmd` (stdin null, stderr discarded) and read its stdout, stopping at
-/// `timeout`: the process is killed then, and output a child process keeps
-/// open past the deadline is not waited for (its reader thread ends when that
-/// child does).
-fn run(cmd: &mut Command, timeout: Duration) -> Result<Ran, RunError> {
-    let mut child = cmd
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                RunError::NotFound
-            } else {
-                RunError::CannotStart(e)
-            }
-        })?;
-    let mut stdout = child.stdout.take().ok_or(RunError::Lost)?;
-    let (sender, received) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = stdout.read_to_end(&mut buf);
-        let _ = sender.send(buf);
-    });
-    let deadline = Instant::now() + timeout;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() >= deadline => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(RunError::TimedOut);
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-            Err(_) => return Err(RunError::Lost),
-        }
-    };
-    let left = deadline
-        .saturating_duration_since(Instant::now())
-        .max(DRAIN_GRACE);
-    let buf = received
-        .recv_timeout(left)
-        .map_err(|_| RunError::TimedOut)?;
-    Ok(Ran {
-        status,
-        stdout: String::from_utf8_lossy(&buf).into_owned(),
-    })
 }
 
 /// A real z3, or a failure that says how to get one: for the tests of what z3

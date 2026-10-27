@@ -25,14 +25,18 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, refuse_malformed_tool_schemas,
-    register_surface_contributions,
+    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, SettingsRegistry,
+    refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
 /// The phase a pass declares to run with every compile instead of under
 /// `specforge analyze`: the compiled project runs it after the graph
 /// checks, and its diagnostics are the compile's.
 pub const CHECK_PHASE: &str = "check";
+
+/// The phase a pass declares to give computed field values (ADR 0287): the compiled project runs it before the
+/// rules, and the values it answers join the entity snapshot beside the graph.
+pub const COMPUTE_PHASE: &str = "compute";
 
 /// What a diagnostic of the registry build is about (CONTEXT "Setup part").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,6 +105,21 @@ impl DeclaredPass {
         self.pass.phase.as_deref() == Some(CHECK_PHASE)
     }
 
+    /// Whether the pass runs before the rules and gives computed values ([`COMPUTE_PHASE`]).
+    pub fn is_compute_phase(&self) -> bool {
+        self.pass.phase.as_deref() == Some(COMPUTE_PHASE)
+    }
+
+    /// The computed fields the pass answers (`kind.field` or `kind.field.member`).
+    pub fn computes(&self) -> &[String] {
+        &self.pass.computes
+    }
+
+    /// The kinds whose baseline entities the pass receives as `previous`.
+    pub fn baseline(&self) -> &[String] {
+        &self.pass.baseline
+    }
+
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
     pub fn full_name(&self) -> String {
         format!("{}:{}", self.extension, self.pass.name)
@@ -132,6 +151,8 @@ pub struct RegistryBuild {
     /// Every code the loaded extensions catalog, under their namespaces
     /// (ADR 0286); read beside the static catalog by the `Codebook`'s readers.
     codes: Codebook,
+    /// What the extensions declare as settings, presets and secrets, checked (ADR 0288).
+    settings: SettingsRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -144,7 +165,7 @@ pub struct RegistryBuild {
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
     /// W017, the rule set's (W150, W147 or W112 per declared rule), then
-    /// E039 for a shared code namespace — in that order.
+    /// E039 for a shared code namespace, then the settings' W019 and W021 — in that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
     probe_diagnostics: Vec<Diagnostic>,
@@ -191,6 +212,11 @@ impl RegistryBuild {
     /// catalogs (ADR 0286).
     pub fn codes(&self) -> &Codebook {
         &self.codes
+    }
+
+    /// The settings, presets and secrets the loaded extensions declare (ADR 0288).
+    pub fn settings(&self) -> &SettingsRegistry {
+        &self.settings
     }
 
     /// Every declared pass with its extension, in order (both phases).
@@ -269,7 +295,7 @@ impl RegistryBuild {
     /// Every diagnostic the build reports with what it is about, in its one
     /// order: the declarations' own (E030, W021, E073 and E027, W145), the
     /// registries' (E026, W018, W019, W021, I004, the edge types' W021; W017;
-    /// W150, W147 or W112 per rule; E039 for a shared code namespace), the custom rules' probes (W112), then the surfaces'
+    /// W150, W147 or W112 per rule; E039 for a shared code namespace; the settings' W019 and W021), the custom rules' probes (W112), then the surfaces'
     /// (E055, E039); each group extension by extension in load order.
     /// `specforge check` reports them right after the environment's own,
     /// before any source (ADR 0012 D11, amended).
@@ -309,9 +335,16 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_check_phase())
     }
 
+    /// The passes that give computed values (`phase: "compute"`), in order: they run before the rules.
+    pub fn compute_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
+        self.passes.iter().filter(|p| p.is_compute_phase())
+    }
+
     /// The passes `specforge analyze` runs, in order.
     pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
-        self.passes.iter().filter(|p| !p.is_check_phase())
+        self.passes
+            .iter()
+            .filter(|p| !p.is_check_phase() && !p.is_compute_phase())
     }
 
     /// (name, version) of each loaded extension, in load order.
@@ -379,6 +412,9 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     );
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
+    // The settings, presets and secrets: W019 and W021, after the rules (they read the code book).
+    let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
+    registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
 
     let (commands, duplicates) = register_surface_contributions(&declarations);
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
@@ -395,6 +431,7 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         edges,
         rules,
         codes,
+        settings,
         commands,
         passes,
         declaration_diagnostics,

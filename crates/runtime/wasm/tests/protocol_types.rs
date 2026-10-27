@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.7.0");
+    assert_eq!(PROTOCOL_VERSION, "1.8.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -178,46 +178,15 @@ fn entity_kind_descriptor_full_round_trip() {
             FieldDescriptor {
                 name: "contract".to_string(),
                 field_type: "block".to_string(),
-                required: false,
                 description: Some("Structured contract block".to_string()),
-                edge: None,
-                target_kind: None,
-                file_reference: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
-                normative: false,
-                exempts_obligations: false,
-                headline: false,
-                derived_from: None,
-                proof_role: None,
-                members: vec![],
-                target_kinds: vec![],
-                minimum: None,
-                maximum: None,
-                file_base: None,
+                ..Default::default()
             },
             FieldDescriptor {
                 name: "invariants".to_string(),
                 field_type: "reference_list".to_string(),
-                required: false,
-                description: None,
                 edge: Some("enforces".to_string()),
                 target_kind: Some("invariant".to_string()),
-                file_reference: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
-                normative: false,
-                exempts_obligations: false,
-                headline: false,
-                derived_from: None,
-                proof_role: None,
-                members: vec![],
-                target_kinds: vec![],
-                minimum: None,
-                maximum: None,
-                file_base: None,
+                ..Default::default()
             },
         ],
         testable: true,
@@ -229,6 +198,7 @@ fn entity_kind_descriptor_full_round_trip() {
         contract_target: false,
         declares_types: false,
         lifecycle_field: None,
+        append_only: false,
         scoped_by: None,
         semantic_token: Some("function".to_string()),
         lsp_icon: Some("Method".to_string()),
@@ -264,24 +234,10 @@ fn field_descriptor_with_edge_and_target() {
     let field = FieldDescriptor {
         name: "features".to_string(),
         field_type: "reference_list".to_string(),
-        required: false,
         description: Some("Related features".to_string()),
         edge: Some("Implements".to_string()),
         target_kind: Some("feature".to_string()),
-        file_reference: false,
-        default_value: None,
-        enum_values: vec![],
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
-        proof_role: None,
-        members: vec![],
-        target_kinds: vec![],
-        minimum: None,
-        maximum: None,
-        file_base: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&field).unwrap();
     let decoded: FieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -294,27 +250,13 @@ fn field_descriptor_with_enum_values() {
         name: "status".to_string(),
         field_type: "enum".to_string(),
         required: true,
-        description: None,
-        edge: None,
-        target_kind: None,
-        file_reference: false,
         default_value: Some("draft".to_string()),
         enum_values: vec![
             "draft".to_string(),
             "active".to_string(),
             "done".to_string(),
         ],
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
-        proof_role: None,
-        members: vec![],
-        target_kinds: vec![],
-        minimum: None,
-        maximum: None,
-        file_base: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("enum_values"));
@@ -328,23 +270,7 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         name: "title".to_string(),
         field_type: "string".to_string(),
         required: true,
-        description: None,
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        default_value: None,
-        enum_values: vec![],
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
-        proof_role: None,
-        members: vec![],
-        target_kinds: vec![],
-        minimum: None,
-        maximum: None,
-        file_base: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(
@@ -389,22 +315,9 @@ fn shared_field_descriptor_is_field_descriptor() {
         field_type: "enum".to_string(),
         required: true,
         description: Some("Entity lifecycle status".to_string()),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
         default_value: Some("draft".to_string()),
         enum_values: vec!["draft".to_string(), "active".to_string()],
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
-        proof_role: None,
-        members: vec![],
-        target_kinds: vec![],
-        minimum: None,
-        maximum: None,
-        file_base: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&shared).unwrap();
     let decoded: SharedFieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -421,24 +334,8 @@ fn entity_enhancement_descriptor_round_trip() {
         fields: vec![FieldDescriptor {
             name: "requires".to_string(),
             field_type: "block".to_string(),
-            required: false,
             description: Some("Precondition block".to_string()),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            default_value: None,
-            enum_values: vec![],
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
-            proof_role: None,
-            members: vec![],
-            target_kinds: vec![],
-            minimum: None,
-            maximum: None,
-            file_base: None,
+            ..Default::default()
         }],
     };
     let json = serde_json::to_string(&enh).unwrap();
@@ -654,6 +551,8 @@ fn compiler_pass_descriptor_round_trip() {
         after: Some("parse".to_string()),
         before: Some("validate".to_string()),
         phase: Some("analysis".to_string()),
+        baseline: vec![],
+        computes: vec![],
     };
     let json = serde_json::to_string(&pass).unwrap();
     let decoded: CompilerPassDescriptor = serde_json::from_str(&json).unwrap();

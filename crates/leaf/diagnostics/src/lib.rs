@@ -225,6 +225,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W121", Some("E061")),
     ("W122", None),
     ("W125", Some("E061")),
+    ("W144", None),
     ("W146", None),
     ("W149", Some("E033")),
 ];

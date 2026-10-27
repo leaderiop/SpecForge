@@ -19,18 +19,22 @@
 //!   (watch, the LSP and MCP each hold one). After every update that runs
 //!   the checks it reports what a fresh compile reports, in the same order.
 
+pub mod baseline;
 mod buffers;
-mod build_cache;
 mod check_passes;
 mod compiled;
+mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod harness;
+pub mod history;
 mod ledger;
 pub mod passes;
 mod policy;
 pub mod providers;
 mod raises;
 mod session;
+mod settings;
 mod setup;
 mod sources;
 #[cfg(feature = "testing")]
@@ -47,7 +51,7 @@ use specforge_common::{
     ConfigProblem, ConfigRead, Diagnostic, ProjectConfig, ProjectRoot, SourceRoot, codes,
     project_config_from,
 };
-use specforge_graph::{GraphBuild, SpecFile};
+use specforge_graph::{Computed, GraphBuild, SpecFile};
 use specforge_installed::{Builtins, Installed};
 use specforge_registry::{
     CandidateVocabulary, Disk, EntitySnapshot, RegistryBuild, build_registries,
@@ -57,7 +61,6 @@ use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use buffers::Buffer;
-pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compiled::CompiledProject;
 pub use diagnostics_delta::DiagnosticsDelta;
 pub use ledger::{Changes, SessionInputs, SourceDisk, WatchRoot, Watched};
@@ -66,6 +69,7 @@ pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintP
 pub use providers::Providers;
 pub use raises::Raises;
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
+pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeAspect, NodeChange, compute_graph_delta,
@@ -103,6 +107,14 @@ pub enum ExtensionLoad {
     },
 }
 
+/// What [`Environment::checked`] found: the diagnostics, and the compute passes' values with the snapshot that has
+/// them merged in (`None` when none gave a value).
+pub struct Checked {
+    pub diagnostics: Vec<Diagnostic>,
+    pub entities: Option<EntitySnapshot>,
+    pub computed: Computed,
+}
+
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read. Assembled from those parts
 /// ([`Self::assemble`]).
@@ -134,6 +146,10 @@ pub struct Environment {
     /// the loaded declarations (ADR 0004 D3-c): with any scheme registered,
     /// a ref with another scheme is I005.
     providers: Providers,
+    /// The `settings` specforge.json sets, resolved against the loaded declarations (ADR 0288), and the E086,
+    /// E087 and W166 found.
+    settings: ResolvedSettings,
+    settings_diagnostics: Vec<Diagnostic>,
     /// One E069 per config problem. The extension load's diagnostics are on
     /// [`Self::enabled`] ([`Installed::load_diagnostics`] orders them).
     config_diagnostics: Vec<Diagnostic>,
@@ -152,6 +168,12 @@ pub struct Environment {
     /// compiled project is on disk is [`CompiledProject::root`]. For a loaded environment,
     /// [`Self::root`] is its `dir()`.
     root: Option<ProjectRoot>,
+    /// What this environment asks of version control, when it is not the process's default
+    /// ([`history::default_history`]).
+    history: Option<history::SharedHistory>,
+    /// Where the repository is, once a locate found one (a project outside one is asked again each check, so
+    /// `git init` is seen).
+    place: std::sync::OnceLock<history::Located>,
 }
 
 impl Environment {
@@ -164,11 +186,38 @@ impl Environment {
             sources: SourceRoot::default(),
             registries: RegistryBuild::default(),
             providers: Providers::default(),
+            settings: ResolvedSettings::default(),
+            settings_diagnostics: Vec::new(),
             config_diagnostics: Vec::new(),
             structural_only: None,
             runtime: None,
             root: None,
+            history: None,
+            place: Default::default(),
         }
+    }
+
+    /// This environment asking `history` of version control instead of the process's default.
+    pub fn with_history(mut self, history: history::SharedHistory) -> Self {
+        self.history = Some(history);
+        self
+    }
+
+    /// Where the repository of this project is, asked of `history`: a repository once found is kept.
+    pub(crate) fn place(&self, history: &dyn history::History) -> history::Located {
+        if let Some(found) = self.place.get() {
+            return found.clone();
+        }
+        let located = history.locate(self.root());
+        if matches!(located, history::Located::Repo(_)) {
+            let _ = self.place.set(located.clone());
+        }
+        located
+    }
+
+    /// The history port: this environment's own, else the process's default; none: no judgement against history.
+    pub fn history(&self) -> Option<history::SharedHistory> {
+        self.history.clone().or_else(history::default_history)
     }
 
     /// A bare build for a project assembled in memory: a registry build made
@@ -270,6 +319,30 @@ impl Environment {
             )
         });
         let sources = read.config.sources(installed.root());
+        let (settings, settings_diagnostics) =
+            ResolvedSettings::resolve(read.config.text.as_deref(), registries.settings(), &enabled);
+        // Each loaded extension's calls carry its own settings and its secrets' presence (ADR 0288).
+        if let Some(runtime) = runtime.as_deref() {
+            for extension in enabled.iter().filter(|e| e.loaded) {
+                let secrets =
+                    registries
+                        .settings()
+                        .of(&extension.name)
+                        .map_or_else(Vec::new, |s| {
+                            s.secrets
+                                .iter()
+                                .map(|s| (s.name.clone(), s.env.clone()))
+                                .collect()
+                        });
+                runtime.apply_settings(
+                    &extension.name,
+                    specforge_wasm::ExtensionSettings {
+                        values: settings.wire(&extension.name),
+                        secrets,
+                    },
+                );
+            }
+        }
         Environment {
             read,
             installed,
@@ -277,10 +350,14 @@ impl Environment {
             sources,
             registries,
             providers,
+            settings,
+            settings_diagnostics,
             config_diagnostics,
             structural_only,
             runtime,
             root: None,
+            history: None,
+            place: Default::default(),
         }
     }
 
@@ -371,6 +448,17 @@ impl Environment {
         &self.providers
     }
 
+    /// The settings `specforge.json` sets, resolved: each extension's effective values, the codes they gate and
+    /// the severities they raise (ADR 0288).
+    pub fn settings(&self) -> &ResolvedSettings {
+        &self.settings
+    }
+
+    /// The E086, E087 and W166 the settings produced, in file order.
+    pub fn settings_diagnostics(&self) -> &[Diagnostic] {
+        &self.settings_diagnostics
+    }
+
     /// The runtime the extensions were loaded in, where every extension
     /// call over this project runs; none: nothing loaded (ADR 0015 R1, R3).
     pub fn runtime(&self) -> Option<&SharedRuntime> {
@@ -400,20 +488,102 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
+        self.checked(None, entities, disk, &baseline::Baseline::of_head(self))
+            .diagnostics
+    }
+
+    /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
+    /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
+    /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
+    /// pass gave a value. With the graph `build` the snapshot was taken from, the harness ledger is checked too
+    /// ([`harness::check`]).
+    pub fn checked(
+        &self,
+        build: Option<&GraphBuild>,
+        entities: &EntitySnapshot,
+        disk: &dyn Disk,
+        baseline: &baseline::BaselineRead,
+    ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
-        let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
-            Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
-            None => Box::new(NoVerdicts),
+        let mut computed = Computed::default();
+        let mut merged = None;
+        // The baseline with the ledger's moves applied: what the passes get as `previous`, and what history is
+        // judged against.
+        let translated = match (baseline, build) {
+            (Ok(Some(baseline)), Some(build)) => {
+                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
+                    &disk
+                        .read(&self.root().join(harness::LEDGER_FILE))
+                        .unwrap_or_default(),
+                ))
+                .ledger;
+                Some(baseline.translated(&ledger, build.graph(), self.registries.field_forms()))
+            }
+            (Ok(Some(baseline)), None) => Some((**baseline).clone()),
+            _ => None,
         };
-        diagnostics.extend(
-            self.registries
-                .check(&entities.rule_input(disk), verdicts.as_ref()),
-        );
-        if let Some(runtime) = runtime {
-            diagnostics.extend(check_passes::run(self, entities, runtime, disk));
+        if let Some(runtime) = runtime
+            && self.registries.compute_passes().next().is_some()
+        {
+            let (values, reported) = compute::run(self, entities, runtime, translated.as_ref());
+            diagnostics.extend(reported);
+            if !values.is_empty() {
+                merged = Some(entities.with_computed(&values, self.registries.fields()));
+                computed = values;
+            }
         }
-        diagnostics
+        {
+            let entities = merged.as_ref().unwrap_or(entities);
+            let verdicts: Box<dyn CustomVerdicts + '_> = match runtime {
+                Some(runtime) => Box::new(WasmVerdicts::new(runtime, entities)),
+                None => Box::new(NoVerdicts),
+            };
+            diagnostics.extend(
+                self.registries
+                    .check(&entities.rule_input(disk), verdicts.as_ref()),
+            );
+            if let Some(build) = build {
+                diagnostics.extend(harness::check(
+                    &harness::Harness::of(&self.registries),
+                    build.graph(),
+                    self.registries.field_forms(),
+                    self.root(),
+                    disk,
+                    build.files().any(|(_, file)| !file.errors.is_empty()),
+                ));
+            }
+            if let Some(runtime) = runtime {
+                diagnostics.extend(check_passes::run(
+                    self,
+                    entities,
+                    runtime,
+                    translated.as_ref(),
+                ));
+            }
+        }
+        match (baseline, &translated, build) {
+            (Err(notice), ..) => diagnostics.push(notice.clone()),
+            (_, Some(translated), Some(build)) => {
+                diagnostics.extend(history::check::check(
+                    translated,
+                    build.graph(),
+                    self.registries.field_forms(),
+                    &self.registries,
+                    &build
+                        .files()
+                        .filter(|(_, file)| !file.errors.is_empty())
+                        .map(|(key, _)| key)
+                        .collect::<Vec<_>>(),
+                ));
+            }
+            _ => {}
+        }
+        Checked {
+            diagnostics,
+            entities: merged,
+            computed,
+        }
     }
 
     /// The diagnostics reported before any source, each with the part of
@@ -423,7 +593,7 @@ impl Environment {
     /// loaded; the lock's E033 once, before the first entry it left
     /// unloaded), provider registration (W118; E057 is a collision), I002,
     /// then the registry build's, in its order
-    /// ([`specforge_registry::RegistryBuild::reported`]).
+    /// ([`specforge_registry::RegistryBuild::reported`]), then the settings' (E086, E087, W166).
     pub fn setup_diagnostics(&self) -> Vec<SetupDiagnostic<'_>> {
         let of = |part, diagnostic| SetupDiagnostic { part, diagnostic };
         let mut all: Vec<SetupDiagnostic<'_>> = self
@@ -455,6 +625,11 @@ impl Environment {
             self.registries
                 .reported()
                 .map(|(part, d)| of(part.into(), d)),
+        );
+        all.extend(
+            self.settings_diagnostics
+                .iter()
+                .map(|d| of(SetupPart::Settings, d)),
         );
         all
     }

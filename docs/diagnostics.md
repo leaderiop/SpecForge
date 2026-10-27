@@ -874,12 +874,14 @@ structure is checked (I002 says so), and `specforge add`, `specforge update` and
 format`, `specforge migrate` and the rename tools refuse the same way when the
 file can't be used or `spec_root`, `exclude` or `extensions` has the wrong type,
 since they could not tell which files are the project's sources; on any other
-problem they still run, report the E069 and fail. When a key has the wrong type
-(`name`, `version` or `spec_root` not a string, `exclude` not an array), that
-key's default is used; when an item of `extensions` or `exclude` isn't a string,
-or an `exclude` item can match no source (empty, starting with `!`, with a `.`
-or `..` name, or not a glob pattern), that item is ignored; the rest of the file
-is used. Each problem is one E069, and `check` fails on it, so a broken config
+problem they still run, report the E069 and fail. A `settings` value that is not
+an object is one too (the settings are then read as none); a setting that is not
+used as written is E086, E087 or W166. When a key has the wrong type (`name`,
+`version` or `spec_root` not a string, `exclude` not an array), that key's
+default is used; when an item of `extensions` or `exclude` isn't a string, or an
+`exclude` item can match no source (empty, starting with `!`, with a `.` or `..`
+name, or not a glob pattern), that item is ignored; the rest of the file is
+used. Each problem is one E069, and `check` fails on it, so a broken config
 can't pass a CI that checks nothing. Fix the file: the message names the JSON
 error's line and column, or the key and the item. A missing `specforge.json` is
 not this: it is a project with the default config (`specforge doctor` says so).
@@ -1103,6 +1105,120 @@ Owner: core
 Level: error
 ```
 
+## E082
+
+```
+E082: Computed field written in a spec file
+
+A spec file writes a field, or a member of a block item, that its extension
+declares `writer: computed` (ADR 0287). A compute pass of the extension gives
+its value when the project is checked; the value lives beside the graph and in
+every output, and is never in a `.spec` file. The pass's value wins; this code
+reports the written one at its value. Delete the line.
+
+Owner: core
+Level: error
+```
+
+## E083
+
+```
+E083: Harness value not recorded
+
+A field its extension declares `writer: harness` holds a value that no line of
+`specforge-harness` records (ADR 0287). Only a command's plan sets such a field,
+and the host writes the line with the value; a value typed in a spec file, or
+changed by hand, has none. When a line of the same field records this value
+under a path no entity has, the message names it: the entity was renamed by
+hand, and the ledger was not told. Restore the value from git, or set it through
+the command that owns it. A harness value is recorded by its line (the digest of
+the entity's path, the field and the value, with each reference resolved to its
+target's path), so spelling a reference another way does not change it.
+
+Owner: core
+Level: error
+```
+
+## E084
+
+```
+E084: Immutable value changed
+
+A field its extension declares `immutable` (or a member of a block item, or any
+authored field of an `append_only` kind) holds a value that differs from the one
+it had at the baseline, the project at `HEAD` (ADR 0287). The message names the
+old value and the commit. A field the baseline leaves unset may be set once;
+after that it never changes, and removing it is a change. A value is compared as
+the host reads it, with each reference resolved to its target's path, so a
+rename through SpecForge (which records a move) is not a change; the message
+adds `(as '<old path>')` when the entity was matched through one. Restore the
+value, or commit the change if it was meant: the next check judges against that
+commit. `specforge check --since <rev>` judges against the merge-base of `<rev>`
+and `HEAD` instead.
+
+Owner: core
+Level: error
+```
+
+## E085
+
+```
+E085: Append-only history rewritten
+
+A field its extension declares `append_only` holds a list that does not start
+with the baseline's list, the project at `HEAD` (ADR 0287): an item was removed,
+reordered or edited, and only appending is allowed. It is also reported for an
+entity of an `append_only` kind that the baseline holds and the project no
+longer does. Restore the items, or commit the rewrite if it was meant; the next
+check judges against that commit.
+
+Owner: core
+Level: error
+```
+
+## E086
+
+```
+E086: Setting not used as written
+
+A key of `settings` in `specforge.json` is not used as written (ADR 0288).
+`settings` is keyed by extension, then by flat dotted setting name
+(`"@gsd/core": { "workflow.tdd_mode": true }`), and each name is checked against
+the extension's declared settings when the project loads: an unknown name (the
+message suggests the nearest one, or the extension that declares it), a family
+key outside its list, a value of the wrong type or outside the setting's bounds
+and vocabulary, `null` on a setting that has a default, or an extension's value
+that is not an object. The message names the key, never the written value, and
+the diagnostic points at the key in `specforge.json`. A value that cannot be
+used is ignored: the preset, else the default, applies. `specforge settings`
+lists every setting with its type and effective value, and `specforge schema
+--config` writes the project's config schema for an editor.
+
+Owner: core
+Level: error
+```
+
+## E087
+
+```
+E087: Secret in specforge.json
+
+A key under an extension's `settings` in `specforge.json` is a secret the
+extension declares, or is named like a credential (its last word is `token`,
+`secret`, `password` or `credentials`, or `key` after `api`, `private`, `secret`
+or `access`; words bounded by `_` or `-`, so `max_prompt_tokens` and
+`token_budget` are not one) and is no declared setting (ADR 0288). The second is
+also found under an extension that is not enabled or did not load. A secret is
+read from its environment variable only: SpecForge never reads it from a file a
+repository holds, and no message or output repeats a written value. The value is
+ignored. Remove it from `specforge.json`, set the variable the message names,
+and rotate the secret if it was committed. `specforge settings` shows whether
+each declared secret is set.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```
@@ -1294,14 +1410,15 @@ each extension's explicit MCP tools and resources in extension load order, then
 its commands as the tools `specforge.<ext>.<command>`. A contribution not served
 under its name is reported here, with why: an explicit tool named as a core tool
 or an earlier extension's tool; an explicit tool whose input schema declares
-`path`, which the call target takes out of every call; a resource whose URIs a
-core resource or an earlier extension resource already serves; a command whose
-tool name an explicit tool (or a core tool) already has; a command the host
-refuses (an arg taking `--path`, `--format` or `--help`, two args spelling one
-option, or a default its declaration contradicts); a command another command
-routes first under its name (`specforge check` reports that one as E039). I017
-itself only MCP reports. Rename the contribution if the collision is unintended;
-otherwise no action is needed.
+`path`, which the call target takes out of every call, or `settings`, which the
+host sends with every call (ADR 0288); a resource whose URIs a core resource or
+an earlier extension resource already serves; a command whose tool name an
+explicit tool (or a core tool) already has; a command the host refuses (an arg
+taking `--path`, `--format` or `--help`, two args spelling one option, or a
+default its declaration contradicts); a command another command routes first
+under its name (`specforge check` reports that one as E039). I017 itself only
+MCP reports. Rename the contribution if the collision is unintended; otherwise
+no action is needed.
 
 Owner: core
 Level: info
@@ -1670,6 +1787,36 @@ A source file produced an unusually high number of inferred entities relative to
 its line count, exceeding the configured density threshold. Review the file for
 over-eager inference, or adjust the density threshold if that density is
 expected.
+
+Owner: core
+Level: info
+```
+
+## I203
+
+```
+I203: Harness ledger not canonical
+
+`specforge-harness` is not the file the host would write: a line out of order,
+repeated, blank, a second header, a line for an entity or field that is gone, or
+a stale line for a value that has a current one. A union merge of two branches'
+ledgers leaves it so. Nothing is wrong with what it records. Run `specforge
+harness gc` to write it again; `check` never does.
+
+Owner: core
+Level: info
+```
+
+## I204
+
+```
+I204: Nothing judged against history
+
+The project declares a history flag (a field `immutable` or `append_only`, a
+kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is
+no commit to judge against: the project is not in a git repository, or the
+repository has no commit yet. Nothing is judged, and nothing is wrong with the
+project. The first commit is the baseline from then on.
 
 Owner: core
 Level: info
@@ -2394,22 +2541,38 @@ extensions are loaded. Declare the missing kind or edge label, or add the
 appropriate peer dependency (a validation rule on another extension's kind that
 this one works without names that extension as its `target_extension` instead).
 The same code reports a declaration the registry refuses: a `derived_from` that
-derives nothing, a `proof_role` other than `bound` or `claim`, or a
-`lifecycle_field` that is not one of the kind's fields, a `scoped_by` that is
-not one of the kind's single reference fields with a target kind, targets a kind
-no extension loads or the kind itself, or closes a scope cycle (the kind is then
-unscoped), an `enum` field that declares no values, or a `default_value` an enum
-field does not take. A field that writes a declared edge type from a kind
-outside its declared `source_kind`, or to a kind outside its declared
-`target_kind`, is W021 too, and its edges are of no edge type. So is a typed
-field the registry refuses and drops the attribute of: `members` on a type other
-than `block` or `block_list`, a `block_list` with none, a member named twice or
-not one identifier, a member that declares `derived_from`, `target_kinds`
-together with `target_kind`, on a type other than `reference` or
+derives nothing, a `proof_role` other than `bound` or `claim`, a `scoped_by`
+that is not one of the kind's single reference fields with a target kind,
+targets a kind no extension loads or the kind itself, or closes a scope cycle
+(the kind is then unscoped), an `enum` field that declares no values, or a
+`default_value` an enum field does not take. A field that writes a declared edge
+type from a kind outside its declared `source_kind`, or to a kind outside its
+declared `target_kind`, is W021 too, and its edges are of no edge type. So is a
+typed field the registry refuses and drops the attribute of: `members` on a type
+other than `block` or `block_list`, a `block_list` with none, a member named
+twice or not one identifier, a member that declares `derived_from`,
+`target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
 than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
 `spec` or `project`, or without `file_reference`; a `scoped_by` field with
-`target_kinds` scopes nothing.
+`target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
+`writer` other than `computed` or `harness`, `harness` on a member, a computed
+field that is also `required`, `immutable`, `append_only` or `derived_from`,
+`append_only` on a field that is not a list, a computed field no compute pass
+lists in `computes`, a `computes` entry that is not a computed field of the
+extension or that two passes list or whose pass is not in the `compute` phase,
+and a `baseline` naming a kind no loaded extension declares. The `settings`
+category is checked too (ADR 0288): a setting named twice or not a dotted name
+or a family (`*` segments), of a type the field forms do not have, with a
+default its type refuses, with `gates` on a type other than `bool` or on a
+family (only a setting named whole gates codes), or naming a code the extension
+does not catalog, or with `keys` that do not match its `*`s; a preset whose
+source is not an enum or bool setting of the extension or of a loaded peer, that
+names a value its source does not take, that sets a setting the extension does
+not declare to a value its type refuses, or that raises a code the extension
+does not catalog; a secret named twice or whose environment variable is not a
+name; and an item of a kind the host does not know. The item is dropped, the
+rest of the category is kept.
 
 Owner: core
 Level: warning
@@ -3123,22 +3286,6 @@ Owner: core
 Level: warning
 ```
 
-## W144
-
-```
-W144: Invalid build cache
-
-The project root has a `specforge-cache.json` that can't be read, isn't valid
-JSON, or declares a `format` other than 1. The build cache records each entity's
-status from the build `specforge check --cache` last wrote, and check-phase
-passes compare against it (status transitions); with the file invalid they get
-no previous statuses, so history rules stay silent. Rewrite it with `specforge
-check --cache`, or delete it.
-
-Owner: core
-Level: warning
-```
-
 ## W145
 
 ```
@@ -3364,6 +3511,68 @@ Owner: core
 Level: warning
 ```
 
+## W163
+
+```
+W163: Malformed harness ledger line
+
+A line of `specforge-harness` is not `path key digest` with a SHA-256 digest, or
+the file does not start with `# specforge-harness 1` (ADR 0287). git's conflict
+markers are such lines when the file's `merge=union` attribute is missing. The
+line is ignored; with a bad header the whole ledger is read as empty, so every
+harness value is E083. Run `specforge harness gc` to write the file again from
+what it records, or restore it from git.
+
+Owner: core
+Level: warning
+```
+
+## W164
+
+```
+W164: Baseline cannot be read
+
+The project declares a history flag (ADR 0287), and its baseline, the project at
+the commit `HEAD` names, cannot be read: git is not installed or does not answer
+in time, refuses the directory (dubious ownership), or cannot give the files at
+that commit (a shallow or partial clone). Nothing is judged against history, and
+the message says why. Fix what it names, then check again.
+
+Owner: core
+Level: warning
+```
+
+## W165
+
+```
+W165: Computed value refused
+
+A compute pass answered a value the host does not take, once per value: for an
+entity the project does not hold, for a field the pass does not list in its
+`computes`, for a member of a block item that is not written, or in a form the
+field refuses (the field's own type, bounds and enum values apply). The value is
+dropped. A check or analyze pass that answers `values` is W165 once, and its
+values are ignored: only a pass in the `compute` phase gives values.
+
+Owner: core
+Level: warning
+```
+
+## W166
+
+```
+W166: Settings for an extension that is not enabled
+
+`settings` in `specforge.json` holds an object for an extension that no entry of
+`extensions` enables (ADR 0288), so nothing reads it, as W118 says of a
+provider. Add the extension to `extensions` (`specforge add <name>`), or remove
+its settings. An enabled extension that failed to load keeps its settings
+unchecked and reports its own failure (E028, E070).
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.
@@ -3416,5 +3625,6 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W121 | [E061](#e061) |
 | W122 | (nothing) |
 | W125 | [E061](#e061) |
+| W144 | (nothing) |
 | W146 | (nothing) |
 | W149 | [E033](#e033) |

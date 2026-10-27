@@ -150,6 +150,9 @@ pub(crate) fn entity_under_cursor(
 /// joined by a rule. `None` for a document that is not open or a position
 /// with neither.
 pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
+    if crate::config_document::is_config(state, uri) {
+        return crate::config_document::hover(state, uri, position);
+    }
     let key = state.key_of(uri);
     let files = state.files();
     let doc = files.document(&key)?;
@@ -220,6 +223,9 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
 
 /// What completes at the cursor (ADR 0023 D6).
 pub fn completion(state: &LspState, uri: &Url, position: Position) -> Option<CompletionResponse> {
+    if crate::config_document::is_config(state, uri) {
+        return crate::config_document::completion(state, uri, position);
+    }
     let cursor = state.document(uri)?.at(position)?;
     let file = crate::uri::file_path(uri);
     let place = file

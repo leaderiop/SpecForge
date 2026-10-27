@@ -42,4 +42,11 @@ impl Raises {
     pub fn is_empty(&self) -> bool {
         self.by_code.is_empty()
     }
+
+    /// Every raised code and the level it is raised to, by code.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Severity)> {
+        self.by_code
+            .iter()
+            .map(|(code, severity)| (code.as_str(), *severity))
+    }
 }

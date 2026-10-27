@@ -101,6 +101,7 @@ pub const READS: &[(&str, &str)] = &[
     ("specforge.suggest_fixes", "{}"),
     ("specforge.extensions", "{}"),
     ("specforge.providers", "{}"),
+    ("specforge.settings", "{}"),
     ("specforge.doctor", "{}"),
     ("specforge.render", r#"{"format":"brief"}"#),
     ("specforge.infer_progress", "{}"),

@@ -29,7 +29,7 @@ fn hello(c: &mut ContributionsBuilder) {
     });
 }
 
-/// `@pin/software`: W017 (`thing`), a lifecycle W021 (`note`), a proof-role
+/// `@pin/software`: W017 (`thing`), a proof-role
 /// W021 and a W019 (`rule`), two declaration W021s (`behavior`'s `owner`
 /// and `watched`), an E006 rule (`contract`), a W112 (`W901`) and a W145
 /// (passes `a`, `b`).
@@ -54,7 +54,7 @@ fn pin_software() -> ExtensionDeclaration {
             k.keyword("thing").testable(true).supports_verify(false);
         });
         c.kind("Note", |k| {
-            k.keyword("note").lifecycle_field("status");
+            k.keyword("note");
         });
         c.kind("Rule", |k| {
             k.keyword("rule");

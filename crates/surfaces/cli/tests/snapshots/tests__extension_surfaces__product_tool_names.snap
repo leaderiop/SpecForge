@@ -30,6 +30,7 @@ expression: names
   "specforge.migrate",
   "specforge.extensions",
   "specforge.providers",
+  "specforge.settings",
   "specforge.doctor",
   "specforge.collect",
   "specforge.render",

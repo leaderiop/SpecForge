@@ -220,6 +220,7 @@ fn pass_coverage(input: &PassInput) -> PassOutput {
             Ok(serde_json::Value::Object(summary)) => summary,
             _ => serde_json::Map::new(),
         },
+        ..Default::default()
     }
 }
 

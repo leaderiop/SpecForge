@@ -54,8 +54,9 @@ impl Severity {
 )]
 pub struct Diagnostic {
     pub code: String,
-    /// The code's catalogued level when built; the project's report may raise it (a raised code),
-    /// and a surface's strict after that, and nothing else changes it.
+    /// The code's catalogued level when built; the project's report may raise it (a preset raises
+    /// a code, or drop it while a setting gates it off), and a surface's strict after that, and
+    /// nothing else changes it.
     pub severity: Severity,
     pub message: String,
     pub span: Option<SourceSpan>,

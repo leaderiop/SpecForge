@@ -590,6 +590,10 @@ fn diff_field(
         minimum: old_minimum,
         maximum: old_maximum,
         file_base: old_file_base,
+        // Who writes a field and its history are the declaration's (ADR 0287), not the document's shape.
+        writer: _,
+        immutable: _,
+        append_only: _,
     } = old;
     let SchemaField {
         name: _,
@@ -606,6 +610,9 @@ fn diff_field(
         minimum: new_minimum,
         maximum: new_maximum,
         file_base: new_file_base,
+        writer: _,
+        immutable: _,
+        append_only: _,
     } = new;
 
     let mut attributes: Vec<AttributeChange> = Vec::new();

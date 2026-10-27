@@ -7,6 +7,7 @@ pub mod edit;
 pub mod entity_id;
 pub mod fix;
 pub mod format;
+pub mod harness;
 pub mod init;
 pub mod migrate;
 pub mod planned;

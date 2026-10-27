@@ -63,8 +63,7 @@ fn extension() -> ContributionsBuilder {
         k.keyword("gadget")
             .testable(true)
             .supports_verify(true)
-            .verify_kinds(&["unit"])
-            .lifecycle_field("status");
+            .verify_kinds(&["unit"]);
         k.field("needs", |f| {
             f.field_type(FieldType::Reference)
                 .edge("needs")
@@ -99,7 +98,7 @@ fn extension() -> ContributionsBuilder {
             .validate(|_| ValidatorVerdict::Pass);
     });
     c.pass("audit", |p| {
-        p.phase("check").run(no_findings);
+        p.phase("check").baseline(&["gadget"]).run(no_findings);
     });
     c.pass("report", |p| {
         p.run(no_findings);
@@ -170,13 +169,15 @@ fn c4_the_pass_input_of_an_analysis() {
     behavior = "call_extension_exports",
     verify = "every extension call encodes its input as the protocol type the SDK decodes"
 )]
-fn c4_the_pass_input_of_a_compile_carries_previous() {
+fn c4_the_pass_input_of_a_compile_carries_the_baseline() {
     let dir = project();
-    fs::write(
-        dir.root().join("specforge-cache.json"),
-        json!({"format": 1, "statuses": {"a": {"kind": "gadget", "status": "draft"}}}).to_string(),
-    )
-    .unwrap();
+    let head = fs::read(dir.root().join("a.spec")).unwrap();
+    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+        dir.root(),
+        "1a2b3c4d00000000000000000000000000000000",
+        vec![("a.spec".into(), head)],
+    ));
+    let _installed = specforge_project::testing::history::install(fake);
     let runtime = Arc::new(runtime());
     dir.compile_in(runtime.clone());
     // flipped in T6: `test_results` and `proved_claims` are absent, not null
@@ -420,4 +421,79 @@ fn runtime_with_trap() -> InProcessRuntime {
             export_name: "validate__shape".into(),
         }),
     )
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_settings",
+    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
+)]
+fn every_guest_call_but_describe_carries_its_settings() {
+    use specforge_project::testing::{
+        FOLLOWER_EXTENSION, SETTINGS_EXTENSION, follower_extension, settings_extension,
+    };
+    let runtime = Arc::new(
+        InProcessRuntime::new()
+            .with(settings_extension)
+            .with(follower_extension),
+    );
+    let project = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["settings"] = json!({"@t/s": {"level": 2, "models.planning": "opus"}});
+        })
+        .enabling(&[SETTINGS_EXTENSION, FOLLOWER_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", "gadget w \"W\" {}\n");
+    let _ = project.compile_in(runtime.clone());
+
+    let calls = runtime.calls();
+    for call in calls
+        .iter()
+        .filter(|c| c.export == "__handshake" || c.export == "__describe")
+    {
+        assert!(call.input.get("settings").is_none(), "{call:?}");
+    }
+    let pass = calls
+        .iter()
+        .find(|c| c.extension == SETTINGS_EXTENSION && c.export == "__pass_audit")
+        .expect("the pass was called");
+    let carried = &pass.input["settings"];
+    assert_eq!(carried["level"], 2);
+    assert_eq!(carried["models.planning"], "opus");
+    // The defaults a setting has are carried too; an unset one and a secret's value are not.
+    assert_eq!(carried["profile"], "compat");
+    assert_eq!(carried["flag"], false);
+    assert!(
+        carried.get("mode").is_none() && carried.get("api_key").is_none(),
+        "{carried}"
+    );
+    // A pass is not told whether a secret is set: that is the machine's, and its result must not depend on it.
+    assert!(pass.input.get("secrets").is_none(), "{}", pass.input);
+    // The follower declares no setting: it carries nothing, and not its peer's.
+    let follower = calls
+        .iter()
+        .find(|c| c.extension == FOLLOWER_EXTENSION && c.export == "__pass_audit")
+        .expect("the follower's pass was called");
+    assert!(
+        follower.input.get("settings").is_none(),
+        "{}",
+        follower.input
+    );
+
+    // A tool call: the client's `settings` is dropped and the host's is sent.
+    let calls = specforge_wasm::ExtensionCalls::new(runtime.as_ref());
+    let _ = calls.call_mcp_tool(
+        SETTINGS_EXTENSION,
+        "mcp__x",
+        &json!({"settings": {"level": 3}, "q": 1}),
+    );
+    let tool = runtime.calls().pop().expect("recorded");
+    assert_eq!(tool.input["settings"]["level"], 2, "{}", tool.input);
+    assert_eq!(tool.input["q"], 1);
+    // A tool is told whether the extension's secret is set.
+    assert!(
+        tool.input["secrets"]["api_key"].is_boolean(),
+        "{}",
+        tool.input
+    );
 }

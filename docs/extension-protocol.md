@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.7.0" }
+{ "host_version": "1.8.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.7.0",
+  "protocol_version": "1.8.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes` (the host compares `(major, minor)` as numbers) and loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes`, `settings` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes`, and one older than 1.8 is not asked for `settings` (the host compares `(major, minor)` as numbers); each loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -128,8 +128,9 @@ The host reads every string and object key of a handshake or describe answer pri
 | `collectors` | Test result collector descriptors | Always |
 | `analyzers` | Language analyzer descriptors (`specforge infer`) | Always |
 | `passes` | Compiler pass descriptors with ordering constraints | Always |
-| `feature_flags` | Feature flag descriptors | Always |
+| `feature_flags` | Feature flag descriptors, each read as a bool setting (below) | Always |
 | `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
+| `settings` | Typed settings, presets and secrets (protocol 1.8.0) | Always, from a guest of 1.8 or later |
 
 ### Category: entities
 
@@ -201,6 +202,8 @@ its `enum_values`; `identifier` one word (letters, digits and `_`, starting with
 array of strings; `enum_list` a list of its `enum_values` (a word twice is E061), written as an array of strings; `block` a block, written as an object of its entries, and, when the field declares `members`, an object of those members; `block_list` a list of blocks, `[ { phase 02 provides "x" } { .. } ]` (commas optional, `specforge format` writes none), written as an array of objects. Anything else is E061.
 
 A field of 1.7.0 may also declare: `members`, the fields of a `block` or of each `block_list` item (field descriptors themselves, nested to any depth; a member may not declare `derived_from`); `target_kinds`, the kinds a `reference` or `reference_list` may name (a union, exclusive with `target_kind`; a scope field names one kind); `minimum` and `maximum`, an `integer`'s inclusive bounds (E061 outside them); and `file_base`, `spec` (the default) or `project`, where a `file_reference` field's relative paths start. A member is addressed by its declared path, `requires.phase`; the edge a reference member writes is labelled by it. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry a field that declares members as structured JSON, keyed by field name, while `fields` keeps its text.
+A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored.
+
 How a value is written in `.spec` follows the type (ADR 0147): `enum`, `identifier`, `reference` and each `reference_list`
 item bare; `string` and each `string_list` item quoted. `specforge format` writes it and `check` warns W159 on the other form. A command's
 `graph` input, the exports and MCP carry exactly these forms.
@@ -500,8 +503,11 @@ neither). An entity's `id`, and an edge's `source` and `target`, are entity path
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
-`previous` (check passes only) is the build cache, `{"statuses": {"<id>":
-{"kind", "status"}}}`, when `specforge-cache.json` exists. See
+A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface; a value for a field that is not declared `computed` is W165.
+`previous` (compute and check passes that name kinds in `baseline`) is the
+git baseline of those kinds, `{"revision", "entities": {"<id>": {"kind",
+"fields": {...}}}}`; it is absent with no baseline (not in a git repository, no
+commit yet). See
 [Operate](#operate) for every operation's input and answer.
 
 ```json
@@ -524,7 +530,7 @@ entity (ADR 0284). A pass answers host diagnostics, bare or as
 
 ### Category: feature_flags
 
-Returns feature flag descriptors. Each flag declares allowed values and a default.
+Returns feature flag descriptors. Each flag declares allowed values and a default. The host reads a flag as the bool setting of its name and default ([Category: settings](#category-settings)), so `"settings": {"<extension>": {"<flag>": true}}` in `specforge.json` sets it.
 
 ```json
 {
@@ -539,6 +545,24 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
   ]
 }
 ```
+
+### Category: settings
+
+Returns typed settings, presets and secrets (protocol 1.8.0, ADR 0288). `specforge.json` sets a setting under `"settings": {"<extension>": {"<name>": value}}`; a feature flag is a bool setting. Each item is told apart by `kind`:
+
+```json
+{
+  "category": "settings",
+  "items": [
+    {"kind": "setting", "name": "tdd_mode", "field_type": "bool", "default": false, "gates": ["T201"]},
+    {"kind": "setting", "name": "models.*", "field_type": "enum", "enum_values": ["opus", "sonnet"], "keys": [["planning", "execution"]]},
+    {"kind": "preset", "source": "profile", "values": {"strict": {"settings": {"tdd_mode": true}, "severities": {"T202": "error"}}}},
+    {"kind": "secret", "name": "api_key", "env": "MY_API_KEY"}
+  ]
+}
+```
+
+A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false. A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
 
 ### Category: codes
 
@@ -569,6 +593,8 @@ Every input and answer is a type of `specforge_protocol_types` (module
 `calls`), the same definitions the SDK re-exports, so a Rust guest built with
 the SDK cannot answer the wrong shape; a guest in another language reads the
 table below and the goldens in `crates/runtime/wasm/tests/wire/`.
+
+Every call but the handshake and describe also carries the extension's own `settings` (a JSON object of its effective values by name, a family's keys written out; omitted when it has none) and, to a command, an MCP tool or resource of an extension that declares a secret, `secrets` (each declared secret's name, `true` when its environment variable is set, never the value), added at the end of the input object. A pass, validator, collector, scanner or migration is not told: whether a variable is set is the machine's, so a result that depended on it would differ between CI and a laptop with nothing in the project to explain it. Another extension's settings are never sent, a client's `settings` or `secrets` argument of an MCP tool is dropped, and an explicit tool's input schema may not declare `settings` or `secrets` (I017). The SDK reads them with `Settings::current()`, which falls back to each declared default.
 
 | Operation | Export | Input | Answer |
 |---|---|---|---|
@@ -667,6 +693,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.5.0` | the same as `1.0.0` |
 | `1.6.0` | the same as `1.0.0` |
 | `1.7.0` | the same as `1.0.0` |
+| `1.8.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -689,6 +716,7 @@ or answered.
 | `1.5.0` | An entity's `verify` statements are no field text (ADR 0094): a pass's `PassEntity.fields` and a validator's `ValidatorField` carry no `verify` entry, so a field named `verify` is never overwritten; a pass reads the statements in `verify_kinds` and `verify_texts`, and the graph a command gets may carry a node-level `verify`, which a guest ignores. A 1.4 guest that read `fields["verify"]` loses it. An enhancement names no `source_extension`: the host credits its fields to the answering extension and reads the kind's owner from its kind registry (ADR 0096); a 1.5 host reports a 1.4 guest's key as W138 and ignores it. |
 | `1.6.0` | A field's `field_type` may be `date` (ADR 0234), and a validator's `primitives` include `date`; a 1.5 host drops a `date` field with W019. (`identifier`, ADR 0147, came under 1.5.0 without a bump.) |
 | `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. An extension catalogs its codes (`codes`, ADR 0286); a guest older than 1.7 is not asked for the category and loads with none. A validation rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; a guest that still sends it loads, and the key is W138. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
+| `1.8.0` | A field and a block member may declare `writer` (`computed` or `harness`), `immutable` and `append_only`, and a kind `append_only` (ADR 0287): E082 a hand-written computed value, E083 a harness value with no line in `specforge-harness`, E084 an immutable value that differs from its git baseline, E085 an append-only list or kind that rewrites it. A pass may declare `baseline` and `computes`, phase `compute` runs it before the checks, and `PassOutput.values` gives it computed values (W165 for a field that is not computed). `previous` is the git baseline of the kinds `baseline` names, not the build cache (`specforge-cache.json` and `check --cache` are gone). `lifecycle_field` is ignored. An extension may declare the `settings` category (ADR 0288): typed settings, presets and secrets, and an older guest is not asked for it. A 1.7 host ignores the new keys. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.
@@ -752,7 +780,8 @@ Install it again (`specforge add`) and the next load restores all of it.
         v
   __describe(category), each once        entities, edges, shared_fields, enhancements,
         │                                 validation_rules, surfaces, collectors,
-        │                                 analyzers, passes, feature_flags
+        │                                 analyzers, passes, feature_flags,
+        │                                 codes, settings
         v
   REGISTER                               KindRegistry, FieldRegistry, EdgeRegistry
         │

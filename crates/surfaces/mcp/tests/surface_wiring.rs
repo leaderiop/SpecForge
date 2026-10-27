@@ -1,6 +1,5 @@
 //! Tests for wiring extension surface contributions to MCP tool/resource registries.
-//! Verifies that manifest-declared MCP tools and resources appear in the MCP server's
-//! discovery responses after initialization with a project containing surface-contributing extensions.
+//! Verifies that manifest-declared MCP tools and resources appear in the MCP server's discovery responses after initialization with a project containing surface-contributing extensions.
 //! Also tests dynamic kind-based tools and resources generated from the graph.
 
 use serde_json::{Value, json};
@@ -363,6 +362,7 @@ fn recompilation_refreshes_surfaces() {
         "specforge.render",
         "specforge.schema",
         "specforge.search",
+        "specforge.settings",
         "specforge.stats",
         "specforge.suggest_fixes",
         "specforge.trace",

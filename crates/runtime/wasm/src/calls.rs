@@ -297,11 +297,17 @@ impl<'r> ExtensionCalls<'r> {
         export: &str,
         arguments: &Value,
     ) -> Result<Value, CallError> {
+        // `settings` and `secrets` are the host's to send: a client's are dropped (ADR 0288).
+        let mut arguments = arguments.clone();
+        if let Some(object) = arguments.as_object_mut() {
+            object.remove("settings");
+            object.remove("secrets");
+        }
         self.call_typed(
             Operation::McpTool,
             extension,
             export,
-            arguments,
+            &arguments,
             "JSON value",
         )
     }
@@ -424,6 +430,25 @@ impl<'r> ExtensionCalls<'r> {
         decode(operation, extension, export, &answer, expected)
     }
 
+    /// The members every call but the handshake and describe carries (ADR 0288): the extension's own settings
+    /// and secrets' presence, and nobody else's.
+    fn carried(
+        &self,
+        operation: Operation,
+        extension: &str,
+    ) -> Option<serde_json::Map<String, Value>> {
+        if matches!(operation, Operation::Handshake | Operation::Describe) {
+            return None;
+        }
+        // Secret presence only where a person runs something on this machine (see `ExtensionSettings::members`).
+        let secrets = matches!(
+            operation,
+            Operation::Command | Operation::McpTool | Operation::McpResource
+        );
+        let members = self.runtime.settings_of(extension)?.members(secrets);
+        (!members.is_empty()).then_some(members)
+    }
+
     fn call_raw(
         &self,
         operation: Operation,
@@ -431,6 +456,14 @@ impl<'r> ExtensionCalls<'r> {
         export: &str,
         bytes: &[u8],
     ) -> Result<Vec<u8>, CallError> {
+        let spliced;
+        let bytes = match self.carried(operation, extension) {
+            Some(members) => {
+                spliced = splice(bytes, &members);
+                &spliced
+            }
+            None => bytes,
+        };
         match self.runtime.call_export(extension, export, bytes) {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
@@ -446,6 +479,33 @@ impl<'r> ExtensionCalls<'r> {
             }
         }
     }
+}
+
+/// `bytes`, a JSON object, with `members` added at its end. Not an object: as it is. A text splice, so a
+/// graph-sized input is not parsed to carry two small members.
+fn splice(bytes: &[u8], members: &serde_json::Map<String, Value>) -> Vec<u8> {
+    let trimmed = bytes.trim_ascii_end();
+    let Some(body) = trimmed.strip_suffix(b"}") else {
+        return bytes.to_vec();
+    };
+    if !body.trim_ascii_start().starts_with(b"{") {
+        return bytes.to_vec();
+    }
+    let mut first = body.trim_ascii_start()[1..].trim_ascii().is_empty();
+    // One allocation: the input is copied once, with room for the members, not grown by them.
+    let mut out = Vec::with_capacity(body.len() + 256);
+    out.extend_from_slice(body);
+    for (name, value) in members {
+        if !first {
+            out.push(b',');
+        }
+        first = false;
+        out.extend(serde_json::to_vec(name).expect("a string serializes"));
+        out.push(b':');
+        out.extend(serde_json::to_vec(value).expect("a value serializes"));
+    }
+    out.push(b'}');
+    out
 }
 
 /// Decode an export's `answer` as the protocol type `expected` names; a text-reading operation's

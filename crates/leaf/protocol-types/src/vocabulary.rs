@@ -174,6 +174,20 @@ vocabulary! {
 }
 
 vocabulary! {
+    /// Who writes a field other than its author (ADR 0287). On the wire `FieldDescriptor::writer` stays a string,
+    /// so an unknown writer costs the field a diagnostic (W021), not the describe payload.
+    FieldWriter {
+        /// A compute pass of the declaring extension gives the value; it lives only in the compiled project and
+        /// is never in a `.spec` file (E082).
+        Computed = "computed",
+        /// Only a host write a command or collector plan makes, recorded by a line of `specforge-harness`
+        /// (E083).
+        Harness = "harness",
+    }
+    aliases {}
+}
+
+vocabulary! {
     /// What a declarative validation rule checks, per entity of its
     /// `target_kind` (every entity when unset).
     ///

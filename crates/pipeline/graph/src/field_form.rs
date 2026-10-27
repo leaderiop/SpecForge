@@ -13,10 +13,11 @@ use specforge_common::SourceSpan;
 use specforge_common::find_close_match;
 use specforge_common::shape::{Definitions, Shape};
 use specforge_parser::{FieldEntry, FieldValue, ListItem, Written};
-use specforge_protocol_types::{FieldType, FileBase};
+use specforge_protocol_types::{FieldType, FieldWriter, FileBase};
 
 use crate::Graph;
 
+mod admit;
 pub mod json;
 pub mod members;
 pub mod targets;
@@ -104,6 +105,10 @@ pub struct FieldForm {
     base: FileBase,
     /// A member's `required`: present in each written item. The top level keeps E006's host rule.
     required: bool,
+    /// Who writes it besides its author (ADR 0287).
+    writer: Option<FieldWriter>,
+    /// A value set at the baseline never changes; `append_only`: the baseline list is a prefix of the current one.
+    history: (bool, bool),
 }
 
 /// Why a field does not take a value: the remedy E061 suggests, if any.
@@ -139,6 +144,8 @@ impl FieldForm {
             bounds: (None, None),
             base: FileBase::Spec,
             required: false,
+            writer: None,
+            history: (false, false),
         }
     }
 
@@ -175,6 +182,34 @@ impl FieldForm {
     pub fn requiring(mut self, required: bool) -> Self {
         self.required = required;
         self
+    }
+
+    /// The same form, written by `writer` (ADR 0287).
+    pub fn written_by(mut self, writer: Option<FieldWriter>) -> Self {
+        self.writer = writer;
+        self
+    }
+
+    /// The same form, judged against the git baseline: `immutable` never changes once set, `append_only` only
+    /// grows at its end (ADR 0287).
+    pub fn historied(mut self, immutable: bool, append_only: bool) -> Self {
+        self.history = (immutable, append_only);
+        self
+    }
+
+    /// Who writes it besides its author: `Computed` (a compute pass) or `Harness` (a host write).
+    pub fn writer(&self) -> Option<FieldWriter> {
+        self.writer
+    }
+
+    /// A value set at the baseline never changes (an unset one may be set once).
+    pub fn immutable(&self) -> bool {
+        self.history.0
+    }
+
+    /// The baseline list is a prefix of the current one.
+    pub fn append_only(&self) -> bool {
+        self.history.1
     }
 
     /// The kind its references must name, if its descriptor declares exactly one. Whether a loaded

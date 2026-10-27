@@ -118,8 +118,7 @@ type EntityKindDescriptor "Entity Kind Descriptor" {
   contract_target boolean           @optional
   // Its entity ids name types: custom validators receive them as declared_types
   declares_types  boolean           @optional
-  /// The one field (of those the kind declares) holding its entities'
-  /// lifecycle state; the build cache records its value (ADR 0009).
+  /// Read and ignored since ADR 0287 (the build cache that recorded it is gone).
   lifecycle_field string            @optional
   verify unit "EntityKindDescriptor schema is valid"
 }

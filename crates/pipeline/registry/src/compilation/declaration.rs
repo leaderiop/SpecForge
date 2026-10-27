@@ -267,6 +267,73 @@ pub(crate) fn consistency(
         }
     }
 
+    // ADR 0287: a computed field is computed by exactly one compute pass of this extension, and a pass computes
+    // only fields that are computed.
+    let mut computed: Vec<String> = Vec::new();
+    let mut collect = |kind: &str, field: &FieldDescriptor| {
+        field.for_each_path(&field.name, &mut |path, f| {
+            if f.writer.as_deref() == Some("computed") && f.derived_from.is_none() {
+                computed.push(format!("{kind}.{path}"));
+            }
+        });
+    };
+    for kind in &declaration.entities {
+        let kind_keyword = keyword(kind);
+        kind.fields.iter().for_each(|f| collect(kind_keyword, f));
+        for field in &declaration.shared_fields {
+            collect(kind_keyword, field);
+        }
+    }
+    for enhancement in &declaration.enhancements {
+        for field in &enhancement.fields {
+            collect(&enhancement.target_kind, field);
+        }
+    }
+    let mut claimed: Vec<(&str, &str)> = Vec::new();
+    for pass in &declaration.passes {
+        let compute = pass.phase.as_deref() == Some(super::build::COMPUTE_PHASE);
+        if !pass.computes.is_empty() && !compute {
+            diagnostics.push(warn(format!(
+                "extension '{}': pass '{}' declares computes, but its phase is not 'compute'",
+                name, pass.name
+            )));
+        }
+        for entry in &pass.computes {
+            if !computed.contains(entry) {
+                diagnostics.push(warn(format!(
+                    "extension '{}': pass '{}' computes '{}', which is not a computed field of this extension",
+                    name, pass.name, entry
+                )));
+            } else if let Some((_, other)) = claimed.iter().find(|(e, _)| *e == entry) {
+                diagnostics.push(warn(format!(
+                    "extension '{}': pass '{}' computes '{}', which pass '{}' computes already",
+                    name, pass.name, entry, other
+                )));
+            } else {
+                claimed.push((entry, &pass.name));
+            }
+        }
+        for kind in &pass.baseline {
+            if !loaded
+                .iter()
+                .any(|d| d.entities.iter().any(|k| keyword(k) == kind))
+            {
+                diagnostics.push(warn(format!(
+                    "extension '{}': pass '{}' reads the baseline of kind '{}', which no loaded extension declares",
+                    name, pass.name, kind
+                )));
+            }
+        }
+    }
+    for entry in &computed {
+        if !claimed.iter().any(|(e, _)| *e == entry) {
+            diagnostics.push(warn(format!(
+                "extension '{}': field '{}' is computed, but no compute pass lists it in computes",
+                name, entry
+            )));
+        }
+    }
+
     for edge in &declaration.edges {
         for (role, kind) in [
             ("source_kind", &edge.source_kind),

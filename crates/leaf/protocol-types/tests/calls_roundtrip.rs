@@ -79,7 +79,9 @@ fn the_host_payloads_decode_as_their_protocol_types() {
     assert_eq!(tests[0].status, TestStatus::Passed);
     assert_eq!(tests[0].duration_ms, Some(1.5));
     let check: PassInput = round_trips(&wire("pass.check.input.json"));
-    assert_eq!(check.previous.unwrap().statuses["a"].status, "draft");
+    let previous = check.previous.unwrap();
+    assert_eq!(previous.revision.len(), 40);
+    assert_eq!(previous.entities["a"].fields["status"], "active");
     let collect: CollectInput = round_trips(&wire("collect.input.json"));
     assert_eq!(collect.stdout, None);
     let Value::Array(contexts) = wire("validate.input.json") else {
@@ -281,4 +283,20 @@ mod evidence {
             serde_json::from_value(json!({"obligations": 1, "proven": 1})).unwrap();
         assert_eq!(decoded.failing, 0, "failing defaults to none");
     }
+}
+
+#[test]
+fn a_pass_answer_carries_computed_values_and_omits_none() {
+    let answer: PassAnswer = serde_json::from_value(
+        json!({"diagnostics": [], "values": [{"entity": "a", "field": "checks[0].status", "value": "pass"}]}),
+    )
+    .unwrap();
+    let output = answer.into_output();
+    assert_eq!(output.values[0].field, "checks[0].status");
+    assert!(
+        serde_json::to_value(PassOutput::default())
+            .unwrap()
+            .get("values")
+            .is_none()
+    );
 }

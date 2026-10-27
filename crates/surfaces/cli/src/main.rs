@@ -20,6 +20,7 @@ mod extension_authoring;
 mod extension_command;
 mod extensions;
 mod format;
+mod harness;
 mod infer_guide;
 mod infer_status;
 mod init;
@@ -40,6 +41,7 @@ mod remove;
 mod review;
 mod scaffold;
 mod search;
+mod settings;
 mod stats;
 mod terminal;
 mod trace;
@@ -125,8 +127,15 @@ enum Commands {
     Logout(login::LogoutArgs),
     /// List configured providers
     Providers(providers::Args),
+    /// List each extension's settings: the value, where it came from, what it gates and each secret's status
+    Settings(settings::Args),
     /// Run the project's test runners and record which entities their tests prove
     Collect(collect::Args),
+    /// The harness ledger: specforge-harness records the values only a command's plan sets
+    Harness {
+        #[command(subcommand)]
+        action: harness::Action,
+    },
     /// Run health checks on installed extensions
     Doctor(doctor::Args),
     /// Start MCP server (JSON-RPC over stdio)
@@ -167,6 +176,10 @@ fn declared() -> clap::Command {
 }
 
 fn main() {
+    // History is read through the git command line, only when a project declares it (ADR 0287).
+    specforge_project::history::set_default(Some(std::sync::Arc::new(
+        specforge_git::GitCli::default(),
+    )));
     let cli = Cli::parse();
     let terminal = Terminal::process();
 
@@ -238,7 +251,9 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Login(args) => args.run(terminal),
         Commands::Logout(args) => args.run(terminal),
         Commands::Providers(args) => args.run(terminal),
+        Commands::Settings(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
+        Commands::Harness { action } => action.run(terminal),
         Commands::Doctor(args) => args.run(terminal),
         Commands::Mcp(args) => args.run(terminal),
         Commands::Completions { shell, project } => completions(shell, &project, terminal),

@@ -5,6 +5,7 @@
 //! its records; the pass input, the custom validators' context and the
 //! coverage rule's entities are adapters over it.
 
+mod computed;
 mod record;
 mod standing;
 mod text;

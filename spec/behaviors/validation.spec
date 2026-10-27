@@ -322,3 +322,103 @@ behavior report_entities_without_contract_obligations "Report Entities Without C
   verify unit "a single contract reference is a contract obligation"
   verify unit "the contracts pass's suggestion names the kind's contract fields, sorted"
 }
+
+behavior read_git_baseline "Read the Git Baseline" {
+  features [ci_integration]
+  category validation
+  ports    [FileSystem]
+  requires {
+    history_declared "an immutable or append-only field, an append-only kind, or a pass naming a baseline kind is loaded"
+  }
+  ensures {
+    declared_only "git is never run, and no ref or ledger is a check input, unless something declares history"
+    same_without  "a project that declares no history reports the same inside and outside a repository"
+  }
+  contract """
+    History is the git baseline (ADR 0287): HEAD, or under check --since the merge-base of the revision and HEAD,
+    compiled in the current environment. It is read only when something declares history, so a project that declares
+    none runs no process and watches no ref.
+  """
+  produces []
+  verify unit "a project that declares no history reads no git and watches no ref and no ledger"
+  verify unit "check reports the same inside and outside a git repository when nothing declares history"
+  verify unit "no history is I204 only when history is declared"
+  verify unit "an unreadable baseline is W164 and nothing is judged"
+  verify unit "the baseline is cached by commit and environment"
+  verify unit "history reads the commits files through a port"
+  verify unit "history reads only the specs and the ledger of a commit"
+  verify unit "check since judges history against the merge-base and refuses an unknown revision"
+  verify unit "validate since judges per request"
+}
+
+behavior judge_field_history "Judge Field History" {
+  category validation
+  requires {
+    registries_populated_fired "the field registry holds each field's declared writer and history flags"
+  }
+  ensures {
+    flags_declared "only an extension that declares a writer, immutable or append_only flag is judged by it"
+  }
+  contract """
+    A field declares who writes it (writer: computed or harness) and its history (immutable, append_only); a kind may
+    be append-only (ADR 0287). The builtins declare none, so their projects see no new diagnostic.
+  """
+  produces []
+  verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
+  verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
+  verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
+  verify unit "lifecycle_field is read and ignored: a kind that sends it loads without W138"
+  verify unit "an immutable value that differs from its baseline is E084"
+  verify unit "an immutable field unset at the baseline may be set once"
+  verify unit "an append-only list must extend its baseline"
+  verify unit "an append-only kind keeps its entities"
+  verify unit "a renamed scope is judged through its move record"
+  verify unit "a history flag that sits only on a block member is judged"
+  verify unit "a change inside a block of an append-only kind is one E084"
+  verify unit "a renumbering chain is judged through both move records at once"
+  verify unit "only a reference value is respelled by a move record"
+  verify unit "a file that does not parse is not judged against history"
+}
+
+behavior refuse_written_computed "Refuse a Written Computed Value" {
+  category validation
+  requires {
+    registries_populated_fired "the field registry holds each field's declared writer"
+  }
+  ensures {
+    e082_at_the_value  "a computed field or member written in a spec file is E082 at the written value, and the computed value wins"
+    typed_edit_refused "a typed edit of a computed, harness or immutable field is refused as E080 with that code"
+  }
+  contract """
+    A computed field is a compute pass's value and lives only in the compiled project (ADR 0287). Writing one in a
+    `.spec` file is E082, and a typed edit that would is refused as E080.
+  """
+  produces []
+  verify unit "a computed field written in a spec file is E082 at the value, and the computed value wins"
+  verify unit "a typed edit of a computed, harness or immutable field is refused"
+}
+
+behavior record_harness_values "Record Harness Values" {
+  features [ci_integration]
+  category validation
+  ports    [FileSystem]
+  requires {
+    harness_field_declared "a field declares writer harness"
+  }
+  ensures {
+    e083_without_line     "a harness value with no matching line in specforge-harness is E083"
+    ledger_read_leniently "a malformed line is W163 and ignored, and a ledger that is not canonical is I203"
+  }
+  contract """
+    A harness value is recorded by a line `<entity-path> <field> <sha256>` in the committed `specforge-harness`,
+    written only by a host write (ADR 0287). The digest is over the resolved value, so a rename's respelling does
+    not change it.
+  """
+  produces []
+  verify unit "the value digest reads the target of a reference, not its spelling"
+  verify unit "a harness value with no matching line in specforge-harness is E083"
+  verify unit "a malformed ledger line is W163 and ignored, and a bad header makes every harness value E083"
+  verify unit "a union-merged ledger reads, and is I203 once"
+  verify unit "a rename records its move and re-keys its lines"
+  verify unit "two writers both land their lines"
+}

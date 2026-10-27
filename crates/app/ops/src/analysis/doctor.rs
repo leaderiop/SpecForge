@@ -158,7 +158,8 @@ impl Finding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 #[serde(tag = "about", rename_all = "snake_case")]
 pub enum About {
-    /// `specforge.json`: E069, or none at the root (`config_missing`).
+    /// `specforge.json`: E069, a setting not used as written (E086, E087,
+    /// W166), or none at the root (`config_missing`).
     Config,
     /// `specforge.lock` exists and cannot be read (`lock_unreadable`; E033
     /// without a root).
@@ -493,7 +494,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
 /// so a new part is a compile error here.
 fn about(part: SetupPart, diagnostic: &Diagnostic) -> About {
     match part {
-        SetupPart::Config => About::Config,
+        SetupPart::Config | SetupPart::Settings => About::Config,
         SetupPart::Lock => About::Lock,
         SetupPart::Entry(_) => About::Load,
         SetupPart::StructuralOnly => About::StructuralOnly,

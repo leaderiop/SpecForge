@@ -18,21 +18,14 @@ defaults behavior {
 // Status Transition Validation (W087-W091)
 //
 // These rules validate status transitions by comparing the current
-// status against the previous status stored in the build cache.
-// The build cache is an explicit, opt-in artifact — NOT implicit
-// compiler state. It is produced by `specforge check --cache` and
-// stored as a deterministic JSON file (specforge-cache.json) in the
-// project root. When no cache file exists (first build or
-// cache-disabled workflows), transition rules are suppressed.
+// status against the previous status at the git baseline: the project
+// compiled at HEAD, handed to a pass as `previous` (ADR 0287). History
+// is a declared input, not hidden state. When there is no baseline
+// (not a git repository, no commit yet), transition rules are
+// suppressed.
 //
-// This design preserves deterministic compilation: the same inputs
-// (spec files + cache file) always produce the same outputs. The
-// cache file is a declared input, not hidden state. CI pipelines
-// that want transition validation commit the cache file; pipelines
-// that want stateless builds simply omit it.
-//
-// Without cache: only vocabulary validity is checked (E061).
-// With cache: transition validity is additionally checked (W087-W091).
+// Without a baseline: only vocabulary validity is checked (E061).
+// With one: transition validity is additionally checked (W087-W091).
 // ════════════════════════════════════════════════════════════════
 
 behavior validate_feature_status_transition "Validate Feature Status Transition" {
@@ -48,9 +41,9 @@ behavior validate_feature_status_transition "Validate Feature Status Transition"
     Invalid transitions MUST produce a W087 warning including the current
     status, attempted status, and list of valid targets.
 
-    Transition detection requires an explicit build cache file
-    (specforge-cache.json) as a declared compiler input. The cache records
-    entity statuses from the previous build. When no cache exists,
+    Transition detection requires the git baseline (the project at HEAD,
+    ADR 0287) as a declared input. It records entity statuses from the
+    previous commit. When there is no baseline,
     W087 is suppressed entirely — only vocabulary validity (E061) is checked.
   """
   ensures {
@@ -58,8 +51,8 @@ behavior validate_feature_status_transition "Validate Feature Status Transition"
     allows_valid        "feature following a valid transition suppresses W087"
     done_to_deprecated  "feature with status=done transitioning to deprecated is valid"
     terminal_deprecated "feature with status=deprecated transitioning to any other status produces W087"
-    cache_required      "W087 requires build cache; suppressed when no cache file exists"
-    absent_exempt       "feature not present in cache (new entity) suppresses W087"
+    cache_required      "W087 requires the git baseline; suppressed when there is none"
+    absent_exempt       "feature not present in the baseline (new entity) suppresses W087"
     includes_targets    "W087 message includes valid target statuses for the current state"
   }
   features [product_validation]
@@ -67,8 +60,8 @@ behavior validate_feature_status_transition "Validate Feature Status Transition"
   verify unit "proposed->done is invalid, produces W087"
   verify unit "done->deprecated is valid, suppresses W087"
   verify unit "deprecated->proposed is invalid (terminal), produces W087"
-  verify unit "no cache file: W087 suppressed entirely"
-  verify unit "new entity not in cache: W087 suppressed"
+  verify unit "no git baseline: W087 suppressed entirely"
+  verify unit "new entity not in the baseline: W087 suppressed"
   verify unit "W087 message lists valid targets"
 }
 
@@ -81,20 +74,20 @@ behavior validate_milestone_status_transition "Validate Milestone Status Transit
     planned->in_progress, planned->blocked, in_progress->completed,
     in_progress->blocked, blocked->planned, blocked->in_progress.
     The completed state is terminal. Invalid transitions MUST produce
-    a W088 warning. Requires build cache for comparison; suppressed
-    when no cache file exists.
+    a W088 warning. Requires the git baseline for comparison; suppressed
+    when there is none.
   """
   ensures {
     fires_on_invalid   "milestone transitioning to unreachable status produces W088"
     allows_valid       "milestone following valid transition suppresses W088"
     terminal_completed "completed milestone transitioning to any other status produces W088"
-    cache_required     "W088 requires build cache; suppressed when no cache file exists"
-    absent_exempt      "milestone not present in cache (new entity) suppresses W088"
+    cache_required     "W088 requires the git baseline; suppressed when there is none"
+    absent_exempt      "milestone not present in the baseline (new entity) suppresses W088"
   }
   verify unit "planned->in_progress is valid, suppresses W088"
   verify unit "planned->completed is invalid, produces W088"
   verify unit "completed->planned is invalid (terminal), produces W088"
-  verify unit "no cache file: W088 suppressed entirely"
+  verify unit "no git baseline: W088 suppressed entirely"
 }
 
 behavior validate_deliverable_status_transition "Validate Deliverable Status Transition" {
@@ -106,14 +99,14 @@ behavior validate_deliverable_status_transition "Validate Deliverable Status Tra
     transitions: draft->in_progress, in_progress->shipped,
     in_progress->draft, shipped->deprecated. The deprecated state is
     terminal. Invalid transitions MUST produce a W089 warning. Requires
-    build cache for comparison; suppressed when no cache file exists.
+    the git baseline for comparison; suppressed when there is none.
   """
   ensures {
     fires_on_invalid    "deliverable transitioning to unreachable status produces W089"
     allows_valid        "deliverable following valid transition suppresses W089"
     terminal_deprecated "deprecated deliverable transitioning to any other status produces W089"
-    cache_required      "W089 requires build cache; suppressed when no cache file exists"
-    absent_exempt       "deliverable not present in cache (new entity) suppresses W089"
+    cache_required      "W089 requires the git baseline; suppressed when there is none"
+    absent_exempt       "deliverable not present in the baseline (new entity) suppresses W089"
   }
   verify unit "draft->in_progress is valid, suppresses W089"
   verify unit "draft->shipped is invalid, produces W089"
@@ -127,14 +120,14 @@ behavior validate_persona_status_transition "Validate Persona Status Transition"
     The @specforge/product extension MUST declare a custom validation
     rule that detects invalid persona status transitions. Valid
     transitions: active->deprecated. The deprecated state is terminal.
-    Invalid transitions MUST produce a W090 warning. Requires build
-    cache for comparison; suppressed when no cache file exists.
+    Invalid transitions MUST produce a W090 warning. Requires the git
+    baseline for comparison; suppressed when there is none.
   """
   ensures {
     fires_on_invalid    "persona transitioning to unreachable status produces W090"
     allows_valid        "persona active->deprecated suppresses W090"
     terminal_deprecated "deprecated persona reverting to active produces W090"
-    cache_required      "W090 requires build cache; suppressed when no cache file exists"
+    cache_required      "W090 requires the git baseline; suppressed when there is none"
   }
   verify unit "active->deprecated is valid, suppresses W090"
   verify unit "deprecated->active is invalid (terminal), produces W090"
@@ -147,14 +140,14 @@ behavior validate_channel_status_transition "Validate Channel Status Transition"
     The @specforge/product extension MUST declare a custom validation
     rule that detects invalid channel status transitions. Valid
     transitions: active->deprecated. The deprecated state is terminal.
-    Invalid transitions MUST produce a W091 warning. Requires build
-    cache for comparison; suppressed when no cache file exists.
+    Invalid transitions MUST produce a W091 warning. Requires the git
+    baseline for comparison; suppressed when there is none.
   """
   ensures {
     fires_on_invalid    "channel transitioning to unreachable status produces W091"
     allows_valid        "channel active->deprecated suppresses W091"
     terminal_deprecated "deprecated channel reverting to active produces W091"
-    cache_required      "W091 requires build cache; suppressed when no cache file exists"
+    cache_required      "W091 requires the git baseline; suppressed when there is none"
   }
   verify unit "active->deprecated is valid, suppresses W091"
   verify unit "deprecated->active is invalid (terminal), produces W091"
@@ -163,10 +156,10 @@ behavior validate_channel_status_transition "Validate Channel Status Transition"
 // ════════════════════════════════════════════════════════════════
 // First-Build Initial Status Validation (I092-I093)
 //
-// W087-W091 are suppressed when no build cache exists. These rules
+// W087-W091 are suppressed when there is no git baseline. These rules
 // catch invalid initial states that would otherwise pass silently,
 // closing the first-build validation gap. They fire regardless of
-// cache presence since they check absolute state, not transitions.
+// the baseline since they check absolute state, not transitions.
 // I092-I093 are info codes.
 // ════════════════════════════════════════════════════════════════
 
@@ -823,8 +816,8 @@ behavior validate_release_status_transition "Validate Release Status Transition"
   contract    """
     Release status transitions SHOULD follow the declared state machine:
     planned->in_progress, in_progress->released, released->recalled.
-    Recalled is terminal. Requires build cache for comparison; suppressed
-    when no cache file exists.
+    Recalled is terminal. Requires the git baseline for comparison; suppressed
+    when there is none.
   """
   diagnostic  W094
   severity    warning
@@ -832,7 +825,7 @@ behavior validate_release_status_transition "Validate Release Status Transition"
   verify unit "planned->in_progress produces no W094"
   verify unit "planned->released produces W094"
   verify unit "recalled->planned produces W094"
-  verify unit "no cache file: W094 suppressed entirely"
+  verify unit "no git baseline: W094 suppressed entirely"
 }
 
 behavior detect_missing_owner "Detect Missing Owner" {
@@ -915,20 +908,20 @@ behavior detect_cache_absent_awareness "Detect Cache-Absent Transition Suppressi
   category    validation
   contract    """
     The @specforge/product extension SHOULD detect when entities have status
-    fields that would trigger transition validation (W087-W091, W094) but no
-    build cache file is present. In this situation, transition rules are
-    silently suppressed — CI systems that don't persist the cache file will
+    fields that would trigger transition validation (W087-W091, W094) but there
+    is no git baseline. In this situation, transition rules are
+    silently suppressed — CI systems that check out a single commit will
     never see transition warnings. Produces I097 once per build (not per
-    entity) when: (1) at least one entity has a status field, AND (2) no
-    specforge-cache.json is found. I097 is a build-level awareness
+    entity) when: (1) at least one entity has a status field, AND (2) there
+    is no git baseline. I097 is a build-level awareness
     diagnostic, not per-entity.
   """
   diagnostic  I097
   severity    info
-  description "Status transition validation suppressed (no build cache)"
-  verify unit "build with status fields and no cache produces I097"
-  verify unit "build with status fields and cache produces no I097"
-  verify unit "build with no status fields and no cache produces no I097"
+  description "Status transition validation suppressed (no git baseline)"
+  verify unit "build with status fields and no baseline produces I097"
+  verify unit "build with status fields and a baseline produces no I097"
+  verify unit "build with no status fields and no baseline produces no I097"
   verify unit "I097 fires at most once per build"
 }
 
