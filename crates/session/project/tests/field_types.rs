@@ -35,6 +35,7 @@ fn ticket_manifest() -> ExtensionDeclaration {
                 field("summary", "string", &[]),
                 field("depends_on", "reference_list", &[]),
                 field("parent", "reference", &[]),
+                field("notes", "block", &[]),
             ],
             ..EntityKindDescriptor::default()
         }],
@@ -279,4 +280,31 @@ ticket t3 "T" {
     assert_eq!(errors.len(), 1, "{diags:?}");
     assert!(errors[0].message.contains("parent") && errors[0].message.contains("t3"));
     assert!(diags.iter().all(|d| d.code != "E003"), "{diags:?}");
+}
+
+#[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "a block field with no declared members is an open map of named text entries"
+)]
+fn an_open_block_reads_as_named_text_entries() {
+    let (graph, diags) = build_and_check(
+        r#"ticket t1 "T" {
+  notes { pre "x" count 3 }
+}
+"#,
+    );
+
+    assert!(e061(&diags).is_empty(), "{diags:?}");
+    let value = graph.node("t1").unwrap().fields.get("notes").unwrap();
+    let FieldValue::Block(entries) = value else {
+        panic!("stored as written: {value:?}");
+    };
+    assert_eq!(entries.entries().len(), 2);
+    assert_eq!(
+        serde_json::Value::from(specforge_graph::field_form::write(value)),
+        serde_json::json!({"pre": "x", "count": 3})
+    );
+
+    let (_graph, diags) = build_and_check("ticket t2 \"T\" {\n  notes \"x\"\n}\n");
+    assert_eq!(e061(&diags).len(), 1, "{diags:?}");
 }

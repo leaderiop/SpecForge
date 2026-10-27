@@ -241,6 +241,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "existing file reference passes silently"
   verify unit "multiple file references in same entity each validated independently"
   verify unit "relative path resolved from the spec root"
+  verify unit "a file reference is read from the spec root and suggests a close sibling there"
   verify unit "a field another kind declares as a file reference is not one on this kind"
   verify unit "a single path on a file-reference field is checked like a one-item list"
   verify unit "a bare word on a file-reference field is a path"

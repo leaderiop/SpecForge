@@ -244,3 +244,36 @@ fn a_bare_word_on_a_file_reference_field_is_checked() {
         ]]
     );
 }
+
+/// With `spec_root: spec`, a file field names its paths from the spec root, and a close sibling there is the
+/// suggestion (ADR 0118 D1): K3 T8 adds a field that reads another root; this one stays as it is.
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "a file reference is read from the spec root and suggests a close sibling there"
+)]
+fn a_file_field_is_read_from_the_spec_root_and_suggests_a_sibling() {
+    let dir = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["spec_root"] = "spec".into();
+        })
+        .enabling(&["@test/docs"])
+        .installing_enabled()
+        .file(
+            "spec/a.spec",
+            "doc d1 { guide \"guid.md\" }\ndoc d2 { guide \"src/x.ts\" }\n",
+        )
+        .file("spec/guide.md", "")
+        .file("src/x.ts", "");
+
+    let diagnostics: Vec<Diagnostic> = dir.compile_in(std::sync::Arc::new(docs())).diagnostics();
+    let e016: Vec<_> = diagnostics.iter().filter(|d| d.code == "E016").collect();
+
+    assert_eq!(e016.len(), 2, "{e016:#?}");
+    assert!(e016[0].message.contains("'guid.md'"), "{e016:#?}");
+    assert_eq!(
+        e016[0].suggestion.as_deref(),
+        Some("did you mean 'guide.md'?")
+    );
+    assert!(e016[1].message.contains("'src/x.ts'"), "{e016:#?}");
+}

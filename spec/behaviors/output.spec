@@ -68,6 +68,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify unit "schema is included even for empty graph"
   verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
   verify unit "an expression group is written as its conjuncts, one per line, never as a parse tree"
+  verify unit "a value no K3 attribute shapes is written as it was before"
   verify unit "what an entity holds is written once: its fields, their annotations at any depth and its methods, with no position"
   verify unit "every export format writes an entity id holding a dash or a dot as written"
   verify unit "an export of a project with no scoped kind writes each id as its name and each edge as written"
