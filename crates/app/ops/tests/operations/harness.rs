@@ -1,17 +1,54 @@
 //! A host write keeps the harness ledger, and refuses what a field's writer forbids (ADR 0287).
 
+use std::sync::Arc;
+
+use serde_json::json;
+use specforge_ops::authoring::edit::{self, Input};
+use specforge_ops::view::ProjectView;
+use specforge_project::testing::{
+    FakeHistory, GSD_EXTENSION, TestProject, gsd_history_runtime, history,
+};
 use specforge_test_macros::test as specforge_test;
+
+const BASE: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\n";
+
+fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> bool {
+    let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+    edit::run(
+        &ProjectView::of(&compiled),
+        &[crate::edit::set(entity, field, Input::One(value.into()))],
+        true,
+        specforge_ops::testing::caller(),
+    )
+    .is_err_and(|e| e.error.is(specforge_common::codes::E080))
+}
+
+fn gsd(spec: &str) -> TestProject {
+    TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .installing_enabled()
+        .file("a.spec", format!("{BASE}{spec}"))
+}
 
 #[specforge_test(
     behavior = "refuse_written_computed",
     verify = "a typed edit of a computed, harness or immutable field is refused"
 )]
-#[ignore = "K4 T8"]
 fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
-    // set status passed is E080 (E082); set result pass E080 (E083); set origin on a committed decision E080 (E084)
-    unimplemented!(
-        "K4 T8: set status passed is E080 (E082); set result pass E080 (E083); set origin on a committed decision E080 (E084)"
-    );
+    let verification = gsd("verification V \"V\" {\n  phase 03\n}\n");
+    assert!(refused(&verification, "v1.0/03/V", "status", "passed"));
+    let uat = gsd("uat_test U \"U\" {\n  phase 03\n}\n");
+    assert!(refused(&uat, "v1.0/03/U", "result", "pass"));
+    let decision = "decision D \"D\" {\n  phase 03\n  origin context\n}\n";
+    let committed = gsd(decision);
+    let fake = Arc::new(FakeHistory::repo(
+        committed.root(),
+        &"a".repeat(40),
+        vec![("a.spec".into(), format!("{BASE}{decision}").into_bytes())],
+    ));
+    let _installed = history::install(fake);
+    assert!(refused(&committed, "v1.0/03/D", "origin", "project"));
 }
 
 #[specforge_test(

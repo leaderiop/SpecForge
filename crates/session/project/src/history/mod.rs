@@ -4,6 +4,8 @@
 //! the files under a directory at a commit. [`specforge_git`'s `GitCli`](https://docs.rs/specforge-git) is the
 //! adapter; tests use [`crate::testing::FakeHistory`].
 
+pub mod check;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 

@@ -1137,6 +1137,43 @@ Owner: core
 Level: error
 ```
 
+## E084
+
+```
+E084: Immutable value changed
+
+A field its extension declares `immutable` (or a member of a block item, or any
+authored field of an `append_only` kind) holds a value that differs from the one
+it had at the baseline, the project at `HEAD` (ADR 0287). The message names the
+old value and the commit. A field the baseline leaves unset may be set once;
+after that it never changes, and removing it is a change. A value is compared as
+the host reads it, with each reference resolved to its target's path, so a
+rename through SpecForge (which records a move) is not a change; the message
+adds `(as '<old path>')` when the entity was matched through one. Restore the
+value, or commit the change if it was meant: the next check judges against that
+commit. `specforge check --since <rev>` judges against the merge-base of `<rev>`
+and `HEAD` instead.
+
+Owner: core
+Level: error
+```
+
+## E085
+
+```
+E085: Append-only history rewritten
+
+A field its extension declares `append_only` holds a list that does not start
+with the baseline's list, the project at `HEAD` (ADR 0287): an item was removed,
+reordered or edited, and only appending is allowed. It is also reported for an
+entity of an `append_only` kind that the baseline holds and the project no
+longer does. Restore the items, or commit the rewrite if it was meant; the next
+check judges against that commit.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

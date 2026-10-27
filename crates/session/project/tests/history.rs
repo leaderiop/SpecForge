@@ -171,56 +171,169 @@ fn the_baseline_is_cached_by_commit_and_environment() {
     assert_eq!(cached.len(), 3);
 }
 
+const HEAD: &str = "1a2b3c4000000000000000000000000000000000";
+
+/// The project whose `a.spec` is `now`, checked against a `HEAD` whose `a.spec` is `head`, and a ledger.
+fn judged(head: &str, now: &str, ledger: Option<&str>) -> Vec<specforge_common::Diagnostic> {
+    let project = computed::project("");
+    project.write("a.spec", now);
+    if let Some(ledger) = ledger {
+        project.write("specforge-harness", ledger);
+    }
+    let fake = Arc::new(FakeHistory::repo(
+        project.root(),
+        HEAD,
+        vec![("a.spec".into(), head.as_bytes().to_vec())],
+    ));
+    compiled_with(&fake, &project)
+}
+
+fn at(spec: &str) -> String {
+    format!("{}{spec}", computed::BASE)
+}
+
+fn decision(origin: &str) -> String {
+    at(&format!("decision D1 \"D\" {{\n  phase 03\n{origin}}}\n"))
+}
+
 #[specforge_test(
     behavior = "judge_field_history",
     verify = "an immutable value that differs from its baseline is E084"
 )]
-#[ignore = "K4 T8"]
 fn an_immutable_value_that_differs_from_head_is_e084() {
-    // commit decision D-01, change origin: E084 naming HEAD short sha
-    unimplemented!("K4 T8: commit decision D-01, change origin: E084 naming HEAD short sha");
+    let head = decision("  origin context\n");
+    let same = judged(&head, &head, None);
+    assert!(computed::with_code(&same, "E084").is_empty(), "{same:?}");
+    let changed = judged(&head, &decision("  origin project\n"), None);
+    let e084 = computed::with_code(&changed, "E084");
+    assert_eq!(e084.len(), 1, "{changed:?}");
+    assert!(e084[0].message.contains("origin"), "{e084:?}");
+    assert!(e084[0].message.contains("1a2b3c4"), "{e084:?}");
 }
 
 #[specforge_test(
     behavior = "judge_field_history",
     verify = "an immutable field unset at the baseline may be set once"
 )]
-#[ignore = "K4 T8"]
 fn an_immutable_field_unset_at_head_may_be_set_once() {
-    // unset to set is clean; set to removed is E084
-    unimplemented!("K4 T8: unset to set is clean; set to removed is E084");
+    let unset = decision("");
+    let set = decision("  origin context\n");
+    let found = judged(&unset, &set, None);
+    assert!(computed::with_code(&found, "E084").is_empty(), "{found:?}");
+    let removed = judged(&set, &unset, None);
+    assert_eq!(
+        computed::with_code(&removed, "E084").len(),
+        1,
+        "{removed:?}"
+    );
+}
+
+fn discussion(entries: &[&str]) -> String {
+    let items: String = entries
+        .iter()
+        .map(|t| format!("{{ who a text \"{t}\" }} "))
+        .collect();
+    at(&format!(
+        "discussion X \"X\" {{\n  entries [ {items}]\n}}\n"
+    ))
 }
 
 #[specforge_test(
     behavior = "judge_field_history",
     verify = "an append-only list must extend its baseline"
 )]
-#[ignore = "K4 T8"]
 fn an_append_only_list_must_extend_its_baseline() {
-    // 3 items to 4 clean; to 2, or an edited first item: E085
-    unimplemented!("K4 T8: 3 items to 4 clean; to 2, or an edited first item: E085");
+    let head = discussion(&["one", "two", "three"]);
+    let longer = judged(&head, &discussion(&["one", "two", "three", "four"]), None);
+    assert!(
+        computed::with_code(&longer, "E085").is_empty(),
+        "{longer:?}"
+    );
+    let shorter = judged(&head, &discussion(&["one", "two"]), None);
+    assert_eq!(
+        computed::with_code(&shorter, "E085").len(),
+        1,
+        "{shorter:?}"
+    );
+    let edited = judged(&head, &discussion(&["ONE", "two", "three"]), None);
+    assert_eq!(computed::with_code(&edited, "E085").len(), 1, "{edited:?}");
 }
 
 #[specforge_test(
     behavior = "judge_field_history",
     verify = "an append-only kind keeps its entities"
 )]
-#[ignore = "K4 T8"]
 fn an_append_only_kinds_entity_stays() {
-    // a committed deviation removed: E085; changed: E084; one added: clean
-    unimplemented!("K4 T8: a committed deviation removed: E085; changed: E084; one added: clean");
+    let deviation =
+        |id: &str, note: &str| format!("deviation {id} \"{id}\" {{\n  note \"{note}\"\n}}\n");
+    let head = at(&format!(
+        "{}{}",
+        deviation("DV1", "a"),
+        deviation("DV2", "b")
+    ));
+    let removed = judged(&head, &at(&deviation("DV1", "a")), None);
+    let e085 = computed::with_code(&removed, "E085");
+    assert_eq!(e085.len(), 1, "{removed:?}");
+    assert!(e085[0].message.contains("DV2"), "{e085:?}");
+    let changed = judged(
+        &head,
+        &at(&format!(
+            "{}{}",
+            deviation("DV1", "changed"),
+            deviation("DV2", "b")
+        )),
+        None,
+    );
+    assert_eq!(
+        computed::with_code(&changed, "E084").len(),
+        1,
+        "{changed:?}"
+    );
+    let added = judged(
+        &head,
+        &at(&format!(
+            "{}{}{}",
+            deviation("DV1", "a"),
+            deviation("DV2", "b"),
+            deviation("DV3", "c")
+        )),
+        None,
+    );
+    assert!(computed::with_code(&added, "E084").is_empty(), "{added:?}");
+    assert!(computed::with_code(&added, "E085").is_empty(), "{added:?}");
 }
 
 #[specforge_test(
     behavior = "judge_field_history",
     verify = "a renamed scope is judged through its move record"
 )]
-#[ignore = "K4 T8"]
 fn a_renamed_scope_is_judged_through_its_move_record() {
-    // ledger v1.0/05 moved:v1.0/03; respelled tree clean; changed D-01.origin E084 naming both paths
-    unimplemented!(
-        "K4 T8: ledger v1.0/05 moved:v1.0/03; respelled tree clean; changed D-01.origin E084 naming both paths"
+    use specforge_project::harness::{Ledger, Line};
+    let tree = |phase: &str, origin: &str| {
+        format!(
+            "milestone v1.0 \"One\" {{}}\n\nphase {phase} \"P\" {{\n  milestone v1.0\n}}\n\n\
+             decision D-01 \"D\" {{\n  phase {phase}\n  origin {origin}\n}}\n"
+        )
+    };
+    let mut ledger = Ledger::default();
+    ledger.insert(Line::moved("v1.0/05", "v1.0/03"));
+    let ledger = ledger.canonical();
+    let head = tree("03", "context");
+    let renamed = judged(&head, &tree("05", "context"), Some(&ledger));
+    assert!(
+        computed::with_code(&renamed, "E084").is_empty(),
+        "{renamed:?}"
     );
+    let by_hand = judged(&head, &tree("05", "context"), None);
+    assert!(
+        computed::with_code(&by_hand, "E084").is_empty(),
+        "an unmatched entity is new: {by_hand:?}"
+    );
+    let changed = judged(&head, &tree("05", "project"), Some(&ledger));
+    let e084 = computed::with_code(&changed, "E084");
+    assert_eq!(e084.len(), 1, "{changed:?}");
+    assert!(e084[0].message.contains("v1.0/05/D-01"), "{e084:?}");
+    assert!(e084[0].message.contains("as 'v1.0/03/D-01'"), "{e084:?}");
 }
 
 #[specforge_test(

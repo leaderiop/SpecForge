@@ -29,6 +29,9 @@ pub struct BaselineEntity {
     pub kind: String,
     pub values: BTreeMap<String, Value>,
     pub computed: BTreeMap<String, Value>,
+    /// The path it had at the baseline, when a move record matched it to its current one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub was: Option<String>,
 }
 
 /// The project at a commit.
@@ -52,10 +55,85 @@ pub fn declared(registries: &RegistryBuild) -> bool {
         || registries.passes().iter().any(|p| !p.baseline().is_empty())
 }
 
+/// What reading the baseline gave: the baseline, none (nothing declares history, or no port is installed), or the
+/// notice that says why there is none.
+pub type BaselineRead = Result<Option<Arc<Baseline>>, Diagnostic>;
+
 impl Baseline {
+    /// This baseline with each move record of `ledger` applied whose new path `current` holds and this baseline does
+    /// not: every entity at or under the old path is at the new one, and every reference to it is rewritten. Deeper
+    /// old paths first, so nested moves compose; a record whose new path the baseline holds is from before it.
+    pub fn translated(
+        &self,
+        ledger: &crate::harness::Ledger,
+        current: &specforge_graph::Graph,
+    ) -> Baseline {
+        let mut moves: Vec<(&str, &str)> = ledger
+            .lines()
+            .filter_map(|l| l.moved_from().map(|old| (l.path.as_str(), old)))
+            .filter(|(new, old)| {
+                current.node(new).is_some()
+                    && !self.entities.contains_key(*new)
+                    && self.entities.contains_key(*old)
+            })
+            .collect();
+        if moves.is_empty() {
+            return self.clone();
+        }
+        moves.sort_by_key(|(_, old)| std::cmp::Reverse(old.matches('/').count()));
+        let rename = |text: &str| -> Option<String> {
+            moves.iter().find_map(|(new, old)| {
+                if text == *old {
+                    Some((*new).to_string())
+                } else {
+                    text.strip_prefix(old)
+                        .and_then(|rest| rest.strip_prefix('/'))
+                        .map(|rest| format!("{new}/{rest}"))
+                }
+            })
+        };
+        // shortcut: any string equal to a moved path is read as a reference to it; a free text equal to one is
+        // rewritten too. Narrow to reference-typed values if that shows.
+        fn rewrite(value: &Value, rename: &dyn Fn(&str) -> Option<String>) -> Value {
+            match value {
+                Value::String(s) => Value::String(rename(s).unwrap_or_else(|| s.clone())),
+                Value::Array(items) => {
+                    Value::Array(items.iter().map(|v| rewrite(v, rename)).collect())
+                }
+                Value::Object(map) => Value::Object(
+                    map.iter()
+                        .map(|(k, v)| (k.clone(), rewrite(v, rename)))
+                        .collect(),
+                ),
+                other => other.clone(),
+            }
+        }
+        let entities = self
+            .entities
+            .iter()
+            .map(|(path, entity)| {
+                let moved = rename(path);
+                let mut entity = entity.clone();
+                entity.values = entity
+                    .values
+                    .iter()
+                    .map(|(k, v)| (k.clone(), rewrite(v, &rename)))
+                    .collect();
+                match moved {
+                    Some(new) => (new, entity.moved_from(path)),
+                    None => (path.clone(), entity),
+                }
+            })
+            .collect();
+        Baseline {
+            revision: self.revision.clone(),
+            entities,
+        }
+    }
+
     /// The baseline of `env`'s project at `HEAD`: `Ok(None)` when nothing declares history or no history port is
     /// installed, and the I204 or W164 that says why there is none otherwise.
-    pub fn of_head(env: &Environment) -> Result<Option<Arc<Baseline>>, Diagnostic> {
+    pub fn of_head(env: &Environment) -> BaselineRead {
         if !declared(env.registries()) {
             return Ok(None);
         }

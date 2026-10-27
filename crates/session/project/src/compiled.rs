@@ -72,6 +72,9 @@ pub struct CompiledProject {
     /// The last update skipped the checks (the typing fast path): none is
     /// reported until an update runs them (ADR 0136 D4).
     checks_skipped: bool,
+    /// What reading the baseline gave at the last check (ADR 0287): held, so a typed edit or an update asks git
+    /// nothing again. A new commit drops it.
+    baseline: Option<Arc<crate::baseline::BaselineRead>>,
 }
 
 impl CompiledProject {
@@ -164,6 +167,7 @@ impl CompiledProject {
             self.on_disk,
             |key| self.sources.as_read(key),
         );
+        project.baseline = self.baseline.clone();
         project.check(&mut Unrecorded::plain());
         project
     }
@@ -313,6 +317,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk: false,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -334,6 +339,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -360,6 +366,7 @@ impl CompiledProject {
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -405,6 +412,7 @@ impl CompiledProject {
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            baseline: None,
         }
     }
 
@@ -441,9 +449,13 @@ impl CompiledProject {
         let env = Arc::clone(&self.env);
         let graph = &self.graph;
         let mut outcome = None;
+        let baseline = Arc::clone(
+            self.baseline
+                .get_or_insert_with(|| Arc::new(crate::baseline::Baseline::of_head(&env))),
+        );
         reads.run_checks(|disk| {
             let authored = env.entity_snapshot(graph);
-            let checked = env.checked(Some(graph), &authored, disk);
+            let checked = env.checked(Some(graph), &authored, disk, &baseline);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             outcome = Some((checked.diagnostics, entities, checked.computed));
         });

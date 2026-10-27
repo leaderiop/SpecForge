@@ -280,6 +280,12 @@ catalog! {
     E083: Error core,
         "Harness value not recorded",
         "A field its extension declares `writer: harness` holds a value that no line of `specforge-harness` records (ADR 0287). Only a command's plan sets such a field, and the host writes the line with the value; a value typed in a spec file, or changed by hand, has none. When a line of the same field records this value under a path no entity has, the message names it: the entity was renamed by hand, and the ledger was not told. Restore the value from git, or set it through the command that owns it. A harness value is recorded by its line (the digest of the entity's path, the field and the value, with each reference resolved to its target's path), so spelling a reference another way does not change it.";
+    E084: Error core,
+        "Immutable value changed",
+        "A field its extension declares `immutable` (or a member of a block item, or any authored field of an `append_only` kind) holds a value that differs from the one it had at the baseline, the project at `HEAD` (ADR 0287). The message names the old value and the commit. A field the baseline leaves unset may be set once; after that it never changes, and removing it is a change. A value is compared as the host reads it, with each reference resolved to its target's path, so a rename through SpecForge (which records a move) is not a change; the message adds `(as '<old path>')` when the entity was matched through one. Restore the value, or commit the change if it was meant: the next check judges against that commit. `specforge check --since <rev>` judges against the merge-base of `<rev>` and `HEAD` instead.";
+    E085: Error core,
+        "Append-only history rewritten",
+        "A field its extension declares `append_only` holds a list that does not start with the baseline's list, the project at `HEAD` (ADR 0287): an item was removed, reordered or edited, and only appending is allowed. It is also reported for an entity of an `append_only` kind that the baseline holds and the project no longer does. Restore the items, or commit the rewrite if it was meant; the next check judges against that commit.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";

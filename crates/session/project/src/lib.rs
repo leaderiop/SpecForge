@@ -428,7 +428,8 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
-        self.checked(None, entities, disk).diagnostics
+        self.checked(None, entities, disk, &baseline::Baseline::of_head(self))
+            .diagnostics
     }
 
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
@@ -441,6 +442,7 @@ impl Environment {
         build: Option<&GraphBuild>,
         entities: &EntitySnapshot,
         disk: &dyn Disk,
+        baseline: &baseline::BaselineRead,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
@@ -480,10 +482,25 @@ impl Environment {
                 diagnostics.extend(check_passes::run(self, entities, runtime, disk));
             }
         }
-        // shortcut: the baseline is read on every check of a project that declares history (compiled once per
-        // commit and environment, then held); an eager editor re-asks the port for HEAD each time.
-        if let Err(notice) = baseline::Baseline::of_head(self) {
-            diagnostics.push(notice);
+        match baseline {
+            Err(notice) => diagnostics.push(notice.clone()),
+            Ok(Some(baseline)) => {
+                if let Some(build) = build {
+                    let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
+                        &disk
+                            .read(&self.root().join(harness::LEDGER_FILE))
+                            .unwrap_or_default(),
+                    ))
+                    .ledger;
+                    diagnostics.extend(history::check::check(
+                        &baseline.translated(&ledger, build.graph()),
+                        build.graph(),
+                        self.registries.field_forms(),
+                        &self.registries,
+                    ));
+                }
+            }
+            Ok(None) => {}
         }
         Checked {
             diagnostics,
