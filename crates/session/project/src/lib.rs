@@ -473,7 +473,7 @@ impl Environment {
                         .unwrap_or_default(),
                 ))
                 .ledger;
-                Some(baseline.translated(&ledger, build.graph()))
+                Some(baseline.translated(&ledger, build.graph(), self.registries.field_forms()))
             }
             (Ok(Some(baseline)), None) => Some((**baseline).clone()),
             _ => None,

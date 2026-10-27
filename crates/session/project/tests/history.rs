@@ -478,3 +478,82 @@ fn a_member_change_in_an_append_only_kind_is_reported_once() {
         "{changed:?}"
     );
 }
+
+/// Phases `03` and `04`, each with a finding and a decision, the phases numbered as `first` and `second` say.
+fn renumbered(first: &str, second: &str, notes: [&str; 2]) -> String {
+    let phase = |n: &str, note: &str| {
+        format!(
+            "phase {n} \"P\" {{\n  milestone v1.0\n}}\n\nfinding F \"F\" {{\n  phase {n}\n  note \"{note}\"\n}}\n\n"
+        )
+    };
+    format!(
+        "milestone v1.0 \"One\" {{}}\n\n{}{}",
+        phase(first, notes[0]),
+        phase(second, notes[1])
+    )
+}
+
+#[specforge_test(
+    behavior = "judge_field_history",
+    verify = "a renumbering chain is judged through both move records at once"
+)]
+fn a_renumbering_chain_is_judged_through_both_move_records() {
+    use specforge_project::harness::{Ledger, Line};
+    let mut ledger = Ledger::default();
+    ledger.insert(Line::moved("v1.0/05", "v1.0/04"));
+    ledger.insert(Line::moved("v1.0/04", "v1.0/03"));
+    let ledger = ledger.canonical();
+    // HEAD: 03 and 04. Now: the old 04 is 05 and the old 03 is 04.
+    let head = renumbered("03", "04", ["a", "b"]);
+    let same = judged(&head, &renumbered("04", "05", ["a", "b"]), Some(&ledger));
+    for code in ["E084", "E085"] {
+        assert!(computed::with_code(&same, code).is_empty(), "{same:?}");
+    }
+    // the finding that was 03 and is 04 changed: judged against 03's, not skipped and not against 04's
+    let changed = judged(&head, &renumbered("04", "05", ["A", "b"]), Some(&ledger));
+    let e084 = computed::with_code(&changed, "E084");
+    assert_eq!(e084.len(), 1, "{changed:?}");
+    assert!(e084[0].message.contains("v1.0/04/F"), "{e084:?}");
+    assert!(e084[0].message.contains("as 'v1.0/03/F'"), "{e084:?}");
+    // a record the baseline commit's own ledger holds was applied already: nothing is moved again
+    let project = computed::project("");
+    project.write("a.spec", renumbered("04", "05", ["a", "b"]));
+    project.write("specforge-harness", &ledger);
+    let fake = Arc::new(FakeHistory::repo(
+        project.root(),
+        HEAD,
+        vec![
+            (
+                "a.spec".into(),
+                renumbered("04", "05", ["a", "b"]).into_bytes(),
+            ),
+            ("specforge-harness".into(), ledger.clone().into_bytes()),
+        ],
+    ));
+    let found = compiled_with(&fake, &project);
+    for code in ["E084", "E085"] {
+        assert!(computed::with_code(&found, code).is_empty(), "{found:?}");
+    }
+}
+
+#[specforge_test(
+    behavior = "judge_field_history",
+    verify = "only a reference value is respelled by a move record"
+)]
+fn only_a_reference_is_respelled_by_a_move_record() {
+    use specforge_project::harness::{Ledger, Line};
+    let mut ledger = Ledger::default();
+    ledger.insert(Line::moved("v1.0/05", "v1.0/03"));
+    let ledger = ledger.canonical();
+    // `component` is free text that happens to equal the old path
+    let tree = |phase: &str| {
+        format!(
+            "milestone v1.0 \"One\" {{}}\n\nphase {phase} \"P\" {{\n  milestone v1.0\n}}\n\n\
+             finding F \"F\" {{\n  phase {phase}\n  component \"v1.0/03\"\n}}\n"
+        )
+    };
+    let found = judged(&tree("03"), &tree("05"), Some(&ledger));
+    for code in ["E084", "E085"] {
+        assert!(computed::with_code(&found, code).is_empty(), "{found:?}");
+    }
+}

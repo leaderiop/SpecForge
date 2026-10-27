@@ -374,6 +374,8 @@ behavior judge_field_history "Judge Field History" {
   verify unit "a renamed scope is judged through its move record"
   verify unit "a history flag that sits only on a block member is judged"
   verify unit "a change inside a block of an append-only kind is one E084"
+  verify unit "a renumbering chain is judged through both move records at once"
+  verify unit "only a reference value is respelled by a move record"
 }
 
 behavior refuse_written_computed "Refuse a Written Computed Value" {

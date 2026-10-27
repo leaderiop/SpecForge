@@ -8,6 +8,7 @@
 //! - `discussion` (`entries` a block list `{who, text}`, append-only)
 //! - `deliverable` (`checks` a block list `{kind R, ref R, status C}`)
 //! - `deviation` (an append-only kind with a `note`)
+//! - `finding` (an append-only kind scoped by `phase`, with a `note` and a free `component`)
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::DeclaredCategory;
@@ -33,6 +34,11 @@ pub fn gsd_history_wire() -> Value {
             {"name": "phase", "field_type": "reference", "target_kind": "phase", "required": true, "immutable": true},
             {"name": "status", "field_type": "string", "writer": "computed"},
             {"name": "re_verification", "field_type": "string", "writer": "computed"},
+        ]},
+        {"name": "finding", "keyword": "finding", "scoped_by": "phase", "append_only": true, "fields": [
+            {"name": "phase", "field_type": "reference", "target_kind": "phase"},
+            {"name": "note", "field_type": "string"},
+            {"name": "component", "field_type": "string"},
         ]},
         {"name": "uat_test", "keyword": "uat_test", "scoped_by": "phase", "fields": [
             {"name": "phase", "field_type": "reference", "target_kind": "phase"},

@@ -40,6 +40,9 @@ pub struct Baseline {
     pub revision: Sha,
     /// By full path.
     pub entities: BTreeMap<String, BaselineEntity>,
+    /// The text of `specforge-harness` at the baseline commit: the move records it already held are not applied again.
+    #[serde(default)]
+    pub ledger: String,
 }
 
 /// Whether the loaded extensions declare anything that reads history.
@@ -198,22 +201,23 @@ impl Baseline {
         }
     }
 
-    /// This baseline with each move record of `ledger` applied whose new path `current` holds and this baseline does
-    /// not: every entity at or under the old path is at the new one, and every reference to it is rewritten. Deeper
-    /// old paths first, so nested moves compose; a record whose new path the baseline holds is from before it.
+    /// This baseline with the move records of `ledger` that the baseline commit's own ledger lacks applied, all at
+    /// once (K5 note 1): every entity at or under an old path is at the new one, and every reference value to it is
+    /// rewritten. A record that commit already held is from before it. The longest old path wins for a path, and a
+    /// path is substituted once, so a renumbering chain (`04` to `05`, `03` to `04`) composes. Only reference-typed
+    /// values are rewritten, authored and computed alike.
     pub fn translated(
         &self,
         ledger: &crate::harness::Ledger,
         current: &specforge_graph::Graph,
+        forms: &specforge_graph::FieldForms,
     ) -> Baseline {
+        let held = crate::harness::Ledger::parse(&self.ledger).ledger;
         let mut moves: Vec<(&str, &str)> = ledger
             .lines()
+            .filter(|l| !held.records(&l.path, &l.key, &l.digest))
             .filter_map(|l| l.moved_from().map(|old| (l.path.as_str(), old)))
-            .filter(|(new, old)| {
-                current.node(new).is_some()
-                    && !self.entities.contains_key(*new)
-                    && self.entities.contains_key(*old)
-            })
+            .filter(|(new, _)| current.node(new).is_some())
             .collect();
         if moves.is_empty() {
             return self.clone();
@@ -230,21 +234,51 @@ impl Baseline {
                 }
             })
         };
-        // shortcut: any string equal to a moved path is read as a reference to it; a free text equal to one is
-        // rewritten too. Narrow to reference-typed values if that shows.
-        fn rewrite(value: &Value, rename: &dyn Fn(&str) -> Option<String>) -> Value {
-            match value {
+        // `value` under `form`, the way `wire::resolved` walks it: only a reference is a path.
+        fn rewrite(
+            value: &Value,
+            form: Option<&specforge_graph::FieldForm>,
+            rename: &dyn Fn(&str) -> Option<String>,
+        ) -> Value {
+            use specforge_protocol_types::FieldType;
+            let Some(form) = form else {
+                return value.clone();
+            };
+            let path = |v: &Value| match v {
                 Value::String(s) => Value::String(rename(s).unwrap_or_else(|| s.clone())),
-                Value::Array(items) => {
-                    Value::Array(items.iter().map(|v| rewrite(v, rename)).collect())
+                other => other.clone(),
+            };
+            match (form.field_type(), value) {
+                (FieldType::Reference, v) => path(v),
+                (FieldType::ReferenceList, Value::Array(items)) => {
+                    Value::Array(items.iter().map(path).collect())
                 }
-                Value::Object(map) => Value::Object(
-                    map.iter()
-                        .map(|(k, v)| (k.clone(), rewrite(v, rename)))
+                (FieldType::Block, Value::Object(map)) => object(map, form, rename),
+                (FieldType::BlockList, Value::Array(items)) => Value::Array(
+                    items
+                        .iter()
+                        .map(|item| match item {
+                            Value::Object(map) => object(map, form, rename),
+                            other => other.clone(),
+                        })
                         .collect(),
                 ),
-                other => other.clone(),
+                _ => value.clone(),
             }
+        }
+        fn object(
+            map: &serde_json::Map<String, Value>,
+            form: &specforge_graph::FieldForm,
+            rename: &dyn Fn(&str) -> Option<String>,
+        ) -> Value {
+            Value::Object(
+                map.iter()
+                    .map(|(k, v)| {
+                        let member = form.members().and_then(|m| m.get(k));
+                        (k.clone(), rewrite(v, member, rename))
+                    })
+                    .collect(),
+            )
         }
         let entities = self
             .entities
@@ -252,10 +286,31 @@ impl Baseline {
             .map(|(path, entity)| {
                 let moved = rename(path);
                 let mut entity = entity.clone();
+                let kind = entity.kind.clone();
                 entity.values = entity
                     .values
                     .iter()
-                    .map(|(k, v)| (k.clone(), rewrite(v, &rename)))
+                    .map(|(k, v)| {
+                        let form = match forms.reading(&kind, k) {
+                            specforge_graph::Reading::Declared(f) => Some(f),
+                            _ => None,
+                        };
+                        (k.clone(), rewrite(v, form, &rename))
+                    })
+                    .collect();
+                // a computed value sits under its written path (`checks[0].status`)
+                entity.computed = entity
+                    .computed
+                    .iter()
+                    .map(|(k, v)| {
+                        let form = match forms
+                            .reading_at(&kind, &specforge_graph::field_form::declared_path(k))
+                        {
+                            specforge_graph::Reading::Declared(f) => Some(f),
+                            _ => None,
+                        };
+                        (k.clone(), rewrite(v, form, &rename))
+                    })
                     .collect();
                 match moved {
                     Some(new) => (new, entity.moved_from(path)),
@@ -264,8 +319,8 @@ impl Baseline {
             })
             .collect();
         Baseline {
-            revision: self.revision.clone(),
             entities,
+            ..self.clone()
         }
     }
 
@@ -364,6 +419,7 @@ impl Baseline {
         files: Vec<CommitFile>,
     ) -> Baseline {
         let mut texts: BTreeMap<String, String> = BTreeMap::new();
+        let mut ledger = String::new();
         for (path, bytes) in files {
             let Ok(rest) = path.strip_prefix(within) else {
                 continue;
@@ -373,7 +429,9 @@ impl Baseline {
                 .map(|c| c.as_os_str().to_string_lossy())
                 .collect::<Vec<_>>()
                 .join("/");
-            if key.ends_with(".spec")
+            if key == crate::harness::LEDGER_FILE {
+                ledger = String::from_utf8(bytes).unwrap_or_default();
+            } else if key.ends_with(".spec")
                 && env.sources().holds_key(&key)
                 && let Ok(text) = String::from_utf8(bytes)
             {
@@ -415,7 +473,11 @@ impl Baseline {
             }
             entities.insert(path.to_string(), entity);
         }
-        Baseline { revision, entities }
+        Baseline {
+            revision,
+            entities,
+            ledger,
+        }
     }
 }
 
