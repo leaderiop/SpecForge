@@ -4,7 +4,7 @@
 D9 (E022 at the entity) and [ADR 0031](0031-the-registry-build-checks-the-entities.md) D1's placement of E022. Amends
 [ADR 0032](0032-one-graph-build.md) (the graph inputs: `absent_reference_targets` is gone; `FieldForms` answers each
 reference field's target, `target_owners` names the owner of each absent target kind) and
-[ADR 0019](0019-one-entity-snapshot-per-compile.md) (the record holds no references). Followed by [ADR 0232](0232-a-missing-link-is-a-field-written-empty.md) (a trace reads an unresolved reference as written, not as a missing link).
+[ADR 0019](0019-one-entity-snapshot-per-compile.md) (the record holds no references). Followed by [ADR 0232](0232-a-missing-link-is-a-field-written-empty.md) (a trace reads an unresolved reference as written, not as a missing link). Extended by [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (a reference resolves from its holder outward).
 
 ## Context
 

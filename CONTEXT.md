@@ -1466,9 +1466,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   registry build of those extensions, made before the project exists (ADR 0189), and parsed before it is written:
   one that does not parse is refused, `starter_unparsed` (ADR 0226), so its first `check` and `format --check`
   accept it.
-- **Entity ID rule**: what `check` refuses of an entity ID: outside 2–60 characters (E014) or a reserved word (E013)
+- **Entity ID rule**: what `check` refuses of an entity's name (its ID is its path, ADR 0284): outside 2–60 characters (E014) or a reserved word (E013)
   (`specforge_registry::refused_id`). A token ID is also the grammar's name, words of letters, digits and `_` joined by
   single `-` or `.` (`authoring::entity_id::validate_id`, ADR 0283); a spec block's ID, its header's string, is not.
+- **Scope**: the entity a kind's `scoped_by` reference field names (a phase for a decision); a name is unique within
+  its scope and kind (E002, W060), and the project is the scope of an entity with none (ADR 0284).
+- **Path**: an entity's ID, its scope's path and its name joined by `/` (`v1.0/03/D-01`); an unscoped entity's path is its
+  name. A reference writes a path one name at a time, relative to its holder or rooted by a leading `/`.
+- **Shortest spelling**: the fewest trailing names of a path that still resolve to the entity from a given holder
+  (`D-01`, `03/D-01`, `/D-01`); what an edit, completion or a fix writes (`Scopes::spell`), never what a report shows.
 - **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
   written as, `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (a name has no leading `-`): `AUTH-01`, `03-02`, `2-1`, `-5`. The
   parser keeps its text; its field's declared type reads and means it (a reference its name, an integer its
