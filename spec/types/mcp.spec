@@ -742,8 +742,6 @@ type McpExplainDeclaredRule "Mcp Explain Declared Rule" {
   check       string
   /// Its message template, as declared.
   message     string
-  /// What the extension says the code means.
-  description string @optional
   verify unit "McpExplainDeclaredRule schema is valid"
 }
 

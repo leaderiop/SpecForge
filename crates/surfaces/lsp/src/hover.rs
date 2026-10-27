@@ -9,7 +9,6 @@ use specforge_ops::read::coverage::STATUS;
 use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligations_table, quote};
 use specforge_parser::{FieldValue, ListItem, TypeMember, Written};
 use specforge_project::coverage::Status;
-use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::{Position, Range};
@@ -40,10 +39,8 @@ pub fn diagnostics_at(
 /// ([`diagnostics_at`]): each code with the catalogue's title, the message,
 /// the catalogue's explanation and the docs link; a code the catalogue
 /// doesn't have shows its code, the extension that reported it and the
-/// message, then the description that extension's accepted rule for the code
-/// declares in `declarations`, when one does (the first, in load order).
-/// `None` when none is.
-pub fn diagnostics(shown: &[&Diagnostic], declarations: &[ExtensionDeclaration]) -> Option<String> {
+/// message. `None` when none is.
+pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
     let sections: Vec<String> = shown
         .iter()
         .map(
@@ -60,24 +57,13 @@ pub fn diagnostics(shown: &[&Diagnostic], declarations: &[ExtensionDeclaration])
                 }
                 // An extension's own uncatalogued code, or one it may not use
                 // (W150): no catalogue entry describes it.
+                // An extension's own uncatalogued code, or one it may not use
+                // (W150): no catalogue entry describes it.
                 None => match diag.origin() {
-                    Some(extension) => {
-                        let described =
-                            specforge_ops::read::explain::declared(&diag.code, declarations)
-                                .find_map(|(by, rule)| {
-                                    (by == extension)
-                                        .then_some(rule.description.as_deref())
-                                        .flatten()
-                                });
-                        let head = format!(
-                            "**{}** · reported by '{extension}'\n\n{}",
-                            diag.code, diag.message
-                        );
-                        match described {
-                            Some(text) => format!("{head}\n\n{text}"),
-                            None => head,
-                        }
-                    }
+                    Some(extension) => format!(
+                        "**{}** · reported by '{extension}'\n\n{}",
+                        diag.code, diag.message
+                    ),
                     None => format!("**{}**\n\n{}", diag.code, diag.message),
                 },
             },

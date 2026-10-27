@@ -145,6 +145,10 @@ impl Contributions for Greet {
             r.severity(ValidationSeverity::Error);
             r.message_template("greeting '{id}' has unknown style");
         });
+        c.code("E901", |d| {
+            d.title("Unknown greeting style")
+                .explanation("A greeting's style is `warm` or `formal`: set it to one of them.");
+        });
         c.command("hello", |cmd| {
             cmd.title("Say hello")
                 .description("Greet someone, warmly")
@@ -279,6 +283,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
 | `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
 | `c.feature_flag(name, default, description)` | a flag users set in `specforge.json` | `feature_flags` |
+| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
 | `c.providers()` | it implements configured providers | handshake |
 
@@ -338,7 +343,7 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 
 ### Declarative rules
 
-`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `description(..)` (what the code means; `specforge explain` and the hover show it), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
+`c.rule(code, |r| ..)` with `RuleBuilder`: `check(CheckKind::..)`, `target_kind(..)`, `edge_type(..)`, `field(..)`, `severity(ValidationSeverity::..)`, `message_template(..)` (placeholders `{id}`, `{kind}`, `{value}`, `{allowed}`: a `one_of` constraint's values), `target_extension(..)` and `constraint(|fc| fc.kind(ConstraintKind::..).pattern(..).values(&[..]))`. The checks:
 
 | `CheckKind` | Reads |
 |---|---|

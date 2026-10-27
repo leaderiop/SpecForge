@@ -209,7 +209,7 @@ type FieldType "FieldType: how the host reads a field's value (FieldType in spec
   | "reference_list"
   | "block"
 
-type ValidationRulePattern "A validation rule as an extension declares it (the protocol's ValidationRuleDescriptor). The registry build turns it into a typed rule (specforge_registry::rules::Rule) carrying only what its check reads; constraint.pattern is a regex for field_value_constraint/matches and the condition field's name for conditional_field_required; description is what the code means (explain, the hover)." {
+type ValidationRulePattern "A validation rule as an extension declares it (the protocol's ValidationRuleDescriptor). The registry build turns it into a typed rule (specforge_registry::rules::Rule) carrying only what its check reads; constraint.pattern is a regex for field_value_constraint/matches and the condition field's name for conditional_field_required." {
   code             string          @readonly
   severity         string          @readonly
   message_template string
@@ -220,7 +220,6 @@ type ValidationRulePattern "A validation rule as an extension declares it (the p
   constraint       FieldConstraint @optional
   wasm_function    string          @optional
   target_extension string          @optional
-  description      string          @optional
   verify unit "ValidationRulePattern schema is valid"
 }
 

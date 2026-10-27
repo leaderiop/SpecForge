@@ -88,7 +88,7 @@ The host checks `protocol_version`: a major version other than its own fails the
 
 ### Describe
 
-After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
+After the handshake, the host calls `__describe(category)` once for each category it reads, always, in this order: `entities`, `edges`, `shared_fields`, `enhancements`, `validation_rules`, `surfaces`, `collectors`, `analyzers`, `passes`, `feature_flags`, `codes` (`specforge_protocol_types::DECLARED_CATEGORIES`). Together with the handshake they are the extension's **declaration** (`specforge_protocol_types::ExtensionDeclaration`, ADR 0012): the host loads it once per environment load (`specforge_wasm::protocol::load_declaration`) and nothing describes a category again. A guest whose handshake `protocol_version` is older than 1.7 is not asked for `codes` (the host compares `(major, minor)` as numbers) and loads with none. An extension answers every supported category, `[]` when it contributes nothing to it; the SDK does.
 
 A category whose answer fails or doesn't parse as its descriptors fails the extension's load (E028), naming the category. An item key a descriptor doesn't define is ignored and reported (W138), naming the extension, the category, the item and the key.
 
@@ -129,6 +129,7 @@ The host reads every string and object key of a handshake or describe answer pri
 | `analyzers` | Language analyzer descriptors (`specforge infer`) | Always |
 | `passes` | Compiler pass descriptors with ordering constraints | Always |
 | `feature_flags` | Feature flag descriptors | Always |
+| `codes` | The extension's diagnostic code catalog (protocol 1.7.0) | Always, from a guest of 1.7 or later |
 
 ### Category: entities
 
@@ -287,15 +288,13 @@ Returns both declarative rules (pattern-based, evaluated by the host) and custom
       "severity": "warning",
       "message_template": "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}",
       "check": "custom",
-      "wasm_function": "validate__verify_kind_allowlist",
-      "description": "A verify statement whose kind the entity's kind does not allow."
+      "wasm_function": "validate__verify_kind_allowlist"
     }
   ]
 }
 ```
 
-`description` (optional) is what the code means; the host shows it where its catalog has no entry for the code
-(`specforge explain`, the hover).
+A rule's code is described in the `codes` category, not on the rule.
 
 The host credits the fields to the answering extension and reads the kind's owner from its kind registry (ADR 0096).
 
@@ -541,6 +540,26 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
 }
 ```
 
+### Category: codes
+
+Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one entry per code the extension's rules and passes report. `code` is the extension's own code, `[EWI]` and three digits, never qualified (the host adds the extension's namespace). `title` and `explanation` are required; `docs` (optional) is an absolute `http(s)` URL.
+
+```json
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "E901",
+      "title": "Requirement not mapped",
+      "explanation": "Every v1 requirement maps to exactly one phase.",
+      "docs": "https://gsd.dev/codes#e101"
+    }
+  ]
+}
+```
+
+SDK: `c.code("E901", |d| { d.title(..).explanation(..).docs(..); })`.
+
 ## Operate
 
 Once the declaration is loaded, the host calls an extension's exports on
@@ -669,7 +688,7 @@ or answered.
 | `1.4.0` | A recorded test is one `TestResult` with a `TestStatus`: `passed`, `failed` or `skipped`, decoded strictly on the collect wire (a collector's other status is E028), and a pass's `test_results` carry the same, `duration_ms` included (they said `pass`/`fail`). A 1.3 pass that reads `test_results` misreads 1.4 values (ADR 0069). |
 | `1.5.0` | An entity's `verify` statements are no field text (ADR 0094): a pass's `PassEntity.fields` and a validator's `ValidatorField` carry no `verify` entry, so a field named `verify` is never overwritten; a pass reads the statements in `verify_kinds` and `verify_texts`, and the graph a command gets may carry a node-level `verify`, which a guest ignores. A 1.4 guest that read `fields["verify"]` loses it. An enhancement names no `source_extension`: the host credits its fields to the answering extension and reads the kind's owner from its kind registry (ADR 0096); a 1.5 host reports a 1.4 guest's key as W138 and ignores it. |
 | `1.6.0` | A field's `field_type` may be `date` (ADR 0234), and a validator's `primitives` include `date`; a 1.5 host drops a `date` field with W019. (`identifier`, ADR 0147, came under 1.5.0 without a bump.) |
-| `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. A validation rule's `description` is removed, superseded by `codes` (K10); r29 added it inside 1.6.0 with no row of its own. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
+| `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. An extension catalogs its codes (`codes`, ADR 0286); a guest older than 1.7 is not asked for the category and loads with none. A validation rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; a guest that still sends it loads, and the key is W138. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

@@ -102,7 +102,7 @@ fn every_table_names_each_value_once_and_has_its_default() {
     check(&OUTLINE_FIELDS);
     check(&DEPS);
     check(&specforge_ops::registry::CONTRIBUTES);
-    // The contribution filter lists the ten declared categories, in the host's read order.
+    // The contribution filter lists the eleven declared categories, in the host's read order.
     assert_eq!(
         specforge_ops::registry::CONTRIBUTES
             .names()

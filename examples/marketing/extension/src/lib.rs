@@ -138,8 +138,7 @@ impl Contributions for Marketing {
                 .target_kind("campaign")
                 .edge_type("CampaignTargetsAudience")
                 .severity(ValidationSeverity::Error)
-                .message_template("campaign '{id}' targets no audience")
-                .description("A campaign that targets no audience: money spent on nobody. Give it `audiences`.");
+                .message_template("campaign '{id}' targets no audience");
         });
 
         // Copy that skipped the brand check.
@@ -148,8 +147,7 @@ impl Contributions for Marketing {
                 .target_kind("message")
                 .edge_type("MessageObeysBrandRule")
                 .severity(ValidationSeverity::Error)
-                .message_template("message '{id}' cites no brand rule")
-                .description("A message that cites no brand rule: copy that skipped the brand check. Name the rules it `obeys`.");
+                .message_template("message '{id}' cites no brand rule");
         });
 
         // A calendar typo: the campaign ends before it starts.
@@ -158,7 +156,6 @@ impl Contributions for Marketing {
                 .target_kind("campaign")
                 .severity(ValidationSeverity::Error)
                 .message_template("campaign '{id}' ends ({value}) before it starts")
-                .description("A campaign that ends before it starts: a calendar typo. Set `ends` on or after `starts`.")
                 .validate(ends_before_it_starts);
         });
 
@@ -168,8 +165,26 @@ impl Contributions for Marketing {
                 .target_kind("brand_rule")
                 .edge_type("MessageObeysBrandRule")
                 .severity(ValidationSeverity::Warning)
-                .message_template("brand rule '{id}' is obeyed by no message")
-                .description("A brand rule no message obeys: a rule nobody checks against. Cite it from a message, or remove it.");
+                .message_template("brand rule '{id}' is obeyed by no message");
+        });
+
+        // The codes the rules above report: what `specforge explain` and the editor show.
+        c.code("E901", |d| {
+            d.title("Campaign targets no audience").explanation(
+                "A campaign that targets no audience: money spent on nobody. Give it `audiences`.",
+            );
+        });
+        c.code("E902", |d| {
+            d.title("Message cites no brand rule")
+                .explanation("A message that cites no brand rule: copy that skipped the brand check. Name the rules it `obeys`.");
+        });
+        c.code("E903", |d| {
+            d.title("Campaign ends before it starts")
+                .explanation("A campaign that ends before it starts: a calendar typo. Set `ends` on or after `starts`.");
+        });
+        c.code("W901", |d| {
+            d.title("Brand rule obeyed by no message")
+                .explanation("A brand rule no message obeys: a rule nobody checks against. Cite it from a message, or remove it.");
         });
 
         c.command("calendar", |cmd| {

@@ -70,7 +70,7 @@ fn print(explanation: &Explanation, terminal: &Terminal) {
     }
 }
 
-/// A declared code: who declares it, what they say it means, each rule, no docs link.
+/// A declared code: who declares it, each rule, no docs link.
 fn print_declared(declared: &Declared, terminal: &Terminal) {
     let mut owners: Vec<&str> = declared
         .rules
@@ -87,17 +87,6 @@ fn print_declared(declared: &Declared, terminal: &Terminal) {
         );
     } else {
         outln!(terminal, "{}: declared by {owners}\n", declared.code);
-    }
-    let mut described: Vec<&str> = Vec::new();
-    for text in declared
-        .rules
-        .iter()
-        .filter_map(|r| r.description.as_deref())
-    {
-        if !described.contains(&text) {
-            described.push(text);
-            outln!(terminal, "{}\n", wrap(text, WRAP_WIDTH));
-        }
     }
     for rule in &declared.rules {
         match &rule.target_kind {

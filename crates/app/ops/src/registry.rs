@@ -423,6 +423,7 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             "feature flags",
             DeclaredCategory::FeatureFlags,
         ),
+        category("codes", "diagnostic code catalog", DeclaredCategory::Codes),
     ],
     default: None,
 };

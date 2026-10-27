@@ -1731,9 +1731,6 @@ expression: listing
                   "check": {
                     "type": "string"
                   },
-                  "description": {
-                    "type": "string"
-                  },
                   "extension": {
                     "type": "string"
                   },

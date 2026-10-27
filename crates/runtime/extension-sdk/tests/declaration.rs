@@ -41,8 +41,12 @@ fn reports() -> ContributionsBuilder {
         r.check(CheckKind::MissingRequiredField)
             .target_kind("report")
             .field("title")
-            .message_template("report '{id}' has no title")
-            .description("A report without a title cannot be listed: give it one.");
+            .message_template("report '{id}' has no title");
+    });
+    b.code("W950", |d| {
+        d.title("Report without a title")
+            .explanation("A report without a title cannot be listed: give it one.")
+            .docs("https://acme.dev/codes#w950");
     });
     b
 }
@@ -136,10 +140,7 @@ fn the_guest_serves_its_declaration() {
     assert_eq!(loaded, declared);
     assert_eq!(declared.surfaces.commands[0].id, "list");
     assert_eq!(declared.passes[0].name, "audit");
-    assert_eq!(
-        declared.validation_rules[0].description.as_deref(),
-        Some("A report without a title cannot be listed: give it one.")
-    );
+    assert_eq!(declared.codes[0].code, "W950");
     assert!(declared.declares(DeclaredCategory::Entities));
     for category in DeclaredCategory::ALL {
         assert_eq!(
@@ -320,4 +321,30 @@ fn a_tool_declaring_the_targets_path_panics_when_built() {
             "{schema}"
         );
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a code entry is declared with its title, explanation and docs"
+)]
+fn a_code_entry_is_declared_with_its_title_explanation_and_docs() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/reports", "0.1.0"));
+    b.code("E101", |d| {
+        d.title("Requirement not mapped")
+            .explanation("Map every requirement to one phase.")
+            .docs("https://acme.dev/codes#e101");
+    });
+    b.code("W102", |d| {
+        d.title("Plain").explanation("No link.");
+    });
+    let declared = b.declaration();
+    assert_eq!(declared.codes.len(), 2);
+    assert_eq!(declared.codes[0].code, "E101");
+    assert_eq!(declared.codes[0].title, "Requirement not mapped");
+    assert_eq!(
+        declared.codes[0].docs.as_deref(),
+        Some("https://acme.dev/codes#e101")
+    );
+    assert_eq!(declared.codes[1].docs, None);
+    assert!(declared.declares(DeclaredCategory::Codes));
 }

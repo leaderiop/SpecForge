@@ -179,7 +179,10 @@ behavior load_extension_declaration "Load Extension Declaration" {
     The host MUST read an extension's declaration through one loader: its
     handshake, then every describe category (entities, edges,
     shared_fields, enhancements, validation_rules, surfaces, collectors,
-    analyzers, passes, feature_flags), the only ones the protocol defines.
+    analyzers, passes, feature_flags, codes), the only ones the protocol
+    defines. A guest whose handshake protocol version (compared as
+    numeric major, minor) is older than a category's `since` is not asked
+    for it and loads with it empty (codes: 1.7).
     A category that does not parse MUST fail the extension's load (E028)
     naming the category. A describe item key the protocol does not define
     MUST produce W138. Every text the declaration holds MUST be read
@@ -200,6 +203,8 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "every committed SDK blob answers the host's protocol version; a bridge component answers the version it declares"
   verify unit "a declaration round-trips through its wire answers unchanged"
   verify unit "a describe category that does not parse fails the load naming the category"
+  verify unit "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
+  verify unit "a code entry is declared with its title, explanation and docs"
   verify unit "a describe item key the protocol does not define produces W138"
   verify unit "the declared categories are the protocol's only describe categories"
   verify unit "an absent short is the name's last segment"

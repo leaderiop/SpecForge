@@ -6,7 +6,8 @@ use crate::{
     operations,
 };
 use specforge_protocol_types::{
-    AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
+    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
+    CompilerPassDescriptor,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -310,6 +311,33 @@ impl EnhancementBuilder {
     }
 }
 
+/// Builder for [`CodeDescriptor`]: one diagnostic code the extension reports.
+pub struct CodeBuilder(pub(crate) CodeDescriptor);
+
+impl CodeBuilder {
+    pub(crate) fn new(code: &str) -> Self {
+        Self(CodeDescriptor {
+            code: code.to_string(),
+            ..Default::default()
+        })
+    }
+    /// What the code is called (`Requirement not mapped`).
+    pub fn title(&mut self, title: &str) -> &mut Self {
+        self.0.title = title.to_string();
+        self
+    }
+    /// What the code means and how to fix it.
+    pub fn explanation(&mut self, text: &str) -> &mut Self {
+        self.0.explanation = text.to_string();
+        self
+    }
+    /// An absolute `http(s)` URL the editor links the code to.
+    pub fn docs(&mut self, url: &str) -> &mut Self {
+        self.0.docs = Some(url.to_string());
+        self
+    }
+}
+
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
 /// handler.
 pub struct RuleBuilder {
@@ -331,7 +359,6 @@ impl RuleBuilder {
                 constraint: None,
                 wasm_function: None,
                 target_extension: None,
-                description: None,
             },
             validate: None,
         }
@@ -346,11 +373,6 @@ impl RuleBuilder {
             "validator",
             move |context: &ValidatorContext| Ok::<_, String>(handler(context)),
         ));
-        self
-    }
-    /// What the rule's code means and how to fix it, in a sentence or two (`specforge explain`).
-    pub fn description(&mut self, text: &str) -> &mut Self {
-        self.descriptor.description = Some(text.to_string());
         self
     }
     pub fn check(&mut self, kind: CheckKind) -> &mut Self {

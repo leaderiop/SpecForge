@@ -127,6 +127,11 @@ impl Contributions for Extension {{
             r.severity(ValidationSeverity::Warning);
             r.message_template("thing '{{id}}' is missing a description");
         }});
+        // Catalog every code the extension reports: a title and what to do about it.
+        c.code("W900", |d| {{
+            d.title("Thing without a description")
+                .explanation("Give the thing a description.");
+        }});
 
         // Contribute a command, declared with the function that answers it
         // (delete if not needed). It runs as `specforge {short} things` and is
