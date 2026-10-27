@@ -1458,7 +1458,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   the declaration's name and each incoming reference's token, positions in the text the project was compiled from,
   which its planned change keeps, with the spec root they are relative to. MCP writes it only to files that still hold that text, refusing `conflict` otherwise; the LSP
   hands it to the editor only over buffers that are that text (`ContentModified` otherwise; ADR 0116, ADR 0023 D3).
-  The new ID is refused (`authoring::entity_id::validate_id`) when it is not an identifier of 2–60 characters, is a reserved word (E013), is taken, or the project already writes it for no entity (a capture, `name_captured`). A
+  The new ID is refused (`authoring::entity_id::validate_id`) when it is not a name of 2–60 characters, is a reserved word (E013), is taken, or the project already writes it for no entity (a capture, `name_captured`). A
   rename is not a typed edit and is not checked by E080 (ADR 0151, amended).
 - **Starter**: the spec file init writes (`spec/hello.spec`): the first template the extensions it enables declare,
   in `specforge.json` order, else the structural one, its `{project}` the project's spec ID and `{version}` its
@@ -1467,8 +1467,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   one that does not parse is refused, `starter_unparsed` (ADR 0226), so its first `check` and `format --check`
   accept it.
 - **Entity ID rule**: what `check` refuses of an entity ID: outside 2–60 characters (E014) or a reserved word (E013)
-  (`specforge_registry::refused_id`). A token ID is also the grammar's identifier (`authoring::entity_id::validate_id`);
-  a spec block's ID, its header's string, is not.
+  (`specforge_registry::refused_id`). A token ID is also the grammar's name, words of letters, digits and `_` joined by
+  single `-` or `.` (`authoring::entity_id::validate_id`, ADR 0283); a spec block's ID, its header's string, is not.
+- **Bare word**: the one word a field value, a list item, an entity header's name or a selective `use` binding is
+  written as, `-?[A-Za-z0-9_]+([.-][A-Za-z0-9_]+)*` (a name has no leading `-`): `AUTH-01`, `03-02`, `2-1`, `-5`. The
+  parser keeps its text; its field's declared type reads and means it (a reference its name, an integer its
+  difference `2-1` = 1, a date its day). The lexer and the grammar read it alike (ADR 0283).
+- **Shape tag**: what the parser says of a bare word by its shape alone (`specforge_parser::literal_shape`): canonical
+  integer, `true`/`false`, date, or text. It is the reading where no type is declared; the declared type decides the
+  rest (ADR 0283).
 - **Text edit**: one change of a project file's text, a span of the text the project was compiled from and the
   text it becomes (`specforge_ops::read::navigate::TextEdit`; an empty span inserts). Navigation's fixes and a
   rename plan answer them; `navigate::apply_edits` applies a file's edits whole or not at all; the LSP converts

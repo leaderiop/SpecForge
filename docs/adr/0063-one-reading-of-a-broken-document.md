@@ -1,7 +1,7 @@
 # A broken document reads the same in the graph, the editor and the formatter
 
 **Status:** accepted (2026-10-12, architecture round 7, plan 14). Points at ADR 0038 D2 and ADR 0021 D5; amends
-neither.
+neither. Extended by [ADR 0283](0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) (the lexer reads a word in the grammar's value and name slots).
 
 ADR 0038 gave the language one lexer and one form-start rule, and its D8 taught the grammar's scanner to end an
 unclosed body at a form start. Three readers still disagreed on a document being typed:
