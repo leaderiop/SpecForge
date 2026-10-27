@@ -46,7 +46,7 @@ pub(crate) fn added(
     let (mut errors, mut rest) = (Vec::new(), Vec::new());
     for d in after {
         // Another writer's journal, live while this write is planned, is not a thing this write adds.
-        if d.code == "W167" {
+        if d.code == codes::W167.to_string() {
             continue;
         }
         match had.get_mut(&key(&d)) {

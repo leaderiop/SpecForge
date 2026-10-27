@@ -26,7 +26,7 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
         "authoring/apply/journal.rs",
         "fs::remove_file(",
-        1,
+        2,
         "the write journal under .specforge, which the host owns",
     ),
     (

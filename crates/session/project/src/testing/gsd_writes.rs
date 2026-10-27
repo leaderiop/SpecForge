@@ -68,7 +68,7 @@ fn marked_guard(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         .windows(quoted.len())
         .any(|window| window == quoted.as_bytes());
     let diagnostics = if held {
-        json!([{"code": "E700", "severity": "Error", "message": "a phase is not complete", "entity": "v1.0/03"}])
+        json!([{"code": specforge_common::codes::E087.to_string(), "severity": "Error", "message": "a phase is not complete", "entity": "v1.0/03"}])
     } else {
         json!([])
     };
