@@ -11,6 +11,8 @@
 
 Files: `context.spec`, `research.spec` in the phase folder; project research in `spec/gsd/knowledge/research/`.
 
+The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, and the project a second research, so the second and later, by id, are reported.
+
 ## context
 
 GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it. Name `03-CONTEXT`.

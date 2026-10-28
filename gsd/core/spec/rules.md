@@ -40,6 +40,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`) | W | E | spec template |
 | gsd/W204 | an open question of a phase's research is resolved by a decision before planning (the project's research is exempt: the plan checker reads the phase's `RESEARCH.md` only) | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
+| gsd/E206 | a phase has at most one context, phase spec, discussion log and research, and the project at most one research (the kernel's scopes would allow two; the second and later, by id, are reported) | pass | E | E | (new: each is one file of the phase directory) |
 
 ## Plan
 

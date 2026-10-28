@@ -386,3 +386,59 @@ fn two_and_five_criteria_are_clean() {
     ));
     assert_eq!(codes(&found), []);
 }
+
+fn scoped(id: &str, kind: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: kind.into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_second_context_in_a_phase_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/02/02-CONTEXT", "context"),
+            scoped("v1.0/02/02-CONTEXT-B", "context"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "v1.0/02/02-CONTEXT-B")]);
+    assert!(
+        found[0]
+            .message
+            .contains("a second context of phase 'v1.0/02'; its context is 'v1.0/02/02-CONTEXT'"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[test]
+fn contexts_of_two_phases_are_clean() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/01/01-CONTEXT", "context"),
+            scoped("v1.0/02/02-CONTEXT", "context"),
+            scoped("v1.0/02/02-SPEC", "phase_spec"),
+            scoped("v1.0/02/02-DISCUSSION-LOG", "discussion"),
+            scoped("v1.0/02/02-RESEARCH", "research"),
+            scoped("RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), []);
+}
+
+#[test]
+fn a_second_project_research_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("RESEARCH", "research"),
+            scoped("OTHER", "research"),
+            scoped("v1.0/02/02-RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "RESEARCH")]);
+}

@@ -150,3 +150,21 @@ fn w103_is_an_error_under_gsd_strict() {
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(check.all().contains("W103"), "check: {}", check.all());
 }
+
+#[test]
+fn a_phase_with_two_contexts_is_e206() {
+    let p = project("discuss");
+    p.write(
+        "spec/second.spec",
+        "context 02-CONTEXT-B \"Another context\" {\n  phase v1.0/02\n  boundary \"Again\"\n  canonical_refs [\n    { topic \"Storage\" paths [\"docs/storage.md\"] }\n  ]\n}\n",
+    );
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/E206");
+    assert!(
+        found[0]
+            .1
+            .contains("'v1.0/02/02-CONTEXT-B' is a second context"),
+        "{found:#?}"
+    );
+}

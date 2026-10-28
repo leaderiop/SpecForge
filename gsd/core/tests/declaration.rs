@@ -80,7 +80,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 60);
+    assert_eq!(book.len(), 61);
     for row in &rows {
         let code = book
             .iter()
