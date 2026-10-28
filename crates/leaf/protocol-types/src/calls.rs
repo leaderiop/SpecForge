@@ -91,6 +91,9 @@ pub struct CommandInput<G = GraphWire> {
     /// only to a command that declares `writes` (protocol 1.9.0, ADR 0289).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, String>,
+    /// The extension's state, for a command that declares `reads_state` (protocol 1.10.0, ADR 0292).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::StateView>,
 }
 
 /// What a command's input says the recorded tests prove. On the wire an
@@ -246,6 +249,9 @@ pub struct CommandOutput {
     /// What a command that declares `writes` asks the host to write (protocol 1.9.0, ADR 0289).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan: Option<EditPlan>,
+    /// A patch to the extension's state (protocol 1.10.0, ADR 0292).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::StatePatch>,
 }
 
 impl CommandOutput {
@@ -256,6 +262,7 @@ impl CommandOutput {
             stdout: stdout.into(),
             stderr: String::new(),
             plan: None,
+            state: None,
         }
     }
 
@@ -272,6 +279,7 @@ impl CommandOutput {
             stdout: String::new(),
             stderr: stderr.into(),
             plan: None,
+            state: None,
         }
     }
 
@@ -301,6 +309,7 @@ impl CommandOutput {
             stdout: String::new(),
             stderr,
             plan: None,
+            state: None,
         }
     }
 

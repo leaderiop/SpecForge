@@ -6,8 +6,10 @@
 mod calls;
 mod extension_text;
 mod handshake_conformance;
+mod host_wire;
 mod judged_wire;
 mod load_declaration;
+mod op_table;
 mod plan_wire;
 mod prompt_wire;
 mod protocol_host;

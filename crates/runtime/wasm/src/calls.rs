@@ -52,6 +52,8 @@ pub enum Operation {
     Scan,
     Migrate,
     Prompt,
+    Render,
+    Hook,
 }
 
 impl Operation {
@@ -67,11 +69,13 @@ impl Operation {
                 | Operation::Pass
                 | Operation::Validate
                 | Operation::Prompt
+                | Operation::Render
+                | Operation::Hook
         )
     }
 
     /// Every operation.
-    pub const ALL: [Operation; 11] = [
+    pub const ALL: [Operation; 13] = [
         Operation::Handshake,
         Operation::Describe,
         Operation::Command,
@@ -83,6 +87,8 @@ impl Operation {
         Operation::Scan,
         Operation::Migrate,
         Operation::Prompt,
+        Operation::Render,
+        Operation::Hook,
     ];
 
     /// How a message names the operation.
@@ -99,6 +105,8 @@ impl Operation {
             Operation::Scan => "scanner",
             Operation::Migrate => "migration hook",
             Operation::Prompt => "MCP prompt",
+            Operation::Render => "renderer",
+            Operation::Hook => "hook",
         }
     }
 }
@@ -489,7 +497,11 @@ impl<'r> ExtensionCalls<'r> {
         // Secret presence only where a person runs something on this machine (see `ExtensionSettings::members`).
         let secrets = matches!(
             operation,
-            Operation::Command | Operation::McpTool | Operation::McpResource | Operation::Prompt
+            Operation::Command
+                | Operation::McpTool
+                | Operation::McpResource
+                | Operation::Prompt
+                | Operation::Hook
         );
         let members = self.runtime.settings_of(extension)?.members(secrets);
         (!members.is_empty()).then_some(members)
@@ -502,6 +514,18 @@ impl<'r> ExtensionCalls<'r> {
         export: &str,
         bytes: &[u8],
     ) -> Result<Vec<u8>, CallError> {
+        self.call_raw_within(operation, extension, export, bytes, u32::MAX)
+    }
+
+    /// [`Self::call_raw`] held to `max_ms` below the extension's own limit.
+    pub(crate) fn call_raw_within(
+        &self,
+        operation: Operation,
+        extension: &str,
+        export: &str,
+        bytes: &[u8],
+        max_ms: u32,
+    ) -> Result<Vec<u8>, CallError> {
         let spliced;
         let bytes = match self.carried(operation, extension) {
             Some(members) => {
@@ -510,7 +534,10 @@ impl<'r> ExtensionCalls<'r> {
             }
             None => bytes,
         };
-        match self.runtime.call_export(extension, export, bytes) {
+        match self
+            .runtime
+            .call_export_within(extension, export, bytes, max_ms)
+        {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
                 let failure = if trap.kind == "extension_not_found" {
@@ -556,7 +583,7 @@ fn splice(bytes: &[u8], members: &serde_json::Map<String, Value>) -> Vec<u8> {
 
 /// Decode an export's `answer` as the protocol type `expected` names; a text-reading operation's
 /// answer is held printable first.
-fn decode<O: DeserializeOwned>(
+pub(crate) fn decode<O: DeserializeOwned>(
     operation: Operation,
     extension: &str,
     export: &str,
@@ -578,6 +605,9 @@ fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error>
         Operation::Handshake => DECLARED_LINES,
         // A prompt's message is a document: it keeps its lines, every other control stays escaped.
         Operation::Prompt => &["text"],
+        // A renderer's body and a hook's words to the model or the person are documents too.
+        Operation::Render => &["body"],
+        Operation::Hook => &["context", "reason", "notice"],
         _ => &[],
     };
     hold_printable(&mut value, lines);
@@ -600,7 +630,7 @@ fn malformed(
     )
 }
 
-fn encode<T: Serialize>(
+pub(crate) fn encode<T: Serialize>(
     operation: Operation,
     extension: &str,
     export: &str,

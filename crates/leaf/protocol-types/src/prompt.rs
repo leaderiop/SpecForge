@@ -29,6 +29,9 @@ pub struct PromptDescriptor {
     /// The export receives the graph, as a command does. Absent, a workflow reads through tools.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reads_graph: bool,
+    /// The export receives the extension's state (protocol 1.10.0, ADR 0292).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_state: bool,
     /// A bool setting of the extension: while it is false the prompt is not served.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
@@ -100,6 +103,9 @@ pub struct PromptInput<G = GraphWire> {
     /// The host the prompt is rendered for (`claude-code`, `codex`, `cursor`), when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
+    /// A prompt that declares `reads_state`: the extension's state, read only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::StateView>,
 }
 
 /// What a `prompt__*` export answers: at least one message.

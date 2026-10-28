@@ -27,6 +27,7 @@ fn fake() -> InProcessRuntime {
                             stdout: "out\n".into(),
                             stderr: "err\n".into(),
                             plan: None,
+                            state: None,
                         }
                         .to_bytes()
                     }),

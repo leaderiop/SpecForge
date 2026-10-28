@@ -125,6 +125,7 @@ fn a_command_sees_secret_presence_not_its_value() {
                 stdout: "{}\n".into(),
                 stderr: String::new(),
                 plan: None,
+                state: None,
             });
         });
         c

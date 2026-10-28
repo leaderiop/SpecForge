@@ -12,7 +12,6 @@ use specforge_protocol_types::SurfaceDescriptor;
     behavior = "install_into_a_host",
     verify = "an agent, a skill, a slash command and a hook round-trip through the protocol"
 )]
-#[ignore = "K9 T3"]
 fn host_contributions_round_trip() {
     let wire = json!({
         "commands": [{"id": "stats", "title": "Stats", "description": "Stats", "export": "cmd__stats", "args": [],

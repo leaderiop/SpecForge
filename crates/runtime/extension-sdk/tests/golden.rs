@@ -193,3 +193,53 @@ fn the_builtins_declare_no_host_contribution() {
         assert!(wire.get(key).is_none(), "{wire}");
     }
 }
+
+/// Each host contribution a guest declares is on the wire as a host reads it, and its exports are routed.
+#[test]
+fn a_guest_declares_each_host_contribution() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("plan_phase", |p| {
+        p.title("Plan")
+            .description("Plan")
+            .handler(|_| Ok(PromptOutput::user("go")));
+    });
+    c.command("stats", |s| {
+        s.title("Stats")
+            .description("Stats")
+            .reads_state()
+            .handler(|_| CommandOutput::ok(""));
+    });
+    c.agent("flow-planner", |a| {
+        a.description("Plans")
+            .tools(&["read", "mcp:context7/*"])
+            .model("setting:models.planner")
+            .variant("compact");
+    });
+    c.skill("flow-context", |s| {
+        s.description("Routes").tools(&["read"]);
+    });
+    c.slash_prompt("plan_phase", |s| {
+        s.tools(&["read"]).effort("max");
+    });
+    c.slash_command("stats", |s| {
+        s.tools(&["read"]);
+    });
+    c.hook("write_guard", HookEvent::PreTool, |h| {
+        h.description("Guards")
+            .tools(&["write"])
+            .on_failure_deny()
+            .timeout_ms(3_000)
+            .reads_state()
+            .handler(|_| Ok(HookOutput::deny("no")));
+    });
+    c.render(|call| Ok(format!("# {}", call.id())));
+    let surfaces = serde_json::to_value(c.declaration().surfaces).unwrap();
+    assert_eq!(surfaces["agents"][0]["variants"][0], "compact");
+    assert_eq!(surfaces["skills"][0]["id"], "flow-context");
+    assert_eq!(surfaces["slash_commands"][0]["prompt"], "plan_phase");
+    assert_eq!(surfaces["slash_commands"][1]["command"], "stats");
+    assert_eq!(surfaces["hooks"][0]["export"], "hook__write_guard");
+    assert_eq!(surfaces["hooks"][0]["timeout_ms"], 3_000);
+    assert_eq!(surfaces["hooks"][0]["on_failure"], "deny");
+    assert_eq!(surfaces["commands"][0]["reads_state"], true);
+}

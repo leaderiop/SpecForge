@@ -90,6 +90,18 @@ pub trait WasmRuntime: std::any::Any + Send + Sync {
     /// Call an export function on a loaded module.
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult;
 
+    /// [`Self::call_export`] held to at most `max_ms` of wall-clock time, below the extension's own limit (a hook's
+    /// timeout, ADR 0292). The in-process runtime runs the guest in the host process and holds it to nothing.
+    fn call_export_within(
+        &self,
+        extension_name: &str,
+        export_name: &str,
+        input: &[u8],
+        _max_ms: u32,
+    ) -> WasmCallResult {
+        self.call_export(extension_name, export_name, input)
+    }
+
     /// Hold `extension_name`'s later calls to `limits` (its handshake's
     /// sandbox, ADR 0037): the component runtime enforces them, the
     /// in-process runtime records them (its guest runs in the host process

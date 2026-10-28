@@ -45,6 +45,7 @@ fn hostile() -> ContributionsBuilder {
                 stdout: String::new(),
                 stderr: String::new(),
                 plan: None,
+                state: None,
             });
     });
     c
@@ -224,5 +225,6 @@ fn command_input() -> specforge_protocol_types::CommandInput<specforge_protocol_
             .unwrap(),
         evidence: Default::default(),
         revisions: Default::default(),
+        state: None,
     }
 }

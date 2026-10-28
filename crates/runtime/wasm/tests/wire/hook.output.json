@@ -1,0 +1,10 @@
+{
+  "decision": "deny",
+  "reason": "spec/a.spec would shrink from 120 to 80 bytes",
+  "context": "read the file first",
+  "state": {
+    "session": {
+      "denied": 1
+    }
+  }
+}

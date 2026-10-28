@@ -29,6 +29,7 @@ fn commands_only() -> ContributionsBuilder {
                 stdout: "hi".to_string(),
                 stderr: String::new(),
                 plan: None,
+                state: None,
             });
     });
     b

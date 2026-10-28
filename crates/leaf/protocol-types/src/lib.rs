@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod calls;
 mod code_catalog;
 pub mod command_args;
+mod contrib;
 mod declaration;
 mod field;
 mod judged;
@@ -44,6 +45,7 @@ mod trigger;
 mod vocabulary;
 pub use calls::*;
 pub use code_catalog::CodeDescriptor;
+pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
@@ -92,7 +94,8 @@ pub use vocabulary::{
 /// entity and a command's graph node carry the `judgements` of the rules that judge them; 1.10.0 is ADR 0291's: an
 /// extension declares `prompts` in its surfaces and the host calls their `prompt__*` export, a command declares the
 /// `gates` it waits on and the `subject` that scopes them, a pass declares the codes it `reports`, and a guard pass's
-/// input says what `trigger`ed it.
+/// input says what `trigger`ed it; ADR 0292 adds to the same 1.10.0 the `agents`, `skills`, `slash_commands` and `hooks` of an
+/// extension's surfaces, the `render__` and `hook__<id>` exports, and the `state` a hook or command keeps.
 pub const PROTOCOL_VERSION: &str = "1.10.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
@@ -441,6 +444,15 @@ pub struct SurfaceDescriptor {
     /// The MCP prompts it contributes (protocol 1.10.0, ADR 0291).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prompts: Vec<PromptDescriptor>,
+    /// Agents, skills, slash commands and hooks for a host (protocol 1.10.0, ADR 0292).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<AgentDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skills: Vec<SkillDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slash_commands: Vec<SlashCommandDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hooks: Vec<HookDescriptor>,
 }
 
 /// Describes a CLI command contributed by an extension.
@@ -464,6 +476,8 @@ pub struct CommandDescriptor {
     /// The arg holding the entity the command acts on; it scopes `gates`. Absent, the project.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_state: bool,
 }
 
 /// Describes an argument to a CLI command.

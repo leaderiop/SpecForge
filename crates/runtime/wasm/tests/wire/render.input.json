@@ -1,0 +1,7 @@
+{
+  "kind": "agent",
+  "id": "t-planner",
+  "host": "codex",
+  "variant": "compact",
+  "today": "2026-10-28"
+}

@@ -261,6 +261,7 @@ mod evidence {
                         stdout: "{}".into(),
                         stderr: String::new(),
                         plan: None,
+                        state: None,
                     }
                     .to_bytes(),
                 ),
@@ -393,6 +394,7 @@ mod the_views_runtime {
                     stdout: "{}\n".into(),
                     stderr: String::new(),
                     plan: None,
+                    state: None,
                 });
             });
             c

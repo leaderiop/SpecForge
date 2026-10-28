@@ -21,6 +21,8 @@ use specforge_wasm::{
     pass_diagnostics, testing::InProcessRuntime,
 };
 
+use crate::op_table::{export_of, perform};
+
 const EXT: &str = "@calls/x";
 
 thread_local! {
@@ -62,6 +64,7 @@ fn command_answer() -> CommandOutput {
         stdout: "out\n".into(),
         stderr: "err\n".into(),
         plan: None,
+        state: None,
     }
 }
 
@@ -204,7 +207,7 @@ fn sent(runtime: &InProcessRuntime) -> Value {
 }
 
 /// The host's command input of the golden: its graph spliced as rendered.
-fn command_input() -> WireCommandInput<RawGraph> {
+pub fn command_input() -> WireCommandInput<RawGraph> {
     let golden = wire("command.input.json");
     WireCommandInput {
         args: golden["args"].as_object().unwrap().clone(),
@@ -216,7 +219,7 @@ fn command_input() -> WireCommandInput<RawGraph> {
     }
 }
 
-fn validator_context() -> ValidatorContext {
+pub fn validator_context() -> ValidatorContext {
     typed(&wire("validate.input.json")[1])
 }
 
@@ -343,65 +346,6 @@ fn every_call_decodes_the_protocol_type() {
         calls.migrate(EXT, "migrate__x", &MigrationInput::default()),
         Ok(())
     );
-}
-
-/// The export each operation is called by in these tests.
-fn export_of(operation: Operation) -> &'static str {
-    match operation {
-        Operation::Handshake => "__handshake",
-        Operation::Describe => "__describe",
-        Operation::Command => "cmd__raw",
-        Operation::McpTool => "mcp__tool",
-        Operation::McpResource => "mcp__resource",
-        Operation::Pass => "__pass_audit",
-        Operation::Collect => "collect__x",
-        Operation::Validate => "validate__x",
-        Operation::Scan => "scan__x",
-        Operation::Migrate => "migrate__x",
-        Operation::Prompt => "prompt__x",
-    }
-}
-
-/// Perform `operation` on `extension`, its answer dropped.
-fn perform(calls: &ExtensionCalls, operation: Operation, extension: &str) -> Result<(), CallError> {
-    let export = export_of(operation);
-    match operation {
-        Operation::Handshake => calls.handshake(extension).map(drop),
-        Operation::Describe => calls
-            .describe(extension, DeclaredCategory::Entities)
-            .map(drop),
-        Operation::Command => calls
-            .run_command(extension, export, &command_input())
-            .map(drop),
-        Operation::McpTool => calls.call_mcp_tool(extension, export, &json!({})).map(drop),
-        Operation::McpResource => calls
-            .read_mcp_resource(extension, export, "u://r")
-            .map(drop),
-        Operation::Pass => {
-            let input = ExtensionCalls::encode(&PassInput::default());
-            calls.run_pass(extension, "audit", &input).map(drop)
-        }
-        Operation::Collect => calls
-            .collect(extension, export, &CollectInput::default())
-            .map(drop),
-        Operation::Validate => calls
-            .validate(extension, export, &validator_context())
-            .map(drop),
-        Operation::Scan => calls
-            .scan(
-                extension,
-                export,
-                &ScanRequest {
-                    file_path: "a.rs".into(),
-                    content: String::new(),
-                },
-            )
-            .map(drop),
-        Operation::Migrate => calls
-            .migrate(extension, export, &MigrationInput::default())
-            .map(drop),
-        Operation::Prompt => crate::prompt_wire::render(calls, extension, export),
-    }
 }
 
 #[specforge_test_macros::test(

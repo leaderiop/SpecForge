@@ -59,6 +59,7 @@ fn run(
         graph: RawGraph::new(graph.to_string()).expect("one JSON value"),
         evidence: CommandEvidence::None,
         revisions: Default::default(),
+        state: None,
     };
     ExtensionCalls::new(runtime)
         .run_command(PRODUCT, export, &input)
