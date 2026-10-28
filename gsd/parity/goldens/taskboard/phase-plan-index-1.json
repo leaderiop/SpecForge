@@ -1,0 +1,57 @@
+{
+  "phase": "01",
+  "plans": [
+    {
+      "id": "01-01",
+      "wave": 1,
+      "depends_on": [],
+      "autonomous": true,
+      "gap_closure": false,
+      "objective": "The task model and `add`.",
+      "files_modified": [
+        "package.json",
+        "src/tasks.js",
+        "test/tasks.test.js"
+      ],
+      "files_deleted": [],
+      "agent_hint": null,
+      "task_count": 2,
+      "has_summary": true,
+      "halted": false,
+      "blocked_by": []
+    },
+    {
+      "id": "01-02",
+      "wave": 2,
+      "depends_on": [
+        "01-01"
+      ],
+      "autonomous": true,
+      "gap_closure": false,
+      "objective": "`complete` and the command line.",
+      "files_modified": [
+        "src/tasks.js",
+        "src/cli.js",
+        "test/tasks.test.js"
+      ],
+      "files_deleted": [],
+      "agent_hint": null,
+      "task_count": 2,
+      "has_summary": true,
+      "halted": false,
+      "blocked_by": []
+    }
+  ],
+  "waves": {
+    "1": [
+      "01-01"
+    ],
+    "2": [
+      "01-02"
+    ]
+  },
+  "incomplete": [],
+  "runnable": [],
+  "ready_plans": [],
+  "has_checkpoints": false
+}

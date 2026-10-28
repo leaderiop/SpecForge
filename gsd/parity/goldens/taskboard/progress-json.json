@@ -1,0 +1,38 @@
+{
+  "milestone_version": null,
+  "milestone_name": null,
+  "phases": [
+    {
+      "number": "01",
+      "name": "core",
+      "plans": 2,
+      "summaries": 2,
+      "status": "Complete"
+    },
+    {
+      "number": "02",
+      "name": "persistence",
+      "plans": 1,
+      "summaries": 0,
+      "status": "Planned"
+    },
+    {
+      "number": "02.1",
+      "name": "hotfix titles survive a reload",
+      "plans": 0,
+      "summaries": 0,
+      "status": "Pending"
+    },
+    {
+      "number": "03",
+      "name": "listing",
+      "plans": 0,
+      "summaries": 0,
+      "status": "Pending"
+    }
+  ],
+  "total_plans": 3,
+  "total_summaries": 2,
+  "percent": 67,
+  "phase_scope": "complete"
+}

@@ -1,0 +1,40 @@
+{
+  "phase": "02",
+  "plans": [
+    {
+      "id": "02-01",
+      "wave": 1,
+      "depends_on": [],
+      "autonomous": true,
+      "gap_closure": false,
+      "objective": "Save and load `tasks.json`.",
+      "files_modified": [
+        "src/store.js",
+        "src/cli.js",
+        "test/store.test.js"
+      ],
+      "files_deleted": [],
+      "agent_hint": null,
+      "task_count": 2,
+      "has_summary": false,
+      "halted": false,
+      "blocked_by": [],
+      "ready": true
+    }
+  ],
+  "waves": {
+    "1": [
+      "02-01"
+    ]
+  },
+  "incomplete": [
+    "02-01"
+  ],
+  "runnable": [
+    "02-01"
+  ],
+  "ready_plans": [
+    "02-01"
+  ],
+  "has_checkpoints": false
+}
