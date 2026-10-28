@@ -413,6 +413,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "verdict_statement"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "method_statement"
               },
               {
@@ -459,6 +463,10 @@
               {
                 "type": "SYMBOL",
                 "name": "verify_statement"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "verdict_statement"
               },
               {
                 "type": "SYMBOL",
@@ -626,6 +634,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "verdict_statement"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "method_statement"
               },
               {
@@ -770,6 +782,15 @@
                 "content": {
                   "type": "STRING",
                   "value": "verify"
+                },
+                "named": true,
+                "value": "identifier"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "STRING",
+                  "value": "verdict"
                 },
                 "named": true,
                 "value": "identifier"
@@ -1319,6 +1340,52 @@
             "content": {
               "type": "SYMBOL",
               "name": "string"
+            }
+          }
+        ]
+      }
+    },
+    "verdict_statement": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "verdict"
+          },
+          {
+            "type": "FIELD",
+            "name": "rule",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "identifier"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "reference_path"
+                }
+              ]
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "outcome",
+            "content": {
+              "type": "SYMBOL",
+              "name": "identifier"
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "body",
+            "content": {
+              "type": "SYMBOL",
+              "name": "nested_block"
             }
           }
         ]
@@ -2198,7 +2265,12 @@
       "name": "comment"
     }
   ],
-  "conflicts": [],
+  "conflicts": [
+    [
+      "_value",
+      "verdict_statement"
+    ]
+  ],
   "precedences": [],
   "externals": [
     {

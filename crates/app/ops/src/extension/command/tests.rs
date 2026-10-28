@@ -66,6 +66,7 @@ fn graph() -> Graph {
         },
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     graph

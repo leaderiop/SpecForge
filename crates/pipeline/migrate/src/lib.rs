@@ -276,11 +276,21 @@ fn changed(node: &ModifiedNodeChange) -> String {
         NodeAspect::Title => "title",
         NodeAspect::Methods => "methods",
         NodeAspect::Obligations => "obligations",
+        NodeAspect::Verdicts => "verdicts",
         NodeAspect::Edges => "edges",
     };
     let aspects: Vec<&str> = node.changed_aspects.iter().map(aspect).collect();
     let fields = node.changed_fields.iter().map(|f| {
-        if ["kind", "title", "methods", "obligations", "edges"].contains(&f.as_str()) {
+        if [
+            "kind",
+            "title",
+            "methods",
+            "obligations",
+            "verdicts",
+            "edges",
+        ]
+        .contains(&f.as_str())
+        {
             format!("field '{f}'")
         } else {
             f.clone()

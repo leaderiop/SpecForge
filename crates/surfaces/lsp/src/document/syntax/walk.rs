@@ -344,6 +344,18 @@ impl Walk<'_> {
                 }
                 _ => false,
             },
+            Expect::VerdictHead => match kind {
+                LexemeKind::Punct('{') => {
+                    self.set(i, Role::Other);
+                    self.open(FrameKind::Block, None, None, Expect::Body, Expect::Body);
+                    true
+                }
+                LexemeKind::Ident | LexemeKind::Number | LexemeKind::Punct('/') => {
+                    self.set(i, Role::VerifyKind);
+                    true
+                }
+                _ => false,
+            },
             Expect::MethodName => {
                 if kind == LexemeKind::Ident {
                     self.set(i, Role::Name);
@@ -522,7 +534,7 @@ impl Walk<'_> {
             .top
             .is_some_and(|f| self.syntax.frames[f as usize].kind != FrameKind::Block);
         let statement = match word {
-            Some("verify" | "method") if members => {
+            Some("verify" | "verdict" | "method") if members => {
                 lex::body_statement_at(self.text, &self.syntax.lexemes, i)
             }
             _ => BodyStatement::Field,
@@ -536,6 +548,10 @@ impl Walk<'_> {
             (_, BodyStatement::Verify) => {
                 self.set(i, Role::Keyword);
                 self.state = Expect::VerifyKind;
+            }
+            (_, BodyStatement::Verdict) => {
+                self.set(i, Role::Keyword);
+                self.state = Expect::VerdictHead;
             }
             (_, BodyStatement::Method) => {
                 self.set(i, Role::Keyword);

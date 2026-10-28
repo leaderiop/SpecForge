@@ -12,6 +12,8 @@ pub const BASE: &str = "base";
 pub const BINDINGS: &str = "bindings";
 /// `verify_statement`: the description string.
 pub const DESCRIPTION: &str = "description";
+/// `verdict_statement`: the `{ … }` of members.
+pub const BODY: &str = "body";
 /// `array_type`: the element type.
 pub const ELEMENT: &str = "element";
 /// `ref_inline`, `ref_full`: the `scheme.kind:id` token.
@@ -31,10 +33,14 @@ pub const NAMESPACE: &str = "namespace";
 pub const OP: &str = "op";
 /// `parameter`: the `?` of an optional parameter.
 pub const OPTIONAL: &str = "optional";
+/// `verdict_statement`: the outcome.
+pub const OUTCOME: &str = "outcome";
 /// `use_import`, `pub_use_import`: the path string.
 pub const PATH: &str = "path";
 /// `method_statement`, `function_type`: the return type.
 pub const RETURNS: &str = "returns";
+/// `verdict_statement`: the judged rule.
+pub const RULE: &str = "rule";
 /// `reference_path`: the leading `/` that roots it at the project.
 pub const ROOT: &str = "root";
 /// `expr_or`, `expr_and`, `expr_cmp`, `expr_add`: the right operand.
@@ -53,6 +59,7 @@ pub const ALL: &[&str] = &[
     ALIAS,
     BASE,
     BINDINGS,
+    BODY,
     DESCRIPTION,
     ELEMENT,
     ID,
@@ -63,10 +70,12 @@ pub const ALL: &[&str] = &[
     NAMESPACE,
     OP,
     OPTIONAL,
+    OUTCOME,
     PATH,
     RETURNS,
     RHS,
     ROOT,
+    RULE,
     TITLE,
     TYPE,
     VALUE,

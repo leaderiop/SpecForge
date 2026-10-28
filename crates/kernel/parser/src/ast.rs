@@ -78,6 +78,9 @@ pub struct Entity {
     /// `nested_block`), never a statement. The parse's only: the graph's node keeps no position of a statement
     /// (ADR 0187 D5, amended).
     pub obligation_spans: Vec<SourceSpan>,
+    /// `verdict <rule> <outcome> { … }` statements, in declaration order (ADR 0290): a judged rule's verdict, an
+    /// entity's own member as `verify` is, never a field.
+    pub verdicts: Vec<VerdictMember>,
     /// Where the block's doc comment is written: the run of whole-line `//` comments directly above the block's
     /// first line, no blank line between, from the first comment's start to the last one's end. A comment ending
     /// the line of the item above trails that item, and the format header is never one (ADR 0095's placement rule).
@@ -390,6 +393,23 @@ pub enum FieldValue {
     Boolean(bool),
     Date(String),
     Identifier(String),
+}
+
+/// One `verdict <rule> <outcome> { … }` statement of an entity's body (ADR 0290), as written: the rule's text (a
+/// word or a path, as the grammar's `rule`), the outcome, and the members of its block, unread. Reading them is the
+/// graph's (`specforge_graph::verdict`).
+#[derive(Debug, Clone)]
+pub struct VerdictMember {
+    pub rule: String,
+    /// Where the rule is written.
+    pub rule_span: SourceSpan,
+    pub outcome: String,
+    /// Where the outcome is written.
+    pub outcome_span: SourceSpan,
+    /// The block's members, as `{ … }` of a field reads them.
+    pub body: FieldMap,
+    /// From `verdict` to the block's closing brace.
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]

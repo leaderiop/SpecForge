@@ -1,5 +1,6 @@
 ---
 source: crates/kernel/parser/tests/snapshot_tests.rs
+assertion_line: 108
 expression: result.entities
 ---
 [
@@ -244,6 +245,7 @@ expression: result.entities
                 end_col: 59,
             },
         ],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],
@@ -315,6 +317,7 @@ expression: result.entities
         methods: [],
         obligations: [],
         obligation_spans: [],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],
@@ -447,6 +450,7 @@ expression: result.entities
                 end_col: 53,
             },
         ],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],

@@ -106,6 +106,7 @@ pub(crate) fn graph_node(
         annotations,
         methods,
         computed,
+        verdicts: _,
     } = crate::emit::members_of(n, computed);
     JsonNode {
         id: n.id.raw.to_string(),

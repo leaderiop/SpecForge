@@ -38,6 +38,7 @@ fn build_graph(n: usize) -> Graph {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         });
         if i > 0 {

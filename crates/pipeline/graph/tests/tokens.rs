@@ -397,7 +397,6 @@ fn a_use_bindings_imported_name_is_a_token_held_by_no_block() {
     assert!(tokens.iter().all(|t| t.held_by.is_empty()), "{tokens:?}");
 }
 
-#[ignore = "K7 T3"]
 #[specforge_test(
     behavior = "parse_verdict_statement",
     verify = "a cited reference is a finder token and no edge"

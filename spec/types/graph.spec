@@ -23,6 +23,7 @@ type Node "Node" {
   title       string
   fields      FieldMap
   obligations VerifyStatement[]
+  verdicts    VerdictMember[]
   source_span SourceSpan @readonly
   verify unit "Node schema is valid"
 }
@@ -220,14 +221,14 @@ type ModifiedNodeChange "Modified Node Change" {
   /// The fields whose values differ, by name, sorted: a field named kind or
   /// methods is a field here.
   changed_fields  string[]
-  /// What else differs, sorted: its kind, title, methods, obligations or outgoing edges.
+  /// What else differs, sorted: its kind, title, methods, obligations, verdicts or outgoing edges.
   changed_aspects NodeAspect[]
   file            string  @readonly
   line            integer @readonly
   verify unit "ModifiedNodeChange schema is valid"
 }
 
-type NodeAspect "Node Aspect" = "kind" | "title" | "methods" | "obligations" | "edges"
+type NodeAspect "Node Aspect" = "kind" | "title" | "methods" | "obligations" | "verdicts" | "edges"
 
 type EdgeChange "One edge in a GraphDelta, as the graph export writes an edge." {
   source string @readonly

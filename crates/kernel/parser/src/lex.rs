@@ -236,6 +236,9 @@ pub enum BodyStatement {
     /// `method name(...)`: an identifier follows `method` on its line, then `(`
     /// or nothing yet.
     Method,
+    /// `verdict <rule> <outcome> {` on one line (ADR 0290): the rule a word or names joined by adjacent `/`, the
+    /// outcome an identifier. With less after it, `verdict` is a field's key (`verdict ValidatorVerdictKind`).
+    Verdict,
     /// A field's key, or a line the grammar reads as no statement.
     Field,
 }
@@ -272,11 +275,40 @@ pub fn body_statement_at(text: &str, lexemes: &[Lexeme], i: usize) -> BodyStatem
     match first.text(text) {
         "verify" if regular(a) || (ident(a_on) && regular(b)) => BodyStatement::Verify,
         "verify" if a_on.is_none() || (ident(a_on) && b_on.is_none()) => BodyStatement::VerifyTyped,
+        "verdict" if verdict_head(text, lexemes, i, line_end) => BodyStatement::Verdict,
         "method" if ident(a_on) && (b_on.is_none() || b.is_some_and(|b| b.is_punct('('))) => {
             BodyStatement::Method
         }
         _ => BodyStatement::Field,
     }
+}
+
+/// Whether the `verdict` at `lexemes[i]` is followed, before `line_end`, by a rule, an outcome and `{`: the rule one
+/// word, or names joined by adjacent `/` (the grammar's `reference_path`), the outcome one identifier.
+fn verdict_head(text: &str, lexemes: &[Lexeme], i: usize, line_end: usize) -> bool {
+    let mut at = i + 1;
+    let code = |at: usize| {
+        lexemes
+            .get(at)
+            .filter(|l| l.start < line_end && l.kind != LexemeKind::Comment)
+    };
+    let Some((len, _)) = word_run(text, lexemes, at, false) else {
+        return false;
+    };
+    at += len;
+    // `/name` joined with no gap, as many as there are.
+    while let (Some(slash), Some(next)) = (lexemes.get(at), lexemes.get(at + 1))
+        && slash.kind == LexemeKind::Punct('/')
+        && lexemes[at - 1].end == slash.start
+        && next.start == slash.end
+    {
+        let Some((len, _)) = word_run(text, lexemes, at + 1, false) else {
+            return false;
+        };
+        at += 1 + len;
+    }
+    let outcome = code(at).is_some_and(|l| l.kind == LexemeKind::Ident);
+    outcome && code(at + 1).is_some_and(|l| l.kind == LexemeKind::Punct('{'))
 }
 
 /// The start of the first line after the one holding byte `from` of `text`

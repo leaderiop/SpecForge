@@ -30,6 +30,8 @@ pub use scope::{Found, Scopes};
 mod members;
 pub mod title;
 mod tokens;
+mod verdict;
+pub use verdict::VerdictJson;
 pub mod wire;
 pub use members::{AnnotationJson, Members, MethodJson, Obligation, ParameterJson};
 pub use specforge_cycles::Cycle;

@@ -50,7 +50,9 @@ fn body_statements_are_the_grammars() {
         walk(tree.root_node(), &mut nodes);
         for node in nodes {
             let word = match node.kind() {
-                kind::VERIFY_STATEMENT | kind::METHOD_STATEMENT => node.start_byte(),
+                kind::VERIFY_STATEMENT | kind::VERDICT_STATEMENT | kind::METHOD_STATEMENT => {
+                    node.start_byte()
+                }
                 // A nested block holds fields only; the caller knows it from its frames.
                 kind::FIELD if !within_nested_block(node) => {
                     node.child_by_field_name(field::KEY).unwrap().start_byte()
@@ -67,9 +69,13 @@ fn body_statements_are_the_grammars() {
             );
             match node.kind() {
                 kind::VERIFY_STATEMENT => assert_eq!(got, BodyStatement::Verify, "{at}"),
+                kind::VERDICT_STATEMENT => assert_eq!(got, BodyStatement::Verdict, "{at}"),
                 kind::METHOD_STATEMENT => assert_eq!(got, BodyStatement::Method, "{at}"),
                 _ => assert!(
-                    !matches!(got, BodyStatement::Verify | BodyStatement::Method),
+                    !matches!(
+                        got,
+                        BodyStatement::Verify | BodyStatement::Method | BodyStatement::Verdict
+                    ),
                     "{at}"
                 ),
             }
@@ -127,7 +133,6 @@ fn a_field_named_verdict_stays_a_field() {
 
 const VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26T14:02:11Z\"\n    cited [AUTH-07, \"src/http/middleware.ts\"]\n    inputs { plan \"sha256:9f1c\" }\n  }\n}\n";
 
-#[ignore = "K7 T3"]
 #[specforge_test(
     behavior = "parse_verdict_statement",
     verify = "a verdict statement has a rule, an outcome and members, and a truncated one keeps its block"
@@ -136,15 +141,44 @@ fn a_verdict_statement_parses_beside_a_field_named_verdict() {
     let file = specforge_parser::parse(VERDICT, "a.spec");
     assert!(file.errors.is_empty(), "{:?}", file.errors);
     let entity = &file.entities[0];
-    assert_eq!(entity.fields.get("verdict"), None);
-    // The statement is a member of the entity, as `verify` is: its text names rule, outcome and members.
-    let debug = format!("{entity:?}");
-    assert!(debug.contains("verdicts: [VerdictMember"), "{debug}");
-    // A truncated statement keeps the block it was in.
+    assert!(entity.fields.get("verdict").is_none());
+    let [verdict] = entity.verdicts.as_slice() else {
+        panic!("{:?}", entity.verdicts)
+    };
+    assert_eq!(
+        (verdict.rule.as_str(), verdict.outcome.as_str()),
+        ("gsd/W311", "passed")
+    );
+    assert!(verdict.body.get("judge").is_some() && verdict.body.get("cited").is_some());
+    // A truncated statement is an error, not a panic.
     let truncated = VERDICT.replace(
         "    inputs { plan \"sha256:9f1c\" }\n  }\n}\n",
         "    inputs {",
     );
-    let broken = specforge_parser::parse(&truncated, "a.spec");
-    assert_eq!(broken.entities.len(), 1);
+    assert!(
+        !specforge_parser::parse(&truncated, "a.spec")
+            .errors
+            .is_empty()
+    );
+}
+
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "a verdict line being typed is told apart from a verdict statement and from a field"
+)]
+fn a_verdict_line_being_typed_is_told_apart() {
+    use BodyStatement::{Field, Verdict};
+    let rows: [(&str, BodyStatement); 8] = [
+        ("verdict gsd/W311 passed {", Verdict),
+        ("verdict W311 passed { }", Verdict),
+        ("verdict gsd/W311 passed", Field),
+        ("verdict gsd/W311", Field),
+        ("verdict ValidatorVerdictKind", Field),
+        ("verdict", Field),
+        ("verdict gsd / W311 passed {", Field),
+        ("verdict 5 passed {", Verdict),
+    ];
+    for (text, want) in rows {
+        assert_eq!(body_statement_at(text, &lex(text), 0), want, "{text:?}");
+    }
 }

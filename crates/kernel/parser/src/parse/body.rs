@@ -7,6 +7,7 @@ pub(super) struct Body {
     pub(super) fields: FieldMap,
     pub(super) obligations: Vec<VerifyStatement>,
     pub(super) obligation_spans: Vec<SourceSpan>,
+    pub(super) verdicts: Vec<VerdictMember>,
     pub(super) methods: Vec<MethodDecl>,
     /// The own-line comments of the body, nested block fields' included, in source order.
     pub(super) comments: Vec<SourceSpan>,
@@ -38,6 +39,11 @@ impl<'a> ParseContext<'a> {
                     if let Some(stmt) = self.parse_verify_statement(child) {
                         body.obligations.push(stmt);
                         body.obligation_spans.push(self.span(child));
+                    }
+                }
+                kind::VERDICT_STATEMENT => {
+                    if let Some(member) = self.parse_verdict_statement(child) {
+                        body.verdicts.push(member);
                     }
                 }
                 kind::METHOD_STATEMENT => body.methods.push(self.parse_method_statement(child)),
@@ -269,6 +275,25 @@ impl<'a> ParseContext<'a> {
         Some(VerifyStatement {
             kind,
             description: self.unquote(desc),
+        })
+    }
+
+    /// A `verdict` statement: its rule, outcome and the members of its block, unread. `None` for one the grammar
+    /// recovered from without a rule or an outcome.
+    fn parse_verdict_statement(&mut self, node: Node) -> Option<VerdictMember> {
+        let rule = node.child_by_field_name(field::RULE)?;
+        let outcome = node.child_by_field_name(field::OUTCOME)?;
+        let body = node.child_by_field_name(field::BODY)?;
+        let FieldValue::Block(fields) = self.parse_nested_block(body) else {
+            return None;
+        };
+        Some(VerdictMember {
+            rule: self.text(rule).to_string(),
+            rule_span: self.span(rule),
+            outcome: self.text(outcome).to_string(),
+            outcome_span: self.span(outcome),
+            body: fields,
+            span: self.span(node),
         })
     }
 

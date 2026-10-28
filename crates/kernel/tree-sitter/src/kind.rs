@@ -46,6 +46,8 @@ pub const FIELD: &str = "field";
 pub const ANNOTATION: &str = "annotation";
 /// `verify [kind] "description"`.
 pub const VERIFY_STATEMENT: &str = "verify_statement";
+/// `verdict rule outcome { … }` (ADR 0290).
+pub const VERDICT_STATEMENT: &str = "verdict_statement";
 /// `method name(params) [-> Type]`.
 pub const METHOD_STATEMENT: &str = "method_statement";
 /// `name[?]: Type [@annotation …]` of a method.
@@ -116,6 +118,7 @@ pub const ALL: &[&str] = &[
     FIELD,
     ANNOTATION,
     VERIFY_STATEMENT,
+    VERDICT_STATEMENT,
     METHOD_STATEMENT,
     PARAMETER,
     ARRAY_TYPE,

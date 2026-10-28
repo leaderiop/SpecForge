@@ -61,7 +61,7 @@ pub(super) fn format_block(
         forms,
         "",
     ));
-    format_body(node, source, config, 1, declared, &mut lines);
+    format_body(node, source, config, 1, declared, false, &mut lines);
     lines.push("}".to_string());
     lines
 }
@@ -130,6 +130,7 @@ fn format_body(
     config: &FormatConfig,
     depth: usize,
     forms: Forms,
+    verdict: bool,
     lines: &mut Vec<String>,
 ) {
     let indent = config.indent_str().repeat(depth);
@@ -142,18 +143,34 @@ fn format_body(
         let (start, end) = (child.start_position().row, child.end_position().row);
         let member = match child.kind() {
             _ if child.is_error() => Member::Line(node_text(*child, source).trim().to_string()),
-            kind::FIELD | kind::VERIFY_STATEMENT | kind::METHOD_STATEMENT
+            kind::FIELD
+            | kind::VERIFY_STATEMENT
+            | kind::VERDICT_STATEMENT
+            | kind::METHOD_STATEMENT
                 if holds_comment(*child) =>
             {
                 Member::Written(as_written(*child, source))
             }
             kind::FIELD => field_member(*child, source, config, depth, forms),
             kind::VERIFY_STATEMENT => Member::Line(verify_line(*child, source)),
+            kind::VERDICT_STATEMENT => verdict_member(*child, source, config, depth),
             kind::METHOD_STATEMENT => Member::Line(method_line(*child, source)),
             kind::COMMENT => Member::Comment(comment_text(*child, source)),
             _ => continue,
         };
         members.push((member, start, end));
+    }
+
+    // A verdict's members are written in the order the tools write them (ADR 0290); its comments, if any, keep it
+    // as written, so no comment is moved.
+    if verdict {
+        members.sort_by_key(|(m, _, _)| match m {
+            Member::Field { key, .. } | Member::Nested { key, .. } => VERDICT_ORDER
+                .iter()
+                .position(|k| k == key)
+                .unwrap_or(VERDICT_ORDER.len()),
+            _ => VERDICT_ORDER.len(),
+        });
     }
 
     // Keys align to the longest key + 1 (a nested block's `key {` is not
@@ -283,6 +300,7 @@ fn field_member(
                 config,
                 depth + 1,
                 forms.map(|(kind, f, _)| (kind, f, path.as_str())),
+                false,
                 &mut body,
             );
             Member::Nested {
@@ -407,7 +425,7 @@ fn block_list_value(
         let mut body = Vec::new();
         let path = member_prefix(forms, key);
         let inside = forms.map(|(kind, f, _)| (kind, f, path.as_str()));
-        format_body(*item, source, config, depth + 2, inside, &mut body);
+        format_body(*item, source, config, depth + 2, inside, false, &mut body);
         let one_line = format!(
             "{inner}{{ {} }}",
             body.iter()
@@ -488,6 +506,37 @@ fn in_form(node: Node, source: &str, key: &str, forms: Forms, place: Place) -> O
     } else {
         item
     })
+}
+
+/// The order a verdict's members are written in.
+const VERDICT_ORDER: [&str; 8] = [
+    "judge",
+    "model",
+    "at",
+    "cited",
+    "cited_tests",
+    "inputs",
+    "findings",
+    "values",
+];
+
+/// `verdict <rule> <outcome> { … }`: a block member whose members are laid out as a block's, in the fixed order.
+fn verdict_member(node: Node, source: &str, config: &FormatConfig, depth: usize) -> Member {
+    let text = |name: &str| {
+        node.child_by_field_name(name)
+            .map(|n| node_text(n, source))
+            .unwrap_or_default()
+    };
+    let key = format!("verdict {} {}", text(field::RULE), text(field::OUTCOME));
+    let mut lines = Vec::new();
+    if let Some(body) = node.child_by_field_name(field::BODY) {
+        format_body(body, source, config, depth + 1, None, true, &mut lines);
+    }
+    Member::Nested {
+        key,
+        lines,
+        annotations: Vec::new(),
+    }
 }
 
 /// `verify [kind] "description"`, single-spaced.

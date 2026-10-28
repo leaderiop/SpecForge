@@ -42,6 +42,7 @@ fn emit_graph_includes_all_fields_and_metadata() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -82,6 +83,7 @@ fn emit_graph_equals_emit_json() {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         });
     }
@@ -141,6 +143,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     graph.add_node(Node {
@@ -155,6 +158,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     graph.add_edge(Edge {
@@ -200,6 +204,7 @@ fn graph_format_includes_schema_version() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -232,6 +237,7 @@ fn structural_only_graph_exports_raw_keywords() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     graph.add_node(Node {
@@ -246,6 +252,7 @@ fn structural_only_graph_exports_raw_keywords() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -277,6 +284,7 @@ fn without_verdicts_no_node_carries_a_coverage_status() {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         });
     }

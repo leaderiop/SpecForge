@@ -204,6 +204,7 @@ mod dot_escape_tests {
             },
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
         });
         let dot = emit_dot(&graph, &DotOptions::default());
         let node_stmts = dot

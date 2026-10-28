@@ -1,5 +1,6 @@
 ---
 source: crates/kernel/parser/tests/snapshot_tests.rs
+assertion_line: 143
 expression: "parse_ok(source, \"test.spec\").entities"
 ---
 [
@@ -74,6 +75,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 end_col: 42,
             },
         ],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],
@@ -145,6 +147,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
         methods: [],
         obligations: [],
         obligation_spans: [],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],
@@ -232,6 +235,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
         methods: [],
         obligations: [],
         obligation_spans: [],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],
@@ -314,6 +318,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 end_col: 40,
             },
         ],
+        verdicts: [],
         doc_span: None,
         body_comments: [],
         trailing_comments: [],

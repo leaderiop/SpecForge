@@ -44,7 +44,7 @@ pub struct ModifiedNodeChange {
     /// here whatever its name, `kind` and `methods` included.
     pub changed_fields: Vec<String>,
     /// What else differs (sorted, each once): its kind, its title, its
-    /// methods, its obligations, its outgoing edges.
+    /// methods, its obligations, its verdicts, its outgoing edges.
     pub changed_aspects: Vec<NodeAspect>,
     pub file: String,
     pub line: usize,
@@ -58,6 +58,7 @@ pub enum NodeAspect {
     Title,
     Methods,
     Obligations,
+    Verdicts,
     Edges,
 }
 
@@ -371,6 +372,9 @@ fn changes(
     }
     if old.obligations != new.obligations {
         aspects.insert(NodeAspect::Obligations);
+    }
+    if old_members.verdicts != new_members.verdicts {
+        aspects.insert(NodeAspect::Verdicts);
     }
     if old_out != new_out {
         aspects.insert(NodeAspect::Edges);

@@ -15,7 +15,7 @@ mod walk;
 /// What a lexeme is in its statement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Role {
-    /// `use pub from as define verify method expr fn`.
+    /// `use pub from as define verify verdict method expr fn`.
     Keyword,
     /// An entity header's first word (structure, not registry).
     Kind,
@@ -25,7 +25,7 @@ pub(crate) enum Role {
     Title,
     /// A field's name, in a body or a nested block.
     Key,
-    /// `verify <kind> "…"`.
+    /// `verify <kind> "…"`; a verdict's rule and outcome.
     VerifyKind,
     /// A field's value lexemes (Str, Number, Ident, RefId).
     Value,
@@ -150,6 +150,8 @@ pub(crate) enum Expect {
     VerifyKind,
     /// After the verify kind: the description.
     VerifyDesc,
+    /// After `verdict`: the rule, the outcome and the `{` (ADR 0290).
+    VerdictHead,
     /// After `method`: its name.
     MethodName,
     /// After the method's name: `(`.
@@ -352,6 +354,7 @@ pub(crate) fn line_end(state: Expect, next: Option<&Lexeme>, start: Expect) -> E
         | Expect::ExprOpen(_)
         | Expect::VerifyKind
         | Expect::VerifyDesc
+        | Expect::VerdictHead
         | Expect::MethodName
         | Expect::MethodParams
         | Expect::MethodAfter

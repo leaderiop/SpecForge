@@ -55,6 +55,8 @@ behavior parse_verdict_statement "Parse a Verdict Statement" {
   verify unit "a verdict is a node member and a delta aspect, never a field"
   verify unit "a cited reference is a finder token and no edge"
   verify unit "the formatter keeps a verdict's members in their fixed order"
+  verify unit "highlights.scm captures a verdict statement's keyword, rule and outcome"
+  verify unit "a verdict line being typed is told apart from a verdict statement and from a field"
 }
 
 behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {

@@ -57,6 +57,7 @@ fn format_only_migration_zero_differences() {
             fields,
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         });
         for (id, kind) in [("inv_a", "invariant"), ("inv_b", "invariant")] {
@@ -70,6 +71,7 @@ fn format_only_migration_zero_differences() {
                 fields: FieldMap::new(),
                 methods: Vec::new(),
                 obligations: Vec::new(),
+                verdicts: Vec::new(),
                 scope: None,
             });
         }
@@ -148,6 +150,7 @@ fn structural_differences_produce_warnings() {
         fields: FieldMap::new(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -189,6 +192,7 @@ fn new_entities_after_migration_reported() {
         fields: FieldMap::new(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -224,6 +228,7 @@ fn post_migration_integrity_contract() {
         fields: FieldMap::new(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     };
 
@@ -285,6 +290,7 @@ fn cross_extension_broken_reference_produces_diagnostic() {
         fields: FieldMap::new(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     };
 
@@ -365,6 +371,7 @@ fn graph_after(change: Option<Change>) -> Graph {
                 Vec::new()
             },
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         }
     };

@@ -70,7 +70,6 @@ fn an_incremental_edit_of_a_statement_matches_the_cold_build() {
 const WITH_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 const OTHER_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 issues {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 
-#[ignore = "K7 T3"]
 #[specforge_test(
     behavior = "parse_verdict_statement",
     verify = "a verdict is a node member and a delta aspect, never a field"

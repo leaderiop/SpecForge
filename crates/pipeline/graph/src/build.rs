@@ -432,7 +432,7 @@ fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Result<(), Strin
             .iter()
             .map(|n| {
                 let sig = format!(
-                    "{} in {}:{}:{} scope={:?} title={:?} fields={:?} methods={:?} obligations={:?}",
+                    "{} in {}:{}:{} scope={:?} title={:?} fields={:?} methods={:?} obligations={:?} verdicts={:?}",
                     n.kind.raw,
                     n.source_span.file,
                     n.source_span.start_line,
@@ -442,6 +442,7 @@ fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Result<(), Strin
                     n.fields,
                     n.methods,
                     n.obligations,
+                    n.verdicts,
                 );
                 (n.id.raw.to_string(), sig)
             })
