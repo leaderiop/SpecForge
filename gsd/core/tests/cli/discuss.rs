@@ -490,3 +490,66 @@ fn a_hand_written_digest_is_e083() {
     );
     assert_eq!(codes(&p), Vec::<String>::new());
 }
+
+/// A project whose research was recorded against the context before a decision of the context was edited.
+fn stale_research() -> Project {
+    let p = project("discuss");
+    let digest = context_digest(&p);
+    record(
+        &p,
+        "research.spec",
+        "v1.0/02/02-RESEARCH",
+        RESEARCH_ANCHOR,
+        &digest,
+    );
+    edit_decision(&p);
+    p
+}
+
+/// `(severity, exit code)` of the W406 `specforge check` reports, `None` when it reports none.
+fn w406(p: &Project) -> Option<(String, i32)> {
+    let run = p.run(&["check", "--format", "json"]);
+    let found: serde_json::Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    let severity = found
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|d| d["code"] == "gsd/W406")
+        .map(|d| d["severity"].as_str().unwrap_or_default().to_lowercase())?;
+    Some((severity, run.code))
+}
+
+#[test]
+fn context_drift_action_block_raises_w406_to_an_error() {
+    let p = stale_research();
+    p.settings(serde_json::json!({ "workflow.context_drift_action": "block" }));
+    assert_eq!(w406(&p), Some(("error".to_string(), 1)));
+}
+
+#[test]
+fn context_drift_action_warn_keeps_w406_a_warning() {
+    let p = stale_research();
+    assert_eq!(w406(&p), Some(("warning".to_string(), 0)), "the default");
+    p.settings(serde_json::json!({ "workflow.context_drift_action": "warn" }));
+    assert_eq!(w406(&p), Some(("warning".to_string(), 0)));
+}
+
+#[test]
+fn context_drift_precheck_off_silences_w406() {
+    let p = stale_research();
+    p.settings(serde_json::json!({ "workflow.context_drift_precheck": false }));
+    assert_eq!(w406(&p), None);
+    p.settings(serde_json::json!({
+        "workflow.context_drift_precheck": false,
+        "workflow.context_drift_action": "block"
+    }));
+    assert_eq!(w406(&p), None, "the gate is off whatever the action");
+}
+
+#[test]
+fn w406_is_an_error_under_gsd_strict() {
+    let p = stale_research();
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    assert_eq!(w406(&p), Some(("error".to_string(), 1)));
+}
