@@ -744,3 +744,26 @@ fn a_report_that_reorders_its_tests_stales_nothing() {
 
 const ELSEWHERE: &str =
     "\nphase 04 \"Four\" {\n  milestone v1.0\n}\n\ndecision D-09 \"Elsewhere\" {\n  phase 04\n}\n";
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a cited entity is digested by the resolution that accepted it"
+)]
+fn a_cited_entity_outside_the_holders_chain_is_still_watched() {
+    let project = gsd_judged_project(ELSEWHERE);
+    let cited = Cited {
+        entities: vec!["D-09".into()],
+        ..Cited::default()
+    };
+    record_citing(&project, PLAN, W311, "passed", &cited, "    cited [D-09]\n");
+    assert_eq!(judgement(&compile(&project), PLAN, W311).0, "fresh");
+    project.write(
+        "a.spec",
+        project.read("a.spec").replace("Elsewhere", "Somewhere"),
+    );
+    let (state, changed) = judgement(&compile(&project), PLAN, W311);
+    assert_eq!(
+        (state.as_str(), changed.as_slice()),
+        ("stale", ["cited".to_string()].as_slice())
+    );
+}

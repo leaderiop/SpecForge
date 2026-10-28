@@ -117,6 +117,20 @@ pub fn entity_bytes(graph: &Graph, forms: &FieldForms, node: &Node) -> Vec<u8> {
     serde_json::to_vec(&value).expect("a JSON value serializes")
 }
 
+/// The path a verdict held by `holder` cites with `text`: by the holder's scope chain, else the one entity a surface
+/// spelling names (the resolution that accepted the cite, [`Graph::find`]), else the text as written. The ledger bytes and
+/// the cited digest both read a cite through it.
+pub fn cited(graph: &Graph, holder: Sym, text: &str) -> String {
+    match graph.scopes().chain(Some(holder), text, &|_| true) {
+        Found::One(path) | Found::Mistyped(path) => return path.to_string(),
+        _ => {}
+    }
+    match graph.find(text) {
+        Found::One(path) | Found::Mistyped(path) => path.to_string(),
+        _ => text.to_string(),
+    }
+}
+
 /// The bytes a verdict is recorded as in the ledger (ADR 0290): its rule and outcome, its judge, model and time,
 /// what it cited (a bare item as the full path of the entity it names, a quoted one a file, `cited_tests` the
 /// tests), its input digests, findings and values. Layout, comments and the spelling of a cited reference are not
@@ -141,12 +155,7 @@ pub fn verdict_bytes(graph: &Graph, node: &Node, verdict: &VerdictMember) -> Vec
     let mut entities: Vec<String> = items("cited", Some(true))
         .into_iter()
         .filter_map(|v| v.as_str().map(str::to_string))
-        .map(
-            |text| match graph.scopes().chain(Some(node.id.raw), &text, &|_| true) {
-                Found::One(path) | Found::Mistyped(path) => path.to_string(),
-                _ => text,
-            },
-        )
+        .map(|text| cited(graph, node.id.raw, &text))
         .collect();
     entities.sort();
     let mut files: Vec<Value> = items("cited", Some(false));

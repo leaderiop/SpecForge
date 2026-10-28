@@ -79,6 +79,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a missing report hides no change to a cited entity or file"
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
+  verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "incremental digests equal cold digests"
   verify unit "a memo hit still watches its file"
   verify unit "a file change the session has not applied misses the memo"

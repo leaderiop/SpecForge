@@ -7,7 +7,7 @@ use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
 use serde_json::{Value, json};
-use specforge_graph::{Found, Graph, Node};
+use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
@@ -332,16 +332,7 @@ impl<'a> Cx<'a> {
                 let mut found: Vec<String> = cited
                     .entities
                     .iter()
-                    .map(|text| {
-                        match self
-                            .graph
-                            .scopes()
-                            .chain(Some(node.id.raw), text, &|_| true)
-                        {
-                            Found::One(path) | Found::Mistyped(path) => path.to_string(),
-                            _ => text.clone(),
-                        }
-                    })
+                    .map(|text| wire::cited(self.graph, node.id.raw, text))
                     .collect();
                 found.sort();
                 found.iter().map(|p| json!([self.entity(p), p])).collect()
