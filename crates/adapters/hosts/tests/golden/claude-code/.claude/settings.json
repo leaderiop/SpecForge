@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.write_guard --host claude-code --event pre_tool --tools write",
+            "command": "specforge hook t.write_guard --host claude-code --event pre_tool --tools write # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.isolation --host claude-code --event pre_tool --tools agent",
+            "command": "specforge hook t.isolation --host claude-code --event pre_tool --tools agent # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -24,7 +24,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.validate_commit --host claude-code --event pre_commit",
+            "command": "specforge hook t.validate_commit --host claude-code --event pre_commit # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -34,7 +34,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths '**/*.spec'",
+            "command": "specforge hook core.spec_guard --host claude-code --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
             "timeout": 15,
             "type": "command"
           }
@@ -46,7 +46,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.injection_scan --host claude-code --event post_tool --tools read",
+            "command": "specforge hook t.injection_scan --host claude-code --event post_tool --tools read # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -56,7 +56,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.context_monitor --host claude-code --event post_tool",
+            "command": "specforge hook t.context_monitor --host claude-code --event post_tool # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -65,7 +65,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.record_hook --host claude-code --event post_tool --tools write --paths '**'",
+            "command": "specforge hook t.record_hook --host claude-code --event post_tool --tools write --paths '**' # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -77,7 +77,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.session_cursor --host claude-code --event session_start",
+            "command": "specforge hook t.session_cursor --host claude-code --event session_start # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -86,7 +86,7 @@
     ]
   },
   "statusLine": {
-    "command": "specforge hook t.statusline --host claude-code --event statusline",
+    "command": "specforge hook t.statusline --host claude-code --event statusline # specforge-install",
     "type": "command"
   }
 }

@@ -18,7 +18,7 @@ fn entries() -> Vec<MergedEntry> {
     ]
 }
 
-const SCAN: &[&[&str]] = &[&["mcp_servers"], &["features"]];
+const SCAN: &[(&[&str], &str)] = &[(&["mcp_servers"], "specforge"), (&["features"], "hooks")];
 
 #[test]
 fn toml_merge_writes_a_new_file() {
@@ -75,4 +75,12 @@ fn toml_merge_does_not_take_what_the_user_set() {
 #[test]
 fn toml_merge_refuses_what_is_no_toml() {
     assert!(merge(Some("a = "), &entries(), SCAN).is_err());
+}
+
+#[test]
+fn a_users_own_specforge_table_under_another_name_is_not_ours() {
+    let mine = "[mcp_servers.mine]\ncommand = \"specforge\"\nargs = [\"mcp\", \"/other\"]\n";
+    let with = merge(Some(mine), &entries(), SCAN).unwrap().text.unwrap();
+    assert!(with.contains("/other"));
+    assert_eq!(merge(Some(&with), &[], SCAN).unwrap().text.unwrap(), mine);
 }

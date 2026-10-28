@@ -1,5 +1,5 @@
 use serde_json::json;
-use specforge_ops::host::MergedEntry;
+use specforge_ops::host::{HOOK_MARK, MergedEntry};
 
 use super::merge;
 
@@ -15,12 +15,14 @@ fn hook(event: &str, route: &str) -> MergedEntry {
     MergedEntry {
         keys: vec!["hooks".into(), event.into()],
         name: None,
-        value: json!({"matcher": "Write", "hooks": [{"type": "command", "command": format!("specforge hook {route}"), "timeout": 10}]}),
+        value: json!({"matcher": "Write", "hooks": [{"type": "command", "command": format!("specforge hook {route} {HOOK_MARK}"), "timeout": 10}]}),
     }
 }
 
+const NAMED: &[super::Named<'static>] = &[(&["mcpServers"], "specforge"), (&[], "statusLine")];
+
 fn text(existing: Option<&str>, entries: &[MergedEntry]) -> Option<String> {
-    merge(existing, entries, &[]).unwrap().text
+    merge(existing, entries, &[], NAMED).unwrap().text
 }
 
 #[test]
@@ -75,6 +77,7 @@ fn json_merge_does_not_take_a_name_the_user_set() {
         Some("{\"mcpServers\": {\"specforge\": {\"command\": \"mine\"}}}"),
         &[mcp()],
         &[],
+        NAMED,
     )
     .unwrap();
     assert_eq!(merged.not_rendered.len(), 1);
@@ -83,8 +86,8 @@ fn json_merge_does_not_take_a_name_the_user_set() {
 
 #[test]
 fn json_merge_refuses_what_is_no_json_object() {
-    assert!(merge(Some("[1]"), &[mcp()], &[]).is_err());
-    assert!(merge(Some("{\"a\": "), &[mcp()], &[]).is_err());
+    assert!(merge(Some("[1]"), &[mcp()], &[], NAMED).is_err());
+    assert!(merge(Some("{\"a\": "), &[mcp()], &[], NAMED).is_err());
 }
 
 #[test]
@@ -95,28 +98,64 @@ fn json_merge_keeps_a_scaffold_key_only_while_something_else_stands() {
         value: json!(1),
     };
     let entries = [version, hook("preToolUse", "t.a")];
-    let with = merge(None, &entries, &[("version", json!(1))])
+    let with = merge(None, &entries, &[("version", json!(1))], &[])
         .unwrap()
         .text
         .unwrap();
     assert!(with.contains("\"version\": 1"));
     assert_eq!(
-        merge(Some(&with), &[], &[("version", json!(1))])
+        merge(Some(&with), &[], &[("version", json!(1))], &[])
             .unwrap()
             .text,
         None
     );
     let mine = "{\n  \"version\": 2\n}\n";
-    let kept = merge(Some(mine), &entries, &[("version", json!(1))])
+    let kept = merge(Some(mine), &entries, &[("version", json!(1))], &[])
         .unwrap()
         .text
         .unwrap();
     assert!(kept.contains("\"version\": 2"));
     assert_eq!(
-        merge(Some(&kept), &[], &[("version", json!(1))])
+        merge(Some(&kept), &[], &[("version", json!(1))], &[])
             .unwrap()
             .text
             .unwrap(),
         mine
     );
+}
+
+#[test]
+fn a_users_hook_beside_ours_in_one_group_survives_update_and_uninstall() {
+    let user = format!(
+        "{{\"hooks\": {{\"PreToolUse\": [{{\"matcher\": \"Write\", \"hooks\": [{{\"type\": \"command\", \"command\": \"specforge hook t.a {HOOK_MARK}\"}}, {{\"type\": \"command\", \"command\": \"./my-user-hook.sh\"}}]}}]}}}}"
+    );
+    let updated = text(Some(&user), &[hook("PreToolUse", "t.b")]).unwrap();
+    assert!(
+        updated.contains("my-user-hook.sh") && updated.contains("t.b") && !updated.contains("t.a")
+    );
+    let gone = text(Some(&updated), &[]).unwrap();
+    assert!(
+        gone.contains("my-user-hook.sh") && !gone.contains("specforge hook"),
+        "{gone}"
+    );
+}
+
+#[test]
+fn a_users_own_specforge_command_is_not_ours_unless_marked_or_named() {
+    let mine = "{\n  \"mcpServers\": {\n    \"mine\": {\"command\": \"specforge\", \"args\": [\"mcp\", \"/other\"]}\n  },\n  \"hooks\": {\"Stop\": [{\"hooks\": [{\"command\": \"specforge hook mine.x --host claude-code\"}]}]}\n}\n";
+    let with = text(Some(mine), &[mcp(), hook("PreToolUse", "t.a")]).unwrap();
+    assert!(with.contains("/other") && with.contains("mine.x"));
+    let without = text(Some(&with), &[]).unwrap();
+    assert_eq!(without, mine);
+}
+
+#[test]
+fn a_scalar_where_install_needs_an_object_is_refused_not_shadowed() {
+    let err = merge(
+        Some("{\"hooks\": null, \"a\": 1}"),
+        &[hook("Stop", "t.a")],
+        &[],
+        NAMED,
+    );
+    assert!(err.is_err());
 }

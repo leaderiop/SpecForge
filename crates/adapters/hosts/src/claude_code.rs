@@ -197,11 +197,18 @@ impl HostRenderer for ClaudeCode {
 
     fn merge(
         &self,
-        _path: &str,
+        path: &str,
         existing: Option<&str>,
         entries: &[MergedEntry],
     ) -> Result<Merged, String> {
-        json_merge::merge(existing, entries, &[])
+        let status: [json_merge::Named<'_>; 1] = [(&[], "statusLine")];
+        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], "specforge")];
+        json_merge::merge(
+            existing,
+            entries,
+            &[],
+            if path == SETTINGS { &status } else { &mcp },
+        )
     }
 
     fn event_name(&self, event: HookEvent) -> Option<&'static str> {

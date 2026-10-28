@@ -15,7 +15,7 @@ pub mod state;
 
 pub use owned::owned_path;
 pub use port::{
-    HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree, Merged,
+    HOOK_MARK, HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree, Merged,
     MergedEntry, MergedFile, ModelChoice, NotRendered, OwnedFile, Rendered, RenderedAgent,
     RenderedHook, RenderedSkill, RenderedSlash, SlashCall, Source, ToolUse,
 };

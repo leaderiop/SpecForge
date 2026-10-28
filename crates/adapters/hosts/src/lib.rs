@@ -13,8 +13,6 @@ mod trampoline;
 
 use specforge_ops::host::{Host, HostRenderer};
 
-pub use json_merge::is_ours;
-
 /// The adapter of `host`; none for a host whose adapter is not written yet.
 pub fn renderer(host: Host) -> Option<Box<dyn HostRenderer>> {
     match host {

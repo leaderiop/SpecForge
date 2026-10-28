@@ -128,7 +128,13 @@ impl HostRenderer for Cursor {
     ) -> Result<Merged, String> {
         let version = [("version", json!(1))];
         let scaffold: &[(&str, Value)] = if path == HOOKS { &version } else { &[] };
-        json_merge::merge(existing, entries, scaffold)
+        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], "specforge")];
+        json_merge::merge(
+            existing,
+            entries,
+            scaffold,
+            if path == HOOKS { &[] } else { &mcp },
+        )
     }
 
     fn event_name(&self, event: HookEvent) -> Option<&'static str> {

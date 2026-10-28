@@ -3,14 +3,17 @@
 //! keys, layout and order comes back byte for byte when install's entries are taken out again. A document is not
 //! parsed into a value and written back, which would reflow it.
 //!
-//! An entry is ours when it is an object whose `command` is `specforge` or starts `specforge hook `, or which holds
-//! a `hooks` array with such an object (a matcher group). Nothing else is ever removed or replaced.
+//! What is ours is told by a mark and a place, never by a word a user may write too. A hook handler is ours when its
+//! `command` starts `specforge hook ` and ends with [`HOOK_MARK`], and only below `hooks.<Event>[]`: alone, or inside a
+//! matcher group, from which only it is cut (the group goes when nothing else is left in it). A named entry (an MCP
+//! server, the statusline) is ours only at the place the adapter names, when its `command` is `specforge` or a marked
+//! hook. Nothing else is ever removed or replaced.
 
 use serde_json::Value;
-use specforge_ops::host::{Merged, MergedEntry, NotRendered};
+use specforge_ops::host::{HOOK_MARK, Merged, MergedEntry, NotRendered};
 
-/// How deep an entry of ours may stand: `hooks.PreToolUse[]` is the deepest.
-const DEPTH: usize = 3;
+/// A place a named entry of ours may stand: the keys down to its container, and its name.
+pub type Named<'a> = (&'a [&'a str], &'a str);
 
 /// A parsed span of the document.
 #[derive(Debug, Clone)]
@@ -183,16 +186,17 @@ fn value_of(text: &str, node: &Node) -> Value {
     serde_json::from_str(&text[node.start..node.end]).unwrap_or(Value::Null)
 }
 
-/// Whether `value` is an entry install owns.
-pub fn is_ours(value: &Value) -> bool {
-    let command = value.get("command").and_then(Value::as_str);
-    if command.is_some_and(|c| c == "specforge" || c.starts_with("specforge hook ")) {
-        return true;
-    }
+/// Whether `value` is a hook handler install wrote.
+fn marked_hook(value: &Value) -> bool {
     value
-        .get("hooks")
-        .and_then(Value::as_array)
-        .is_some_and(|hooks| hooks.iter().any(is_ours))
+        .get("command")
+        .and_then(Value::as_str)
+        .is_some_and(|c| c.starts_with("specforge hook ") && c.ends_with(HOOK_MARK))
+}
+
+/// Whether `value`, standing at a named place, is an entry install wrote there.
+fn named_ours(value: &Value) -> bool {
+    value.get("command").and_then(Value::as_str) == Some("specforge") || marked_hook(value)
 }
 
 /// A piece of text to cut out.
@@ -202,37 +206,21 @@ struct Cut {
     end: usize,
 }
 
-/// The cuts that take the entries of ours out of `node`, and whether that leaves `node` with nothing (it then goes
-/// whole with its parent's cut, not by its own).
-fn strip(text: &str, node: &Node, depth: usize) -> (Vec<Cut>, bool) {
-    let children: Vec<(&Node, usize)> = match &node.kind {
-        Kind::Object(members) => members.iter().map(|m| (&m.value, m.key_start)).collect(),
-        Kind::Array(items) => items.iter().map(|n| (n, n.start)).collect(),
-        Kind::Scalar => return (Vec::new(), false),
-    };
+/// A handler of ours, flattened: its event, its group's matcher and the handler.
+type Flat = (String, Option<String>, Value);
+
+/// What walking the document for what is ours found.
+#[derive(Default)]
+struct Ours {
+    handlers: Vec<Flat>,
+    /// Named entries: keys, name, value.
+    named: Vec<(Vec<String>, String, Value)>,
+}
+
+/// The cuts that remove the children flagged in `removed` from a container whose children stand at
+/// `(start with its key, end)`.
+fn cuts_for(children: &[(usize, usize)], removed: &[bool]) -> Vec<Cut> {
     let mut cuts = Vec::new();
-    let mut removed = vec![false; children.len()];
-    for (n, (child, _)) in children.iter().enumerate() {
-        if is_ours(&value_of(text, child)) {
-            removed[n] = true;
-        } else if depth < DEPTH {
-            let (inner, emptied) = strip(text, child, depth + 1);
-            if emptied {
-                removed[n] = true;
-            } else {
-                cuts.extend(inner);
-            }
-        }
-    }
-    if !children.is_empty() && removed.iter().all(|r| *r) {
-        return (
-            vec![Cut {
-                start: node.start + 1,
-                end: node.end - 1,
-            }],
-            true,
-        );
-    }
     let mut n = 0;
     while n < children.len() {
         if !removed[n] {
@@ -246,53 +234,150 @@ fn strip(text: &str, node: &Node, depth: usize) -> (Vec<Cut>, bool) {
         // The run takes the separator before it; at the front, the one after it.
         cuts.push(if n > 0 {
             Cut {
-                start: children[n - 1].0.end,
-                end: children[last].0.end,
+                start: children[n - 1].1,
+                end: children[last].1,
             }
         } else {
             Cut {
-                start: children[n].1,
-                end: children[last + 1].1,
+                start: children[n].0,
+                end: children[last + 1].0,
             }
         });
         n = last + 1;
     }
+    cuts
+}
+
+/// The cuts that take the entries of ours out of `node`, and whether that leaves `node` with nothing (it then goes
+/// whole with its parent's cut, not by its own). Only the places install writes are searched: `hooks.<Event>[]` and
+/// the `named` places.
+fn strip(
+    text: &str,
+    node: &Node,
+    path: &mut Vec<String>,
+    named: &[Named<'_>],
+    ours: &mut Ours,
+) -> (Vec<Cut>, bool) {
+    let in_hooks = path.first().is_some_and(|k| k == "hooks");
+    let children: Vec<(Option<&str>, &Node, usize)> = match &node.kind {
+        Kind::Object(members) => members
+            .iter()
+            .map(|m| (Some(m.key.as_str()), &m.value, m.key_start))
+            .collect(),
+        Kind::Array(items) => items.iter().map(|n| (None, n, n.start)).collect(),
+        Kind::Scalar => return (Vec::new(), false),
+    };
+    let mut cuts = Vec::new();
+    let mut removed = vec![false; children.len()];
+    for (n, (key, child, _)) in children.iter().enumerate() {
+        match key {
+            Some(key) => {
+                let value = value_of(text, child);
+                if named
+                    .iter()
+                    .any(|(keys, name)| *name == *key && path.iter().eq(keys.iter()))
+                    && named_ours(&value)
+                {
+                    ours.named.push((path.clone(), (*key).to_string(), value));
+                    removed[n] = true;
+                    continue;
+                }
+                path.push((*key).to_string());
+                let place = path.as_slice();
+                let wanted = place == ["hooks"]
+                    || (place.len() == 2 && place[0] == "hooks")
+                    || named.iter().any(|(keys, _)| {
+                        place.len() <= keys.len() && keys[..place.len()].iter().eq(place.iter())
+                    });
+                if wanted {
+                    let (inner, emptied) = strip(text, child, path, named, ours);
+                    if emptied {
+                        removed[n] = true;
+                    } else {
+                        cuts.extend(inner);
+                    }
+                }
+                path.pop();
+            }
+            // An element of `hooks.<Event>`: a handler, or a group holding handlers.
+            None if in_hooks && path.len() == 2 => {
+                let event = path[1].clone();
+                let value = value_of(text, child);
+                if let (Some(hs), Kind::Object(members)) =
+                    (value.get("hooks").and_then(Value::as_array), &child.kind)
+                {
+                    let matcher = value
+                        .get("matcher")
+                        .and_then(Value::as_str)
+                        .map(str::to_string);
+                    let flags: Vec<bool> = hs.iter().map(marked_hook).collect();
+                    for (h, _) in hs.iter().zip(&flags).filter(|(_, f)| **f) {
+                        ours.handlers
+                            .push((event.clone(), matcher.clone(), h.clone()));
+                    }
+                    if flags.iter().any(|f| *f) {
+                        if flags.iter().all(|f| *f) {
+                            removed[n] = true;
+                        } else if let Some(Node {
+                            kind: Kind::Array(items),
+                            ..
+                        }) = members.iter().find(|m| m.key == "hooks").map(|m| &m.value)
+                        {
+                            let spans: Vec<(usize, usize)> =
+                                items.iter().map(|i| (i.start, i.end)).collect();
+                            cuts.extend(cuts_for(&spans, &flags));
+                        }
+                    }
+                } else if marked_hook(&value) {
+                    ours.handlers.push((event, None, value));
+                    removed[n] = true;
+                }
+            }
+            None => {}
+        }
+    }
+    if !children.is_empty() && removed.iter().all(|r| *r) {
+        return (
+            vec![Cut {
+                start: node.start + 1,
+                end: node.end - 1,
+            }],
+            true,
+        );
+    }
+    let spans: Vec<(usize, usize)> = children.iter().map(|(_, c, k)| (*k, c.end)).collect();
+    cuts.extend(cuts_for(&spans, &removed));
     (cuts, false)
 }
 
-/// Where the entries of ours stand: the keys down to their container, the member name (none: an array element) and the
-/// value.
-fn found(text: &str, node: &Node, at: &mut Vec<String>, depth: usize, out: &mut Vec<Found>) {
-    let mut visit = |name: Option<&str>, child: &Node, at: &mut Vec<String>| {
-        let value = value_of(text, child);
-        if is_ours(&value) {
-            out.push((at.clone(), name.map(str::to_string), value));
-        } else if depth < DEPTH {
-            if let Some(name) = name {
-                at.push(name.to_string());
-                found(text, child, at, depth + 1, out);
-                at.pop();
-            } else {
-                found(text, child, at, depth + 1, out);
+/// The handlers `entries` would write, flattened as [`Ours::handlers`] is.
+fn wanted_handlers(entries: &[&MergedEntry]) -> Vec<Flat> {
+    let mut out = Vec::new();
+    for e in entries.iter().filter(|e| e.name.is_none()) {
+        let Some(event) = e
+            .keys
+            .get(1)
+            .filter(|_| e.keys.first().is_some_and(|k| k == "hooks"))
+        else {
+            continue;
+        };
+        match e.value.get("hooks").and_then(Value::as_array) {
+            Some(hs) => {
+                let matcher = e
+                    .value
+                    .get("matcher")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                out.extend(
+                    hs.iter()
+                        .map(|h| (event.clone(), matcher.clone(), h.clone())),
+                );
             }
+            None => out.push((event.clone(), None, e.value.clone())),
         }
-    };
-    match &node.kind {
-        Kind::Object(members) => {
-            for m in members {
-                visit(Some(&m.key), &m.value, at);
-            }
-        }
-        Kind::Array(items) => {
-            for item in items {
-                visit(None, item, at);
-            }
-        }
-        Kind::Scalar => {}
     }
+    out
 }
-
-type Found = (Vec<String>, Option<String>, Value);
 
 fn apply(text: &str, mut cuts: Vec<Cut>) -> String {
     cuts.sort_by_key(|c| std::cmp::Reverse(c.start));
@@ -455,11 +540,13 @@ fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<Strin
 
 /// `existing` with the entries of ours replaced by `entries`, everything else untouched; see the module docs.
 /// `scaffold` is the root keys, with the value install writes, that are not content: a file holding only them, so
-/// valued, is as good as empty.
+/// valued, is as good as empty. `named` are the places a named entry of ours may stand (also searched by uninstall,
+/// which passes no entries).
 pub fn merge(
     existing: Option<&str>,
     entries: &[MergedEntry],
     scaffold: &[(&str, Value)],
+    named: &[Named<'_>],
 ) -> Result<Merged, String> {
     let blank = existing.is_none_or(|t| t.trim().is_empty());
     let mut text = if blank {
@@ -468,6 +555,18 @@ pub fn merge(
         existing.unwrap_or_default().to_string()
     };
     let root = parse(&text)?;
+    // A key we need that holds a scalar is the user's: it is not shadowed by a second key of the same name.
+    for entry in entries {
+        let (container, missing) = descend(&root, &text, &entry.keys);
+        if let (Some(first), Kind::Object(members)) = (missing.first(), &container.kind)
+            && members.iter().any(|m| m.key == *first)
+        {
+            return Err(format!(
+                "'{}' is not an object or an array, and install needs one there",
+                entry.keys.join(".")
+            ));
+        }
+    }
     let mut not_rendered = Vec::new();
     // A named entry whose name a user's own member holds is not rendered.
     let mut wanted: Vec<&MergedEntry> = Vec::new();
@@ -484,14 +583,13 @@ pub fn merge(
                 members.iter().find(|m| m.key == *name)
             });
         match occupied {
-            Some(member) if is_ours(&value_of(&text, &member.value)) => wanted.push(entry),
+            Some(member) if named_ours(&value_of(&text, &member.value)) => wanted.push(entry),
             Some(_)
                 if entry
                     .name
                     .as_deref()
                     .is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n)) => {}
-            Some(member) => {
-                let _ = member;
+            Some(_) => {
                 not_rendered.push(NotRendered {
                     what: format!(
                         "{}.{}",
@@ -506,39 +604,40 @@ pub fn merge(
             None => wanted.push(entry),
         }
     }
-    // Nothing to change: the entries of ours are exactly the wanted ones.
-    let mut here: Vec<Found> = Vec::new();
-    found(&text, &root, &mut Vec::new(), 0, &mut here);
-    let key = |keys: &[String], name: &Option<String>, value: &Value| {
-        format!("{keys:?} {name:?} {value}")
+    // Nothing to change: what is ours is exactly what is wanted.
+    let mut ours = Ours::default();
+    let (cuts, _) = strip(&text, &root, &mut Vec::new(), named, &mut ours);
+    let is_scaffold = |e: &&MergedEntry| {
+        e.name
+            .as_deref()
+            .is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n))
     };
-    let mut have: Vec<String> = here.iter().map(|(k, n, v)| key(k, n, v)).collect();
+    let key = |keys: &[String], name: &str, value: &Value| format!("{keys:?} {name} {value}");
+    let mut have: Vec<String> = ours
+        .named
+        .iter()
+        .map(|(k, n, v)| key(k, n, v))
+        .chain(ours.handlers.iter().map(|h| format!("{h:?}")))
+        .collect();
     let mut want: Vec<String> = wanted
         .iter()
-        .filter(|e| {
-            !e.name
-                .as_deref()
-                .is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n))
-        })
-        .map(|e| key(&e.keys, &e.name, &e.value))
+        .filter(|e| e.name.is_some() && !is_scaffold(e))
+        .map(|e| key(&e.keys, e.name.as_deref().unwrap_or_default(), &e.value))
+        .chain(wanted_handlers(&wanted).iter().map(|h| format!("{h:?}")))
         .collect();
     have.sort();
     want.sort();
-    let scaffold_present = wanted
-        .iter()
-        .filter(|e| e.name.as_deref().is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n)))
-        .all(|e| {
-            let (c, missing) = descend(&root, &text, &e.keys);
-            missing.is_empty()
-                && matches!(&c.kind, Kind::Object(m) if m.iter().any(|m| Some(&m.key) == e.name.as_ref()))
-        });
+    let scaffold_present = wanted.iter().filter(|e| is_scaffold(e)).all(|e| {
+        let (c, missing) = descend(&root, &text, &e.keys);
+        missing.is_empty()
+            && matches!(&c.kind, Kind::Object(m) if m.iter().any(|m| Some(&m.key) == e.name.as_ref()))
+    });
     if have == want && scaffold_present && !blank {
         return Ok(Merged {
             text: Some(text),
             not_rendered,
         });
     }
-    let (cuts, _) = strip(&text, &root, 0);
     text = apply(&text, cuts);
     let multiline = blank || text.trim().contains('\n');
     for entry in &wanted {

@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.write_guard --host codex --event pre_tool --tools write",
+            "command": "specforge hook t.write_guard --host codex --event pre_tool --tools write # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.validate_commit --host codex --event pre_commit",
+            "command": "specforge hook t.validate_commit --host codex --event pre_commit # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -24,7 +24,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook core.spec_guard --host codex --event pre_tool --tools write,edit --paths '**/*.spec'",
+            "command": "specforge hook core.spec_guard --host codex --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install",
             "timeout": 15,
             "type": "command"
           }
@@ -36,7 +36,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.context_monitor --host codex --event post_tool",
+            "command": "specforge hook t.context_monitor --host codex --event post_tool # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -45,7 +45,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.record_hook --host codex --event post_tool --tools write --paths '**'",
+            "command": "specforge hook t.record_hook --host codex --event post_tool --tools write --paths '**' # specforge-install",
             "timeout": 10,
             "type": "command"
           }
@@ -57,7 +57,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.session_cursor --host codex --event session_start",
+            "command": "specforge hook t.session_cursor --host codex --event session_start # specforge-install",
             "timeout": 10,
             "type": "command"
           }
