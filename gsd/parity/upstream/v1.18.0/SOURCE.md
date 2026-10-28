@@ -17,3 +17,14 @@ without the snapshot.
 - Defaults come from `config-defaults.manifest.json`, then the capability's own default, then
   `docs/CONFIGURATION.md`. Where the docs disagree with the defaults manifest the manifest wins
   (`workflow.inline_plan_threshold`: docs 3, manifest 2).
+
+## `gate-cutover/`: deterministic gate verdicts
+
+Verdicts of gsd-core's deterministic `gsd-tools` gates, copied unchanged by `git -C <gsd-core> show
+v1.18.0:tests/fixtures/gate-cutover/<file>.json`. The fixtures that produced them are built by
+`tests/fixtures/gate-cutover/arms.cjs` (`dc`, `vp`, `gap`); `gsd/core/tests/projects/gate_cutover/` is their twin, and
+the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce the verdicts.
+
+| File | Read by |
+|---|---|
+| `gap-analysis-plan-post-enabled.json` | the table and summary of `gsd/W317` (`passes/scope.rs`) |

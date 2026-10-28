@@ -7,6 +7,7 @@ mod plan_shape;
 mod plans;
 mod research;
 mod roadmap;
+mod scope;
 mod waves;
 
 use specforge_extension_sdk::prelude::*;
@@ -22,5 +23,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     drift::declare(c);
     plan_shape::declare(c);
     file_scope::declare(c);
+    scope::declare(c);
     waves::declare(c);
 }

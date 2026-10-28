@@ -90,3 +90,65 @@ pub fn text<'a>(entity: &'a PassEntity, field: &str) -> Option<&'a str> {
         .map(|t| t.trim())
         .filter(|t| !t.is_empty())
 }
+
+fn is_word(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+/// `\b<needle>\b` in `haystack` (JavaScript's ASCII word boundary), case-insensitively for ASCII letters when `fold`.
+/// The needle starts and ends with a word character (an id, a phrase).
+pub fn has_word(haystack: &str, needle: &str, fold: bool) -> bool {
+    let (haystack, needle) = if fold {
+        (haystack.to_ascii_lowercase(), needle.to_ascii_lowercase())
+    } else {
+        (haystack.to_string(), needle.to_string())
+    };
+    let bytes = haystack.as_bytes();
+    haystack.match_indices(&needle).any(|(at, found)| {
+        let before = at.checked_sub(1).map(|i| bytes[i]);
+        let after = bytes.get(at + found.len()).copied();
+        !before.is_some_and(is_word) && !after.is_some_and(is_word)
+    })
+}
+
+/// What a JSON value holds, for [`texts`]: a string, children, or nothing to read.
+enum Shape<'a, V> {
+    Text(&'a str),
+    Children(Vec<&'a V>),
+    Nothing,
+}
+
+fn walk<'a, V>(value: &'a V, shape: &impl Fn(&'a V) -> Shape<'a, V>, out: &mut Vec<String>) {
+    match shape(value) {
+        Shape::Text(text) => out.push(text.to_string()),
+        Shape::Children(children) => children.into_iter().for_each(|c| walk(c, shape, out)),
+        Shape::Nothing => {}
+    }
+}
+
+/// Every string an entity writes, field by field: the structured value of a list or block (its strings, recursively)
+/// when the host sends one, the field text otherwise. The pass input carries no title, so a title is not here.
+pub fn texts(entity: &PassEntity) -> Vec<String> {
+    let mut out = Vec::new();
+    for (name, text) in &entity.fields {
+        match entity.values.get(name) {
+            Some(value) => walk(
+                value,
+                &|v| {
+                    if let Some(text) = v.as_str() {
+                        Shape::Text(text)
+                    } else if let Some(items) = v.as_array() {
+                        Shape::Children(items.iter().collect())
+                    } else if let Some(members) = v.as_object() {
+                        Shape::Children(members.values().collect())
+                    } else {
+                        Shape::Nothing
+                    }
+                },
+                &mut out,
+            ),
+            None => out.push(text.clone()),
+        }
+    }
+    out
+}

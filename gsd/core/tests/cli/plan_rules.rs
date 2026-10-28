@@ -14,6 +14,15 @@ fn only(p: &Project, code: &str) -> String {
     found[0].1.clone()
 }
 
+/// The message of the `gsd/` finding `code`, among others.
+fn message(p: &Project, code: &str) -> String {
+    p.findings()
+        .into_iter()
+        .find(|(c, _)| c == code)
+        .unwrap_or_else(|| panic!("no {code}"))
+        .1
+}
+
 fn strict_fails(p: &Project, code: &str) {
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     let check = p.run(&["check"]);
@@ -228,9 +237,9 @@ fn w308_is_an_error_under_gsd_strict() {
 fn plan_without_requirements_is_e302() {
     let p = project("plan");
     p.edit("spec/plans.spec", "  requirements   [TASK-01]\n", "");
-    // Phase 01 still lists TASK-01, so only the plan is wrong.
-    assert_eq!(p.codes(), ["gsd/E302"]);
-    assert!(only(&p, "gsd/E302").contains("plan 'v1.0/01/01-01' names no requirement"));
+    // The plan names no requirement, so the post-planning gap report finds TASK-01 in no plan text either.
+    assert_eq!(p.codes(), ["gsd/E302", "gsd/W317"]);
+    assert!(message(&p, "gsd/E302").contains("plan 'v1.0/01/01-01' names no requirement"));
 }
 
 #[test]
@@ -241,7 +250,7 @@ fn plan_with_empty_requirements_is_e302() {
         "  requirements   [TASK-01]\n",
         "  requirements   []\n",
     );
-    assert_eq!(p.codes(), ["gsd/E302"]);
+    assert_eq!(p.codes(), ["gsd/E302", "gsd/W317"]);
 }
 
 #[test]
@@ -344,4 +353,58 @@ fn task_file_outside_plan_is_w306() {
 fn w305_is_an_error_under_gsd_strict() {
     let p = with(&third_plan("", "\"src/tasks.js\"", ""));
     strict_fails(&p, "W305");
+}
+
+#[test]
+fn an_action_for_now_static_is_e312() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "action \"Write src/tasks.js with add() and list()\"",
+        "action \"Write src/tasks.js with a static for now list()\"",
+    );
+    assert_eq!(p.codes(), ["gsd/E312"]);
+    assert!(
+        only(&p, "gsd/E312")
+            .contains("task 'v1.0/01/01-01/T1' reduces scope: its action says \"static for now\"")
+    );
+}
+
+/// Plan 01-02 delivers TASK-01 instead of TASK-02: the requirement of phase 01 that no plan cites is the one gap.
+fn uncovered_requirement() -> Project {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  requirements   [TASK-02]\n",
+        "  requirements   [TASK-01]\n",
+    );
+    p
+}
+
+#[test]
+fn an_uncovered_phase_requirement_is_w317() {
+    let p = uncovered_requirement();
+    assert_eq!(p.codes(), ["gsd/W317"]);
+    let found = p.findings();
+    assert_eq!(
+        found[0].1,
+        "⚠ 1 of 2 items not covered by any plan: TASK-02"
+    );
+}
+
+#[test]
+fn post_planning_gaps_off_silences_w317() {
+    let p = uncovered_requirement();
+    p.settings(serde_json::json!({ "workflow.post_planning_gaps": false }));
+    assert_eq!(p.codes(), CLEAN);
+}
+
+#[test]
+fn an_unplanned_phase_is_not_w317() {
+    let p = project("plan");
+    p.write(
+        "spec/third.spec",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
+    );
+    assert_eq!(p.codes(), CLEAN);
 }
