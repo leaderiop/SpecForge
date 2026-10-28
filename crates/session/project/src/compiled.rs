@@ -58,6 +58,7 @@ pub struct CompiledProject {
     /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
     computed: Arc<Computed>,
     judgements: Arc<crate::judged::Judgements>,
+    digests: Arc<crate::judged::DigestMemo>,
     /// The graph's entity snapshot, the recorded test report and the
     /// coverage: seeded with the snapshot the checks read; made over the
     /// graph on first use after an update that skipped them.
@@ -185,6 +186,12 @@ impl CompiledProject {
             |key| self.sources.as_read(key),
         );
         project.baseline = self.baseline.clone();
+        // The digests kept so far hold for every entity the edit leaves alone: the judge of a write does not
+        // digest the project again.
+        project.digests = Arc::new(
+            self.digests
+                .after(&compute_graph_delta(self.graph(), project.graph())),
+        );
         match ledger {
             Some(bytes) => {
                 let overlay = crate::harness::Overlay::new(self.env.root(), bytes);
@@ -370,11 +377,6 @@ impl CompiledProject {
         &self.computed
     }
 
-    /// Each judged rule's state on each entity, as the last checks found it (ADR 0290).
-    pub fn judgements(&self) -> &crate::judged::Judgements {
-        &self.judgements
-    }
-
     /// [`Self::entities`], shared: a test holds it across an update.
     #[cfg(feature = "testing")]
     pub fn shared_entities(&self) -> Arc<EntitySnapshot> {
@@ -424,6 +426,7 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
@@ -448,6 +451,7 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -477,6 +481,7 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
@@ -525,6 +530,7 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -548,6 +554,7 @@ impl CompiledProject {
             .map(|(path, read)| self.sources.change(&path, read))
             .collect();
         let applied = self.graph.apply(changes);
+        self.digests = Arc::new(self.digests.after(&applied.delta));
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.import_diagnostics = if self.on_disk {
@@ -591,7 +598,7 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
-            let checked = env.checked(Some(graph), &authored, disk, &read.read);
+            let checked = env.checked(Some(graph), &authored, disk, &read.read, &this.digests);
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             let mut diagnostics = checked.diagnostics;

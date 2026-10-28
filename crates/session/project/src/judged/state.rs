@@ -6,9 +6,9 @@ use specforge_protocol_types::{Judgement, JudgementState};
 use specforge_registry::judged::JudgedRule;
 use specforge_registry::{Disk, EntitySnapshot};
 
-use super::Judgements;
 use super::inputs::{Cited, Cx, NONE};
 use super::report::Report;
+use super::{DigestMemo, Judgements};
 use crate::Environment;
 use crate::harness::{Harness, LEDGER_FILE, Ledger, VERDICT_KEY, digest};
 
@@ -116,6 +116,7 @@ pub fn evaluate(
     graph: &specforge_graph::Graph,
     entities: &EntitySnapshot,
     disk: &dyn Disk,
+    memo: &DigestMemo,
     ledger: &[u8],
 ) -> (Judgements, Vec<Diagnostic>) {
     let registries = env.registries();
@@ -131,7 +132,7 @@ pub fn evaluate(
     let all: Vec<&JudgedRule> = registries.judged_rules().collect();
     let ledger = Ledger::parse(&String::from_utf8_lossy(ledger)).ledger;
     let harness = Harness::of(registries);
-    let cx = Cx::new(env, graph, entities, disk);
+    let cx = Cx::new(env, graph, entities, disk, memo);
     let forms = registries.field_forms();
     let mut unjudged = 0usize;
     for node in graph.nodes() {

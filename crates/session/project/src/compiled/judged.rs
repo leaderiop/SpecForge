@@ -39,4 +39,27 @@ impl CompiledProject {
         self.reported = OnceLock::new();
         self
     }
+
+    /// The digests kept for the judged rules (ADR 0290): an entity's until the graph delta names it, a file's per stamp.
+    pub fn digests(&self) -> &crate::judged::DigestMemo {
+        &self.digests
+    }
+
+    /// Each judged rule's state on each entity, as the last checks found it (ADR 0290).
+    pub fn judgements(&self) -> &crate::judged::Judgements {
+        &self.judgements
+    }
+
+    /// The digests kept for the judged rules against a cold evaluation, when this project verifies (ADR 0290): the
+    /// first divergence, or `Ok` when there is none (or nothing to compare).
+    pub(crate) fn verify_digests(&self) -> Result<(), String> {
+        if !self.verifies() || self.checks_skipped {
+            return Ok(());
+        }
+        self.digests.verify(
+            self.graph(),
+            self.env.registries().field_forms(),
+            &specforge_registry::PlainDisk,
+        )
+    }
 }

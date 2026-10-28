@@ -506,8 +506,14 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
-        self.checked(None, entities, disk, &baseline::Baseline::of_head(self))
-            .diagnostics
+        self.checked(
+            None,
+            entities,
+            disk,
+            &baseline::Baseline::of_head(self),
+            &judged::DigestMemo::default(),
+        )
+        .diagnostics
     }
 
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
@@ -521,6 +527,7 @@ impl Environment {
         entities: &EntitySnapshot,
         disk: &dyn Disk,
         baseline: &baseline::BaselineRead,
+        digests: &judged::DigestMemo,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
@@ -546,7 +553,8 @@ impl Environment {
         };
         let mut judgements = judged::Judgements::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
-            let (found, reported) = judged::evaluate(self, build.graph(), entities, disk, bytes);
+            let (found, reported) =
+                judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
             judgements = found;
             diagnostics.extend(reported);
         }

@@ -58,16 +58,9 @@ fn record(project: &TestProject, entity: &str, rule: &str, outcome: &str) {
         .graph()
         .node(entity)
         .expect("the entity is declared");
-    let now = specforge_project::judged::inputs(
-        env,
-        compiled.graph(),
-        compiled.entities(),
-        &PlainDisk,
-        entity,
-        judged,
-        &Cited::default(),
-    )
-    .expect("the rule judges the entity");
+    let now =
+        specforge_project::judged::inputs(&compiled, &PlainDisk, entity, judged, &Cited::default())
+            .expect("the rule judges the entity");
     let digests: String = now
         .digests
         .iter()
@@ -417,23 +410,80 @@ fn a_changed_file_input_rechecks_the_session() {
     );
 }
 
-#[ignore = "K7 T7"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "incremental digests equal cold digests"
 )]
 fn incremental_digests_equal_cold_digests() {
-    // Random edit sequences over the fixture: after each, a session's memoized digests equal a cold evaluation's.
-    panic!("K7 T7: the memo's property test")
+    use proptest::prelude::*;
+    // A random sequence of edits to the fixture: after each, a verifying session's kept digests equal a cold
+    // evaluation's (`Update.verification`), and so do the judgements of a fresh compile.
+    let edit = (0usize..6, 0usize..3);
+    let mut runner = proptest::test_runner::TestRunner::new(ProptestConfig::with_cases(24));
+    runner
+        .run(&proptest::collection::vec(edit, 1..6), |edits| {
+            let project = gsd_judged_project("");
+            record(&project, PLAN, W311, "passed");
+            let mut session = project.session_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
+            session.set_verify_incremental(true);
+            for (which, round) in edits {
+                let text = project.read("a.spec");
+                let next = match which {
+                    0 => text.replace("Use tokens", &format!("Use tokens {round}")),
+                    1 => text.replace("\"Context\"", &format!("\"Context {round}\"")),
+                    2 => text.replace("AUTH-07", &format!("AUTH-0{}", 7 + round)),
+                    3 => text.replace(
+                        "plan 03-03 \"Another\"",
+                        &format!("plan 03-03 \"Another {round}\""),
+                    ),
+                    4 => text.replace("Tokens survive", &format!("Tokens survive {round}")),
+                    _ => {
+                        project.write(
+                            "src/auth/session.ts",
+                            format!("export const session = {round};\n"),
+                        );
+                        text
+                    }
+                };
+                project.write("a.spec", next);
+                let paths = [
+                    project.root().join("a.spec"),
+                    project.root().join("src/auth/session.ts"),
+                ];
+                let update = session.apply(&session.changes(paths.iter().map(|p| p.as_path())));
+                if let Some(update) = update {
+                    prop_assert!(
+                        update.verification.as_ref().is_none_or(Result::is_ok),
+                        "{:?}",
+                        update.verification
+                    );
+                }
+                let cold = compile(&project);
+                for entity in [PLAN, "v1.0/03/03-03"] {
+                    prop_assert_eq!(
+                        session
+                            .project()
+                            .judgements()
+                            .get(entity, W311)
+                            .map(|j| (&j.state, &j.changed)),
+                        cold.judgements()
+                            .get(entity, W311)
+                            .map(|j| (&j.state, &j.changed))
+                    );
+                }
+            }
+            Ok(())
+        })
+        .expect("the incremental digests agree with a cold evaluation");
 }
 
-#[ignore = "K7 T7"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a memo hit still watches its file"
 )]
 fn a_memo_hit_still_watches_its_file() {
     let project = gsd_judged_project("");
+    record(&project, PLAN, W311, "passed");
     let session = project.session_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
     let watched = session.inputs().watched();
     assert!(
@@ -442,7 +492,6 @@ fn a_memo_hit_still_watches_its_file() {
     );
 }
 
-#[ignore = "K7 T7"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a file change the session has not applied misses the memo"

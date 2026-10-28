@@ -6,7 +6,7 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
-use specforge_registry::Disk;
+use specforge_registry::{Disk, FileStamp};
 
 use super::{Reading, Run, chain};
 
@@ -35,6 +35,12 @@ impl Disk for RunDisk<'_, '_> {
         self.record_link_targets(path);
         self.0
             .read(Reading::File, path, self.1, |path| self.1.read(path))
+    }
+
+    fn stamp(&self, path: &Path) -> io::Result<FileStamp> {
+        self.record_link_targets(path);
+        self.0
+            .read(Reading::File, path, self.1, |path| self.1.stamp(path))
     }
 
     fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {

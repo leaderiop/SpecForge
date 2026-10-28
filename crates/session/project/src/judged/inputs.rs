@@ -2,8 +2,7 @@
 //! verdict cites (ADR 0290). Recording one and judging it later digest the same way, so a fresh verdict is exactly
 //! one whose digests all agree.
 
-use std::cell::{OnceCell, RefCell};
-use std::collections::BTreeMap;
+use std::cell::OnceCell;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
@@ -16,8 +15,8 @@ use specforge_registry::{Disk, EntitySnapshot};
 
 use super::report::{self, Report};
 use super::select::{FileRef, Select};
-use super::{entity_digest, file_digest};
-use crate::Environment;
+use super::{DigestMemo, entity_digest, file_digest};
+use crate::{CompiledProject, Environment};
 
 /// What a verdict cites (`cited`, `cited_tests`): entity references as written, file paths, test names.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -66,19 +65,25 @@ pub struct Inputs {
     pub tests_unjudged: bool,
 }
 
-/// The inputs of `rule` on `entity` against `entities` and `disk`; `None` when the rule does not judge its kind.
+/// The inputs of `rule` on `entity` in `project`, files read through `disk`; `None` when the rule does not judge
+/// its kind.
 pub fn inputs(
-    env: &Environment,
-    graph: &Graph,
-    entities: &EntitySnapshot,
+    project: &CompiledProject,
     disk: &dyn Disk,
     entity: &str,
     rule: &JudgedRule,
     cited: &Cited,
 ) -> Option<Inputs> {
-    let node = graph.node(entity)?;
+    let node = project.graph().node(entity)?;
     rule.target(node.kind.raw.as_str())?;
-    Some(Cx::new(env, graph, entities, disk).inputs(node, rule, cited))
+    let cx = Cx::new(
+        project.environment(),
+        project.graph(),
+        project.entities(),
+        disk,
+        project.digests(),
+    );
+    Some(cx.inputs(node, rule, cited))
 }
 
 /// One evaluation's reads: the report once, each entity's digest once.
@@ -87,8 +92,8 @@ pub(super) struct Cx<'a> {
     pub graph: &'a Graph,
     entities: &'a EntitySnapshot,
     disk: &'a dyn Disk,
+    memo: &'a DigestMemo,
     report: OnceCell<Report>,
-    digests: RefCell<BTreeMap<String, String>>,
 }
 
 pub(super) fn hash(value: &Value) -> String {
@@ -102,14 +107,15 @@ impl<'a> Cx<'a> {
         graph: &'a Graph,
         entities: &'a EntitySnapshot,
         disk: &'a dyn Disk,
+        memo: &'a DigestMemo,
     ) -> Self {
         Self {
             env,
             graph,
             entities,
             disk,
+            memo,
             report: OnceCell::new(),
-            digests: RefCell::default(),
         }
     }
 
@@ -127,16 +133,12 @@ impl<'a> Cx<'a> {
     }
 
     fn entity(&self, id: &str) -> String {
-        let mut memo = self.digests.borrow_mut();
-        if let Some(digest) = memo.get(id) {
-            return digest.clone();
-        }
-        let digest = self.graph.node(id).map_or_else(
-            || "absent".to_string(),
-            |node| entity_digest(self.graph, self.env.registries().field_forms(), node),
-        );
-        memo.insert(id.to_string(), digest.clone());
-        digest
+        self.memo.entity(id, || {
+            self.graph.node(id).map_or_else(
+                || "absent".to_string(),
+                |node| entity_digest(self.graph, self.env.registries().field_forms(), node),
+            )
+        })
     }
 
     fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> Value {
@@ -162,7 +164,7 @@ impl<'a> Cx<'a> {
             .unwrap_or(&abs)
             .to_string_lossy()
             .replace('\\', "/");
-        let digest = match self.disk.read(&abs) {
+        let digest = match self.disk.stamp(&abs) {
             Err(e) if e.kind() == ErrorKind::NotFound => "absent".to_string(),
             Err(_) => "unreadable".to_string(),
             Ok(_) if abs.extension().is_some_and(|e| e == "spec") => {
@@ -180,7 +182,10 @@ impl<'a> Cx<'a> {
                 declared.sort();
                 hash(&json!({"source": declared}))
             }
-            Ok(bytes) => file_digest(&bytes),
+            Ok(stamp) => self.memo.file(&abs, &stamp, || match self.disk.read(&abs) {
+                Ok(bytes) => file_digest(&bytes),
+                Err(_) => "unreadable".to_string(),
+            }),
         };
         JudgedFile {
             path: shown,

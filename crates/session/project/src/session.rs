@@ -419,6 +419,20 @@ impl ProjectSession {
         mode: CheckMode,
         rechecks: bool,
     ) -> (UpdateKind, Applied) {
+        let (kind, mut applied) = self.apply_sources(reads, mode, rechecks);
+        // A kept digest that differs from a cold one is a divergence, reported as the graph's are.
+        if let Err(divergence) = self.project.verify_digests() {
+            applied.verification = Some(Err(divergence));
+        }
+        (kind, applied)
+    }
+
+    fn apply_sources(
+        &mut self,
+        reads: Vec<(String, Read)>,
+        mode: CheckMode,
+        rechecks: bool,
+    ) -> (UpdateKind, Applied) {
         if reads.is_empty() {
             if rechecks || self.project.checks_skipped() {
                 self.project.check(&mut self.ledger);

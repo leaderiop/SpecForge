@@ -7,6 +7,7 @@
 
 mod digest;
 mod inputs;
+mod memo;
 mod report;
 mod select;
 mod state;
@@ -15,6 +16,7 @@ use std::collections::BTreeMap;
 
 pub use digest::{entity_digest, file_digest};
 pub use inputs::{Cited, Inputs, inputs};
+pub use memo::DigestMemo;
 pub use state::evaluate;
 
 use specforge_protocol_types::Judgement;
