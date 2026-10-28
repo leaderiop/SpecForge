@@ -8,6 +8,6 @@ and how the goldens are recorded.
   has a UAT session; phase 2 has a context, a discussion log and a research and is planned; 2.1 and 3 are empty.
 - `src/`, `test/`: what phase 1 built. `npm test` runs `node --test` and writes `junit.xml` (ignored).
 - `spec/`: the SpecForge twin of the roadmap (project, requirements, milestone and phases) and of phase 2's discussion
-  (`discuss.spec`), compared with the goldens and `.planning/` by `gsd/core/tests/cli/parity_roadmap.rs` and
-  `parity_discuss.rs`.
+  (`discuss.spec`) and of the three `PLAN.md` files (`plans.spec`: a bare `<verify>` is `verify_text`), compared with the
+  goldens and `.planning/` by `gsd/core/tests/cli/parity_roadmap.rs`, `parity_discuss.rs` and `parity_plans.rs`.
 - `specforge-harness`: the ledger line of the twin research's `context_digest`.

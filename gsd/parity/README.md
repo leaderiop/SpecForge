@@ -1,6 +1,6 @@
 # Parity suite
 
-**Status: the config roster, the taskboard roadmap and the taskboard's discussed and researched phase are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
+**Status: the config roster, the taskboard roadmap and the taskboard's discussed and researched phase and its plans are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
 
 | Check | Proves |
 |---|---|
@@ -17,12 +17,13 @@ the version matrix live here.
 | Path | What |
 |---|---|
 | `upstream/v1.18.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.18.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
-| `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned |
-| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2 |
+| `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned; its three plans are in the twin's `spec/plans.spec` |
+| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2 |
 | `record.sh` | re-records the goldens |
+| `upstream/v1.18.0/gate-cutover/` | ten verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
 The goldens are data: nothing runs gsd-tools in CI. `core/tests/cli/parity_roadmap.rs` compares the SpecForge twin in
-`fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`. `core/tests/cli/parity_discuss.rs` compares the twin's contexts, decisions, discussion log and research with phase 2's `CONTEXT.md`, `DISCUSSION-LOG.md`, `RESEARCH.md`, PROJECT.md's Key Decisions and the two context goldens.
+`fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`. `core/tests/cli/parity_plans.rs` compares the twin's plans' waves, `autonomous`, dependencies, files and task counts with `phase-plan-index`, checks the plan verdict goldens against the twin's findings, and reproduces the gate-cutover verdicts on `core/tests/projects/gate_cutover/`. `core/tests/cli/parity_discuss.rs` compares the twin's contexts, decisions, discussion log and research with phase 2's `CONTEXT.md`, `DISCUSSION-LOG.md`, `RESEARCH.md`, PROJECT.md's Key Decisions and the two context goldens.
 
 What `parity_roadmap.rs` compares: the phases `roadmap analyze` lists (number, name, goal, `depends_on`, requirements), every v1
 and v2 requirement with its tier, and the `Out of Scope` rows with their reasons. What it does not: computed values (a

@@ -3,6 +3,7 @@
 mod discuss;
 mod harness;
 mod parity_discuss;
+mod parity_plans;
 mod parity_roadmap;
 mod plan;
 mod plan_rules;

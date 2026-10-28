@@ -73,6 +73,15 @@ record progress-json progress json
 record validate-health validate health
 record verify-context-drift-2 query check.verify-context-drift 2
 record decision-coverage-plan-2 query check.decision-coverage-plan .planning/phases/02-persistence .planning/phases/02-persistence/02-CONTEXT.md
+record verify-plan-structure-01-01 query verify.plan-structure .planning/phases/01-core/01-01-PLAN.md
+record verify-plan-structure-01-02 query verify.plan-structure .planning/phases/01-core/01-02-PLAN.md
+record verify-plan-structure-02-01 query verify.plan-structure .planning/phases/02-persistence/02-01-PLAN.md
+record verify-command-paths-1 query check.verify-command-paths 1
+record verify-command-paths-2 query check.verify-command-paths 2
+record verify-failure-directions-1 query check.verify-failure-directions 1
+record verify-failure-directions-2 query check.verify-failure-directions 2
+record gap-analysis-plan-post-1 query check.gap-analysis-plan-post .planning/phases/01-core TASK-01,TASK-02
+record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/phases/02-persistence STORE-01,STORE-02
 mkdir -p "$out"
 cp "$staged"/*.json "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"

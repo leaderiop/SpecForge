@@ -28,3 +28,7 @@ the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce 
 | File | Read by |
 |---|---|
 | `gap-analysis-plan-post-enabled.json` | the table and summary of `gsd/W317` (`passes/scope.rs`) |
+| `gap-analysis-plan-post-disabled.json` | no `gsd/W317` with `workflow.post_planning_gaps` off (`tests/cli/parity_plans.rs`) |
+| `decision-coverage-plan-{uncovered,all-covered,no-trackable,disabled}.json` | `gsd/E310`: the uncovered decision ids, and none for the other three (`tests/cli/parity_plans.rs`) |
+| `verify-command-paths-phase-{findings,clean}.json` | `gsd/E320`: the blocker rows (`tests/cli/parity_plans.rs`) |
+| `verify-failure-directions-phase-{findings,clean}.json` | `gsd/E507`: the `missing` rows (`tests/cli/parity_plans.rs`) |

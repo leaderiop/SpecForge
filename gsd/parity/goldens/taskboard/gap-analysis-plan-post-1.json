@@ -1,0 +1,13 @@
+{
+  "block": false,
+  "passed": true,
+  "enabled": true,
+  "table": "## Post-Planning Gap Analysis\n\n| Source | Item | Status |\n|--------|------|--------|\n| REQUIREMENTS.md | TASK-01 | ✓ Covered |\n| REQUIREMENTS.md | TASK-02 | ✓ Covered |\n\n✓ All 2 items covered by plans\n",
+  "summary": "✓ All 2 items covered by plans",
+  "counts": {
+    "total": 2,
+    "covered": 2,
+    "uncovered": 0
+  },
+  "message": "## Post-Planning Gap Analysis\n\n| Source | Item | Status |\n|--------|------|--------|\n| REQUIREMENTS.md | TASK-01 | ✓ Covered |\n| REQUIREMENTS.md | TASK-02 | ✓ Covered |\n\n✓ All 2 items covered by plans\n"
+}
