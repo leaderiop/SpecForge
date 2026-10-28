@@ -42,7 +42,17 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 |---|---|
 | `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off (unset: detected from the key's presence), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`; `specforge gsd import` moves a string value out to the environment and reports it |
 | `model_profile_overrides.<runtime>.<tier>` (`string \| object`) | the block `{model str R, reasoning_effort enum}`; the import rewrites a bare string to `{model}` |
-| a key GSD leaves unset (`(none)`, `null`, _unset_) | no default; `null` is unset |
+| a key GSD leaves unset (`(none)`, `null`, _unset_, or a capability's empty string or `-1`) | no default; `null` is unset |
+| `resolve_model_ids` (`false \| true \| "omit"`) | an enum `aliases \| ids \| omit`, default `aliases`; the import maps `false`, `true` and `"omit"` |
+| `agent_tools.*` with the key `*` (every agent) | the family `agent_tools.*`, whose key is a segment (`[A-Za-z0-9_-]+`): the all-agents grant is `agent_tools.all`, and the import maps `*` to `all` |
+| `effort.routing_tier_defaults.<tier>`, `fast_mode.routing_tier_defaults.<tier>` | three static keys each, not a family: a family has no default, and each tier has GSD's |
+| a key with a closed set of values GSD validates (`workflow.human_verify_mode`, `statusline.state_format`, …) | an enum of that set; `context_profile` (`dev`, `research`, `review`) is an enum and `context` (free text) a string |
+
+An integer is declared with the bounds GSD enforces (`context_window` and `workflow.smart_zone_tokens` at least 1) or, where GSD
+states none, the least that makes sense (0 for a count, 1 for a timeout), and `hooks.context_*_threshold` are percents (0..100).
+Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the
+docs say 3). A host URL whose capability default is empty and whose documented default is a URL (`review.ollama_host`) takes the
+documented one.
 
 `workflow.security_asvs_level` is an integer 1..3, default 1.
 

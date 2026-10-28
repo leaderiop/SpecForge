@@ -4,6 +4,7 @@ pub mod codes;
 mod kinds;
 mod passes;
 mod rules;
+mod settings;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -23,6 +24,7 @@ impl Contributions for GsdCore {
         kinds::declare(c);
         rules::declare(c);
         passes::declare(c);
+        settings::declare(c);
         codes::declare(c);
     }
 }

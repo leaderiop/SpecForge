@@ -2,6 +2,7 @@
 
 mod harness;
 mod roadmap;
+mod settings;
 
 use harness::project;
 

@@ -36,6 +36,7 @@ impl Run {
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
     dir: tempfile::TempDir,
+    wasm: PathBuf,
 }
 
 pub fn project(name: &str) -> Project {
@@ -45,18 +46,24 @@ pub fn project(name: &str) -> Project {
     let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
     copy_dir(&source, dir.path());
-    let manifest = serde_json::json!({
-        "name": "gsd-test",
-        "version": "0.1.0",
-        "spec_root": "spec",
-        "extensions": [format!("@gsd/core={}", wasm.display())],
-    });
-    std::fs::write(dir.path().join("specforge.json"), manifest.to_string())
-        .expect("write specforge.json");
-    Project { dir }
+    let p = Project { dir, wasm };
+    p.settings(serde_json::json!({}));
+    p
 }
 
 impl Project {
+    /// Rewrites `specforge.json`: `@gsd/core` loaded from the built component, with `settings` under its name.
+    pub fn settings(&self, settings: serde_json::Value) {
+        let manifest = serde_json::json!({
+            "name": "gsd-test",
+            "version": "0.1.0",
+            "spec_root": "spec",
+            "extensions": [format!("@gsd/core={}", self.wasm.display())],
+            "settings": { "@gsd/core": settings },
+        });
+        self.write("specforge.json", &manifest.to_string());
+    }
+
     /// Runs `specforge <args>` in the project's root.
     pub fn run(&self, args: &[&str]) -> Run {
         let output = Command::new(required("SPECFORGE_BIN"))
