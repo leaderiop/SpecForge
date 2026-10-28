@@ -2638,7 +2638,8 @@ command's `reads` that the host would serve empty are W021 too (ADR 0293), the
 pass or command being kept: a read whose name is no word or is repeated, that
 names neither or both of `field` and `glob`, a `field` that is not `kind.field`
 or that no loaded extension declares, a `base` on a glob or other than `spec` or
-`project`, and a glob that is empty, absolute or climbs with `..`.
+`project`, and a glob that is empty, absolute, climbs with `..`, or has more
+than four `**` segments.
 
 Owner: core
 Level: warning

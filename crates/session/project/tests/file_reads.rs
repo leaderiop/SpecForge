@@ -280,6 +280,8 @@ fn a_malformed_read_is_reported_and_served_empty() {
         {"name": "Bad Name", "glob": "src/*.rs"},
         {"name": "both", "field": "plan.files_modified", "glob": "src/*.rs"},
         {"name": "outside", "glob": "../x"},
+        {"name": "absolute", "glob": "/etc/*"},
+        {"name": "deep", "glob": "**/**/**/**/**/x"},
         {"name": "ghost", "field": "plan.no_such_field"},
         {"name": "fine", "glob": "src/*.rs"},
         {"name": "fine", "glob": "src/lib.rs"},
@@ -302,6 +304,166 @@ fn a_malformed_read_is_reported_and_served_empty() {
         .filter(|d| d.code == "W021" && d.message.contains("read"))
         .map(|d| d.message.clone())
         .collect();
-    assert_eq!(messages.len(), 5, "{messages:#?}");
+    assert_eq!(messages.len(), 7, "{messages:#?}");
     assert!(GSD_FACTS_SPEC.contains("plan"));
+}
+
+#[test]
+fn an_absolute_path_is_outside_project_even_under_the_root() {
+    let project = gsd_facts_project();
+    let inner = project.root().join("src/lib.rs");
+    let project = project.file("a.spec", plan_naming(&[inner.to_str().unwrap()]));
+    let (_, _, input) = probed(project, modified());
+
+    let f = &facts(&input, "modified")[0];
+    assert_eq!(
+        (f["error"].as_str(), f["exists"].as_bool()),
+        (Some("outside_project"), Some(false)),
+        "{f}"
+    );
+    assert!(f.get("text").is_none() && f.get("digest").is_none());
+}
+
+#[test]
+fn a_glob_skips_the_usual_output_directories() {
+    let mut project = gsd_facts_project();
+    for dir in ["dist", "vendor", ".venv", ".next"] {
+        project = project.file(&format!("{dir}/x.rs"), "x");
+    }
+    let (_, _, input) = probed(project, json!([{"name": "all", "glob": "**/*.rs"}]));
+
+    let all: Vec<&str> = facts(&input, "all")
+        .iter()
+        .map(|f| f["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(all, ["src/lib.rs"]);
+}
+
+#[test]
+fn a_walk_that_visits_too_many_entries_is_truncated() {
+    let project = gsd_facts_project();
+    for n in 0..20_005 {
+        project.write(&format!("many/f{n:05}.txt"), "x");
+    }
+    // Nothing matches, so the match cap never ends it: only the visit budget does.
+    let (_, _, input) = probed(project, json!([{"name": "none", "glob": "many/*.zzz"}]));
+
+    assert_eq!(input["files"]["none"]["truncated"], true);
+    assert!(facts(&input, "none").is_empty());
+}
+
+#[test]
+fn editing_a_file_the_glob_does_not_match_does_not_rerun_the_pass() {
+    let project = gsd_facts_project()
+        .file("src/README.txt", "one")
+        .file("other.txt", "one");
+    let runtime = Arc::new(gsd_facts_runtime());
+    let mut session = project.session_in(runtime.clone() as SharedRuntime);
+
+    for name in ["src/README.txt", "other.txt"] {
+        let path = project.root().join(name);
+        fs::write(&path, "two, longer").unwrap();
+        assert!(
+            session.apply(&session.changes([path.as_path()])).is_none(),
+            "{name} matches no read and is not an input"
+        );
+    }
+}
+
+#[cfg(unix)]
+mod links {
+    use std::os::unix::fs::symlink;
+
+    use super::*;
+
+    fn outside() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("secret.txt"), "top secret").unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_link_out_of_the_project_is_outside_project() {
+        let out = outside();
+        let project = project_of(&plan_naming(&["leak.txt", "dirlink/secret.txt"]));
+        symlink(
+            out.path().join("secret.txt"),
+            project.root().join("leak.txt"),
+        )
+        .unwrap();
+        symlink(out.path(), project.root().join("dirlink")).unwrap();
+        let (_, _, input) = probed(
+            project,
+            json!([
+                {"name": "modified", "field": "plan.files_modified", "text": true},
+                {"name": "all", "glob": "**/*.txt", "text": true},
+            ]),
+        );
+
+        for read in ["modified", "all"] {
+            for f in facts(&input, read) {
+                assert!(f.get("text").is_none() && f.get("digest").is_none(), "{f}");
+                assert_eq!(f["error"], "outside_project", "{f}");
+            }
+        }
+        assert!(!facts(&input, "modified").is_empty());
+        // The linked directory is not entered, so only the linked file itself is named.
+        let all: Vec<&str> = facts(&input, "all")
+            .iter()
+            .map(|f| f["path"].as_str().unwrap())
+            .collect();
+        assert_eq!(all, ["leak.txt"]);
+    }
+
+    #[test]
+    fn a_link_to_a_directory_is_not_entered() {
+        let project = gsd_facts_project();
+        symlink(".", project.root().join("again")).unwrap();
+        symlink("src", project.root().join("alias")).unwrap();
+        let (_, _, input) = probed(project, json!([{"name": "all", "glob": "**/*.rs"}]));
+
+        let all: Vec<&str> = facts(&input, "all")
+            .iter()
+            .map(|f| f["path"].as_str().unwrap())
+            .collect();
+        assert_eq!(all, ["src/lib.rs"]);
+    }
+
+    #[test]
+    fn a_literal_prefix_that_is_a_link_out_is_not_walked() {
+        let out = outside();
+        let project = gsd_facts_project();
+        symlink(out.path(), project.root().join("docs")).unwrap();
+        let (_, _, input) = probed(project, json!([{"name": "all", "glob": "docs/*.txt"}]));
+
+        assert!(facts(&input, "all").is_empty(), "{input}");
+    }
+}
+
+#[test]
+fn passes_with_equal_reads_share_one_walk() {
+    use specforge_project::file_reads::{FileSource, Memo};
+    use specforge_protocol_types::FileRead;
+    use specforge_registry::{EntitySnapshot, MemoryDisk};
+
+    let disk = MemoryDisk::new().with_file("/p/src/a.rs", b"a");
+    let source = FileSource {
+        disk: &disk,
+        project_root: std::path::Path::new("/p"),
+        spec_root: std::path::Path::new("/p"),
+    };
+    let read = |name: &str| FileRead {
+        name: name.into(),
+        glob: Some("src/*.rs".into()),
+        ..FileRead::default()
+    };
+    let entities = EntitySnapshot::default();
+    let mut memo = Memo::default();
+
+    let first = memo.read(&[read("a")], &entities, &source);
+    let walked = disk.asked().len();
+    assert_eq!(memo.read(&[read("a")], &entities, &source), first);
+    assert_eq!(disk.asked().len(), walked, "an equal read walks nothing");
+    memo.read(&[read("b")], &entities, &source);
+    assert!(disk.asked().len() > walked, "a different read does");
 }

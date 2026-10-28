@@ -21,8 +21,21 @@ pub const TEXT_CAP: usize = 64 * 1024;
 pub const TEXT_BUDGET: usize = 1024 * 1024;
 /// The most files one read names.
 pub const MAX_FILES: usize = 2000;
-/// Directories a glob does not enter unless a literal segment of the pattern names them.
-const SKIPPED: [&str; 4] = [".git", ".specforge", "node_modules", "target"];
+/// The most entries (files and directories) one glob visits, matched or not.
+pub const MAX_VISITS: usize = 20_000;
+/// Directories a glob does not enter unless a literal segment of the pattern names them: version control, the tool's
+/// own state, and the usual build and dependency output.
+const SKIPPED: [&str; 9] = [
+    ".git",
+    ".specforge",
+    ".next",
+    ".venv",
+    "dist",
+    "node_modules",
+    "target",
+    "vendor",
+    ".svn",
+];
 
 /// Where the files are read from.
 #[derive(Clone, Copy)]
@@ -44,6 +57,46 @@ impl crate::Environment {
     }
 }
 
+/// The reads made in one compile: passes that declare equal reads over the same entities share one walk of the disk.
+#[derive(Default)]
+pub struct Memo(Vec<(Vec<FileRead>, BTreeMap<String, FileFacts>)>);
+
+impl Memo {
+    /// [`read`], made once for each distinct `reads`.
+    pub fn read(
+        &mut self,
+        reads: &[FileRead],
+        entities: &EntitySnapshot,
+        source: &FileSource<'_>,
+    ) -> BTreeMap<String, FileFacts> {
+        if let Some((_, facts)) = self.0.iter().find(|(made, _)| made == reads) {
+            return facts.clone();
+        }
+        let facts = read(reads, entities, source);
+        self.0.push((reads.to_vec(), facts.clone()));
+        facts
+    }
+}
+
+/// A read in progress: where the files are, and the project root with its links resolved (when the disk has links),
+/// which every path read must stay under (ADR 0293: a link out of the project is `outside_project`).
+struct Ctx<'a> {
+    source: &'a FileSource<'a>,
+    real_root: Option<PathBuf>,
+}
+
+impl Ctx<'_> {
+    /// Whether `at`, with its links resolved, leaves the project. shortcut: the check and the read are two calls, so a
+    /// link swapped between them is read; the same race `ContainedDisk` closes by holding the file, which a
+    /// recording disk cannot do.
+    fn escapes(&self, at: &Path) -> bool {
+        match (&self.real_root, self.source.disk.canonical(at)) {
+            (Some(root), Some(real)) => !real.starts_with(root),
+            _ => false,
+        }
+    }
+}
+
 /// The facts `reads` ask for, by read name. A read that is malformed (`read_problem`) or repeats an earlier name is
 /// left out: the declaration check reported it (W021), and the guest sees `files[name]` absent.
 pub fn read(
@@ -51,6 +104,10 @@ pub fn read(
     entities: &EntitySnapshot,
     source: &FileSource<'_>,
 ) -> BTreeMap<String, FileFacts> {
+    let ctx = Ctx {
+        source,
+        real_root: source.disk.canonical(source.project_root),
+    };
     let mut files = BTreeMap::new();
     for read in reads {
         if read_problem(read).is_some() || files.contains_key(&read.name) {
@@ -58,8 +115,8 @@ pub fn read(
         }
         let mut budget = TEXT_BUDGET;
         let facts = match (&read.field, &read.glob) {
-            (Some(field), _) => field_facts(read, field, entities, source, &mut budget),
-            (_, Some(glob)) => glob_facts(read, glob, source, &mut budget),
+            (Some(field), _) => field_facts(read, field, entities, &ctx, &mut budget),
+            (_, Some(glob)) => glob_facts(read, glob, &ctx, &mut budget),
             _ => continue,
         };
         files.insert(read.name.clone(), facts);
@@ -71,9 +128,10 @@ fn field_facts(
     read: &FileRead,
     field: &str,
     entities: &EntitySnapshot,
-    source: &FileSource<'_>,
+    ctx: &Ctx<'_>,
     budget: &mut usize,
 ) -> FileFacts {
+    let source = ctx.source;
     let (kind, declared) = field.split_once('.').unwrap_or((field, ""));
     let base = match read.base.as_deref() {
         Some("spec") => source.spec_root,
@@ -83,7 +141,7 @@ fn field_facts(
     let mut named: BTreeMap<(String, String), Option<PathBuf>> = BTreeMap::new();
     for record in entities.records().iter().filter(|r| r.kind == kind) {
         for written in paths_named(record, declared) {
-            let inside = inside(source.project_root, &base.join(written));
+            let inside = inside(source.project_root, written, base);
             let shown = inside
                 .as_ref()
                 .map_or_else(|| written.replace('\\', "/"), |rel| slashed(rel));
@@ -96,19 +154,13 @@ fn field_facts(
     let facts = named
         .into_iter()
         .take(MAX_FILES)
-        .map(|((entity, path), at)| {
-            fact(source, path, Some(entity), at.as_deref(), read.text, budget)
-        })
+        .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_deref(), read.text, budget))
         .collect();
     FileFacts { facts, truncated }
 }
 
-fn glob_facts(
-    read: &FileRead,
-    glob: &str,
-    source: &FileSource<'_>,
-    budget: &mut usize,
-) -> FileFacts {
+fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) -> FileFacts {
+    let source = ctx.source;
     let segments: Vec<&str> = glob.split('/').filter(|s| *s != ".").collect();
     let named_here: Vec<&str> = segments.iter().copied().filter(|s| !is_wild(s)).collect();
     // Directories above the first wildcard are walked to directly: only the rest of the pattern decides.
@@ -116,27 +168,31 @@ fn glob_facts(
     let literal = literal.min(segments.len().saturating_sub(1));
     let start = segments[..literal].join("/");
     let bounded = !segments.contains(&"**");
-    let mut found = Vec::new();
-    let mut truncated = false;
-    walk(
-        source,
-        &start,
-        &Walk {
-            glob,
-            segments: segments.len(),
-            bounded,
-            named: &named_here,
-        },
-        &mut found,
-        &mut truncated,
-    );
-    found.sort();
-    found.dedup();
-    let facts = found
+    let plan = Walk {
+        glob,
+        segments: segments.len(),
+        bounded,
+        named: &named_here,
+    };
+    let mut found = Found::default();
+    let first = source.project_root.join(&start);
+    // A literal prefix that is itself a link out of the project is not entered.
+    if !ctx.escapes(&first) {
+        let real = source.disk.canonical(&first);
+        walk(ctx, &start, real.as_deref(), &plan, &mut found);
+    }
+    let Found {
+        mut files,
+        truncated,
+        ..
+    } = found;
+    files.sort();
+    files.dedup();
+    let facts = files
         .into_iter()
         .map(|path| {
             let at = source.project_root.join(&path);
-            fact(source, path, None, Some(&at), read.text, budget)
+            fact(ctx, path, None, Some(&at), read.text, budget)
         })
         .collect();
     FileFacts { facts, truncated }
@@ -151,14 +207,19 @@ struct Walk<'a> {
     named: &'a [&'a str],
 }
 
-/// The files under `dir` (project-relative, `/` separated; empty is the root) whose path matches the glob, in order.
-fn walk(
-    source: &FileSource<'_>,
-    dir: &str,
-    plan: &Walk<'_>,
-    found: &mut Vec<String>,
-    truncated: &mut bool,
-) {
+/// What a walk has found and spent.
+#[derive(Default)]
+struct Found {
+    files: Vec<String>,
+    visits: usize,
+    truncated: bool,
+}
+
+/// The files under `dir` (project-relative, `/` separated; empty is the root; `real` is `dir` with its links
+/// resolved, when the disk has links) whose path matches the glob, in order. A directory reached through a link is
+/// not entered: a link into an ancestor would loop, and one out of the project would leave it.
+fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &mut Found) {
+    let source = ctx.source;
     let at = if dir.is_empty() {
         source.project_root.to_path_buf()
     } else {
@@ -168,7 +229,9 @@ fn walk(
         return;
     };
     for name in names {
-        if *truncated {
+        found.visits += 1;
+        if found.truncated || found.visits > MAX_VISITS {
+            found.truncated = true;
             return;
         }
         if SKIPPED.contains(&name.as_str()) && !plan.named.contains(&name.as_str()) {
@@ -180,16 +243,24 @@ fn walk(
             format!("{dir}/{name}")
         };
         let child = source.project_root.join(&rel);
-        if source.disk.list(&child).is_some() {
+        if source.disk.is_dir(&child) {
             let depth = rel.matches('/').count() + 1;
-            if !plan.bounded || depth < plan.segments {
-                walk(source, &rel, plan, found, truncated);
+            if plan.bounded && depth >= plan.segments {
+                continue;
+            }
+            let child_real = source.disk.canonical(&child);
+            let linked = match (real, &child_real) {
+                (Some(parent), Some(child)) => child != &parent.join(&name),
+                _ => false,
+            };
+            if !linked {
+                walk(ctx, &rel, child_real.as_deref(), plan, found);
             }
         } else if specforge_common::path_glob::matches(plan.glob, &rel) {
-            if found.len() == MAX_FILES {
-                *truncated = true;
+            if found.files.len() == MAX_FILES {
+                found.truncated = true;
             } else {
-                found.push(rel);
+                found.files.push(rel);
             }
         }
     }
@@ -197,7 +268,7 @@ fn walk(
 
 /// The facts of the file at `at` (`None`: the path is outside the project and is not read).
 fn fact(
-    source: &FileSource<'_>,
+    ctx: &Ctx<'_>,
     path: String,
     entity: Option<String>,
     at: Option<&Path>,
@@ -209,12 +280,18 @@ fn fact(
         entity,
         ..FileFact::default()
     };
+    let source = ctx.source;
     let Some(at) = at else {
         fact.error = Some("outside_project".into());
         return fact;
     };
     fact.exists = source.disk.exists(at);
     if !fact.exists {
+        return fact;
+    }
+    if ctx.escapes(at) {
+        fact.exists = false;
+        fact.error = Some("outside_project".into());
         return fact;
     }
     match source.disk.read(at) {
@@ -247,9 +324,13 @@ fn fact(
     fact
 }
 
-/// `joined` relative to `root`, lexically normalised, when it stays inside: an absolute path or one that climbs out
-/// with `..` is outside. A link is not resolved (the disk follows it), which is the limit ADR 0293 states.
-fn inside(root: &Path, joined: &Path) -> Option<PathBuf> {
+/// `joined` relative to `root`, lexically normalised, when it stays inside: an absolute path (even one under the
+/// root) or one that climbs out with `..` is outside. A link is judged where the file is read ([`Ctx::escapes`]).
+fn inside(root: &Path, written: &str, base: &Path) -> Option<PathBuf> {
+    if Path::new(written).has_root() || Path::new(written).is_absolute() {
+        return None;
+    }
+    let joined = base.join(written);
     let mut out = PathBuf::new();
     for component in joined.components() {
         match component {

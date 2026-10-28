@@ -4,7 +4,9 @@
 
 /// Whether `path` matches `pattern`.
 pub fn matches(pattern: &str, path: &str) -> bool {
-    let pattern: Vec<&str> = pattern.split('/').filter(|s| *s != ".").collect();
+    let mut pattern: Vec<&str> = pattern.split('/').filter(|s| *s != ".").collect();
+    // `**/**` is `**`: collapsed, so a run of them is not a run of nested searches.
+    pattern.dedup_by(|a, b| *a == "**" && *b == "**");
     let path: Vec<&str> = path.split('/').filter(|s| *s != ".").collect();
     segments(&pattern, &path)
 }
@@ -50,5 +52,13 @@ mod tests {
         assert!(!matches("*.spec", "a/b.spec"));
         assert!(matches("a?.md", "ab.md"));
         assert!(matches("./a/*", "a/b"));
+    }
+
+    #[test]
+    fn a_run_of_double_stars_is_one() {
+        let pattern = "**/".repeat(40) + "x";
+        let path = "a/".repeat(30) + "y";
+        assert!(!matches(&pattern, &path));
+        assert!(matches(&pattern, &("a/".repeat(30) + "x")));
     }
 }

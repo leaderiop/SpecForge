@@ -36,6 +36,16 @@ pub trait Disk {
     fn stamp(&self, path: &Path) -> io::Result<FileStamp> {
         self.read(path).map(|bytes| FileStamp::of(&bytes))
     }
+    /// Whether `path` is a directory that can be listed. A session records a listing only for a directory, so a
+    /// walk that asks of every entry does not make a plain file an input of the walk (ADR 0293).
+    fn is_dir(&self, path: &Path) -> bool {
+        self.list(path).is_some()
+    }
+    /// `path` with every link resolved, when this disk is the real file system; `None` for a disk that has no
+    /// links (memory, a commit) or is already contained. Nothing is recorded: a read records its own link hops.
+    fn canonical(&self, _path: &Path) -> Option<PathBuf> {
+        None
+    }
 }
 
 /// What a file looked like (see [`Disk::stamp`]): its length and modification time, and its content's hash when the
@@ -81,6 +91,14 @@ impl Disk for PlainDisk {
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         specforge_common::regular::read(path)
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        path.is_dir()
+    }
+
+    fn canonical(&self, path: &Path) -> Option<PathBuf> {
+        std::fs::canonicalize(path).ok()
     }
 
     fn stamp(&self, path: &Path) -> io::Result<FileStamp> {

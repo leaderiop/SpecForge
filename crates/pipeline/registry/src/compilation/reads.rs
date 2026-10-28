@@ -8,8 +8,8 @@ use specforge_protocol_types::{ExtensionDeclaration, FileRead};
 use super::populate::keyword;
 
 /// Why `read` cannot be served as declared, or `None` when its shape is sound: a name that is no word, neither or both
-/// of `field` and `glob`, a field that is not `kind.field`, a glob that is absolute, climbs with `..` or has an empty
-/// segment, `base` on a glob, or a `base` other than `spec` or `project`. A name repeated in an owner's reads is
+/// of `field` and `glob`, a field that is not `kind.field`, a glob that is absolute, climbs with `..`, has an empty
+/// segment or more than [`MAX_DOUBLE_STAR`] `**` segments, `base` on a glob, or a `base` other than `spec` or `project`. A name repeated in an owner's reads is
 /// [`problems`]'.
 pub fn read_problem(read: &FileRead) -> Option<String> {
     if !is_word(&read.name) {
@@ -43,6 +43,9 @@ pub fn read_problem(read: &FileRead) -> Option<String> {
     }
 }
 
+/// The most `**` segments a glob may have: the matcher tries every split of the path at each one.
+pub const MAX_DOUBLE_STAR: usize = 4;
+
 fn glob_problem(glob: &str) -> Option<String> {
     let absolute =
         glob.starts_with('/') || glob.starts_with('\\') || glob.as_bytes().get(1) == Some(&b':');
@@ -57,6 +60,11 @@ fn glob_problem(glob: &str) -> Option<String> {
     {
         return Some(format!(
             "its glob '{glob}' climbs with `..` or has an empty segment"
+        ));
+    }
+    if glob.split('/').filter(|segment| *segment == "**").count() > MAX_DOUBLE_STAR {
+        return Some(format!(
+            "its glob '{glob}' has more than {MAX_DOUBLE_STAR} `**` segments"
         ));
     }
     None

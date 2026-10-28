@@ -194,6 +194,7 @@ pub fn run_extension_passes<'p>(
     let mut with_baseline: std::collections::HashMap<Vec<String>, Encoded<PassInput>> =
         Default::default();
     let calls = ExtensionCalls::new(runtime);
+    let mut memo = file_reads::Memo::default();
 
     let mut reports = Vec::new();
     for declared in passes {
@@ -216,7 +217,7 @@ pub fn run_extension_passes<'p>(
                         .map(|b| b.pass_view(declared.baseline())),
                     files: files
                         .filter(|_| !reads.is_empty())
-                        .map(|source| file_reads::read(reads, context.entities, &source))
+                        .map(|source| memo.read(reads, context.entities, &source))
                         .unwrap_or_default(),
                     test_results: tests.cloned().or_else(|| payload.test_results.clone()),
                     ..payload.clone()

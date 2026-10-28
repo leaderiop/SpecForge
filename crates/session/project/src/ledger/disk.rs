@@ -47,6 +47,17 @@ impl Disk for RunDisk<'_, '_> {
         self.0
             .read(Reading::Ref, path, self.1, |path| self.1.read(path))
     }
+
+    /// Only a directory is listed through the run (so recorded): a plain file asked about by a walk is not an input
+    /// of that walk. shortcut: a file that becomes a directory of the same name is seen only through its parent
+    /// listing, which does not change; upgrade if a glob must follow that.
+    fn is_dir(&self, path: &Path) -> bool {
+        self.1.is_dir(path) && self.list(path).is_some()
+    }
+
+    fn canonical(&self, path: &Path) -> Option<std::path::PathBuf> {
+        self.1.canonical(path)
+    }
 }
 
 impl RunDisk<'_, '_> {

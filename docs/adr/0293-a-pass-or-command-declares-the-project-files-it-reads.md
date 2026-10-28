@@ -25,7 +25,7 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   segment). `base` (`spec` or `project`, default `project`) applies to a field read only: a path in a spec names a project
   file, and a glob is always from the project root. `text` (default false) asks for the capped text as well as the facts.
   A malformed read (neither or both of `field` and `glob`, a name that is no word or repeats, a field no loaded extension
-  declares, a glob that is absolute, climbs with `..` or does not parse, `base` on a glob) is W021 from the registry build
+  declares, a glob that is absolute, climbs with `..`, has an empty segment or has more than four `**` segments (the matcher tries every split of the path at each one), `base` on a glob) is W021 from the registry build
   (W145 is the pass-order cycle), and that read is served empty; the pass is kept, because a dropped check is worse than an empty read.
 - **D2. The input carries `files`.** `PassInput.files` and `CommandInput.files` map a read's name to `FileFacts {facts,
   truncated?}`; a `FileFact {path, entity?, exists, bytes?, lines?, digest?, text?, error?}` is one per (entity, path),
@@ -37,19 +37,27 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   missing: `too_large`, `not_utf8`, `unreadable`, `outside_project`, `budget`; a path that does not exist is
   `exists: false`, not an error. `truncated` is set on a read whose glob matched more than the file cap. The field is new
   and is not `PathFact`, whose `in_project`, `in_spec_root` and `new_bytes` mean nothing outside a hook.
-- **D3. Containment is lexical.** A path is joined to its base, normalised lexically and refused as `outside_project`
-  when it is absolute or climbs out with `..`. A symlink to outside is followed by the disk (the ledger records each hop);
-  the lexical check cannot see it because the disk port has no `canonicalize`. This is the limit of `file_exists` and of
-  the judged `file(...)` input, accepted here: the sandbox is "no capability", the host reads, and the guest is given
-  text it could have been handed by `specforge export`.
+- **D3. Containment is lexical, then real.** A path is joined to its base, normalised lexically and refused as
+  `outside_project` when it is absolute (even one that lies under the root: a path in a spec is project-relative) or
+  climbs out with `..`. A path that passes is then resolved: through a disk that has links (`Disk::canonical`, the plain
+  file system and a session's recording disk over it), a file whose canonical path leaves the canonical project root is
+  `outside_project` too, `exists: false`, with no facts or text, for a field read and a glob alike, and for a command,
+  `analyze`, a guard and a check pass alike (all read through the same `file_reads`). A glob does not descend into a
+  directory reached through a link, so a link into an ancestor cannot loop and a link out cannot be walked. The MCP
+  contained disk (ADR 0145) is unchanged and holds its own files. Residual limits: the check and the read are two calls,
+  so a link swapped between them is read (the contained disk closes that by holding the file; a recording disk cannot);
+  and a link to a directory inside the project is not walked, so a glob does not list files through it.
 - **D4. Caps.** A file's text is capped at 64 KiB; the disk already refuses a file over 64 MiB, which is `too_large`.
   A read sends at most 1 MiB of text in all (`budget` after that) and 2000 files (`truncated`). A glob never enters
-  `.git`, `.specforge`, `node_modules` or `target` unless a literal segment of the pattern names it. No diagnostic is
+  `.git`, `.specforge`, `.svn`, `.next`, `.venv`, `dist`, `node_modules`, `target` or `vendor` unless a literal segment of
+  the pattern names it, and visits at most 20,000 entries (files and directories, matched or not) before the read is
+  `truncated`. No diagnostic is
   raised for a cap: the pass sees `error` and `truncated` and reports with a code of its own.
 - **D5. A read file is a check input.** The host reads every declared file through the disk the compile was given. A
   session's recording disk stamps each `read`, `exists` and listing as a check input, so an edit to a read file, the
   creation of an absent one or a new file under a globbed directory re-runs the checks, as `file_exists` already does.
-  A command and an analyze pass read through the plain disk: they run once.
+  A walk lists a directory it enters, and a plain file it passes is not an input of the walk: editing a file no read
+  names or matches does not re-run the passes. A command and an analyze pass read through the plain disk: they run once.
 - **D6. Hooks keep `PathFact`.** A hook is handed the facts of the paths its tool names, which is another question
   (what is about to be written); it is unchanged.
 
@@ -63,7 +71,8 @@ not tell a field from a glob). A bare `sha256` key beside the `sha256:` prefix e
 ## Consequences
 
 Two descriptor fields, one input field on two inputs and one new type; a pass that declares nothing is sent the bytes it
-was sent. Every re-check re-reads every declared file, bounded by the caps and by who declares what; no memo yet (a
-stamp-keyed memo in the digest memo is the upgrade when `doctor`, which now counts declared reads per extension, shows
-reads that are slow). A glob lists every non-matching entry under a `**`. Nothing in this round declares a read: the
+was sent. Every re-check re-reads and re-hashes every declared file, bounded by the caps and by who declares what: the `lines`
+fact needs the bytes, so a stamp-keyed digest would not save the read, and there is no memo across runs (the upgrade when
+`doctor`, which lists each extension's declared reads, shows reads that are slow). Passes of one compile that declare
+equal reads share one walk. A glob lists every non-matching entry under a `**`, within the visit budget. Nothing in this round declares a read: the
 `@gsd/core` extension does.

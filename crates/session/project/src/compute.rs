@@ -43,6 +43,7 @@ pub(crate) fn run(
     } else {
         authored.with_computed(given, env.registries().fields())
     };
+    let mut memo = crate::file_reads::Memo::default();
     for declared in env.registries().compute_passes() {
         let input = {
             let mut payload = pass_input(&PassContext {
@@ -54,8 +55,7 @@ pub(crate) fn run(
                 .map(|b| b.pass_view(declared.baseline()));
             payload.test_results = tests.filter(|_| declared.reads_tests()).cloned();
             if !declared.reads().is_empty() {
-                payload.files =
-                    crate::file_reads::read(declared.reads(), &seen, &env.file_source(disk));
+                payload.files = memo.read(declared.reads(), &seen, &env.file_source(disk));
             }
             ExtensionCalls::encode(&payload)
         };
@@ -93,6 +93,8 @@ pub(crate) fn run(
         }
         if computed != before {
             seen = authored.with_computed(&computed, env.registries().fields());
+            // A later pass reads over the entities as now computed.
+            memo = Default::default();
         }
     }
     (computed, diagnostics)

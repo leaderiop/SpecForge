@@ -644,11 +644,11 @@ A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `p
 **File reads (1.11.0, ADR 0293).** A pass or a command may declare `reads`, a list of `{"name", "field"?, "glob"?,
 "base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
 `field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
-reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment; never `..` or an absolute path).
+reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment, at most four of them; never `..` or an absolute path).
 `name` is a word, unique among the owner's reads. `base` (`spec` or `project`, default `project`) says where a field's
 relative paths start and is for a field read only. `text: true` asks for the file's text as well as its facts. A
-malformed read (neither or both of `field` and `glob`, a repeated name, a field no loaded extension declares, a bad
-glob, `base` on a glob) is W021 from the registry build, and that read is served empty: the pass is kept.
+malformed read (neither or both of `field` and `glob`, a repeated name, a field no loaded extension declares, a glob
+that is absolute, climbs with `..`, has an empty segment or has more than four `**` segments, `base` on a glob) is W021 from the registry build, and that read is served empty: the pass is kept.
 
 The input then carries `files`, `{"<name>": {"facts": [FileFact], "truncated"?: true}}`. A `FileFact` is `{"path",
 "entity"?, "exists", "bytes"?, "lines"?, "digest"?, "text"?, "error"?}`, one per (entity, path) sorted by `(entity, path)`
@@ -657,8 +657,11 @@ follows links, `bytes`, `lines` and `digest` (`sha256:` over the CRLF-normalised
 present for a regular file that was read, and `text` is the UTF-8 file when the read asks for it. `error` says why text
 or facts are missing: `too_large` (text over 64 KiB), `not_utf8`, `unreadable`, `outside_project`, `budget` (a read sends
 at most 1 MiB of text in all); a path that does not exist is `exists: false`, not an error. `truncated` is set when a glob
-matched more than 2000 files. A glob never enters `.git`, `.specforge`, `node_modules` or `target` unless a literal
-segment names it. No cap is a diagnostic: the pass sees `error` and `truncated` and reports with a code of its own. A
+matched more than 2000 files or walked more than 20,000 entries. A glob never enters `.git`, `.specforge`, `.svn`,
+`.next`, `.venv`, `dist`, `node_modules`, `target` or `vendor` unless a literal segment names it, and does not descend
+into a directory reached through a symlink. A file whose real path (every symlink resolved) leaves the project is
+`outside_project`, as is an absolute path, even one under the root; the check and the read are two calls, so a link
+swapped between them is read. No cap is a diagnostic: the pass sees `error` and `truncated` and reports with a code of its own. A
 file the host reads is a check input: editing it, creating an absent one or adding a file under a globbed directory
 re-runs the checks (a command and an analyze pass read once). A pass or command that declares nothing is sent no `files`.
 
