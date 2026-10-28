@@ -319,7 +319,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
-/// the model is listed by exactly one compute pass.
+/// the model, and every computed member of an authored block, is listed by exactly one compute pass.
 #[test]
 fn each_computed_field_is_listed_by_one_compute_pass() {
     let passes = describe("passes");
@@ -337,12 +337,23 @@ fn each_computed_field_is_listed_by_one_compute_pass() {
     let mut computed = Vec::new();
     for kind in describe("entities")["items"].as_array().expect("kinds") {
         for field in kind["fields"].as_array().expect("fields") {
+            let path = format!(
+                "{}.{}",
+                kind["name"].as_str().expect("a kind"),
+                field["name"].as_str().expect("a field")
+            );
             if field["writer"] == "computed" {
-                computed.push(format!(
-                    "{}.{}",
-                    kind["name"].as_str().expect("a kind"),
-                    field["name"].as_str().expect("a field")
-                ));
+                computed.push(path);
+                continue;
+            }
+            // A computed member of an authored block is listed as `kind.field.member`.
+            for member in field["members"].as_array().into_iter().flatten() {
+                if member["writer"] == "computed" {
+                    computed.push(format!(
+                        "{path}.{}",
+                        member["name"].as_str().expect("a member")
+                    ));
+                }
             }
         }
     }

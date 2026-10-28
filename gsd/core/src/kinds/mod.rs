@@ -2,6 +2,7 @@
 
 mod discuss;
 mod dsl;
+mod execute;
 mod learning;
 mod must_haves;
 mod plan;
@@ -48,6 +49,9 @@ const KINDS: &[&Kind] = &[
     &must_haves::PROHIBITION,
     &plan::DISPOSITION,
     &plan::USER_SETUP,
+    &execute::SUMMARY,
+    &execute::DELIVERABLE,
+    &execute::DEVIATION,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

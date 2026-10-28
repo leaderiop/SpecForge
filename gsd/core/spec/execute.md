@@ -29,24 +29,28 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | patterns_established | strs | | `patterns-established:` |
 | requirements_completed | →* requirement | R | `requirements-completed:` |
 | threat_flags | strs | | `## Threat Flags` |
-| next_readiness | text | | `## Next Phase Readiness` |
+| next_readiness | str | | `## Next Phase Readiness` |
 | halted_because | str | | required when `status halted` |
 | started, completed | ts | H | `completed:`; written by the command that opens and closes the plan, with the host's clock (`now`, protocol 1.11.0, K14) |
 | duration | str | C | `duration:`: `completed` − `started` |
 | actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits. GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
-| files_created, files_modified | files | C | `key-files:`: from the plan's commits |
+| files_created, files_modified | strs | C | `key-files:`: from the plan's commits. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |
 
 ## deliverable
 
 GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `summary → summary R I`, `description str R`, `requirement → requirement`, `human_judgment bool R`,
-`rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R}`;
-each check's `status enum{pass, fail, unknown}` is `C`, from the test report (K12: a compute pass that declares `reads_tests` receives it). A check's `ref` is a test tagged with its entity: `[gsd:<id>] stays signed in` (the test link, under commit below).
+`rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R, status enum{pass, fail, unknown} C}`.
+Each check's `status` is a **computed member** of an authored block: the derive pass lists it as `deliverable.checks.status`
+(`dsl::computed`), and a status written inside `checks` is E082. It is computed from the test report (K12: a compute pass
+that declares `reads_tests` receives it). A check's `ref` is GSD's own coverage reference, `path#test name`
+(`test/tasks.test.js#adds a task`), or a test tagged with its entity (the test link, under commit below).
 
 ## deviation
 
 GSD: `## Deviations from Plan` and `## Issues Encountered`. Append-only. Name `DV1`, scoped by the summary.
-`summary → summary R`, `kind enum{deviation, issue} R`, `rule str`, `text str R`, `files files`.
+`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files strs I`: a deviation is a log line, so
+every field is immutable and the kind is append-only (E084, E085).
 
 ## commit
 

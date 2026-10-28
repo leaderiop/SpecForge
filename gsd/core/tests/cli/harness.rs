@@ -128,8 +128,9 @@ impl Project {
         found
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
-    pub fn codes(&self) -> Vec<String> {
+    /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`, the `I204` note
+    /// left out), in report order.
+    pub fn report(&self) -> Vec<(String, String)> {
         let run = self.run(&["check", "--format", "json"]);
         let found: serde_json::Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
@@ -137,9 +138,25 @@ impl Project {
             .as_array()
             .expect("a list")
             .iter()
-            .filter_map(|d| d["code"].as_str().map(String::from))
-            .filter(|c| c != "I204")
+            .filter_map(|d| {
+                let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
+                Some((d["code"].as_str()?.to_string(), text("message")))
+            })
+            .filter(|(code, _)| code != "I204")
             .collect()
+    }
+
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
+    pub fn codes(&self) -> Vec<String> {
+        self.report().into_iter().map(|(code, _)| code).collect()
+    }
+
+    /// The fields of one entity, as `specforge query <id> --format json` answers them.
+    pub fn fields_of(&self, id: &str) -> serde_json::Value {
+        let query = self.run(&["query", id, "--depth", "0", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+            .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+        graph["nodes"][0]["fields"].clone()
     }
 
     /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
