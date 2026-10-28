@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.10.0); the `@gsd/*` extensions are not.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.10.0); `@gsd/core` has its foundation (kinds, code book, settings, roadmap checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -152,7 +152,8 @@ The packaging (one Cargo workspace, built on demand, tested through the `specfor
 1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
    K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
    agents, skills, commands and hooks.
-2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project.
+2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project. The foundation (the
+   roadmap kinds, the code book, the settings and the roadmap checks) is built; see [core/](core/).
 3. The capability extensions, then `@gsd/path` and `@gsd/loop`, then more host renderers.
 
 ## Credit
