@@ -405,3 +405,46 @@ fn a_read_only_commands_help_and_output_are_unchanged() {
         assert!(!help.contains("dry-run"), "{command}: {help}");
     }
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "hand-written host files are never read or written by any command"
+)]
+fn hand_written_host_files_are_never_read_or_written() {
+    let hand = [
+        (
+            ".claude/skills/x/SKILL.md",
+            "---\nname: x\n---\nhand written\n",
+        ),
+        (".claude/settings.json", "{\"hooks\": {}}\n"),
+        (
+            ".mcp.json",
+            "{\"mcpServers\": {\"mine\": {\"command\": \"mine\"}}}\n",
+        ),
+        (
+            ".codex/config.toml",
+            "[mcp_servers.mine]\ncommand = \"mine\"\n",
+        ),
+    ];
+    let dir = setup_product_project();
+    for (path, text) in hand {
+        dir.write(path, text);
+    }
+    for args in [
+        &["check"][..],
+        &["doctor"][..],
+        &["product", "features", "--format", "json"][..],
+        &["settings"][..],
+        &["format", "--check"][..],
+    ] {
+        let _ = Cli::on(&dir).command(args).output().unwrap();
+    }
+    for (path, text) in hand {
+        let kept = std::fs::read_to_string(dir.root().join(path)).unwrap();
+        assert_eq!(kept, text, "{path} is hand-written: no command touches it");
+    }
+    assert!(
+        !dir.root().join(".claude/agents").exists() && !dir.root().join(".cursor").exists(),
+        "no command created a host directory"
+    );
+}
