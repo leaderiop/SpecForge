@@ -1670,3 +1670,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   with `passed`, the outcome and the inputs that changed; passes, graph nodes and baseline entities carry them.
 - **Basis**: the digest of each input (and of `cited`) a `set_verdict` was judged over; a digest that differs is
   `stale_revision`. `specforge query --inputs` reads it.
+- **File read**: a `FileRead` a pass or command declares (`reads`): a name and one of a field path or a glob, with an
+  optional `base` and `text`; the host reads the files it names and sends the facts under that name in `files` (ADR 0293).
+- **File fact**: a `FileFact` of that input: a project-relative path, whether it exists, its bytes, lines and digest and,
+  within the cap, its text, or the reason (`error`) there is none; not a hook's `PathFact` (ADR 0293).
