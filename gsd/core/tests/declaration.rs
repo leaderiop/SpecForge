@@ -20,15 +20,21 @@ fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
     );
 }
 
+/// r34 L12: no dependency the library does not use. `serde_json` is the SDK's JSON crate, linked already; the
+/// manifest reader of the verify-path pass uses it.
 #[test]
-fn the_crate_links_serde_json_only_for_its_tests() {
+fn serde_json_is_a_dependency_only_while_the_library_uses_it() {
     let manifest = include_str!("../Cargo.toml");
     let dependencies = manifest
         .split("[dependencies]")
         .nth(1)
         .and_then(|rest| rest.split("\n[").next())
         .expect("a [dependencies] table");
-    assert!(!dependencies.contains("serde_json"), "{dependencies}");
+    let used = include_str!("../src/passes/verify_paths/manifest.rs")
+        .split("#[cfg(test)]")
+        .next()
+        .is_some_and(|code| code.contains("serde_json::"));
+    assert_eq!(dependencies.contains("serde_json"), used, "{dependencies}");
 }
 
 #[test]
