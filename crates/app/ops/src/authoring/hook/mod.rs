@@ -5,6 +5,7 @@
 
 mod facts;
 mod filter;
+pub mod spec_guard;
 
 use specforge_protocol_types::{Decision, HookInput, HookOutput, HookTool, OnFailure, RawGraph};
 use specforge_wasm::ExtensionCalls;
@@ -49,6 +50,9 @@ pub fn run(
     event: &HostHookEvent,
     caller: Caller<'_>,
 ) -> Outcome {
+    if route == crate::host::render::SPEC_GUARD {
+        return spec_guard::run(view, event);
+    }
     let build = view.registries();
     let Some(hook) = build.hook(route) else {
         return Outcome {

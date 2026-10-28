@@ -20,6 +20,16 @@
           }
         ],
         "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook core.spec_guard --host codex --event pre_tool --tools write,edit --paths '**/*.spec'",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "apply_patch|Edit|Write"
       }
     ],
     "PostToolUse": [

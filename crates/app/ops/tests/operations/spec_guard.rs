@@ -20,7 +20,6 @@ fn edit(hosted: &Hosted, file: &str, old: &str, new: &str) -> Value {
     behavior = "run_a_hook",
     verify = "the spec guard denies a raw write of a computed value, naming the field and the tool that writes it"
 )]
-#[ignore = "K9 T12"]
 fn the_spec_guard_denies_a_raw_write_of_a_computed_value() {
     let project = hosts_project(json!({}), json!({}));
     project.write("v.spec", "verification V1 \"One\" {\n  phase 03\n}\n");
@@ -47,7 +46,6 @@ fn the_spec_guard_denies_a_raw_write_of_a_computed_value() {
     behavior = "run_a_hook",
     verify = "the spec guard denies a raw write of a human-only value"
 )]
-#[ignore = "K9 T12"]
 fn the_spec_guard_denies_a_raw_write_of_a_human_only_value() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let root = hosted.project.root().display().to_string();
@@ -70,7 +68,6 @@ fn the_spec_guard_denies_a_raw_write_of_a_human_only_value() {
     behavior = "run_a_hook",
     verify = "the spec guard allows prose and reports the errors an edit adds as context"
 )]
-#[ignore = "K9 T12"]
 fn the_spec_guard_allows_prose_and_reports_new_errors_as_context() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let prose = run_core_hook(

@@ -9,6 +9,9 @@
       },
       {
         "command": "specforge hook t.validate_commit --host cursor --event pre_commit"
+      },
+      {
+        "command": "specforge hook core.spec_guard --host cursor --event pre_tool --tools write,edit --paths '**/*.spec'"
       }
     ],
     "postToolUse": [

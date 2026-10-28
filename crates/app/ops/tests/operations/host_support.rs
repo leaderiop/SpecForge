@@ -127,6 +127,20 @@ pub fn host_findings(_hosted: &Hosted) -> Vec<String> {
 }
 
 /// Run the core hook `core.<id>` (the spec guard), which no extension declares.
-pub fn run_core_hook(_hosted: &Hosted, _id: &str, _event: &Value) -> HookRun {
-    unimplemented!("K9 T12: host::spec_guard")
+pub fn run_core_hook(hosted: &Hosted, id: &str, event: &Value) -> HookRun {
+    let before = hosted.exports().len();
+    let view = ProjectView::of(&hosted.compiled);
+    let neutral: HostHookEvent = serde_json::from_value(event.clone()).expect("a neutral event");
+    let outcome = hook::run(
+        &view,
+        &format!("core.{id}"),
+        &neutral,
+        specforge_ops::testing::caller(),
+    );
+    HookRun {
+        answer: serde_json::to_value(&outcome.answer).expect("an answer serializes"),
+        stderr: outcome.stderr,
+        exports: hosted.exports().split_off(before),
+        changed: outcome.changed,
+    }
 }

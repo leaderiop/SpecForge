@@ -228,7 +228,7 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         });
     }
 
-    let hooks = build
+    let mut hooks = build
         .hooks()
         .filter(|h| on(view, h.extension, h.item.when.as_ref()))
         .map(|h| RenderedHook {
@@ -244,7 +244,8 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
                 .collect(),
             timeout_ms: h.item.timeout_ms,
         })
-        .collect();
+        .collect::<Vec<_>>();
+    hooks.push(spec_guard(view));
 
     Ok(Rendered {
         host,
@@ -253,6 +254,25 @@ pub fn rendered(view: &ProjectView<'_>, host: Host) -> Result<Rendered, OpError>
         slashes,
         hooks,
     })
+}
+
+/// The route of the host's own hook, the tool classes and the files it is wired on.
+pub const SPEC_GUARD: &str = "core.spec_guard";
+pub const SPEC_GUARD_TOOLS: [&str; 2] = ["write", "edit"];
+pub const SPEC_GUARD_PATHS: &str = "{spec_root}/**/*.spec";
+
+/// The host's own hook, wired by every install: a raw write of a computed, harness or human-only value in a spec file is
+/// denied (ADR 0292). Its logic is `authoring::hook::spec_guard`.
+fn spec_guard(view: &ProjectView<'_>) -> RenderedHook {
+    RenderedHook {
+        route: SPEC_GUARD.into(),
+        description: "Deny a write of a computed, harness or human-only value in a spec file"
+            .into(),
+        event: specforge_protocol_types::HookEvent::PreTool,
+        tools: SPEC_GUARD_TOOLS.iter().map(|t| (*t).to_string()).collect(),
+        paths: vec![spec_root_spelled(view, SPEC_GUARD_PATHS)],
+        timeout_ms: 10_000,
+    }
 }
 
 /// `{spec_root}` in a hook's path glob, spelled as the project-relative spec root (nothing for the project root).
