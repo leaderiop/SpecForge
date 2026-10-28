@@ -94,10 +94,9 @@ fn an_extension_name_routes_a_prompt_when_no_command_has_it() {
     behavior = "gate_a_command",
     verify = "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
 )]
-#[ignore = "K8 T5"]
 fn a_gated_command_is_refused_on_the_cli() {
     let blocked = project("fine", "blocked");
-    let (code, out, err) = extension(&blocked, "t", &["execute-phase", "--phase", "03"]);
+    let (code, out, err) = extension(&blocked, "t", &["execute-phase", "03"]);
     assert_eq!(code, 1, "{out}");
     assert!(
         err.contains("error[gate_failed]") && err.contains("t/E902"),
@@ -106,11 +105,7 @@ fn a_gated_command_is_refused_on_the_cli() {
     assert!(out.is_empty(), "the export never printed: {out}");
 
     let (code, err_json) = {
-        let (code, _, err) = extension(
-            &blocked,
-            "t",
-            &["execute-phase", "--phase", "03", "--format", "json"],
-        );
+        let (code, _, err) = extension(&blocked, "t", &["execute-phase", "03", "--format", "json"]);
         (code, err)
     };
     assert_eq!(code, 1);

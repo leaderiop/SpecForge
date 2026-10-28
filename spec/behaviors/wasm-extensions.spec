@@ -1043,4 +1043,5 @@ behavior gate_a_command "Gate a Command" {
   verify unit "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
   verify unit "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
   verify unit "a guard pass's input carries the trigger that made the host run it"
+  verify unit "a subject that names no entity or several is refused before the gate runs"
 }

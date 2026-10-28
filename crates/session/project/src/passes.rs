@@ -9,7 +9,7 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
-use specforge_protocol_types::{PassInput, PassOutput, PassSeverity};
+use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, Trigger};
 use specforge_wasm::{Encoded, ExtensionCalls};
 use std::collections::HashSet;
 
@@ -37,6 +37,8 @@ pub struct PassContext<'a> {
     pub previous: Option<&'a Baseline>,
     /// Where each judged rule stands on each entity (ADR 0290): handed to a pass on the entity, gated rules absent.
     pub judgements: Option<&'a crate::judged::Judgements>,
+    /// Why a guard pass runs (ADR 0291): a gate the host is evaluating. Absent, a write (protocol 1.10.0).
+    pub trigger: Option<&'a Trigger>,
 }
 
 impl<'a> PassContext<'a> {
@@ -49,6 +51,7 @@ impl<'a> PassContext<'a> {
             proved_claims: None,
             previous: None,
             judgements: None,
+            trigger: None,
         }
     }
 }
@@ -84,7 +87,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         proved_claims: input.proved_claims.map(sorted_ids),
         // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
         previous: None,
-        ..Default::default()
+        trigger: input.trigger.cloned(),
     }
 }
 

@@ -153,7 +153,10 @@ fn surfaces() -> Value {
 }
 
 fn core() -> ContributionsBuilder {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new(CORE, "0.4.0"));
+    let mut c = ContributionsBuilder::new(ExtensionMeta {
+        short: Some("t".into()),
+        ..ExtensionMeta::new(CORE, "0.4.0")
+    });
     c.raw_category(DeclaredCategory::Entities, kinds());
     c.raw_category(DeclaredCategory::Codes, codes());
     c.raw_category(DeclaredCategory::Settings, settings());
@@ -163,7 +166,10 @@ fn core() -> ContributionsBuilder {
 }
 
 fn other() -> ContributionsBuilder {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new(OTHER, "1.0.0"));
+    let mut c = ContributionsBuilder::new(ExtensionMeta {
+        short: Some("t".into()),
+        ..ExtensionMeta::new(OTHER, "1.0.0")
+    });
     c.raw_category(
         DeclaredCategory::Surfaces,
         json!([{"commands": [command("plan_phase", json!([]), &[], None)]}]),

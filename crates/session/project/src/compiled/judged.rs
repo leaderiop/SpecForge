@@ -41,6 +41,52 @@ impl CompiledProject {
         self
     }
 
+    /// What this project reports now (the settings' gating and raises applied), with the findings of the guard passes
+    /// that report one of `codes` (qualified, `gsd/E512`) added: a gate asks (ADR 0291). Each such pass runs once over
+    /// this project, which is also its `previous` (nothing is written), and its input says `trigger`. A project
+    /// declaring no such pass reports what [`Self::checked_diagnostics`] does, and a compile never runs one.
+    pub fn gated_against_self(
+        &self,
+        codes: &[String],
+        trigger: &specforge_protocol_types::Trigger,
+    ) -> Vec<specforge_common::Diagnostic> {
+        let registries = self.env.registries();
+        let named: Vec<&specforge_registry::DeclaredPass> = registries
+            .guard_passes()
+            .filter(|declared| {
+                declared.reports().iter().any(|local| {
+                    codes.contains(&specforge_diagnostics::qualify(&declared.extension, local))
+                })
+            })
+            .collect();
+        let Some(runtime) = self.env.runtime().filter(|_| !named.is_empty()) else {
+            return self.checked_diagnostics();
+        };
+        let mut checked = self.clone();
+        if self.checks_skipped {
+            checked.check(&mut crate::ledger::Unrecorded::plain());
+        }
+        let baseline = crate::baseline::Baseline::of_project(self);
+        let context = crate::passes::PassContext {
+            previous: Some(&baseline),
+            judgements: Some(&checked.judgements),
+            trigger: Some(trigger),
+            ..crate::passes::PassContext::of(checked.memo().entities())
+        };
+        let found: Vec<_> = crate::passes::run_extension_passes(
+            named,
+            &context,
+            &**runtime as &dyn specforge_wasm::WasmRuntime,
+            registries.codes(),
+        )
+        .into_iter()
+        .flat_map(|report| report.findings)
+        .collect();
+        checked.check_diagnostics.extend(found);
+        checked.reported = OnceLock::new();
+        checked.diagnostics()
+    }
+
     /// The digests kept for the judged rules (ADR 0290): an entity's until the graph delta names it, a file's per stamp.
     pub fn digests(&self) -> &crate::judged::DigestMemo {
         &self.digests

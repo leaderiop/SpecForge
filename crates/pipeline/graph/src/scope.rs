@@ -8,6 +8,8 @@
 use specforge_common::Sym;
 use std::collections::{HashMap, HashSet};
 
+mod within;
+
 /// What a written name or path names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Found {

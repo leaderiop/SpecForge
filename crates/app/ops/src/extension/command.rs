@@ -405,6 +405,9 @@ pub enum RunError {
     /// does not route it, its answer is not one, or its extension is not
     /// loaded in the runtime (E028, ADR 0013 D4).
     Call(CallError),
+    /// The command's gate fails, or its subject names no entity (`gate_failed`, `entity_not_found`,
+    /// `invalid_input`; ADR 0291). The export was not called, and nothing was written.
+    Gate(Box<OpError>),
 }
 
 impl RunError {
@@ -416,6 +419,10 @@ impl RunError {
         match self {
             RunError::Args(error) => error.to_command_error(),
             RunError::NoProject(error) => CommandError {
+                suggestion: error.suggestion.clone(),
+                ..CommandError::new(error.code.to_string(), error.message.clone())
+            },
+            RunError::Gate(error) => CommandError {
                 suggestion: error.suggestion.clone(),
                 ..CommandError::new(error.code.to_string(), error.message.clone())
             },
@@ -446,7 +453,9 @@ impl RunError {
 ///    counts toward coverage, scored by the coverage rule `specforge stats`
 ///    reports; ADR 0039 D3);
 /// 4. the date is the host's, UTC, `YYYY-MM-DD` (ADR 0011 C);
-/// 5. the view's graph is rendered as the graph export
+/// 5. the command's subject is resolved to its full path, and its gate evaluated in the subject's scope: a failing
+///    gate is [`RunError::Gate`] and the export is not called (ADR 0291);
+/// 6. the view's graph is rendered as the graph export
 ///    (`specforge_emitter::emit`, at the project's versioned schema version, in the view's registry build)
 ///    and the `cmd__` export called with that `CommandInput`.
 ///
@@ -486,8 +495,9 @@ fn run_on(
     format: CommandFormat,
     today: &str,
 ) -> Result<CommandOutput, RunError> {
-    let args = command.normalize(given).map_err(RunError::Args)?;
+    let mut args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
+    super::gate::admit(view, command, &mut args).map_err(|e| RunError::Gate(Box::new(e)))?;
     let input = CommandInput {
         args,
         cwd: canonical(root).display().to_string(),

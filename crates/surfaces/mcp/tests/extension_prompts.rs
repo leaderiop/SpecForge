@@ -225,7 +225,6 @@ fn the_client_names_the_host_a_prompt_renders_for() {
     behavior = "gate_a_command",
     verify = "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
 )]
-#[ignore = "K8 T5"]
 fn a_gated_command_is_refused_over_mcp() {
     let mut served = gsd("fine", "blocked", json!({}));
     let reply = rpc::call_tool(

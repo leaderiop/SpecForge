@@ -86,6 +86,7 @@ fn attempt(
         Err(RunError::Args(refused)) => return (Err(refused_args(&refused).into()), None),
         Err(RunError::Call(error)) => return (Err(failed_call(&error.diagnostic()).into()), None),
         Err(RunError::NoProject(error)) => return (Err(McpError::from(error).into()), None),
+        Err(RunError::Gate(error)) => return (Err(McpError::from(*error).into()), None),
     };
     let event = McpEvent::SurfaceCommandDispatched {
         extension_name: command.extension().to_string(),

@@ -9,6 +9,7 @@ mod claims;
 pub mod command;
 #[cfg(test)]
 mod fixtures;
+pub mod gate;
 mod inventory;
 mod list;
 mod lock_plan;

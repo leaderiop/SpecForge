@@ -120,6 +120,11 @@ impl DeclaredPass {
         &self.pass.computes
     }
 
+    /// The local codes the pass declares it can report (a guard pass; ADR 0291).
+    pub fn reports(&self) -> &[String] {
+        &self.pass.reports
+    }
+
     /// The kinds whose baseline entities the pass receives as `previous`.
     pub fn baseline(&self) -> &[String] {
         &self.pass.baseline

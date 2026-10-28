@@ -222,7 +222,9 @@ fn ended(
             err!(terminal, "{}", written(&error, format));
             match error {
                 RunError::Args(_) => Exit::Unjudged.code(),
-                RunError::NoProject(_) | RunError::Call(_) => Exit::Failed.code(),
+                RunError::NoProject(_) | RunError::Call(_) | RunError::Gate(_) => {
+                    Exit::Failed.code()
+                }
             }
         }
     }
@@ -235,8 +237,16 @@ fn ended(
 fn written(error: &RunError, format: CommandFormat) -> String {
     match format {
         CommandFormat::Json => {
-            let mut line = serde_json::to_string(&error.to_command_error())
-                .expect("command error serialization cannot fail");
+            let mut line = match error {
+                // The refusal of a gate carries what failed: each gated code and the errors in its scope.
+                RunError::Gate(refusal) => serde_json::json!({
+                    "code": refusal.code, "message": refusal.message,
+                    "suggestion": refusal.suggestion, "data": refusal.data,
+                })
+                .to_string(),
+                _ => serde_json::to_string(&error.to_command_error())
+                    .expect("command error serialization cannot fail"),
+            };
             line.push('\n');
             line
         }
@@ -246,8 +256,27 @@ fn written(error: &RunError, format: CommandFormat) -> String {
                 format!("{}\n", specforge_common::render_plain(&error.diagnostic()))
             }
             RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
+            RunError::Gate(error) => failed_gate(error),
         },
     }
+}
+
+/// A refused gate on stderr: the refusal, then each failing diagnostic as `check` prints one without a snippet.
+fn failed_gate(refusal: &specforge_ops::OpError) -> String {
+    let mut text = format!("error[{}]: {}\n", refusal.code, refusal.message);
+    let failing: Vec<specforge_common::Diagnostic> = refusal
+        .data
+        .as_deref()
+        .and_then(|data| data.get("failing"))
+        .and_then(|failing| serde_json::from_value(failing.clone()).ok())
+        .unwrap_or_default();
+    for diagnostic in &failing {
+        text.push_str(&format!("{}\n", specforge_common::render_plain(diagnostic)));
+    }
+    if let Some(help) = &refusal.suggestion {
+        text.push_str(&format!("  = help: {help}\n"));
+    }
+    text
 }
 
 /// `cli` with a subcommand per extension of the project at `root` that

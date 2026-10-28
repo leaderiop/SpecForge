@@ -97,6 +97,12 @@ pub fn refusal(error: RunError) -> Refused {
             code: error.diagnostic().code,
             data: Value::Null,
         },
+        RunError::Gate(error) => Refused {
+            code: error.code.to_string(),
+            data: error
+                .data
+                .map_or_else(|| json!({"message": error.message}), |data| *data),
+        },
     }
 }
 
@@ -121,7 +127,6 @@ pub fn run_command(served: &Served, id: &str, args: Value) -> Result<CommandOutp
     behavior = "gate_a_command",
     verify = "a command whose gate fails is refused before its export runs"
 )]
-#[ignore = "K8 T5"]
 fn a_command_whose_gate_fails_is_refused_before_its_export_runs() {
     let blocked = served(project("fine", "blocked", json!({})));
     let refused = run_command(&blocked, "execute_phase", json!({"phase": "03"}))
@@ -143,7 +148,6 @@ fn a_command_whose_gate_fails_is_refused_before_its_export_runs() {
     behavior = "gate_a_command",
     verify = "a gate is scoped to its subject"
 )]
-#[ignore = "K8 T5"]
 fn a_gate_is_scoped_to_its_subject() {
     let project = project("fine", "ok", json!({}));
     project.write(
@@ -170,7 +174,6 @@ fn a_gate_is_scoped_to_its_subject() {
     behavior = "gate_a_command",
     verify = "a gate runs the guard passes it names"
 )]
-#[ignore = "K8 T5"]
 fn a_gate_runs_the_guard_passes_it_names() {
     let broken = served(project("fine", "broken", json!({})));
     assert!(
@@ -204,7 +207,6 @@ fn a_gate_runs_the_guard_passes_it_names() {
     behavior = "gate_a_command",
     verify = "a gate on a code its setting turns off passes"
 )]
-#[ignore = "K8 T5"]
 fn a_gate_on_a_code_its_setting_turns_off_passes() {
     let args = json!({"phase": "03"});
     let on = served(project("fine", "blocked", json!({"workflow.gates": true})));
@@ -220,7 +222,6 @@ fn a_gate_on_a_code_its_setting_turns_off_passes() {
     behavior = "gate_a_command",
     verify = "a warning a preset raises to an error fails a gate"
 )]
-#[ignore = "K8 T5"]
 fn a_raised_warning_fails_a_gate() {
     let args = json!({"phase": "03"});
     let compat = served(project("fine", "stale", json!({})));
@@ -236,7 +237,6 @@ fn a_raised_warning_fails_a_gate() {
     behavior = "gate_a_command",
     verify = "a subject given as a short form is sent as its full path"
 )]
-#[ignore = "K8 T5"]
 fn a_subject_takes_a_short_form_and_is_sent_as_its_full_path() {
     let served = served(project("fine", "ok", json!({})));
     run_command(&served, "execute_phase", json!({"phase": "03"})).unwrap();
@@ -244,4 +244,30 @@ fn a_subject_takes_a_short_form_and_is_sent_as_its_full_path() {
         served.input("cmd__execute_phase")["args"]["phase"],
         "v1.0/03"
     );
+}
+
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a subject that names no entity or several is refused before the gate runs"
+)]
+fn a_subject_that_names_no_entity_or_several_is_refused_before_the_gate() {
+    let project = project("fine", "blocked", json!({}));
+    project.write(
+        "m.spec",
+        "milestone v1.0 \"One\" {}\n\nmilestone v2.0 \"Two\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nphase 03 \"Again\" {\n  milestone v2.0\n}\n",
+    );
+    let served = served(project);
+
+    let several = run_command(&served, "execute_phase", json!({"phase": "03"}))
+        .expect_err("`03` names a phase of each milestone");
+    assert_eq!(several.code, "E003");
+    let message = several.data["message"].as_str().unwrap();
+    assert!(
+        message.contains("v1.0/03") && message.contains("v2.0/03"),
+        "the candidates are named: {message}"
+    );
+    let none = run_command(&served, "execute_phase", json!({"phase": "99"}))
+        .expect_err("there is no phase 99");
+    assert_eq!(none.code, "E003");
+    assert!(!served.called("cmd__execute_phase"), "no export ran");
 }
