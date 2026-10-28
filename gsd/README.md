@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: being designed; nothing is built yet.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.10.0); the `@gsd/*` extensions are not.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -28,22 +28,21 @@ The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@spe
 
 ## Decisions
 
-Settled in a design interview on 2026-10-26. The kernel changes they need are drafted as K1–K10 in
-`../SpecForge-planning/gsd/kernel-adrs/`, outside this repository; the architecture round that implements each one
-gives it an ADR number and commits it to `docs/adr` as accepted.
+Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, are built and accepted as ADRs;
+the rest of this folder keeps their K names.
 
-| Draft | Kernel change |
-|---|---|
-| K1 | a name may hold a dash and a dot where a name is expected |
-| K2 | a name is unique within its scope |
-| K3 | a field's type may be a list of words, a block, a union or a range |
-| K4 | who writes a field is declared (`computed`, `harness`, `immutable`, `append_only`) |
-| K5 | an extension writes through an edit plan the host applies |
-| K6 | an extension's settings are typed and set in `specforge.json` |
-| K7 | a judged rule holds while a fresh verdict says so |
-| K8 | an extension contributes MCP prompts |
-| K9 | an extension contributes agents, skills, commands and hooks |
-| K10 | a diagnostic code is namespaced by its extension |
+| Draft | ADR | Kernel change |
+|---|---|---|
+| K1 | [0283](../docs/adr/0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) | a name may hold a dash and a dot where a name is expected |
+| K2 | [0284](../docs/adr/0284-a-name-is-unique-within-its-scope.md) | a name is unique within its scope |
+| K3 | [0285](../docs/adr/0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) | a field's type may be a list of words, a block, a union or a range |
+| K4 | [0287](../docs/adr/0287-who-writes-a-field-is-declared.md) | who writes a field is declared (`computed`, `harness`, `immutable`, `append_only`) |
+| K5 | [0289](../docs/adr/0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) | an extension writes through an edit plan the host applies |
+| K6 | [0288](../docs/adr/0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) | an extension's settings are typed and set in `specforge.json` |
+| K7 | [0290](../docs/adr/0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) | a judged rule holds while a fresh verdict says so |
+| K8 | [0291](../docs/adr/0291-an-extension-contributes-mcp-prompts.md) | an extension contributes MCP prompts |
+| K9 | [0292](../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) | an extension contributes agents, skills, commands and hooks |
+| K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
 
 ### Parity contract
 
