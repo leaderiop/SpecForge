@@ -146,6 +146,9 @@ Each extension builds to `wasm32-wasip2` on its own; the Cargo workspace exclude
 
 ## Build order
 
+The packaging (one Cargo workspace, built on demand, tested through the `specforge` binary) is
+[ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md).
+
 1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
    K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
    agents, skills, commands and hooks.
