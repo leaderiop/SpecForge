@@ -1,6 +1,6 @@
 # `@gsd/core`
 
-**Status: the foundation is built; plans, execution and verification are not.** The unified GSD meta-model: project,
+**Status: the foundation and the discuss, specify and research kinds are built; plans, execution and verification are not.** The unified GSD meta-model: project,
 requirements, milestones, phases, plans, tasks, decisions, research, results, verification, UAT and validation, with
 GSD's checks as rules and its commands, agents, prompts and hooks as contributions. Tracks gsd-core 1.18.0 (the crate's
 `[package.metadata.gsd] tracks` and the handshake keyword `tracks:gsd-core@1.18.0`).
@@ -8,14 +8,14 @@ GSD's checks as rules and its commands, agents, prompts and hooks as contributio
 It declares no dependency on any `@specforge/*` extension and on no other `@gsd/*` extension; the capability
 extensions and the profiles declare it as their peer.
 
-## What the foundation declares
+## What it declares
 
 | | Declared now | Where |
 |---|---|---|
-| Kinds | `project` (one per repository: the kernel keeps `singleton` as metadata, `gsd/E108` enforces it), `requirement` (named by its GSD id), `milestone` (scoped by workstream), `phase` (scoped by milestone, named `03`, `03.1` or `999.1`), `workstream`, `retrospective`, `lesson`, `methodology` | `src/kinds/`, model in [spec/project.md](spec/project.md) |
-| Passes | `derive` (the computed fields), `roadmap` (`gsd/E101`, `gsd/E102`, `gsd/W104`, `gsd/E108`) | `src/passes/` |
-| Rules | `gsd/E105` (an `out_of_scope` requirement has a reason), `gsd/E107` (generated for each authored timestamp field; no r34 kind has one, `project.updated` is computed, so it first fires in the round that adds one) | `src/rules.rs`, `src/kinds/dsl.rs` |
-| Code book | all 60 `gsd/` codes of [spec/rules.md](spec/rules.md), each with its `gsd-compat` severity and what `gsd-strict` raises it to; the rules of the others land with their kinds | `src/codes.rs` |
+| Kinds | `project` (one per repository: the kernel keeps `singleton` as metadata, `gsd/E108` enforces it), `requirement` (named by its GSD id), `milestone` (scoped by workstream), `phase` (scoped by milestone, named `03`, `03.1` or `999.1`), `workstream`, `retrospective`, `lesson`, `methodology`; `context` (named `02-CONTEXT`, scoped by its phase), `decision` (`D-01`, scoped by its phase or the project, a project decision is `/D-01` from inside a scope; from outside, a phase's is `v1.0/02/D-01`), `deferred_idea`, `phase_spec`, `locked_req`, `interview` (append-only), `discussion` (its entries append-only), `research` and its eight item kinds (`finding`, `stack_choice`, `pattern`, `pitfall`, `dont_hand_roll`, `open_question`, `source`, `package_audit`), each item scoped by its research | `src/kinds/`, model in [spec/project.md](spec/project.md) and [spec/discuss.md](spec/discuss.md) |
+| Passes | `derive` (the computed fields; answers each context's `digest`), `roadmap` (`gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108`, `gsd/E206`), `research` (`gsd/W204`), `drift` (`gsd/W406`) | `src/passes/` |
+| Rules | `gsd/E105` (an `out_of_scope` requirement has a reason), `gsd/E201` (a context has canonical refs: two declarative rules under one code), `gsd/E107` (generated for each authored timestamp field and block member; no kind has one yet, `project.updated` is computed, so it first fires in the round that adds one: `blocker.resolved.at`, r38) | `src/rules.rs`, `src/kinds/dsl.rs` |
+| Code book | all 61 `gsd/` codes of [spec/rules.md](spec/rules.md), each with its `gsd-compat` severity and what `gsd-strict` raises it to; the rules of the others land with their kinds | `src/codes.rs` |
 | Settings | the 181 GSD configuration keys `@gsd/core` owns, typed with GSD's default, and 12 families (`models.*`, `granularities.*`, …) | `src/settings/keys.rs`, model in [spec/settings.md](spec/settings.md) |
 | Profiles | `profile` (`gsd-compat` by default, `gsd-strict`, `gsd-plus`), presetting five settings and raising rule severities | `src/settings/profiles.rs` |
 | Gates | the four `specforge.*` settings and the `workflow.*` toggles switch off the rules [spec/rules.md](spec/rules.md#setting-gated-rules) lists | `src/settings/gates.rs` |
@@ -60,7 +60,7 @@ specforge settings --extension @gsd/core
 | [spec/](spec/) | the model: kinds, fields, identity, settings, rules |
 | [contributions/](contributions/) | the command, agent and hook rosters |
 | `src/` | the extension crate, built to `wasm32-wasip2`: `kinds/`, `passes/`, `rules.rs`, `codes.rs`, `settings/` |
-| `tests/` | `declaration.rs` (the declaration through the SDK's `MockHost`), `settings_roster.rs` and `profiles.rs` (against [the frozen upstream roster](../parity/upstream/v1.18.0/SOURCE.md) and the spec), `cli/` (the `specforge` binary on the projects in `tests/projects/` and on the [taskboard](../parity/fixtures/taskboard/)) |
+| `tests/` | `declaration.rs` (the declaration through the SDK's `MockHost`), `settings_roster.rs` and `profiles.rs` (against [the frozen upstream roster](../parity/upstream/v1.18.0/SOURCE.md) and the spec), `cli/` (the `specforge` binary on the projects in `tests/projects/`, including `discuss/`, and on the [taskboard](../parity/fixtures/taskboard/)) |
 | [../parity/](../parity/) | the upstream roster, the taskboard fixture and the `gsd-tools` goldens |
 
 `LICENSE-GSD` is the upstream licence, kept for the text ported from it.

@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "skipped": false,
+  "total": 3,
+  "covered": 3,
+  "uncovered": [],
+  "message": "All trackable CONTEXT.md decisions are covered by plans."
+}

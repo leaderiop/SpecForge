@@ -107,6 +107,83 @@ impl Project {
         }
     }
 
+    /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted.
+    pub fn findings(&self) -> Vec<(String, String)> {
+        let run = self.run(&["check", "--format", "json"]);
+        let diagnostics: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+        let mut found: Vec<(String, String)> = diagnostics
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter(|d| d["code"].as_str().is_some_and(|c| c.starts_with("gsd/")))
+            .map(|d| {
+                (
+                    d["code"].as_str().unwrap_or_default().to_string(),
+                    d["message"].as_str().unwrap_or_default().to_string(),
+                )
+            })
+            .collect();
+        found.sort();
+        found
+    }
+
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
+    pub fn codes(&self) -> Vec<String> {
+        let run = self.run(&["check", "--format", "json"]);
+        let found: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+        found
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter_map(|d| d["code"].as_str().map(String::from))
+            .filter(|c| c != "I204")
+            .collect()
+    }
+
+    /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
+    /// Git runs with its identity on the command line, never the global configuration.
+    pub fn commit(&self) {
+        let git = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+                .args(["-c", "commit.gpgsign=false"])
+                .args(args)
+                .current_dir(self.dir.path())
+                .status()
+                .expect("run git");
+            assert!(status.success(), "git {args:?}");
+        };
+        if !self.dir.path().join(".git").exists() {
+            git(&["init", "-q", "-b", "main"]);
+        }
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "baseline"]);
+    }
+
+    /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the
+    /// host's ledger writes it: `path key sha256(path NUL key NUL value)`, sorted, under the header.
+    pub fn record_harness(&self, entity: &str, field: &str, value_json: &str) {
+        use sha2::{Digest, Sha256};
+        let file = "specforge-harness";
+        let header = "# specforge-harness 1";
+        let mut lines: Vec<String> = std::fs::read_to_string(self.dir.path().join(file))
+            .map(|text| text.lines().skip(1).map(String::from).collect())
+            .unwrap_or_default();
+        let digest = Sha256::digest(format!("{entity}\0{field}\0{value_json}").as_bytes());
+        lines.push(format!("{entity} {field} {digest:x}"));
+        lines.sort();
+        lines.dedup();
+        self.write(file, &format!("{header}\n{}\n", lines.join("\n")));
+    }
+
+    /// A file of the project, as it is now.
+    pub fn read(&self, relative: &str) -> String {
+        std::fs::read_to_string(self.dir.path().join(relative))
+            .unwrap_or_else(|e| panic!("read {relative}: {e}"))
+    }
+
     /// Writes (or replaces) a file of the project, creating its folders.
     pub fn write(&self, relative: &str, text: &str) {
         let path = self.dir.path().join(relative);

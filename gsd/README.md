@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` has its foundation (kinds, code book, settings, roadmap checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` has its foundation and its discuss, specify and research kinds (kinds, code book, settings, roadmap, discuss and research checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 

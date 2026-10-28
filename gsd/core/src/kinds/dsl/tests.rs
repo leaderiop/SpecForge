@@ -26,3 +26,50 @@ fn an_authored_ts_field_gets_e107_and_a_computed_one_does_not() {
     assert_eq!(rules[0]["field"], "stamped_at");
     assert!(rules[0]["code"].to_string().contains("E107"), "{rules:?}");
 }
+
+const RESOLVED: &[Field] = &[str("by"), ts("at"), date("on")];
+const WITH_TS_MEMBERS: Kind = Kind::new(
+    "stamped_blocks",
+    "an authored block, an authored list and a harness block, each with a timestamp member",
+    &[
+        block("resolved", RESOLVED),
+        blocks("history", RESOLVED),
+        block("completion", RESOLVED).h(),
+    ],
+);
+
+#[test]
+fn an_authored_ts_member_gets_e107_and_a_harness_blocks_member_does_not() {
+    let rules = rules_of(&[&WITH_TS_MEMBERS]);
+    let mut fields: Vec<&str> = rules
+        .iter()
+        .map(|r| r["field"].as_str().expect("a field"))
+        .collect();
+    fields.sort_unstable();
+    assert_eq!(fields, ["history.at", "resolved.at"], "{rules:?}");
+    assert!(
+        rules.iter().all(|r| r["code"].to_string().contains("E107")),
+        "{rules:?}"
+    );
+}
+
+#[test]
+fn a_local_time_is_e107() {
+    let pattern = regex::Regex::new(RFC3339_UTC).expect("a pattern");
+    for refused in [
+        "2026-10-28T09:30:00+02:00",
+        "2026-10-28 09:30:00Z",
+        "2026-10-28",
+        "2026-10-28T09:30Z",
+        "2026-10-28T09:30:00",
+        "2026-10-28T09:30:00z",
+        "\u{662}\u{660}\u{662}\u{666}-10-28T09:30:00Z",
+        "2026-13-45T25:61:61Z",
+        "2026-00-10T09:30:00Z",
+    ] {
+        assert!(!pattern.is_match(refused), "{refused} is refused");
+    }
+    for accepted in ["2026-10-28T09:30:00Z", "2026-10-28T09:30:00.123Z"] {
+        assert!(pattern.is_match(accepted), "{accepted} is accepted");
+    }
+}

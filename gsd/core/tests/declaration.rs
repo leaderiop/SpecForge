@@ -80,7 +80,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 60);
+    assert_eq!(book.len(), 61);
     for row in &rows {
         let code = book
             .iter()
@@ -125,8 +125,7 @@ fn the_code_book_golden() {
 
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
-    // `spec/project.md`, except `key_decisions` (a reference to `decision`, which round r36 declares); a
-    // requirement reads its phase back from `phase.requirements`.
+    // `spec/project.md`; a requirement reads its phase back from `phase.requirements`.
     assert_eq!(
         fields_of("project"),
         [
@@ -139,6 +138,7 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
             "context",
             "constraints",
             "out_of_scope",
+            "key_decisions",
             "project_code",
             "validated",
             "active",
@@ -248,9 +248,8 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
 }
 
 /// `project.md` lists 8 kinds and 72 top-level fields. The fixes of the model add the milestone's `workstream` and
-/// the lesson's `retrospective`; three fields are read back from their inverse, not declared (the requirement's
-/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`) or wait for a kind a
-/// later round declares (the project's `key_decisions`): 72 + 2 - 3.
+/// the lesson's `retrospective`; two fields are read back from their inverse, not declared (the requirement's
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 72 + 2 - 2.
 #[test]
 fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let kinds = [
@@ -264,5 +263,228 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 2 - 3, "the kinds' fields");
+    assert_eq!(total, 72 + 2 - 2, "the kinds' fields");
+}
+
+#[test]
+fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("context"),
+        [
+            "phase",
+            "gathered",
+            "boundary",
+            "discretion",
+            "specifics",
+            "canonical_refs",
+            "reusable_assets",
+            "patterns",
+            "integration_points",
+            "status",
+            "digest"
+        ]
+    );
+    assert_eq!(
+        fields_of("decision"),
+        [
+            "phase",
+            "area",
+            "text",
+            "rationale",
+            "outcome",
+            "reversibility",
+            "settled",
+            "origin",
+            "superseded_by"
+        ]
+    );
+    assert_eq!(fields_of("deferred_idea"), ["text", "phase", "why"]);
+}
+
+/// `name` of the field `field` of `kind`, with its described properties.
+fn field_of(kind: &str, field: &str) -> serde_json::Value {
+    let entities = describe("entities");
+    let entity = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    entity["fields"]
+        .as_array()
+        .and_then(|fields| fields.iter().find(|f| f["name"] == field))
+        .unwrap_or_else(|| panic!("no field {kind}.{field}"))
+        .clone()
+}
+
+#[test]
+fn the_discuss_kinds_are_scoped_by_their_phase() {
+    let entities = describe("entities");
+    for kind in ["context", "decision", "deferred_idea"] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect("the kind");
+        assert_eq!(entity["scoped_by"], "phase", "{kind}");
+    }
+}
+
+#[test]
+fn canonical_ref_paths_are_files_from_the_project_root() {
+    let refs = field_of("context", "canonical_refs");
+    let paths = refs["members"]
+        .as_array()
+        .and_then(|m| m.iter().find(|m| m["name"] == "paths"))
+        .expect("paths");
+    assert_eq!(paths["field_type"], "string_list");
+    assert_eq!(paths["file_reference"], true);
+    assert_eq!(paths["file_base"], "project");
+}
+
+#[test]
+fn a_decision_origin_is_required_and_immutable_and_its_phase_is_not_required() {
+    let origin = field_of("decision", "origin");
+    assert_eq!(
+        (&origin["required"], &origin["immutable"]),
+        (&true.into(), &true.into())
+    );
+    assert_ne!(field_of("decision", "phase")["required"], true);
+    assert_eq!(field_of("context", "status")["writer"], "computed");
+}
+
+#[test]
+fn the_spec_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("phase_spec"),
+        [
+            "phase",
+            "context_digest",
+            "created",
+            "goal",
+            "background",
+            "in_scope",
+            "out_of_scope",
+            "constraints",
+            "acceptance",
+            "scores"
+        ]
+    );
+    assert_eq!(
+        fields_of("locked_req"),
+        ["spec", "title", "current", "target", "acceptance", "traces"]
+    );
+    let scores = field_of("phase_spec", "scores");
+    let members: Vec<(&str, i64, i64)> = scores["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| {
+            (
+                m["name"].as_str().expect("a name"),
+                m["minimum"].as_i64().expect("a minimum"),
+                m["maximum"].as_i64().expect("a maximum"),
+            )
+        })
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("goal", 0, 100),
+            ("boundary", 0, 100),
+            ("constraint", 0, 100),
+            ("acceptance", 0, 100),
+            ("ambiguity", 0, 100)
+        ]
+    );
+}
+
+/// The description lists the kind as append-only (a removed interview is E085, proven black-box too).
+#[test]
+fn every_field_of_an_interview_is_immutable() {
+    let entities = describe("entities");
+    let interview = entities["items"]
+        .as_array()
+        .and_then(|k| k.iter().find(|k| k["name"] == "interview"))
+        .expect("interview");
+    assert_eq!(interview["scoped_by"], "spec");
+    assert_eq!(interview["append_only"], true);
+    let fields = interview["fields"].as_array().expect("fields");
+    assert_eq!(fields.len(), 6);
+    for field in fields {
+        assert_eq!(field["immutable"], true, "{}", field["name"]);
+    }
+}
+
+#[test]
+fn the_discussion_entries_are_append_only() {
+    assert_eq!(fields_of("discussion"), ["phase", "entries"]);
+    let entries = field_of("discussion", "entries");
+    assert_eq!(entries["field_type"], "block_list");
+    assert_eq!(entries["append_only"], true);
+    let members: Vec<&str> = entries["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| m["name"].as_str().expect("a name"))
+        .collect();
+    assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
+}
+
+/// `discuss.md` listed 95 fields over its 16 kinds before r36 added two rows (`context.digest`, `source.research`). The model fixes: the decision's `from_summary` waits for `summary`
+/// (r38) and `source` gains `research` (the model says every item has one); the context gains its computed `digest`
+/// (the fix of round r36): 95 - 1 + 1 + 1 = 96, the research's and the spec's `context_digest` included.
+#[test]
+fn the_discuss_kinds_declare_every_field_of_discuss_md() {
+    let kinds = [
+        "context",
+        "decision",
+        "deferred_idea",
+        "phase_spec",
+        "locked_req",
+        "interview",
+        "discussion",
+        "research",
+        "finding",
+        "stack_choice",
+        "pattern",
+        "pitfall",
+        "dont_hand_roll",
+        "open_question",
+        "source",
+        "package_audit",
+    ];
+    let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
+    assert_eq!(total, 95 - 1 + 1 + 1, "the kinds' fields");
+}
+
+#[test]
+fn every_research_item_is_scoped_by_its_research() {
+    let entities = describe("entities");
+    for kind in [
+        "finding",
+        "stack_choice",
+        "pattern",
+        "pitfall",
+        "dont_hand_roll",
+        "open_question",
+        "source",
+        "package_audit",
+    ] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect("the kind");
+        assert_eq!(entity["scoped_by"], "research", "{kind}");
+        assert_eq!(fields_of(kind)[0], "research", "{kind}");
+    }
+}
+
+#[test]
+fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
+    assert_eq!(field_of("context", "digest")["writer"], "computed");
+    for kind in ["research", "phase_spec"] {
+        assert_eq!(
+            field_of(kind, "context_digest")["writer"],
+            "harness",
+            "{kind}"
+        );
+    }
 }

@@ -11,6 +11,8 @@
 
 Files: `context.spec`, `research.spec` in the phase folder; project research in `spec/gsd/knowledge/research/`.
 
+The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, and the project a second research, so the second and later, by id, are reported. A research without `phase` is the project's research and must be named `RESEARCH`; any other phaseless research is reported too.
+
 ## context
 
 GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it. Name `03-CONTEXT`.
@@ -22,9 +24,10 @@ GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by 
 | boundary | text | R | `<domain>` `## Phase Boundary` |
 | discretion | strs | | `### Claude's Discretion` |
 | specifics | text | | `<specifics>` |
-| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence) |
+| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once canonical_refs and boundary are present and no interview is open |
+| digest | str | C | (new: the digest of the context, its `origin context` decisions and its deferred ideas, `fnv1a64:` and 16 hex digits; a research or spec records it as its `context_digest`, and `gsd/W406` compares; a list or block field is hashed as the structured value the kernel sends, every other field as its text, so a protocol change that sends structured values for more types must not change what is hashed, or every recorded digest goes stale at once) |
 
 ## decision
 
@@ -41,7 +44,7 @@ GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisi
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
 | settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)) |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
-| from_summary | → summary | | when `origin summary` |
+| from_summary | → summary | | when `origin summary`; declared with `summary` (r38): a reference to a kind no extension declares is W021 |
 | superseded_by | → decision | | a later decision that reverses it |
 
 ## deferred_idea
@@ -56,7 +59,7 @@ GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
 is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` judge, K15), in percent (GSD's 0–1 score × 100), gated at
-goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20.
+goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. Declared authored (bounds 0..100 enforced) until r40: a verdict field no judged rule lists is the kernel's W021 on every check, so r40 flips it to `V` together with `gsd/E202`.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
 `acceptance str R` (falsifiable), `traces →* requirement`.
@@ -89,8 +92,10 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | pitfall | `research R`, `name str R`, `goes_wrong str R`, `why str R`, `avoid str R`, `warning_signs str` | `## Common Pitfalls` |
 | dont_hand_roll | `research R`, `problem str R`, `instead str R`, `why str R` | `## Don't Hand-Roll` |
 | open_question | `research R`, `question str R`, `known str`, `unclear str R`, `recommendation str`, `resolved_by → decision` | `## Open Questions` |
-| source | `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
+| source | `research R`, `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
+`package_audit.legitimacy` is `V` like `phase_spec.scores`, and is declared authored until r40 binds `gsd/W205` (a verdict field no judged rule lists is the kernel's W021). `context.status` is declared `C` and answered by no pass yet: r38 derives it (`ready_for_planning` when `boundary` is written, `canonical_refs` is non-empty and no interview of the phase's spec lacks an `answer`, else `gathering`).
+
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
-rule over the graph, `gsd/W204` ([rules](rules.md)).
+rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a phaseless research with another name is E206 and is judged as a phase's.

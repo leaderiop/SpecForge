@@ -80,6 +80,12 @@
       "title": "Package without a legitimacy verdict"
     },
     {
+      "code": "E206",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A phase has at most one context, phase spec, discussion log and research, and the project at most one research. It is an error.",
+      "title": "More than one context, spec, log or research"
+    },
+    {
       "code": "E301",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
       "explanation": "Every requirement of a phase is in at least one of its plans. It is an error.",

@@ -1,6 +1,6 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/E202`, `gsd/W203` and `gsd/W205` over them wait for r40); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 

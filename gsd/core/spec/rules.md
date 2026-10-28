@@ -28,7 +28,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
-| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field is a `str` that `matches`; generated per field, and no r34 kind has one: `project.updated` is computed) | decl | E | E | (new: SpecForge has no timestamp type) |
+| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field, and every authored `ts` member of an authored block, is a `str` that `matches` `YYYY-MM-DDTHH:MM:SS[.f]Z` with ASCII digits and RFC 3339's ranges for month, day, hour, minute and second; the day is not checked against the month; generated per field and member, and no kind has one yet: `project.updated` is computed, and the first is `blocker.resolved.at`, r38) | decl | E | E | (new: SpecForge has no timestamp type) |
 | gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
 
 ## Discuss, spec, research
@@ -38,8 +38,9 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/E201 | a context has canonical refs (`missing_required_field` and `non_empty` under one code) | decl | E | E | `gate-phase-context`, context template |
 | gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`) | E | E | spec-phase |
 | gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`) | W | E | spec template |
-| gsd/W204 | a research open question is resolved by a decision before planning | pass | W | E | plan checker (research resolution) |
+| gsd/W204 | an open question of a phase's research is resolved by a decision before planning (the project's research, the one named `RESEARCH`, is exempt: the plan checker reads the phase's `RESEARCH.md` only; a research without `phase` and with another name is E206 and is judged as a phase's. Upstream's plan checker reports this as `severity: blocker`; here it is a warning by design (D-r36-12), and the blocking entry gate is r42, which revisits it) | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
+| gsd/E206 | a phase has at most one context, phase spec, discussion log and research, and the project at most one research, which must be named `RESEARCH` (the kernel's scopes would allow two; the second and later, by id, are reported; a research without `phase` that is not named `RESEARCH` is always reported, with the suggestion to add its `phase`) | pass | E | E | (new: each is one file of the phase directory) |
 
 ## Plan
 
@@ -80,7 +81,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E403 | a `tdd` task's GREEN commit follows a recorded RED failure | pass | E | E | `gate-tdd-red-evidence` |
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
 | gsd/E405 | the schema has not drifted from the plan's declared migrations | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
-| gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest) | pass | W | E | `gate-context-drift` |
+| gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest; the project's research has no context, and a misnamed phaseless research is E206, so neither is judged. Upstream also judges `PATTERNS.md`: not covered, because `pattern_map` (`@gsd/codebase`) records no `context_digest` yet and should gain one when that extension is planned) | pass | W | E | `gate-context-drift` |
 | gsd/W407 | every task has a commit | pass | — | W | (new: the git collector) |
 | gsd/W408 | a summary's deliverable checks pass or are human-judged with a rationale | pass | W | E | summary coverage |
 
@@ -110,13 +111,13 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
   is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
   D3). The roster maps `gate-evidence` to that refusal.
-- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r36 onwards): `gsd/E320`, `gsd/E505`, and the file facts under
+- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r37 for `gsd/E320`, r39 for the rest): `gsd/E320`, `gsd/E505`, and the file facts under
   `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`) declare `reads` and are sent
   the facts and capped text of those files.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
   `gsd/E502`, `gsd/W408`, `gsd/E515`.
-- Rules that count list items are buildable since 1.11.0 (K13), not yet built: `gsd/W103`, `gsd/W305`, `gsd/W306`, `gsd/E517` read the
-  items in `values`.
+- Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` is built (r36); `gsd/W305`, `gsd/W306` and `gsd/E517`
+  are not yet, and read the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
 
 ## Setting-gated rules

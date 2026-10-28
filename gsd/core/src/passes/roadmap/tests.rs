@@ -359,3 +359,104 @@ fn custom_named_and_backlog_phases_are_outside_the_numbering() {
     ));
     assert!(found.is_empty(), "{found:?}");
 }
+
+fn phase_with_criteria(id: &str, count: usize) -> PassEntity {
+    let items: Vec<String> = (0..count).map(|n| format!("criterion {n}")).collect();
+    PassEntity {
+        values: BTreeMap::from([("success_criteria".to_string(), serde_json::json!(items))]),
+        ..phase(id)
+    }
+}
+
+#[test]
+fn one_criterion_is_w103() {
+    let found = check(&input(vec![phase_with_criteria("v1.0/01", 1)], vec![]));
+    assert_eq!(codes(&found), [("W103", "v1.0/01")]);
+}
+
+#[test]
+fn two_and_five_criteria_are_clean() {
+    let found = check(&input(
+        vec![
+            phase_with_criteria("v1.0/01", 2),
+            phase_with_criteria("v1.0/02", 5),
+            phase("v1.0/03"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), []);
+}
+
+fn scoped(id: &str, kind: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: kind.into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_second_context_in_a_phase_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/02/02-CONTEXT", "context"),
+            scoped("v1.0/02/02-CONTEXT-B", "context"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "v1.0/02/02-CONTEXT-B")]);
+    assert!(
+        found[0]
+            .message
+            .contains("a second context of phase 'v1.0/02'; its context is 'v1.0/02/02-CONTEXT'"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[test]
+fn contexts_of_two_phases_are_clean() {
+    let found = check(&input(
+        vec![
+            scoped("v1.0/01/01-CONTEXT", "context"),
+            scoped("v1.0/02/02-CONTEXT", "context"),
+            scoped("v1.0/02/02-SPEC", "phase_spec"),
+            scoped("v1.0/02/02-DISCUSSION-LOG", "discussion"),
+            scoped("v1.0/02/02-RESEARCH", "research"),
+            scoped("RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), []);
+}
+
+#[test]
+fn a_second_project_research_is_e206() {
+    let found = check(&input(
+        vec![
+            scoped("RESEARCH", "research"),
+            scoped("OTHER", "research"),
+            scoped("v1.0/02/02-RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "OTHER")]);
+}
+
+#[test]
+fn the_research_named_research_is_the_projects_whatever_sorts_first() {
+    let found = check(&input(
+        vec![
+            scoped("03-RESEARCH", "research"),
+            scoped("RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "03-RESEARCH")]);
+}
+
+#[test]
+fn a_lone_research_without_phase_not_named_research_is_e206() {
+    let found = check(&input(vec![scoped("03-RESEARCH", "research")], vec![]));
+    assert_eq!(codes(&found), [("E206", "03-RESEARCH")]);
+}

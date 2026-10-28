@@ -1,9 +1,12 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod discuss;
 mod dsl;
 mod learning;
 mod project;
+mod research;
 mod roadmap;
+mod spec;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
@@ -18,10 +21,31 @@ const KINDS: &[&Kind] = &[
     &learning::RETROSPECTIVE,
     &learning::LESSON,
     &learning::METHODOLOGY,
+    &discuss::CONTEXT,
+    &discuss::DECISION,
+    &discuss::DEFERRED_IDEA,
+    &spec::PHASE_SPEC,
+    &spec::LOCKED_REQ,
+    &spec::INTERVIEW,
+    &discuss::DISCUSSION,
+    &research::RESEARCH,
+    &research::FINDING,
+    &research::STACK_CHOICE,
+    &research::PATTERN,
+    &research::PITFALL,
+    &research::DONT_HAND_ROLL,
+    &research::OPEN_QUESTION,
+    &research::SOURCE,
+    &research::PACKAGE_AUDIT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
     dsl::declare(c, KINDS);
+}
+
+/// `kind.field` of every field whose structured value the digest reads (see `dsl::structured`).
+pub fn structured() -> Vec<String> {
+    dsl::structured(KINDS)
 }
 
 /// `kind.field` of every computed field: what the derive pass answers.

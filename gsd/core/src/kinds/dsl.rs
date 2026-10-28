@@ -15,6 +15,8 @@ pub enum Ty {
     Ts,
     Enum(&'static [&'static str]),
     Strs,
+    /// Paths of project files, from the project root: the host's `E016` checks that each exists.
+    Files,
     Ref(&'static str),
     Refs(&'static str),
     Block(&'static [Field]),
@@ -39,6 +41,10 @@ pub struct Field {
     pub required: bool,
     pub writer: Writer,
     pub immutable: bool,
+    /// `+`: the baseline's list is a prefix of the current one.
+    pub append: bool,
+    /// The inclusive bounds of an `int`.
+    pub range: Option<(i64, i64)>,
     /// The name the target kind reads this reference by (`lessons` for `lesson.retrospective`).
     pub inverse: &'static str,
     pub doc: &'static str,
@@ -52,6 +58,8 @@ impl Field {
             required: false,
             writer: Writer::Author,
             immutable: false,
+            append: false,
+            range: None,
             inverse: "",
             doc: "",
         }
@@ -74,6 +82,16 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `+`
+    pub const fn append(mut self) -> Self {
+        self.append = true;
+        self
+    }
+    /// `int{lo..hi}`
+    pub const fn range(mut self, lo: i64, hi: i64) -> Self {
+        self.range = Some((lo, hi));
         self
     }
     /// The name the target kind reads this relation by.
@@ -109,6 +127,9 @@ pub const fn en(name: &'static str, values: &'static [&'static str]) -> Field {
 pub const fn strs(name: &'static str) -> Field {
     Field::new(name, Ty::Strs)
 }
+pub const fn files(name: &'static str) -> Field {
+    Field::new(name, Ty::Files)
+}
 pub const fn rf(name: &'static str, kind: &'static str) -> Field {
     Field::new(name, Ty::Ref(kind))
 }
@@ -127,6 +148,8 @@ pub struct Kind {
     pub name: &'static str,
     pub doc: &'static str,
     pub singleton: bool,
+    /// A log: an entity the baseline holds stays, with every authored value (K4).
+    pub append_only: bool,
     /// The reference field that scopes the kind's names (K2).
     pub scoped_by: Option<&'static str>,
     pub fields: &'static [Field],
@@ -138,12 +161,17 @@ impl Kind {
             name,
             doc,
             singleton: false,
+            append_only: false,
             scoped_by: None,
             fields,
         }
     }
     pub const fn singleton(mut self) -> Self {
         self.singleton = true;
+        self
+    }
+    pub const fn append_only(mut self) -> Self {
+        self.append_only = true;
         self
     }
     pub const fn scoped_by(mut self, field: &'static str) -> Self {
@@ -174,6 +202,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Ty::Int => {
             f.field_type(FieldType::Integer);
+            if let Some((lo, hi)) = field.range {
+                f.minimum(lo).maximum(hi);
+            }
         }
         Ty::Bool => {
             f.field_type(FieldType::Bool);
@@ -186,6 +217,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Ty::Strs => {
             f.field_type(FieldType::StringList);
+        }
+        Ty::Files => {
+            f.field_type(FieldType::StringList)
+                .file_reference()
+                .file_base(FileBase::Project);
         }
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)
@@ -234,18 +270,25 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     if field.immutable {
         f.immutable();
     }
+    if field.append {
+        f.append_only();
+    }
     if !field.doc.is_empty() {
         f.description(field.doc);
     }
 }
 
-/// Declares the kinds, the edge of each reference field, and `gsd/E107` over each authored `ts` field.
+/// Declares the kinds, the edge of each reference field, and `gsd/E107` over each authored `ts` field and each
+/// authored `ts` member of an authored block.
 pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
     for kind in kinds {
         c.kind(kind.name, |k| {
             k.description(kind.doc)
                 .testable(false)
                 .singleton(kind.singleton);
+            if kind.append_only {
+                k.append_only();
+            }
             if let Some(scope) = kind.scoped_by {
                 k.scoped_by(scope);
             }
@@ -259,24 +302,41 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
                     e.source_kind(kind.name).target_kind(target);
                 });
             }
-            if matches!(field.ty, Ty::Ts) && field.writer == Writer::Author {
-                c.rule("E107", |r| {
-                    r.check(CheckKind::FieldValueConstraint)
-                        .target_kind(kind.name)
-                        .field(field.name)
-                        .constraint(|fc| {
-                            fc.kind(ConstraintKind::Matches).pattern(RFC3339_UTC);
-                        })
-                        .severity(ValidationSeverity::Error)
-                        .message_template("{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs");
-                });
+            if field.writer == Writer::Author {
+                for path in authored_timestamps(field) {
+                    c.rule("E107", |r| {
+                        r.check(CheckKind::FieldValueConstraint)
+                            .target_kind(kind.name)
+                            .field(&path)
+                            .constraint(|fc| {
+                                fc.kind(ConstraintKind::Matches).pattern(RFC3339_UTC);
+                            })
+                            .severity(ValidationSeverity::Error)
+                            .message_template("{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs");
+                    });
+                }
             }
         }
     }
 }
 
-/// `YYYY-MM-DDTHH:MM:SS[.fraction]Z`.
-pub const RFC3339_UTC: &str = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$";
+/// The written paths of the authored `ts` values under `field`: the field itself, or `block.member` of a block's
+/// members. A member of a computed or harness field is never reached (the caller checks the field's writer).
+fn authored_timestamps(field: &Field) -> Vec<String> {
+    match field.ty {
+        Ty::Ts => vec![field.name.to_string()],
+        Ty::Block(members) | Ty::Blocks(members) => members
+            .iter()
+            .filter(|m| matches!(m.ty, Ty::Ts) && m.writer == Writer::Author)
+            .map(|m| format!("{}.{}", field.name, m.name))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `YYYY-MM-DDTHH:MM:SS[.fraction]Z`, ASCII digits only, with RFC 3339's ranges (month 01-12, day 01-31, hour 00-23,
+/// minute 00-59, second 00-60). The day is not checked against the month (no 30 February test in a regex).
+pub const RFC3339_UTC: &str = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$";
 
 /// The `kind.field` names of every computed top-level field of `kinds`: what the derive pass lists in `computes`.
 pub fn computed(kinds: &[&Kind]) -> Vec<String> {
@@ -286,6 +346,25 @@ pub fn computed(kinds: &[&Kind]) -> Vec<String> {
             kind.fields
                 .iter()
                 .filter(|f| f.writer == Writer::Computed)
+                .map(move |f| format!("{}.{}", kind.name, f.name))
+        })
+        .collect()
+}
+
+/// The `kind.field` names of every top-level field of `kinds` whose type the kernel hands a pass as structured
+/// `values` today (lists and blocks): the only fields the context digest reads from `values`.
+pub fn structured(kinds: &[&Kind]) -> Vec<String> {
+    kinds
+        .iter()
+        .flat_map(|kind| {
+            kind.fields
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f.ty,
+                        Ty::Block(_) | Ty::Blocks(_) | Ty::Strs | Ty::Files | Ty::Refs(_)
+                    )
+                })
                 .map(move |f| format!("{}.{}", kind.name, f.name))
         })
         .collect()
