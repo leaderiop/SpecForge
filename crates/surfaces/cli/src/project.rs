@@ -96,6 +96,14 @@ impl ProjectArg {
     }
 }
 
+/// The project at the directory `dir`, compiled as [`ProjectArg::compile`] does.
+pub(crate) fn compile_dir(dir: &Path) -> CompiledProject {
+    ProjectRoot::of(dir).map_or_else(
+        |_| compile_at(&ProjectRoot::of(Path::new(".")).expect("the current directory is a root")),
+        |root| compile_at(&root),
+    )
+}
+
 /// [`ProjectArg::compile`] for a root already resolved.
 pub(crate) fn compile_at(root: &ProjectRoot) -> CompiledProject {
     CompiledProject::compile(root, Some(Arc::new(ComponentRuntime::with_user_cache())))

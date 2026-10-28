@@ -18,7 +18,7 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
 /// `name` as the extension's setting reads now (`None`: unset, or no such setting).
-fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Option<Value> {
+pub(crate) fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Option<Value> {
     view.env()
         .settings()
         .of(extension)
@@ -27,7 +27,7 @@ fn setting(view: &ProjectView<'_>, extension: &str, name: &str) -> Option<Value>
 }
 
 /// Whether the contribution whose `when` is `when` is on: no setting named, or one that is not false.
-fn on(view: &ProjectView<'_>, extension: &str, when: Option<&String>) -> bool {
+pub(crate) fn on(view: &ProjectView<'_>, extension: &str, when: Option<&String>) -> bool {
     when.is_none_or(|name| setting(view, extension, name) != Some(Value::Bool(false)))
 }
 

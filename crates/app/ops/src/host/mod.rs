@@ -3,11 +3,13 @@
 //! the files a hook installs for it).
 
 pub mod drift;
+pub mod glob;
 pub mod install;
 pub mod marker;
 pub mod owned;
 pub mod port;
 pub mod render;
+pub mod shell;
 
 pub use owned::owned_path;
 pub use port::{

@@ -9,7 +9,6 @@ use super::{hook, project};
     behavior = "run_a_hook",
     verify = "a hook whose event does not match exits before loading anything"
 )]
-#[ignore = "K9 T10"]
 fn a_hook_that_does_not_match_exits_before_loading() {
     let project = project(json!({}), json!({}));
     let read = json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "session_id": "s1",
@@ -34,7 +33,6 @@ fn a_hook_that_does_not_match_exits_before_loading() {
     behavior = "run_a_hook",
     verify = "a guard hook denies in the protocol of Claude Code, Codex and Cursor"
 )]
-#[ignore = "K9 T10"]
 fn a_guard_hook_denies_on_claude_code_codex_and_cursor() {
     let project = project(json!({}), json!({}));
     let file = project.root().join("m.spec");

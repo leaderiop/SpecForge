@@ -12,6 +12,9 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use specforge_ops::authoring::hook;
+use specforge_ops::host::HostHookEvent;
+use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
     CORE, GSD_HOSTS_EXTENSIONS, GsdHosts, TestProject, UI, gsd_hosts_sources,
 };
@@ -91,8 +94,22 @@ pub fn write_event(host: &str, path: &str, content: &str) -> Value {
 }
 
 /// Run the hook `id` of `@t/core` (`<short>.<id>`) over `hosted` for the neutral `event`.
-pub fn run_hook(_hosted: &Hosted, _id: &str, _event: &Value) -> HookRun {
-    unimplemented!("K9 T10: host::hook::run")
+pub fn run_hook(hosted: &Hosted, id: &str, event: &Value) -> HookRun {
+    let before = hosted.exports().len();
+    let view = ProjectView::of(&hosted.compiled);
+    let neutral: HostHookEvent = serde_json::from_value(event.clone()).expect("a neutral event");
+    let outcome = hook::run(
+        &view,
+        &format!("t.{id}"),
+        &neutral,
+        specforge_ops::testing::caller(),
+    );
+    HookRun {
+        answer: serde_json::to_value(&outcome.answer).expect("an answer serializes"),
+        stderr: outcome.stderr,
+        exports: hosted.exports().split_off(before),
+        changed: outcome.changed,
+    }
 }
 
 /// The state document of `extension` (`project` or `sessions/<id>`), if it exists.

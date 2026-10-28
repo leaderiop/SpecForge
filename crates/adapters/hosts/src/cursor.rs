@@ -187,44 +187,39 @@ impl HostRenderer for Cursor {
 
     fn write_answer(&self, event: &HostHookEvent, answer: &HookAnswer) -> HostReply {
         let mut out = serde_json::Map::new();
-        let reason = answer.reason.clone().or_else(|| answer.notice.clone());
+        let reason = answer.reason.clone();
+        let denied = matches!(answer.decision, Some(Decision::Deny | Decision::Ask));
+        // Cursor has no "ask": a hook that would ask denies, saying why.
         match event.event {
-            HookEvent::PreTool | HookEvent::PreCommit => {
-                let permission = match answer.decision {
-                    Some(Decision::Deny) => Some("deny"),
-                    Some(Decision::Ask) => Some("ask"),
-                    _ => None,
-                };
-                if let Some(p) = permission {
-                    out.insert("permission".into(), p.into());
-                    if let Some(r) = &reason {
-                        out.insert("user_message".into(), r.clone().into());
-                        out.insert("agent_message".into(), r.clone().into());
-                    }
-                }
-                if let Some(c) = &answer.context {
-                    out.entry("agent_message")
-                        .or_insert_with(|| c.clone().into());
+            HookEvent::PreTool | HookEvent::PreCommit if denied => {
+                out.insert("block".into(), true.into());
+                if let Some(r) = &reason {
+                    out.insert("reason".into(), r.clone().into());
                 }
             }
-            HookEvent::Stop | HookEvent::SubagentStop => {
-                if let (Some(Decision::Deny), Some(r)) = (answer.decision, &reason) {
+            HookEvent::Stop | HookEvent::SubagentStop if denied => {
+                if let Some(r) = &reason {
                     out.insert("followup_message".into(), r.clone().into());
                 }
             }
-            HookEvent::UserPrompt => {
-                if answer.decision == Some(Decision::Deny) {
-                    out.insert("continue".into(), false.into());
-                    if let Some(r) = &reason {
-                        out.insert("user_message".into(), r.clone().into());
-                    }
+            HookEvent::UserPrompt if denied => {
+                out.insert("continue".into(), false.into());
+                if let Some(r) = &reason {
+                    out.insert("user_message".into(), r.clone().into());
                 }
             }
-            _ => {
-                if let Some(c) = &answer.context {
-                    out.insert("additional_context".into(), c.clone().into());
-                }
-            }
+            _ => {}
+        }
+        // The text for the model, the user's notice first: Cursor has no channel for a notice of its own.
+        let context = match (&answer.notice, &answer.context) {
+            (Some(n), Some(c)) => Some(format!("{n}\n\n{c}")),
+            (Some(t), None) | (None, Some(t)) => Some(t.clone()),
+            (None, None) => None,
+        };
+        if let Some(c) =
+            context.filter(|_| !matches!(event.event, HookEvent::Stop | HookEvent::SubagentStop))
+        {
+            out.insert("additional_context".into(), c.into());
         }
         HostReply {
             stdout: if out.is_empty() {

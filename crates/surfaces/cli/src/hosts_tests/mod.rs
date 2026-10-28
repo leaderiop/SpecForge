@@ -1,11 +1,5 @@
 //! `specforge install`, `uninstall` and `hook` over the GSD-shaped host fixture, served in process (ADR 0292). The
-//! helpers [`install`], [`uninstall`] and [`hook`] are the one place a test calls the command line; the ticket that
-//! adds `hook` fills it in, and until then the pins that use it are ignored.
-
-#![allow(
-    clippy::unimplemented,
-    reason = "a K9 pin's helper stands unimplemented until the ticket that adds what it calls"
-)]
+//! helpers [`install`], [`uninstall`] and [`hook`] are the one place a test calls the command line.
 
 mod golden;
 mod hook;
@@ -155,15 +149,54 @@ pub struct Hooked {
     pub exports: Vec<String>,
 }
 
-/// `specforge hook t.<id> --host <host> --event <event> …` over `project` with `stdin`.
-pub fn hook(
-    _project: &TestProject,
-    _id: &str,
-    _host: &str,
-    _args: &[&str],
-    _stdin: &Value,
-) -> Hooked {
-    unimplemented!("K9 T10: specforge hook")
+#[derive(clap::Parser)]
+struct HookCli {
+    #[command(flatten)]
+    args: crate::hook::Args,
+}
+
+/// `specforge hook <route> --host <host> --event <event> …` over `project` with `stdin`. The project is compiled only
+/// if the hook asks for it, and `exports` are the calls made after that compile.
+pub fn hook(project: &TestProject, id: &str, host: &str, args: &[&str], stdin: &Value) -> Hooked {
+    let mut argv = vec![
+        "specforge".to_string(),
+        id.to_string(),
+        "--host".to_string(),
+        host.to_string(),
+    ];
+    argv.extend(args.iter().map(ToString::to_string));
+    let cli = HookCli::parse_from(argv);
+    let runtime = Arc::new(GsdHosts::new().runtime());
+    let compiled_at = std::cell::Cell::new(None);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+    let exit = cli.args.run_with(
+        stdin.to_string().as_bytes(),
+        |_| {
+            let compiled = project.compile_in(Arc::clone(&runtime) as SharedRuntime);
+            compiled_at.set(Some(runtime.calls().len()));
+            compiled
+        },
+        &terminal,
+    );
+    let exports = compiled_at
+        .get()
+        .map(|n| {
+            runtime
+                .calls()
+                .into_iter()
+                .skip(n)
+                .map(|c| c.export)
+                .collect()
+        })
+        .unwrap_or_default();
+    Hooked {
+        out: Out {
+            code: exit.code(),
+            stdout: capture.stdout(),
+            stderr: capture.stderr(),
+        },
+        exports,
+    }
 }
 
 /// `@t/ui`'s name, as a setting block key.

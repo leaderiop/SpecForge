@@ -27,6 +27,6 @@
     "decision": "deny",
     "reason": "a.spec would shrink"
   },
-  "stdout": "{\"agent_message\":\"a.spec would shrink\",\"permission\":\"deny\",\"user_message\":\"a.spec would shrink\"}\n",
+  "stdout": "{\"block\":true,\"reason\":\"a.spec would shrink\"}\n",
   "exit_code": 0
 }

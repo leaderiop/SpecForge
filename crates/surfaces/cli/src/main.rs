@@ -21,6 +21,7 @@ mod extension_command;
 mod extensions;
 mod format;
 mod harness;
+mod hook;
 #[cfg(test)]
 mod hosts_tests;
 mod infer_guide;
@@ -142,6 +143,8 @@ enum Commands {
         #[command(subcommand)]
         action: harness::Action,
     },
+    /// Run one hook for a host's event: read from stdin, answered on stdout in the host's own protocol
+    Hook(hook::Args),
     /// Render the project's agents, skills, slash commands and hooks into a host's files, idempotently
     Install(install::InstallArgs),
     /// Remove exactly the host files and entries install wrote
@@ -265,6 +268,7 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Settings(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
         Commands::Harness { action } => action.run(terminal),
+        Commands::Hook(args) => args.run(terminal),
         Commands::Install(args) => args.run(terminal),
         Commands::Uninstall(args) => args.run(terminal),
         Commands::Doctor(args) => args.run(terminal),
@@ -313,8 +317,10 @@ mod tests {
     }
 
     /// The commands that read no project: they take no `--path`.
-    const NO_PROJECT: [&str; 6] = [
+    const NO_PROJECT: [&str; 7] = [
         "init",
+        // The host runs it from its own cwd, which names the project.
+        "hook",
         "mcp",
         "extension",
         "extension init",
