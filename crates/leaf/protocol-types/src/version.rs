@@ -29,5 +29,9 @@
 /// extension declares `prompts` in its surfaces and the host calls their `prompt__*` export, a command declares the
 /// `gates` it waits on and the `subject` that scopes them, a pass declares the codes it `reports`, and a guard pass's
 /// input says what `trigger`ed it; ADR 0292 adds to the same 1.10.0 the `agents`, `skills`, `slash_commands` and `hooks` of an
-/// extension's surfaces, the `render__` and `hook__<id>` exports, and the `state` a hook or command keeps.
-pub const PROTOCOL_VERSION: &str = "1.10.0";
+/// extension's surfaces, the `render__` and `hook__<id>` exports, and the `state` a hook or command keeps; 1.11.0 is ADR
+/// 0293's: a pass or command declares the project files it `reads` (and a pass `reads_tests`), and its input carries
+/// their `files` (facts and capped text); ADR 0294 adds to the same 1.11.0 the items of a list field in a pass's and a
+/// validator's `values`, and the `now` of a command, collector or hook input; ADR 0295: a judged rule's `judge` may be
+/// `prompt:<id>`; ADR 0296: `specforge settings set` writes the settings an extension declares.
+pub const PROTOCOL_VERSION: &str = "1.11.0";
