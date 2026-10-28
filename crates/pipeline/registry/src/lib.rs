@@ -8,6 +8,7 @@ mod checks;
 pub mod compilation;
 mod disk;
 pub mod entity;
+pub mod judged;
 mod registries;
 pub mod rules;
 pub mod snapshot;

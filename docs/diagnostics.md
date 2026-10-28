@@ -2556,26 +2556,26 @@ twice or not one identifier, a member that declares `derived_from`,
 than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
 `spec` or `project`, or without `file_reference`; a `scoped_by` field with
 `target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
-`writer` other than `computed`, `harness` or `human`, `harness` on a member, a
-computed field that is also `required`, `immutable`, `append_only` or
-`derived_from`, `append_only` on a field that is not a list, a computed field no
-compute pass lists in `computes`, a `computes` entry that is not a computed
-field of the extension or that two passes list or whose pass is not in the
-`compute` phase, and a `baseline` naming a kind no loaded extension declares.
-Who writes a kind is checked as well (ADR 0289): a kind `writer` other than
-`human`, a `human` field marked `required` on a kind that is not human-only (an
-agent could then create no entity of the kind), and a `guard` pass that declares
-`computes`. The `settings` category is checked too (ADR 0288): a setting named
-twice or not a dotted name or a family (`*` segments), of a type the field forms
-do not have, with a default its type refuses, with `gates` on a type other than
-`bool` or on a family (only a setting named whole gates codes), or naming a code
-the extension does not catalog, or with `keys` that do not match its `*`s; a
-preset whose source is not an enum or bool setting of the extension or of a
-loaded peer, that names a value its source does not take, that sets a setting
-the extension does not declare to a value its type refuses, or that raises a
-code the extension does not catalog; a secret named twice or whose environment
-variable is not a name; and an item of a kind the host does not know. The item
-is dropped, the rest of the category is kept.
+`writer` other than `computed`, `harness`, `human` or `verdict`, `harness` or
+`verdict` on a member, a computed or verdict field that is also `required`,
+`immutable`, `append_only` or `derived_from`, `append_only` on a field that is
+not a list, a computed field no compute pass lists in `computes`, a `computes`
+entry that is not a computed field of the extension or that two passes list or
+whose pass is not in the `compute` phase, and a `baseline` naming a kind no
+loaded extension declares. Who writes a kind is checked as well (ADR 0289): a
+kind `writer` other than `human`, a `human` field marked `required` on a kind
+that is not human-only (an agent could then create no entity of the kind), and a
+`guard` pass that declares `computes`. The `settings` category is checked too
+(ADR 0288): a setting named twice or not a dotted name or a family (`*`
+segments), of a type the field forms do not have, with a default its type
+refuses, with `gates` on a type other than `bool` or on a family (only a setting
+named whole gates codes), or naming a code the extension does not catalog, or
+with `keys` that do not match its `*`s; a preset whose source is not an enum or
+bool setting of the extension or of a loaded peer, that names a value its source
+does not take, that sets a setting the extension does not declare to a value its
+type refuses, or that raises a code the extension does not catalog; a secret
+named twice or whose environment variable is not a name; and an item of a kind
+the host does not know. The item is dropped, the rest of the category is kept.
 
 Owner: core
 Level: warning
@@ -2979,8 +2979,18 @@ is unrecognized, it is missing a field or constraint its check needs (a
 `cycle_detection` rule needs an `edge_type`, a `verify_kind_allowlist` rule a
 constraint with values; a rule that reads `verify` statements needs a target
 kind that accepts them), its values list is empty, its `matches` regex does not
-compile, or its `wasm_function` is absent or failed a probe call. Fix or remove
-the rule in the extension's manifest.
+compile, or its `wasm_function` is absent or failed a probe call. A `judged`
+rule (ADR 0290) is W112 when its `judged` declaration is absent or sits on
+another check, its judge, outcomes or passing outcomes are not words (`passing`
+must be a non-empty subset of `outcomes`), a target kind is not loaded or is
+listed twice, an input name repeats or is `cited`, a selector does not parse or
+does not resolve (a field the kind does not declare, one that is not a
+reference, a computed or verdict field, a `file(...)` of a path that leaves the
+project, holds a glob or is a `.spec` source, or of a field that is not a file
+field), an `unless_set` field the kind does not declare, a `values` or
+`outcome_fields` entry that is not a `verdict`-written field of a target kind of
+the extension, or the code is another judged rule's. Fix or remove the rule in
+the extension's manifest.
 
 Owner: core
 Level: warning
@@ -3311,10 +3321,11 @@ W147: Validation rule property ignored
 An extension-declared validation rule sets a property its check does not read
 — an `edge_type` on a field check, a `constraint` on an edge check, a
 `wasm_function` on a declarative check, a constraint kind, `pattern` or `values`
-its check does not read. The rule is registered without it, so it does not do
-what its author meant. Remove the property, or use the check that reads it
-(`conditional_field_required` reads `constraint.pattern` as the condition
-field's name, `field_value_constraint` with `matches` as a regex).
+its check does not read, or a `target_kind` or `field` on a `judged` rule (it
+judges the kinds its `judged` names). The rule is registered without it, so it
+does not do what its author meant. Remove the property, or use the check that
+reads it (`conditional_field_required` reads `constraint.pattern` as the
+condition field's name, `field_value_constraint` with `matches` as a regex).
 
 Owner: core
 Level: warning

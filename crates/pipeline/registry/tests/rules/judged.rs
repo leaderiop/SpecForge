@@ -57,7 +57,6 @@ fn built(rule: ValidationRuleDescriptor) -> Built {
     rules_of(vec![declaration])
 }
 
-#[ignore = "K7 T4"]
 #[spec(
     behavior = "declare_judged_rule",
     verify = "a judged rule is declared with its judge, outcomes and per-target selectors"
@@ -74,7 +73,6 @@ fn a_judged_rule_is_declared_with_selectors() {
     );
 }
 
-#[ignore = "K7 T4"]
 #[spec(
     behavior = "declare_judged_rule",
     verify = "a malformed judged rule is W112 and is not registered"
@@ -124,4 +122,57 @@ fn a_malformed_judged_rule_is_w112() {
     }))
     .unwrap();
     assert_eq!(built(bare).coded("W112").len(), 1);
+}
+
+/// The build of `@test` declaring a plan with verdict-written `result` and `owner` fields, and `rule`.
+fn with_result_field(
+    rule: ValidationRuleDescriptor,
+) -> specforge_registry::compilation::RegistryBuild {
+    let mut declaration = declare("@test", |c| {
+        c.kind("plan", |k| {
+            k.keyword("plan");
+            k.field("result", |f| {
+                f.field_type(FieldType::String).verdict();
+            });
+            k.field("owner", |f| {
+                f.field_type(FieldType::String).verdict().required();
+            });
+        });
+    });
+    declaration.validation_rules = vec![rule];
+    crate::support::build([declaration])
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "a verdict-written field is set by exactly one judged rule, and is never required"
+)]
+fn a_verdict_field_is_bound_by_one_judged_rule() {
+    let bound = |values: Value| {
+        let mut judged = json!({
+            "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+            "targets": [{"kind": "plan", "inputs": [{"name": "plan", "selector": "self"}]}],
+        });
+        judged["values"] = values;
+        judged
+    };
+    let with = with_result_field(descriptor(bound(json!(["plan.result"]))));
+    let w021: Vec<_> = with.diagnostics().filter(|d| d.code == "W021").collect();
+    // `owner` is verdict-written and `required`, and bound by no rule; `result` is bound.
+    assert!(
+        w021.iter().any(|d| d.message.contains("'plan.owner'")),
+        "{w021:?}"
+    );
+    assert!(
+        !w021.iter().any(|d| d.message.contains("'plan.result'")),
+        "{w021:?}"
+    );
+    assert_eq!(with.judged_rules().count(), 1);
+    assert!(with.judged_rule("test/W311").is_some());
+    let unbound = with_result_field(descriptor(bound(json!([]))));
+    assert!(
+        unbound
+            .diagnostics()
+            .any(|d| d.code == "W021" && d.message.contains("'plan.result'"))
+    );
 }

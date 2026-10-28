@@ -54,6 +54,9 @@ pub(crate) enum Check {
     NoVerifyStatements {
         obligations: Obligations,
     },
+    /// Decided by the project crate over fresh verdicts and input digests (ADR 0290); this set reports nothing
+    /// for it. Its declaration is [`Rule::judged`].
+    Judged,
     Custom {
         extension: String,
         function: String,
@@ -115,6 +118,9 @@ pub(super) fn run(
     input: &RuleInput<'_>,
     verdicts: &dyn CustomVerdicts,
 ) -> Vec<Diagnostic> {
+    if matches!(rule.check, Check::Judged) {
+        return Vec::new();
+    }
     if let Check::Cycle { edge_type } = &rule.check {
         return cycle_rule(rule, edge_type, input);
     }
@@ -225,7 +231,7 @@ fn evaluate(
                 && record.field(field).is_none_or(str::is_empty),
         ),
         // Run over the input by `cycles` and `missing_files`.
-        Check::Cycle { .. } | Check::FileExists { .. } => Ok(None),
+        Check::Cycle { .. } | Check::FileExists { .. } | Check::Judged => Ok(None),
         Check::VerifyKindAllowlist { allowed } => Ok(record
             .obligations
             .iter()

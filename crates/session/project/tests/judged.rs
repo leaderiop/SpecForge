@@ -69,7 +69,6 @@ fn digest_of(compiled: &CompiledProject, entity: &str) -> String {
 const PLAN: &str = "v1.0/03/03-02";
 const W311: &str = "gsd/W311";
 
-#[ignore = "K7 T4"]
 #[specforge_test(
     behavior = "declare_judged_rule",
     verify = "every input of the model's judged rules parses and resolves"

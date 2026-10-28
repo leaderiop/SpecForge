@@ -196,6 +196,9 @@ pub struct GraphNode {
     /// The source file declaring the entity, as the graph export writes it (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
+    /// The judged rules that judge it and where each stands (protocol 1.9.0, ADR 0290); gated rules are absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub judgements: Vec<crate::Judgement>,
 }
 
 impl GraphNode {
@@ -426,6 +429,10 @@ pub struct PassEntity {
     /// The obligations' texts, parallel to `verify_kinds`.
     #[serde(default)]
     pub verify_texts: Vec<String>,
+    /// The judged rules that judge the entity and where each stands (protocol 1.9.0, ADR 0290); gated rules are
+    /// absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub judgements: Vec<crate::Judgement>,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.

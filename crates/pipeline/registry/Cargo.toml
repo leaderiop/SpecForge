@@ -32,6 +32,7 @@ specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 tempfile = { workspace = true }
+proptest = { version = "1.11", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

@@ -137,6 +137,7 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
         owes_none: !standing.owes_obligations(),
         verify_kinds: record.obligations.iter().map(|o| o.kind.clone()).collect(),
         verify_texts: record.obligations.iter().map(|o| o.text.clone()).collect(),
+        judgements: Vec::new(),
     }
 }
 

@@ -359,6 +359,7 @@ fn validation_rule_descriptor_declarative() {
         constraint: None,
         wasm_function: None,
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -388,6 +389,7 @@ fn validation_rule_descriptor_with_constraint() {
         }),
         wasm_function: None,
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -407,6 +409,7 @@ fn validation_rule_descriptor_custom_wasm() {
         constraint: None,
         wasm_function: Some("validate__custom_check".to_string()),
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     assert!(

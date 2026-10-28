@@ -39,6 +39,9 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   verify unit "a judged rule is declared with its judge, outcomes and per-target selectors"
   verify unit "a malformed judged rule is W112 and is not registered"
   verify unit "every input of the model's judged rules parses and resolves"
+  verify unit "a selector prints back to its canonical text"
+  verify unit "a verdict-written field is set by exactly one judged rule, and is never required"
+  verify unit "an SDK judged rule builds the descriptor the host reads"
 }
 
 behavior parse_verdict_statement "Parse a Verdict Statement" {

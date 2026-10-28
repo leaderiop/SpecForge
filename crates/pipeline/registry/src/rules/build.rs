@@ -13,6 +13,7 @@ use specforge_protocol_types::{
 
 use super::check::{Check, EdgeScope, Obligations, ValueConstraint};
 use super::{Declared, DeclaredConstraint, Origin, Registries, Rule, Rules};
+use crate::judged::{self, JudgedRule};
 
 /// The statement that declares an entity's obligations.
 const VERIFY_FIELD: &str = "verify";
@@ -29,9 +30,18 @@ pub(super) fn build(
         // The (code, severity) pairs already reported as W150: a code an
         // extension declares for several target kinds is reported once.
         let mut misused = HashSet::new();
+        // The codes of the judged rules already registered: a code is the verdict's name, so it is one rule's.
+        let mut judged_codes = HashSet::new();
         for descriptor in &declaration.validation_rules {
             diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
+                if rule.declared.judged.is_some() && !judged_codes.insert(descriptor.code.clone()) {
+                    return Err(cannot_fire(
+                        extension,
+                        &rule.code,
+                        "another judged rule of the extension has this code: it is the verdict's name",
+                    ));
+                }
                 let unread = ignore_unread(descriptor, &mut rule);
                 Ok((resolve(rule, registries)?, unread))
             });
@@ -137,6 +147,15 @@ fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<
     if check != CheckKind::Custom && declared.wasm_function.take().is_some() {
         diagnostics.push(unread("wasm_function"));
     }
+    // A judged rule judges the kinds its `judged` names, and its message reads no field.
+    if check == CheckKind::Judged {
+        if rule.target.take().is_some() {
+            diagnostics.push(unread("target_kind"));
+        }
+        if rule.message_field.take().is_some() {
+            diagnostics.push(unread("field"));
+        }
+    }
 
     let Some(constraint) = declared.constraint.as_mut() else {
         return diagnostics;
@@ -201,6 +220,40 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                 "check '{check_kind}' requires a field but none is set"
             ))
         })
+    };
+
+    let judged = match (&r.judged, check_kind) {
+        (Some(declared), CheckKind::Judged) => {
+            let (targets, declared) = judged::shape(declared).map_err(|why| fail(&why))?;
+            let rule = JudgedRule {
+                code: qualify(extension, &r.code),
+                extension: extension.to_string(),
+                judge: declared.judge.clone(),
+                outcomes: declared.outcomes.clone(),
+                passing: declared.passing.clone(),
+                targets,
+                values: declared.values.clone(),
+                outcome_fields: declared.outcome_fields.clone(),
+                severity: match r.severity {
+                    ValidationSeverity::Error => Severity::Error,
+                    ValidationSeverity::Warning => Severity::Warning,
+                    ValidationSeverity::Info => Severity::Info,
+                },
+                template: r.message_template.clone(),
+            };
+            Some((declared, rule))
+        }
+        (None, CheckKind::Judged) => {
+            return Err(fail(
+                "check 'judged' requires a judged declaration but none is set",
+            ));
+        }
+        (Some(_), _) => {
+            return Err(fail(&format!(
+                "a judged declaration is read only by check 'judged', not '{check_kind}'"
+            )));
+        }
+        (None, _) => None,
     };
 
     let check = match check_kind {
@@ -318,6 +371,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                 field => Obligations::Field(field.to_string()),
             },
         },
+        CheckKind::Judged => Check::Judged,
         CheckKind::Custom => Check::Custom {
             extension: extension.to_string(),
             function: r
@@ -350,6 +404,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                 values: c.values.clone(),
             }),
             wasm_function: r.wasm_function.clone(),
+            judged,
         },
     })
 }
@@ -375,6 +430,10 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// field that writes its edge type. An edge or cycle rule whose edge type no
 /// loaded extension declares is dropped (inert).
 fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, Diagnostic> {
+    if let Some((declared, judged)) = &rule.declared.judged {
+        judged::resolve(&judged.targets, declared, rule.origin.name(), registries)
+            .map_err(|why| cannot_fire(rule.origin.name(), &rule.code, &why))?;
+    }
     if let Some(kind) = rule.target.as_deref()
         && !registries.kinds.contains(kind)
         && !specforge_common::structural::is_structural(kind)

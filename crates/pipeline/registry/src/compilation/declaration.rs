@@ -294,10 +294,14 @@ pub(crate) fn consistency(
     // ADR 0287: a computed field is computed by exactly one compute pass of this extension, and a pass computes
     // only fields that are computed.
     let mut computed: Vec<String> = Vec::new();
+    let mut verdict_fields: Vec<String> = Vec::new();
     let mut collect = |kind: &str, field: &FieldDescriptor| {
         field.for_each_path(&field.name, &mut |path, f| {
             if f.writer.as_deref() == Some("computed") && f.derived_from.is_none() {
                 computed.push(format!("{kind}.{path}"));
+            }
+            if f.writer.as_deref() == Some("verdict") {
+                verdict_fields.push(format!("{kind}.{path}"));
             }
         });
     };
@@ -355,6 +359,27 @@ pub(crate) fn consistency(
                     name, pass.name, kind
                 )));
             }
+        }
+    }
+    // ADR 0290: a verdict field is set by exactly one judged rule of this extension, from its `values` or as its
+    // `outcome_fields`.
+    for entry in &verdict_fields {
+        let binders: Vec<&str> = declaration
+            .validation_rules
+            .iter()
+            .filter_map(|r| r.judged.as_ref().map(|j| (r, j)))
+            .filter(|(_, j)| j.values.contains(entry) || j.outcome_fields.contains(entry))
+            .map(|(r, _)| r.code.as_str())
+            .collect();
+        match binders.as_slice() {
+            [_] => {}
+            [] => diagnostics.push(warn(format!(
+                "extension '{name}': field '{entry}' is written by a verdict, but no judged rule lists it in values or outcome_fields"
+            ))),
+            _ => diagnostics.push(warn(format!(
+                "extension '{name}': field '{entry}' is written by a verdict, but rules {} list it: one rule sets a field",
+                binders.join(" and ")
+            ))),
         }
     }
     for entry in &computed {

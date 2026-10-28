@@ -35,6 +35,7 @@ mod code_catalog;
 pub mod command_args;
 mod declaration;
 mod field;
+mod judged;
 mod plan;
 mod settings;
 pub mod tool_input;
@@ -45,13 +46,15 @@ pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
 pub use field::FieldDescriptor;
+pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
     UnreadableItem, is_segment, valid_name,
 };
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, JudgementState,
+    ProofRole,
 };
 
 /// Protocol version for the extension wire format (semver). The host loads
@@ -77,7 +80,9 @@ pub use vocabulary::{
 /// and answers `values`, and a pass's `previous` is the git baseline; the same 1.8.0 is ADR 0288's: an extension declares typed `settings`
 /// (a new describe category), and a call input may carry the extension's own `settings`; 1.9.0 is ADR 0289's: a command or collector may
 /// `writes` and answer an edit `plan` the host applies, a kind or field may be written by a `human` only, a pass may be
-/// a `guard`, and a writing command's input carries the `revisions` of the sources it was compiled from.
+/// a `guard`, and a writing command's input carries the `revisions` of the sources it was compiled from; the same 1.9.0 is ADR 0290's:
+/// a rule may be `judged` (it holds while a fresh verdict says so), a field may be written by a `verdict`, and a pass
+/// entity and a command's graph node carry the `judgements` of the rules that judge them.
 pub const PROTOCOL_VERSION: &str = "1.9.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
@@ -407,6 +412,9 @@ pub struct ValidationRuleDescriptor {
     /// Absent: the kind belongs to the extension itself or a declared peer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_extension: Option<String>,
+    /// A `judged` rule's judge, outcomes and inputs (protocol 1.9.0, ADR 0290); read by that check only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judged: Option<JudgedDescriptor>,
 }
 
 // ── Surface Descriptors ──

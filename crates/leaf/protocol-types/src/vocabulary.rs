@@ -190,6 +190,26 @@ vocabulary! {
         /// Only a person writes it (ADR 0289): an agent-facing write (an extension's plan, the MCP tools, a
         /// non-interactive CLI) is refused.
         Human = "human",
+        /// Only the outcome or a value of a fresh verdict of a judged rule sets it (ADR 0290); a value written by
+        /// hand is E082.
+        Verdict = "verdict",
+    }
+    aliases {}
+}
+
+vocabulary! {
+    /// Where one judged rule stands on one entity (ADR 0290): `Judgement::state` is one of these.
+    JudgementState {
+        /// A verdict is recorded and every input digests as it did.
+        Fresh = "fresh",
+        /// A verdict is recorded and an input changed since.
+        Stale = "stale",
+        /// The entity is judged and no verdict is written.
+        Missing = "missing",
+        /// A verdict is written and the ledger has no line for it.
+        Unrecorded = "unrecorded",
+        /// A verdict is written and cannot be read (W168).
+        Unreadable = "unreadable",
     }
     aliases {}
 }
@@ -250,6 +270,9 @@ vocabulary! {
         /// write `field` when it names another obligation field). The
         /// target kind must accept `verify` statements.
         NoVerifyStatements = "no_verify_statements",
+        /// The entity holds while a fresh verdict from the rule's `judged.judge` says so (ADR 0290); `judged` is
+        /// required, and `target_kind`, `field`, `edge_type`, `constraint` and `wasm_function` are not read.
+        Judged = "judged",
     }
     aliases {
         // Emitted by SDK releases before the vocabulary was shared.

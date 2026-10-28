@@ -38,6 +38,7 @@ impl G {
                 .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
                 .collect(),
             file: None,
+            judgements: Vec::new(),
         });
         self
     }

@@ -213,6 +213,16 @@ impl RegistryBuild {
         &self.rules
     }
 
+    /// The judged rules (ADR 0290), in execution order.
+    pub fn judged_rules(&self) -> impl Iterator<Item = &crate::judged::JudgedRule> {
+        self.rules.judged()
+    }
+
+    /// The judged rule with the qualified `code`.
+    pub fn judged_rule(&self, code: &str) -> Option<&crate::judged::JudgedRule> {
+        self.rules.judged().find(|rule| rule.code == code)
+    }
+
     /// The code book: the static catalog and the loaded extensions' own
     /// catalogs (ADR 0286).
     pub fn codes(&self) -> &Codebook {
