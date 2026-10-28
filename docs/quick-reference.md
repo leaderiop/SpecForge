@@ -34,6 +34,10 @@ specforge explore [<id>]             # starting points, hubs and unconnected ent
 specforge review [<id>]              # coverage gaps around an entity (or the whole project)
 specforge infer-guide [<kind>]       # what to look for in code to write a kind's entities
 
+# Judged rules: what a judge reads before it records a verdict (ADR 0290)
+specforge query <id> --inputs <rule> [--cite <entity>] [--cite-file <path>] [--cite-test <name>]   # inputs, digests, state, basis
+# MCP: specforge.verdict_inputs { entity, rule, cite_entities?, cite_files?, cite_tests? }; the verdict is recorded by a command's set_verdict
+
 # Editing entities (no hand-written .spec): each edit is checked, then written all or nothing (E080)
 specforge new behavior <id> "<title>" --in <file> --contract "…" --invariants a,b   # a new entity; its kind's fields are flags
 specforge set <id> <field> <value>   # set a field; `field.entry` edits one entry of a block field

@@ -68,6 +68,10 @@ Over MCP, `specforge.edit` takes a list of edits (`create`, `set`, `unset`, `ret
 (`dry_run: true`) to see the diff first. A union type takes only `set --title` and `delete`, and ports with `method`
 lines are not covered by typed edits yet: write those by hand, then run `specforge check`.
 
+A `verdict <rule> <outcome> { ... }` member of a block is a judged rule's record: never write one by hand (E083),
+and never write a field a verdict sets (E082). Read what the judge reads with `specforge query <id> --inputs <rule>`
+(MCP `specforge.verdict_inputs`); a verdict goes stale when an input changes ([judged rules](../../../docs/guides/judged-rules.md)).
+
 ## Step 3: check
 
 ```bash

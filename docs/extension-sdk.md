@@ -448,6 +448,10 @@ c.command("record", |cmd| {
 });
 ```
 
+A judged rule is declared with `r.judged("judge", |j| { j.outcomes(..).passing(..); j.target("kind", |t| { t.input("name", "selector"); }) })` inside `c.rule(..)`
+and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a command's `GraphNode`
+lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`.
+
 `PlanBuilder` has one method per op: `create`, `set`, `unset`, `append`, `remove`, `link`, `unlink`, `retitle`,
 `add_verify`, `remove_verify`, `delete`, `rename` and `set_verdict(Verdict { .. })`. A collector declares `k.writes()`
 and builds with `PlanBuilder::for_collect(input)`, answering `CollectOutput.plan`. If the files changed since the
