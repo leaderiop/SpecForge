@@ -20,6 +20,7 @@ mod publish;
 mod remove;
 mod resolve;
 mod settings;
+mod settings_set;
 mod update;
 
 pub use add::{
@@ -46,6 +47,7 @@ pub use resolve::{resolve, upgrade};
 pub use settings::{
     ExtensionSettingsRow, RaisedRow, SecretRow, SettingRow, SettingsDocument, settings,
 };
+pub use settings_set::{SetOutcome, SetRequest, SettingChange, SettingsSetDocument, set_setting};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateDocument, UpdateOutcome, UpdateRequest,
     UpdateRow, UpdateStatus, UpgradeCompleted, update,

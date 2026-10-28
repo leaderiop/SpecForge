@@ -108,6 +108,7 @@ mod scopes;
 mod search;
 mod selection;
 mod settings;
+mod settings_set;
 mod setup;
 mod spec_guard;
 mod spec_guard_patch;

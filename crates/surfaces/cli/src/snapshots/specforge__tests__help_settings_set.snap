@@ -1,0 +1,38 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+Write one setting of specforge.json, admitted by its declared type; never a secret
+
+Usage: specforge settings set [OPTIONS] <EXTENSION> <NAME> [VALUE]...
+
+Arguments:
+  <EXTENSION>
+          The extension, as `specforge settings` lists it
+
+  <NAME>
+          The setting's name, or a family's key (`models.planning`)
+
+  [VALUE]...
+          The value; a list takes every remaining word as an item
+
+Options:
+      --value-json <JSON>
+          The value as one JSON document (a block, a list of blocks)
+
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --dry-run
+          Report what would be written; write nothing
+
+      --format <FORMAT>
+          Output format: human or json
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help

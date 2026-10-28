@@ -210,6 +210,9 @@ behavior load_extension_settings "Load Extension Settings" {
   verify integration "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
   verify integration "schema --config holds every loaded setting and a valid file validates against it"
   verify unit "the shipped schema types settings by extension in both copies"
+  verify integration "settings set writes a value its setting's form admits and leaves the rest of specforge.json as it was"
+  verify integration "settings set refuses a secret, an unknown setting and a value the form refuses before it writes"
+  verify integration "settings unset removes the member and an interrupted set is rolled back"
 }
 
 behavior load_extension_declaration "Load Extension Declaration" {

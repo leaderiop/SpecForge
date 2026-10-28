@@ -4,7 +4,15 @@ expression: command.clone().render_long_help().to_string()
 ---
 List each extension's settings: the value, where it came from, what it gates and each secret's status
 
+`settings set` and `settings unset` write one setting of specforge.json (ADR 0296).
+
 Usage: specforge settings [OPTIONS]
+       specforge settings <COMMAND>
+
+Commands:
+  set    Write one setting of specforge.json, admitted by its declared type; never a secret
+  unset  Remove one setting from specforge.json: it reverts to its preset or default
+  help   Print this message or the help of the given subcommand(s)
 
 Options:
       --path <PATH>
@@ -25,4 +33,4 @@ Options:
           List only this extension's settings
 
   -h, --help
-          Print help
+          Print help (see a summary with '-h')

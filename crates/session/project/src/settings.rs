@@ -230,6 +230,32 @@ fn read(
     }
 }
 
+/// What `specforge settings set` and `unset` admit before any write (ADR 0296), by the load's own rules: E087 when
+/// `name` is a declared secret or looks like a credential (never written), then E086 when no setting of `extension`
+/// takes it or `value` is not the form's. `Some(value)` sets, `None` unsets; the answer is the value to write, `None`
+/// for an unset or a written `null`. An extension that declares no settings is E086 (a caller asks it is enabled first).
+pub fn admit(
+    extension: &str,
+    name: &str,
+    value: Option<&Value>,
+    registry: &SettingsRegistry,
+) -> Result<Option<Value>, Diagnostic> {
+    let Some(declared) = registry.of(extension) else {
+        return Err(Diagnostic::new(
+            codes::E086,
+            format!("'{extension}' declares no settings"),
+        ));
+    };
+    if let Some(diagnostic) = secret(extension, name, declared) {
+        return Err(diagnostic);
+    }
+    match value {
+        Some(value) => check(extension, name, value, declared, registry),
+        None if declared.find(name).is_some() => Ok(None),
+        None => Err(unknown(extension, name, declared, registry)),
+    }
+}
+
 /// E087 when `key` names a declared secret or looks like a credential and is no declared setting.
 fn secret(extension: &str, key: &str, declared: &Declared) -> Option<Diagnostic> {
     if let Some(secret) = declared.secret(key) {

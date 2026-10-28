@@ -29,6 +29,7 @@ pub mod authoring;
 mod caller;
 mod change;
 pub mod config;
+mod config_edit;
 mod containment;
 mod edit_report;
 mod error;
