@@ -68,8 +68,10 @@ fn record(project: &specforge_project::testing::TestProject, basis: &Value) -> S
 
 /// The judgements of `entity` as `inspect` lists them. K7 T11.
 fn judgements_of(project: &specforge_project::testing::TestProject, entity: &str) -> Value {
-    let _ = (project, entity);
-    panic!("K7 T11: EntityFacts.judgements")
+    let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
+    let facts = specforge_ops::read::inspect::inspect(&ProjectView::of(&compiled), entity)
+        .unwrap_or_else(|r| panic!("{:?}", r.into_error()));
+    serde_json::to_value(&facts.judgements).unwrap()
 }
 
 #[specforge_test(
@@ -97,7 +99,6 @@ fn query_inputs_answers_the_basis_set_verdict_checks() {
     assert_eq!(record(&project, &edited), "stale_revision");
 }
 
-#[ignore = "K7 T11"]
 #[specforge_test(
     behavior = "answer_judged_inputs",
     verify = "inspect, query, the graph export and a command's graph list each entity's judgements"

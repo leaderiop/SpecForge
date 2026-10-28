@@ -247,6 +247,38 @@ expression: listing
           ],
           "type": "object"
         },
+        "JudgementJson": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "type": "string"
+            },
+            "changed": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "passed": {
+              "type": "boolean"
+            },
+            "rule": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "rule",
+            "state",
+            "passed"
+          ],
+          "type": "object"
+        },
         "MethodJson": {
           "additionalProperties": false,
           "properties": {
@@ -439,6 +471,29 @@ expression: listing
             "truncated_entities"
           ],
           "type": "object"
+        },
+        "VerdictJson": {
+          "additionalProperties": false,
+          "properties": {
+            "members": {
+              "additionalProperties": {
+                "$ref": "#/$defs/FieldJson"
+              },
+              "type": "object"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "rule": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "rule",
+            "outcome",
+            "members"
+          ],
+          "type": "object"
         }
       },
       "anyOf": [
@@ -499,6 +554,12 @@ expression: listing
                   "id": {
                     "type": "string"
                   },
+                  "judgements": {
+                    "items": {
+                      "$ref": "#/$defs/JudgementJson"
+                    },
+                    "type": "array"
+                  },
                   "kind": {
                     "type": "string"
                   },
@@ -514,6 +575,12 @@ expression: listing
                   },
                   "title": {
                     "type": "string"
+                  },
+                  "verdicts": {
+                    "items": {
+                      "$ref": "#/$defs/VerdictJson"
+                    },
+                    "type": "array"
                   },
                   "verify": {
                     "items": {
@@ -2687,6 +2754,38 @@ expression: listing
             }
           ]
         },
+        "JudgementJson": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "type": "string"
+            },
+            "changed": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "passed": {
+              "type": "boolean"
+            },
+            "rule": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "rule",
+            "state",
+            "passed"
+          ],
+          "type": "object"
+        },
         "MethodJson": {
           "additionalProperties": false,
           "properties": {
@@ -2780,6 +2879,29 @@ expression: listing
             "end_col"
           ],
           "type": "object"
+        },
+        "VerdictJson": {
+          "additionalProperties": false,
+          "properties": {
+            "members": {
+              "additionalProperties": {
+                "$ref": "#/$defs/FieldJson"
+              },
+              "type": "object"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "rule": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "rule",
+            "outcome",
+            "members"
+          ],
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -2833,6 +2955,12 @@ expression: listing
         "file": {
           "type": "string"
         },
+        "judgements": {
+          "items": {
+            "$ref": "#/$defs/JudgementJson"
+          },
+          "type": "array"
+        },
         "kind": {
           "type": "string"
         },
@@ -2871,6 +2999,12 @@ expression: listing
         },
         "title": {
           "type": "string"
+        },
+        "verdicts": {
+          "items": {
+            "$ref": "#/$defs/VerdictJson"
+          },
+          "type": "array"
         },
         "verify_declarations": {
           "items": {

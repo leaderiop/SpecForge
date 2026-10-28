@@ -8,6 +8,7 @@ use specforge_common::Diagnostic;
 use specforge_emitter::context::Headline;
 use specforge_graph::{Members, Node, Obligation};
 use specforge_project::coverage::{Status, Verdict};
+use specforge_protocol_types::Judgement;
 use specforge_registry::{KindRegistryEntry, Standing};
 
 use crate::read::navigate::{References, is_about};
@@ -16,6 +17,7 @@ use crate::{OpError, Refusal};
 
 /// How the hover and the review document quote a statement (ADR 0152 D6) and list obligations
 /// (ADR 0273).
+pub use specforge_emitter::json::JudgementJson;
 pub use specforge_emitter::markdown::{obligations_table, quote};
 
 /// Everything a surface shows about one entity, borrowed from the view.
@@ -50,6 +52,9 @@ pub struct EntityFacts<'v> {
     /// what their data names, else the innermost block holding their
     /// span), in the order they are reported.
     pub diagnostics: Vec<Diagnostic>,
+    /// Where each judged rule that judges it stands (ADR 0290), in the order of the rules' codes; a gated rule is
+    /// absent.
+    pub judgements: Vec<Judgement>,
 }
 
 /// An entity's coverage: its verdict, and whether a recorded report was
@@ -108,6 +113,12 @@ pub fn inspect<'v>(
             .reported()
             .into_iter()
             .filter(|d| is_about(graph, d, entity_id))
+            .collect(),
+        judgements: view
+            .project()
+            .judgements()
+            .of(node.id.raw.as_str())
+            .cloned()
             .collect(),
     })
 }

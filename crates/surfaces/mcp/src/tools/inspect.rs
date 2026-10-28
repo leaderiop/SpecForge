@@ -7,8 +7,9 @@ use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{DiagnosticList, SourceSpan};
-use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
-use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
+
+use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation, VerdictJson};
+use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, JudgementJson};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::args::Arguments;
@@ -66,6 +67,12 @@ pub struct Reply {
     /// Its methods, as the graph export writes them.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     methods: Vec<MethodJson>,
+    /// Its verdict statements, as the graph export writes them; absent when it has none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    verdicts: Vec<VerdictJson>,
+    /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    judgements: Vec<JudgementJson>,
     /// Its obligations, as the graph export writes them; absent when it declares none.
     #[serde(skip_serializing_if = "Option::is_none")]
     verify_declarations: Option<Vec<Obligation>>,
@@ -96,7 +103,8 @@ impl CoreTool for Tool {
         group: ToolGroup::Navigation,
     };
     const SPEC: ReplySpec = ReplySpec::Type("McpInspectResult");
-    const OPEN_VALUES: &'static [&'static str] = &["$.fields", "$.annotations"];
+    const OPEN_VALUES: &'static [&'static str] =
+        &["$.fields", "$.annotations", "$.verdicts[].members"];
     type Args = Args;
     type Input = View;
     type Returns = Answered<Reply>;
@@ -134,6 +142,8 @@ impl Reply {
             computed: facts.members.computed.clone(),
             annotations: facts.members.annotations.clone(),
             methods: facts.members.methods.clone(),
+            verdicts: facts.members.verdicts.clone(),
+            judgements: facts.judgements.iter().map(JudgementJson::of).collect(),
             verify_declarations: declared.then(|| facts.obligations.to_vec()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),

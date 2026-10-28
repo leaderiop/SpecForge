@@ -41,6 +41,18 @@ impl Judgements {
             .map(|(_, judgement)| judgement)
     }
 
+    /// Every entity's judgements, by entity path: what an export lists.
+    pub fn listed(&self) -> BTreeMap<String, Vec<Judgement>> {
+        let mut listed: BTreeMap<String, Vec<Judgement>> = BTreeMap::new();
+        for ((entity, _), judgement) in &self.0 {
+            listed
+                .entry(entity.clone())
+                .or_default()
+                .push(judgement.clone());
+        }
+        listed
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

@@ -2,7 +2,10 @@ use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_coverage::Status;
 use specforge_graph::field_form::FieldJson;
-use specforge_graph::{AnnotationJson, Computed, Graph, Members, MethodJson, Node, Obligation};
+use specforge_graph::{
+    AnnotationJson, Computed, Graph, Members, MethodJson, Node, Obligation, VerdictJson,
+};
+use specforge_protocol_types::Judgement;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -93,6 +96,43 @@ pub(crate) struct JsonNode {
     /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); omitted when none.
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     computed: BTreeSet<String>,
+    /// The entity's `verdict` statements as written, in order; omitted when it has none (ADR 0290).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    verdicts: Vec<VerdictJson>,
+    /// Where each judged rule that judges it stands (ADR 0290); omitted when none does (a gated rule is absent).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    judgements: Vec<JudgementJson>,
+}
+
+/// One judged rule's state on the entity: `Judgement` without the files it read.
+#[derive(Debug, Serialize, Shape)]
+#[shape(define = "JudgementJson")]
+pub struct JudgementJson {
+    rule: String,
+    /// `fresh`, `stale`, `missing`, `unrecorded` or `unreadable`.
+    state: String,
+    /// Fresh, recorded and its outcome passing.
+    passed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outcome: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    at: Option<String>,
+    /// The inputs that changed since the verdict (stale only).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    changed: Vec<String>,
+}
+
+impl JudgementJson {
+    pub fn of(judgement: &Judgement) -> Self {
+        Self {
+            rule: judgement.rule.clone(),
+            state: judgement.state.clone(),
+            passed: judgement.passed,
+            outcome: judgement.outcome.clone(),
+            at: judgement.at.clone(),
+            changed: judgement.changed.clone(),
+        }
+    }
 }
 
 /// `n` as the graph export writes an entity.
@@ -100,13 +140,14 @@ pub(crate) fn graph_node(
     n: &Node,
     coverage_status: Option<Status>,
     computed: Option<&Computed>,
+    judgements: Option<&BTreeMap<String, Vec<Judgement>>>,
 ) -> JsonNode {
     let Members {
         fields,
         annotations,
         methods,
         computed,
-        verdicts: _,
+        verdicts,
     } = crate::emit::members_of(n, computed);
     JsonNode {
         id: n.id.raw.to_string(),
@@ -121,6 +162,10 @@ pub(crate) fn graph_node(
             .then(|| n.obligations.iter().map(Obligation::of).collect()),
         coverage_status,
         computed,
+        verdicts,
+        judgements: judgements
+            .and_then(|all| all.get(n.id.raw.as_str()))
+            .map_or_else(Vec::new, |own| own.iter().map(JudgementJson::of).collect()),
     }
 }
 

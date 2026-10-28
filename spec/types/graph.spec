@@ -52,6 +52,26 @@ type MethodJson "One method member as every output writes it: no position" {
   verify unit "MethodJson schema is valid"
 }
 
+type VerdictJson "One verdict statement as every output writes it: no position" {
+  rule    string
+  outcome string
+  /// The block's members by key (judge, model, at, cited, inputs, findings, values), as a field's value is written.
+  members object
+  verify unit "VerdictJson schema is valid"
+}
+
+type JudgementJson "Where one judged rule that judges an entity stands: fresh, stale, missing, unrecorded or unreadable" {
+  rule    string
+  state   string
+  /// Fresh, recorded and its outcome passing.
+  passed  boolean
+  outcome string   @optional
+  at      string   @optional
+  /// The inputs that changed since the verdict (stale only); absent when none.
+  changed string[] @optional
+  verify unit "JudgementJson schema is valid"
+}
+
 type Obligation "One verify statement as every output writes it and specforge.edit reads it" {
   /// Absent for a bare verify "…".
   kind string @optional

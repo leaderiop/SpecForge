@@ -5,12 +5,14 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
+use specforge_common::shape::Shape;
 use specforge_parser::{VerdictMember, Written};
 
 use crate::field_form::{FieldJson, write_fields};
 
 /// One `verdict <rule> <outcome> { … }` statement without positions.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+#[shape(define = "VerdictJson")]
 pub struct VerdictJson {
     pub rule: String,
     pub outcome: String,

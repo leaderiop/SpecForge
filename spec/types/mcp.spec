@@ -186,12 +186,12 @@ type McpPromptArgument "Mcp Prompt Argument" {
 // McpInferGapsResult and McpTraceChainResult.
 
 type McpInspectResult "Mcp Inspect Result" {
-  entity_id           string       @readonly
-  kind                string       @readonly
+  entity_id           string          @readonly
+  kind                string          @readonly
   /// Absent when the entity declares no title.
-  title               string       @optional
+  title               string          @optional
   /// The extension that declares the entity's kind; absent when none does.
-  source_extension    string       @optional
+  source_extension    string          @optional
   /// The entity's kind is testable, the standing the LSP hover shows.
   testable            boolean
   /// The entity declares at least one verify obligation.
@@ -199,31 +199,35 @@ type McpInspectResult "Mcp Inspect Result" {
   /// Its kind must declare obligations (a no_verify_statements rule targets
   /// it): why an exempt entity is exempt.
   obligated           boolean
-  source_span         SourceSpan   @readonly
+  source_span         SourceSpan      @readonly
   /// The file the entity is written in, relative to the spec root.
-  file                string       @readonly
+  file                string          @readonly
   /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and
   /// specforge.rename name to be refused when the file has changed since (ADR 0289).
-  revision            string       @readonly
+  revision            string          @readonly
   /// The field text of the field the entity's extension declares headline and
   /// normative (a behavior's contract); absent when its kind declares none.
-  contract            string       @optional
+  contract            string          @optional
   /// Every field the entity declares, by name (its verify statements are
   /// `verify_declarations`).
   fields              object
   /// The written paths of the fields and members in `fields` a compute pass gave; absent when none.
-  computed            string[]     @optional
+  computed            string[]        @optional
   /// Each annotated field's annotations, by its name (a block field's entry's by outer.key); absent when none.
-  annotations         object       @optional
+  annotations         object          @optional
   /// Its methods, as the graph export writes them; absent when none.
-  methods             MethodJson[] @optional
+  methods             MethodJson[]    @optional
   /// The entities that reference this one (incoming), distinct, sorted.
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
+  /// Its verdict statements as the graph export writes them; absent when it has none.
+  verdicts            VerdictJson[]   @optional
+  /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
+  judgements          JudgementJson[] @optional
   /// Its obligations, each its kind (absent for a bare verify) and its text, as the graph export
   /// writes them and specforge.edit reads them; absent when it declares none.
-  verify_declarations Obligation[] @optional
+  verify_declarations Obligation[]    @optional
   /// Whether the entity counts (exempt, not_testable) and, when it does, how
   /// it is proven, as specforge.coverage's row says.
   coverage_status     CoverageStatus

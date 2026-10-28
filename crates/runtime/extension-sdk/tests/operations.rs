@@ -373,7 +373,6 @@ fn the_sdk_reads_a_setting_or_its_declared_default() {
     );
 }
 
-#[ignore = "K7 T11"]
 #[specforge_test_macros::test(
     behavior = "answer_judged_inputs",
     verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
