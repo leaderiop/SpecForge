@@ -15,7 +15,6 @@ const SETTINGS_MD: &str = include_str!("../spec/settings.md");
 
 /// Keys only `docs/CONFIGURATION.md` lists (neither the manifest nor a capability does).
 const DOCS_ONLY: &[&str] = &[
-    "context_profile",
     "dynamic_routing.enabled",
     "dynamic_routing.escalate_on_failure",
     "dynamic_routing.max_escalations",
@@ -41,6 +40,10 @@ const DOCS_DEFAULTS: &[&str] = &[
     "review.lm_studio_host",
     "review.ollama_host",
 ];
+
+/// Search availability flags the defaults manifest gives `false`: GSD detects them from the key's presence when they
+/// are unset (`config-new-project`), so a default of `false` here would read as "forced off". Declared without one.
+const DETECTED_FLAGS: &[&str] = &["brave_search", "firecrawl", "exa_search"];
 
 /// Manifest keys that are objects: they are declared through their members, not as a setting of their own.
 const CONTAINERS: &[&str] = &["agent_tools", "review.max_prompt_tokens_per_reviewer"];
@@ -234,6 +237,10 @@ fn every_core_key_of_the_manifest_is_declared_with_its_default() {
             continue;
         };
         if DOCS_DEFAULTS.contains(&key.as_str()) {
+            continue;
+        }
+        if DETECTED_FLAGS.contains(&key.as_str()) {
+            assert_eq!(setting.default, None, "{key} is detected, not defaulted");
             continue;
         }
         checked += 1;

@@ -31,7 +31,13 @@ fn listed(p: &crate::harness::Project, all: bool) -> BTreeMap<String, serde_json
 fn specforge_settings_lists_gsd_core_defaults() {
     let p = project("empty");
     let defaults = listed(&p, false);
-    assert_eq!(defaults.len(), 122, "settings with a default");
+    assert_eq!(defaults.len(), 119, "settings with a default");
+    for detected in ["brave_search", "firecrawl", "exa_search"] {
+        assert!(
+            !defaults.contains_key(detected),
+            "{detected} is detected, not defaulted"
+        );
+    }
     for (name, value) in [
         ("mode", serde_json::json!("interactive")),
         ("granularity", serde_json::json!("standard")),
@@ -52,7 +58,7 @@ fn specforge_settings_lists_gsd_core_defaults() {
         assert_eq!(defaults.get(name), Some(&value), "{name}");
     }
     let all = listed(&p, true);
-    assert_eq!(all.len(), 194, "182 keys and 12 families");
+    assert_eq!(all.len(), 193, "181 keys and 12 families");
     assert!(all.contains_key("models.*") && all.contains_key("review.reviewer_instances.*.*"));
 }
 
@@ -167,4 +173,57 @@ fn a_secret_is_never_listed_with_its_value() {
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(check.all().contains("E087"), "check: {}", check.all());
+}
+
+/// `specforge check` on a project whose settings are `settings`: its exit code and everything it printed.
+fn checked(settings: serde_json::Value) -> (i32, String) {
+    let p = project("empty");
+    p.settings(settings);
+    let check = p.run(&["check"]);
+    (check.code, check.all())
+}
+
+#[test]
+fn context_is_gsds_enum_and_context_profile_is_not_a_setting() {
+    assert_eq!(checked(serde_json::json!({ "context": "research" })).0, 0);
+    let (code, out) = checked(serde_json::json!({ "context": "keep functions small" }));
+    assert_eq!(code, 1, "{out}");
+    assert!(
+        out.contains("E086") && out.contains("dev, research, review"),
+        "{out}"
+    );
+    let (code, out) = checked(serde_json::json!({ "context_profile": "dev" }));
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("context_profile"), "{out}");
+}
+
+#[test]
+fn the_unset_sentinel_of_a_reviewer_lane_is_accepted() {
+    let lanes = serde_json::json!({
+        "review.timeouts.claude": -1,
+        "review.max_prompt_tokens_per_reviewer.codex": -1,
+    });
+    let (code, out) = checked(lanes);
+    assert_eq!(code, 0, "-1 is GSD's unset: {out}");
+    assert_ne!(
+        checked(serde_json::json!({ "review.timeouts.claude": -2 })).0,
+        0
+    );
+}
+
+#[test]
+fn the_threshold_endpoints_gsd_refuses_are_refused() {
+    for refused in [
+        serde_json::json!({ "hooks.context_warning_threshold": 0 }),
+        serde_json::json!({ "hooks.context_critical_threshold": 100 }),
+        serde_json::json!({ "hooks.context_warning_threshold": 101 }),
+    ] {
+        let (code, out) = checked(refused.clone());
+        assert_eq!(code, 1, "{refused}: {out}");
+    }
+    let (code, out) = checked(serde_json::json!({
+        "hooks.context_warning_threshold": 100,
+        "hooks.context_critical_threshold": 0,
+    }));
+    assert_eq!(code, 0, "{out}");
 }

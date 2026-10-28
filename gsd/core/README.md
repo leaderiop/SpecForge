@@ -16,7 +16,7 @@ extensions and the profiles declare it as their peer.
 | Passes | `derive` (the computed fields), `roadmap` (`gsd/E101`, `gsd/E102`, `gsd/W104`, `gsd/E108`) | `src/passes/` |
 | Rules | `gsd/E105` (an `out_of_scope` requirement has a reason), `gsd/E107` (generated for each authored timestamp field; no r34 kind has one, `project.updated` is computed, so it first fires in the round that adds one) | `src/rules.rs`, `src/kinds/dsl.rs` |
 | Code book | all 60 `gsd/` codes of [spec/rules.md](spec/rules.md), each with its `gsd-compat` severity and what `gsd-strict` raises it to; the rules of the others land with their kinds | `src/codes.rs` |
-| Settings | the 177 GSD configuration keys `@gsd/core` owns, typed with GSD's default, and 12 families (`models.*`, `granularities.*`, …) | `src/settings/keys.rs`, model in [spec/settings.md](spec/settings.md) |
+| Settings | the 181 GSD configuration keys `@gsd/core` owns, typed with GSD's default, and 12 families (`models.*`, `granularities.*`, …) | `src/settings/keys.rs`, model in [spec/settings.md](spec/settings.md) |
 | Profiles | `profile` (`gsd-compat` by default, `gsd-strict`, `gsd-plus`), presetting five settings and raising rule severities | `src/settings/profiles.rs` |
 | Gates | the four `specforge.*` settings and the `workflow.*` toggles switch off the rules [spec/rules.md](spec/rules.md#setting-gated-rules) lists | `src/settings/gates.rs` |
 | Secrets | the key half of the seven search flags (`brave_search_key` … `jina_key`), read from `BRAVE_API_KEY` … `JINA_API_KEY` | `src/settings/profiles.rs` |

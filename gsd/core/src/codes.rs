@@ -60,6 +60,8 @@ impl Code {
     }
 }
 
+/// The kernel refuses a `docs` that is not an absolute http(s) URL (E030), so this is the one place to change when
+/// `@gsd/core` moves to its own repository.
 const RULES: &str = "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md";
 
 const fn code(
