@@ -97,7 +97,6 @@ fn query_nonexistent_entity_exits_one() {
         );
 }
 
-#[ignore = "K7 T10"]
 #[test]
 fn query_inputs_refuses_a_rule_no_extension_judges() {
     let dir = TestProject::new()

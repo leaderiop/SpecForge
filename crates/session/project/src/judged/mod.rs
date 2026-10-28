@@ -5,6 +5,7 @@
 //! A judged rule fires on an entity of a target kind while its verdict is missing, unreadable, not recorded in the
 //! harness ledger, stale (an input digests differently from when it was recorded) or failing.
 
+mod describe;
 mod digest;
 mod inputs;
 mod memo;
@@ -14,8 +15,9 @@ mod state;
 
 use std::collections::BTreeMap;
 
+pub use describe::{Described, InputsRefusal, describe};
 pub use digest::{entity_digest, file_digest};
-pub use inputs::{Cited, Inputs, inputs};
+pub use inputs::{Cited, CitedReport, InputReport, Inputs, inputs};
 pub use memo::DigestMemo;
 pub use state::{Evaluated, evaluate};
 

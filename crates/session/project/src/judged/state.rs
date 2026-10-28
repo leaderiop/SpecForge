@@ -16,7 +16,7 @@ use crate::Environment;
 use crate::harness::{Harness, LEDGER_FILE, Ledger, VERDICT_KEY, digest};
 
 /// The rule `written` names: its qualified code, or its local code when one rule has it.
-fn rule_of<'a>(rules: &[&'a JudgedRule], written: &str) -> Option<&'a JudgedRule> {
+pub(super) fn rule_of<'a>(rules: &[&'a JudgedRule], written: &str) -> Option<&'a JudgedRule> {
     rules
         .iter()
         .copied()

@@ -63,6 +63,32 @@ pub struct Inputs {
     pub files: Vec<JudgedFile>,
     /// A `test(..)` input could not be digested: no report, or an unusable one.
     pub tests_unjudged: bool,
+    /// Each named input as it was read: what it picked and its digest.
+    pub reports: Vec<InputReport>,
+    /// What the verdict cites, resolved, and its digest.
+    pub cited: CitedReport,
+}
+
+/// One input as it was read.
+#[derive(Debug, Clone)]
+pub struct InputReport {
+    pub name: String,
+    /// The selector, printed canonically.
+    pub selector: String,
+    /// `entities`, `files` or `tests`.
+    pub kind: &'static str,
+    /// The entities (by path) or files (from the project root) it picked.
+    pub members: Vec<String>,
+    pub digest: String,
+}
+
+/// What a verdict cites, resolved.
+#[derive(Debug, Clone, Default)]
+pub struct CitedReport {
+    pub entities: Vec<String>,
+    pub files: Vec<String>,
+    pub tests: Vec<String>,
+    pub digest: String,
 }
 
 /// The inputs of `rule` on `entity` in `project`, files read through `disk`; `None` when the rule does not judge
@@ -241,10 +267,16 @@ impl<'a> Cx<'a> {
         let select = self.select();
         for (name, selector) in &target.inputs {
             let shown = selector.to_string();
-            let value = match selector {
-                Selector::Entities(chain) => self.entity_set(&shown, select.entities(id, chain)),
+            let read = out.files.len();
+            let (kind, members, value) = match selector {
+                Selector::Entities(chain) => {
+                    let ids = select.entities(id, chain);
+                    let members: Vec<String> = ids.iter().cloned().collect();
+                    ("entities", members, Some(self.entity_set(&shown, ids)))
+                }
                 Selector::FilesOf(chain) => {
-                    self.files(&shown, &select.files(id, chain), &mut out.files)
+                    let value = self.files(&shown, &select.files(id, chain), &mut out.files);
+                    ("files", Vec::new(), Some(value))
                 }
                 Selector::Files(paths) => {
                     let files = paths
@@ -254,25 +286,45 @@ impl<'a> Cx<'a> {
                             project: true,
                         })
                         .collect();
-                    self.files(&shown, &files, &mut out.files)
+                    (
+                        "files",
+                        Vec::new(),
+                        Some(self.files(&shown, &files, &mut out.files)),
+                    )
                 }
                 Selector::Tests(chain) => {
-                    let tests: Option<Vec<Value>> = select
-                        .entities(id, chain)
-                        .into_iter()
-                        .map(|t| self.tests_of(&t).map(|tests| json!([t, tests])))
+                    let ids = select.entities(id, chain);
+                    let tests: Option<Vec<Value>> = ids
+                        .iter()
+                        .map(|t| self.tests_of(t).map(|tests| json!([t, tests])))
                         .collect();
-                    match tests {
-                        Some(tests) => json!({"selector": shown, "tests": tests}),
-                        None => {
-                            out.tests_unjudged = true;
-                            out.digests.push((name.clone(), NONE.to_string()));
-                            continue;
-                        }
-                    }
+                    (
+                        "tests",
+                        ids.into_iter().collect(),
+                        tests.map(|tests| json!({"selector": shown, "tests": tests})),
+                    )
                 }
             };
-            out.digests.push((name.clone(), hash(&value)));
+            let members = if kind == "files" {
+                out.files[read..].iter().map(|f| f.path.clone()).collect()
+            } else {
+                members
+            };
+            let digest = match value {
+                Some(value) => hash(&value),
+                None => {
+                    out.tests_unjudged = true;
+                    NONE.to_string()
+                }
+            };
+            out.reports.push(InputReport {
+                name: name.clone(),
+                selector: shown,
+                kind,
+                members,
+                digest: digest.clone(),
+            });
+            out.digests.push((name.clone(), digest));
         }
         {
             let entities: Vec<Value> = {
@@ -301,6 +353,7 @@ impl<'a> Cx<'a> {
                     project: true,
                 })
                 .collect();
+            let cited_from = out.files.len();
             let files = self.files("cited", &paths, &mut out.files);
             // shortcut: a cited test is a test name looked up across every entity's recorded tests; name a
             // test by entity when a project reuses names.
@@ -331,6 +384,18 @@ impl<'a> Cx<'a> {
                 NONE.to_string()
             } else {
                 hash(&json!({"entities": entities, "files": files, "tests": tests}))
+            };
+            out.cited = CitedReport {
+                entities: entities
+                    .iter()
+                    .filter_map(|e| e[1].as_str().map(str::to_string))
+                    .collect(),
+                files: out.files[cited_from..]
+                    .iter()
+                    .map(|f| f.path.clone())
+                    .collect(),
+                tests: cited.tests.clone(),
+                digest: digest.clone(),
             };
             out.digests.push((CITED.to_string(), digest));
         }

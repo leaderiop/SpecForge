@@ -3,8 +3,10 @@ use crate::options;
 use crate::outcome::{Exit, Refusal};
 use crate::terminal::{Terminal, outln};
 use specforge_ops::read::export::Format;
+use specforge_ops::read::judged::{InputsRequest, judged_inputs};
 use specforge_ops::read::query::{QueryRequest, query};
 use specforge_ops::view::ProjectView;
+use specforge_protocol_types::Cite;
 
 // `specforge query`'s command line.
 #[derive(clap::Args)]
@@ -33,8 +35,25 @@ pub(crate) struct Args {
     format: Format,
 
     /// Give every entity its coverage status
-    #[arg(long)]
+    #[arg(long, conflicts_with = "inputs")]
     include_coverage: bool,
+
+    /// Instead of the neighbourhood, list what this judged rule reads for the entity: each input
+    /// with its digest, the verdict's state, and the basis `set_verdict` checks
+    #[arg(long, value_name = "RULE", conflicts_with_all = ["depth", "kinds"])]
+    inputs: Option<String>,
+
+    /// With --inputs: an entity the verdict will cite (the flag repeated)
+    #[arg(long, requires = "inputs", value_name = "ENTITY")]
+    cite: Vec<String>,
+
+    /// With --inputs: a file the verdict will cite, from the project root
+    #[arg(long, requires = "inputs", value_name = "FILE")]
+    cite_file: Vec<String>,
+
+    /// With --inputs: a test the verdict will cite, by name
+    #[arg(long, requires = "inputs", value_name = "TEST")]
+    cite_test: Vec<String>,
 }
 
 impl Args {
@@ -58,6 +77,9 @@ impl Args {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
+        if let Some(rule) = &self.inputs {
+            return self.run_inputs(terminal, &ProjectView::of(&project), rule);
+        }
         match query(&ProjectView::of(&project), &self.request()) {
             Ok(document) => {
                 let document = Notes::fixed(terminal).noticed(document);
@@ -66,6 +88,67 @@ impl Args {
             }
             Err(error) => Refusal::fixed().report(terminal, &error),
         }
+    }
+
+    /// `--inputs <rule>`: one line per input, then what is cited, then the basis as one JSON line;
+    /// `--format json` prints the whole answer.
+    fn run_inputs(&self, terminal: &Terminal, view: &ProjectView<'_>, rule: &str) -> Exit {
+        let cited: Vec<Cite> = self
+            .cite
+            .iter()
+            .map(|entity| Cite::Entity {
+                entity: entity.clone(),
+            })
+            .chain(
+                self.cite_file
+                    .iter()
+                    .map(|file| Cite::File { file: file.clone() }),
+            )
+            .chain(
+                self.cite_test
+                    .iter()
+                    .map(|test| Cite::Test { test: test.clone() }),
+            )
+            .collect();
+        let request = InputsRequest {
+            entity: &self.entity,
+            rule,
+            cited: &cited,
+        };
+        let answer = match judged_inputs(view, &request) {
+            Ok(answer) => answer,
+            Err(error) => return Refusal::fixed().report(terminal, &error),
+        };
+        let state = answer
+            .verdict
+            .as_ref()
+            .map_or("gated", |v| v.state.as_str());
+        outln!(
+            terminal,
+            "{} {} ({}): {state}",
+            answer.entity,
+            answer.rule,
+            answer.judge
+        );
+        for input in &answer.inputs {
+            let moved = if input.changed { " changed" } else { "" };
+            outln!(
+                terminal,
+                "  {} [{}] {} {}{moved}  {}",
+                input.name,
+                input.kind,
+                input.members.len(),
+                input.selector,
+                input.digest
+            );
+        }
+        outln!(terminal, "  cited: {}", answer.cited.digest);
+        outln!(
+            terminal,
+            "basis {}",
+            serde_json::to_string(&answer.basis).expect("serializes")
+        );
+        Exit::Passed
     }
 }
 

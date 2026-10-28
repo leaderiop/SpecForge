@@ -6,9 +6,11 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 use specforge_graph::Found;
-use specforge_project::judged::{Cited, inputs};
+use specforge_project::judged::inputs;
 use specforge_protocol_types::Cite;
-use specforge_registry::{Disk, PlainDisk};
+use specforge_registry::PlainDisk;
+
+use crate::read::judged::cited_of;
 
 use super::verdict::{JudgedRule, JudgedRules, UnknownCite, VerdictMember};
 use crate::Refusal;
@@ -88,27 +90,7 @@ impl JudgedRules for HostJudgedRules {
         let Some(judged) = view.registries().judged_rule(code) else {
             return Ok(BTreeMap::new());
         };
-        let mut shown = Cited::default();
-        for cite in cited {
-            match cite {
-                Cite::Entity { entity } => {
-                    if !matches!(view.graph().find(entity), Found::One(_)) {
-                        return Err(UnknownCite(entity.clone()));
-                    }
-                    shown.entities.push(entity.clone());
-                }
-                Cite::File { file } => {
-                    let held = view
-                        .root()
-                        .is_some_and(|root| PlainDisk.exists(&root.join(file)));
-                    if !held {
-                        return Err(UnknownCite(file.clone()));
-                    }
-                    shown.files.push(file.clone());
-                }
-                Cite::Test { test } => shown.tests.push(test.clone()),
-            }
-        }
+        let shown = cited_of(view, cited).map_err(UnknownCite)?;
         // shortcut: file inputs are read from the plain file system, not through an MCP call's bound; a judged
         // input outside the bound is read anyway. Route it through the view's containment when a bound is set.
         Ok(

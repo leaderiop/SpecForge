@@ -11,6 +11,7 @@ pub mod explore;
 pub mod export;
 pub mod infer;
 pub mod inspect;
+pub mod judged;
 pub mod model;
 pub mod navigate;
 pub mod plan;

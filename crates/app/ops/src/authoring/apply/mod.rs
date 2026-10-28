@@ -303,8 +303,7 @@ pub(crate) fn check_rename(
     flags::check(view, origin, &[op], false)
 }
 
-/// A rule named by `set_verdict` is not judged.
-pub const NOT_JUDGED: &str = "not_judged";
+pub use crate::read::judged::NOT_JUDGED;
 
 /// When a source other than the plan's has changed since `project` was compiled, `change` judged over the disk as
 /// it is now: E080 when it adds an error the disk does not have.

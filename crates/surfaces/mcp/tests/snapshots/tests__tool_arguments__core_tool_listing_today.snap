@@ -6775,6 +6775,202 @@ expression: listing
     }
   },
   {
+    "name": "specforge.verdict_inputs",
+    "description": "Read what a judged rule judges for one entity: each input with its digest, the verdict's state, and the basis set_verdict checks",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "cite_entities": {
+          "description": "Entities the verdict will cite",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cite_files": {
+          "description": "Files the verdict will cite, from the project root",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cite_tests": {
+          "description": "Tests the verdict will cite, by name",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "entity": {
+          "description": "The entity the rule judges",
+          "type": "string"
+        },
+        "rule": {
+          "description": "The judged rule's code, qualified (`gsd/W311`) or local when unique",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "rule"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "cited": {
+          "additionalProperties": false,
+          "properties": {
+            "digest": {
+              "type": "string"
+            },
+            "entities": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "tests": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "entities",
+            "files",
+            "tests",
+            "digest"
+          ],
+          "type": "object"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "gated": {
+          "type": "boolean"
+        },
+        "inputs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "changed": {
+                "type": "boolean"
+              },
+              "digest": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "members": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "selector",
+              "kind",
+              "members",
+              "digest",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "judge": {
+          "type": "string"
+        },
+        "outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "passing": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "verdict": {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "type": "string"
+            },
+            "changed": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "passed": {
+              "type": "boolean"
+            },
+            "state": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "passed",
+            "changed"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "entity",
+        "rule",
+        "judge",
+        "outcomes",
+        "passing",
+        "gated",
+        "inputs",
+        "cited",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "specforge.doctor",
     "description": "Run health checks",
     "inputSchema": {

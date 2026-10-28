@@ -5,7 +5,6 @@ use crate::support::*;
 use serde_json::json;
 use specforge_test::prelude::*;
 
-#[ignore = "K7 T10"]
 #[specforge_test(
     behavior = "answer_judged_inputs",
     verify = "the verdict inputs tool answers what the inputs query answers"

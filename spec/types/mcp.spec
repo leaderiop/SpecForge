@@ -420,6 +420,57 @@ type McpSettingsResult "Mcp Settings Result" {
   verify unit "McpSettingsResult schema is valid"
 }
 
+type McpVerdictInputsResult "Mcp Verdict Inputs Result" {
+  /// The entity's path.
+  entity   string          @readonly
+  /// The rule's qualified code.
+  rule     string
+  judge    string
+  outcomes string[]
+  passing  string[]
+  /// The rule's setting is off: nothing is read and nothing is judged.
+  gated    boolean
+  /// Where the verdict stands; absent when the rule is gated.
+  verdict  McpVerdictState @optional
+  inputs   McpVerdictInput[]
+  cited    McpVerdictCited
+  /// Every input's name and `cited` with its digest: what `set_verdict` names as its `basis`.
+  basis    any
+  verify unit "McpVerdictInputsResult schema is valid"
+}
+
+type McpVerdictState "Mcp Verdict State" {
+  /// "fresh", "stale", "missing", "unrecorded" or "unreadable".
+  state   string
+  passed  boolean
+  outcome string @optional
+  at      string @optional
+  /// The inputs that changed since the verdict (stale only).
+  changed string[]
+  verify unit "McpVerdictState schema is valid"
+}
+
+type McpVerdictInput "Mcp Verdict Input" {
+  name     string @readonly
+  selector string
+  /// "entities", "files" or "tests".
+  kind     string
+  /// The entities (by path) or files (from the project root) it picked.
+  members  string[]
+  digest   string
+  /// It differs from what the current verdict was judged over.
+  changed  boolean
+  verify unit "McpVerdictInput schema is valid"
+}
+
+type McpVerdictCited "Mcp Verdict Cited" {
+  entities string[]
+  files    string[]
+  tests    string[]
+  digest   string
+  verify unit "McpVerdictCited schema is valid"
+}
+
 type McpExtensionSettings "Mcp Extension Settings" {
   extension string @readonly
   settings  McpSettingRow[]

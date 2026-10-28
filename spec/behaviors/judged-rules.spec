@@ -111,6 +111,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
 
 behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   invariants [graph_traversal_integrity]
+  types      [McpVerdictInputsResult]
   category   query
   contract   """
     `specforge query <entity> --inputs <rule>` and the MCP tool `specforge.verdict_inputs` answer each input's

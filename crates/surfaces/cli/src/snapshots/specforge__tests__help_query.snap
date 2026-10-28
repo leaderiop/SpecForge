@@ -37,5 +37,17 @@ Options:
       --include-coverage
           Give every entity its coverage status
 
+      --inputs <RULE>
+          Instead of the neighbourhood, list what this judged rule reads for the entity: each input with its digest, the verdict's state, and the basis `set_verdict` checks
+
+      --cite <ENTITY>
+          With --inputs: an entity the verdict will cite (the flag repeated)
+
+      --cite-file <FILE>
+          With --inputs: a file the verdict will cite, from the project root
+
+      --cite-test <TEST>
+          With --inputs: a test the verdict will cite, by name
+
   -h, --help
           Print help (see a summary with '-h')
