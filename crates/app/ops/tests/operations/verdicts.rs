@@ -99,21 +99,28 @@ fn set_verdict_checks_the_rule_and_its_basis() {
     );
 }
 
-#[ignore = "K7"]
-// Ledger::rewritten learns the verdict: prefix in K7 T5 (U-r32-3); the fake host writes no verdict member.
+// The fake host writes no verdict member, so the pin flips with the host's own port (K7 T9); the ledger's half, that a
+// verdict is a recorded value, is pinned in `harness::rewrite` (K7 T5).
+#[ignore = "K7 T9"]
 #[specforge_test(
     behavior = "apply_edit_plan",
     verify = "set_verdict writes its verdict and its ledger line"
 )]
 fn set_verdict_writes_its_verdict_and_its_ledger_line() {
     let p = project();
-    let ops = verdict("quality", "pass", "judge", &[], json!({}));
-    assert_eq!(refused(&p, CORE, "core", "record", ops), None);
-    assert!(
-        std::fs::read_to_string(p.root().join("03-02.spec"))
-            .unwrap()
-            .contains("verdict")
+    let ops = verdict(
+        "quality",
+        "pass",
+        "judge",
+        &[],
+        json!({"cited": "sha256:1"}),
     );
+    let outcome = run_with_rules(&p, "record", ops, false, || {});
+    assert!(outcome.starts_with("not refused"), "{outcome}");
+    let spec = std::fs::read_to_string(p.root().join("03-02.spec")).unwrap();
+    assert!(spec.contains("verdict quality pass {"), "{spec}");
+    let ledger = std::fs::read_to_string(p.root().join("specforge-harness")).unwrap_or_default();
+    assert!(ledger.contains(" verdict:quality "), "{ledger}");
 }
 
 /// The host with the fake judged rule: the refusal reason of `ops` (the code when it has none) answered by command

@@ -11,20 +11,21 @@ pub mod rewrite;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use specforge_graph::wire::{bytes, resolved};
+use specforge_graph::wire::{bytes, resolved, verdict_bytes};
 use specforge_graph::{FieldForms, Graph};
 use specforge_protocol_types::FieldWriter;
 use specforge_registry::RegistryBuild;
 
 pub use check::check;
-pub use format::{HEADER, LEDGER_FILE, Ledger, Line, Parsed, digest};
+pub use format::{HEADER, LEDGER_FILE, Ledger, Line, Parsed, VERDICT_KEY, digest};
 pub use io::{Overlay, lock};
 pub use overlay::LedgerOverlay;
 pub use rewrite::{LedgerChange, View};
 
-/// The harness fields of the loaded extensions, by kind: the fields whose values the ledger records.
+/// The harness fields of the loaded extensions, by kind: the fields whose values the ledger records, and whether a
+/// loaded extension declares a judged rule, whose verdicts the ledger records too (ADR 0290).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Harness(BTreeMap<String, BTreeSet<String>>);
+pub struct Harness(BTreeMap<String, BTreeSet<String>>, bool);
 
 impl Harness {
     /// Every field the registry build holds with `writer: harness`.
@@ -38,12 +39,12 @@ impl Harness {
                     .insert(field.to_string());
             }
         }
-        Self(kinds)
+        Self(kinds, registries.judged_rules().next().is_some())
     }
 
-    /// No extension declares a harness field: nothing reads the ledger.
+    /// No extension declares a harness field or a judged rule: nothing reads the ledger.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.0.is_empty() && !self.1
     }
 
     /// The harness fields of `kind`.
@@ -58,7 +59,7 @@ impl Harness {
     }
 
     /// The bytes a ledger digest is taken over for `field` of the entity `path` in `graph`, when it is a harness
-    /// field the entity writes.
+    /// field the entity writes, or `verdict:<rule>` and the entity writes a verdict of that rule (its first).
     pub fn value(
         &self,
         graph: &Graph,
@@ -67,6 +68,10 @@ impl Harness {
         field: &str,
     ) -> Option<Vec<u8>> {
         let node = graph.node(path)?;
+        if let Some(rule) = field.strip_prefix(VERDICT_KEY) {
+            let verdict = node.verdicts.iter().find(|v| v.rule == rule)?;
+            return Some(verdict_bytes(graph, node, verdict));
+        }
         if !self.has(node.kind.raw.as_str(), field) {
             return None;
         }

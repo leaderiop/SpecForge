@@ -93,7 +93,9 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
     that declares no judged rule reads no report and stamps no file.
   """
   verify unit "a project with no judged rule reads no report and stamps no file"
-  verify unit "a hand-written verdict is E083 and counts as missing"
+  verify unit "a hand-written verdict is E083"
+  verify unit "a hand-written verdict counts as missing"
+  verify unit "a verdict is a value of the ledger: set records it, a respelling keeps it, a move re-keys it"
   verify unit "a judged rule reports missing, stale and failed verdicts"
   verify unit "a stale verdict names the inputs that changed"
   verify unit "test inputs are not judged without a report"

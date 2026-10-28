@@ -30,6 +30,7 @@ mod guards;
 pub mod harness;
 pub mod history;
 pub mod journal;
+pub mod judged;
 mod ledger;
 pub mod passes;
 mod policy;

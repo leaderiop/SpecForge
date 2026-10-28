@@ -242,7 +242,7 @@ impl CompiledProject {
             // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
             // for values, neither project holds are that writer's, and stay.
             let held = |project: &CompiledProject, l: &crate::harness::Line| {
-                if l.is_field() {
+                if l.is_value() {
                     harness
                         .value(project.graph(), forms, &l.path, &l.key)
                         .is_some()

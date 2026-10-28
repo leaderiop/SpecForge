@@ -62,8 +62,10 @@ fn judgement(compiled: &CompiledProject, entity: &str, rule: &str) -> (String, V
 
 /// The digest of `entity` over its resolved authored values. K7 T5.
 fn digest_of(compiled: &CompiledProject, entity: &str) -> String {
-    let _ = (compiled, entity);
-    panic!("K7 T5: wire::entity_digest")
+    let graph = compiled.graph();
+    let node = graph.node(entity).expect("the entity is declared");
+    let forms = compiled.environment().registries().field_forms();
+    specforge_project::judged::entity_digest(graph, forms, node)
 }
 
 const PLAN: &str = "v1.0/03/03-02";
@@ -79,18 +81,30 @@ fn every_gsd_judged_input_parses_and_resolves() {
     assert!(found(&diagnostics, "W112").is_empty(), "{diagnostics:?}");
 }
 
-#[ignore = "K7 T5"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
-    verify = "a hand-written verdict is E083 and counts as missing"
+    verify = "a hand-written verdict is E083"
 )]
-fn a_hand_written_verdict_is_e083_and_counts_as_missing() {
-    let spec = format!(
-        "plan 03-04 \"Hand\" {{\n  phase 03\n  verdict {W311} passed {{\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26T14:02:11Z\"\n    inputs {{ plan \"sha256:0\" }}\n  }}\n}}\n"
-    );
-    let compiled = compile(&gsd_judged_project(&spec));
+fn a_hand_written_verdict_is_e083() {
+    let compiled = compile(&gsd_judged_project(&hand_written()));
     let diagnostics = compiled.diagnostics();
     assert_eq!(found(&diagnostics, "E083").len(), 1, "{diagnostics:?}");
+}
+
+fn hand_written() -> String {
+    format!(
+        "plan 03-04 \"Hand\" {{\n  phase 03\n  verdict {W311} passed {{\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26T14:02:11Z\"\n    inputs {{ plan \"sha256:0\" }}\n  }}\n}}\n"
+    )
+}
+
+#[ignore = "K7 T6"]
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a hand-written verdict counts as missing"
+)]
+fn a_hand_written_verdict_counts_as_missing() {
+    let compiled = compile(&gsd_judged_project(&hand_written()));
+    let diagnostics = compiled.diagnostics();
     let on_hand: Vec<_> = found(&diagnostics, W311)
         .into_iter()
         .filter(|d| d.message.contains("v1.0/03/03-04"))
@@ -99,7 +113,6 @@ fn a_hand_written_verdict_is_e083_and_counts_as_missing() {
     assert!(on_hand[0].message.contains("not recorded"), "{on_hand:?}");
 }
 
-#[ignore = "K7 T5"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "an entity digest ignores layout, comments, verdicts and derived values"
