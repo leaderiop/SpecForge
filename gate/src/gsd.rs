@@ -5,15 +5,10 @@
 use crate::checks::Selection;
 use crate::run::Ctx;
 
-/// What can break the workspace: itself, the SDK it builds against, the protocol types the SDK speaks and the root
-/// manifest (a version bump must reach `gsd/core/Cargo.toml`).
-pub const TRIGGER: &[&str] = &[
-    "gsd/**",
-    "crates/runtime/extension-sdk/**",
-    "crates/runtime/extension-sdk-macros/**",
-    "crates/leaf/protocol-types/**",
-    "Cargo.toml",
-];
+/// What can break the workspace: itself, the root manifest and lockfile (a version bump must reach
+/// `gsd/core/Cargo.toml`) and every crate: the tests run through the `specforge` binary, which is built from all of
+/// them, and the SDK is one of them.
+pub const TRIGGER: &[&str] = &["gsd/**", "crates/**", "Cargo.toml", "Cargo.lock"];
 
 /// Stops at the first failing step: clippy for native and wasm, the release wasm build, the `specforge` CLI build,
 /// then `cargo test` with `SPECFORGE_BIN` and `GSD_CORE_WASM` set to the two artifacts. Cargo runs in `gsd/`: it reads
@@ -30,6 +25,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     };
     ctx.sh(&mut cargo(&[
         "clippy",
+        "--locked",
         "--all-targets",
         "--",
         "-D",
@@ -37,6 +33,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     ]))?;
     ctx.sh(&mut cargo(&[
         "clippy",
+        "--locked",
         "--target",
         "wasm32-wasip2",
         "--lib",
@@ -46,6 +43,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     ]))?;
     ctx.sh(&mut cargo(&[
         "build",
+        "--locked",
         "-p",
         "gsd-core",
         "--release",
@@ -53,7 +51,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         "wasm32-wasip2",
     ]))?;
     let specforge = ctx.specforge()?;
-    ctx.sh(cargo(&["test"])
+    ctx.sh(cargo(&["test", "--locked"])
         .env("SPECFORGE_BIN", specforge)
         .env("GSD_CORE_WASM", &wasm))
 }
@@ -80,18 +78,20 @@ mod tests {
     }
 
     #[test]
-    fn the_gsd_check_triggers_on_the_sdk_and_on_gsd_only() {
+    fn the_gsd_check_triggers_on_what_the_binary_is_built_from_and_on_gsd() {
         for path in [
             "gsd/core/src/lib.rs",
             "crates/runtime/extension-sdk/src/lib.rs",
             "crates/leaf/protocol-types/src/calls.rs",
+            "crates/pipeline/formatter/src/lib.rs",
+            "crates/session/src/lib.rs",
+            "crates/runtime/component/src/lib.rs",
+            "crates/app/ops/src/lib.rs",
+            "crates/surfaces/cli/src/main.rs",
             "Cargo.toml",
         ] {
             assert_eq!(selection(&[path]), Selection::Everything, "{path}");
         }
-        assert_eq!(
-            selection(&["crates/surfaces/cli/src/main.rs"]),
-            Selection::Skip
-        );
+        assert_eq!(selection(&["docs/guide.md"]), Selection::Skip);
     }
 }

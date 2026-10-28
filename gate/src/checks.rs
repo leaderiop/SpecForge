@@ -117,10 +117,10 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "spec-format",
-        proves: "the .spec files of every project are formatted",
+        proves: "the .spec files of every project and of the @gsd fixtures are formatted",
         reach: Reach::Hook,
         trigger: Trigger::Computed(
-            "a .spec file in a project's spec dir; the formatter, parser or grammar",
+            "a .spec file in a project's spec dir or an @gsd fixture; the formatter, parser or grammar",
             spec_files,
         ),
         compiles: false,
@@ -468,7 +468,7 @@ fn spec_files(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     if !changes.matching(FORMATTING_CODE).is_empty() {
         return Ok(Selection::Everything);
     }
-    let dirs: Vec<String> = repo.projects()?.into_iter().map(|p| p.spec_dir).collect();
+    let dirs = repo.spec_dirs()?;
     let inside = |path: &str| {
         dirs.iter()
             .any(|dir| Pattern(&format!("{dir}/**/*.spec")).matches(path))

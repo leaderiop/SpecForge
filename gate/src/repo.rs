@@ -68,6 +68,13 @@ pub const PROJECTS: &[&str] = &[
     "examples/marketing",
 ];
 
+/// `.spec` directories that are no project's `spec_root` but are still written for `specforge format`: the `@gsd`
+/// fixtures the black-box tests and the parity twin read (a pattern as in [`OUTSIDE_WORKSPACE`]).
+pub const FIXTURE_SPEC_DIRS: &[&str] = &[
+    "gsd/core/tests/projects/*/spec",
+    "gsd/parity/fixtures/*/spec",
+];
+
 /// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`): the guests, the
 /// fixtures, each example project's own extension and the `@gsd` workspace (a pattern without a `*` names one path).
 pub const OUTSIDE_WORKSPACE: &[&str] = &[
@@ -187,6 +194,15 @@ impl Repo {
 
     /// The projects the spec checks judge, each with its spec directory read from its `specforge.json`'s
     /// `spec_root`: `.` is `spec`, `integrations/rust/spec` itself, `examples/*` their `spec`.
+    /// Every directory `specforge format` judges: each project's spec directory, then the fixture directories.
+    pub fn spec_dirs(&self) -> Result<Vec<String>, String> {
+        let mut dirs: Vec<String> = self.projects()?.into_iter().map(|p| p.spec_dir).collect();
+        for pattern in FIXTURE_SPEC_DIRS {
+            dirs.extend(expand(&self.root, pattern));
+        }
+        Ok(dirs)
+    }
+
     pub fn projects(&self) -> Result<Vec<Project>, String> {
         PROJECTS
             .iter()
@@ -376,6 +392,19 @@ mod tests {
                 ("examples/marketing", "examples/marketing/spec"),
             ]
         );
+    }
+
+    #[test]
+    fn the_gsd_fixture_spec_dirs_are_judged_after_the_projects() {
+        let dirs = this_repo().spec_dirs().unwrap();
+        assert_eq!(dirs[0], "spec");
+        for fixture in [
+            "gsd/core/tests/projects/roadmap/spec",
+            "gsd/core/tests/projects/roadmap_errors/spec",
+            "gsd/parity/fixtures/taskboard/spec",
+        ] {
+            assert!(dirs.iter().any(|d| d == fixture), "{fixture}: {dirs:?}");
+        }
     }
 
     #[test]

@@ -199,6 +199,15 @@ fn a_staged_starter_template_is_not_format_checked() {
 }
 
 #[test]
+fn the_gsd_fixture_specs_are_formatted_too() {
+    let paths = [
+        "gsd/core/tests/projects/roadmap/spec/v1.0.spec",
+        "gsd/parity/fixtures/taskboard/spec/project.spec",
+    ];
+    assert_eq!(selection("spec-format", Mode::Hook, &paths), only(&paths));
+}
+
+#[test]
 fn a_grammar_edit_is_judged_by_the_hook() {
     assert_eq!(
         selection(
