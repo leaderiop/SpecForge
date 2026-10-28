@@ -93,4 +93,4 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
-rule over the graph, `gsd/W204` ([rules](rules.md)).
+rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research is exempt.

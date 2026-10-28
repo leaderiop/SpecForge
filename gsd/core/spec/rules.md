@@ -38,7 +38,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/E201 | a context has canonical refs (`missing_required_field` and `non_empty` under one code) | decl | E | E | `gate-phase-context`, context template |
 | gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`) | E | E | spec-phase |
 | gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`) | W | E | spec template |
-| gsd/W204 | a research open question is resolved by a decision before planning | pass | W | E | plan checker (research resolution) |
+| gsd/W204 | an open question of a phase's research is resolved by a decision before planning (the project's research is exempt: the plan checker reads the phase's `RESEARCH.md` only) | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
 
 ## Plan

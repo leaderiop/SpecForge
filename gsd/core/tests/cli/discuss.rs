@@ -323,3 +323,37 @@ fn a_context_that_says_no_external_specs_is_clean() {
     ));
     checks_clean(&p);
 }
+
+fn research_without_resolution() -> Project {
+    let p = project("discuss");
+    let spec = fixture("research.spec");
+    let resolved = "  resolved_by D-02\n";
+    assert!(spec.contains(resolved), "the fixture resolves OQ1");
+    p.write("spec/research.spec", &spec.replace(resolved, ""));
+    p
+}
+
+#[test]
+fn open_question_without_decision_is_w204() {
+    let found = research_without_resolution().findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W204");
+    assert!(
+        found[0].1.contains("'v1.0/02/02-RESEARCH/OQ1'"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_resolved_open_question_is_clean() {
+    assert_eq!(project("discuss").findings(), []);
+}
+
+#[test]
+fn w204_is_an_error_under_gsd_strict() {
+    let p = research_without_resolution();
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 1, "check: {}", check.all());
+    assert!(check.all().contains("W204"), "check: {}", check.all());
+}
