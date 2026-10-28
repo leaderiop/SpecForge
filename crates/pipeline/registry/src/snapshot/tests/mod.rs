@@ -1,6 +1,7 @@
 //! The snapshot's tests: the field text, and the obligation rule over graphs built from text.
 
 mod edges;
+mod list_values;
 mod standing;
 mod text;
 mod validator;

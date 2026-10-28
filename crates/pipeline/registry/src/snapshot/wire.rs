@@ -1,6 +1,7 @@
 //! Adapters from the snapshot to fixed external shapes (ADR 0019, "Wire"): the pass input, the
 //! custom validators' context and the coverage rule's entities.
 
+use specforge_graph::ValueShape;
 use specforge_protocol_types::{
     PassEdge, PassEntity, PassSpan, ValidatorContext, ValidatorEntity, ValidatorField,
     ValidatorMethod, ValidatorParam, ValidatorRef,
@@ -141,12 +142,21 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing) -> PassEnt
     }
 }
 
-/// The structured value of each of `record`'s typed blocks and block lists, by field name (ADR 0285).
+/// The structured value of each of `record`'s typed blocks and block lists (ADR 0285) and of each list field, by field
+/// name: a list as the array of its items, unjoined, so an item holding the joiner stays whole (ADR 0294). A pass and a
+/// validator get the same.
 fn written_values(record: &EntityRecord) -> BTreeMap<String, serde_json::Value> {
     record
         .fields
         .iter()
-        .filter_map(|f| Some((f.key.clone(), f.written.clone()?)))
+        .filter_map(|f| {
+            let value = match (&f.written, &f.items) {
+                (Some(written), _) => written.clone(),
+                (None, Some(items)) if f.shape == ValueShape::List => items.as_slice().into(),
+                _ => return None,
+            };
+            Some((f.key.clone(), value))
+        })
         .collect()
 }
 

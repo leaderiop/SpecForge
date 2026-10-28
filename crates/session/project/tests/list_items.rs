@@ -6,7 +6,6 @@ use serde_json::json;
 use specforge_project::testing::{gsd_facts_project, gsd_facts_runtime, pass_input};
 
 #[test]
-#[ignore = "pins K13; T8 un-ignores"]
 fn a_list_item_holding_the_joiner_reaches_a_pass_whole() {
     let project = gsd_facts_project();
     let runtime = Arc::new(gsd_facts_runtime());

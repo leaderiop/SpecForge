@@ -418,8 +418,10 @@ pub struct PassEntity {
     #[serde(default)]
     pub fields: BTreeMap<String, String>,
     /// The structured value of each field whose text drops structure, as the export writes it: a `block` that
-    /// declares members and a `block_list` (an object, an array of objects), by name (protocol 1.7.0, ADR 0285).
-    /// Absent for every other field, whose text is its value, and when the entity has none.
+    /// declares members and a `block_list` (an object, an array of objects), by name (protocol 1.7.0, ADR 0285), and
+    /// a `string_list`, `reference_list` or `enum_list` as the array of its items, unjoined; a written empty list is
+    /// `[]` (protocol 1.11.0, ADR 0294). Absent for every other field, whose text is its value, and when the entity
+    /// has none.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub values: BTreeMap<String, serde_json::Value>,
     /// Edges from other entities into it; an edge from the entity to itself is not counted (ADR 0270).

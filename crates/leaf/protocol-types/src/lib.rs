@@ -710,8 +710,9 @@ pub struct ValidatorEntity {
     /// written twice in one block is E081 and arrives as its first entry); `value` is the field's text (ADR 0019,
     /// protocol 1.1.0), always a JSON string.
     pub fields: Vec<ValidatorField>,
-    /// The structured value of each field whose text drops structure (a typed `block`, a `block_list`), by name, as
-    /// the export writes it (protocol 1.7.0, ADR 0285); absent for the entity that has none.
+    /// The structured value of each field whose text drops structure (a typed `block`, a `block_list`; a list field as
+    /// the array of its items, protocol 1.11.0, ADR 0294), by name, as the export writes it (protocol 1.7.0, ADR
+    /// 0285); absent for the entity that has none.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub values: std::collections::BTreeMap<String, serde_json::Value>,
     /// Declared methods (populated for entity kinds that have them, e.g.
