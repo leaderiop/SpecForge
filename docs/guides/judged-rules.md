@@ -72,7 +72,7 @@ the entities it declares). Test inputs compare name and status only, and are ski
 specforge query v1.0/03/03-02 --inputs gsd/W311 [--cite AUTH-07] [--cite-file docs/design.md] [--cite-test name]
 ```
 
-prints each input (members, digest), where the verdict stands and the `basis`; MCP's `specforge.verdict_inputs` answers
+prints the answer as JSON (`--format graph`, the default), or with `--format brief` each input (members, digest), where the verdict stands and the `basis`; MCP's `specforge.verdict_inputs` answers
 the same. A command then answers a `set_verdict` op with `basis` set to what it read. If any input changed since,
 the plan is refused `stale_revision` with the inputs that moved, and nothing is written. `inspect`, `query --format
 json`, the graph export and a command's graph list each entity's `verdicts` and `judgements`. The editor's hover lists

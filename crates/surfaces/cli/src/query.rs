@@ -90,8 +90,8 @@ impl Args {
         }
     }
 
-    /// `--inputs <rule>`: one line per input, then what is cited, then the basis as one JSON line;
-    /// `--format json` prints the whole answer.
+    /// `--inputs <rule>`: the whole answer as JSON (the `graph` format, the default); with `--format context` or
+    /// `brief`, one line per input, then what is cited, then the basis as one JSON line.
     fn run_inputs(&self, terminal: &Terminal, view: &ProjectView<'_>, rule: &str) -> Exit {
         let cited: Vec<Cite> = self
             .cite
@@ -119,10 +119,20 @@ impl Args {
             Ok(answer) => answer,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
-        let state = answer
-            .verdict
-            .as_ref()
-            .map_or("gated", |v| v.state.as_str());
+        if self.format == Format::Graph {
+            outln!(
+                terminal,
+                "{}",
+                serde_json::to_string_pretty(&answer).expect("serializes")
+            );
+            return Exit::Passed;
+        }
+        // no verdict state: the rule's setting is off, or the entity is exempted by `unless_set`
+        let state = match (&answer.verdict, answer.gated) {
+            (Some(verdict), _) => verdict.state.as_str(),
+            (None, true) => "gated",
+            (None, false) => "exempt",
+        };
         outln!(
             terminal,
             "{} {} ({}): {state}",
@@ -169,5 +179,44 @@ mod tests {
             Line::try_parse_from(["query", "x", "--kinds", "behavior, type", "--kinds", "adr"])
                 .unwrap();
         assert_eq!(line.args.request().kinds, ["behavior", "type", "adr"]);
+    }
+
+    /// `query --inputs` on an exempted entity (`unless_set`), as the CLI prints it.
+    fn inputs_of(format: &str) -> String {
+        use crate::terminal::Facts;
+        use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
+        let project = gsd_judged_project(
+            "\nkey_link KL \"Link\" {\n  plan 03-02\n  from \"a\"\n  to \"b\"\n  pattern \"x\"\n}\n",
+        );
+        let compiled = project.compile_in(std::sync::Arc::new(gsd_judged_runtime()));
+        let line = Line::try_parse_from([
+            "query",
+            "v1.0/03/03-02/KL",
+            "--inputs",
+            "gsd/E501",
+            "--format",
+            format,
+        ])
+        .unwrap();
+        let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+        let exit = line
+            .args
+            .run_inputs(&terminal, &ProjectView::of(&compiled), "gsd/E501");
+        assert!(matches!(exit, Exit::Passed));
+        capture.stdout()
+    }
+
+    #[test]
+    fn inputs_print_json_in_the_graph_format() {
+        let text = inputs_of("graph");
+        let answer: serde_json::Value = serde_json::from_str(&text).expect(&text);
+        assert_eq!(answer["rule"], "gsd/E501");
+    }
+
+    #[test]
+    fn an_exempted_entity_is_not_gated() {
+        let text = inputs_of("brief");
+        assert!(text.contains(": exempt"), "{text}");
+        assert!(!text.contains("gated"), "{text}");
     }
 }

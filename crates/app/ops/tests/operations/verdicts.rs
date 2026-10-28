@@ -336,3 +336,16 @@ fn set_verdict_refuses_a_value_its_field_refuses() {
         .expect("the host judges E202");
     assert!(rule.values.contains(&"scores".to_string()));
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "set_verdict refuses a finding whose member name a spec block cannot write"
+)]
+fn set_verdict_refuses_a_finding_member_a_spec_block_cannot_write() {
+    let p = gsd_judged_project("");
+    let mut ops = plan_check(&p);
+    ops[0]["findings"] = json!([{"severity": "warning", "x } y": "z"}]);
+    assert_eq!(gsd(&p, ops.clone(), true), "findings");
+    ops[0]["findings"] = json!([{"severity": "warning", "message": "fine"}]);
+    assert_eq!(gsd(&p, ops, true), "previewed");
+}

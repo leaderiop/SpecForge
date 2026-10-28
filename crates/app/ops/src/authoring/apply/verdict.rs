@@ -183,6 +183,30 @@ fn refused(op: &VerdictOp, reason: &str, message: String) -> OpError {
     .with_data(json!({"op": op.number, "reason": reason}))
 }
 
+/// `<judge>@<version>`, or the judge alone when its extension declares no version.
+fn judge_text(rule: &JudgedRule) -> String {
+    if rule.version.is_empty() {
+        rule.judge.clone()
+    } else {
+        format!("{}@{}", rule.judge, rule.version)
+    }
+}
+
+/// The first object member inside `value` whose name is not an identifier, which the written block could not hold.
+fn unwritable_key(value: &Value) -> Option<&str> {
+    match value {
+        Value::Array(items) => items.iter().find_map(unwritable_key),
+        Value::Object(members) => members.iter().find_map(|(key, inner)| {
+            if specforge_parser::lex::is_identifier(key) {
+                unwritable_key(inner)
+            } else {
+                Some(key.as_str())
+            }
+        }),
+        _ => None,
+    }
+}
+
 /// Check `op` as D6 orders it, asked by `origin`, and give the step that writes it.
 pub(crate) fn check(
     view: &ProjectView<'_>,
@@ -243,6 +267,20 @@ pub(crate) fn check(
             format!("'{}' is not the judge of the rule '{}'", op.judge, op.rule),
         ));
     }
+    if let Some(key) = op
+        .findings
+        .iter()
+        .chain(op.values.values())
+        .find_map(unwritable_key)
+    {
+        return Err(refused(
+            op,
+            "findings",
+            format!(
+                "a finding names the member '{key}', which a spec block cannot write: members are identifiers"
+            ),
+        ));
+    }
     if let Some(value) = op.values.keys().find(|v| !rule.values.contains(v)) {
         return Err(refused(
             op,
@@ -275,7 +313,7 @@ pub(crate) fn check(
         member: VerdictMember {
             rule: op.rule.clone(),
             outcome: op.outcome.clone(),
-            judge: format!("{}@{}", rule.judge, rule.version),
+            judge: judge_text(&rule),
             model: op.model.clone(),
             findings: op.findings.clone(),
             cited: op.cited.clone(),
@@ -342,4 +380,23 @@ pub(crate) fn against_disk(
         stale(step.number, &step.member.inputs, &current)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_judge_without_a_version_is_written_without_the_at() {
+        let rule = |version: &str| JudgedRule {
+            extension: "@t/core".into(),
+            judge: "judge".into(),
+            version: version.into(),
+            targets: Vec::new(),
+            outcomes: Vec::new(),
+            values: Vec::new(),
+        };
+        assert_eq!(judge_text(&rule("1.0.0")), "judge@1.0.0");
+        assert_eq!(judge_text(&rule("")), "judge");
+    }
 }
