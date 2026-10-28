@@ -2,12 +2,16 @@
 //! resource whose name an earlier extension registered (first registration
 //! wins). What MCP serves is its own surface table's (ADR 0017 D7).
 
+mod prompt_routes;
+mod prompts;
 mod routes;
 
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::{ExtensionDeclaration, SurfaceDescriptor};
 use std::collections::HashMap;
 
+pub use prompt_routes::PromptRoute;
+pub use prompts::{Judge, refuse_prompts};
 pub use routes::{CommandRoute, CommandRoutes, ShadowedRoute};
 
 /// The protocol's own type: one wire shape (`"string"`, `{"enum":
@@ -93,6 +97,13 @@ pub fn register_surface_contributions(
             } else {
                 seen_resources.insert(resource.name.clone(), ext_name.to_string());
             }
+        }
+    }
+
+    // The prompts take the names the commands left (ADR 0291).
+    for declaration in declarations {
+        for prompt in &declaration.surfaces.prompts {
+            diagnostics.extend(routes.add_prompt(declaration, prompt));
         }
     }
 

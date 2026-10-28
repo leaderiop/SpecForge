@@ -500,15 +500,17 @@ E039: Duplicate contribution name
 
 Two contributions claim one name. Two commands route under one name, `specforge
 <short> <command>`: one short name, and ids that spell one command name (`_` and
-`-` alike), whether from two extensions or declared twice by one; the first in
-load order is routed and the later runs on no surface. Or two extensions
-register one MCP tool name, or one MCP resource name. Or two loaded extensions
-share one code namespace (the namespace is the package name's scope and name:
-`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
-`a.b.c`): the first in load order owns the namespace and the later extension's
-codes are described by nobody. One command id under two short names is two
-names, not a collision. Rename the later contribution, or give its extension
-another short name (`ext_short`; the SDK's `short`).
+`-` alike), whether from two extensions or declared twice by one; a prompt is
+routed under the same names after the commands (ADR 0291), so a prompt whose
+name a command or an earlier prompt has is the one not routed; the first in load
+order is routed and the later runs on no surface. Or two extensions register one
+MCP tool name, or one MCP resource name. Or two loaded extensions share one code
+namespace (the namespace is the package name's scope and name: `@gsd/core` and a
+local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both `a.b.c`): the first
+in load order owns the namespace and the later extension's codes are described
+by nobody. One command id under two short names is two names, not a collision.
+Rename the later contribution, or give its extension another short name
+(`ext_short`; the SDK's `short`).
 
 Owner: core
 Level: error
@@ -2594,7 +2596,19 @@ bool setting of the extension or of a loaded peer, that names a value its source
 does not take, that sets a setting the extension does not declare to a value its
 type refuses, or that raises a code the extension does not catalog; a secret
 named twice or whose environment variable is not a name; and an item of a kind
-the host does not know. The item is dropped, the rest of the category is kept.
+the host does not know. The `surfaces` category is checked too (ADR 0291): a
+prompt whose id is not snake_case or whose export is not `prompt__<id>`, that
+declares an argument twice or named for something the host owns (`path`,
+`format`, `help`, `settings`, `secrets`, `host`, `argv`), of a type an argument
+does not take, a reference argument naming no loaded kind, bounds on an argument
+that is no integer or a default its type refuses, a gate that is not a code the
+extension catalogs (a command's gates too), a `subject` that is not an argument
+it declares, a `when` that is not a bool setting of the extension, or a step
+that names a command or prompt neither the extension nor a declared peer
+declares; the prompt or command is dropped whole, since a gate or an argument
+the host cannot read must not be ignored, and a step's `agent` (until the host
+knows agents) or an attribution with an empty field is dropped alone. The item
+is dropped, the rest of the category is kept.
 
 Owner: core
 Level: warning

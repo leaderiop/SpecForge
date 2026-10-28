@@ -246,6 +246,12 @@ impl RegistryBuild {
         &self.commands
     }
 
+    /// The prompts the extensions contribute, each under the name a command of its extension would take: served
+    /// in load then declaration order, a later claimant of a name is E039 (ADR 0291).
+    pub fn prompts(&self) -> &[crate::PromptRoute] {
+        self.commands.prompts()
+    }
+
     /// What the graph build reads of these declarations: the owners of the
     /// absent target kinds (from the candidate vocabulary the build holds
     /// now), inverse pairs, value coercions and derived references
@@ -435,6 +441,17 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     // The settings, presets and secrets: W019 and W021, after the rules (they read the code book).
     let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
+
+    // A prompt or a gate the registry refuses is dropped before anything routes it (W021).
+    let judge = crate::Judge {
+        codes: &codes,
+        settings: &settings,
+        kinds: &kinds,
+    };
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_prompts(&mut declarations, &judge),
+    ));
 
     let (commands, duplicates) = register_surface_contributions(&declarations);
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));

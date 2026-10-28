@@ -40,7 +40,6 @@ fn messages(build: &RegistryBuild, code: &str) -> Vec<String> {
     behavior = "register_surface_contributions",
     verify = "a prompt and a command of one route are E039, and the command is the one routed"
 )]
-#[ignore = "K8 T4"]
 fn a_prompt_and_a_command_of_one_route_are_e039() {
     let build = build_registries(vec![
         declaration(
@@ -69,7 +68,6 @@ fn a_prompt_and_a_command_of_one_route_are_e039() {
     behavior = "register_surface_contributions",
     verify = "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
 )]
-#[ignore = "K8 T4"]
 fn a_prompt_declaration_the_registry_refuses_is_w021() {
     let defects = [
         (

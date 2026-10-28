@@ -8,6 +8,7 @@ mod checks;
 mod command_routes;
 mod declarations;
 mod plain_disk;
+mod prompt_checks;
 mod prompts;
 mod registry_build;
 mod rules;
