@@ -97,6 +97,7 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a prompt export that answers no message is E028"
   verify unit "a pass input without a trigger reads a write and a gate trigger round-trips with its command and subject"
   verify unit "a prompt answer that is not a PromptOutput is E028"
+  verify unit "a reference argument names an entity of its target kind and a quoted word is one word"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

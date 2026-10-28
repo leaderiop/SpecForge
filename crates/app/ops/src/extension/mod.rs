@@ -15,6 +15,7 @@ mod list;
 mod lock_plan;
 mod names;
 mod peer_set;
+pub mod prompt;
 mod publish;
 mod remove;
 mod resolve;

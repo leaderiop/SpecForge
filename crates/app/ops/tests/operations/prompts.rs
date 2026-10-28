@@ -2,9 +2,14 @@
 //! messages, and the host message that follows them. The fixture is `@t/core` ([`specforge_project::testing::GsdPrompts`]);
 //! its prompts print the args, host and settings they got.
 //!
-//! [`render`] is the one place a test renders a prompt: the ticket that adds the render adapts it and nothing else.
+//! [`render`] is the one place a test renders a prompt.
 
 use serde_json::{Value, json};
+use specforge_ops::OpErrorKind;
+use specforge_ops::extension::prompt::{
+    ExtensionPrompts, PromptArgs, RenderError, render as render_prompt,
+};
+use specforge_ops::view::ProjectView;
 use specforge_package::Sha256;
 use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT};
 use specforge_test_macros::test as specforge_test;
@@ -27,14 +32,38 @@ pub struct Rendered {
     pub payload: Value,
 }
 
-/// Render the prompt `id` of the fixture over `served`. The host serves no prompt yet.
-pub fn render(_served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Refused> {
-    Err(Refused {
-        code: "unknown_prompt".into(),
-        data: json!({"prompt": id, "args": match args {
-            Args::Named(named) => named,
-            Args::Argv(argv) => json!(argv),
-        }}),
+/// Render the prompt `id` of the fixture over `served`.
+pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Refused> {
+    let view = ProjectView::of(&served.compiled);
+    let prompts = ExtensionPrompts::build(&view);
+    let prompt = prompts
+        .by_mcp_name(&format!("specforge.t.{id}"))
+        .unwrap_or_else(|| panic!("no prompt t {id}"));
+    let words;
+    let given = match &args {
+        Args::Named(named) => PromptArgs::Named(named.as_object().unwrap()),
+        Args::Argv(argv) => {
+            words = specforge_ops::extension::prompt::words(argv);
+            PromptArgs::Words(&words)
+        }
+    };
+    let rendered = render_prompt(&view, prompt, given, None).map_err(|error| match error {
+        RenderError::Refused(e) | RenderError::Gate(e) => Refused {
+            code: if e.kind == OpErrorKind::EntityNotFound {
+                "entity_not_found".into()
+            } else {
+                e.code.to_string()
+            },
+            data: e.data.map_or_else(|| json!({"message": e.message}), |d| *d),
+        },
+        RenderError::Call(e) => Refused {
+            code: e.diagnostic().code,
+            data: json!({"message": e.diagnostic().message}),
+        },
+    })?;
+    Ok(Rendered {
+        messages: rendered.messages.into_iter().map(|m| m.text).collect(),
+        payload: serde_json::to_value(rendered.payload).unwrap(),
     })
 }
 
@@ -46,7 +75,6 @@ fn plan_phase(served: &Served, args: Args<'_>) -> Result<Rendered, Refused> {
     behavior = "serve_extension_prompt",
     verify = "a prompt argument is read by its field type and a reference is sent as its full path"
 )]
-#[ignore = "K8 T6"]
 fn a_prompt_argument_is_read_by_its_field_type() {
     let served = served(project("fine", "ok", json!({})));
     let sent = |served: &Served| served.input("prompt__plan_phase")["args"].clone();
@@ -86,7 +114,6 @@ fn a_prompt_argument_is_read_by_its_field_type() {
     behavior = "serve_extension_prompt",
     verify = "a prompt argument outside its field type is invalid input on that argument"
 )]
-#[ignore = "K8 T6"]
 fn a_prompt_argument_outside_its_form_is_invalid_input() {
     let served = served(project("fine", "ok", json!({})));
     let cases = [
@@ -115,7 +142,6 @@ fn a_prompt_argument_outside_its_form_is_invalid_input() {
     behavior = "serve_extension_prompt",
     verify = "a prompt whose entry gate fails is refused and its export is not called"
 )]
-#[ignore = "K8 T6"]
 fn a_prompt_whose_entry_gate_fails_is_refused() {
     let args = || Args::Named(json!({"phase": "03"}));
     let empty = served(project(NO_CONTEXT, "ok", json!({})));
@@ -137,7 +163,6 @@ fn a_prompt_whose_entry_gate_fails_is_refused() {
     behavior = "serve_extension_prompt",
     verify = "a rendered prompt shows its version, digest, attribution and each step with its gate"
 )]
-#[ignore = "K8 T6"]
 fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
     let served = served(project("fine", "blocked", json!({})));
     let args = || Args::Named(json!({"phase": "03"}));
@@ -180,7 +205,6 @@ fn a_rendered_prompt_shows_each_steps_gate_and_its_attribution() {
     behavior = "serve_extension_prompt",
     verify = "a prompt export that traps is E028"
 )]
-#[ignore = "K8 T6"]
 fn a_prompt_export_that_traps_is_e028() {
     let trap = WasmCallResult::Trap(WasmTrapInfo {
         kind: "trap".into(),
@@ -197,5 +221,22 @@ fn a_prompt_export_that_traps_is_e028() {
             .unwrap_or_default()
             .starts_with("MCP prompt prompt__plan_phase() of '@t/core' trapped"),
         "{refused:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a reference argument names an entity of its target kind and a quoted word is one word"
+)]
+fn a_reference_argument_must_name_its_target_kind() {
+    let served = served(project("fine", "ok", json!({})));
+    let refused = plan_phase(&served, Args::Named(json!({"phase": "v1.0"}))).unwrap_err();
+    assert_eq!(refused.code, "invalid_input", "{refused:?}");
+    assert_eq!(refused.data["argument"], "phase");
+    assert!(!served.called("prompt__plan_phase"));
+
+    assert_eq!(
+        specforge_ops::extension::prompt::words(r#"03 --labels "a b",c"#),
+        ["03", "--labels", "a b,c"]
     );
 }

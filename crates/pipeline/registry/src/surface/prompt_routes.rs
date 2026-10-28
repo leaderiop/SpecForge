@@ -14,6 +14,7 @@ use super::CommandRoutes;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PromptRoute {
     extension: String,
+    version: String,
     short: String,
     cli_name: String,
     declaration: PromptDescriptor,
@@ -23,6 +24,7 @@ impl PromptRoute {
     fn new(declaration: &ExtensionDeclaration, prompt: &PromptDescriptor) -> Self {
         Self {
             extension: declaration.name().to_string(),
+            version: declaration.version().to_string(),
             short: declaration.short().into_owned(),
             cli_name: option_name(&prompt.id),
             declaration: prompt.clone(),
@@ -32,6 +34,11 @@ impl PromptRoute {
     /// The extension that declares it.
     pub fn extension(&self) -> &str {
         &self.extension
+    }
+
+    /// Its extension's version.
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     /// Its extension's short name.

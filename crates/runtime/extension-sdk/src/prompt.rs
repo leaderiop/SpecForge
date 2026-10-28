@@ -149,9 +149,6 @@ impl PromptArgBuilder {
     pub fn date(&mut self) -> &mut Self {
         self.typed("date")
     }
-    pub fn path(&mut self) -> &mut Self {
-        self.typed("path")
-    }
     pub fn string_list(&mut self) -> &mut Self {
         self.typed("string_list")
     }
