@@ -45,6 +45,8 @@ secret is set (prompts too, since ADR 0291).
 Protocol minor 1.8: the category, the `settings` key, the reserved argument. The shipped schema types `settings`;
 `specforge schema --config` writes a project's; the language server serves `specforge.json`.
 
+[ADR 0296](0296-settings-are-set-and-unset-through-specforge-settings.md) adds `specforge settings set` and `unset`, so an agent no longer writes the file raw.
+
 ## Would reopen it
 
 - A setting whose value depends on another extension's setting other than through a preset.
