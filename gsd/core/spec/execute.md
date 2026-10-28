@@ -55,18 +55,31 @@ every field is immutable and the kind is append-only (E084, E085).
 ## commit
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
-refuses any other writer), `hash` also `I`. The collector (`gsd-git`) runs the whole `git log` with `capture_stdout`
-and is named explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale.
-It reads GSD's own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`),
-and matches the task by name; a `GSD-Task: 03-02/T1` trailer, when present, wins over the name match. Only commits that
-name a task or a plan are recorded, each in its plan's file (so executors of one wave never write the same file), named by
-the first 12 hex digits of its hash. `hash str R H I`, `task → task H`, `plan → plan H`, `type str H` (`feat`, `fix` …),
-`subject str H`, `at ts H`, `files files H`, `insertions int H`, `deletions int H`. Schema drift reads the
-subjects, and a milestone's `stats.loc` the line counts.
-`/gsd-undo` reads the commits of a plan or a phase from here instead of a manifest file.
+refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
+explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
+own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
+task by its title. **There is no `GSD-Task:` trailer**: GSD has none, so a commit names its task by the subject alone,
+and a commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
+only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
+write the same file), in the project scope, named by the first 12 hex digits of its hash.
+
+| Field | Type | Flags | |
+|---|---|---|---|
+| hash | str | H I | the full 40-hex hash. Not `R`: a required harness field cannot be declared, and the name already carries it |
+| task | → task | H | the inverse `task.commits` |
+| plan | → plan | H | the inverse `plan.commits` |
+| type | str | H | `feat`, `fix` … |
+| subject | str | H | |
+| at | ts | H | the author time, UTC |
+| files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
+| created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
+| insertions, deletions | int | H | `git log --numstat` |
+
+Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
+phase from here instead of a manifest file.
 
 **Test link.** A test names its entity with a tag in its name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`);
-`@gsd/core`'s JUnit collector (`gsd-junit`) links it, and the host re-keys a short form to the full path. The host's own
+`@gsd/core`'s JUnit collector (`gsd-junit`) links it. The host's `collect` keeps only a full path (a short form is W115), so the collector resolves the id itself. The host's own
 fallback links a test only by `entity_id__slug` or a module named after an entity, which cannot spell a scoped id.
 
 ## pause, handoff and blocker

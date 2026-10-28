@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger), `gap_closure` (r39) and `commits` (with `commit`, r38) wait for later rounds.**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` (r39) wait for later rounds. `commits` is read back from `commit` (r38).**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -64,7 +64,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
 | verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
-| commits | →* commit | C | the git collector links commits naming the task (declared in round r38, with `commit`) |
+| commits | ←* commit | | read, not written: the inverse of `commit.task`, the commits whose subject names the task (`plan.commits` reads `commit.plan` the same way). The git collector records them |
 | status | enum{pending, done} | C | done when its plan's summary lists it complete |
 
 ## checkpoint

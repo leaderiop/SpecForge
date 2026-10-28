@@ -151,3 +151,40 @@ fn a_summary_requires_phase_is_a_reference_member() {
         "{edges}"
     );
 }
+
+#[test]
+fn the_commit_kind_is_harness_written() {
+    assert_eq!(
+        fields_of("commit"),
+        [
+            "hash",
+            "task",
+            "plan",
+            "type",
+            "subject",
+            "at",
+            "files",
+            "created",
+            "insertions",
+            "deletions"
+        ]
+    );
+    for field in fields_of("commit") {
+        assert_eq!(writer("commit", &field), "harness", "{field}");
+        assert_ne!(field_of("commit", &field)["required"], true, "{field}");
+    }
+    assert_eq!(field_of("commit", "hash")["immutable"], true);
+    // The commit is in the project scope, and a path it touched is text: a later commit may delete it.
+    assert!(kind_of("commit")["scoped_by"].is_null());
+    for field in ["files", "created"] {
+        assert_ne!(field_of("commit", field)["file_reference"], true, "{field}");
+    }
+    // The task and the plan read their commits back by one name each.
+    for field in ["task", "plan"] {
+        let reference = field_of("commit", field);
+        assert_eq!(reference["inverse_of"], "commits", "{field}");
+        assert_eq!(reference["target_kind"], field);
+    }
+    assert!(!fields_of("task").contains(&"commits".to_string()));
+    assert!(!fields_of("plan").contains(&"commits".to_string()));
+}

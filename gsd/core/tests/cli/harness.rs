@@ -94,17 +94,43 @@ impl Project {
 
     /// Runs `specforge <args>` with these environment variables set.
     pub fn run_with(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
-        let output = Command::new(required("SPECFORGE_BIN"))
+        self.spawn(args, env, "")
+    }
+
+    /// Runs `specforge <args>` with `stdin` on its standard input (a host's hook event).
+    pub fn run_stdin(&self, args: &[&str], stdin: &str) -> Run {
+        self.spawn(args, &[], stdin)
+    }
+
+    fn spawn(&self, args: &[&str], env: &[(&str, &str)], stdin: &str) -> Run {
+        use std::io::Write;
+        use std::process::Stdio;
+        let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .envs(env.iter().copied())
             .current_dir(self.dir.path())
-            .output()
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("run specforge");
+        child
+            .stdin
+            .take()
+            .expect("a piped stdin")
+            .write_all(stdin.as_bytes())
+            .expect("write stdin");
+        let output = child.wait_with_output().expect("wait for specforge");
         Run {
             code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         }
+    }
+
+    /// The project's root, as an absolute path.
+    pub fn root(&self) -> &Path {
+        self.dir.path()
     }
 
     /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted.

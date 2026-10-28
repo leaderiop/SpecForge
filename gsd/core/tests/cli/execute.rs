@@ -169,3 +169,173 @@ fn a_deleted_file_in_a_summary_is_not_e016() {
     );
     assert_eq!(p.codes(), Vec::<String>::new());
 }
+
+const TASK: &str = "v1.0/01/01-01/T1";
+const PLAN: &str = "v1.0/01/01-01";
+
+/// Writes the commit `name` into `spec/plans.spec` as the `gsd-git` collector would, and records each of its fields in
+/// the ledger as the host does. `name` is the first 12 hex digits of `hash`.
+fn record_commit(p: &crate::harness::Project, name: &str, hash: &str) {
+    let fields = [
+        ("hash", format!("{hash:?}")),
+        ("task", format!("{TASK:?}")),
+        ("plan", format!("{PLAN:?}")),
+        ("type", "\"feat\"".to_string()),
+        ("subject", "\"feat(01-01): Store module\"".to_string()),
+        ("at", "\"2026-10-29T09:00:00Z\"".to_string()),
+        ("files", "[\"src/tasks.js\"]".to_string()),
+        ("created", "[\"src/tasks.js\"]".to_string()),
+        ("insertions", "10".to_string()),
+        ("deletions", "0".to_string()),
+    ];
+    let spec = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!(
+            "{spec}\ncommit {name} \"feat(01-01): Store module\" {{\n  hash {hash:?}\n  task {TASK}\n  plan {PLAN}\n  type feat\n  subject \"feat(01-01): Store module\"\n  at \"2026-10-29T09:00:00Z\"\n  files [\"src/tasks.js\"]\n  created [\"src/tasks.js\"]\n  insertions 10\n  deletions 0\n}}\n"
+        ),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    for (field, value) in fields {
+        p.record_harness(name, field, &value);
+    }
+}
+
+const HASH: &str = "0123456789abcdef0123456789abcdef01234567";
+
+#[test]
+fn a_recorded_commit_is_read_back_by_its_task_and_plan() {
+    // The first use of an inverse on a harness reference through the real host: a commit written with a ledger line
+    // per field checks clean, and its two references are edges the task and the plan read it back by.
+    let p = project("execute");
+    record_commit(&p, "0123456789ab", HASH);
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let fields = p.fields_of("0123456789ab");
+    assert_eq!(fields["task"], TASK, "{fields}");
+    assert_eq!(fields["plan"], PLAN, "{fields}");
+    assert_eq!(fields["insertions"], 10, "{fields}");
+    for target in [TASK, PLAN] {
+        let query = p.run(&["query", target, "--depth", "1", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
+        let from_commit: Vec<&str> = graph["edges"]
+            .as_array()
+            .expect("edges")
+            .iter()
+            .filter(|e| e["target"] == target && e["source"] == "0123456789ab")
+            .filter_map(|e| e["label"].as_str())
+            .collect();
+        assert_eq!(from_commit.len(), 1, "{target}: {}", query.stdout);
+    }
+}
+
+#[test]
+fn a_task_cannot_write_its_commits_by_hand() {
+    // `commits` is the other side of `commit.task`: the host reads it back and refuses it written (E079).
+    let p = project("execute");
+    record_commit(&p, "0123456789ab", HASH);
+    p.edit(
+        "spec/plans.spec",
+        "action \"Write src/tasks.js with add() and list()\"\n",
+        "commits [0123456789ab]\n  action \"Write src/tasks.js with add() and list()\"\n",
+    );
+    let report = p.report();
+    assert_eq!(
+        report.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E079"],
+        "{report:?}"
+    );
+    assert!(
+        report[0].1.contains("'commits' on task 'v1.0/01/01-01/T1'"),
+        "{report:?}"
+    );
+}
+
+#[test]
+fn a_hand_written_commit_is_e083_at_check() {
+    let p = project("execute");
+    let spec = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!(
+            "{spec}\ncommit abcdefabcdef \"x\" {{\n  hash \"abcdefabcdefabcdefabcdefabcdefabcdefabcd\"\n  plan {PLAN}\n  type fix\n  subject \"x\"\n}}\n"
+        ),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    let report = p.report();
+    assert_eq!(
+        report.iter().map(|(c, _)| c.as_str()).collect::<Vec<_>>(),
+        ["E083"; 4],
+        "{report:?}"
+    );
+    for field in ["hash", "plan", "subject", "type"] {
+        assert!(
+            report
+                .iter()
+                .any(|(_, m)| m
+                    .contains(&format!("harness field '{field}' of commit 'abcdefabcdef'"))),
+            "{field}: {report:?}"
+        );
+    }
+}
+
+#[test]
+fn a_hand_written_commit_field_is_refused_by_the_spec_guard() {
+    let p = project("execute");
+    let file = p.root().join("spec/plans.spec");
+    let content = format!(
+        "{}\ncommit abcdefabcdef \"x\" {{\n  hash \"abcdefabcdefabcdefabcdefabcdefabcdefabcd\"\n  subject \"x\"\n}}\n",
+        p.read("spec/plans.spec")
+    );
+    let event = serde_json::json!({
+        "hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1", "cwd": p.root(),
+        "tool_input": { "file_path": file, "content": content }
+    });
+    let run = p.run_stdin(
+        &[
+            "hook",
+            "core.spec_guard",
+            "--host",
+            "claude-code",
+            "--event",
+            "pre_tool",
+        ],
+        &event.to_string(),
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    let reply: serde_json::Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("the hook answers JSON ({e}): {}", run.all()));
+    let answer = &reply["hookSpecificOutput"];
+    assert_eq!(answer["permissionDecision"], "deny", "{reply}");
+    let reason = answer["permissionDecisionReason"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(
+        reason.contains(
+            "harness field 'hash' of commit 'abcdefabcdef' has no line in specforge-harness"
+        ),
+        "{reason}"
+    );
+}
+
+#[test]
+fn an_agent_set_of_a_commit_field_is_harness_field() {
+    let p = project("execute");
+    record_commit(&p, "0123456789ab", HASH);
+    let run = p.run(&["set", "0123456789ab", "subject", "x"]);
+    assert_eq!(run.code, 1, "{}", run.all());
+    assert!(run.all().contains("harness_field"), "{}", run.all());
+    assert!(!p.read("spec/plans.spec").contains("subject \"x\""));
+}
+
+#[test]
+fn a_commit_named_by_twelve_decimal_digits_is_a_name() {
+    let p = project("execute");
+    record_commit(
+        &p,
+        "012345678901",
+        "012345678901abcdef0123456789abcdef012345",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let query = p.run(&["query", "012345678901", "--depth", "0", "--format", "brief"]);
+    assert_eq!(node_ids(&query), ["012345678901"], "{}", query.all());
+}

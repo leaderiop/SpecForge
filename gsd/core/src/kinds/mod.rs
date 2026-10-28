@@ -1,5 +1,6 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod commit;
 mod discuss;
 mod dsl;
 mod execute;
@@ -52,6 +53,7 @@ const KINDS: &[&Kind] = &[
     &execute::SUMMARY,
     &execute::DELIVERABLE,
     &execute::DEVIATION,
+    &commit::COMMIT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
