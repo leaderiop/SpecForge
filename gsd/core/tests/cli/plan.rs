@@ -107,3 +107,94 @@ fn a_file_the_plan_will_create_is_not_e016() {
     assert!(!p.exists("src/store.js"));
     assert_eq!(p.codes(), Vec::<String>::new());
 }
+
+fn fields_of(p: &crate::harness::Project, id: &str) -> serde_json::Value {
+    let query = p.run(&["query", id, "--depth", "0", "--format", "json"]);
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+        .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+    graph["nodes"][0]["fields"].clone()
+}
+
+#[test]
+fn a_task_is_named_within_its_plan() {
+    let p = project("plan");
+    for name in ["v1.0/01/01-01/T1", "v1.0/01/01-02/T1", "v1.0/02/02-01/T1"] {
+        let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+        assert_eq!(node_ids(&query), [name], "query {name}: {}", query.all());
+    }
+}
+
+#[test]
+fn a_task_with_two_verify_commands_declares_both() {
+    // `verify [` is a field (a block list), not a verify statement.
+    let p = project("plan");
+    let fields = fields_of(&p, "v1.0/01/01-02/T1");
+    assert_eq!(
+        fields["verify"],
+        serde_json::json!([
+            { "automated": "node --test test/tasks.test.js", "fails_when": "the test run exits non-zero" },
+            { "automated": "node src/complete.js --check", "fails_when": "the script exits non-zero" }
+        ])
+    );
+}
+
+#[test]
+fn a_verify_item_without_automated_is_refused() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "{ automated \"node src/complete.js --check\" fails_when \"the script exits non-zero\" }",
+        "{ fails_when \"the script exits non-zero\" }",
+    );
+    assert_eq!(p.codes(), ["E006"]);
+    assert!(
+        p.run(&["check"]).all().contains(
+            "task 'v1.0/01/01-02/T1' is missing required member 'automated' in verify[1]"
+        )
+    );
+}
+
+#[test]
+fn a_hand_written_checkpoint_answer_is_e083() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "resume_signal \"Type the option name\"\n",
+        "resume_signal \"Type the option name\"\n  answer { option \"flag\" by \"me\" }\n",
+    );
+    assert_eq!(p.codes(), ["E083"]);
+}
+
+#[test]
+fn a_settled_by_names_a_decision() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "action \"Write src/tasks.js with add() and list()\"\n",
+        "reversibility { rating one_way why \"the file format\" settled_by /D-01 }\n  action \"Write src/tasks.js with add() and list()\"\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let found = edges(&p, "v1.0/01/01-01/T1");
+    assert!(
+        found.contains(&(
+            "reversibility.settled_by".into(),
+            "v1.0/01/01-01/T1".into(),
+            "D-01".into()
+        )),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_checkpoint_is_after_a_task_of_its_plan() {
+    let p = project("plan");
+    let found = edges(&p, "v1.0/01/01-02/C1");
+    assert!(
+        found.contains(&(
+            "after".into(),
+            "v1.0/01/01-02/C1".into(),
+            "v1.0/01/01-02/T1".into()
+        )),
+        "{found:#?}"
+    );
+}

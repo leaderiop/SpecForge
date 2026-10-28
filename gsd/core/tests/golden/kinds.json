@@ -325,6 +325,42 @@
         "label": "PlanRequirements",
         "source_kind": "plan",
         "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TaskPlan",
+        "source_kind": "task",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TaskReversibilitySettledBy",
+        "source_kind": "task",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "CheckpointPlan",
+        "source_kind": "checkpoint",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "CheckpointAfter",
+        "source_kind": "checkpoint",
+        "target_kind": "task"
       }
     ]
   },
@@ -3506,6 +3542,515 @@
         "name": "plan",
         "open_fields": false,
         "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A task of a plan (GSD <task>)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "TaskPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`type=`",
+            "edge": null,
+            "enum_values": [
+              "auto",
+              "tdd",
+              "tracer",
+              "manual"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<files>` (paths, not existence-checked; required for `auto`, gsd/E303)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<read_first>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "read_first",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<precondition>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "precondition",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<reversibility>`; `settled_by` names the decision that already settles a one-way door (gsd/W308)",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "reversible",
+                  "costly",
+                  "one_way"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "rating",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "TaskReversibilitySettledBy",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "settled_by",
+                "required": false,
+                "target_kind": "decision"
+              }
+            ],
+            "name": "reversibility",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<action>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "action",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verify><automated>` and its `<fails_when>`: one item per command (gsd/E303, gsd/E507)",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "automated",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "fails_when",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "verify",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a bare `<verify>` body: not an `<automated>` command, so no probe reads it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_text",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verify><human-check>`: harvested into UAT",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_human",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<acceptance_criteria>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "acceptance",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<done>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "done",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "done when its plan's summary lists it complete",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "done"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "task",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A checkpoint of a plan: a point where a human verifies, decides or acts (GSD <task type=\"checkpoint:*\">)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "CheckpointPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "position in the task order",
+            "edge": "CheckpointAfter",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "after",
+            "required": false,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "`type=`",
+            "edge": null,
+            "enum_values": [
+              "human_verify",
+              "decision",
+              "human_action",
+              "tdd_review"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`gate=` (blocking when absent)",
+            "edge": null,
+            "enum_values": [
+              "blocking",
+              "blocking_human",
+              "advisory"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "gate",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<what-built>`: required for `human_verify` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "what_built",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<how-to-verify>`: required for `human_verify` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "how_to_verify",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<decision>`: required for `decision` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "decision",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<options>`: required for `decision`; names unique within the checkpoint (gsd/E307)",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "pros",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "cons",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "options",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`auto_select=`: names one of `options` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "auto_select",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<instructions>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "instructions",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<action>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "action",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verification>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<resume-signal>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resume_signal",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the human's reply, written by the command that resumes, with the host's clock",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "option",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "text",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "answer",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "checkpoint",
+        "open_fields": false,
+        "scoped_by": "plan",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

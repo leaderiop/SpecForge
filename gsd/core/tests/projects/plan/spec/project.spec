@@ -25,3 +25,8 @@ requirement STORE-01 "Save tasks" {
   category "Storage"
   tier     v1
 }
+
+decision D-01 "ES modules, no build step" {
+  text   "The code is ES modules with no build step"
+  origin project
+}

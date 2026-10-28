@@ -51,16 +51,17 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 |---|---|---|---|
 | plan | → plan | R I | parent |
 | type | enum{auto, tdd, tracer, manual} | R | `type=` |
-| files | files | | `<files>` (required for `auto`, a rule) |
-| read_first | files | | `<read_first>` |
+| files | strs | | `<files>`: paths, not existence-checked (required for `auto`, gsd/E303) |
+| read_first | strs | | `<read_first>`: paths, not existence-checked |
 | precondition | str | | `<precondition>` |
-| reversibility | {rating enum{reversible, costly, one_way} R, why str} | | `<reversibility>` |
+| reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |
 | verify | {automated str R, fails_when str} | | `<verify><automated>` and its `<fails_when>`: a block list, N commands with N failing-direction statements (required for `auto`; gsd/E303, gsd/E507) |
+| verify_text | str | | a bare `<verify>` body (the v1.18.0 template's shape): not an `<automated>` command, so neither gsd/E320 nor gsd/E507 reads it |
 | verify_human | str | | `<verify><human-check>`: harvested into UAT |
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
-| commits | →* commit | C | the git collector links commits naming the task |
+| commits | →* commit | C | the git collector links commits naming the task (declared in round r38, with `commit`) |
 | status | enum{pending, done} | C | done when its plan's summary lists it complete |
 
 ## checkpoint
@@ -78,6 +79,7 @@ GSD: `<task type="checkpoint:*">`. Name `C1`, scoped by its plan.
 | options | {name str R, pros strs, cons strs} | | required for `decision`; option names unique within the checkpoint |
 | auto_select | str | | `auto_select=`: must name one of `options` |
 | instructions | str | | required for `human_action` |
+| action, verification | str | | required for `human_action` (`<action>`, `<verification>`) |
 | resume_signal | str | R | `<resume-signal>` |
 | answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (`now`, K14) |
 

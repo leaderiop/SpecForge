@@ -86,3 +86,126 @@ fn a_coupling_peer_is_a_reference_member() {
         "{edges}"
     );
 }
+
+#[test]
+fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("task"),
+        [
+            "plan",
+            "type",
+            "files",
+            "read_first",
+            "precondition",
+            "reversibility",
+            "action",
+            "verify",
+            "verify_text",
+            "verify_human",
+            "acceptance",
+            "done",
+            "status"
+        ]
+    );
+    assert_eq!(
+        fields_of("checkpoint"),
+        [
+            "plan",
+            "after",
+            "kind",
+            "gate",
+            "what_built",
+            "how_to_verify",
+            "decision",
+            "options",
+            "auto_select",
+            "instructions",
+            "action",
+            "verification",
+            "resume_signal",
+            "answer"
+        ]
+    );
+    for (kind, field) in [
+        ("task", "plan"),
+        ("task", "type"),
+        ("task", "action"),
+        ("task", "done"),
+        ("checkpoint", "plan"),
+        ("checkpoint", "kind"),
+        ("checkpoint", "resume_signal"),
+    ] {
+        assert_eq!(field_of(kind, field)["required"], true, "{kind}.{field}");
+    }
+    for kind in ["task", "checkpoint"] {
+        assert_eq!(kind_of(kind)["scoped_by"], "plan", "{kind}");
+        assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
+    }
+    assert_eq!(field_of("task", "status")["writer"], "computed");
+    // A path a task names is text: it may be a file the task creates.
+    assert_ne!(field_of("task", "files")["file_reference"], true);
+    assert_ne!(field_of("task", "read_first")["file_reference"], true);
+}
+
+fn members(field: &serde_json::Value) -> Vec<(String, bool)> {
+    field["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| {
+            (
+                m["name"].as_str().expect("a name").to_string(),
+                m["required"] == true,
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn a_verify_is_a_block_list_of_a_command_and_its_failing_direction() {
+    let verify = field_of("task", "verify");
+    assert_eq!(verify["field_type"], "block_list");
+    assert_eq!(
+        members(&verify),
+        [
+            ("automated".to_string(), true),
+            ("fails_when".to_string(), false)
+        ]
+    );
+    let reversibility = field_of("task", "reversibility");
+    assert_eq!(
+        members(&reversibility),
+        [
+            ("rating".to_string(), true),
+            ("why".to_string(), false),
+            ("settled_by".to_string(), false)
+        ]
+    );
+    let edges = describe("edges");
+    for label in ["TaskReversibilitySettledBy", "CheckpointAfter", "TaskPlan"] {
+        assert!(
+            edges["items"]
+                .as_array()
+                .expect("edges")
+                .iter()
+                .any(|e| e["label"] == label),
+            "{label} in {edges}"
+        );
+    }
+}
+
+#[test]
+fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
+    let answer = field_of("checkpoint", "answer");
+    assert_eq!(answer["writer"], "harness");
+    let names: Vec<String> = members(&answer).into_iter().map(|(n, _)| n).collect();
+    assert_eq!(names, ["option", "text", "by", "at"]);
+    let rules = describe("validation_rules");
+    let on_checkpoint = rules["items"]
+        .as_array()
+        .expect("rules")
+        .iter()
+        .filter(|r| r["target_kind"] == "checkpoint")
+        .count();
+    assert_eq!(on_checkpoint, 0, "{rules}");
+}

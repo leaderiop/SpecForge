@@ -39,6 +39,8 @@ const KINDS: &[&Kind] = &[
     &research::SOURCE,
     &research::PACKAGE_AUDIT,
     &plan::PLAN,
+    &plan::TASK,
+    &plan::CHECKPOINT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
