@@ -113,6 +113,10 @@ fn taskboard_discuss_matches_planning() {
         twin.len(),
         "gsd-tools counts the same decisions"
     );
+    // The plan cites every decision, so GSD's blocking decision-coverage gate passes.
+    assert_eq!(coverage["passed"], true, "the coverage gate passes");
+    assert_eq!(coverage["covered"], twin.len(), "every decision is covered");
+    assert_eq!(coverage["uncovered"], serde_json::json!([]));
 
     // PROJECT.md's Key Decisions rows are the twin's project decisions.
     let project = parity("fixtures/taskboard/.planning/PROJECT.md");
