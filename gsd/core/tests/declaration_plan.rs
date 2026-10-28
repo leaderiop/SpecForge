@@ -104,6 +104,7 @@ fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
             "verify_human",
             "acceptance",
             "done",
+            "verify_paths",
             "status"
         ]
     );
@@ -299,8 +300,7 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
 
 /// `plan.md` lists 77 fields over its nine kinds. The model fixes: `gap_closure` waits for `verify_gap` and
 /// `uat_gap` (r39) and `task.commits` for `commit` (r38), which are 2 fewer, and `task.verify_text`,
-/// `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification` are 4 more: 77 - 2 + 4 = 79,
-/// and 78 until `verify_paths` lands with gsd/E320.
+/// `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification` are 4 more: 77 - 2 + 4 = 79.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -315,7 +315,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 77 - 2 + 3, "the kinds' fields");
+    assert_eq!(total, 77 - 2 + 4, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

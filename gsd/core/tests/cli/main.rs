@@ -8,6 +8,7 @@ mod plan;
 mod plan_rules;
 mod roadmap;
 mod settings;
+mod verify_paths;
 
 use harness::project;
 

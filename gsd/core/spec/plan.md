@@ -61,6 +61,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | verify_human | str | | `<verify><human-check>`: harvested into UAT |
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
+| verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
 | commits | →* commit | C | the git collector links commits naming the task (declared in round r38, with `commit`) |
 | status | enum{pending, done} | C | done when its plan's summary lists it complete |
 

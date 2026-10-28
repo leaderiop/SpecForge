@@ -69,7 +69,7 @@ const VERIFY: &[Field] = &[str("automated").r(), str("fails_when")];
 const TASK_STATUS: &[&str] = &["pending", "done"];
 
 /// `<task type="auto|tdd">`, named `T1` within its plan; the order is the name's number.
-// `commits → commit` is declared with `commit` (round r38); `verify_paths` with gsd/E320.
+// `commits → commit` is declared with `commit` (round r38).
 pub const TASK: Kind = Kind::new(
     "task",
     "A task of a plan (GSD <task>)",
@@ -90,6 +90,9 @@ pub const TASK: Kind = Kind::new(
         str("verify_human").doc("`<verify><human-check>`: harvested into UAT"),
         strs("acceptance").doc("`<acceptance_criteria>`"),
         str("done").r().doc("`<done>`"),
+        strs("verify_paths")
+            .c()
+            .doc("the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320"),
         en("status", TASK_STATUS)
             .c()
             .doc("done when its plan's summary lists it complete"),

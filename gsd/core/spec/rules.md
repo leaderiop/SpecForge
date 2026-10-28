@@ -67,7 +67,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W317 | the post-planning gap report finds nothing open: every requirement of a planned phase and every `D-NN` of its context (trackable or not) appears as a word in the text of the phase's plans (plans, tasks, checkpoints and must-haves; a plan's `requirements` items count). One warning per phase, on the phase, `⚠ {u} of {n} items not covered by any plan: <ids>`; the report table (`## Post-Planning Gap Analysis`, GSD's rows and sort) is the suggestion. A phase with no plan is not judged (GSD runs the gate at `plan:post`) | pass | W | W | `gate-gap-analysis-plan-post`, `src/gap-checker.cts` |
 | gsd/W318 | the plan-check verdict is fresh before execution (reads the judgements K7 hands the guard pass) | guard | W | E | plan-check loop (up to 3 rounds) |
 | gsd/E319 | a prohibition with `verification test` names a test (`conditional_field_required`) | decl | E | E | the prohibition probe's LOCATE guard (a test-tier prohibition with no check target fails closed), `src/prohibition-enforcement.cts:746-756` |
-| gsd/E320 | a task's verify command names paths that exist | pass | E | E | `gate-verify-command-paths` |
+| gsd/E320 | a task's verify command runs in a directory that exists (`cd` chains fold with absolute-reset, `npm --prefix`, `&amp;` decoded; the `MISSING` sentinel is skipped) and holds the manifest its tool needs (`package.json` for npm, npx, pnpm, yarn and bun; `Makefile` for make). A directory the plan's own task files or artifact paths equal or cover is pending creation, not missing. A dynamic target (`$`, `*`, `~`) is not judged. Divergence: the guest does not know the project root, so GSD's probe of a `../sibling` directory and of an absolute path inside the root is not made; both count as outside | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | the deterministic half of D3b: a `coupling_justified` item naming a peer of the same phase and wave is reported as the applied exemption (`coupling between 'A' and 'B' is justified: <reason>`), and one naming a peer in another wave or phase as covering nothing. Finding the coupling itself is judgment, `gsd/W311` (r40). Information under every profile | pass | I | I | D3b, `planner-coupling.md:25-35` |
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |
 | gsd/W323 | a plan is named `<phase>-<NN>` in its phase (`02.1-01` in phase `02.1`: the phase's name, a dash, two or more digits), and by its quick id `YYMMDD-xxx` without one (three base-36 digits; a forgotten `phase` would otherwise silently make a quick plan) | pass | W | E | `phase-plan-index` (non-canonical plan names, `describeNonCanonicalPlans`) |
@@ -112,9 +112,10 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
   is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
   D3). The roster maps `gate-evidence` to that refusal.
-- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r37 for `gsd/E320`, r39 for the rest): `gsd/E320`, `gsd/E505`, and the file facts under
-  `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`) declare `reads` and are sent
-  the facts and capped text of those files.
+- Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `reads` and are sent the facts and
+  capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
+  reads). Not yet built (r39): `gsd/E505` and the file facts under `gsd/E501` (artifact `missing`, `min_lines`,
+  `contains`, `exports`; a key link's `pattern`).
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
   `gsd/E502`, `gsd/W408`, `gsd/E515`.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;

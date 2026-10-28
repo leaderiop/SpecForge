@@ -3813,6 +3813,18 @@
           },
           {
             "default_value": null,
+            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_paths",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "done when its plan's summary lists it complete",
             "edge": null,
             "enum_values": [
