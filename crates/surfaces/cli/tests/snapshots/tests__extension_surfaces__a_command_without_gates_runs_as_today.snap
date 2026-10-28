@@ -1,0 +1,24 @@
+---
+source: crates/surfaces/cli/tests/extension_surfaces.rs
+expression: "serde_json::from_slice::<Value>(&output.stdout).unwrap()"
+---
+{
+  "features": [
+    {
+      "id": "f1",
+      "priority": "high",
+      "status": "proposed",
+      "title": "Core Feature"
+    },
+    {
+      "id": "f2",
+      "priority": "medium",
+      "status": "done",
+      "title": "Secondary Feature"
+    }
+  ],
+  "has_more": false,
+  "limit": 100,
+  "offset": 0,
+  "total": 2
+}

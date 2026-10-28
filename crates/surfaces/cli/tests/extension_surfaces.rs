@@ -206,6 +206,24 @@ fn one_mistake_is_one_message_in_each_surfaces_shape() {
     }
 }
 
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a command that declares no gate runs as it did"
+)]
+fn a_command_without_gates_runs_as_today() {
+    let dir = setup_product_project();
+    let output = Cli::on(&dir)
+        .command(&["product", "features", "--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(output.stderr.is_empty(), "{output:?}");
+    insta::assert_json_snapshot!(
+        "a_command_without_gates_runs_as_today",
+        serde_json::from_slice::<Value>(&output.stdout).unwrap()
+    );
+}
+
 /// A project enabling the vendored sandbox probe (`fixtures/sandbox-probe`),
 /// whose `probe` command prints its whole input and whose `trap` command
 /// traps.

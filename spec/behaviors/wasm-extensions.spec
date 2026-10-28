@@ -1020,3 +1020,17 @@ behavior run_guard_passes "Run Guard Passes" {
   verify unit "a plan a guard pass finds an error in is refused with E080 and nothing is written"
   verify unit "a guard that already objects to the project does not refuse the write that fixes it"
 }
+
+behavior gate_a_command "Gate a Command" {
+  features   [contribution_based_extensions]
+  invariants [extension_isolation]
+  category   command
+  contract   """
+    A command may declare `gates`, local codes of its extension, and a `subject`, the arg holding the entity it acts
+    on (ADR 0291). Before its export runs, on the command line and over MCP, the host refuses the call
+    (`gate_failed`, kind precondition_failed) while the project's report, or a guard pass the gate names run now,
+    holds an error of a gated code in the subject's scope. A command that declares no gate runs as it always did.
+  """
+  verify unit "a command that declares no gate runs as it did"
+  verify unit "a command descriptor that declares no gate serializes as it did"
+}

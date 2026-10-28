@@ -12,7 +12,7 @@ use crate::support::{Logged, agent_plan, events, logged};
 /// The project the prompts read: product, software and testing loaded,
 /// a four-hop chain `alpha - feat_login - beta - inv_session - delta`,
 /// `alpha` anchored to `src/login.rs`, and four source files.
-fn project() -> tempfile::TempDir {
+pub(crate) fn project() -> tempfile::TempDir {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
     std::fs::create_dir_all(root.join("spec")).unwrap();
@@ -81,19 +81,19 @@ behavior delta "Delta" {
 }
 
 /// A server for `dir`, as `specforge mcp <dir>` starts it, initialized.
-fn server(dir: &tempfile::TempDir) -> Logged {
+pub(crate) fn server(dir: &tempfile::TempDir) -> Logged {
     let mut server = logged(McpServer::with_project_root(dir.path().to_path_buf()));
     send(&mut server, "initialize", json!({}));
     server
 }
 
-fn send(server: &mut McpServer, method: &str, params: Value) -> Value {
+pub(crate) fn send(server: &mut McpServer, method: &str, params: Value) -> Value {
     let message = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
     let reply = server.handle_message(&message.to_string()).unwrap();
     serde_json::from_str(&reply).unwrap()
 }
 
-fn get(server: &mut McpServer, prompt: &str, arguments: Value) -> Value {
+pub(crate) fn get(server: &mut McpServer, prompt: &str, arguments: Value) -> Value {
     send(
         server,
         "prompts/get",

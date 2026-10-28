@@ -68,6 +68,19 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   verify unit "each prompt's payload is the spec type its module names"
 }
 
+behavior serve_extension_prompt "Serve an Extension Prompt" {
+  invariants [mcp_structured_error_responses, mcp_served_project_consistency]
+  category   query
+  types      [McpPromptDescriptor, McpPromptArgument, McpError]
+  contract   """
+    An extension contributes MCP prompts in its surfaces (ADR 0291): each is served as specforge.<short>.<id>
+    after the core prompts, rendered by the extension's prompt export from typed arguments, with one host message
+    appended (the prompt's version and digest, its attribution, each step and whether its gate passes now). A
+    project whose extensions declare no prompt lists and serves the core prompts exactly as before.
+  """
+  verify unit "a project whose extensions declare no prompt lists and serves the core prompts unchanged"
+}
+
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   invariants [
     graph_traversal_integrity,
