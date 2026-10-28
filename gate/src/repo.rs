@@ -69,20 +69,25 @@ pub const PROJECTS: &[&str] = &[
 ];
 
 /// The crates outside the workspace, each its own manifest (was `ci.yml:54,75,92`, `gate.sh:184`): the guests, the
-/// fixtures and each example project's own extension.
+/// fixtures, each example project's own extension and the `@gsd` workspace (a pattern without a `*` names one path).
 pub const OUTSIDE_WORKSPACE: &[&str] = &[
     "extensions/*/Cargo.toml",
     "fixtures/*/Cargo.toml",
     "examples/*/extension/Cargo.toml",
+    "gsd/Cargo.toml",
 ];
 
 /// `prefix/*/rest` expanded under `root`: `prefix/<entry>/rest` for each entry of `root/prefix` where that path
-/// exists, sorted. The one `*` is a whole segment; an unreadable `prefix` (or a pattern without `/*`) yields nothing.
+/// exists, sorted. The one `*` is a whole segment; an unreadable `prefix` yields nothing. A pattern with no `*` is one
+/// path: itself when it exists.
 pub(crate) fn expand(root: &Path, pattern: &str) -> Vec<String> {
     let (prefix, rest) = match pattern.split_once("/*/") {
         Some((prefix, rest)) => (prefix, Some(rest)),
         None => match pattern.strip_suffix("/*") {
             Some(prefix) => (prefix, None),
+            None if !pattern.contains('*') && root.join(pattern).exists() => {
+                return vec![pattern.to_string()];
+            }
             None => return Vec::new(),
         },
     };
@@ -318,6 +323,8 @@ mod tests {
             ["a/x/rest/Cargo.toml"]
         );
         assert_eq!(expand(root.path(), "a/*/Cargo.toml"), ["a/y/Cargo.toml"]);
+        assert_eq!(expand(root.path(), "a/y/Cargo.toml"), ["a/y/Cargo.toml"]);
+        assert!(expand(root.path(), "a/z/Cargo.toml").is_empty());
     }
 
     #[test]

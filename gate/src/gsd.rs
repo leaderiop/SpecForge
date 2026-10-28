@@ -1,0 +1,97 @@
+//! The `gsd` check: the `@gsd` workspace (`gsd/`) lints, builds to `wasm32-wasip2` and passes its tests against the
+//! `specforge` binary (ADR gsd/0001 D6). The workspace patches the in-tree SDK, so a kernel change that breaks
+//! `@gsd/core` fails in the pull request that made it.
+
+use crate::checks::Selection;
+use crate::run::Ctx;
+
+/// What can break the workspace: itself, the SDK it builds against, the protocol types the SDK speaks and the root
+/// manifest (a version bump must reach `gsd/core/Cargo.toml`).
+pub const TRIGGER: &[&str] = &[
+    "gsd/**",
+    "crates/runtime/extension-sdk/**",
+    "crates/runtime/extension-sdk-macros/**",
+    "crates/leaf/protocol-types/**",
+    "Cargo.toml",
+];
+
+/// Stops at the first failing step: clippy for native and wasm, the release wasm build, the `specforge` CLI build,
+/// then `cargo test` with `SPECFORGE_BIN` and `GSD_CORE_WASM` set to the two artifacts. Cargo runs in `gsd/`: it reads
+/// `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
+pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    let target = ctx.repo.target_dir.join("gsd");
+    let wasm = target.join("wasm32-wasip2/release/gsd_core.wasm");
+    let cargo = |args: &[&str]| {
+        let mut cmd = ctx.cmd("cargo");
+        cmd.current_dir(ctx.repo.root.join("gsd"))
+            .env("CARGO_TARGET_DIR", &target)
+            .args(args);
+        cmd
+    };
+    ctx.sh(&mut cargo(&[
+        "clippy",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ]))?;
+    ctx.sh(&mut cargo(&[
+        "clippy",
+        "--target",
+        "wasm32-wasip2",
+        "--lib",
+        "--",
+        "-D",
+        "warnings",
+    ]))?;
+    ctx.sh(&mut cargo(&[
+        "build",
+        "-p",
+        "gsd-core",
+        "--release",
+        "--target",
+        "wasm32-wasip2",
+    ]))?;
+    let specforge = ctx.specforge()?;
+    ctx.sh(cargo(&["test"])
+        .env("SPECFORGE_BIN", specforge)
+        .env("GSD_CORE_WASM", &wasm))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::change_set::ChangeSet;
+    use crate::checks::{CHECKS, Selection};
+    use crate::repo::this_repo;
+    use crate::run::Mode;
+
+    fn selection(paths: &[&str]) -> Selection {
+        let check = CHECKS
+            .iter()
+            .find(|c| c.name == "gsd")
+            .expect("the list has a gsd check");
+        check
+            .selection(
+                Mode::Quick,
+                &this_repo(),
+                &ChangeSet::of(paths.iter().copied()),
+            )
+            .expect("a path trigger cannot fail")
+    }
+
+    #[test]
+    fn the_gsd_check_triggers_on_the_sdk_and_on_gsd_only() {
+        for path in [
+            "gsd/core/src/lib.rs",
+            "crates/runtime/extension-sdk/src/lib.rs",
+            "crates/leaf/protocol-types/src/calls.rs",
+            "Cargo.toml",
+        ] {
+            assert_eq!(selection(&[path]), Selection::Everything, "{path}");
+        }
+        assert_eq!(
+            selection(&["crates/surfaces/cli/src/main.rs"]),
+            Selection::Skip
+        );
+    }
+}
