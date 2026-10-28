@@ -61,7 +61,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W311 | the plan achieves its phase goal, keeps to scope and contradicts no settled decision | judged (plan checker) | W | E | D7 and the goal and scope dimensions |
 | gsd/E312 | no task action reduces scope: the planner's twelve prohibited phrases ("v1", "v2", "simplified version", "static for now", "hardcoded for now", "future enhancement", "placeholder", "basic version", "minimal implementation", "will be wired later", "dynamic in future phase", "skip for now"), case-insensitive and word-bounded (`v10` and `placeholders` do not match; `api v1` does, as the planner forbids it outright); one error per task, naming the first phrase found. The checker's wider list (stub, hours, too complex) is judgment, `gsd/W311` | pass | E | E | `agents/gsd-planner.md:81-85` (no code matcher exists upstream), D7b |
 | gsd/W313 | key links are wired between artifacts the plan names | judged (plan checker) | W | E | plan checker (key links) |
-| gsd/E314 | each task has an automated verify or a wave-0 item (Nyquist) | pass | E | E | D8, `nyquist` |
+| gsd/E314 | each task has an automated verify or a wave-0 item (Nyquist); built in r39, with the `validation` kinds whose wave-0 items it reads | pass | E | E | D8, `nyquist` |
 | gsd/W315 | data contracts between plans match (`requires` / `provides`) | judged (plan checker) | W | E | plan checker (data contracts) |
 | gsd/W316 | the plan follows the project's agent instructions and the mapped patterns | judged (plan checker) | W | W | plan checker (CLAUDE.md, patterns) |
 | gsd/W317 | the post-planning gap report finds nothing open: every requirement of a planned phase and every `D-NN` of its context (trackable or not) appears as a word in the text of the phase's plans (plans, tasks, checkpoints and must-haves; a plan's `requirements` items count). One warning per phase, on the phase, `⚠ {u} of {n} items not covered by any plan: <ids>`; the report table (`## Post-Planning Gap Analysis`, GSD's rows and sort) is the suggestion. A phase with no plan is not judged (GSD runs the gate at `plan:post`) | pass | W | W | `gate-gap-analysis-plan-post`, `src/gap-checker.cts` |
@@ -133,7 +133,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 |---|---|---|---|
 | `workflow.windows_enforce` | false | true | gsd/E512 |
 | `workflow.tdd_mode` | false | false | gsd/E403, gsd/W404 |
-| `workflow.nyquist_validation` | true | true | gsd/E314, gsd/W510 |
+| `workflow.nyquist_validation` | true | true | gsd/E314 (r39), gsd/W510 |
 | `workflow.plan_check` | true | true | gsd/W311, gsd/W313, gsd/W315, gsd/W316, gsd/W318 |
 | `workflow.post_planning_gaps` | true | true | gsd/W317 |
 | `workflow.context_coverage_gate` | true | true | gsd/E310, gsd/W506 |

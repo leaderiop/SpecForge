@@ -1,5 +1,7 @@
 # Plans and tasks
 
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` wait for r39 and r40.**
+
 ```
  phase ─1──*─ plan ─1──*─ task
                 │   ├──*─ checkpoint         (options are a block of it)
