@@ -3,10 +3,11 @@
 //! is refused before its export runs. The fixture is `@t/core`, served in process.
 
 use super::run_in;
+use crate::outcome::OutputFormat;
 use crate::terminal::{Facts, Terminal};
 use serde_json::Value;
-use specforge_project::SharedRuntime;
 use specforge_project::testing::{CORE, GsdPrompts, NO_CONTEXT, TestProject, gsd_prompts_sources};
+use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_test_macros::test as specforge_test;
 use std::sync::Arc;
 
@@ -32,20 +33,21 @@ fn extension(project: &TestProject, ext: &str, rest: &[&str]) -> (i32, String, S
     (code, capture.stdout(), capture.stderr())
 }
 
-/// `specforge prompt <rest…>`. The command does not exist yet; the ticket that adds it calls it here.
-fn prompt(_project: &TestProject, _rest: &[&str]) -> (i32, String, String) {
-    (
-        2,
-        String::new(),
-        "error: unrecognized subcommand 'prompt'".into(),
-    )
+/// `specforge prompt <rest…>` over `project`: its exit code, stdout and stderr.
+fn prompt(project: &TestProject, rest: &[&str]) -> (i32, String, String) {
+    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let compiled = CompiledProject::of(project.environment_in(runtime));
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+    let mut words: Vec<String> = rest.iter().map(ToString::to_string).collect();
+    let name = words.remove(0);
+    let code = crate::prompt::run_in(&compiled, &name, words, OutputFormat::Human, &terminal);
+    (code.code(), capture.stdout(), capture.stderr())
 }
 
 #[specforge_test(
     behavior = "serve_extension_prompt",
     verify = "specforge prompt prints a rendered prompt, as JSON with its host message, and refuses a failing gate"
 )]
-#[ignore = "K8 T8"]
 fn specforge_prompt_prints_a_rendered_prompt() {
     let ok = project("fine", "ok");
     let (code, out, err) = prompt(
@@ -75,14 +77,13 @@ fn specforge_prompt_prints_a_rendered_prompt() {
     behavior = "serve_extension_prompt",
     verify = "an extension's name routes a prompt when no command of it has that name"
 )]
-#[ignore = "K8 T8"]
 fn an_extension_name_routes_a_prompt_when_no_command_has_it() {
     let ok = project("fine", "ok");
     // `research_phase` is a prompt only; `record_plan` is a command only.
-    let (code, out, err) = extension(&ok, "t", &["research_phase", "03"]);
+    let (code, out, err) = extension(&ok, "t", &["research-phase", "03"]);
     assert_eq!(code, 0, "{err}");
     assert!(out.starts_with("prompt__research_phase "), "{out}");
-    let (code, out, _) = extension(&ok, "t", &["record-plan", "--phase", "03"]);
+    let (code, out, _) = extension(&ok, "t", &["record-plan", "03"]);
     assert_eq!(code, 0);
     assert!(
         !out.starts_with("prompt__"),
@@ -110,4 +111,67 @@ fn a_gated_command_is_refused_on_the_cli() {
     };
     assert_eq!(code, 1);
     assert!(err_json.contains("\"code\":\"gate_failed\""), "{err_json}");
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt renders the same messages and payload on the command line and over MCP"
+)]
+fn a_prompt_renders_alike_on_the_command_line_and_over_mcp() {
+    use serde_json::json;
+    use specforge_mcp::testing::{Served, rpc};
+    let (cli_project, mcp_project) = (project("fine", "blocked"), project("fine", "blocked"));
+    let (code, out, err) = prompt(
+        &cli_project,
+        &[
+            "t.plan_phase",
+            "03",
+            "--depth",
+            "2",
+            "--host",
+            "codex",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    let cli: Value = serde_json::from_str(&out).unwrap();
+
+    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let mut served = Served::initialized_in(mcp_project, runtime);
+    let reply = rpc::tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03", "depth": 2}, "host": "codex"}),
+    );
+    assert_eq!(cli["messages"], reply["messages"]);
+    assert_eq!(cli["payload"], reply["payload"]);
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "completions and help list an extension's prompts beside its commands, with their arguments"
+)]
+fn the_extension_command_line_lists_its_prompts() {
+    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let env = project("fine", "ok").environment_in(runtime);
+    let cli = super::with_commands_of(clap::Command::new("specforge"), &env);
+    let ext = cli.find_subcommand("t").expect("the extension is listed");
+    let plan = ext
+        .find_subcommand("plan-phase")
+        .expect("its prompt is a subcommand");
+    let options: Vec<&str> = plan.get_arguments().filter_map(|a| a.get_long()).collect();
+    for expected in [
+        "research", "depth", "mode", "labels", "host", "path", "format",
+    ] {
+        assert!(options.contains(&expected), "{expected} in {options:?}");
+    }
+    assert!(
+        plan.get_arguments()
+            .any(|a| a.get_id() == "phase" && a.is_required_set())
+    );
+    assert!(
+        ext.find_subcommand("record-plan").is_some(),
+        "and its commands"
+    );
 }

@@ -20,6 +20,7 @@ Commands:
   explore       Where to start reading the graph: starting points, hubs and unconnected entities
   review        Coverage gaps around an entity, or of the whole project
   infer-guide   What to look for in code to write a kind's entities
+  prompt        Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
   add           Install an extension
   remove        Remove an installed extension
   extensions    List the project's extensions: enabled, locked or loaded

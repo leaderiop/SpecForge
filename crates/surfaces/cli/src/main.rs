@@ -34,6 +34,7 @@ mod options;
 mod outcome;
 mod outline;
 mod project;
+mod prompt;
 mod providers;
 mod publish;
 mod query;
@@ -93,6 +94,8 @@ enum Commands {
     Review(review::Args),
     /// What to look for in code to write a kind's entities
     InferGuide(infer_guide::Args),
+    /// Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
+    Prompt(prompt::Args),
     /// Install an extension
     Add(add::Args),
     /// Remove an installed extension
@@ -234,6 +237,7 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Explore(args) => args.run(terminal),
         Commands::Review(args) => args.run(terminal),
         Commands::InferGuide(args) => args.run(terminal),
+        Commands::Prompt(args) => args.run(terminal),
         Commands::Add(args) => args.run(terminal),
         Commands::Analyze(args) => args.run(terminal),
         Commands::Watch(args) => args.run(terminal),

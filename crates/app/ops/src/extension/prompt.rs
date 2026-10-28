@@ -165,6 +165,17 @@ pub struct RenderedPrompt {
     pub payload: ExtensionPromptPayload,
 }
 
+impl RenderedPrompt {
+    /// The prompt as `specforge prompt --format json` and `specforge.prompt` write it: `{messages: [{role, text}],
+    /// payload}`.
+    pub fn document(&self) -> Value {
+        serde_json::json!({
+            "messages": self.messages,
+            "payload": self.payload,
+        })
+    }
+}
+
 /// Why a prompt did not render.
 #[derive(Debug)]
 pub enum RenderError {

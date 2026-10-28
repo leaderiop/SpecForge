@@ -96,6 +96,25 @@ pub(crate) fn run_in(
 ) -> i32 {
     let routed = ExtensionCommands::build(env.registries());
     let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
+    // A name no command of the extension has, but a prompt does, renders the prompt (ADR 0291).
+    let prompted = rest.first().is_some_and(|name| {
+        !commands.iter().any(|c| c.cli_name() == *name)
+            && env
+                .registries()
+                .prompts()
+                .iter()
+                .any(|p| p.short() == ext && p.cli_name() == name)
+    });
+    if prompted {
+        let name = rest.remove(0);
+        let format = if asks_for_json(&rest) {
+            crate::outcome::OutputFormat::Json
+        } else {
+            crate::outcome::OutputFormat::Human
+        };
+        let project = CompiledProject::of(env);
+        return crate::prompt::served(&project, ext, &name, rest, format, terminal).code();
+    }
     if commands.is_empty() {
         errln!(
             terminal,
@@ -252,17 +271,20 @@ fn written(error: &RunError, format: CommandFormat) -> String {
         }
         CommandFormat::Human => match error {
             RunError::Args(error) => format!("error: {error}\n"),
-            RunError::Call(error) => {
-                format!("{}\n", specforge_common::render_plain(&error.diagnostic()))
-            }
+            RunError::Call(error) => call_text(&error.diagnostic()),
             RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::Gate(error) => failed_gate(error),
         },
     }
 }
 
+/// A failed call (E028) as the CLI writes it: the diagnostic, plain.
+pub(crate) fn call_text(diagnostic: &specforge_common::Diagnostic) -> String {
+    format!("{}\n", specforge_common::render_plain(diagnostic))
+}
+
 /// A refused gate on stderr: the refusal, then each failing diagnostic as `check` prints one without a snippet.
-fn failed_gate(refusal: &specforge_ops::OpError) -> String {
+pub(crate) fn failed_gate(refusal: &specforge_ops::OpError) -> String {
     let mut text = format!("error[{}]: {}\n", refusal.code, refusal.message);
     let failing: Vec<specforge_common::Diagnostic> = refusal
         .data
@@ -284,19 +306,39 @@ fn failed_gate(refusal: &specforge_ops::OpError) -> String {
 /// completions are generated from. An extension whose short name is a
 /// built-in command's is left out (the built-in wins), and so is any
 /// command the host refuses.
-pub fn with_extension_commands(mut cli: Command, root: &ProjectRoot) -> Command {
+pub fn with_extension_commands(cli: Command, root: &ProjectRoot) -> Command {
     let env = Environment::load(
         root,
         Some(Arc::new(
             specforge_component::ComponentRuntime::with_user_cache(),
         )),
     );
+    with_commands_of(cli, &env)
+}
+
+/// [`with_extension_commands`] over the environment that routes them: a subcommand per extension that contributes
+/// commands or prompts, each prompt a subcommand of its extension's.
+pub(crate) fn with_commands_of(mut cli: Command, env: &Environment) -> Command {
     let routed = ExtensionCommands::build(env.registries());
-    for ext in routed.shorts() {
+    let prompts = env.registries().prompts();
+    let mut shorts = routed.shorts();
+    for prompt in prompts {
+        if !shorts.contains(&prompt.short()) {
+            shorts.push(prompt.short());
+        }
+    }
+    for ext in shorts {
         if cli.find_subcommand(ext).is_none() {
             let commands: Vec<&ExtensionCommand> = routed.of(ext).collect();
             let about = format!("{ext} extension commands");
-            cli = cli.subcommand(command_line(ext, &commands).about(about));
+            let mut line = command_line(ext, &commands).about(about);
+            for route in prompts.iter().filter(|p| p.short() == ext) {
+                line = line.subcommand(crate::prompt::subcommand(
+                    route.cli_name(),
+                    route.declaration(),
+                ));
+            }
+            cli = cli.subcommand(line);
         }
     }
     cli
