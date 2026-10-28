@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 61 codes of `spec/rules.md`, in the order of its tables.
+/// The 62 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -370,6 +370,14 @@ pub static CODES: &[Code] = &[
         "A plan has fewer than 5 tasks",
         "plan",
         Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "W323",
+        "Plan not named after its phase",
+        "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one",
+        "plan",
+        Severity::Warning,
         Severity::Error,
     ),
     code(

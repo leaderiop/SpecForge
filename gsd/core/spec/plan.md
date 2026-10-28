@@ -23,7 +23,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
-| phase | → phase | I | `phase:`; absent for a quick plan, which is in the project scope and named by its quick id (not `R`: a quick plan has none) |
+| phase | → phase | I | `phase:`; absent for a quick plan, which is in the project scope and named by its quick id (not `R`: a quick plan has none, so a forgotten `phase` is gsd/W323, the name check) |
 | type | enum{execute, tdd} | R | `type:` |
 | depends_on | →* plan | | `depends_on:` |
 | files_modified | strs | R | `files_modified:`: paths from the project root, not existence-checked (a plan names files it will create, so `files` would be E016 on each) |

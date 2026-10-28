@@ -5,6 +5,7 @@ mod harness;
 mod parity_discuss;
 mod parity_roadmap;
 mod plan;
+mod plan_rules;
 mod roadmap;
 mod settings;
 

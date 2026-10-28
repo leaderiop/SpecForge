@@ -70,6 +70,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E320 | a task's verify command names paths that exist | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | same-wave non-file coupling is declared by `depends_on` or `coupling_justified` naming the peer | pass | I | I | D3b |
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |
+| gsd/W323 | a plan is named `<phase>-<NN>` in its phase (`02.1-01` in phase `02.1`: the phase's name, a dash, two or more digits), and by its quick id `YYMMDD-xxx` without one (three base-36 digits; a forgotten `phase` would otherwise silently make a quick plan) | pass | W | E | `phase-plan-index` (non-canonical plan names, `describeNonCanonicalPlans`) |
 | gsd/E507 | each task's verify commands name their failing direction (`fails_when`), one statement per `automated` | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
 
 ## Execute

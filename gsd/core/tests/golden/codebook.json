@@ -218,6 +218,12 @@
       "title": "Plan has five or more tasks"
     },
     {
+      "code": "W323",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one. It is a warning, and an error under gsd-strict.",
+      "title": "Plan not named after its phase"
+    },
+    {
       "code": "E507",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
       "explanation": "Each task's verify commands name their failing direction (fails_when), one statement per automated. It is an error.",
