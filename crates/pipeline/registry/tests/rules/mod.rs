@@ -6,6 +6,7 @@ mod checks;
 mod custom;
 mod cycles;
 mod files;
+mod judged;
 mod order;
 mod shape;
 mod written;

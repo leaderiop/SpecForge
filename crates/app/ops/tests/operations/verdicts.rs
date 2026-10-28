@@ -207,3 +207,25 @@ fn set_verdict_compares_its_inputs_with_the_disk_under_the_lock() {
     });
     assert_eq!(reason, "stale_revision");
 }
+
+/// The host's judged rules over the GSD-shaped project (`specforge_project::testing::gsd_judged_project`): K7 T9.
+fn host_rules() -> Arc<dyn JudgedRules> {
+    panic!("K7 T9: HostJudgedRules")
+}
+
+#[ignore = "K7 T9"]
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "set_verdict refuses a value its field refuses"
+)]
+fn set_verdict_refuses_a_value_its_field_refuses() {
+    // E202 binds `phase_spec.scores`, whose members are integers from 0 to 100: 140 is refused, `value`.
+    let rules = host_rules();
+    let rule = rules.rule("gsd/E202").expect("the host judges E202");
+    assert!(rule.values.contains(&"scores".to_string()));
+    let ops = json!([{"op": "set_verdict", "entity": "v1.0/03/S", "rule": "gsd/E202", "outcome": "passed",
+        "judge": "gsd-spec-agent", "model": "m", "findings": [], "cited": [], "basis": {},
+        "values": {"scores": {"goal": 140}}}]);
+    let p = specforge_project::testing::gsd_judged_project("");
+    assert_eq!(with_rules(&p, "record", ops), "value");
+}

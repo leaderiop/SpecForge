@@ -124,3 +124,27 @@ fn a_field_named_verdict_stays_a_field() {
     assert!(entity.fields.get("verdict").is_some());
     assert!(entity.fields.get("field").is_some());
 }
+
+const VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26T14:02:11Z\"\n    cited [AUTH-07, \"src/http/middleware.ts\"]\n    inputs { plan \"sha256:9f1c\" }\n  }\n}\n";
+
+#[ignore = "K7 T3"]
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "a verdict statement has a rule, an outcome and members, and a truncated one keeps its block"
+)]
+fn a_verdict_statement_parses_beside_a_field_named_verdict() {
+    let file = specforge_parser::parse(VERDICT, "a.spec");
+    assert!(file.errors.is_empty(), "{:?}", file.errors);
+    let entity = &file.entities[0];
+    assert_eq!(entity.fields.get("verdict"), None);
+    // The statement is a member of the entity, as `verify` is: its text names rule, outcome and members.
+    let debug = format!("{entity:?}");
+    assert!(debug.contains("verdicts: [VerdictMember"), "{debug}");
+    // A truncated statement keeps the block it was in.
+    let truncated = VERDICT.replace(
+        "    inputs { plan \"sha256:9f1c\" }\n  }\n}\n",
+        "    inputs {",
+    );
+    let broken = specforge_parser::parse(&truncated, "a.spec");
+    assert_eq!(broken.entities.len(), 1);
+}

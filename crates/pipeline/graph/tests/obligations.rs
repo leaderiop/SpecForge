@@ -66,3 +66,29 @@ fn an_incremental_edit_of_a_statement_matches_the_cold_build() {
         cold.graph().node("Payload").unwrap().obligations
     );
 }
+
+const WITH_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
+const OTHER_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 issues {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
+
+#[ignore = "K7 T3"]
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "a verdict is a node member and a delta aspect, never a field"
+)]
+fn a_verdict_is_a_node_member_and_a_delta_aspect() {
+    let file = |text| parse(text, "a.spec");
+    let mut build = GraphBuild::of([file(WITH_VERDICT)], GraphConfig::default());
+    build.set_verify(true);
+    let node = build.graph().node("P").unwrap();
+    assert!(node.fields.get("verdict").is_none());
+    let applied = build.apply([FileChange::Parsed(file(OTHER_VERDICT))]);
+    assert_eq!(applied.verification, Some(Ok(())));
+    let modified = &applied.delta.modified_nodes[0];
+    assert_eq!(format!("{:?}", modified.changed_aspects), "[Verdicts]");
+    assert!(modified.changed_fields.is_empty(), "{modified:?}");
+    let cold = GraphBuild::of([file(OTHER_VERDICT)], GraphConfig::default());
+    assert_eq!(
+        format!("{:?}", build.graph().node("P").unwrap()),
+        format!("{:?}", cold.graph().node("P").unwrap())
+    );
+}

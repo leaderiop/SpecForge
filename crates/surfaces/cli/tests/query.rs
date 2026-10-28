@@ -96,3 +96,19 @@ fn query_nonexistent_entity_exits_one() {
             "error[E003]: unresolved entity 'alph' — not found in graph\n  hint: did you mean 'alpha'?\n",
         );
 }
+
+#[ignore = "K7 T10"]
+#[test]
+fn query_inputs_refuses_a_rule_no_extension_judges() {
+    let dir = TestProject::new()
+        .without_config()
+        .files(&[("main.spec", SPEC_CONTENT)]);
+    let output = Cli::on(&dir)
+        .command(&["query", "alpha", "--inputs", "nothing"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let text = String::from_utf8_lossy(&output.stderr).to_string()
+        + &String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("not_judged"), "{text}");
+}

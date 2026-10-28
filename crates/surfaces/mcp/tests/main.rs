@@ -25,6 +25,7 @@ mod infer_session_arguments;
 mod infer_sources;
 mod init_enclosing;
 mod invariants;
+mod judged_inputs;
 mod lifecycle;
 mod local_specifier_containment;
 mod management_view;

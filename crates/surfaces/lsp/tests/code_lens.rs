@@ -119,3 +119,25 @@ fn a_recompile_asks_a_lens_refreshing_client_to_refresh() {
         assert_eq!(lenses_refreshed(&served.sent()), asked, "support {support}");
     }
 }
+
+#[ignore = "K7 T12"]
+#[spec(
+    behavior = "show_verdict_state",
+    verify = "a code lens says whether each verdict is fresh, failed or stale, and which inputs changed"
+)]
+fn a_stale_verdict_has_a_code_lens_naming_its_inputs() {
+    use specforge_project::testing::{GSD_JUDGED, GSD_JUDGED_SPEC, declare_gsd_judged};
+    let served = crate::served::Served::new(&[("a.spec", GSD_JUDGED_SPEC)])
+        .extension(GSD_JUDGED, declare_gsd_judged)
+        .open(&["a.spec"]);
+    let lenses =
+        specforge_lsp::answers::code_lenses(&served.state(), &served.uri("a.spec")).unwrap();
+    let at_name: Vec<&str> = lenses
+        .iter()
+        .filter_map(|l| l.command.as_ref().map(|c| c.title.as_str()))
+        .collect();
+    assert!(
+        at_name.iter().any(|t| t.contains("verdicts missing")),
+        "{at_name:?}"
+    );
+}
