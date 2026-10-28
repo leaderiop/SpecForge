@@ -49,6 +49,10 @@ No command had preconditions: a command ran its export unconditionally.
   bool setting, a step that names nothing) is dropped whole with one W021; only a step's `agent` and an empty attribution
   are dropped alone. A gate it could not evaluate would otherwise be ignored.
 
+- **D7. A prompt export is told which secrets are set**, like a command, a tool or a resource, and never a pass (a
+  gate's guard pass included). Presence is the machine's, so a prompt that echoes it makes its digest differ between a
+  laptop and CI: a prompt keeps it out of its text.
+
 ## Rejected
 
 Shipping the prompts as host skills only: an MCP-only client would get no orchestration, and nothing would refuse a

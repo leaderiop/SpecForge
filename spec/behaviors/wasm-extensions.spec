@@ -1044,4 +1044,6 @@ behavior gate_a_command "Gate a Command" {
   verify unit "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
   verify unit "a guard pass's input carries the trigger that made the host run it"
   verify unit "a subject that names no entity or several is refused before the gate runs"
+  verify unit "a guard pass that fails at a gate fails the gate, and the export is not called"
+  verify unit "a finding that names no entity is in a gate's scope by the block that holds its span"
 }

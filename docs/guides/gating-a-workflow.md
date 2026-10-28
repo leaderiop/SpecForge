@@ -74,3 +74,15 @@ Attribution is rendered with the prompt, so ported text keeps its upstream, path
 
 `p.when("workflow.research")` serves the prompt only while that bool setting is not false. A prompt whose name a command
 of the extension already has is E039 and is not served; a prompt or gate the host cannot serve as declared is W021.
+
+## Limits
+
+- **An older host does not gate.** A host of protocol 1.9 or earlier ignores `gates` and `subject` (W138) and runs a
+  gated command ungated; the minor bump does not refuse the pairing. A command that must never run unchecked
+  also checks the project itself.
+- **A gate that cannot be evaluated fails.** A guard pass that traps, times out or answers what does not parse fails
+  every gated code it reports; it never passes the gate.
+- **A warning gates only when something raises it.** A gate on a `W` code never fails unless a profile raises that
+  code to an error.
+- **A prompt's text may not depend on secrets.** A prompt is told which secrets are set, as a command is; echoing that
+  into its messages makes its digest differ between machines.

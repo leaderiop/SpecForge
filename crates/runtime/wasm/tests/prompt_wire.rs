@@ -147,3 +147,24 @@ fn a_prompt_answer_that_does_not_decode_is_e028() {
         );
     }
 }
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt message keeps its lines and tabs, and every other control character is escaped"
+)]
+fn a_prompt_message_keeps_its_lines() {
+    use specforge_wasm::WasmCallResult;
+    let raw = serde_json::json!({"messages": [{"role": "user", "text": "# Title\n\n\tstep\r\nnext \u{1b}[31mred\u{1b}[0m\r"}]});
+    let runtime = InProcessRuntime::new().answer_raw(
+        EXT,
+        "prompt__x",
+        WasmCallResult::Ok(raw.to_string().into_bytes()),
+    );
+    let output = ExtensionCalls::new(&runtime)
+        .render_prompt(EXT, "prompt__x", &PromptInput::<RawGraph>::default())
+        .unwrap();
+    assert_eq!(
+        output.messages[0].text,
+        "# Title\n\n\tstep\r\nnext \\u{1b}[31mred\\u{1b}[0m\\r"
+    );
+}

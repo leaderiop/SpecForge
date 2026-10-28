@@ -59,8 +59,18 @@ impl CompiledProject {
                 })
             })
             .collect();
-        let Some(runtime) = self.env.runtime().filter(|_| !named.is_empty()) else {
+        if named.is_empty() {
             return self.checked_diagnostics();
+        }
+        let Some(runtime) = self.env.runtime() else {
+            // Fail closed: a gate that cannot ask its guard passes is not satisfied.
+            let mut found = self.checked_diagnostics();
+            found.extend(
+                named
+                    .iter()
+                    .flat_map(|declared| unevaluated(declared, codes, "no runtime")),
+            );
+            return found;
         };
         let mut checked = self.clone();
         if self.checks_skipped {
@@ -73,15 +83,24 @@ impl CompiledProject {
             trigger: Some(trigger),
             ..crate::passes::PassContext::of(checked.memo().entities())
         };
-        let found: Vec<_> = crate::passes::run_extension_passes(
-            named,
+        let reports = crate::passes::run_extension_passes(
+            named.iter().copied(),
             &context,
             &**runtime as &dyn specforge_wasm::WasmRuntime,
             registries.codes(),
-        )
-        .into_iter()
-        .flat_map(|report| report.findings)
-        .collect();
+        );
+        let mut found = Vec::new();
+        for (declared, report) in named.iter().zip(reports) {
+            // Fail closed: a pass that failed cannot say its code is absent, so the gate fails on it.
+            if report.summary["failed"] == true {
+                let why = report
+                    .findings
+                    .first()
+                    .map_or("it failed", |f| f.message.as_str());
+                found.extend(unevaluated(declared, codes, why));
+            }
+            found.extend(report.findings);
+        }
         checked.check_diagnostics.extend(found);
         checked.reported = OnceLock::new();
         checked.diagnostics()
@@ -109,4 +128,29 @@ impl CompiledProject {
             &specforge_registry::PlainDisk,
         )
     }
+}
+
+/// An error of each of `codes` that `declared` reports, saying the pass could not be asked (`why`).
+fn unevaluated(
+    declared: &specforge_registry::DeclaredPass,
+    codes: &[String],
+    why: &str,
+) -> Vec<specforge_common::Diagnostic> {
+    declared
+        .reports()
+        .iter()
+        .map(|local| specforge_diagnostics::qualify(&declared.extension, local))
+        .filter(|code| codes.contains(code))
+        .map(|code| {
+            specforge_common::Diagnostic::from_extension(
+                &declared.extension,
+                code,
+                specforge_common::Severity::Error,
+                format!(
+                    "guard pass '{}' could not be evaluated: {why}",
+                    declared.pass.name
+                ),
+            )
+        })
+        .collect()
 }

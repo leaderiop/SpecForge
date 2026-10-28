@@ -138,6 +138,16 @@ fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
         runtime.calls().pop().unwrap().input,
         json!({"settings": {"level": 2}, "secrets": {"token": true}})
     );
+    let _ = calls.render_prompt(
+        "@contract/crash",
+        "prompt__t",
+        &specforge_protocol_types::PromptInput::<specforge_protocol_types::RawGraph>::default(),
+    );
+    assert_eq!(
+        runtime.calls().pop().unwrap().input["secrets"],
+        json!({"token": true}),
+        "a prompt is told too"
+    );
     // A pass's result must be the same on every machine: it is told the settings, not whether a variable is set.
     let input: PassInput = serde_json::from_value(json!({"entities": []})).unwrap();
     let _ = calls.run_pass("@contract/crash", "audit", &ExtensionCalls::encode(&input));

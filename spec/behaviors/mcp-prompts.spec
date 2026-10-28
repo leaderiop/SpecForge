@@ -102,6 +102,7 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a reference argument names an entity of its target kind and a quoted word is one word"
   verify unit "a prompt renders the same messages and payload on the command line and over MCP"
   verify unit "completions and help list an extension's prompts beside its commands, with their arguments"
+  verify unit "a prompt message keeps its lines and tabs, and every other control character is escaped"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

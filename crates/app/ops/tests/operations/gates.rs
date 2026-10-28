@@ -271,3 +271,54 @@ fn a_subject_that_names_no_entity_or_several_is_refused_before_the_gate() {
     assert_eq!(none.code, "E003");
     assert!(!served.called("cmd__execute_phase"), "no export ran");
 }
+
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a guard pass that fails at a gate fails the gate, and the export is not called"
+)]
+fn a_guard_pass_that_cannot_run_fails_its_gate() {
+    use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+    let trap = WasmCallResult::Trap(WasmTrapInfo {
+        kind: "fuel".into(),
+        message: "out of fuel".into(),
+        export_name: "__pass_ship_guard".into(),
+    });
+    let broken = served_with(
+        project("fine", "ok", json!({})),
+        GsdPrompts::new().answering(CORE, "__pass_ship_guard", trap),
+    );
+    let refused =
+        run_command(&broken, "ship", json!({})).expect_err("an unasked gate is not satisfied");
+    assert_eq!(refused.code, "gate_failed");
+    assert_eq!(refused.data["failing"][0]["code"], "t/E903", "{refused:?}");
+    assert!(!broken.called("cmd__ship"));
+}
+
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a finding that names no entity is in a gate's scope by the block that holds its span"
+)]
+fn a_finding_with_only_a_span_is_scoped_by_its_block() {
+    use specforge_wasm::WasmCallResult;
+    let at = |line: u32| {
+        let finding = json!({"diagnostics": [{"code": "E902", "severity": "Error", "message": "blocked",
+            "span": {"file": "m.spec", "start_line": line, "start_col": 1, "end_line": line, "end_col": 2}}],
+            "summary": {}, "values": []});
+        GsdPrompts::new().answering(
+            CORE,
+            "__pass_audit",
+            WasmCallResult::Ok(finding.to_string().into_bytes()),
+        )
+    };
+    let layout = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\nphase 04 \"Four\" {\n  milestone v1.0\n}\n";
+    let build = |line: u32| {
+        let project = project("fine", "ok", json!({}));
+        project.write("m.spec", layout);
+        served_with(project, at(line))
+    };
+    let args = json!({"phase": "03"});
+    let inside = run_command(&build(4), "execute_phase", args.clone())
+        .expect_err("line 4 is phase 03's block");
+    assert_eq!(inside.code, "gate_failed");
+    run_command(&build(8), "execute_phase", args).expect("line 8 is phase 04's block");
+}

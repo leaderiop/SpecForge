@@ -38,7 +38,7 @@ only. Both apply where the project's report is assembled, and in analyze's findi
 
 The host splices `settings` into the call input where bytes cross; an MCP tool gets it as a reserved argument the SDK
 takes out. A call stays a function of its input. No secret value enters a guest: commands and tools see whether a
-secret is set.
+secret is set (prompts too, since ADR 0291).
 
 ## Consequences
 

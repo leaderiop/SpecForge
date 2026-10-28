@@ -574,10 +574,11 @@ fn decode<O: DeserializeOwned>(
 /// `answer` as JSON with every string and key held printable (a starter template keeping its lines).
 fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error> {
     let mut value: Value = serde_json::from_slice(answer)?;
-    let lines = if operation == Operation::Handshake {
-        DECLARED_LINES
-    } else {
-        &[]
+    let lines = match operation {
+        Operation::Handshake => DECLARED_LINES,
+        // A prompt's message is a document: it keeps its lines, every other control stays escaped.
+        Operation::Prompt => &["text"],
+        _ => &[],
     };
     hold_printable(&mut value, lines);
     Ok(value)

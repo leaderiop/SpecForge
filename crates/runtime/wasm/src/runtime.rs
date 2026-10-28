@@ -43,7 +43,7 @@ impl ExtensionSettings {
     ///
     /// Presence is the machine's, not the project's: CI has a token a laptop lacks. Nothing the host hashes,
     /// records or baselines holds it, so an input that carries it cannot be reproduced from the project. The
-    /// caller adds it only to what a person runs on a machine (commands, tools, resources), never to a pass,
+    /// caller adds it only to what a person runs on a machine (commands, tools, resources, prompts), never to a pass,
     /// validator, collector, scanner or migration, whose results must be the same on every machine.
     pub fn members(&self, secrets: bool) -> serde_json::Map<String, serde_json::Value> {
         let mut members = serde_json::Map::new();

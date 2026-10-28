@@ -124,12 +124,16 @@ impl Scope {
         let Some(span) = &diagnostic.span else {
             return true;
         };
-        let holder = view.graph().nodes().into_iter().find(|node| {
-            let held = &node.source_span;
-            held.file == span.file
-                && held.start_line <= span.start_line
-                && span.end_line <= held.end_line
-        });
+        // The innermost block holding the span: a parent's block covers its members' lines.
+        let holder = view
+            .graph()
+            .nodes_in_file(span.file.as_str())
+            .into_iter()
+            .filter(|node| {
+                node.source_span.start_line <= span.start_line
+                    && span.end_line <= node.source_span.end_line
+            })
+            .min_by_key(|node| node.source_span.end_line - node.source_span.start_line);
         holder.is_none_or(|node| self.paths.contains(node.id.raw.as_str()))
     }
 }
