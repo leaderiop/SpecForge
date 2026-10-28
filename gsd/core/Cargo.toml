@@ -16,6 +16,8 @@ serde_json = "1.0"
 
 [dev-dependencies]
 specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }
+tempfile = "3"
+
 
 # The gsd-core release this crate tracks (the handshake carries it as the keyword `tracks:gsd-core@<version>`).
 [package.metadata.gsd]
