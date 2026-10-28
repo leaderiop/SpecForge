@@ -220,8 +220,12 @@ impl<'a> Cx<'a> {
             _ if !inside => "unreadable".to_string(),
             Err(e) if e.kind() == ErrorKind::NotFound => "absent".to_string(),
             Err(_) => "unreadable".to_string(),
-            Ok(_) if abs.extension().is_some_and(|e| e == "spec") => {
-                hash(&json!({"source": declared_by(&abs)}))
+            Ok(stamp) if abs.extension().is_some_and(|e| e == "spec") => {
+                // a source the project does not compile declares nothing: its bytes are what changes
+                match declared_by(&abs) {
+                    declared if declared.is_empty() => plain(&abs, &stamp),
+                    declared => hash(&json!({"source": declared})),
+                }
             }
             Ok(stamp) => plain(&abs, &stamp),
         };

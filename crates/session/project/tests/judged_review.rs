@@ -130,6 +130,24 @@ fn a_cited_entity_outside_the_holders_chain_is_still_watched() {
 
 #[specforge_test(
     behavior = "digest_judged_inputs",
+    verify = "a spec source that declares nothing digests as its bytes"
+)]
+fn a_spec_file_declaring_nothing_digests_as_its_bytes() {
+    let project = gsd_judged_project("").file("empty.spec", "// one\n");
+    project.write(
+        "a.spec",
+        project
+            .read("a.spec")
+            .replace("[\"src/auth/session.ts\"]", "[\"empty.spec\"]"),
+    );
+    record(&project, TRUTH, E501, "passed");
+    assert_eq!(judgement(&compile(&project), TRUTH, E501).0, "fresh");
+    project.write("empty.spec", "// two two\n");
+    assert_eq!(judgement(&compile(&project), TRUTH, E501).0, "stale");
+}
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
     verify = "a cited file outside the project is not read"
 )]
 fn a_cited_file_outside_the_project_is_not_read() {
