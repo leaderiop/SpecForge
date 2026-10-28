@@ -20,6 +20,7 @@ pub mod reaction;
 mod state;
 mod unwind;
 mod uri;
+mod verdicts;
 pub mod views;
 pub mod watchers;
 

@@ -120,7 +120,6 @@ fn a_recompile_asks_a_lens_refreshing_client_to_refresh() {
     }
 }
 
-#[ignore = "K7 T12"]
 #[spec(
     behavior = "show_verdict_state",
     verify = "a code lens says whether each verdict is fresh, failed or stale, and which inputs changed"

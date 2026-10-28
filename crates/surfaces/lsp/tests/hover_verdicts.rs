@@ -11,7 +11,6 @@ fn judged_served(extra: &str) -> Served {
         .open(&["a.spec"])
 }
 
-#[ignore = "K7 T12"]
 #[spec(
     behavior = "show_verdict_state",
     verify = "the hover lists an entity's verdicts with their state and the inputs that changed"

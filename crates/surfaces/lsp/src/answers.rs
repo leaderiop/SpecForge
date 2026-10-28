@@ -6,6 +6,7 @@
 //! answers; it decides nothing (ADR 0023).
 
 use specforge_common::Sym;
+use specforge_graph::VerdictJson;
 use specforge_ops::authoring::fix::{self, FixQuery, Offer};
 use specforge_ops::authoring::format;
 use specforge_ops::read::navigate::{EntityQuery, MatchScope, Navigator, find_entities, outline};
@@ -585,6 +586,36 @@ pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
         let obligations = state.graph().node(id).map_or(0, |n| n.obligations.len());
         if obligations > 0 {
             lenses.push(lens(plural(obligations, "verify statement"), "", None));
+        }
+        // Each verdict says where it stands; the name says how many judged rules have none (ADR 0290).
+        let judgements: Vec<_> = state
+            .view()
+            .project()
+            .judgements()
+            .of(id)
+            .cloned()
+            .collect();
+        if let Some(node) = state.graph().node(id) {
+            let statements: Vec<_> = node.verdicts.iter().map(VerdictJson::of).collect();
+            for verdict in &node.verdicts {
+                let at = compiled.range(&verdict.rule_span);
+                let judged = judgements.iter().find(|j| j.rule == verdict.rule);
+                if let (Some(range), Some(judged)) = (at, judged) {
+                    lenses.push(CodeLens {
+                        range,
+                        command: Some(Command {
+                            title: crate::verdicts::lens(judged, &statements),
+                            command: String::new(),
+                            arguments: None,
+                        }),
+                        data: None,
+                    });
+                }
+            }
+        }
+        let none = judgements.iter().filter(|j| j.state == "missing").count();
+        if let Some(title) = crate::verdicts::missing(none) {
+            lenses.push(lens(title, "", None));
         }
     }
     Some(lenses)
