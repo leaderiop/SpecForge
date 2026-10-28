@@ -129,6 +129,7 @@ fn probe(call: &CommandCall<'_>) -> CommandOutput {
         exit_code: 3,
         stdout: format!("{out}\n"),
         stderr: "probed\n".to_string(),
+        plan: None,
     }
 }
 
