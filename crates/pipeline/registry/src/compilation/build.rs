@@ -462,6 +462,16 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         BuildPart::Surfaces,
         crate::refuse_host_contributions(&mut declarations, &settings),
     ));
+    // A prompt or a gate the registry refuses is dropped (W021) before a rule names the prompt as its judge.
+    let judge = crate::Judge {
+        codes: &codes,
+        settings: &settings,
+        kinds: &kinds,
+    };
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_prompts(&mut declarations, &judge),
+    ));
     let (rules, rule_diagnostics) = Rules::build(
         &declarations,
         Registries {
@@ -474,17 +484,6 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
-
-    // A prompt or a gate the registry refuses is dropped before anything routes it (W021).
-    let judge = crate::Judge {
-        codes: &codes,
-        settings: &settings,
-        kinds: &kinds,
-    };
-    surface_diagnostics.extend(about(
-        BuildPart::Surfaces,
-        crate::refuse_prompts(&mut declarations, &judge),
-    ));
 
     // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
     surface_diagnostics.extend(about(

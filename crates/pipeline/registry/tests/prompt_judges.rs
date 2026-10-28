@@ -104,3 +104,40 @@ fn a_malformed_prompt_judge_is_w112() {
         assert_eq!(w112(judge).len(), 1, "{judge}: {:#?}", w112(judge));
     }
 }
+
+#[specforge_test(
+    behavior = "declare_judged_rule",
+    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
+)]
+fn a_prompt_the_surfaces_check_dropped_is_not_a_judge() {
+    // An argument named for something the host owns drops the prompt whole (W021): it is not registered.
+    let mut declarations = declarations("prompt:spec_phase");
+    declarations[0].surfaces.prompts[0].args = serde_json::from_value(json!([
+        {"name": "path", "field_type": "string", "description": "reserved"},
+    ]))
+    .unwrap();
+
+    let build = build_registries(declarations);
+
+    let messages: Vec<String> = build
+        .diagnostics()
+        .map(|d| format!("{} {}", d.code, d.message))
+        .collect();
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.starts_with("W021") && m.contains("prompt 'spec_phase'")),
+        "{messages:#?}"
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.starts_with("W112") && m.contains("no prompt of the extension")),
+        "{messages:#?}"
+    );
+    assert!(
+        build
+            .judged_rules_of_prompt("@t/core", "spec_phase")
+            .is_empty()
+    );
+}

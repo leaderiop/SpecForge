@@ -15,8 +15,8 @@ in step with the workflow it models.
 ## Decision
 
 - **D1. A judge is a word or `prompt:<id>`.** `<id>` is the id of a prompt of **the rule's own extension**. The registry
-  checks it against the extension's declared prompts (always complete: no peer is read) and a missing one is W112, as an
-  unknown agent is. A peer's prompt is not a judge: a prompt is the peer's workflow, and agents keep their peers.
+  checks it against the extension's registered prompts (always complete: no peer is read; a prompt the surfaces check
+  drops, W021, is not registered, so it is no judge) and a missing one is W112, as an unknown agent is. A peer's prompt is not a judge: a prompt is the peer's workflow, and agents keep their peers.
 - **D2. The registry keeps the string as written.** The rule's judge is `prompt:spec_phase`; `set_verdict` compares
   strings and already demands a writing command of the rule's extension as the origin, so it needs no change. The
   verdict's member reads `judge "prompt:spec_phase@1.0.0"`.

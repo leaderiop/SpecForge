@@ -45,7 +45,8 @@ pub(super) fn build(
                 if let Some(judged) = &descriptor.judged
                     && let Some(prompt) = judged.judge.strip_prefix(crate::judged::PROMPT_JUDGE)
                 {
-                    // A prompt judge is the extension's own: no peer is read, so the list is always complete.
+                    // A prompt judge is a prompt the extension registered (the surfaces check has dropped the others), and its
+                    // own: no peer is read, so the list is always complete.
                     if !declaration.surfaces.prompts.iter().any(|p| p.id == prompt) {
                         return Err(cannot_fire(
                             extension,
