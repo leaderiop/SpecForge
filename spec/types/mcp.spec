@@ -541,8 +541,8 @@ type McpProviderInfo "Mcp Provider Info" {
 
 type McpDoctorFinding "Mcp Doctor Finding" {
   /// What the finding is about: config, lock, binary, load, structural_only, providers,
-  /// declaration, peer, registry, rule, surface, conflict, shadowing or toolchain.
-  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain"
+  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain or host.
+  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "host"
   check       string
   /// The diagnostic's severity; the disk checks' own are error or warn.
   status      "error" | "warn" | "info"
@@ -552,6 +552,8 @@ type McpDoctorFinding "Mcp Doctor Finding" {
   issue       object @optional
   /// The keyword a shadowing finding (E013) or a kind conflict (E026) names.
   keyword     string @optional
+  /// The host file a host_file_edited finding names.
+  path        string @optional
   verify unit "McpDoctorFinding schema is valid"
 }
 

@@ -7770,6 +7770,45 @@ expression: listing
                   "about"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
+                      "host"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "error",
+                      "warn",
+                      "info"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
               }
             ],
             "type": "object"

@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use serde_json::Value;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, codes};
 use specforge_protocol_types::{Decision, HookEvent};
 
 use super::{Outcome, facts, filter::Filter};
@@ -103,7 +103,10 @@ pub(super) fn run(view: &ProjectView<'_>, event: &HostHookEvent) -> Outcome {
     let after = before.edited(&BTreeMap::from([(key, text)]));
     let mut denied: Vec<String> = Vec::new();
     let new = added(&before.checked_diagnostics(), &after.checked_diagnostics());
-    for d in new.iter().filter(|d| d.code == "E082" || d.code == "E083") {
+    for d in new
+        .iter()
+        .filter(|d| d.code == codes::E082.id() || d.code == codes::E083.id())
+    {
         let hint = d
             .suggestion
             .as_deref()

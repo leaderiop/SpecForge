@@ -3144,6 +3144,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-hosts",
  "specforge-installed",
  "specforge-migrate",
  "specforge-ops",

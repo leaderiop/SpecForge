@@ -117,9 +117,9 @@ pub struct Options {
 }
 
 /// The project's disk through the caller's containment.
-struct ContainedHostDisk<'a> {
-    caller: Caller<'a>,
-    sources: &'a specforge_common::SourceRoot,
+pub(super) struct ContainedHostDisk<'a> {
+    pub(super) caller: Caller<'a>,
+    pub(super) sources: &'a specforge_common::SourceRoot,
 }
 
 impl ContainedHostDisk<'_> {

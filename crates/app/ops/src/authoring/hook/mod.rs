@@ -142,7 +142,10 @@ pub fn run(
         None => {
             return failed(
                 declared.on_failure,
-                "E028: the project's extensions are not loaded",
+                &format!(
+                    "{}: the project's extensions are not loaded",
+                    specforge_common::codes::E028.id()
+                ),
                 route,
             );
         }
@@ -179,10 +182,11 @@ pub fn run(
 
 /// The policy of a hook that did not answer.
 fn failed(policy: OnFailure, message: &str, route: &str) -> Outcome {
-    let text = if message.starts_with("E028") {
+    let code = specforge_common::codes::E028.id();
+    let text = if message.starts_with(code) {
         message.to_string()
     } else {
-        format!("E028: {message}")
+        format!("{code}: {message}")
     };
     let mut outcome = Outcome {
         called: true,

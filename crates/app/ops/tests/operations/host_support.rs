@@ -122,8 +122,21 @@ pub fn state_of(hosted: &Hosted, extension: &str, document: &str) -> Option<Valu
 }
 
 /// The doctor findings about hosts, as `code path`.
-pub fn host_findings(_hosted: &Hosted) -> Vec<String> {
-    unimplemented!("K9 T13: doctor::Part::Host")
+pub fn host_findings(hosted: &Hosted) -> Vec<String> {
+    let view = ProjectView::of(&hosted.compiled);
+    let adapters: Vec<_> = specforge_ops::host::Host::ALL
+        .iter()
+        .filter_map(|host| specforge_hosts::renderer(*host))
+        .collect();
+    let renderers: Vec<&dyn specforge_ops::host::HostRenderer> =
+        adapters.iter().map(AsRef::as_ref).collect();
+    specforge_ops::host::diagnose::findings(&view, &renderers, specforge_ops::testing::caller())
+        .into_iter()
+        .map(|f| match f.path {
+            Some(path) => format!("{} {path}", f.code),
+            None => f.code.to_string(),
+        })
+        .collect()
 }
 
 /// Run the core hook `core.<id>` (the spec guard), which no extension declares.

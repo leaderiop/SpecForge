@@ -2,6 +2,7 @@
 //! names (`clientInfo.name`) or from a `--host` flag, and sent to a prompt export as its `host` (and, later, to
 //! the files a hook installs for it).
 
+pub mod diagnose;
 pub mod drift;
 pub mod glob;
 pub mod install;

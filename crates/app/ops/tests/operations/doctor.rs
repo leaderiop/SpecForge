@@ -10,7 +10,6 @@ use crate::host_support::{host_findings, hosted, hosts_project};
     behavior = "install_into_a_host",
     verify = "doctor reports a host file edited since install and an install stale against the project, and nothing for a directory without a marker"
 )]
-#[ignore = "K9 T13"]
 fn doctor_reports_an_edited_and_a_stale_install() {
     let project = hosts_project(json!({}), json!({}));
     // A hand-written host directory holds no marker: nothing to report.
