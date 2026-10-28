@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_ops::analysis::collect::{self, Mode, Request};
 use specforge_ops::testing::{ScriptedMachine, caller};
 use specforge_ops::view::ProjectView;
@@ -62,8 +62,7 @@ fn command_collect_and_hook_inputs_differ_from_1_10_only_by_now() {
         ["cwd", "graph", "now", "reports", "revisions", "today"],
         "{sent}"
     );
-    let now = sent["now"].as_str().unwrap();
-    assert_eq!(&now[..10], sent["today"].as_str().unwrap(), "{sent}");
+    assert_now_is_today(&sent);
 
     // A hook: the event, the host, the date and the instant, and the facts of its paths.
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
@@ -76,4 +75,19 @@ fn command_collect_and_hook_inputs_differ_from_1_10_only_by_now() {
     let sent = hosted.input("hook__write_guard");
     let keys = keys(&sent);
     assert!(keys.contains(&"today") && keys.contains(&"now"), "{sent}");
+    assert_now_is_today(&sent);
+}
+
+/// `now` is `YYYY-MM-DDTHH:MM:SSZ` and its date is `today`: one instant, taken once for the call.
+fn assert_now_is_today(sent: &Value) {
+    let now = sent["now"].as_str().unwrap();
+    let shaped = now.len() == 20
+        && now.ends_with('Z')
+        && now.as_bytes()[10] == b'T'
+        && now
+            .bytes()
+            .enumerate()
+            .all(|(i, b)| matches!(i, 4 | 7 | 10 | 13 | 16 | 19) || b.is_ascii_digit());
+    assert!(shaped, "{now}");
+    assert_eq!(&now[..10], sent["today"].as_str().unwrap(), "{sent}");
 }

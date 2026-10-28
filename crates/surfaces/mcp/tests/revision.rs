@@ -291,14 +291,30 @@ fn structured_results_conform_to_each_tool_output_schema() {
     assert!(violations.is_empty(), "{violations:#?}");
     conforming.insert("specforge.verdict_inputs");
     // `specforge.settings_set` writes only to an extension that declares settings, which this fixture has none of:
-    // a result as the tool writes it is held to the schema instead.
-    let set = json!({
-        "extension": "@t/s", "name": "level", "value": 2, "previous": 1, "changed": true, "dry_run": false,
-        "file": "specforge.json", "diagnostics": []
-    });
+    // a real result, from a project whose in-process extension declares them (a set, then an unset), is held to the
+    // schema instead.
+    let runtime = std::sync::Arc::new(
+        specforge_wasm::testing::InProcessRuntime::new()
+            .with(specforge_project::testing::settings_extension),
+    );
+    let mut settings = TestProject::new()
+        .enabling(&[specforge_project::testing::SETTINGS_EXTENSION])
+        .serve_in(runtime);
     let tool = specforge_mcp::tools::core_tool("specforge.settings_set").unwrap();
-    let violations = specforge_common::shape::violations(tool.output_schema().unwrap(), &set);
-    assert!(violations.is_empty(), "{violations:#?}");
+    for arguments in [
+        json!({"extension": "@t/s", "name": "level", "value": 2}),
+        json!({"extension": "@t/s", "name": "level", "unset": true}),
+    ] {
+        let reply = call_tool(&mut settings, "specforge.settings_set", arguments.clone());
+        let structured = &reply["result"]["structuredContent"];
+        assert_eq!(reply["result"]["isError"], false, "{reply}");
+        let violations =
+            specforge_common::shape::violations(tool.output_schema().unwrap(), structured);
+        assert!(
+            violations.is_empty(),
+            "{arguments}: {violations:#?}\n{structured}"
+        );
+    }
     conforming.insert("specforge.settings_set");
     // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
