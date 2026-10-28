@@ -209,3 +209,53 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
         .count();
     assert_eq!(on_checkpoint, 0, "{rules}");
 }
+
+#[test]
+fn must_haves_golden() {
+    let kinds = ["truth", "artifact", "key_link", "prohibition"];
+    let fields: Vec<(&str, Vec<String>)> = kinds.iter().map(|k| (*k, fields_of(k))).collect();
+    assert_eq!(
+        fields,
+        [
+            ("truth", vec!["plan", "text", "verification", "criterion"]),
+            (
+                "artifact",
+                vec![
+                    "plan",
+                    "path",
+                    "provides",
+                    "min_lines",
+                    "exports",
+                    "contains"
+                ]
+            ),
+            ("key_link", vec!["plan", "from", "to", "via", "pattern"]),
+            (
+                "prohibition",
+                vec!["plan", "statement", "verification", "test"]
+            ),
+        ]
+        .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
+    );
+    let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
+    assert_eq!(total, 19);
+    for (kind, required) in [
+        ("truth", vec!["plan", "text"]),
+        ("artifact", vec!["plan", "path", "provides"]),
+        ("key_link", vec!["plan", "from", "to", "via"]),
+        ("prohibition", vec!["plan", "statement", "verification"]),
+    ] {
+        assert_eq!(kind_of(kind)["scoped_by"], "plan", "{kind}");
+        for field in fields_of(kind) {
+            let expected = required.contains(&field.as_str());
+            assert_eq!(
+                field_of(kind, &field)["required"] == true,
+                expected,
+                "{kind}.{field}"
+            );
+            // Every path a must-have names is a file the plan may create.
+            assert_ne!(field_of(kind, &field)["file_reference"], true);
+        }
+        assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
+    }
+}

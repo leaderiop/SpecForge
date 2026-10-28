@@ -198,3 +198,49 @@ fn a_checkpoint_is_after_a_task_of_its_plan() {
         "{found:#?}"
     );
 }
+
+#[test]
+fn must_haves_are_named_within_their_plan() {
+    let p = project("plan");
+    for name in [
+        "v1.0/01/01-01/TR1",
+        "v1.0/02/02-01/TR1",
+        "v1.0/01/01-01/AR1",
+        "v1.0/01/01-02/KL1",
+        "v1.0/02/02-01/PR1",
+        "261028-a1b/TR1",
+    ] {
+        let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+        assert_eq!(node_ids(&query), [name], "query {name}: {}", query.all());
+    }
+}
+
+#[test]
+fn an_artifact_the_plan_creates_is_not_e016() {
+    let p = project("plan");
+    assert!(
+        p.read("spec/plans.spec")
+            .contains("path     \"src/tasks.js\"")
+    );
+    assert!(!p.exists("src/tasks.js"));
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+/// The first `spec` block of "What it looks like", with the phase, requirements and sibling plan it names.
+#[test]
+fn the_readme_example_checks_clean() {
+    let readme = include_str!("../../spec/README.md");
+    let block = readme
+        .split("## What it looks like")
+        .nth(1)
+        .and_then(|rest| rest.split("```spec\n").nth(1))
+        .and_then(|rest| rest.split("\n```").next())
+        .expect("the example block");
+    let p = project("plan");
+    p.write(
+        "spec/auth.spec",
+        "requirement AUTH-02 \"Sessions\" {\n  text \"A user has a session\"\n  category \"Auth\"\n  tier v1\n}\n\nrequirement AUTH-03 \"Rotation\" {\n  text \"A session token rotates\"\n  category \"Auth\"\n  tier v1\n}\n\nphase 03 \"Auth\" {\n  milestone v1.0\n  name \"Auth\"\n  slug \"auth\"\n  goal \"Users sign in\"\n  depends_on [02]\n  requirements [AUTH-02, AUTH-03]\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 03-01 \"Sign-in\" {\n  phase 03\n  type execute\n  files_modified [\"src/auth/signin.ts\"]\n  requirements [AUTH-02]\n  objective \"Users sign in\"\n}\n\ntruth TR1 \"A user signs in\" {\n  plan 03-01\n  text \"A user signs in\"\n}\n\nartifact AR1 \"Sign-in\" {\n  plan 03-01\n  path \"src/auth/signin.ts\"\n  provides \"sign-in\"\n}\n",
+    );
+    p.write("spec/readme.spec", &format!("{block}\n"));
+    assert_eq!(p.codes(), Vec::<String>::new());
+}

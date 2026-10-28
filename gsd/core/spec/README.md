@@ -114,6 +114,7 @@ plan 03-02 "Session tokens" {
 
 truth TR1 "A signed-in user stays signed in after a reload" {
   plan         03-02
+  text         "A signed-in user stays signed in after a reload"
   verification explicit
 }
 
