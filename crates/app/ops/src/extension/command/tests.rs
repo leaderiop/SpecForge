@@ -27,6 +27,7 @@ fn fake() -> InProcessRuntime {
                             stdout: "out\n".into(),
                             stderr: "err\n".into(),
                             plan: None,
+                            state: None,
                         }
                         .to_bytes()
                     }),
@@ -81,6 +82,7 @@ fn command(id: &str) -> CommandDescriptor {
         export: format!("cmd__{id}"),
         args: Vec::new(),
         writes: false,
+        ..Default::default()
     }
 }
 

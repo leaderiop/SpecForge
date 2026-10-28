@@ -9,9 +9,9 @@ use specforge_protocol_types::{CommandDescriptor, ExtensionDeclaration};
 /// `specforge <short> <cli_name>`, MCP `specforge.<short>.<id>` (ADR 0097).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandRoute {
-    extension: String,
-    short: String,
-    cli_name: String,
+    pub(super) extension: String,
+    pub(super) short: String,
+    pub(super) cli_name: String,
     declaration: CommandDescriptor,
 }
 
@@ -45,7 +45,7 @@ impl CommandRoute {
         &self.declaration
     }
 
-    fn name(&self) -> (&str, &str) {
+    pub(super) fn name(&self) -> (&str, &str) {
         (&self.short, &self.cli_name)
     }
 }
@@ -75,8 +75,10 @@ impl ShadowedRoute {
 /// that decides which command a name runs (ADR 0097).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CommandRoutes {
-    routed: Vec<CommandRoute>,
+    pub(super) routed: Vec<CommandRoute>,
     shadowed: Vec<ShadowedRoute>,
+    /// The prompts, routed under the same names after the commands (ADR 0291).
+    pub(super) prompts: Vec<super::PromptRoute>,
 }
 
 impl CommandRoutes {

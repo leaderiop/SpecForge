@@ -130,6 +130,7 @@ fn probe(call: &CommandCall<'_>) -> CommandOutput {
         stdout: format!("{out}\n"),
         stderr: "probed\n".to_string(),
         plan: None,
+        state: None,
     }
 }
 

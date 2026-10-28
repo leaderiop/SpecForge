@@ -2818,6 +2818,7 @@ dependencies = [
  "specforge-formatter",
  "specforge-git",
  "specforge-graph",
+ "specforge-hosts",
  "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
@@ -3007,6 +3008,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "specforge-hosts"
+version = "0.3.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "specforge-ops",
+ "specforge-protocol-types",
+ "specforge-repo-root",
+ "specforge-test",
+ "specforge-test-macros",
+ "toml_edit",
+]
+
+[[package]]
 name = "specforge-installed"
 version = "0.3.0"
 dependencies = [
@@ -3128,6 +3144,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-hosts",
  "specforge-installed",
  "specforge-migrate",
  "specforge-ops",

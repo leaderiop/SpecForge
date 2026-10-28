@@ -63,6 +63,14 @@ impl PlanBuilder {
         Self::new(files, input.revisions.clone())
     }
 
+    /// A builder for a hook's call that declares `writes`: its graph and revisions.
+    pub fn for_hook(input: &specforge_protocol_types::HookInput<CommandGraph>) -> Self {
+        match &input.graph {
+            Some(graph) => Self::of_graph(graph, &input.revisions),
+            None => Self::new(BTreeMap::new(), input.revisions.clone()),
+        }
+    }
+
     /// The line the CLI prints above the diff.
     pub fn title(&mut self, title: &str) -> &mut Self {
         self.plan.title = Some(title.to_string());

@@ -31,6 +31,7 @@ fn declared(extensions: &[(&str, Option<&str>, &[&str])]) -> Vec<ExtensionDeclar
                         export: format!("cmd__{id}"),
                         args: vec![],
                         writes: false,
+                        ..Default::default()
                     })
                     .collect(),
                 ..Default::default()

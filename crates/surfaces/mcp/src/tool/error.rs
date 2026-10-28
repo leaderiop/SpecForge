@@ -223,8 +223,11 @@ impl From<OpError> for McpError {
         } else if let Some(suggestion) = error.suggestion {
             data["suggestion"] = Value::from(suggestion);
         }
-        // A write the host refused an agent keeps its slug: it is what the agent acts on (ADR 0289).
-        if specforge_ops::authoring::apply::WRITE_REFUSALS.contains(&error.code.as_ref()) {
+        // A write the host refused an agent, or a gate it refused, keeps its slug: it is what the agent acts on
+        // (ADR 0289, ADR 0291).
+        if specforge_ops::authoring::apply::WRITE_REFUSALS.contains(&error.code.as_ref())
+            || error.code == specforge_ops::extension::gate::GATE_FAILED
+        {
             data["code"] = Value::from(error.code.as_ref());
         }
         if data.as_object().is_some_and(|d| !d.is_empty()) {

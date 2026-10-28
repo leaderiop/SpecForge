@@ -247,6 +247,17 @@ pub fn gsd_judged_rules() -> Value {
 pub fn declare_gsd_judged(c: &mut ContributionsBuilder) {
     c.raw_category(DeclaredCategory::Entities, gsd_judged_wire());
     super::declare_rules(c, gsd_judged_rules());
+    // A judged rule's judge is an agent of its extension (W112, ADR 0292).
+    for judge in [
+        "gsd-plan-checker",
+        "gsd-verifier",
+        "gsd-spec-agent",
+        "gsd-package-auditor",
+    ] {
+        c.agent(judge, |a| {
+            a.description("Judges what a rule asks of it");
+        });
+    }
     // `workflow.plan_check`: while it is false the plan-check rules are gated and never evaluated (K6, K7 U10).
     c.setting("plan_check", |s| {
         s.bool()

@@ -21,9 +21,13 @@ mod extension_command;
 mod extensions;
 mod format;
 mod harness;
+mod hook;
+#[cfg(test)]
+mod hosts_tests;
 mod infer_guide;
 mod infer_status;
 mod init;
+mod install;
 mod login;
 mod mcp;
 mod migrate;
@@ -34,6 +38,7 @@ mod options;
 mod outcome;
 mod outline;
 mod project;
+mod prompt;
 mod providers;
 mod publish;
 mod query;
@@ -93,6 +98,8 @@ enum Commands {
     Review(review::Args),
     /// What to look for in code to write a kind's entities
     InferGuide(infer_guide::Args),
+    /// Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
+    Prompt(prompt::Args),
     /// Install an extension
     Add(add::Args),
     /// Remove an installed extension
@@ -136,6 +143,12 @@ enum Commands {
         #[command(subcommand)]
         action: harness::Action,
     },
+    /// Run one hook for a host's event: read from stdin, answered on stdout in the host's own protocol
+    Hook(hook::Args),
+    /// Render the project's agents, skills, slash commands and hooks into a host's files, idempotently
+    Install(install::InstallArgs),
+    /// Remove exactly the host files and entries install wrote
+    Uninstall(install::UninstallArgs),
     /// Run health checks on installed extensions
     Doctor(doctor::Args),
     /// Start MCP server (JSON-RPC over stdio)
@@ -234,6 +247,7 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Explore(args) => args.run(terminal),
         Commands::Review(args) => args.run(terminal),
         Commands::InferGuide(args) => args.run(terminal),
+        Commands::Prompt(args) => args.run(terminal),
         Commands::Add(args) => args.run(terminal),
         Commands::Analyze(args) => args.run(terminal),
         Commands::Watch(args) => args.run(terminal),
@@ -254,6 +268,9 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Settings(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
         Commands::Harness { action } => action.run(terminal),
+        Commands::Hook(args) => args.run(terminal),
+        Commands::Install(args) => args.run(terminal),
+        Commands::Uninstall(args) => args.run(terminal),
         Commands::Doctor(args) => args.run(terminal),
         Commands::Mcp(args) => args.run(terminal),
         Commands::Completions { shell, project } => completions(shell, &project, terminal),
@@ -300,8 +317,10 @@ mod tests {
     }
 
     /// The commands that read no project: they take no `--path`.
-    const NO_PROJECT: [&str; 6] = [
+    const NO_PROJECT: [&str; 7] = [
         "init",
+        // The host runs it from its own cwd, which names the project.
+        "hook",
         "mcp",
         "extension",
         "extension init",

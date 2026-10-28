@@ -33,6 +33,7 @@ mod containment;
 mod edit_report;
 mod error;
 pub mod extension;
+pub mod host;
 mod machine;
 mod noticed;
 pub mod options;

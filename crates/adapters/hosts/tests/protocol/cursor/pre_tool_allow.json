@@ -1,0 +1,31 @@
+{
+  "stdin": {
+    "conversation_id": "c1",
+    "workspace_roots": [
+      "/p"
+    ],
+    "hook_event_name": "preToolUse",
+    "tool_name": "Shell",
+    "tool_input": {
+      "command": "ls"
+    }
+  },
+  "event": {
+    "event": "pre_tool",
+    "host": "cursor",
+    "cwd": "/p",
+    "session": "c1",
+    "tool": {
+      "name": "Shell",
+      "class": "shell",
+      "input": {
+        "command": "ls"
+      }
+    }
+  },
+  "answer": {
+    "decision": "allow"
+  },
+  "stdout": "",
+  "exit_code": 0
+}

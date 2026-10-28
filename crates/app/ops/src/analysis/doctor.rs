@@ -195,6 +195,12 @@ pub enum About {
     /// The SMT solver `specforge analyze --prove` asks does not run here: the
     /// W098 it reports.
     Toolchain,
+    /// A host's files install wrote: one edited since (`host_file_edited`, with its `path`), or an install that
+    /// would write something else now (`host_install_stale`).
+    Host {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+    },
 }
 
 /// The parts of a report, to select findings by ([`DoctorReport::about`]):
@@ -215,6 +221,7 @@ pub enum Part {
     Conflict,
     Shadowing,
     Toolchain,
+    Host,
 }
 
 impl About {
@@ -235,6 +242,7 @@ impl About {
             About::Conflict { .. } => Part::Conflict,
             About::Shadowing { .. } => Part::Shadowing,
             About::Toolchain => Part::Toolchain,
+            About::Host { .. } => Part::Host,
         }
     }
 
@@ -297,6 +305,18 @@ impl DoctorReport {
         self.findings
             .iter()
             .filter_map(|f| f.about.keyword().map(|keyword| (keyword, f)))
+    }
+
+    /// This report with what the hosts' files say: warnings, since a project works with an install out of date.
+    pub fn with_hosts(mut self, found: Vec<crate::host::diagnose::HostFinding>) -> Self {
+        self.findings.extend(found.into_iter().map(|f| Finding {
+            about: About::Host { path: f.path },
+            check: f.message,
+            status: FindingStatus::Warn,
+            code: f.code.into(),
+            remediation: f.remediation,
+        }));
+        self
     }
 
     /// The one document both surfaces return: `{ok, extensions_ok,

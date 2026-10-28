@@ -107,6 +107,7 @@ pub const READS: &[(&str, &str)] = &[
     ("specforge.infer_progress", "{}"),
     ("specforge.infer_gaps", "{}"),
     ("specforge.find_implementation", r#"{"entity_id":"alpha"}"#),
+    ("specforge.prompt", r#"{"name":"review"}"#),
     (
         "specforge.find_spec_for_source",
         r#"{"file_path":"src/lib.rs"}"#,

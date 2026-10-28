@@ -40,6 +40,7 @@ specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-git = { path = "../../adapters/git" }
+specforge-hosts = { path = "../../adapters/hosts" }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
 specforge-project = { workspace = true }
 

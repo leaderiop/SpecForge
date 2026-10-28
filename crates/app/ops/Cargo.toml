@@ -47,6 +47,8 @@ specforge-project = { workspace = true, features = ["testing"] }
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 # One diagnostic of each kind the host builds, for the diagnostics JSON pin.
 specforge-registry-client = { path = "../../adapters/registry-client" }
+# The host adapters, for the doctor's reading of a host's files.
+specforge-hosts = { path = "../../adapters/hosts" }
 specforge-wasm = { workspace = true, features = ["testing"] }
 specforge-installed = { path = "../../runtime/installed", features = ["testing"] }
 specforge-test = { workspace = true }

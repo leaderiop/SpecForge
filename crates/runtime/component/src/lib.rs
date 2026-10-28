@@ -432,6 +432,16 @@ impl WasmRuntime for ComponentRuntime {
 
     /// Call the bridge `call` export; returns the raw JSON wire bytes.
     fn call_export(&self, name: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        self.call_export_within(name, export, input, u32::MAX)
+    }
+
+    fn call_export_within(
+        &self,
+        name: &str,
+        export: &str,
+        input: &[u8],
+        max_ms: u32,
+    ) -> WasmCallResult {
         // Look up the plugin and release the map lock immediately: holding
         // it across the guest call would serialize every extension behind
         // one mutex (the C7-10 finding). Only the target plugin's own lock
@@ -486,7 +496,7 @@ impl WasmRuntime for ComponentRuntime {
                 export_name: export.to_string(),
             });
         }
-        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms)));
+        store.set_epoch_deadline(ms_to_ticks(u64::from(limits.execution_ms.min(max_ms))));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
             Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
@@ -507,6 +517,9 @@ impl WasmRuntime for ComponentRuntime {
                     ),
                     "fuel_exhausted" => {
                         format!("spent its fuel budget ({fuel} instructions) in one call")
+                    }
+                    "deadline_exceeded" if max_ms < limits.execution_ms => {
+                        format!("ran past the call's {max_ms} ms budget")
                     }
                     "deadline_exceeded" => format!(
                         "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",

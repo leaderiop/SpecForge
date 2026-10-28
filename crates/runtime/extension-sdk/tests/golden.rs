@@ -155,3 +155,90 @@ fn mock_host_pins_wire_output() {
         r#"{ "category": "validation_rules", "items": [ { "check": "no_outgoing_edges", "code": "W001", "constraint": null, "edge_type": "BehaviorImplementsFeature", "field": null, "message_template": "behavior '{id}' does not implement any feature", "severity": "warning", "target_kind": "behavior", "wasm_function": null } ] }"#,
     );
 }
+
+/// No builtin contributes to a host (ADR 0292): its pinned `surfaces` holds none of the four kinds, and a guest
+/// that declares none is byte-equal to what it was before they existed.
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "a project whose extensions contribute nothing to a host declares and runs as it did"
+)]
+fn the_builtins_declare_no_host_contribution() {
+    let root = specforge_repo_root::repo_root().join("crates/runtime/component/tests/declarations");
+    let mut checked = 0;
+    for dir in std::fs::read_dir(&root).unwrap() {
+        let surfaces = dir.unwrap().path().join("describe_surfaces.json");
+        let Ok(text) = std::fs::read_to_string(&surfaces) else {
+            continue;
+        };
+        let described: serde_json::Value = serde_json::from_str(&text).unwrap();
+        for item in described["items"].as_array().into_iter().flatten() {
+            for key in ["agents", "skills", "slash_commands", "hooks"] {
+                assert!(item.get(key).is_none(), "{}: {key}", surfaces.display());
+            }
+            for command in item["commands"].as_array().into_iter().flatten() {
+                assert!(
+                    command.get("reads_state").is_none(),
+                    "{}",
+                    surfaces.display()
+                );
+            }
+        }
+        checked += 1;
+    }
+    assert!(checked >= 5, "the builtins' surfaces were read: {checked}");
+    let declared = software_builder().declaration();
+    let wire = serde_json::to_value(&declared.surfaces).unwrap();
+    for key in ["agents", "skills", "slash_commands", "hooks"] {
+        assert!(wire.get(key).is_none(), "{wire}");
+    }
+}
+
+/// Each host contribution a guest declares is on the wire as a host reads it, and its exports are routed.
+#[test]
+fn a_guest_declares_each_host_contribution() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
+    c.prompt("plan_phase", |p| {
+        p.title("Plan")
+            .description("Plan")
+            .handler(|_| Ok(PromptOutput::user("go")));
+    });
+    c.command("stats", |s| {
+        s.title("Stats")
+            .description("Stats")
+            .reads_state()
+            .handler(|_| CommandOutput::ok(""));
+    });
+    c.agent("flow-planner", |a| {
+        a.description("Plans")
+            .tools(&["read", "mcp:context7/*"])
+            .model("setting:models.planner")
+            .variant("compact");
+    });
+    c.skill("flow-context", |s| {
+        s.description("Routes").tools(&["read"]);
+    });
+    c.slash_prompt("plan_phase", |s| {
+        s.tools(&["read"]).effort("max");
+    });
+    c.slash_command("stats", |s| {
+        s.tools(&["read"]);
+    });
+    c.hook("write_guard", HookEvent::PreTool, |h| {
+        h.description("Guards")
+            .tools(&["write"])
+            .on_failure_deny()
+            .timeout_ms(3_000)
+            .reads_state()
+            .handler(|_| Ok(HookOutput::deny("no")));
+    });
+    c.render(|call| Ok(format!("# {}", call.id())));
+    let surfaces = serde_json::to_value(c.declaration().surfaces).unwrap();
+    assert_eq!(surfaces["agents"][0]["variants"][0], "compact");
+    assert_eq!(surfaces["skills"][0]["id"], "flow-context");
+    assert_eq!(surfaces["slash_commands"][0]["prompt"], "plan_phase");
+    assert_eq!(surfaces["slash_commands"][1]["command"], "stats");
+    assert_eq!(surfaces["hooks"][0]["export"], "hook__write_guard");
+    assert_eq!(surfaces["hooks"][0]["timeout_ms"], 3_000);
+    assert_eq!(surfaces["hooks"][0]["on_failure"], "deny");
+    assert_eq!(surfaces["commands"][0]["reads_state"], true);
+}

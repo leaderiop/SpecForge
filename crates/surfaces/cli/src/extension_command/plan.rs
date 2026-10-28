@@ -17,7 +17,20 @@ pub(super) fn ended(
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
-    let CommandRun { output, plan } = run;
+    // A state patch the host refused is reported beside what the run did, and the exit code is not 0.
+    let state = run.state_refused.clone();
+    let code = printed(run, format, root, terminal);
+    match state {
+        Some(refusal) => {
+            err!(terminal, "{}", refused(&refusal, format));
+            code.max(1)
+        }
+        None => code,
+    }
+}
+
+fn printed(run: CommandRun, format: CommandFormat, root: &Path, terminal: &Terminal) -> i32 {
+    let CommandRun { output, plan, .. } = run;
     let (edited, refusal) = match plan {
         Some(PlanOutcome::Applied(edited) | PlanOutcome::Previewed(edited)) => (Some(edited), None),
         Some(PlanOutcome::Refused(refusal)) => (None, Some(refusal)),

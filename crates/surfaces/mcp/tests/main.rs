@@ -13,6 +13,7 @@ mod event_spec;
 mod events;
 mod explain_declared;
 mod export_markdown;
+mod extension_prompts;
 mod failure_kinds;
 mod fake_extension;
 mod format_config_links;

@@ -105,6 +105,7 @@ pub fn call_every_command(
                 } else {
                     Default::default()
                 },
+                state: None,
             };
             let output = b
                 .call_command(&command.export, &input)

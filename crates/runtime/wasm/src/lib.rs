@@ -4,6 +4,7 @@
 //! `specforge-component`.
 
 pub mod calls;
+mod host_calls;
 pub mod protocol;
 pub mod runtime;
 pub mod sandbox;

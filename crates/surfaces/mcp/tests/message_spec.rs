@@ -768,7 +768,7 @@ reply_type! {
     mcp_implementation_result => "McpImplementationResult", "McpImplementationResult schema is valid",
     mcp_implementation => "McpImplementation", "McpImplementation schema is valid",
     mcp_spec_for_source_result => "McpSpecForSourceResult", "McpSpecForSourceResult schema is valid",
-    mcp_spec_for_source_entity => "McpSpecForSourceEntity", "McpSpecForSourceEntity schema is valid",
+    mcp_spec_for_source_entity => "McpSpecForSourceEntity", "McpSpecForSourceEntity schema is valid", mcp_prompt_result => "McpPromptResult", "McpPromptResult schema is valid", mcp_prompt_reply_message => "McpPromptReplyMessage", "McpPromptReplyMessage schema is valid",
 }
 
 #[specforge_test(

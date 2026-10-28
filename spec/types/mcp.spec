@@ -159,6 +159,23 @@ type McpPromptDescriptor "Mcp Prompt Descriptor" {
   verify unit "McpPromptDescriptor schema is valid"
 }
 
+/// specforge.prompt's reply (ADR 0291): a prompt rendered by name, wherever its host lists no MCP prompts.
+type McpPromptResult "Mcp Prompt Result" {
+  /// What the prompt says, in order: an extension prompt's export answered them.
+  messages McpPromptReplyMessage[]
+  /// The host's payload: an extension prompt's version, digest, attribution, subject and each step with its gate; a
+  /// core prompt's is its own (an open value).
+  payload  object
+  verify unit "McpPromptResult schema is valid"
+}
+
+type McpPromptReplyMessage "Mcp Prompt Reply Message" {
+  /// user or assistant.
+  role string
+  text string
+  verify unit "McpPromptReplyMessage schema is valid"
+}
+
 type McpPromptArgument "Mcp Prompt Argument" {
   name        string @readonly
   description string
@@ -524,8 +541,8 @@ type McpProviderInfo "Mcp Provider Info" {
 
 type McpDoctorFinding "Mcp Doctor Finding" {
   /// What the finding is about: config, lock, binary, load, structural_only, providers,
-  /// declaration, peer, registry, rule, surface, conflict, shadowing or toolchain.
-  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain"
+  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain or host.
+  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "host"
   check       string
   /// The diagnostic's severity; the disk checks' own are error or warn.
   status      "error" | "warn" | "info"
@@ -535,6 +552,8 @@ type McpDoctorFinding "Mcp Doctor Finding" {
   issue       object @optional
   /// The keyword a shadowing finding (E013) or a kind conflict (E026) names.
   keyword     string @optional
+  /// The host file a host_file_edited finding names.
+  path        string @optional
   verify unit "McpDoctorFinding schema is valid"
 }
 

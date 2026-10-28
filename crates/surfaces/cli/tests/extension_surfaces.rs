@@ -206,6 +206,24 @@ fn one_mistake_is_one_message_in_each_surfaces_shape() {
     }
 }
 
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a command that declares no gate runs as it did"
+)]
+fn a_command_without_gates_runs_as_today() {
+    let dir = setup_product_project();
+    let output = Cli::on(&dir)
+        .command(&["product", "features", "--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(output.stderr.is_empty(), "{output:?}");
+    insta::assert_json_snapshot!(
+        "a_command_without_gates_runs_as_today",
+        serde_json::from_slice::<Value>(&output.stdout).unwrap()
+    );
+}
+
 /// A project enabling the vendored sandbox probe (`fixtures/sandbox-probe`),
 /// whose `probe` command prints its whole input and whose `trap` command
 /// traps.
@@ -386,4 +404,47 @@ fn a_read_only_commands_help_and_output_are_unchanged() {
         let help = product_help(&dir, &[command.as_str(), "--help"]);
         assert!(!help.contains("dry-run"), "{command}: {help}");
     }
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "hand-written host files are never read or written by any command"
+)]
+fn hand_written_host_files_are_never_read_or_written() {
+    let hand = [
+        (
+            ".claude/skills/x/SKILL.md",
+            "---\nname: x\n---\nhand written\n",
+        ),
+        (".claude/settings.json", "{\"hooks\": {}}\n"),
+        (
+            ".mcp.json",
+            "{\"mcpServers\": {\"mine\": {\"command\": \"mine\"}}}\n",
+        ),
+        (
+            ".codex/config.toml",
+            "[mcp_servers.mine]\ncommand = \"mine\"\n",
+        ),
+    ];
+    let dir = setup_product_project();
+    for (path, text) in hand {
+        dir.write(path, text);
+    }
+    for args in [
+        &["check"][..],
+        &["doctor"][..],
+        &["product", "features", "--format", "json"][..],
+        &["settings"][..],
+        &["format", "--check"][..],
+    ] {
+        let _ = Cli::on(&dir).command(args).output().unwrap();
+    }
+    for (path, text) in hand {
+        let kept = std::fs::read_to_string(dir.root().join(path)).unwrap();
+        assert_eq!(kept, text, "{path} is hand-written: no command touches it");
+    }
+    assert!(
+        !dir.root().join(".claude/agents").exists() && !dir.root().join(".cursor").exists(),
+        "no command created a host directory"
+    );
 }

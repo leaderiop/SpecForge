@@ -1,0 +1,12 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "Plan phase v1.0/03."
+    },
+    {
+      "role": "assistant",
+      "text": "Understood."
+    }
+  ]
+}

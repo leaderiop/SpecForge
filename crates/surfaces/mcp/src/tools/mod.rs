@@ -22,6 +22,7 @@ mod migrate;
 mod model;
 mod outline;
 mod outline_extensions;
+mod prompt;
 mod providers;
 pub(crate) mod query;
 mod remove_extension;
@@ -89,6 +90,7 @@ pub static CORE_TOOLS: &[&dyn ToolSpec] = &[
     spec(&infer_session::Tool),
     spec(&find_implementation::Tool),
     spec(&find_spec_for_source::Tool),
+    spec(&prompt::Tool),
 ];
 
 /// The core tool named `name`.

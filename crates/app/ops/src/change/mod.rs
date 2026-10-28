@@ -42,7 +42,8 @@ pub(crate) struct ProjectChange {
 struct Staged {
     held: Held,
     was: Was,
-    after: Vec<u8>,
+    /// What the file will hold; `None`: the file is removed (an owned name never is).
+    after: Option<Vec<u8>>,
 }
 
 /// What a staged file was when the change was planned.
@@ -102,7 +103,25 @@ impl ProjectChange {
         self.staged.push(Staged {
             held,
             was: before.map_or(Was::Missing, Was::Planned),
-            after,
+            after: Some(after),
+        });
+    }
+
+    /// Stage the removal of `held`, a file that held `before` when the caller planned on it (ADR 0292: install
+    /// removes what it marked). Checked like a replacement; put back by writing `before` again. Each `real` is staged
+    /// at most once.
+    pub(crate) fn stage_removal(&mut self, held: Held, before: Vec<u8>) {
+        debug_assert!(
+            self.staged
+                .iter()
+                .all(|s| matches!(s.was, Was::Owned(_)) || s.held.real != held.real),
+            "{} is staged twice",
+            held.at.display()
+        );
+        self.staged.push(Staged {
+            held,
+            was: Was::Planned(before),
+            after: None,
         });
     }
 
@@ -122,7 +141,7 @@ impl ProjectChange {
         self.staged.push(Staged {
             held,
             was: Was::Owned(permissions),
-            after,
+            after: Some(after),
         });
     }
 
@@ -196,12 +215,14 @@ impl ProjectChange {
         if !matches!(staged.was, Was::Owned(_)) {
             held.create_parents(made).map_err(unwritable)?;
         }
+        let after = staged.after.as_deref().unwrap_or_default();
         match &staged.was {
             Was::Owned(permissions) => held
-                .create_owned(&staged.after, permissions.clone())
+                .create_owned(after, permissions.clone())
                 .map_err(unwritable),
-            Was::Planned(_) => held.replace(&staged.after).map_err(unwritable),
-            Was::Missing => match held.create_new(&staged.after) {
+            Was::Planned(_) if staged.after.is_none() => held.remove().map_err(unwritable),
+            Was::Planned(_) => held.replace(after).map_err(unwritable),
+            Was::Missing => match held.create_new(after) {
                 Ok(()) => Ok(()),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                     Err(Cause::Changed { file: file() })
@@ -230,6 +251,8 @@ impl ProjectChange {
             let restored = match &staged.was {
                 Was::Planned(before) => match held.read_if_there() {
                     Ok(Some(now)) if now == *before => Ok(()),
+                    // A removed file is written again.
+                    Ok(None) => held.create_parent().and_then(|()| held.create_new(before)),
                     _ => held.replace(before),
                 },
                 Was::Missing => not_found_passes(held.remove_created()),
@@ -320,8 +343,12 @@ pub(crate) fn unwritable(file: &Path, error: &std::io::Error) -> OpError {
     )
 }
 
+pub(crate) mod journal;
+pub(crate) mod locked;
 #[cfg(test)]
 mod owned_tests;
+#[cfg(test)]
+mod removal_tests;
 #[cfg(test)]
 mod tests;
 

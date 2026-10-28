@@ -76,15 +76,7 @@ impl Served {
     /// [`Self::initialized`], its extensions running in `runtime` (`McpServer::with_extension_runtime`). What an
     /// in-process runtime serves, the project has installed: it loads through the production path.
     pub fn initialized_in(project: TestProject, runtime: SharedRuntime) -> Self {
-        let project = project.installing_enabled();
-        project.record_declarations(&*runtime);
-        Self::over(
-            project,
-            McpServer::new()
-                .with_solver(z3_ready())
-                .with_collector_machine(no_approvals())
-                .with_extension_runtime(runtime),
-        )
+        Self::initialized_in_with(project, runtime, json!({}))
     }
 
     fn server_for(project: &TestProject) -> McpServer {
@@ -99,7 +91,27 @@ impl Served {
 
     /// `server` initialized over `project`, which the `initialize` names (`projectRoot`).
     pub fn over(project: TestProject, server: McpServer) -> Self {
-        Self::initialize(project, server, json!({}), true)
+        Self::over_with(project, server, json!({}))
+    }
+
+    /// [`Self::over`], the `initialize` also sending `params` (a client's `clientInfo`).
+    pub fn over_with(project: TestProject, server: McpServer, params: Value) -> Self {
+        Self::initialize(project, server, params, true)
+    }
+
+    /// [`Self::initialized_in`], the `initialize` also sending `params`.
+    pub fn initialized_in_with(
+        project: TestProject,
+        runtime: SharedRuntime,
+        params: Value,
+    ) -> Self {
+        let project = project.installing_enabled();
+        project.record_declarations(&*runtime);
+        let server = McpServer::new()
+            .with_solver(z3_ready())
+            .with_collector_machine(no_approvals())
+            .with_extension_runtime(runtime);
+        Self::over_with(project, server, params)
     }
 
     fn initialize(project: TestProject, server: McpServer, params: Value, name_root: bool) -> Self {

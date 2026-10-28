@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.9.0" }
+{ "host_version": "1.10.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.9.0",
+  "protocol_version": "1.10.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -436,6 +436,17 @@ that does not know the field ignores it). The host reads the declaration by one 
   values, minimum, default and description, `required` lists the required args that are not flags, and
   `additionalProperties` is `false`.
 
+- **Gates (1.10.0, ADR 0291).** A command may declare `gates`, local codes of its extension, and `subject`, the
+  name of one of its args (a `reference`'s entity scopes the gates; absent, the project). Before the export runs
+  the host evaluates the gate in the subject's scope: a gated code fails while the project holds an error of that
+  code on the subject, or on an entity the subject scopes. A code a bool setting gates off (`gates` on the
+  setting) never fails the gate. The call is refused `gate_failed` (kind `precondition_failed`) with
+  `data.failing`, the errors, and `data.gates`, each code's `{code, off, passes}`; on the command line it is
+  `error[gate_failed]` and exit 1, over MCP the tool's error. A refusal writes nothing and calls no export. A guard
+  pass that declares `reports: ["E903"]` (the codes it can answer) runs at a gate too, and receives
+  `PassInput.trigger`, `{"kind": "gate", "command", "subject"}`; absent, the pass reads a write. A pass that only
+  checks a write answers nothing at a gate.
+
 MCP serves each tool name and resource URI once: the core ones, then explicit tools and resources in
 extension load order, then the commands. A contribution not served under its name (an explicit tool
 named as a core tool, a resource whose URIs a core resource serves, a command whose tool name is taken)
@@ -447,6 +458,112 @@ is not `{content, mime_type}`) is a JSON-RPC internal error whose `data` is an M
 Extensions cannot contribute grammars or body parsers (ADR 0004, D5-a, ADR 0050). A kind whose
 body carries syntax of its own may set `has_body_parser` on its entity descriptor; the flag changes
 nothing in the compiler: the core grammar reads every body and every parse error in it is reported.
+
+**Host contributions (1.10.0, ADR 0292).** A `surfaces` item may declare four lists, each skipped when empty. They
+describe files written into an agent host's project directory by `specforge install <host>`; the host itself
+(Claude Code, Codex, Cursor) knows no extension's domain, only file formats.
+
+| List | Item | What install writes |
+|---|---|---|
+| `agents` | `id` (kebab-case), `description`, `tools` (host-neutral classes), `model`, `effort`, `color`, `variants` and `variant_setting`, `when`, `attribution` | one agent file per host; its body is the `render__` export's |
+| `skills` | `id`, `description`, `tools`, `argument_hint`, `when`, `attribution` | one skill per host; its body is the `render__` export's |
+| `slash_commands` | exactly one of `prompt` or `command` (an id of the extension), `argument_hint`, `tools`, `effort`, `when`, `attribution` | a skill named `<short>-<route>` that holds a trampoline: it calls the prompt or command through its own surface |
+| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `reads_graph`, `reads_state`, `writes`, `when`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
+
+A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
+`web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
+own names. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
+for Codex, a model id); `effort` is `minimal`, `low`, `medium`, `high`, `max` or `inherit`, or `setting:<name>`. A
+`when` names a bool setting of the extension: while it is false the agent, skill, slash command or hook is not
+rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre_commit`, `user_prompt`,
+`session_start`, `stop`, `subagent_start`, `subagent_stop`, `pre_compact` or `statusline`; only `pre_tool`,
+`post_tool` and `pre_commit` take `tools` and `paths`, and `{spec_root}/**` in a path names the spec root.
+
+A host name is one namespace per project: an agent id, a skill id and a slash command's `<short>-<route>` claimed
+twice are E039, and the later claimant is not rendered. A contribution the registry refuses (an unknown tool class,
+`tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no bool setting) is
+W021 and dropped; the rest of the declaration is kept.
+
+`render__` is called once per agent and skill and host with a `RenderInput` (`kind`, `id`, `host`, `variant`,
+`today`) and answers a `RenderOutput` (`body`): the body without the host's frontmatter or marker.
+
+`hook__<id>` receives a `HookInput` and answers a `HookOutput`. The input carries what a sandboxed guest cannot read
+for itself, computed by the host: the host's event (`event`, `host`, `cwd`, `today`, `session`), the tool (`class`, the
+host's `name`, its `input`), one `PathFact` per path the tool names (`path`, `in_project`, `in_spec_root`, `exists`,
+`bytes`, a write's `new_bytes`), a shell tool's command as `shell` words, the `commit` a `pre_commit` fires on
+(`message`, `amend`), the `prompt` of a `user_prompt`, the tool `response` of a `post_tool`, the `status` of a
+`statusline`, and, when declared, the `graph`, the `revisions` of a hook that `writes`, and the `state`. The output
+carries the neutral answer (`decision`: `allow`, `deny` or `ask`, with a `reason`; `context`; `notice`; `statusline`),
+an edit `plan` of a hook that declares `writes` (checked and applied by the host as any plan, with the hook as its
+origin; a plan the host refuses becomes a deny on a pre event and a notice otherwise), and a `state` patch. A trap, a
+timeout or a malformed answer applies the hook's `on_failure` and reports E028.
+
+**State (1.10.0, ADR 0292).** A hook, command or prompt that declares `reads_state` is sent `state`:
+`{"project": {…}, "session": {…}}` (`session` only when the host names one; a CLI command has none). It answers a
+`state` of `{"project": <patch>, "session": <patch>}`, JSON merge patches (RFC 7396). The host applies them after any
+plan, under the write lock, into `.specforge/state/<extension>/project.json` and `sessions/<id>.json`, each an object
+of at most 64 KiB; a patch that would exceed it is refused whole and reported (a notice for a hook, a
+`state_refused` error for a command), and the state is unchanged. A session untouched for 30 days is removed at the
+next write. State is never project truth: no rule reads it, a compile never depends on it, and `check` never sees it.
+
+**Prompts (1.10.0, ADR 0291).** A `surfaces` item may declare `prompts`: workflows an agent follows, served as MCP
+prompts `specforge.<short>.<id>`, as `specforge prompt <short>.<id>` and as `specforge <short> <id>` (an id's `_` is
+spelled `-`) when the extension has no command of that name. A prompt is routed under the same `(short name, name)` as
+a command, commands first; a prompt whose name is taken is E039 and runs on no surface.
+
+```json
+{
+  "prompts": [{
+    "id": "plan_phase",
+    "title": "Plan a phase",
+    "description": "Plan the phase, then check the plans",
+    "export": "prompt__plan_phase",
+    "args": [
+      { "name": "phase", "field_type": "reference", "target_kind": "phase", "required": true },
+      { "name": "depth", "field_type": "integer", "minimum": 1, "maximum": 3 },
+      { "name": "mode", "field_type": "enum", "enum_values": ["fast", "slow"] }
+    ],
+    "gates": ["E901"], "subject": "phase",
+    "steps": [
+      { "id": "plan", "title": "Write the plans", "command": "record_plan" },
+      { "id": "check", "title": "Check the plans" }
+    ],
+    "when": "workflow.research",
+    "reads_graph": false,
+    "attribution": { "upstream": "gsd-core", "path": "workflows/plan-phase.md", "version": "1.18.0",
+                     "license": "MIT", "copyright": "Copyright (c) 2026 Open GSD" }
+  }]
+}
+```
+
+- **Arguments** are typed like fields: `field_type` is `string`, `integer` (with `minimum` and `maximum`), `bool`,
+  `date`, `enum` (with `enum_values`), `string_list`, `enum_list`, `reference` or `reference_list` (with
+  `target_kind`, or kinds as `a|b`); never `path`. A caller's value is read by its type (a word `2` is an integer,
+  `a,b` a list) and admitted by the form every field of that type is admitted by; a reference is resolved by
+  `Graph::find` (a short form is accepted) and the export is sent its full path. An argument named `path`,
+  `format`, `help`, `settings`, `secrets`, `host` or `argv` is the host's, and a name is snake_case. Defaults fill an absent argument; an absent
+  optional argument (or one given as `null` or `""`) is absent; on a command line a double-quoted run is one word and a
+  quoted `--x` is a value, `--name=value` and `--` (the rest are positional) are read, and an unclosed quote is refused; a bool is not defaulted to `false`.
+- **Entry gate.** `gates` and `subject` are a command's: the prompt is refused `gate_failed` before its export runs
+  while a gated code fails in the subject's scope.
+- **Steps** are the order the agent works in. A step runs a `command` of this extension (or `<peer>:<id>` of a
+  declared peer), an `agent`, a sub-`prompt`, or none (the agent does it). The host renders a command step as its MCP
+  tool and CLI line with the state of its gate now. A prompt is not a contract: an agent may skip a step, and only a
+  command's own gate refuses.
+- **`when`** names a bool setting of the extension; while it is false the prompt is neither listed nor served.
+- **`reads_graph`** sends the export the graph, as a command's. Absent, a workflow reads through tools.
+- **Rendering.** The `prompt__` export receives `PromptInput` and answers at least one message. The host appends one
+  message of its own: the prompt as `@ext@version:id`, a `sha256:` digest of the export's message texts, the
+  attribution, the subject's full path and each step with its tool, command line and gate. `specforge.prompt` returns
+  the export's messages and that message as `payload`.
+- **Attribution** says where ported text came from (`upstream`, `path`, `version`, an SPDX `license`, `copyright`); it
+  is rendered with the prompt.
+- **Refused declarations.** A prompt or a gated command the registry cannot serve as declared is dropped whole, with
+  one W021 naming it and the first reason (an unknown gated code, a `subject` that is no reference argument of the
+  command or prompt, an argument of a type a prompt does not take, a reserved or repeated name, a `when` that is no
+  bool setting, a step that names nothing, a default its type refuses). A step's `agent` and an empty attribution are
+  dropped alone. An older host ignores `prompts`, `gates` and `subject` (W138 for the keys), so a gated command runs
+  ungated there.
 
 ### Category: collectors
 
@@ -605,13 +722,14 @@ Every input and answer is a type of `specforge_protocol_types` (module
 the SDK cannot answer the wrong shape; a guest in another language reads the
 table below and the goldens in `crates/runtime/wasm/tests/wire/`.
 
-Every call but the handshake and describe also carries the extension's own `settings` (a JSON object of its effective values by name, a family's keys written out; omitted when it has none) and, to a command, an MCP tool or resource of an extension that declares a secret, `secrets` (each declared secret's name, `true` when its environment variable is set, never the value), added at the end of the input object. A pass, validator, collector, scanner or migration is not told: whether a variable is set is the machine's, so a result that depended on it would differ between CI and a laptop with nothing in the project to explain it. Another extension's settings are never sent, a client's `settings` or `secrets` argument of an MCP tool is dropped, and an explicit tool's input schema may not declare `settings` or `secrets` (I017). The SDK reads them with `Settings::current()`, which falls back to each declared default.
+Every call but the handshake and describe also carries the extension's own `settings` (a JSON object of its effective values by name, a family's keys written out; omitted when it has none) and, to a command, an MCP tool, a resource or a prompt of an extension that declares a secret, `secrets` (each declared secret's name, `true` when its environment variable is set, never the value), added at the end of the input object. A prompt export that puts presence into its messages makes them (and the `digest` in its payload) differ between a laptop and CI, so a prompt keeps it out of its text. A pass, validator, collector, scanner or migration is not told (nor is a gate's guard pass): whether a variable is set is the machine's, so a result that depended on it would differ between CI and a laptop with nothing in the project to explain it. Another extension's settings are never sent, a client's `settings` or `secrets` argument of an MCP tool is dropped, and an explicit tool's input schema may not declare `settings` or `secrets` (I017). The SDK reads them with `Settings::current()`, which falls back to each declared default.
 
 | Operation | Export | Input | Answer |
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
 | Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph", "revisions"?}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
+| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?}`; `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}]}`, at least one |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
@@ -765,6 +883,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.7.0` | the same as `1.0.0` |
 | `1.8.0` | the same as `1.0.0` |
 | `1.9.0` | the same as `1.0.0` |
+| `1.10.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -789,6 +908,7 @@ or answered.
 | `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. An extension catalogs its codes (`codes`, ADR 0286); a guest older than 1.7 is not asked for the category and loads with none. A validation rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; a guest that still sends it loads, and the key is W138. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
 | `1.8.0` | A field and a block member may declare `writer` (`computed` or `harness`), `immutable` and `append_only`, and a kind `append_only` (ADR 0287): E082 a hand-written computed value, E083 a harness value with no line in `specforge-harness`, E084 an immutable value that differs from its git baseline, E085 an append-only list or kind that rewrites it. A pass may declare `baseline` and `computes`, phase `compute` runs it before the checks, and `PassOutput.values` gives it computed values (W165 for a field that is not computed). `previous` is the git baseline of the kinds `baseline` names, not the build cache (`specforge-cache.json` and `check --cache` are gone). `lifecycle_field` is ignored. An extension may declare the `settings` category (ADR 0288): typed settings, presets and secrets, and an older guest is not asked for it. A 1.7 host ignores the new keys. |
 | `1.9.0` | A rule may be `check: "judged"` with a `judged` descriptor, an entity may hold `verdict` statements, a field may declare `writer: "verdict"`, and `PassContext.judgements`, `GraphNode.judgements` and `PassBaselineEntity.judgements` carry each judged rule's state (ADR 0290); `set_verdict` takes `values` and `basis`. A command or collector may declare `writes` and answer an edit `plan` the host checks and applies (ADR 0289); a writing command's input carries `revisions`, a graph node its `file`, and a writing collector the graph, `cwd`, `today` and `revisions`. A kind and a field may declare `writer: "human"`, and a pass `phase: "guard"`. A 1.8 host ignores the new keys. |
+| `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. A `surfaces` item may also declare `agents`, `skills`, `slash_commands` and `hooks`, written into a host's files by `specforge install` (ADR 0292): the `render__` export writes an agent's or skill's body (`RenderInput`, `RenderOutput`), a `hook__<id>` export answers a host event (`HookInput`, `HookOutput`), and a command, hook or prompt that declares `reads_state` is sent, and may patch, its extension's state (`StateView`, `StatePatch`). A 1.9 host ignores the new keys and installs nothing. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.
@@ -858,7 +978,7 @@ Install it again (`specforge add`) and the next load restores all of it.
   REGISTER                               KindRegistry, FieldRegistry, EdgeRegistry
         │
         v
-  OPERATE (on demand)                    cmd__*, mcp__*, __pass_*, collect__*,
+  OPERATE (on demand)                    cmd__*, prompt__*, mcp__*, __pass_*, collect__*,
         │                                 validate__*, scan__*, migration hook
         v
   RELOAD when specforge.json, specforge.lock or a module changes: from LOAD
@@ -873,6 +993,9 @@ All extension exports follow a strict naming convention that the host uses to di
 | `__handshake` | Protocol handshake | `__handshake` |
 | `__describe` | Category description | `__describe` |
 | `cmd__` | CLI command execution | `cmd__product_features` |
+| `prompt__` | MCP prompt rendering | `prompt__plan_phase` |
+| `render__` | The body of an agent or skill (one export for all) | `render__` |
+| `hook__` | A host hook's answer (ADR 0292) | `hook__write_guard` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
 | `__pass_` | Compiler pass | `__pass_coverage` |
 | `collect__` | Collector execution | `collect__cargo_test` |

@@ -15,6 +15,7 @@ fn make_surfaces(
         commands,
         mcp_tools: tools,
         mcp_resources: resources,
+        ..Default::default()
     }
 }
 
@@ -46,6 +47,7 @@ fn make_command(id: &str, export: &str) -> CommandDescriptor {
         export: export.to_string(),
         args: vec![],
         writes: false,
+        ..Default::default()
     }
 }
 

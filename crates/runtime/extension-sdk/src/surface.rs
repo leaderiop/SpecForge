@@ -211,12 +211,8 @@ impl Surfaces {
         CommandBuilder {
             descriptor: CommandDescriptor {
                 id: id.to_string(),
-                title: String::new(),
-                description: String::new(),
-                category: None,
                 export,
-                args: Vec::new(),
-                writes: false,
+                ..Default::default()
             },
             handler: None,
         }
@@ -332,6 +328,7 @@ impl Surfaces {
                 .iter()
                 .map(|r| r.descriptor.clone())
                 .collect(),
+            ..Default::default()
         }
     }
 
@@ -389,7 +386,7 @@ impl Surfaces {
 /// Builder for one command ([`crate::ContributionsBuilder::command`]).
 pub struct CommandBuilder {
     /// The command as declared so far, its args included.
-    descriptor: CommandDescriptor,
+    pub(crate) descriptor: CommandDescriptor,
     handler: Option<CommandHandler>,
 }
 

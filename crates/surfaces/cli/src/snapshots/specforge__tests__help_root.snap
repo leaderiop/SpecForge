@@ -20,6 +20,7 @@ Commands:
   explore       Where to start reading the graph: starting points, hubs and unconnected entities
   review        Coverage gaps around an entity, or of the whole project
   infer-guide   What to look for in code to write a kind's entities
+  prompt        Render an extension's prompt: `specforge prompt <extension>.<prompt> [arguments]`
   add           Install an extension
   remove        Remove an installed extension
   extensions    List the project's extensions: enabled, locked or loaded
@@ -40,6 +41,9 @@ Commands:
   settings      List each extension's settings: the value, where it came from, what it gates and each secret's status
   collect       Run the project's test runners and record which entities their tests prove
   harness       The harness ledger: specforge-harness records the values only a command's plan sets
+  hook          Run one hook for a host's event: read from stdin, answered on stdout in the host's own protocol
+  install       Render the project's agents, skills, slash commands and hooks into a host's files, idempotently
+  uninstall     Remove exactly the host files and entries install wrote
   doctor        Run health checks on installed extensions
   mcp           Start MCP server (JSON-RPC over stdio)
   migrate       Migrate .spec files to the current format: the version header, a title for every block that has none, and the reference lists a file's blocks repeat moved into its `defaults`

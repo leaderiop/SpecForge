@@ -256,6 +256,13 @@ module specforge_git "specforge-git" {
   tags        ["adapters"]
 }
 
+module specforge_hosts "specforge-hosts" {
+  family      integration
+  description "The agent hosts' adapters behind specforge-ops' host port: Claude Code, Codex and Cursor file layouts, config merges and hook protocols, which know no contribution's meaning (ADR 0292)"
+  depends_on  [specforge_ops, specforge_protocol_types]
+  tags        ["adapters"]
+}
+
 module specforge_ops_registry "specforge-ops-registry" {
   family      integration
   description "Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010)"
@@ -295,6 +302,7 @@ module specforge_cli "specforge-cli" {
   features    [project_initialization, ci_integration]
   depends_on  [
     specforge_git,
+    specforge_hosts,
     specforge_common,
     specforge_component,
     specforge_diagnostics,

@@ -33,25 +33,34 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod calls;
 mod code_catalog;
 pub mod command_args;
+mod contrib;
 mod declaration;
 mod field;
 mod judged;
 mod plan;
+mod prompt;
 mod settings;
 pub mod tool_input;
+mod trigger;
 mod vocabulary;
 pub use calls::*;
 pub use code_catalog::CodeDescriptor;
+pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
 };
 pub use field::FieldDescriptor;
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
+pub use prompt::{
+    Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
+    PromptRole, PromptStep,
+};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
     UnreadableItem, is_segment, valid_name,
 };
+pub use trigger::{Trigger, TriggerKind};
 pub use vocabulary::{
     CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, JudgementState,
     ProofRole,
@@ -82,8 +91,12 @@ pub use vocabulary::{
 /// `writes` and answer an edit `plan` the host applies, a kind or field may be written by a `human` only, a pass may be
 /// a `guard`, and a writing command's input carries the `revisions` of the sources it was compiled from; the same 1.9.0 is ADR 0290's:
 /// a rule may be `judged` (it holds while a fresh verdict says so), a field may be written by a `verdict`, and a pass
-/// entity and a command's graph node carry the `judgements` of the rules that judge them.
-pub const PROTOCOL_VERSION: &str = "1.9.0";
+/// entity and a command's graph node carry the `judgements` of the rules that judge them; 1.10.0 is ADR 0291's: an
+/// extension declares `prompts` in its surfaces and the host calls their `prompt__*` export, a command declares the
+/// `gates` it waits on and the `subject` that scopes them, a pass declares the codes it `reports`, and a guard pass's
+/// input says what `trigger`ed it; ADR 0292 adds to the same 1.10.0 the `agents`, `skills`, `slash_commands` and `hooks` of an
+/// extension's surfaces, the `render__` and `hook__<id>` exports, and the `state` a hook or command keeps.
+pub const PROTOCOL_VERSION: &str = "1.10.0";
 
 /// Errors that can occur during the extension protocol lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -428,6 +441,18 @@ pub struct SurfaceDescriptor {
     pub mcp_tools: Vec<McpToolDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_resources: Vec<McpResourceDescriptor>,
+    /// The MCP prompts it contributes (protocol 1.10.0, ADR 0291).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prompts: Vec<PromptDescriptor>,
+    /// Agents, skills, slash commands and hooks for a host (protocol 1.10.0, ADR 0292).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<AgentDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skills: Vec<SkillDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slash_commands: Vec<SlashCommandDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hooks: Vec<HookDescriptor>,
 }
 
 /// Describes a CLI command contributed by an extension.
@@ -444,6 +469,15 @@ pub struct CommandDescriptor {
     /// It answers an edit plan the host applies (protocol 1.9.0, ADR 0289).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
+    /// Local codes of the extension: the command is refused (`gate_failed`) while one fails in the `subject`'s scope
+    /// (protocol 1.10.0, ADR 0291).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gates: Vec<String>,
+    /// The arg holding the entity the command acts on; it scopes `gates`. Absent, the project.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reads_state: bool,
 }
 
 /// Describes an argument to a CLI command.
@@ -646,6 +680,10 @@ pub struct CompilerPassDescriptor {
     /// declared path).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub computes: Vec<String>,
+    /// Phase `guard` only: the local codes it can report. A gate runs the guard passes whose `reports` meet the
+    /// codes it names (protocol 1.10.0, ADR 0291).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reports: Vec<String>,
 }
 
 // ── Feature Flag Descriptor ──

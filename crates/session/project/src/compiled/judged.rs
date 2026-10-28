@@ -41,6 +41,71 @@ impl CompiledProject {
         self
     }
 
+    /// What this project reports now (the settings' gating and raises applied), with the findings of the guard passes
+    /// that report one of `codes` (qualified, `gsd/E512`) added: a gate asks (ADR 0291). Each such pass runs once over
+    /// this project, which is also its `previous` (nothing is written), and its input says `trigger`. A project
+    /// declaring no such pass reports what [`Self::checked_diagnostics`] does, and a compile never runs one.
+    pub fn gated_against_self(
+        &self,
+        codes: &[String],
+        trigger: &specforge_protocol_types::Trigger,
+    ) -> Vec<specforge_common::Diagnostic> {
+        let registries = self.env.registries();
+        let named: Vec<&specforge_registry::DeclaredPass> = registries
+            .guard_passes()
+            .filter(|declared| {
+                declared.reports().iter().any(|local| {
+                    codes.contains(&specforge_diagnostics::qualify(&declared.extension, local))
+                })
+            })
+            .collect();
+        if named.is_empty() {
+            return self.checked_diagnostics();
+        }
+        let Some(runtime) = self.env.runtime() else {
+            // Fail closed: a gate that cannot ask its guard passes is not satisfied.
+            let mut found = self.checked_diagnostics();
+            found.extend(
+                named
+                    .iter()
+                    .flat_map(|declared| unevaluated(declared, codes, "no runtime")),
+            );
+            return found;
+        };
+        let mut checked = self.clone();
+        if self.checks_skipped {
+            checked.check(&mut crate::ledger::Unrecorded::plain());
+        }
+        let baseline = crate::baseline::Baseline::of_project(self);
+        let context = crate::passes::PassContext {
+            previous: Some(&baseline),
+            judgements: Some(&checked.judgements),
+            trigger: Some(trigger),
+            ..crate::passes::PassContext::of(checked.memo().entities())
+        };
+        let reports = crate::passes::run_extension_passes(
+            named.iter().copied(),
+            &context,
+            &**runtime as &dyn specforge_wasm::WasmRuntime,
+            registries.codes(),
+        );
+        let mut found = Vec::new();
+        for (declared, report) in named.iter().zip(reports) {
+            // Fail closed: a pass that failed cannot say its code is absent, so the gate fails on it.
+            if report.summary["failed"] == true {
+                let why = report
+                    .findings
+                    .first()
+                    .map_or("it failed", |f| f.message.as_str());
+                found.extend(unevaluated(declared, codes, why));
+            }
+            found.extend(report.findings);
+        }
+        checked.check_diagnostics.extend(found);
+        checked.reported = OnceLock::new();
+        checked.diagnostics()
+    }
+
     /// The digests kept for the judged rules (ADR 0290): an entity's until the graph delta names it, a file's per stamp.
     pub fn digests(&self) -> &crate::judged::DigestMemo {
         &self.digests
@@ -63,4 +128,29 @@ impl CompiledProject {
             &specforge_registry::PlainDisk,
         )
     }
+}
+
+/// An error of each of `codes` that `declared` reports, saying the pass could not be asked (`why`).
+fn unevaluated(
+    declared: &specforge_registry::DeclaredPass,
+    codes: &[String],
+    why: &str,
+) -> Vec<specforge_common::Diagnostic> {
+    declared
+        .reports()
+        .iter()
+        .map(|local| specforge_diagnostics::qualify(&declared.extension, local))
+        .filter(|code| codes.contains(code))
+        .map(|code| {
+            specforge_common::Diagnostic::from_extension(
+                &declared.extension,
+                code,
+                specforge_common::Severity::Error,
+                format!(
+                    "guard pass '{}' could not be evaluated: {why}",
+                    declared.pass.name
+                ),
+            )
+        })
+        .collect()
 }

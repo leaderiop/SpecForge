@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "specforge hook t.write_guard --host cursor --event pre_tool --tools write # specforge-install"
+      },
+      {
+        "command": "specforge hook t.isolation --host cursor --event pre_tool --tools agent # specforge-install"
+      },
+      {
+        "command": "specforge hook t.validate_commit --host cursor --event pre_commit # specforge-install"
+      },
+      {
+        "command": "specforge hook core.spec_guard --host cursor --event pre_tool --tools write,edit --paths '**/*.spec' # specforge-install"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "specforge hook t.injection_scan --host cursor --event post_tool --tools read # specforge-install"
+      },
+      {
+        "command": "specforge hook t.context_monitor --host cursor --event post_tool # specforge-install"
+      },
+      {
+        "command": "specforge hook t.record_hook --host cursor --event post_tool --tools write --paths '**' # specforge-install"
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "specforge hook t.session_cursor --host cursor --event session_start # specforge-install"
+      }
+    ]
+  },
+  "version": 1
+}

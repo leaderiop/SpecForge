@@ -42,6 +42,7 @@ fn contribution() -> CommandDescriptor {
             ),
         ],
         writes: false,
+        ..Default::default()
     }
 }
 
@@ -107,6 +108,7 @@ fn every_shape() -> Vec<CommandDescriptor> {
         export: format!("cmd__x_{id}"),
         args,
         writes: false,
+        ..Default::default()
     };
     vec![
         command(

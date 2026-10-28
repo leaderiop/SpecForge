@@ -39,7 +39,17 @@ impl Args {
             Ok(project) => project,
             Err(error) => return Refusal::of(self.output.format).report(terminal, &error),
         };
-        let report = diagnose(&ProjectView::of(&project), &Z3::default());
+        let view = ProjectView::of(&project);
+        let hosts: Vec<_> = specforge_ops::host::Host::ALL
+            .iter()
+            .filter_map(|host| specforge_hosts::renderer(*host))
+            .collect();
+        let renderers: Vec<&dyn specforge_ops::host::HostRenderer> =
+            hosts.iter().map(AsRef::as_ref).collect();
+        let caller = crate::caller::of(false, self.output.format, terminal);
+        let report = diagnose(&view, &Z3::default()).with_hosts(
+            specforge_ops::host::diagnose::findings(&view, &renderers, caller),
+        );
         let credentials = User::current().credential_health();
 
         match self.output.format {
@@ -213,6 +223,7 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
         ("Rules", Part::Rule),
         ("Surfaces", Part::Surface),
         ("Toolchain", Part::Toolchain),
+        ("Hosts", Part::Host),
     ] {
         let mut findings = report.about(part).peekable();
         if findings.peek().is_none() {

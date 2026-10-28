@@ -1,5 +1,6 @@
 // Wasm component extension runtime features
 
+use "behaviors/host-install"
 use "behaviors/surface-contributions"
 use "behaviors/wasm-authoring"
 use "behaviors/wasm-extensions"

@@ -510,3 +510,22 @@ fn an_extension_that_cannot_restart_is_unloaded_with_its_reason() {
     let next = runtime.call_export("@repro/limits", "anything", b"{}");
     assert_eq!(trap_kind(&next), "extension_not_found", "{next:?}");
 }
+
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "a call cut at the budget its caller gave names that budget, not the extension's limit"
+)]
+fn a_call_cut_at_its_budget_names_the_budget() {
+    let runtime = ComponentRuntime::new();
+    runtime
+        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .expect("the spinning guest instantiates");
+    runtime.apply_limits("@repro/spin", Limits::CEILING);
+    let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 50);
+    assert_eq!(trap_kind(&result), "deadline_exceeded", "{result:?}");
+    assert!(
+        trap_message(&result).contains("call's 50 ms budget"),
+        "{}",
+        trap_message(&result)
+    );
+}

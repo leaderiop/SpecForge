@@ -68,16 +68,6 @@ pub(crate) enum Found<C, E> {
     Extension(E),
 }
 
-impl<C: Copy> Found<C, std::convert::Infallible> {
-    /// The core entry, for a kind no extension contributes to.
-    pub fn core_entry(&self) -> C {
-        match self {
-            Found::Core(core) => *core,
-            Found::Extension(never) => match *never {},
-        }
-    }
-}
-
 /// One request kind. Three adapters: [`crate::tools::Tools`],
 /// [`crate::resources::Resources`], [`crate::prompts::Prompts`].
 pub(crate) trait Surface {
@@ -86,7 +76,7 @@ pub(crate) trait Surface {
     /// Whether the request carries an `arguments` object.
     const TAKES_ARGUMENTS: bool;
     /// Whether extensions contribute entries of this kind (tools,
-    /// resources; no extension declares a prompt).
+    /// resources, prompts).
     const EXTENDED: bool;
     /// How an unknown name is refused: "Unknown tool", "Unknown resource
     /// URI", "Unknown prompt" (-32602, before anything is recorded).

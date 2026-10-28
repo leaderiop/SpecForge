@@ -1,6 +1,6 @@
 # Operations reach the package registry through a port
 
-**Status:** accepted (2026-10-03). Amended by [ADR 0178](0178-a-registry-credential-belongs-to-its-registry-root.md) (architecture round 20, plan 01): credential health is read through `specforge_ops_registry::User`, and the client holds no OS keyring.
+**Status:** accepted (2026-10-03). Amended by [ADR 0178](0178-a-registry-credential-belongs-to-its-registry-root.md) (architecture round 20, plan 01): credential health is read through `specforge_ops_registry::User`, and the client holds no OS keyring. Extended by [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md): the host renderer is a second port, implemented in the adapters layer.
 
 Splitting out the Package registry client (`specforge-registry-client`: reqwest, the OS keyring,
 ed25519) did not keep it out of the LSP. `specforge-ops` used it for four things, so every

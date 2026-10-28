@@ -31,8 +31,8 @@ use specforge_protocol_types::{
     CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
     DescribeResponse, HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest,
     MigrationInput, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
-    PassSeverity, PassSpan, RawGraph, ScanRequest, ScanResponse, ValidatorContext,
-    ValidatorVerdict, pass_export,
+    PassSeverity, PassSpan, PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse,
+    ValidatorContext, ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
@@ -51,22 +51,31 @@ pub enum Operation {
     Validate,
     Scan,
     Migrate,
+    Prompt,
+    Render,
+    Hook,
 }
 
 impl Operation {
     /// Whether the host writes its answer's text into its own messages, help and listings (the
-    /// declaration, a pass's diagnostics and summary, a validator's verdict), so the answer is read
+    /// declaration, a pass's diagnostics and summary, a validator's verdict, a prompt's messages), so the answer is read
     /// printable (ADR 0244). A command's, an MCP tool's or resource's answer is the extension's own
     /// output, and a collector's or scanner's is data matched against the project: read as answered.
     pub const fn reads_text(self) -> bool {
         matches!(
             self,
-            Operation::Handshake | Operation::Describe | Operation::Pass | Operation::Validate
+            Operation::Handshake
+                | Operation::Describe
+                | Operation::Pass
+                | Operation::Validate
+                | Operation::Prompt
+                | Operation::Render
+                | Operation::Hook
         )
     }
 
     /// Every operation.
-    pub const ALL: [Operation; 10] = [
+    pub const ALL: [Operation; 13] = [
         Operation::Handshake,
         Operation::Describe,
         Operation::Command,
@@ -77,6 +86,9 @@ impl Operation {
         Operation::Validate,
         Operation::Scan,
         Operation::Migrate,
+        Operation::Prompt,
+        Operation::Render,
+        Operation::Hook,
     ];
 
     /// How a message names the operation.
@@ -92,6 +104,9 @@ impl Operation {
             Operation::Validate => "custom validator",
             Operation::Scan => "scanner",
             Operation::Migrate => "migration hook",
+            Operation::Prompt => "MCP prompt",
+            Operation::Render => "renderer",
+            Operation::Hook => "hook",
         }
     }
 }
@@ -312,6 +327,29 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
+    /// A prompt's `prompt__` export on `input` (ADR 0291): the messages it answers, at least one.
+    pub fn render_prompt(
+        &self,
+        extension: &str,
+        export: &str,
+        input: &PromptInput<RawGraph>,
+    ) -> Result<PromptOutput, CallError> {
+        let output: PromptOutput =
+            self.call_typed(Operation::Prompt, extension, export, input, "PromptOutput")?;
+        if output.messages.is_empty() {
+            return Err(CallError::new(
+                Operation::Prompt,
+                extension,
+                export,
+                CallFailure::Malformed {
+                    expected: "PromptOutput",
+                    reason: "it answered no message".to_string(),
+                },
+            ));
+        }
+        Ok(output)
+    }
+
     /// An MCP resource's export, reading `uri`.
     pub fn read_mcp_resource(
         &self,
@@ -459,7 +497,11 @@ impl<'r> ExtensionCalls<'r> {
         // Secret presence only where a person runs something on this machine (see `ExtensionSettings::members`).
         let secrets = matches!(
             operation,
-            Operation::Command | Operation::McpTool | Operation::McpResource
+            Operation::Command
+                | Operation::McpTool
+                | Operation::McpResource
+                | Operation::Prompt
+                | Operation::Hook
         );
         let members = self.runtime.settings_of(extension)?.members(secrets);
         (!members.is_empty()).then_some(members)
@@ -472,6 +514,18 @@ impl<'r> ExtensionCalls<'r> {
         export: &str,
         bytes: &[u8],
     ) -> Result<Vec<u8>, CallError> {
+        self.call_raw_within(operation, extension, export, bytes, u32::MAX)
+    }
+
+    /// [`Self::call_raw`] held to `max_ms` below the extension's own limit.
+    pub(crate) fn call_raw_within(
+        &self,
+        operation: Operation,
+        extension: &str,
+        export: &str,
+        bytes: &[u8],
+        max_ms: u32,
+    ) -> Result<Vec<u8>, CallError> {
         let spliced;
         let bytes = match self.carried(operation, extension) {
             Some(members) => {
@@ -480,7 +534,10 @@ impl<'r> ExtensionCalls<'r> {
             }
             None => bytes,
         };
-        match self.runtime.call_export(extension, export, bytes) {
+        match self
+            .runtime
+            .call_export_within(extension, export, bytes, max_ms)
+        {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
                 let failure = if trap.kind == "extension_not_found" {
@@ -526,7 +583,7 @@ fn splice(bytes: &[u8], members: &serde_json::Map<String, Value>) -> Vec<u8> {
 
 /// Decode an export's `answer` as the protocol type `expected` names; a text-reading operation's
 /// answer is held printable first.
-fn decode<O: DeserializeOwned>(
+pub(crate) fn decode<O: DeserializeOwned>(
     operation: Operation,
     extension: &str,
     export: &str,
@@ -544,10 +601,14 @@ fn decode<O: DeserializeOwned>(
 /// `answer` as JSON with every string and key held printable (a starter template keeping its lines).
 fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error> {
     let mut value: Value = serde_json::from_slice(answer)?;
-    let lines = if operation == Operation::Handshake {
-        DECLARED_LINES
-    } else {
-        &[]
+    let lines = match operation {
+        Operation::Handshake => DECLARED_LINES,
+        // A prompt's message is a document: it keeps its lines, every other control stays escaped.
+        Operation::Prompt => &["text"],
+        // A renderer's body and a hook's words to the model or the person are documents too.
+        Operation::Render => &["body"],
+        Operation::Hook => &["context", "reason", "notice"],
+        _ => &[],
     };
     hold_printable(&mut value, lines);
     Ok(value)
@@ -569,7 +630,7 @@ fn malformed(
     )
 }
 
-fn encode<T: Serialize>(
+pub(crate) fn encode<T: Serialize>(
     operation: Operation,
     extension: &str,
     export: &str,

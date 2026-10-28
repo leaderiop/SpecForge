@@ -1,0 +1,21 @@
+{
+  "stdin": {
+    "session_id": "s1",
+    "cwd": "/p",
+    "transcript_path": "/t",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "plan it"
+  },
+  "event": {
+    "event": "user_prompt",
+    "host": "claude-code",
+    "cwd": "/p",
+    "session": "s1",
+    "prompt": "plan it"
+  },
+  "answer": {
+    "context": "phase 03"
+  },
+  "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"phase 03\",\"hookEventName\":\"UserPromptSubmit\"}}\n",
+  "exit_code": 0
+}

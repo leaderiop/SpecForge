@@ -198,11 +198,18 @@ pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -
 }
 
 pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
-    // The core prompts, derived from their table: no extension declares a
-    // prompt.
+    // The core prompts, derived from their table, then the served project's extension prompts.
+    let extension = crate::target::served_prompts(state);
     let prompts: Vec<Value> = crate::prompts::CORE_PROMPTS
         .iter()
-        .map(|p| serde_json::to_value(p.descriptor()).expect("a listed descriptor serializes"))
+        .map(|p| p.descriptor())
+        .chain(
+            extension
+                .all()
+                .iter()
+                .map(crate::prompts::extension::descriptor),
+        )
+        .map(|d| serde_json::to_value(d).expect("a listed descriptor serializes"))
         .collect();
     state.events.record(McpEvent::McpDiscoveryInvoked {
         discovery_type: Listing::Prompts,

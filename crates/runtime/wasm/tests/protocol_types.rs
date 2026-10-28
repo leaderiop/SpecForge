@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.9.0");
+    assert_eq!(PROTOCOL_VERSION, "1.10.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -454,6 +454,7 @@ fn surface_descriptor_full_round_trip() {
                 minimum: None,
             }],
             writes: false,
+            ..Default::default()
         }],
         mcp_tools: vec![McpToolDescriptor {
             name: "specforge.validate".to_string(),
@@ -470,6 +471,7 @@ fn surface_descriptor_full_round_trip() {
             export: "mcp__entities".to_string(),
             mime_type: "application/json".to_string(),
         }],
+        ..Default::default()
     };
     let json = serde_json::to_string(&surface).unwrap();
     let decoded: SurfaceDescriptor = serde_json::from_str(&json).unwrap();
@@ -559,6 +561,7 @@ fn compiler_pass_descriptor_round_trip() {
         phase: Some("analysis".to_string()),
         baseline: vec![],
         computes: vec![],
+        ..Default::default()
     };
     let json = serde_json::to_string(&pass).unwrap();
     let decoded: CompilerPassDescriptor = serde_json::from_str(&json).unwrap();

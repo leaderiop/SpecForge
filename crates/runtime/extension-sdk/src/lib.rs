@@ -33,10 +33,10 @@ pub use specforge_protocol_types::{
 pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    HandshakeResponse, PeerDependency, ProtocolError, SandboxPolicy, SecretDescriptor,
-    SettingDescriptor, SettingsItem, ValidationRuleDescriptor, ValidationSeverity,
-    ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam,
-    ValidatorRef, ValidatorVerdict,
+    HandshakeResponse, PeerDependency, PromptDescriptor, ProtocolError, SandboxPolicy,
+    SecretDescriptor, SettingDescriptor, SettingsItem, ValidationRuleDescriptor,
+    ValidationSeverity, ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod,
+    ValidatorParam, ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{DescribeResponse, pass_export};
@@ -65,8 +65,11 @@ pub use vocabulary::Vocabulary;
 
 mod builders;
 mod command_graph;
+mod contrib;
 mod guest;
+pub mod host_contrib;
 mod plan;
+pub mod prompt;
 mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
@@ -75,7 +78,11 @@ pub use builders::{
 };
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
+pub use host_contrib::{
+    AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder, hook_export,
+};
 pub use plan::{PlanBuilder, Verdict};
+pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
 pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
@@ -136,6 +143,14 @@ pub struct ContributionsBuilder {
     /// the declaration is built, the surfaces from `surfaces`).
     decl: ExtensionDeclaration,
     surfaces: surface::Surfaces,
+    /// The prompts declared, with their handlers in `operations` (ADR 0291).
+    prompts: Vec<PromptDescriptor>,
+    /// The agents, skills, slash commands and hooks declared (ADR 0292); the hooks' handlers and the renderer are
+    /// in `operations`.
+    agents: Vec<specforge_protocol_types::AgentDescriptor>,
+    skills: Vec<specforge_protocol_types::SkillDescriptor>,
+    slash_commands: Vec<specforge_protocol_types::SlashCommandDescriptor>,
+    hooks: Vec<specforge_protocol_types::HookDescriptor>,
     operations: operations::Operations,
     raw: RawCategories,
 }
@@ -523,6 +538,11 @@ impl ContributionsBuilder {
     pub fn declaration(&self) -> ExtensionDeclaration {
         let mut declaration = self.decl.clone();
         declaration.surfaces = self.surfaces.descriptor();
+        declaration.surfaces.prompts = self.prompts.clone();
+        declaration.surfaces.agents = self.agents.clone();
+        declaration.surfaces.skills = self.skills.clone();
+        declaration.surfaces.slash_commands = self.slash_commands.clone();
+        declaration.surfaces.hooks = self.hooks.clone();
         for category in DeclaredCategory::ALL {
             if let Some(items) = self.raw.get(category.name()) {
                 let name = category.name();
@@ -576,6 +596,7 @@ fn describe_answer<'d>(
 
 /// Everything an extension needs, behind one `use`.
 pub mod prelude {
+    pub use crate::{AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder};
     pub use crate::{
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
@@ -587,13 +608,17 @@ pub mod prelude {
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,
         CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge, GraphNode,
-        McpResourceBuilder, McpToolBuilder,
+        McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
+        PromptStepBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
+    pub use specforge_protocol_types::{
+        Attribution, Decision, HookEvent, HookOutput, PromptOutput, RenderKind, StatePatch,
+    };
     pub use specforge_protocol_types::{
         SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,
     };

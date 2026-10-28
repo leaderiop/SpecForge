@@ -134,6 +134,17 @@ impl<'a> ProjectRef<'a> {
     }
 }
 
+/// The extension prompts the served project serves (ADR 0291): what `prompts/list`, `prompts/get` and `initialize`
+/// count. A view of the served project that reads no file: it asks the registry build and the extensions' effective
+/// settings, so it is not bound.
+pub(crate) fn served_prompts(
+    state: &McpState,
+) -> specforge_ops::extension::prompt::ExtensionPrompts {
+    specforge_ops::extension::prompt::ExtensionPrompts::build(&ProjectView::of(
+        state.session().project(),
+    ))
+}
+
 /// One call: the state and its target.
 pub struct Call<'s> {
     state: &'s mut McpState,
@@ -157,6 +168,11 @@ impl<'s> Call<'s> {
             target,
             containment,
         }
+    }
+
+    /// The host the client named in `initialize`, when it is one a prompt renders for (ADR 0291).
+    pub(crate) fn host(&self) -> Option<specforge_ops::host::Host> {
+        self.state.host
     }
 
     /// The server's event sink: what a handler records goes here (ADR 0057).

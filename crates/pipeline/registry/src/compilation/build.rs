@@ -120,6 +120,11 @@ impl DeclaredPass {
         &self.pass.computes
     }
 
+    /// The local codes the pass declares it can report (a guard pass; ADR 0291).
+    pub fn reports(&self) -> &[String] {
+        &self.pass.reports
+    }
+
     /// The kinds whose baseline entities the pass receives as `previous`.
     pub fn baseline(&self) -> &[String] {
         &self.pass.baseline
@@ -244,6 +249,12 @@ impl RegistryBuild {
     /// of that name is shadowed and E039 (ADR 0097).
     pub fn commands(&self) -> &CommandRoutes {
         &self.commands
+    }
+
+    /// The prompts the extensions contribute, each under the name a command of its extension would take: served
+    /// in load then declaration order, a later claimant of a name is E039 (ADR 0291).
+    pub fn prompts(&self) -> &[crate::PromptRoute] {
+        self.commands.prompts()
     }
 
     /// What the graph build reads of these declarations: the owners of the
@@ -421,6 +432,14 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     // extension whose code namespace an earlier one owns; E006 rules for
     // required fields come after the declared rules.
     let (codes, namespace_diagnostics) = codes::build(&declarations);
+    // The settings, presets and secrets: W019 and W021 (they read the code book). Built before the rules, which
+    // read the agents the host contributions leave; their diagnostics are reported after the rules'.
+    let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
+    // An agent, skill or hook the registry refuses is dropped before a rule or a prompt names it (W021).
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_host_contributions(&mut declarations, &settings),
+    ));
     let (rules, rule_diagnostics) = Rules::build(
         &declarations,
         Registries {
@@ -432,11 +451,26 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     );
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
-    // The settings, presets and secrets: W019 and W021, after the rules (they read the code book).
-    let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
 
-    let (commands, duplicates) = register_surface_contributions(&declarations);
+    // A prompt or a gate the registry refuses is dropped before anything routes it (W021).
+    let judge = crate::Judge {
+        codes: &codes,
+        settings: &settings,
+        kinds: &kinds,
+    };
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_prompts(&mut declarations, &judge),
+    ));
+
+    // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_slash_commands(&mut declarations, &settings),
+    ));
+    let (commands, mut duplicates) = register_surface_contributions(&declarations);
+    duplicates.extend(crate::claim_host_names(&mut declarations));
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);

@@ -145,12 +145,12 @@ behavior call_extension_exports "Call Extension Exports" {
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
-    The host performs ten operations on a loaded extension, each one call
+    The host performs thirteen operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
     (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
     custom validator (the rule's wasm_function), a scanner (the analyzer's
-    scan export) and a migration hook. Each sends one protocol type as
+    scan export), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
     optional field the host leaves unset is absent, never null. A trap, an
     export the guest does not route, an extension the runtime did not load,
@@ -1019,4 +1019,32 @@ behavior run_guard_passes "Run Guard Passes" {
   verify unit "a guard pass refuses a write and is silent on compile"
   verify unit "a plan a guard pass finds an error in is refused with E080 and nothing is written"
   verify unit "a guard that already objects to the project does not refuse the write that fixes it"
+}
+
+behavior gate_a_command "Gate a Command" {
+  features   [contribution_based_extensions]
+  invariants [extension_isolation]
+  category   command
+  contract   """
+    A command may declare `gates`, local codes of its extension, and a `subject`, the arg holding the entity it acts
+    on (ADR 0291). Before its export runs, on the command line and over MCP, the host refuses the call
+    (`gate_failed`, kind precondition_failed) while the project's report, or a guard pass the gate names run now,
+    holds an error of a gated code in the subject's scope. A command that declares no gate runs as it always did.
+  """
+  verify unit "a command that declares no gate runs as it did"
+  verify unit "a command descriptor that declares no gate serializes as it did"
+  verify unit "a command whose gate fails is refused before its export runs"
+  verify unit "a gate is scoped to its subject"
+  verify unit "a gate runs the guard passes it names"
+  verify unit "a gate on a code its setting turns off passes"
+  verify unit "a warning a preset raises to an error fails a gate"
+  verify unit "a subject given as a short form is sent as its full path"
+  verify unit "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
+  verify unit "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
+  verify unit "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
+  verify unit "a guard pass's input carries the trigger that made the host run it"
+  verify unit "a subject that names no entity or several is refused before the gate runs"
+  verify unit "a guard pass that fails at a gate fails the gate, and the export is not called"
+  verify unit "a finding that names no entity is in a gate's scope by the block that holds its span"
+  verify unit "a gated writing command is refused gate_failed even as a dry run, and writes nothing"
 }

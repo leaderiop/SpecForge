@@ -1,0 +1,29 @@
+{
+  "event": "pre_tool",
+  "host": "claude-code",
+  "cwd": "/p",
+  "today": "2026-10-28",
+  "session": "s1",
+  "tool": {
+    "class": "write",
+    "name": "Write",
+    "input": {
+      "file_path": "/p/spec/a.spec"
+    }
+  },
+  "paths": [
+    {
+      "path": "spec/a.spec",
+      "in_project": true,
+      "in_spec_root": true,
+      "exists": true,
+      "bytes": 120,
+      "new_bytes": 80
+    }
+  ],
+  "state": {
+    "project": {
+      "cursor": "03"
+    }
+  }
+}

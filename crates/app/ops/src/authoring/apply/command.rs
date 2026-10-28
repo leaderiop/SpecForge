@@ -4,7 +4,7 @@ use super::{
     Clock, HostJudgedRules, JudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
 };
 use crate::authoring::edit::Edited;
-use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, run};
+use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, called, settle};
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind};
 use serde_json::{Map, Value};
@@ -29,6 +29,9 @@ pub enum PlanOutcome {
 pub struct CommandRun {
     pub output: CommandOutput,
     pub plan: Option<PlanOutcome>,
+    /// The refusal of the state patch the command answered (over the cap, not an object): the run, and the files its
+    /// plan wrote, stand; only the state is unchanged (ADR 0022 D4: an error never drops the writes).
+    pub state_refused: Option<OpError>,
 }
 
 /// Run `command` over the project `view` describes ([`run`]) and apply the plan it answered, unless `dry_run`. A plan
@@ -70,9 +73,19 @@ pub fn execute_with(
     rules: &Arc<dyn JudgedRules>,
     clock: &dyn Clock,
 ) -> Result<CommandRun, RunError> {
-    let output = run(view, command, given, format)?;
+    let mut output = called(view, command, given, format)?;
     let Some(plan) = &output.plan else {
-        return Ok(CommandRun { output, plan: None });
+        let state_refused = if dry_run {
+            None
+        } else {
+            keep_state(view, command, &mut output)
+        };
+        output.state = None;
+        return Ok(CommandRun {
+            output,
+            plan: None,
+            state_refused,
+        });
     };
     let outcome = if !command.writes() {
         PlanOutcome::Refused(OpError::new(
@@ -96,8 +109,29 @@ pub fn execute_with(
             Err(refusal) => PlanOutcome::Refused(refusal.into_error()),
         }
     };
+    // The state is kept after the plan, and only when the plan did not fail or get refused.
+    let state_refused =
+        if dry_run || matches!(outcome, PlanOutcome::Refused(_) | PlanOutcome::Failed) {
+            None
+        } else {
+            keep_state(view, command, &mut output)
+        };
+    output.state = None;
     Ok(CommandRun {
         output,
         plan: Some(outcome),
+        state_refused,
     })
+}
+
+/// [`settle`], its refusal returned rather than raised.
+fn keep_state(
+    view: &ProjectView<'_>,
+    command: &ExtensionCommand,
+    output: &mut CommandOutput,
+) -> Option<OpError> {
+    match settle(view, command, output) {
+        Err(RunError::State(refusal)) => Some(*refusal),
+        _ => None,
+    }
 }

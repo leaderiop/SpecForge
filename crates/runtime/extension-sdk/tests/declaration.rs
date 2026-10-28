@@ -32,6 +32,7 @@ fn reports() -> ContributionsBuilder {
                 stdout: "hi".to_string(),
                 stderr: String::new(),
                 plan: None,
+                state: None,
             });
     });
     b.pass("audit", |p| {

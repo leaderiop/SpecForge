@@ -49,6 +49,10 @@ specforge delete <id> [--unlink-references]  # delete an entity (and, with the f
 # Every edit takes --dry-run (print the diff, write nothing), --revision <sha256:..|absent> (refuse the write if the file has changed: stale_revision) and --format json.
 # MCP: specforge.edit takes a list; each item may name a revision. An extension's writing command takes --dry-run too.
 
+# Extension prompts and gates (ADR 0291): a workflow an extension contributes, and a command refused while a check fails
+specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name
+# MCP: prompts/list lists them after the core five; specforge.prompt { name, arguments | argv, host? } renders any prompt. A gated command or prompt is refused gate_failed (exit 1) with the failing diagnostics.
+
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions
 specforge add @specforge/product     # enable a builtin, or install @scope/name@version from a registry
@@ -69,7 +73,9 @@ specforge add ./path/to/ext.wasm     # load it in a project
 specforge format                     # format .spec files
 specforge migrate                    # bring .spec files to the current format: titles, and repeated reference lists moved into `defaults`
 specforge collect                    # run the test runners (with your approval) and record what they prove
-specforge doctor                     # health-check installed extensions
+specforge doctor                     # health-check installed extensions and the files install wrote into a host
+specforge install claude-code        # write the extensions' agents, skills, slash commands and hooks into a host (codex, cursor too); --check, --dry-run, --force
+specforge uninstall claude-code      # remove exactly what install wrote
 specforge mcp                        # start the MCP server (stdio); specforge.edit applies a list of typed edits
 specforge explain E001               # explain a diagnostic code
 ```

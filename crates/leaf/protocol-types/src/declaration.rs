@@ -13,12 +13,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
-    CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
-    EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
-    FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, McpResourceDescriptor,
-    McpToolDescriptor, PeerDependency, PresetDescriptor, ProtocolError, SecretDescriptor,
-    SettingDescriptor, SettingsItem, SurfaceDescriptor, ValidationRuleDescriptor,
+    AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CodeDescriptor,
+    CollectorDescriptor, CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor,
+    DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
+    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
+    HookDescriptor, McpResourceDescriptor, McpToolDescriptor, PeerDependency, PresetDescriptor,
+    PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, SecretDescriptor,
+    SettingDescriptor, SettingsItem, SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor,
+    ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -435,12 +437,53 @@ static RESOURCE: Shape = Shape {
     fields: struct_fields::<McpResourceDescriptor>,
     nested: &[],
 };
+static PROMPT_ARG: Shape = Shape {
+    fields: struct_fields::<PromptArgDescriptor>,
+    nested: &[],
+};
+static PROMPT_STEP: Shape = Shape {
+    fields: struct_fields::<PromptStep>,
+    nested: &[],
+};
+static ATTRIBUTION: Shape = Shape {
+    fields: struct_fields::<Attribution>,
+    nested: &[],
+};
+static PROMPT: Shape = Shape {
+    fields: struct_fields::<PromptDescriptor>,
+    nested: &[
+        ("args", Nested::List(&PROMPT_ARG)),
+        ("steps", Nested::List(&PROMPT_STEP)),
+        ("attribution", Nested::One(&ATTRIBUTION)),
+    ],
+};
+static AGENT: Shape = Shape {
+    fields: struct_fields::<AgentDescriptor>,
+    nested: &[("attribution", Nested::One(&ATTRIBUTION))],
+};
+static SKILL: Shape = Shape {
+    fields: struct_fields::<SkillDescriptor>,
+    nested: &[("attribution", Nested::One(&ATTRIBUTION))],
+};
+static SLASH: Shape = Shape {
+    fields: struct_fields::<SlashCommandDescriptor>,
+    nested: &[("attribution", Nested::One(&ATTRIBUTION))],
+};
+static HOOK: Shape = Shape {
+    fields: struct_fields::<HookDescriptor>,
+    nested: &[],
+};
 static SURFACE: Shape = Shape {
     fields: struct_fields::<SurfaceDescriptor>,
     nested: &[
         ("commands", Nested::List(&COMMAND)),
         ("mcp_tools", Nested::List(&TOOL)),
         ("mcp_resources", Nested::List(&RESOURCE)),
+        ("prompts", Nested::List(&PROMPT)),
+        ("agents", Nested::List(&AGENT)),
+        ("skills", Nested::List(&SKILL)),
+        ("slash_commands", Nested::List(&SLASH)),
+        ("hooks", Nested::List(&HOOK)),
     ],
 };
 static AUTO_DETECT: Shape = Shape {

@@ -43,7 +43,7 @@ impl ExtensionSettings {
     ///
     /// Presence is the machine's, not the project's: CI has a token a laptop lacks. Nothing the host hashes,
     /// records or baselines holds it, so an input that carries it cannot be reproduced from the project. The
-    /// caller adds it only to what a person runs on a machine (commands, tools, resources), never to a pass,
+    /// caller adds it only to what a person runs on a machine (commands, tools, resources, prompts), never to a pass,
     /// validator, collector, scanner or migration, whose results must be the same on every machine.
     pub fn members(&self, secrets: bool) -> serde_json::Map<String, serde_json::Value> {
         let mut members = serde_json::Map::new();
@@ -89,6 +89,18 @@ pub trait WasmRuntime: std::any::Any + Send + Sync {
 
     /// Call an export function on a loaded module.
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult;
+
+    /// [`Self::call_export`] held to at most `max_ms` of wall-clock time, below the extension's own limit (a hook's
+    /// timeout, ADR 0292). The in-process runtime runs the guest in the host process and holds it to nothing.
+    fn call_export_within(
+        &self,
+        extension_name: &str,
+        export_name: &str,
+        input: &[u8],
+        _max_ms: u32,
+    ) -> WasmCallResult {
+        self.call_export(extension_name, export_name, input)
+    }
 
     /// Hold `extension_name`'s later calls to `limits` (its handshake's
     /// sandbox, ADR 0037): the component runtime enforces them, the

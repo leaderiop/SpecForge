@@ -68,6 +68,48 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   verify unit "each prompt's payload is the spec type its module names"
 }
 
+behavior serve_extension_prompt "Serve an Extension Prompt" {
+  invariants [mcp_structured_error_responses, mcp_served_project_consistency]
+  category   query
+  types      [McpPromptDescriptor, McpPromptArgument, McpPromptResult, McpPromptReplyMessage, McpError]
+  contract   """
+    An extension contributes MCP prompts in its surfaces (ADR 0291): each is served as specforge.<short>.<id>
+    after the core prompts, rendered by the extension's prompt export from typed arguments, with one host message
+    appended (the prompt's version and digest, its attribution, each step and whether its gate passes now). A
+    project whose extensions declare no prompt lists and serves the core prompts exactly as before. The core tool
+    specforge.prompt renders any prompt by name from its arguments or an argv string, for the host the client named
+    or the one it is given, and answers its messages and the host message's payload.
+  """
+  verify unit "a project whose extensions declare no prompt lists and serves the core prompts unchanged"
+  verify unit "a prompt argument is read by its field type and a reference is sent as its full path"
+  verify unit "a prompt argument outside its field type is invalid input on that argument"
+  verify unit "a prompt whose entry gate fails is refused and its export is not called"
+  verify unit "a rendered prompt shows its version, digest, attribution and each step with its gate"
+  verify unit "a prompt export that traps is E028"
+  verify unit "specforge prompt prints a rendered prompt, as JSON with its host message, and refuses a failing gate"
+  verify unit "an extension's name routes a prompt when no command of it has that name"
+  verify unit "a prompt declaration round-trips through the protocol with its args, steps and attribution"
+  verify unit "an extension prompt is listed after the core ones and served by prompts/get"
+  verify unit "a prompt whose when setting is off is not listed or served"
+  verify unit "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
+  verify unit "the client names the host a prompt renders for, and a host argument overrides it"
+  verify unit "a prompt declared with the SDK is rendered by its export from the arguments and host the call carries"
+  verify unit "the SDK refuses a prompt declared twice or without a handler"
+  verify unit "the host sends a prompt export its typed arguments and host and reads back its messages"
+  verify unit "a prompt export that answers no message is E028"
+  verify unit "a pass input without a trigger reads a write and a gate trigger round-trips with its command and subject"
+  verify unit "a prompt answer that is not a PromptOutput is E028"
+  verify unit "a reference argument names an entity of its target kind and a quoted word is one word"
+  verify unit "a prompt renders the same messages and payload on the command line and over MCP"
+  verify unit "completions and help list an extension's prompts beside its commands, with their arguments"
+  verify unit "a prompt message keeps its lines and tabs, and every other control character is escaped"
+  verify unit "an unterminated quote is refused, a quoted word is a value, --name=value and -- are read, and null or an empty string is an unfilled optional"
+  verify unit "specforge prompt refuses an unknown prompt, an unknown host or format and an option without its value, rendering nothing"
+  verify unit "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
+  verify unit "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
+  verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
+}
+
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   invariants [
     graph_traversal_integrity,

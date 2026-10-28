@@ -261,6 +261,7 @@ mod evidence {
                         stdout: "{}".into(),
                         stderr: String::new(),
                         plan: None,
+                        state: None,
                     }
                     .to_bytes(),
                 ),
@@ -282,6 +283,7 @@ mod evidence {
                 export: "cmd__probe".into(),
                 args: Vec::new(),
                 writes: false,
+                ..Default::default()
             },
         );
         run(&project.view(), &command, &Map::new(), CommandFormat::Json)
@@ -392,6 +394,7 @@ mod the_views_runtime {
                     stdout: "{}\n".into(),
                     stderr: String::new(),
                     plan: None,
+                    state: None,
                 });
             });
             c

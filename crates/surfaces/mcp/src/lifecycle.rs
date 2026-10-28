@@ -153,6 +153,10 @@ pub fn handle_initialize(
         .map(PathBuf::from)
         .or_else(|| state.root.clone());
 
+    state.host = params
+        .pointer("/clientInfo/name")
+        .and_then(Value::as_str)
+        .and_then(specforge_ops::host::Host::from_client);
     state.set_root(project_root);
     state.phase = ServerPhase::Initialized;
     state.protocol_version =
@@ -168,10 +172,11 @@ pub fn handle_initialize(
         .filter(|tool| matches!(tool.kind, crate::surface_table::ToolKind::Command(_)))
         .count();
     let extensions_loaded = state.registries().extension_info().count();
+    let extension_prompts = crate::target::served_prompts(state).all().len();
     state.events.record(McpEvent::McpInitialized {
         tools_registered: crate::tools::CORE_TOOLS.len() + surface_tools,
         resources_registered: crate::resources::CORE_RESOURCES.len() + surface_resources,
-        prompts_registered: crate::prompts::CORE_PROMPTS.len(),
+        prompts_registered: crate::prompts::CORE_PROMPTS.len() + extension_prompts,
         extensions_loaded,
         surface_tools_registered: surface_tools,
         surface_resources_registered: surface_resources,

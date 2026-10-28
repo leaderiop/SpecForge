@@ -386,13 +386,14 @@ another name than the entry writes, the name of a builtin, or an extension
 another entry already loads); its handshake or one of its describe categories
 failed or does not parse, so its declaration cannot be read (`specforge add` and
 `specforge publish` refuse such a binary); or a call the host makes on the
-loaded extension failed. The host calls ten exports: the handshake and describe,
-a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom
-validator, a scanner and the migration hook. Each call fails when the export
-traps (a limit of its sandbox included: its time, its fuel or its memory, the
-trap naming which), when the extension does not route it, or when it answers
-output that is not the protocol type the operation owes (a collector's test
-whose status is not `passed`, `failed` or `skipped`, say); the message names the
+loaded extension failed. The host calls thirteen exports: the handshake and
+describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector,
+a custom validator, a scanner, the migration hook, an MCP prompt, the renderer
+of an agent's or skill's body and a hook. Each call fails when the export traps
+(a limit of its sandbox included: its time, its fuel or its memory, the trap
+naming which), when the extension does not route it, or when it answers output
+that is not the protocol type the operation owes (a collector's test whose
+status is not `passed`, `failed` or `skipped`, say); the message names the
 operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
 ...`). What the failure costs is the operation's: a check pass's is the
 compile's error, an analyze pass's a finding of that pass, a scanner's makes
@@ -500,15 +501,23 @@ E039: Duplicate contribution name
 
 Two contributions claim one name. Two commands route under one name, `specforge
 <short> <command>`: one short name, and ids that spell one command name (`_` and
-`-` alike), whether from two extensions or declared twice by one; the first in
-load order is routed and the later runs on no surface. Or two extensions
-register one MCP tool name, or one MCP resource name. Or two loaded extensions
-share one code namespace (the namespace is the package name's scope and name:
-`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
-`a.b.c`): the first in load order owns the namespace and the later extension's
-codes are described by nobody. One command id under two short names is two
-names, not a collision. Rename the later contribution, or give its extension
-another short name (`ext_short`; the SDK's `short`).
+`-` alike), whether from two extensions or declared twice by one; a prompt is
+routed under the same names after the commands (ADR 0291), so a prompt whose
+name a command or an earlier prompt has is the one not routed; the first in load
+order is routed and the later runs on no surface. Or two agents, skills and
+slash commands claim one host name (ADR 0292): they are host file names
+(`.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`, and the same in
+`.codex` and `.cursor`), one namespace per project across kinds and extensions,
+and a slash command is named `<short>-<route>`; the first in load order is
+rendered and the later is not. Or two hooks route as one `<short>.<id>`; the
+later is not wired. Or two extensions register one MCP tool name, or one MCP
+resource name. Or two loaded extensions share one code namespace (the namespace
+is the package name's scope and name: `@gsd/core` and a local `gsd` are both
+`gsd`, `@a/b.c` and `@a.b/c` are both `a.b.c`): the first in load order owns the
+namespace and the later extension's codes are described by nobody. One command
+id under two short names is two names, not a collision. Rename the later
+contribution, or give its extension another short name (`ext_short`; the SDK's
+`short`).
 
 Owner: core
 Level: error
@@ -2594,7 +2603,32 @@ bool setting of the extension or of a loaded peer, that names a value its source
 does not take, that sets a setting the extension does not declare to a value its
 type refuses, or that raises a code the extension does not catalog; a secret
 named twice or whose environment variable is not a name; and an item of a kind
-the host does not know. The item is dropped, the rest of the category is kept.
+the host does not know. The `surfaces` category is checked too (ADR 0291): a
+prompt whose id is not snake_case or whose export is not `prompt__<id>`, that
+declares an argument twice or named for something the host owns (`path`,
+`format`, `help`, `settings`, `secrets`, `host`, `argv`), of a type an argument
+does not take, a reference argument naming no loaded kind, bounds on an argument
+that is no integer or a default its type refuses, a gate that is not a code the
+extension catalogs (a command's gates too), a `subject` that is not an argument
+it declares, a `when` that is not a bool setting of the extension, or a step
+that names a command or prompt neither the extension nor a declared peer
+declares; the prompt or command is dropped whole, since a gate or an argument
+the host cannot read must not be ignored, and a step's `agent` (until the host
+knows agents) or an attribution with an empty field is dropped alone. The item
+is dropped, the rest of the category is kept. The host contributions are checked
+too (ADR 0292): an agent, skill, slash command or hook the registry refuses and
+drops, alone — an agent or skill id that is not kebab-case or is declared
+twice, a hook id that is not snake_case, a tool class outside the host-neutral
+vocabulary (`read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
+`web_search`, `ask_user`, `agent`, `skill`, `todo`, `mcp:<server>/<glob>`), a
+`model` or `effort` outside its tiers that is not a `setting:` naming a string
+or enum setting of the extension, variants without a `variant_setting` (or the
+reverse), a `when` that is not a bool setting of the extension, a slash command
+that names no single prompt or command the extension declares, `tools` or
+`paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above the
+ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook export
+that is not `hook__<id>`, an attribution with an empty field, and a prompt step
+whose `agent` is no agent of the extension or of a declared peer.
 
 Owner: core
 Level: warning
@@ -3008,8 +3042,9 @@ reference, a computed or verdict field, a `file(...)` of a path that leaves the
 project, holds a glob or is a `.spec` source, or of a field that is not a file
 field), an `unless_set` field the kind does not declare, a `values` or
 `outcome_fields` entry that is not a `verdict`-written field of a target kind of
-the extension, or the code is another judged rule's. Fix or remove the rule in
-the extension's manifest.
+the extension, its judge is no agent of its extension or of a declared peer (ADR
+0292), or the code is another judged rule's. Fix or remove the rule in the
+extension's manifest.
 
 Owner: core
 Level: warning

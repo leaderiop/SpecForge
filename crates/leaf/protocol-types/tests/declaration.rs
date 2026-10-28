@@ -90,6 +90,7 @@ fn full() -> ExtensionDeclaration {
                     minimum: Some(0),
                 }],
                 writes: false,
+                ..Default::default()
             }],
             ..Default::default()
         },
@@ -690,4 +691,32 @@ fn a_judged_rule_is_declared_with_selectors() {
         serde_json::from_value::<ValidationRuleDescriptor>(written).unwrap(),
         rule
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a describe item key the protocol does not define produces W138"
+)]
+fn a_misspelt_prompt_key_is_reported_unknown() {
+    let declared = full();
+    let mut unknown = Vec::new();
+    ExtensionDeclaration::from_wire(
+        declared.handshake.clone(),
+        |category| match category {
+            DeclaredCategory::Surfaces => Ok(DescribeResponse {
+                category: category.name().to_string(),
+                items: json!([{"prompts": [{
+                    "id": "p", "title": "P", "description": "P", "export": "prompt__p",
+                    "args": [{"name": "a", "field_type": "string", "requird": true}],
+                    "attribution": {"upstream": "u", "path": "p", "version": "1", "license": "MIT",
+                                    "copyright": "c", "copyrigth": "c"},
+                }]}]),
+            }),
+            other => answer(&declared, other),
+        },
+        |key| unknown.push(key),
+    )
+    .unwrap();
+    let keys: Vec<&str> = unknown.iter().map(|u| u.key.as_str()).collect();
+    assert_eq!(keys, ["requird", "copyrigth"], "{unknown:?}");
 }

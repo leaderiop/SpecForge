@@ -28,3 +28,22 @@ fn a_read_only_commands_input_is_unchanged() {
     assert_eq!(sent, golden);
     assert!(sent.get("revisions").is_none(), "{sent}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "run_a_hook",
+    verify = "a command without state has a byte-equal input"
+)]
+fn a_command_without_state_has_a_byte_equal_input() {
+    let golden = golden();
+    let input = CommandInput {
+        args: golden["args"].as_object().unwrap().clone(),
+        cwd: golden["cwd"].as_str().unwrap().to_string(),
+        format: serde_json::from_value(golden["format"].clone()).unwrap(),
+        today: golden["today"].as_str().unwrap().to_string(),
+        graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
+        ..Default::default()
+    };
+    let sent = serde_json::to_value(&input).unwrap();
+    assert_eq!(sent, golden);
+    assert!(sent.get("state").is_none(), "{sent}");
+}

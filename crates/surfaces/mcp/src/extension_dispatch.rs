@@ -165,6 +165,9 @@ fn command_adapter(
         Err(RunError::Args(refused)) => (refused_args(&refused).into(), None),
         Err(RunError::Call(error)) => (failed_call(&error.diagnostic()).into(), None),
         Err(RunError::NoProject(error)) => (McpError::from(error).into(), None),
+        Err(RunError::Gate(error) | RunError::State(error)) => {
+            (McpError::from(*error).into(), None)
+        }
     }
 }
 
@@ -305,7 +308,7 @@ fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutco
 
 /// A failed extension call as an MCP error: the diagnostic the runtime
 /// reported, in `diagnostic`.
-fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
+pub(crate) fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
     McpError::new(ErrorCode::InternalError, diagnostic.message.clone()).with_diagnostic(diagnostic)
 }
 

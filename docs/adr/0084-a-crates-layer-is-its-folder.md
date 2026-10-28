@@ -1,6 +1,6 @@
 # A crate's layer is its folder, and its dependencies point down
 
-**Status:** accepted (2026-10-14, structure round, plan 04).
+**Status:** accepted (2026-10-14, structure round, plan 04). Extended by [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md): `specforge-hosts` joins the adapters layer.
 
 The workspace's 31 crates sit in `crates/<layer>/<name>/`, with eight layers from bottom to top: `leaf`, `kernel`,
 `pipeline`, `runtime`, `session`, `app`, `adapters`, `surfaces` (ADR 0083). When the layout was introduced, its 118

@@ -8,7 +8,7 @@ use std::path::Path;
 
 /// What a core tool's handler is given before its arguments, and so its
 /// call target (ADR 0024 A2: the handler's input is the target; ADR 0049).
-/// Four implementations: [`View`], [`OutputView`], [`Project`], [`NewProject`].
+/// Five implementations: [`View`], [`OutputView`], [`HostedView`], [`Project`], [`NewProject`].
 pub trait Input {
     /// The value handed to the handler, borrowing the call.
     type Given<'c>;
@@ -59,6 +59,16 @@ impl ViewToWrite<'_> {
     }
 }
 
+/// Given the served project's view (as [`View`]) and the host the client named in `initialize`: the tool that
+/// renders a prompt for it (ADR 0291). `TargetSpec::Project { Served, EmptySession }`.
+pub struct HostedView;
+
+/// What [`HostedView`] hands its handler.
+pub struct Hosted<'c> {
+    pub view: ProjectView<'c>,
+    pub host: Option<specforge_ops::host::Host>,
+}
+
 /// Given the project `R` reaches, on disk (its root, its runtime, its view):
 /// with nothing served and no project named, refused before it runs.
 /// `TargetSpec::Project { R::REACH, Refused }`.
@@ -94,6 +104,18 @@ impl<R: Reaches> Input for View<R> {
 
     fn given<'c>(call: &'c Call<'_>) -> Result<ProjectView<'c>, Box<McpError>> {
         Ok(call.view())
+    }
+}
+
+impl Input for HostedView {
+    type Given<'c> = Hosted<'c>;
+    const TARGET: TargetSpec = TargetSpec::SERVED_VIEW;
+
+    fn given<'c>(call: &'c Call<'_>) -> Result<Hosted<'c>, Box<McpError>> {
+        Ok(Hosted {
+            view: call.view(),
+            host: call.host(),
+        })
     }
 }
 

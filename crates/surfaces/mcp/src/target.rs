@@ -181,10 +181,11 @@ mod input;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use call::served_prompts;
 pub use call::{Call, CallTarget, ProjectRef, Serving, resolve};
 pub(crate) use error::refuse_without_project;
 pub use error::{TargetError, no_project};
 pub use input::{
-    AnyProject, Input, NewProject, NewProjectDir, OutputView, Project, Reaches, Served, View,
-    ViewToWrite,
+    AnyProject, Hosted, HostedView, Input, NewProject, NewProjectDir, OutputView, Project, Reaches,
+    Served, View, ViewToWrite,
 };
