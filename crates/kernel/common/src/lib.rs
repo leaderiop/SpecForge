@@ -13,6 +13,7 @@ pub mod fresh;
 mod interner;
 pub mod json_span;
 pub mod package;
+pub mod path_glob;
 pub mod peers;
 mod present;
 pub mod process;

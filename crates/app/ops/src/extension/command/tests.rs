@@ -190,4 +190,5 @@ fn canonical_root(fixture: &specforge_project::testing::Assembled) -> String {
 
 mod derive;
 mod input_bytes;
+mod reads;
 mod run;

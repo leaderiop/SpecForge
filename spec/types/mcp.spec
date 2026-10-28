@@ -558,15 +558,17 @@ type McpDoctorFinding "Mcp Doctor Finding" {
 }
 
 type McpDoctorExtension "Mcp Doctor Extension" {
-  name              string @readonly
+  name              string  @readonly
   /// The version the extensions listing gives it; absent when it has none.
-  version           string @optional
+  version           string  @optional
   /// Where it comes from: builtin, the lock entry's source, file:<path>, or unknown.
   source            string
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
+  /// The file reads its passes and commands declare (ADR 0293); absent while it declares none.
+  reads             integer @optional
   verify unit "McpDoctorExtension schema is valid"
 }
 

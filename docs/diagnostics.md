@@ -2628,7 +2628,12 @@ that names no single prompt or command the extension declares, `tools` or
 `paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above the
 ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook export
 that is not `hook__<id>`, an attribution with an empty field, and a prompt step
-whose `agent` is no agent of the extension or of a declared peer.
+whose `agent` is no agent of the extension or of a declared peer. A pass's or
+command's `reads` that the host would serve empty are W021 too (ADR 0293), the
+pass or command being kept: a read whose name is no word or is repeated, that
+names neither or both of `field` and `glob`, a `field` that is not `kind.field`
+or that no loaded extension declares, a `base` on a glob or other than `spec` or
+`project`, and a glob that is empty, absolute or climbs with `..`.
 
 Owner: core
 Level: warning

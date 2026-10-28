@@ -661,3 +661,40 @@ fn without_a_root_a_missing_module_is_a_load_finding() {
         "a module-health failure is its binary finding when there is a root"
     );
 }
+
+#[test]
+fn doctor_counts_declared_reads() {
+    use specforge_protocol_types::{CommandDescriptor, CompilerPassDescriptor, FileRead};
+    let read = |name: &str| FileRead {
+        name: name.into(),
+        glob: Some("*.md".into()),
+        ..Default::default()
+    };
+    let mut declaration = Assembled::declaration("@acme/a", "1.0.0");
+    declaration.passes = vec![CompilerPassDescriptor {
+        name: "p".into(),
+        reads: vec![read("one"), read("two")],
+        ..Default::default()
+    }];
+    declaration.surfaces.commands = vec![CommandDescriptor {
+        id: "c".into(),
+        reads: vec![read("three")],
+        ..Default::default()
+    }];
+    let fixture = Assembled::new().declarations(vec![
+        declaration,
+        Assembled::declaration("@acme/b", "1.0.0"),
+    ]);
+
+    let report = diagnose(&fixture.view(), &ScriptedSolver::ready());
+
+    let reads = |name: &str| {
+        report
+            .extensions
+            .iter()
+            .find(|e| e.name == name)
+            .unwrap()
+            .reads
+    };
+    assert_eq!((reads("@acme/a"), reads("@acme/b")), (3, 0));
+}

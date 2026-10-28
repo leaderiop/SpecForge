@@ -38,8 +38,8 @@ pub use gsd::{
     gsd_member_history_runtime,
 };
 pub use gsd_facts::{
-    FACTS_EXTENSION, GSD_FACTS_SPEC, LIB_RS, REPORT, gsd_facts_passes, gsd_facts_project,
-    gsd_facts_runtime, gsd_facts_wire, pass_input,
+    FACTS_EXTENSION, GSD_FACTS_SPEC, LIB_RS, REPORT, gsd_facts_passes, gsd_facts_probe,
+    gsd_facts_project, gsd_facts_runtime, gsd_facts_wire, pass_input,
 };
 pub use gsd_hosts::{GSD_HOSTS_EXTENSIONS, GsdHosts, gsd_hosts_sources};
 pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompts_sources};

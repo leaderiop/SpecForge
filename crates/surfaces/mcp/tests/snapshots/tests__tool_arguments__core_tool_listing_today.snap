@@ -7177,6 +7177,10 @@ expression: listing
               "name": {
                 "type": "string"
               },
+              "reads": {
+                "minimum": 0,
+                "type": "integer"
+              },
               "source": {
                 "type": "string"
               },

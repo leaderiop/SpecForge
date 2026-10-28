@@ -15,6 +15,7 @@ use std::collections::HashSet;
 
 use crate::baseline::Baseline;
 use crate::coverage::TestReport;
+use crate::file_reads::{self, FileSource};
 use specforge_registry::EntitySnapshot;
 
 /// What the passes of one run are given: the entity snapshot they read, and
@@ -39,6 +40,9 @@ pub struct PassContext<'a> {
     pub judgements: Option<&'a crate::judged::Judgements>,
     /// Why a guard pass runs (ADR 0291): a gate the host is evaluating. Absent, a write (protocol 1.10.0).
     pub trigger: Option<&'a Trigger>,
+    /// Where a pass that declares `reads` has its files read from (ADR 0293). Absent, such a pass is sent no
+    /// `files`.
+    pub files: Option<FileSource<'a>>,
 }
 
 impl<'a> PassContext<'a> {
@@ -52,6 +56,7 @@ impl<'a> PassContext<'a> {
             previous: None,
             judgements: None,
             trigger: None,
+            files: None,
         }
     }
 }
@@ -194,18 +199,33 @@ pub fn run_extension_passes<'p>(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        let input: &Encoded<PassInput> = match context.previous {
-            Some(baseline) if !declared.baseline().is_empty() => {
-                let mut kinds = declared.baseline().to_vec();
-                kinds.sort();
-                with_baseline.entry(kinds).or_insert_with_key(|kinds| {
-                    ExtensionCalls::encode(&PassInput {
-                        previous: Some(baseline.pass_view(kinds)),
-                        ..payload.clone()
-                    })
-                })
+        // A pass that declares `reads` is given the facts of its files, so its payload is its own (ADR 0293).
+        let own;
+        let input: &Encoded<PassInput> = match (context.files, declared.reads()) {
+            (Some(source), reads) if !reads.is_empty() => {
+                own = ExtensionCalls::encode(&PassInput {
+                    previous: context
+                        .previous
+                        .filter(|_| !declared.baseline().is_empty())
+                        .map(|b| b.pass_view(declared.baseline())),
+                    files: file_reads::read(reads, context.entities, &source),
+                    ..payload.clone()
+                });
+                &own
             }
-            _ => &encoded,
+            _ => match context.previous {
+                Some(baseline) if !declared.baseline().is_empty() => {
+                    let mut kinds = declared.baseline().to_vec();
+                    kinds.sort();
+                    with_baseline.entry(kinds).or_insert_with_key(|kinds| {
+                        ExtensionCalls::encode(&PassInput {
+                            previous: Some(baseline.pass_view(kinds)),
+                            ..payload.clone()
+                        })
+                    })
+                }
+                _ => &encoded,
+            },
         };
         let answer = calls.run_pass(&declared.extension, &pass.name, input);
         let findings = match answer {

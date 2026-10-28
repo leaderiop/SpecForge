@@ -98,3 +98,22 @@ pub fn pass_input(runtime: &InProcessRuntime, pass: &str) -> Value {
         .unwrap_or_else(|| panic!("{export} was never called"))
         .input
 }
+
+/// [`FACTS_EXTENSION`]'s kinds and one check pass `probe` declaring `reads` (as the wire carries them), answering no
+/// finding.
+pub fn gsd_facts_probe(reads: Value) -> InProcessRuntime {
+    let none = json!({"diagnostics": [], "summary": {}, "values": []})
+        .to_string()
+        .into_bytes();
+    InProcessRuntime::new()
+        .with(move || {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new(FACTS_EXTENSION, "1.0.0"));
+            c.raw_category(DeclaredCategory::Entities, gsd_facts_wire());
+            c.raw_category(
+                DeclaredCategory::Passes,
+                json!([{"name": "probe", "phase": "check", "reads": reads.clone()}]),
+            );
+            c
+        })
+        .answer_raw(FACTS_EXTENSION, "__pass_probe", WasmCallResult::Ok(none))
+}

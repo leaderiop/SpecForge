@@ -35,6 +35,7 @@ impl CompiledProject {
             &**runtime as &dyn specforge_wasm::WasmRuntime,
             &baseline,
             &self.judgements,
+            &specforge_registry::PlainDisk,
         );
         self.check_diagnostics.extend(found);
         self.reported = OnceLock::new();
@@ -81,6 +82,7 @@ impl CompiledProject {
             previous: Some(&baseline),
             judgements: Some(&checked.judgements),
             trigger: Some(trigger),
+            files: Some(self.env.file_source(&specforge_registry::PlainDisk)),
             ..crate::passes::PassContext::of(checked.memo().entities())
         };
         let reports = crate::passes::run_extension_passes(

@@ -94,6 +94,15 @@ fn named<'r>(record: &'r EntityRecord, field: &str) -> Vec<(&'r str, Option<Sour
         .collect()
 }
 
+/// The paths `record` names in `field` (a declared path), as [`named`] reads them for every `file_exists` rule: what a
+/// pass's or command's `field` read hands to the host (ADR 0293).
+pub fn paths_named<'r>(record: &'r EntityRecord, field: &str) -> Vec<&'r str> {
+    named(record, field)
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect()
+}
+
 /// The close sibling of `path` in its directory, as the help a missing path carries.
 fn sibling(path: &str, root: &Path, input: &RuleInput<'_>) -> Option<String> {
     let full_path = root.join(path);

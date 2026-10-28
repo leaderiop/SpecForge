@@ -7,7 +7,7 @@ use crate::Environment;
 use crate::baseline::Baseline;
 use crate::passes::{PassContext, run_extension_passes};
 use specforge_common::Diagnostic;
-use specforge_registry::EntitySnapshot;
+use specforge_registry::{Disk, EntitySnapshot};
 use specforge_wasm::WasmRuntime;
 
 /// Run `env`'s guard passes over the entity snapshot `entities` of the edited project, `previous` being the project
@@ -18,6 +18,7 @@ pub(crate) fn run(
     runtime: &dyn WasmRuntime,
     previous: &Baseline,
     judgements: &crate::judged::Judgements,
+    disk: &dyn Disk,
 ) -> Vec<Diagnostic> {
     if env.registries().guard_passes().next().is_none() {
         return Vec::new();
@@ -25,6 +26,7 @@ pub(crate) fn run(
     let context = PassContext {
         previous: Some(previous),
         judgements: Some(judgements),
+        files: Some(env.file_source(disk)),
         ..PassContext::of(entities)
     };
     run_extension_passes(

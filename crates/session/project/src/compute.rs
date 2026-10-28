@@ -7,7 +7,7 @@ use specforge_common::{Diagnostic, codes};
 use specforge_graph::field_form::declared_path;
 use specforge_graph::{Computed, Found};
 use specforge_protocol_types::PassValue;
-use specforge_registry::{DeclaredPass, EntitySnapshot};
+use specforge_registry::{DeclaredPass, Disk, EntitySnapshot};
 use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
 use crate::Environment;
@@ -24,6 +24,7 @@ pub(crate) fn run(
     baseline: Option<&Baseline>,
     given: &Computed,
     judgements: &Judgements,
+    disk: &dyn Disk,
 ) -> (Computed, Vec<Diagnostic>) {
     let mut computed = given.clone();
     let mut diagnostics = Vec::new();
@@ -42,6 +43,10 @@ pub(crate) fn run(
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())
                 .map(|b| b.pass_view(declared.baseline()));
+            if !declared.reads().is_empty() {
+                payload.files =
+                    crate::file_reads::read(declared.reads(), &seen, &env.file_source(disk));
+            }
             ExtensionCalls::encode(&payload)
         };
         let output = match calls.run_pass(&declared.extension, &declared.pass.name, &input) {

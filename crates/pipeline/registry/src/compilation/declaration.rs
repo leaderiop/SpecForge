@@ -361,6 +361,12 @@ pub(crate) fn consistency(
             }
         }
     }
+    // ADR 0293: a read the host would serve empty is told, once.
+    diagnostics.extend(
+        super::reads::problems(declaration, loaded)
+            .into_iter()
+            .map(warn),
+    );
     // ADR 0290: a verdict field is set by exactly one judged rule of this extension, from its `values` or as its
     // `outcome_fields`.
     for entry in &verdict_fields {

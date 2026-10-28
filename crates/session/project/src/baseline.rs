@@ -478,6 +478,19 @@ impl Baseline {
         let keys: Vec<String> = texts.keys().cloned().collect();
         let built = env.build_sources(&keys, &written, |_| Read::Gone);
         let snapshot = env.entity_snapshot(&built.graph);
+        // A compute pass that declares `reads` reads the files as the commit held them (ADR 0293).
+        let commit_disk = if env
+            .registries()
+            .compute_passes()
+            .any(|pass| !pass.reads().is_empty())
+        {
+            held.iter().fold(
+                specforge_registry::MemoryDisk::new(),
+                |disk, (key, bytes)| disk.with_file(env.root().join(key), bytes),
+            )
+        } else {
+            specforge_registry::MemoryDisk::new()
+        };
         // The judged rules at the commit, over its files, before the compute passes read them.
         let judged = crate::baseline_judged::judge(
             env,
@@ -496,6 +509,7 @@ impl Baseline {
                     None,
                     &judged.values,
                     &judged.judgements,
+                    &commit_disk,
                 )
                 .0
             }

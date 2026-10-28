@@ -385,6 +385,7 @@ pub fn analyze(
             test_results: report.as_deref(),
             proved_claims: proved.as_ref().map(|_| &proved_claims),
             judgements: Some(view.project().judgements()),
+            files: Some(view.env().file_source(&specforge_registry::PlainDisk)),
             ..PassContext::of(view.entities())
         };
         // Declared `after` constraints order a single extension's passes;

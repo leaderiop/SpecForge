@@ -544,7 +544,16 @@ fn run_on(
             .declaration()
             .reads_state
             .then(|| crate::host::state::read(view, command.extension(), None)),
-        files: Default::default(),
+        files: if command.declaration().reads.is_empty() {
+            Default::default()
+        } else {
+            // A command runs once: its files are read from the plain disk (ADR 0293).
+            specforge_project::file_reads::read(
+                &command.declaration().reads,
+                view.entities(),
+                &view.env().file_source(&specforge_registry::PlainDisk),
+            )
+        },
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(

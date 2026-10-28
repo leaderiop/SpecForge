@@ -27,6 +27,7 @@ mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+pub mod file_reads;
 mod guards;
 pub mod harness;
 pub mod history;
@@ -570,6 +571,7 @@ impl Environment {
                 translated.as_ref(),
                 &values,
                 &judgements,
+                disk,
             );
             values = computed_values;
             diagnostics.extend(reported);
@@ -604,6 +606,7 @@ impl Environment {
                     runtime,
                     translated.as_ref(),
                     &judgements,
+                    disk,
                 ));
             }
         }
