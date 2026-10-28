@@ -110,7 +110,7 @@ impl RenderedHook {
             words.extend(["--tools".to_string(), self.tools.join(",")]);
         }
         if !self.paths.is_empty() {
-            words.extend(["--paths".to_string(), self.paths.join(",")]);
+            words.extend(["--paths".to_string(), quoted(&self.paths.join(","))]);
         }
         words.join(" ")
     }
@@ -119,6 +119,16 @@ impl RenderedHook {
     /// host never kills a hook before it answers by its own failure policy.
     pub fn host_timeout_seconds(&self) -> u32 {
         (self.timeout_ms + 5_000).div_ceil(1_000)
+    }
+}
+
+/// `word` as one shell word: a glob or a space in it must reach the process as written.
+fn quoted(word: &str) -> String {
+    let plain = |c: char| c.is_ascii_alphanumeric() || "._/,:=@%+-".contains(c);
+    if word.chars().all(plain) {
+        word.to_string()
+    } else {
+        format!("'{}'", word.replace('\'', "'\\''"))
     }
 }
 

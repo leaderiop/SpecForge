@@ -2818,6 +2818,7 @@ dependencies = [
  "specforge-formatter",
  "specforge-git",
  "specforge-graph",
+ "specforge-hosts",
  "specforge-installed",
  "specforge-lsp",
  "specforge-mcp",
@@ -3004,6 +3005,20 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
+]
+
+[[package]]
+name = "specforge-hosts"
+version = "0.3.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "specforge-ops",
+ "specforge-protocol-types",
+ "specforge-repo-root",
+ "specforge-test",
+ "specforge-test-macros",
 ]
 
 [[package]]

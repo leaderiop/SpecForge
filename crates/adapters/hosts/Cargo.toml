@@ -1,0 +1,22 @@
+[package]
+name = "specforge-hosts"
+description = "The agent hosts' adapters behind specforge-ops' host port: Claude Code, Codex and Cursor file layouts, config merges and hook protocols, which know no contribution's meaning (ADR 0292)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+specforge-ops = { workspace = true }
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
+
+[dev-dependencies]
+proptest = { version = "1.11", default-features = false, features = ["std"] }
+specforge-repo-root = { path = "../../leaf/repo-root" }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+
+[lints]
+workspace = true

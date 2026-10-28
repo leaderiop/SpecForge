@@ -57,7 +57,7 @@ fn effort(view: &ProjectView<'_>, extension: &str, raw: Option<&String>) -> Opti
 pub(crate) fn call_failed(error: &CallError) -> OpError {
     OpError::new(
         OpErrorKind::Internal,
-        "E028",
+        specforge_common::codes::E028.id(),
         error.diagnostic().message.clone(),
     )
 }

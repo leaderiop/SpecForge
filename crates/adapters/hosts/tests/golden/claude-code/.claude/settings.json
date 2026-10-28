@@ -1,0 +1,82 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.write_guard --host claude-code --event pre_tool --tools write",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.isolation --host claude-code --event pre_tool --tools agent",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Agent|Task"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.validate_commit --host claude-code --event pre_commit",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.injection_scan --host claude-code --event post_tool --tools read",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.context_monitor --host claude-code --event post_tool",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.record_hook --host claude-code --event post_tool --tools write --paths 'spec/**'",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.session_cursor --host claude-code --event session_start",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "command": "specforge hook t.statusline --host claude-code --event statusline",
+    "type": "command"
+  }
+}

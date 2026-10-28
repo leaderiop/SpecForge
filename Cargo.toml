@@ -34,6 +34,7 @@ members = [
     "crates/app/ops",
     # adapters
     "crates/adapters/git",
+    "crates/adapters/hosts",
     "crates/adapters/ops-registry",
     "crates/adapters/registry-client",
     "crates/adapters/registry-wire",

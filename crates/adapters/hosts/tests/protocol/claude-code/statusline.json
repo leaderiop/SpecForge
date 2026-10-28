@@ -1,0 +1,27 @@
+{
+  "stdin": {
+    "session_id": "s1",
+    "cwd": "/p",
+    "model": {
+      "id": "m"
+    }
+  },
+  "event": {
+    "event": "statusline",
+    "host": "claude-code",
+    "cwd": "/p",
+    "session": "s1",
+    "status": {
+      "session_id": "s1",
+      "cwd": "/p",
+      "model": {
+        "id": "m"
+      }
+    }
+  },
+  "answer": {
+    "statusline": "t: 3 entities"
+  },
+  "stdout": "t: 3 entities\n",
+  "exit_code": 0
+}

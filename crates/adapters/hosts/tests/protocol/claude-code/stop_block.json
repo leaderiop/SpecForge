@@ -1,0 +1,20 @@
+{
+  "stdin": {
+    "session_id": "s1",
+    "cwd": "/p",
+    "transcript_path": "/t",
+    "hook_event_name": "Stop"
+  },
+  "event": {
+    "event": "stop",
+    "host": "claude-code",
+    "cwd": "/p",
+    "session": "s1"
+  },
+  "answer": {
+    "decision": "deny",
+    "reason": "a plan is unchecked"
+  },
+  "stdout": "{\"decision\":\"block\",\"reason\":\"a plan is unchecked\"}\n",
+  "exit_code": 0
+}

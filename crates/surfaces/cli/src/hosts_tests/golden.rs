@@ -49,7 +49,7 @@ fn rendered(host: &str) -> BTreeMap<String, String> {
     behavior = "install_into_a_host",
     verify = "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
 )]
-#[ignore = "K9 T6"]
+#[ignore = "K9 T9"]
 fn claude_code_renders_the_fixture() {
     assert_eq!(rendered("claude-code"), golden("claude-code"));
 }
@@ -58,7 +58,7 @@ fn claude_code_renders_the_fixture() {
     behavior = "install_into_a_host",
     verify = "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
 )]
-#[ignore = "K9 T7"]
+#[ignore = "K9 T9"]
 fn codex_renders_the_fixture() {
     assert_eq!(rendered("codex"), golden("codex"));
 }
@@ -67,7 +67,7 @@ fn codex_renders_the_fixture() {
     behavior = "install_into_a_host",
     verify = "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
 )]
-#[ignore = "K9 T8"]
+#[ignore = "K9 T9"]
 fn cursor_renders_the_fixture() {
     assert_eq!(rendered("cursor"), golden("cursor"));
 }
@@ -76,7 +76,7 @@ fn cursor_renders_the_fixture() {
     behavior = "run_a_hook",
     verify = "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
 )]
-#[ignore = "K9 T6"]
+#[ignore = "K9 T8"]
 fn each_host_reads_and_answers_its_hook_protocol() {
     // Recorded stdin and the stdout and exit code each host gets, per host, are fixtures of the adapter crate.
     let protocol = specforge_repo_root::repo_root().join("crates/adapters/hosts/tests/protocol");
