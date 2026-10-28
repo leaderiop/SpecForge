@@ -25,33 +25,46 @@ pub fn resolved(graph: &Graph, forms: &FieldForms, node: &Node, field: &str) -> 
         Reading::Declared(form) => Some(form),
         _ => None,
     };
-    Some(FieldJson::of(walk(graph, node.id.raw, &entry.value, form)))
+    Some(FieldJson::of(walk(graph, node, &entry.value, form)))
 }
 
-/// `value` as JSON under `form`, references resolved from `from`.
-fn walk(graph: &Graph, from: Sym, value: &FieldValue, form: Option<&FieldForm>) -> Value {
-    let target = |text: &str| match graph.scopes().resolve(Some(from), text, &|_| true) {
-        Found::One(path) | Found::Mistyped(path) => path.to_string(),
+/// The path `text` names for a reference of `form` held by `node`, as the graph's link resolves it: by the node's
+/// scope chain among the kinds the field takes, else (the scope field, which has no chain yet) from the project, where
+/// a unique suffix names it (`phase 03` and `phase v1.0/03` are one value). Else the text as written.
+fn target(graph: &Graph, node: &Node, form: &FieldForm, text: &str) -> String {
+    let kinds = form.target_kinds();
+    let admits = |kind: &str| kinds.is_empty() || kinds.iter().any(|k| k == kind);
+    let from = node.id.raw;
+    match graph.scopes().chain(Some(from), text, &admits) {
+        Found::One(path) | Found::Mistyped(path) => return path.to_string(),
+        _ => {}
+    }
+    match graph.scopes().resolve(None, text, &admits) {
+        Found::One(path) if Some(path) == node.scope => path.to_string(),
         _ => text.to_string(),
-    };
+    }
+}
+
+/// `value` as JSON under `form`, references resolved for `node`.
+fn walk(graph: &Graph, node: &Node, value: &FieldValue, form: Option<&FieldForm>) -> Value {
     let Some(form) = form else {
         return write(value).as_value().clone();
     };
     match (form.field_type(), value) {
         (FieldType::Reference, FieldValue::Identifier(text) | FieldValue::String(text)) => {
-            Value::String(target(text))
+            Value::String(target(graph, node, form, text))
         }
         (FieldType::ReferenceList, FieldValue::List(items)) => Value::Array(
             items
                 .iter()
-                .map(|i| Value::String(target(&i.text)))
+                .map(|i| Value::String(target(graph, node, form, &i.text)))
                 .collect(),
         ),
-        (FieldType::Block, FieldValue::Block(block)) => walk_entries(graph, from, block, form),
+        (FieldType::Block, FieldValue::Block(block)) => walk_entries(graph, node, block, form),
         (FieldType::BlockList, FieldValue::Blocks(items)) => Value::Array(
             items
                 .iter()
-                .map(|item| walk_entries(graph, from, &item.fields, form))
+                .map(|item| walk_entries(graph, node, &item.fields, form))
                 .collect(),
         ),
         _ => write(value).as_value().clone(),
@@ -61,7 +74,7 @@ fn walk(graph: &Graph, from: Sym, value: &FieldValue, form: Option<&FieldForm>) 
 /// A block's entries, each under its member's form; the first of a key written twice.
 fn walk_entries(
     graph: &Graph,
-    from: Sym,
+    node: &Node,
     block: &specforge_parser::FieldMap,
     form: &FieldForm,
 ) -> Value {
@@ -72,7 +85,7 @@ fn walk_entries(
             continue;
         }
         let member = form.members().and_then(|m| m.get(&key));
-        out.insert(key, walk(graph, from, &entry.value, member));
+        out.insert(key, walk(graph, node, &entry.value, member));
     }
     Value::Object(out)
 }

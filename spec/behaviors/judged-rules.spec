@@ -82,6 +82,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "a cited file outside the project is not read"
   verify unit "a spec source that declares nothing digests as its bytes"
+  verify unit "a reference digests as the graph links it"
   verify unit "incremental digests equal cold digests"
   verify unit "a memo hit still watches its file"
   verify unit "a file change the session has not applied misses the memo"

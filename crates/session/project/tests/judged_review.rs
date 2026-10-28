@@ -148,6 +148,33 @@ fn a_spec_file_declaring_nothing_digests_as_its_bytes() {
 
 #[specforge_test(
     behavior = "digest_judged_inputs",
+    verify = "a reference digests as the graph links it"
+)]
+fn a_reference_digests_as_the_graph_links_it() {
+    // `phase 03` and `phase v1.0/03` are one value.
+    let project = gsd_judged_project("");
+    let before = digest_of(&compile(&project), "v1.0/03/D-01");
+    project.write(
+        "a.spec",
+        project.read("a.spec").replace(
+            "\"Use tokens\" {\n  phase 03",
+            "\"Use tokens\" {\n  phase v1.0/03",
+        ),
+    );
+    assert_eq!(digest_of(&compile(&project), "v1.0/03/D-01"), before);
+    // A nearer entity of the wrong kind is not what the field names.
+    let project = gsd_judged_project("\ntask AUTH-07 \"Same name\" {\n  plan 03-02\n}\n");
+    let compiled = compile(&project);
+    let node = compiled.graph().node(PLAN).expect("the plan");
+    let forms = compiled.environment().registries().field_forms();
+    let requirements =
+        specforge_graph::wire::resolved(compiled.graph(), forms, node, "requirements")
+            .expect("the field");
+    assert_eq!(requirements.as_value(), &json!(["AUTH-07"]));
+}
+
+#[specforge_test(
+    behavior = "digest_judged_inputs",
     verify = "a cited file outside the project is not read"
 )]
 fn a_cited_file_outside_the_project_is_not_read() {
