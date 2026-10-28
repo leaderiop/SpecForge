@@ -21,6 +21,8 @@ mod extension_command;
 mod extensions;
 mod format;
 mod harness;
+#[cfg(test)]
+mod hosts_tests;
 mod infer_guide;
 mod infer_status;
 mod init;

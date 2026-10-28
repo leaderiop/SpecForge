@@ -21,6 +21,7 @@
 
 pub mod assembled;
 pub mod gsd;
+pub mod gsd_hosts;
 pub mod gsd_prompts;
 pub mod gsd_writes;
 pub mod history;
@@ -35,6 +36,7 @@ pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,
 };
+pub use gsd_hosts::{GSD_HOSTS_EXTENSIONS, GsdHosts, gsd_hosts_sources};
 pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompts_sources};
 pub use gsd_writes::{
     CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
@@ -247,6 +249,16 @@ impl TestProject {
     pub fn config_on_disk(&self) -> Value {
         serde_json::from_str(&self.read("specforge.json"))
             .unwrap_or_else(|e| panic!("specforge.json is not JSON: {e}"))
+    }
+
+    /// Edit `specforge.json` on disk: parse it, apply `edit`, write it back.
+    pub fn config_edit(&self, edit: impl FnOnce(&mut Value)) {
+        let mut config = self.config_on_disk();
+        edit(&mut config);
+        self.write(
+            "specforge.json",
+            serde_json::to_string_pretty(&config).expect("JSON"),
+        );
     }
 
     /// The project directory, its HOME dropped: for a test that hands a directory to code that owns it.

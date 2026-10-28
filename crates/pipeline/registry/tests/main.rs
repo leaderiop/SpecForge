@@ -6,6 +6,7 @@
 mod build;
 mod checks;
 mod command_routes;
+mod contributions;
 mod declarations;
 mod plain_disk;
 mod prompt_checks;
