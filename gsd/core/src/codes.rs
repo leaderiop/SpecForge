@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 62 codes of `spec/rules.md`, in the order of its tables.
+/// The 63 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -379,6 +379,14 @@ pub static CODES: &[Code] = &[
         "plan",
         Severity::Warning,
         Severity::Error,
+    ),
+    code(
+        "W324",
+        "Verify command not checked",
+        "A task's verify command runs in a dynamic or outside-the-project directory, or its package.json is unreadable or has no such script",
+        "plan",
+        Severity::Warning,
+        Severity::Warning,
     ),
     code(
         "E507",

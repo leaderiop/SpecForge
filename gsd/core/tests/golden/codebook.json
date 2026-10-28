@@ -224,6 +224,12 @@
       "title": "Plan not named after its phase"
     },
     {
+      "code": "W324",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A task's verify command runs in a dynamic or outside-the-project directory, or its package.json is unreadable or has no such script. It is a warning.",
+      "title": "Verify command not checked"
+    },
+    {
       "code": "E507",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
       "explanation": "Each task's verify commands name their failing direction (fails_when), one statement per automated. It is an error.",

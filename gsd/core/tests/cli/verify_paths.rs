@@ -78,3 +78,45 @@ fn a_path_no_command_names_is_not_read() {
     with_task(&p, "node --test", "\"src/complete.js\"");
     assert_eq!(p.codes(), Vec::<String>::new());
 }
+
+#[test]
+fn a_dynamic_path_is_w324() {
+    let p = project("plan");
+    with_task(&p, "cd $DIR && npm test", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/W324"]);
+    assert!(message(&p).contains("computed at run time"));
+}
+
+#[test]
+fn an_outside_path_is_w324() {
+    let p = project("plan");
+    with_task(&p, "cd ../.. && make", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/W324"]);
+    assert!(message(&p).contains("outside the project"));
+}
+
+#[test]
+fn a_missing_npm_script_is_w324() {
+    let p = project("plan");
+    with_task(&p, "npm --prefix web run build", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/W324"]);
+    assert!(message(&p).contains("'web/package.json' has no script 'build'"));
+    with_task(&p, "npm --prefix web run lint", "\"src/complete.js\"");
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn an_unparsable_package_json_is_w324() {
+    let p = project("plan");
+    p.write("broken/package.json", "{ not json\n");
+    with_task(&p, "cd broken && npm test", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/W324"]);
+    assert!(message(&p).contains("cannot be read as a manifest"));
+}
+
+#[test]
+fn a_broken_directory_is_e320_and_not_also_w324() {
+    let p = project("plan");
+    with_task(&p, "cd nowhere && npm run build", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/E320"]);
+}
