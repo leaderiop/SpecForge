@@ -5,7 +5,7 @@
 //! one project change (ADR 0128).
 
 mod block;
-pub use block::Site;
+pub use block::{Site, verdict};
 mod create;
 mod declared;
 mod defaults;
@@ -515,7 +515,8 @@ impl<'v> Planner<'v> {
         verdict: &crate::authoring::apply::VerdictStep,
     ) -> Result<(), Refusal<EditField>> {
         let path = self.path_of(&verdict.entity)?;
-        self.declared.field(&path, "verdict");
+        self.declared
+            .aspect(&path, specforge_graph::NodeAspect::Verdicts);
         self.on(&verdict.entity, |site, text| {
             verdict.rules.0.write(site, text, &verdict.member)
         })?;

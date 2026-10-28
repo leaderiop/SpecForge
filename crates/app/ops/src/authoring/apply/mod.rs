@@ -8,6 +8,7 @@ mod collector;
 mod command;
 mod flags;
 pub(crate) mod journal;
+mod judged;
 mod lower;
 mod revision;
 mod verdict;
@@ -18,6 +19,7 @@ pub use verdict::{
 
 pub use collector::apply_collected;
 pub use command::{CommandRun, PlanOutcome, execute, execute_with};
+pub use judged::HostJudgedRules;
 
 use crate::authoring::edit::{EditField, Edited, Step, plan_steps};
 use crate::authoring::planned::PlannedChange;
@@ -124,7 +126,7 @@ pub fn apply_plan(
     dry_run: bool,
     caller: Caller<'_>,
 ) -> Result<Edited, Refusal<EditField>> {
-    let rules: Arc<dyn JudgedRules> = Arc::new(NoJudgedRules);
+    let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(view));
     apply_plan_with(view, plan, origin, dry_run, caller, &rules, &SystemClock)
 }
 

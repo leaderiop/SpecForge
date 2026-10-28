@@ -65,7 +65,7 @@ impl Declared {
             .insert(field.to_string());
     }
 
-    fn aspect(&mut self, id: &str, aspect: NodeAspect) {
+    pub(crate) fn aspect(&mut self, id: &str, aspect: NodeAspect) {
         self.changes
             .entry(id.to_string())
             .or_default()

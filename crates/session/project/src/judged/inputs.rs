@@ -274,7 +274,7 @@ impl<'a> Cx<'a> {
             };
             out.digests.push((name.clone(), hash(&value)));
         }
-        if !cited.is_empty() {
+        {
             let entities: Vec<Value> = {
                 let mut found: Vec<String> = cited
                     .entities

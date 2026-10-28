@@ -70,6 +70,17 @@ pub trait JudgedRules {
         rule: &str,
         cited: &[Cite],
     ) -> Result<BTreeMap<String, String>, UnknownCite>;
+    /// Whether the field `field` of an entity of kind `kind` takes `value`, which a verdict gives it; the reason when it
+    /// does not. A host that checks no form takes every value.
+    fn admits(
+        &self,
+        _view: &ProjectView<'_>,
+        _kind: &str,
+        _field: &str,
+        _value: &Value,
+    ) -> Result<(), String> {
+        Ok(())
+    }
     /// `text` (the entity's file) with the entity's verdict for the rule replaced by `verdict`, or added.
     fn write(
         &self,
@@ -238,6 +249,15 @@ pub(crate) fn check(
             "value",
             format!("the rule '{}' binds no value '{value}'", op.rule),
         ));
+    }
+    for (field, value) in &op.values {
+        if let Err(why) = rules.admits(view, kind.as_deref().unwrap_or_default(), field, value) {
+            return Err(refused(
+                op,
+                "value",
+                format!("the value of '{field}' is refused by its field: {why}"),
+            ));
+        }
     }
     let current = rules
         .digests(view, &op.entity, &op.rule, &op.cited)

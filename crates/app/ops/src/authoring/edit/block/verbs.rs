@@ -147,6 +147,47 @@ pub fn retitle(site: &Site<'_>, text: &str, title: &str) -> Result<String, Refus
     finish_edit(site, text, &before, &block)
 }
 
+/// The verdict statement of `rule` replaced by `statement` (the lines of a `verdict` statement, at any indent), or
+/// added after the last member. The text unchanged when it already holds that. A rule may be written locally (`W311`)
+/// or in full (`gsd/W311`): the one statement of the same rule is replaced.
+pub fn verdict(
+    site: &Site<'_>,
+    text: &str,
+    rule: &str,
+    statement: &str,
+) -> Result<String, Refusal<EditField>> {
+    let mut block = Block::open(site, text)?;
+    let before = block.text();
+    let same = |written: &str| {
+        written == rule
+            || rule.ends_with(&format!("/{written}"))
+            || written.ends_with(&format!("/{rule}"))
+    };
+    let existing = block
+        .entity()
+        .verdicts
+        .iter()
+        .find(|v| same(&v.rule))
+        .map(|v| v.span.clone());
+    let lead = block.member_lead();
+    let lines: Vec<String> = statement
+        .lines()
+        .map(|line| format!("{lead}{line}"))
+        .collect();
+    match existing {
+        Some(span) => {
+            block
+                .lines
+                .splice(span.start_line - 1..span.end_line, lines);
+        }
+        None => {
+            let at = block.end_of_members(block.close());
+            block.lines.splice(at..at, lines);
+        }
+    }
+    finish_edit(site, text, &before, &block)
+}
+
 /// `verify [kind] "text"` lines: added after the last, or removed. The text unchanged when there is nothing to do.
 pub fn verify(
     site: &Site<'_>,

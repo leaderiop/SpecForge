@@ -1,7 +1,7 @@
 //! Running a writing command (ADR 0289): the command answers, and the plan it answered is applied for it.
 
 use super::{
-    Clock, JudgedRules, NoJudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
+    Clock, HostJudgedRules, JudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
 };
 use crate::authoring::edit::Edited;
 use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, run};
@@ -42,7 +42,7 @@ pub fn execute(
     dry_run: bool,
     caller: Caller<'_>,
 ) -> Result<CommandRun, RunError> {
-    let rules: Arc<dyn JudgedRules> = Arc::new(NoJudgedRules);
+    let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(view));
     execute_with(
         view,
         command,
