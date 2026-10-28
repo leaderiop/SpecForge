@@ -41,9 +41,11 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`.
 | category | str | R | `### [Category]` |
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
-| phase | → phase | | Traceability `Phase` |
 | defined | date | I | `**Defined:**` |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when every plan carrying it has a complete summary listing it; `gaps_found` when a verification of its phase does |
+
+The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
+is written from one side, never both (W162).
 
 ## milestone
 
@@ -78,7 +80,7 @@ Scoped by milestone.
 | slug | str | R | directory `NN-slug` |
 | goal | str | R | `**Goal**:` |
 | depends_on | →* phase | | `**Depends on**:` |
-| requirements | →* requirement | | `**Requirements**:` |
+| requirements | →* requirement | | `**Requirements**:`; a requirement reads its phase back as `phase` |
 | success_criteria | strs | R | `**Success Criteria**` (2–5) |
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
 | tag | str | | the parenthetical, `(Cluster B)` |

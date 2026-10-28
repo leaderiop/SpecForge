@@ -2,11 +2,6 @@
 //! `declare` turns them into SDK builder calls, so a field costs one line and the notation of `spec/README.md` stays
 //! readable in the code: `str("name").r()` is `name | str | R`.
 
-#![expect(
-    dead_code,
-    reason = "the tables of this round's later tickets use the rest of the notation; the last of them removes this"
-)]
-
 use specforge_extension_sdk::prelude::*;
 
 /// A field's type, in the notation of `spec/README.md`.

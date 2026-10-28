@@ -108,8 +108,8 @@ fn the_code_book_golden() {
 
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
-    // `spec/project.md`, except `key_decisions` (a reference to `decision`, which round r36 declares) and a
-    // requirement's `phase` (a reference to `phase`, declared by the next ticket).
+    // `spec/project.md`, except `key_decisions` (a reference to `decision`, which round r36 declares); a
+    // requirement reads its phase back from `phase.requirements`.
     assert_eq!(
         fields_of("project"),
         [
@@ -144,4 +144,53 @@ fn the_kinds_golden() {
         "kinds.json",
         &serde_json::json!({ "entities": describe("entities"), "edges": describe("edges") }),
     );
+}
+
+#[test]
+fn milestone_and_phase_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("milestone"),
+        [
+            "name",
+            "delivered",
+            "accomplishments",
+            "whats_next",
+            "abandoned",
+            "completion",
+            "state",
+            "shipped",
+            "stats",
+            "git_range"
+        ]
+    );
+    assert_eq!(
+        fields_of("phase"),
+        [
+            "milestone",
+            "name",
+            "slug",
+            "goal",
+            "depends_on",
+            "requirements",
+            "success_criteria",
+            "mode",
+            "tag",
+            "inserted",
+            "backlog",
+            "frontend",
+            "status",
+            "plans_complete",
+            "completed"
+        ]
+    );
+}
+
+#[test]
+fn a_phase_is_scoped_by_its_milestone() {
+    let entities = describe("entities");
+    let phase = entities["items"]
+        .as_array()
+        .and_then(|k| k.iter().find(|k| k["name"] == "phase"))
+        .expect("phase");
+    assert_eq!(phase["scoped_by"], "milestone");
 }

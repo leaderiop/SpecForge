@@ -2,12 +2,18 @@
 
 mod dsl;
 mod project;
+mod roadmap;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
 
 /// Every kind declared so far, in the order of the model's files.
-const KINDS: &[&Kind] = &[&project::PROJECT, &project::REQUIREMENT];
+const KINDS: &[&Kind] = &[
+    &project::PROJECT,
+    &project::REQUIREMENT,
+    &roadmap::MILESTONE,
+    &roadmap::PHASE,
+];
 
 pub fn declare(c: &mut ContributionsBuilder) {
     dsl::declare(c, KINDS);

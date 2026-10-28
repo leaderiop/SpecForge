@@ -58,3 +58,60 @@ fn a_requirement_with_an_unknown_tier_is_refused() {
         check.all()
     );
 }
+
+fn node_ids(query: &harness::Run) -> Vec<String> {
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+        .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+    graph["nodes"]
+        .as_array()
+        .expect("nodes")
+        .iter()
+        .map(|n| n["id"].as_str().expect("an id").to_string())
+        .collect()
+}
+
+#[test]
+fn a_phase_is_found_by_its_full_path_and_by_a_unique_short_form() {
+    let p = project("roadmap");
+    for name in ["v1.0/01.1", "01.1"] {
+        let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+        assert_eq!(query.code, 0, "query {name}: {}", query.all());
+        assert_eq!(node_ids(&query), ["v1.0/01.1"], "query {name}");
+    }
+}
+
+#[test]
+fn two_milestones_may_each_have_a_phase_01() {
+    let p = project("roadmap");
+    p.write(
+        "spec/v2.0.spec",
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+    );
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 0, "check: {}", check.all());
+    for name in ["v1.0/01", "v2.0/01"] {
+        let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+        assert_eq!(node_ids(&query), [name], "query {name}: {}", query.all());
+    }
+}
+
+#[test]
+fn an_ambiguous_short_form_names_each_candidate() {
+    let p = project("roadmap");
+    p.write(
+        "spec/v2.0.spec",
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+    );
+    let query = p.run(&["query", "01", "--depth", "0", "--format", "brief"]);
+    assert_ne!(
+        query.code,
+        0,
+        "an ambiguous short form is refused: {}",
+        query.all()
+    );
+    assert!(
+        query.all().contains("v1.0/01") && query.all().contains("v2.0/01"),
+        "candidates: {}",
+        query.all()
+    );
+}
