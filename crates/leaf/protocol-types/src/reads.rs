@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// under `name` in the input's `files`.
 ///
 /// Exactly one of `field` and `glob` names the files; a read that names neither or both, a `name` that is no word or
-/// repeats, or a `base` on a glob is W145 and served empty.
+/// repeats, or a `base` on a glob is W021 and served empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRead {
     /// The key of this read in the input's `files`: a word `[a-z][a-z0-9_]*`, unique among the owner's reads.

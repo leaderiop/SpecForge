@@ -731,6 +731,8 @@ Returns typed settings, presets and secrets (protocol 1.8.0, ADR 0288). `specfor
 
 A name is dotted, or a family with `*` segments. `field_type` is a field type of this document; `default` absent means unset. `gates` (a bool setting only) lists local codes reported by no source while it is false. A preset follows an enum or bool setting of the extension, or a peer's (`@ext:name`); each value sets `settings` and raises `severities`, never lowers one. A secret is read from the environment variable `env`, never from `specforge.json`: a guest is told only whether it is set. An item of a kind the host does not know costs that item (W021), not the category.
 
+`specforge settings set <extension> <name> <value>` and `unset` (protocol 1.11.0, ADR 0296; the MCP tool `specforge.settings_set`) write one declared setting into `specforge.json`, admitted by its `field_type` as the load admits it, and never a secret (E087); an `unset` also removes a key the load reports (a misspelt setting, a committed secret). The host writes the text of the file in place, as one journalled change, so the rest of it is as the author left it. An extension declares nothing for it.
+
 ### Category: codes
 
 Returns the extension's diagnostic code catalog (protocol 1.7.0, ADR 0286): one entry per code the extension's rules and passes report. `code` is the extension's own code, `[EWI]` and three digits, never qualified (the host adds the extension's namespace). `title` and `explanation` are required; `docs` (optional) is an absolute `http(s)` URL.

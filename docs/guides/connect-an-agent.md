@@ -51,7 +51,7 @@ also serves 2026-07-28 (stateless) requests (ADR 0004, D4-c).
 
 ### Tools
 
-The server exposes 35 core tools, plus the commands of the extensions your project enables.
+The server exposes 39 core tools, plus the commands of the extensions your project enables.
 
 | Job | Tools |
 |---|---|
