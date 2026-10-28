@@ -2,6 +2,19 @@
 //! names (`clientInfo.name`) or from a `--host` flag, and sent to a prompt export as its `host` (and, later, to
 //! the files a hook installs for it).
 
+pub mod drift;
+pub mod marker;
+pub mod owned;
+pub mod port;
+pub mod render;
+
+pub use owned::owned_path;
+pub use port::{
+    HookAnswer, HookReadError, HostHookEvent, HostRenderer, HostReply, HostTree, Merged,
+    MergedEntry, MergedFile, ModelChoice, NotRendered, OwnedFile, Rendered, RenderedAgent,
+    RenderedHook, RenderedSkill, RenderedSlash, SlashCall, Source, ToolUse,
+};
+
 /// A host an extension renders for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Host {
