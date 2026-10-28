@@ -66,8 +66,14 @@ impl Project {
 
     /// Runs `specforge <args>` in the project's root.
     pub fn run(&self, args: &[&str]) -> Run {
+        self.run_with(args, &[])
+    }
+
+    /// Runs `specforge <args>` with these environment variables set.
+    pub fn run_with(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
         let output = Command::new(required("SPECFORGE_BIN"))
             .args(args)
+            .envs(env.iter().copied())
             .current_dir(self.dir.path())
             .output()
             .expect("run specforge");

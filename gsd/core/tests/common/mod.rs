@@ -53,6 +53,10 @@ pub fn rules_md() -> Vec<RuleRow> {
 }
 
 /// Compares `actual` with `tests/golden/<name>`; `GSD_BLESS=1` writes it instead.
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
 pub fn golden(name: &str, actual: &serde_json::Value) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/golden")

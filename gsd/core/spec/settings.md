@@ -40,7 +40,7 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Declared as |
 |---|---|
-| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off (unset: detected from the key's presence), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`; `specforge gsd import` moves a string value out to the environment and reports it |
+| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off (unset: detected from the key's presence), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` moves a string value out to the environment and reports it |
 | `model_profile_overrides.<runtime>.<tier>` (`string \| object`) | the block `{model str R, reasoning_effort enum}`; the import rewrites a bare string to `{model}` |
 | a key GSD leaves unset (`(none)`, `null`, _unset_, or a capability's empty string or `-1`) | no default; `null` is unset |
 | `resolve_model_ids` (`false \| true \| "omit"`) | an enum `aliases \| ids \| omit`, default `aliases`; the import maps `false`, `true` and `"omit"` |
