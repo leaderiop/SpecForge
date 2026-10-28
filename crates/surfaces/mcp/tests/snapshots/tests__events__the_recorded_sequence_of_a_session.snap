@@ -13,7 +13,7 @@ expression: "json!({\"core\": core, \"surfaces\": surfaces})"
         "resources_registered": 8,
         "surface_resources_registered": 0,
         "surface_tools_registered": 0,
-        "tools_registered": 38
+        "tools_registered": 39
       }
     },
     {
@@ -41,7 +41,7 @@ expression: "json!({\"core\": core, \"surfaces\": surfaces})"
       "event": "mcp_discovery_invoked",
       "payload": {
         "discoveryType": "tools",
-        "resultCount": 38
+        "resultCount": 39
       }
     },
     {
@@ -156,7 +156,7 @@ expression: "json!({\"core\": core, \"surfaces\": surfaces})"
         "resources_registered": 9,
         "surface_resources_registered": 1,
         "surface_tools_registered": 2,
-        "tools_registered": 40
+        "tools_registered": 41
       }
     },
     {

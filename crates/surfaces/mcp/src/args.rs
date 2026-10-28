@@ -414,6 +414,26 @@ impl Arg for EntityIds {
 }
 
 /// An optional argument: absent is none, a value is read as `T`.
+/// A setting's value: any JSON value, checked by the setting's declared type when the call is made, so the listing
+/// states no type (`null` is an absent argument, as for every option).
+#[derive(Debug, Clone)]
+pub struct SettingValue(pub Value);
+
+impl Arg for SettingValue {
+    fn schema() -> Value {
+        json!({})
+    }
+    fn absent() -> Option<Self> {
+        None
+    }
+    fn advertised(_: &Self) -> Option<Value> {
+        None
+    }
+    fn read(_: &str, value: &Value) -> Result<Self, String> {
+        Ok(SettingValue(value.clone()))
+    }
+}
+
 impl<T: Arg> Arg for Option<T> {
     fn schema() -> Value {
         T::schema()

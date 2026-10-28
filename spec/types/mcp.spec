@@ -441,6 +441,24 @@ type McpSettingsResult "Mcp Settings Result" {
   verify unit "McpSettingsResult schema is valid"
 }
 
+type McpSettingsSetResult "Mcp Settings Set Result" {
+  extension   string @readonly
+  name        string @readonly
+  /// The value specforge.json holds now; absent after an unset.
+  value       any    @optional
+  /// The value it held before; absent when it was not written.
+  previous    any    @optional
+  /// Whether specforge.json differs from what it was.
+  changed     boolean
+  /// A dry run: nothing was written.
+  dry_run     boolean
+  /// The file that is, or would be, written.
+  file        string
+  /// E086, E087 and W166 from the new specforge.json.
+  diagnostics Diagnostic[]
+  verify unit "McpSettingsSetResult schema is valid"
+}
+
 type McpVerdictInputsResult "Mcp Verdict Inputs Result" {
   /// The entity's path.
   entity   string          @readonly

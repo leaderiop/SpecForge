@@ -290,6 +290,16 @@ fn structured_results_conform_to_each_tool_output_schema() {
     let violations = specforge_common::shape::violations(tool.output_schema().unwrap(), &inputs);
     assert!(violations.is_empty(), "{violations:#?}");
     conforming.insert("specforge.verdict_inputs");
+    // `specforge.settings_set` writes only to an extension that declares settings, which this fixture has none of:
+    // a result as the tool writes it is held to the schema instead.
+    let set = json!({
+        "extension": "@t/s", "name": "level", "value": 2, "previous": 1, "changed": true, "dry_run": false,
+        "file": "specforge.json", "diagnostics": []
+    });
+    let tool = specforge_mcp::tools::core_tool("specforge.settings_set").unwrap();
+    let violations = specforge_common::shape::violations(tool.output_schema().unwrap(), &set);
+    assert!(violations.is_empty(), "{violations:#?}");
+    conforming.insert("specforge.settings_set");
     // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
         if spec.output_schema().is_some() {

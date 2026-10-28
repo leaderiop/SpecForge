@@ -26,6 +26,7 @@ specforge.migrate 4668
 specforge.extensions 931
 specforge.providers 2978
 specforge.settings 3635
+specforge.settings_set 2850
 specforge.verdict_inputs 1354
 specforge.doctor 6452
 specforge.collect 3609
@@ -36,4 +37,4 @@ specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
 specforge.prompt 283
-total 67796
+total 70646

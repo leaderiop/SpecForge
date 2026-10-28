@@ -8,10 +8,12 @@
 //! a graph or a diagnostic into the server's state: what a test serves is
 //! what its sources and its extension declare.
 
+pub mod core_tools;
 pub mod disk;
 pub mod documents;
 pub mod events;
 pub mod extension;
+pub mod nothing_served;
 pub mod project;
 pub mod replies;
 pub mod spec;
@@ -67,6 +69,10 @@ pub fn path_tool_calls() -> Vec<(&'static str, Value)> {
         (
             "specforge.remove_extension",
             json!({"name": "@specforge/software", "dry_run": true}),
+        ),
+        (
+            "specforge.settings_set",
+            json!({"extension": "@specforge/software", "name": "x", "unset": true, "dry_run": true}),
         ),
         ("specforge.migrate", json!({"dry_run": true})),
     ]

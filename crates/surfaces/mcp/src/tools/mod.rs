@@ -31,6 +31,7 @@ mod render;
 pub(crate) mod schema;
 pub(crate) mod search;
 mod settings;
+mod settings_set;
 mod stats;
 mod suggest_fixes;
 pub(crate) mod trace;
@@ -81,6 +82,7 @@ pub static CORE_TOOLS: &[&dyn ToolSpec] = &[
     spec(&extensions::Tool),
     spec(&providers::Tool),
     spec(&settings::Tool),
+    spec(&settings_set::Tool),
     spec(&verdict_inputs::Tool),
     spec(&doctor::Tool),
     spec(&collect::Tool),

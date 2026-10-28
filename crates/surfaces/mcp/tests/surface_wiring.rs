@@ -9,6 +9,7 @@ use std::fs;
 use tempfile::TempDir;
 
 use crate::fake_extension::{self, EXT, FakeExtension};
+use crate::support::core_tools::CORE_TOOL_NAMES;
 use crate::support::*;
 
 /// A server over a project with entities of several kinds, for the
@@ -329,46 +330,7 @@ fn recompilation_refreshes_surfaces() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     // Exactly the core tools: nothing missing, no extension tool.
-    let core_tools = [
-        "specforge.add_extension",
-        "specforge.analyze",
-        "specforge.collect",
-        "specforge.coverage",
-        "specforge.doctor",
-        "specforge.edit",
-        "specforge.explain",
-        "specforge.export",
-        "specforge.extensions",
-        "specforge.find_definition",
-        "specforge.find_implementation",
-        "specforge.find_references",
-        "specforge.find_spec_for_source",
-        "specforge.format",
-        "specforge.infer_gaps",
-        "specforge.infer_progress",
-        "specforge.infer_session",
-        "specforge.init",
-        "specforge.inspect",
-        "specforge.list",
-        "specforge.migrate",
-        "specforge.model",
-        "specforge.outline",
-        "specforge.outline_extensions",
-        "specforge.prompt",
-        "specforge.providers",
-        "specforge.query",
-        "specforge.remove_extension",
-        "specforge.rename",
-        "specforge.render",
-        "specforge.schema",
-        "specforge.search",
-        "specforge.settings",
-        "specforge.stats",
-        "specforge.suggest_fixes",
-        "specforge.trace",
-        "specforge.validate",
-        "specforge.verdict_inputs",
-    ];
+    let core_tools = CORE_TOOL_NAMES;
     let listed = |resp: &Value| -> Vec<String> {
         let tools = resp["result"]["tools"].as_array().unwrap();
         for tool in tools {

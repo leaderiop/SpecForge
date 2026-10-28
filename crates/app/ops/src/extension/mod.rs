@@ -47,7 +47,9 @@ pub use resolve::{resolve, upgrade};
 pub use settings::{
     ExtensionSettingsRow, RaisedRow, SecretRow, SettingRow, SettingsDocument, settings,
 };
-pub use settings_set::{SetOutcome, SetRequest, SettingChange, SettingsSetDocument, set_setting};
+pub use settings_set::{
+    SetOutcome, SetRequest, SettingChange, SettingsSetDocument, SettingsSetField, set_setting,
+};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateDocument, UpdateOutcome, UpdateRequest,
     UpdateRow, UpdateStatus, UpgradeCompleted, update,

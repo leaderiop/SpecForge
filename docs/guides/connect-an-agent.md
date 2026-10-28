@@ -60,7 +60,7 @@ The server exposes 35 core tools, plus the commands of the extensions your proje
 | **Change the graph** | `specforge.edit` (typed edits: create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify, delete — all or nothing), `specforge.rename` (an entity, across every file), `specforge.format`, `specforge.migrate`, `specforge.suggest_fixes` (the fixes the LSP offers, with their edits) |
 | **Check it** | `specforge.validate` (recompile and report diagnostics), `specforge.analyze` (analysis passes, coverage among them; the SMT `--prove` pass is CLI-only), `specforge.coverage`, `specforge.doctor` |
 | **Navigate to the source** | `specforge.find_definition`, `specforge.find_references`, `specforge.find_implementation`, `specforge.find_spec_for_source` |
-| **Set up the project** | `specforge.init`, `specforge.add_extension`, `specforge.remove_extension`, `specforge.providers` |
+| **Set up the project** | `specforge.init`, `specforge.add_extension`, `specforge.remove_extension`, `specforge.settings_set` (write or remove one setting of `specforge.json`; never a secret), `specforge.providers` |
 | **Proof and inference** | `specforge.collect` (record what the project's tests prove; it runs a test runner only with `run: true` and your prior approval), `specforge.infer_session`, `specforge.infer_progress`, `specforge.infer_gaps` (guides for writing specs from existing code) |
 
 **Extension commands become tools.** Each command an enabled extension declares is served as

@@ -71,6 +71,7 @@ impl Project {
                 caller: specforge_ops::testing::caller(),
             },
         )
+        .map_err(|refusal| refusal.error)
     }
 
     fn set(&self, name: &str, words: &[&str]) -> Result<SetOutcome, OpError> {

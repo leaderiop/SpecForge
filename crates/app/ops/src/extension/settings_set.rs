@@ -15,7 +15,7 @@ use specforge_protocol_types::FieldType;
 use crate::change::locked;
 use crate::config::{self, CONFIG_FILE};
 use crate::view::ProjectView;
-use crate::{Caller, OpError, OpErrorKind, Wrote, config_edit};
+use crate::{Caller, OpError, OpErrorKind, Refusal, Wrote, config_edit};
 
 /// What to do to the setting.
 #[derive(Debug, Clone, PartialEq)]
@@ -112,11 +112,39 @@ fn read_words(kind: Option<FieldType>, words: &[String]) -> Result<Value, OpErro
     })
 }
 
+/// The field of a `set` or `unset` request a refusal can be about (ADR 0072).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsSetField {
+    /// `SetRequest::extension`: not enabled, or declaring no settings.
+    Extension,
+    /// `SetRequest::name`: no setting of the extension, or a secret.
+    Name,
+    /// `SetRequest::change`: a value its setting's form refuses.
+    Value,
+}
+
 /// Write the change `request` asks of `view`'s `specforge.json`, or preview it.
 pub fn set_setting(
     view: &ProjectView<'_>,
     request: &SetRequest<'_>,
-) -> Result<SetOutcome, OpError> {
+) -> Result<SetOutcome, Refusal<SettingsSetField>> {
+    write(view, request).map_err(|error| {
+        let declared = view
+            .registries()
+            .settings()
+            .of(request.extension)
+            .is_some_and(|d| d.find(request.name).is_some());
+        let field = match &*error.code {
+            "extension_not_enabled" => SettingsSetField::Extension,
+            code if codes::E087.matches(code) => SettingsSetField::Name,
+            code if codes::E086.matches(code) && !declared => SettingsSetField::Name,
+            _ => SettingsSetField::Value,
+        };
+        error.about(field)
+    })
+}
+
+fn write(view: &ProjectView<'_>, request: &SetRequest<'_>) -> Result<SetOutcome, OpError> {
     let root = view.project_root()?;
     let registry = view.registries().settings();
     let enabled = view.env().enabled();
