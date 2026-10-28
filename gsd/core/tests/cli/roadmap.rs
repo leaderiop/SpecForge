@@ -158,6 +158,7 @@ fn a_phase_with_two_contexts_is_e206() {
         "spec/second.spec",
         "context 02-CONTEXT-B \"Another context\" {\n  phase v1.0/02\n  boundary \"Again\"\n  canonical_refs [\n    { topic \"Storage\" paths [\"docs/storage.md\"] }\n  ]\n}\n",
     );
+    assert_eq!(p.codes(), ["gsd/E206"], "no kernel code joins it");
     let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/E206");

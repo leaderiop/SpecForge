@@ -128,6 +128,20 @@ impl Project {
         found
     }
 
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
+    pub fn codes(&self) -> Vec<String> {
+        let run = self.run(&["check", "--format", "json"]);
+        let found: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+        found
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter_map(|d| d["code"].as_str().map(String::from))
+            .filter(|c| c != "I204")
+            .collect()
+    }
+
     /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
     /// Git runs with its identity on the command line, never the global configuration.
     pub fn commit(&self) {

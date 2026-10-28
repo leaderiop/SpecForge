@@ -38,9 +38,9 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/E201 | a context has canonical refs (`missing_required_field` and `non_empty` under one code) | decl | E | E | `gate-phase-context`, context template |
 | gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`) | E | E | spec-phase |
 | gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`) | W | E | spec template |
-| gsd/W204 | an open question of a phase's research is resolved by a decision before planning (the project's research is exempt: the plan checker reads the phase's `RESEARCH.md` only) | pass | W | E | plan checker (research resolution) |
+| gsd/W204 | an open question of a phase's research is resolved by a decision before planning (the project's research, the one named `RESEARCH`, is exempt: the plan checker reads the phase's `RESEARCH.md` only; a research without `phase` and with another name is E206 and is judged as a phase's. Upstream's plan checker reports this as `severity: blocker`; here it is a warning by design (D-r36-12), and the blocking entry gate is r42, which revisits it) | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
-| gsd/E206 | a phase has at most one context, phase spec, discussion log and research, and the project at most one research (the kernel's scopes would allow two; the second and later, by id, are reported) | pass | E | E | (new: each is one file of the phase directory) |
+| gsd/E206 | a phase has at most one context, phase spec, discussion log and research, and the project at most one research, which must be named `RESEARCH` (the kernel's scopes would allow two; the second and later, by id, are reported; a research without `phase` that is not named `RESEARCH` is always reported, with the suggestion to add its `phase`) | pass | E | E | (new: each is one file of the phase directory) |
 
 ## Plan
 
@@ -81,7 +81,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E403 | a `tdd` task's GREEN commit follows a recorded RED failure | pass | E | E | `gate-tdd-red-evidence` |
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
 | gsd/E405 | the schema has not drifted from the plan's declared migrations | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
-| gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest) | pass | W | E | `gate-context-drift` |
+| gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest; the project's research has no context, and a misnamed phaseless research is E206, so neither is judged. Upstream also judges `PATTERNS.md`: not covered, because `pattern_map` (`@gsd/codebase`) records no `context_digest` yet and should gain one when that extension is planned) | pass | W | E | `gate-context-drift` |
 | gsd/W407 | every task has a commit | pass | — | W | (new: the git collector) |
 | gsd/W408 | a summary's deliverable checks pass or are human-judged with a rationale | pass | W | E | summary coverage |
 

@@ -6,13 +6,13 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
+use crate::digest::scope_of;
+
 /// The kinds a phase (or, for `research`, the project) holds one of.
 const ONE_PER_SCOPE: &[&str] = &["context", "phase_spec", "discussion", "research"];
 
-/// The scope an entity is in: its id without the last `/`-segment, empty for the project.
-fn scope_of(id: &str) -> &str {
-    id.rsplit_once('/').map_or("", |(scope, _)| scope)
-}
+/// The one name a research without `phase` (the project's research) may have.
+const PROJECT_RESEARCH: &str = "RESEARCH";
 
 pub fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut by_scope: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
@@ -26,6 +26,22 @@ pub fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     }
     let mut found = Vec::new();
     for ((kind, scope), mut ids) in by_scope {
+        // A research without `phase` is the project's only when it is named `RESEARCH`; any other phaseless research
+        // is a forgotten `phase`, reported whether or not the project has its own.
+        if kind == "research" && scope.is_empty() {
+            for id in ids.iter().filter(|id| **id != PROJECT_RESEARCH) {
+                found.push(
+                    PassDiagnostic::new(
+                        "E206",
+                        PassSeverity::Error,
+                        format!("research '{id}' has no phase, so it is the project's research, which must be named '{PROJECT_RESEARCH}'"),
+                    )
+                    .with_suggestion(format!("add its phase, or rename it '{PROJECT_RESEARCH}' if it is the project's research"))
+                    .with_entity(*id),
+                );
+            }
+            continue;
+        }
         ids.sort_unstable();
         let Some((first, rest)) = ids.split_first() else {
             continue;

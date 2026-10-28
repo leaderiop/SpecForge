@@ -45,3 +45,13 @@ fn a_project_research_question_is_not_w204() {
     ]));
     assert!(found.is_empty(), "{found:?}");
 }
+
+#[test]
+fn a_misnamed_phaseless_research_gets_w204_like_a_phase_research() {
+    let found = check(&input(vec![
+        entity("03-RESEARCH", "research", &[]),
+        entity("03-RESEARCH/OQ1", "open_question", &[]),
+    ]));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].code, "W204");
+}

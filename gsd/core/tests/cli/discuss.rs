@@ -127,16 +127,7 @@ fn project_key_decisions_name_project_decisions() {
 }
 
 fn codes(p: &Project) -> Vec<String> {
-    let run = p.run(&["check", "--format", "json"]);
-    let found: serde_json::Value = serde_json::from_str(&run.stdout)
-        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
-    found
-        .as_array()
-        .expect("a list")
-        .iter()
-        .filter_map(|d| d["code"].as_str().map(String::from))
-        .filter(|c| c != "I204")
-        .collect()
+    p.codes()
 }
 
 /// The project with its baseline committed and `edit` applied to `spec/discuss.spec`.
@@ -196,7 +187,8 @@ fn a_score_above_100_is_refused() {
     p.write("spec/discuss.spec", &scored("10"));
     assert_eq!(codes(&p), Vec::<String>::new());
     p.write("spec/discuss.spec", &scored("101"));
-    assert_eq!(codes(&p).len(), 1, "{:?}", codes(&p));
+    // The kernel's E061 on the scores block: declared integer, given 101.
+    assert_eq!(codes(&p), ["E061"]);
 }
 
 const FIRST_ENTRY: &str = "    {\n      area     \"Storage\"\n      question \"Where are tasks kept?\"\n      options  [\"One JSON file\", \"SQLite\"]\n      chosen   \"One JSON file\"\n      mode     interactive\n    }\n";
@@ -335,7 +327,9 @@ fn research_without_resolution() -> Project {
 
 #[test]
 fn open_question_without_decision_is_w204() {
-    let found = research_without_resolution().findings();
+    let p = research_without_resolution();
+    assert_eq!(codes(&p), ["gsd/W204"], "no kernel code joins it");
+    let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/W204");
     assert!(
@@ -407,12 +401,11 @@ const SPEC_ANCHOR: &str = "phase_spec 02-SPEC \"Persistence spec\" {\n";
 
 fn edit_decision(p: &Project) {
     let spec = p.read("spec/discuss.spec");
+    let anchor = "Tasks are kept in a single JSON file";
+    assert!(spec.contains(anchor), "the fixture holds `{anchor}`");
     p.write(
         "spec/discuss.spec",
-        &spec.replace(
-            "Tasks are kept in a single JSON file",
-            "Tasks are kept in SQLite",
-        ),
+        &spec.replace(anchor, "Tasks are kept in SQLite"),
     );
 }
 
@@ -429,6 +422,7 @@ fn context_changed_after_research_is_w406() {
     );
     checks_clean(&p);
     edit_decision(&p);
+    assert_eq!(codes(&p), ["gsd/W406"], "no kernel code joins it");
     let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/W406");
@@ -538,6 +532,10 @@ fn context_drift_action_warn_keeps_w406_a_warning() {
 #[test]
 fn context_drift_precheck_off_silences_w406() {
     let p = stale_research();
+    assert!(
+        w406(&p).is_some(),
+        "the research is stale before the gate is turned off"
+    );
     p.settings(serde_json::json!({ "workflow.context_drift_precheck": false }));
     assert_eq!(w406(&p), None);
     p.settings(serde_json::json!({
@@ -552,4 +550,44 @@ fn w406_is_an_error_under_gsd_strict() {
     let p = stale_research();
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     assert_eq!(w406(&p), Some(("error".to_string(), 1)));
+}
+
+/// The project with `03-RESEARCH` (no `phase`) and an unresolved question of it, as a forgetful author writes them.
+fn phaseless_research(name: &str) -> Project {
+    let p = project("discuss");
+    p.write(
+        "spec/lost.spec",
+        &format!("research {name} \"Forgot its phase\" {{\n  confidence high\n  summary \"x\"\n}}\n\nopen_question OQ9 \"Open\" {{\n  research {name}\n  question \"q\"\n  unclear \"u\"\n}}\n"),
+    );
+    p
+}
+
+#[test]
+fn a_research_without_phase_that_is_not_named_research_is_e206() {
+    let p = phaseless_research("03-RESEARCH");
+    // E206 blames the stray research, not the project's `RESEARCH` (it names only `03-RESEARCH` as the culprit); its unresolved question is W204 as a phase's is.
+    assert_eq!(codes(&p), ["gsd/E206", "gsd/W204"]);
+    let found = p.findings();
+    assert!(
+        found[0].1.contains("research '03-RESEARCH' has no phase"),
+        "{found:#?}"
+    );
+    assert!(found[1].1.contains("'03-RESEARCH/OQ9'"), "{found:#?}");
+}
+
+#[test]
+fn a_research_without_phase_is_e206_even_when_the_project_has_none() {
+    let p = phaseless_research("03-RESEARCH");
+    p.write(
+        "spec/research.spec",
+        fixture("research.spec")
+            .split("research RESEARCH ")
+            .next()
+            .unwrap_or_default(),
+    );
+    assert!(
+        p.codes().contains(&"gsd/E206".to_string()),
+        "{:?}",
+        p.codes()
+    );
 }

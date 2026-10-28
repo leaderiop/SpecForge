@@ -440,5 +440,23 @@ fn a_second_project_research_is_e206() {
         ],
         vec![],
     ));
-    assert_eq!(codes(&found), [("E206", "RESEARCH")]);
+    assert_eq!(codes(&found), [("E206", "OTHER")]);
+}
+
+#[test]
+fn the_research_named_research_is_the_projects_whatever_sorts_first() {
+    let found = check(&input(
+        vec![
+            scoped("03-RESEARCH", "research"),
+            scoped("RESEARCH", "research"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), [("E206", "03-RESEARCH")]);
+}
+
+#[test]
+fn a_lone_research_without_phase_not_named_research_is_e206() {
+    let found = check(&input(vec![scoped("03-RESEARCH", "research")], vec![]));
+    assert_eq!(codes(&found), [("E206", "03-RESEARCH")]);
 }

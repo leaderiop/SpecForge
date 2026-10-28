@@ -396,7 +396,7 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
     );
 }
 
-/// That the kind is append-only (E085 on a removed interview) is proven black-box: the description does not list it.
+/// The description lists the kind as append-only (a removed interview is E085, proven black-box too).
 #[test]
 fn every_field_of_an_interview_is_immutable() {
     let entities = describe("entities");
@@ -405,6 +405,7 @@ fn every_field_of_an_interview_is_immutable() {
         .and_then(|k| k.iter().find(|k| k["name"] == "interview"))
         .expect("interview");
     assert_eq!(interview["scoped_by"], "spec");
+    assert_eq!(interview["append_only"], true);
     let fields = interview["fields"].as_array().expect("fields");
     assert_eq!(fields.len(), 6);
     for field in fields {
@@ -427,7 +428,7 @@ fn the_discussion_entries_are_append_only() {
     assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
 }
 
-/// `discuss.md` lists 95 fields over its 16 kinds. The model fixes: the decision's `from_summary` waits for `summary`
+/// `discuss.md` listed 95 fields over its 16 kinds before r36 added two rows (`context.digest`, `source.research`). The model fixes: the decision's `from_summary` waits for `summary`
 /// (r38) and `source` gains `research` (the model says every item has one); the context gains its computed `digest`
 /// (the fix of round r36): 95 - 1 + 1 + 1 = 96, the research's and the spec's `context_digest` included.
 #[test]

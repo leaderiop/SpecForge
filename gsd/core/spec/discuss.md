@@ -11,7 +11,7 @@
 
 Files: `context.spec`, `research.spec` in the phase folder; project research in `spec/gsd/knowledge/research/`.
 
-The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, and the project a second research, so the second and later, by id, are reported.
+The `0..1` of the diagram is enforced by `gsd/E206`: the kernel's scopes would allow a second context, spec, discussion log or research in a phase, and the project a second research, so the second and later, by id, are reported. A research without `phase` is the project's research and must be named `RESEARCH`; any other phaseless research is reported too.
 
 ## context
 
@@ -98,4 +98,4 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 `package_audit.legitimacy` is `V` like `phase_spec.scores`, and is declared authored until r40 binds `gsd/W205` (a verdict field no judged rule lists is the kernel's W021). `context.status` is declared `C` and answered by no pass yet: r38 derives it (`ready_for_planning` when `boundary` is written, `canonical_refs` is non-empty and no interview of the phase's spec lacks an `answer`, else `gathering`).
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
-rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research is exempt.
+rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a phaseless research with another name is E206 and is judged as a phase's.
