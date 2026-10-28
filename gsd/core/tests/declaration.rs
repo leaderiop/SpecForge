@@ -1,7 +1,17 @@
 //! What `@gsd/core` declares, pinned through the SDK's runtime-free `MockHost`.
 
+mod common;
+
 use gsd_core::build;
 use specforge_extension_sdk::testing::MockHost;
+
+fn describe(category: &str) -> serde_json::Value {
+    let host = MockHost::new(build());
+    let text = host
+        .describe_json(category)
+        .unwrap_or_else(|| panic!("no category {category}"));
+    serde_json::from_str(&text).expect("describe answers JSON")
+}
 
 #[test]
 fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
@@ -24,4 +34,59 @@ fn the_tracked_release_is_the_manifests() {
         manifest.contains(&format!("tracks = \"{}\"", gsd_core::TRACKS)),
         "Cargo.toml tracks a different release"
     );
+}
+
+#[test]
+fn the_code_book_matches_rules_md() {
+    let rows = common::rules_md();
+    let book = gsd_core::codes::CODES;
+    let mut from_md: Vec<&str> = rows.iter().map(|r| r.code.as_str()).collect();
+    let mut from_book: Vec<&str> = book.iter().map(|c| c.id).collect();
+    from_md.sort_unstable();
+    from_book.sort_unstable();
+    assert_eq!(
+        from_book, from_md,
+        "the code book and rules.md list different codes"
+    );
+    assert_eq!(book.len(), 59);
+    for row in &rows {
+        let code = book
+            .iter()
+            .find(|c| c.id == row.code)
+            .expect("listed above");
+        // A rule off under compat has its severity when on in the strict column.
+        let letter = if row.compat == "—" {
+            &row.strict
+        } else {
+            &row.compat
+        };
+        assert_eq!(
+            code.severity.letter().to_string(),
+            letter[..1],
+            "{}: compat severity",
+            row.code
+        );
+        let strict = if row.strict == "—" {
+            letter
+        } else {
+            &row.strict
+        };
+        assert_eq!(
+            code.strict.letter().to_string(),
+            strict[..1],
+            "{}: strict severity",
+            row.code
+        );
+        assert_eq!(
+            code.id[..1],
+            *code.severity.letter().to_string(),
+            "{}: a code's letter is its severity",
+            row.code
+        );
+    }
+}
+
+#[test]
+fn the_code_book_golden() {
+    common::golden("codebook.json", &describe("codes"));
 }

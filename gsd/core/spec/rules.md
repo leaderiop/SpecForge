@@ -67,8 +67,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E319 | a prohibition with `verification test` names a test | pass | E | E | `gate-prohibition-enforcement` |
 | gsd/E320 | a task's verify command names paths that exist | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | same-wave non-file coupling is declared by `depends_on` or `coupling_justified` naming the peer | pass | I | I | D3b |
-| gsd/E507 | each task's verify commands name their failing direction (`fails_when`), one statement per `automated` | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |
+| gsd/E507 | each task's verify commands name their failing direction (`fails_when`), one statement per `automated` | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
 
 ## Execute
 
