@@ -115,8 +115,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   the facts and capped text of those files.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
   `gsd/E502`, `gsd/W408`, `gsd/E515`.
-- Rules that count list items are buildable since 1.11.0 (K13), not yet built: `gsd/W103`, `gsd/W305`, `gsd/W306`, `gsd/E517` read the
-  items in `values`.
+- Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` is built (r36); `gsd/W305`, `gsd/W306` and `gsd/E517`
+  are not yet, and read the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
 
 ## Setting-gated rules

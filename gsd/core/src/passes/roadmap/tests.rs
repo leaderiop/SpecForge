@@ -359,3 +359,30 @@ fn custom_named_and_backlog_phases_are_outside_the_numbering() {
     ));
     assert!(found.is_empty(), "{found:?}");
 }
+
+fn phase_with_criteria(id: &str, count: usize) -> PassEntity {
+    let items: Vec<String> = (0..count).map(|n| format!("criterion {n}")).collect();
+    PassEntity {
+        values: BTreeMap::from([("success_criteria".to_string(), serde_json::json!(items))]),
+        ..phase(id)
+    }
+}
+
+#[test]
+fn one_criterion_is_w103() {
+    let found = check(&input(vec![phase_with_criteria("v1.0/01", 1)], vec![]));
+    assert_eq!(codes(&found), [("W103", "v1.0/01")]);
+}
+
+#[test]
+fn two_and_five_criteria_are_clean() {
+    let found = check(&input(
+        vec![
+            phase_with_criteria("v1.0/01", 2),
+            phase_with_criteria("v1.0/02", 5),
+            phase("v1.0/03"),
+        ],
+        vec![],
+    ));
+    assert_eq!(codes(&found), []);
+}

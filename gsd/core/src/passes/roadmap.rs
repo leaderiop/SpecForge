@@ -1,7 +1,8 @@
-//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W104` and `gsd/E108` over the project, requirements, phases and
-//! their references. Pure functions over the pass input; the plan half of E102 lands with the plan kinds (r37), W103
-//! with the list items the kernel hands a pass (K13, r35) and E106 is a gate guard (r39).
+//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104` and `gsd/E108` over the project, requirements,
+//! phases and their references. Pure functions over the pass input; the plan half of E102 lands with the plan kinds
+//! (r37) and E106 is a gate guard (r39).
 
+mod criteria;
 mod numbering;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,6 +21,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = one_project(input);
     found.extend(unmapped_requirements(input));
     found.extend(dependencies(input));
+    found.extend(criteria::check(input));
     found.extend(numbering::check(input));
     found
 }

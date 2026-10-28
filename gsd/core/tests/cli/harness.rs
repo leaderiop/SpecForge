@@ -107,6 +107,27 @@ impl Project {
         }
     }
 
+    /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted.
+    pub fn findings(&self) -> Vec<(String, String)> {
+        let run = self.run(&["check", "--format", "json"]);
+        let diagnostics: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+        let mut found: Vec<(String, String)> = diagnostics
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter(|d| d["code"].as_str().is_some_and(|c| c.starts_with("gsd/")))
+            .map(|d| {
+                (
+                    d["code"].as_str().unwrap_or_default().to_string(),
+                    d["message"].as_str().unwrap_or_default().to_string(),
+                )
+            })
+            .collect();
+        found.sort();
+        found
+    }
+
     /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
     /// Git runs with its identity on the command line, never the global configuration.
     pub fn commit(&self) {

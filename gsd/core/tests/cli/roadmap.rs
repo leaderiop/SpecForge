@@ -1,34 +1,12 @@
 //! The roadmap rules, end to end: which codes `specforge check` reports on the `roadmap_errors` project, and that
 //! the clean `roadmap` project reports none.
 
-use crate::harness::project;
-
-/// `(code, entity)` of every diagnostic of `specforge check --format json`, sorted.
-fn findings(p: &crate::harness::Project) -> Vec<(String, String)> {
-    let run = p.run(&["check", "--format", "json"]);
-    let diagnostics: serde_json::Value = serde_json::from_str(&run.stdout)
-        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
-    let mut found: Vec<(String, String)> = diagnostics
-        .as_array()
-        .expect("a list")
-        .iter()
-        .filter(|d| d["code"].as_str().is_some_and(|c| c.starts_with("gsd/")))
-        .map(|d| {
-            let message = d["message"].as_str().unwrap_or_default();
-            (
-                d["code"].as_str().unwrap_or_default().to_string(),
-                message.to_string(),
-            )
-        })
-        .collect();
-    found.sort();
-    found
-}
+use crate::harness::{Project, project};
 
 #[test]
 fn roadmap_errors_report_each_code_once() {
     let p = project("roadmap_errors");
-    let found = findings(&p);
+    let found = p.findings();
     let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
     assert_eq!(
         codes,
@@ -57,7 +35,7 @@ fn roadmap_errors_report_each_code_once() {
 
 #[test]
 fn a_clean_roadmap_reports_no_gsd_code() {
-    assert_eq!(findings(&project("roadmap")), []);
+    assert_eq!(project("roadmap").findings(), []);
 }
 
 #[test]
@@ -67,7 +45,7 @@ fn a_second_project_is_e108() {
         "spec/second.spec",
         "project second \"Second\" {\n  name \"Second\"\n  what \"A second project\"\n  core_value \"none\"\n  context \"a test\"\n  constraints [{ kind other what \"none\" why \"a test\" }]\n}\n",
     );
-    let found = findings(&p);
+    let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/E108");
     assert!(found[0].1.contains("a second project"), "{found:#?}");
@@ -86,9 +64,9 @@ fn letter_and_nested_decimal_phases_are_numbered_not_skipped() {
         "spec/more.spec",
         &["02", "02A", "02.1", "02.1.1"].map(phase_spec).concat(),
     );
-    assert_eq!(findings(&p), [], "a lettered and a nested phase are clean");
+    assert_eq!(p.findings(), [], "a lettered and a nested phase are clean");
     p.write("spec/more.spec", &["02", "02.1.1"].map(phase_spec).concat());
-    let found = findings(&p);
+    let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert!(
         found[0]
@@ -102,8 +80,73 @@ fn letter_and_nested_decimal_phases_are_numbered_not_skipped() {
 fn a_far_phase_number_is_one_warning() {
     let p = project("roadmap");
     p.write("spec/more.spec", &["02", "20000"].map(phase_spec).concat());
-    let found = findings(&p);
+    let found = p.findings();
     assert_eq!(found.len(), 1, "{found:#?}");
     assert_eq!(found[0].0, "gsd/W104");
     assert!(found[0].1.contains("skip 03-19999"), "{found:#?}");
+}
+
+fn phase_with_criteria(number: &str, criteria: &[&str]) -> String {
+    let items: Vec<String> = criteria.iter().map(|c| format!("{c:?}")).collect();
+    format!(
+        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  name \"P{number}\"\n  slug \"p\"\n  goal \"g\"\n  success_criteria [{}]\n}}\n",
+        items.join(", ")
+    )
+}
+
+#[test]
+fn six_criteria_is_w103() {
+    let p = project("roadmap");
+    p.write(
+        "spec/more.spec",
+        &phase_with_criteria("02", &["a", "b", "c", "d", "e", "f"]),
+    );
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W103");
+    assert!(
+        found[0].1.contains("'v1.0/02' has 6 success criteria"),
+        "{found:#?}"
+    );
+    assert_eq!(p.run(&["check"]).code, 0, "a warning under gsd-compat");
+}
+
+#[test]
+fn one_criterion_is_w103() {
+    let p = project("roadmap");
+    p.write("spec/more.spec", &phase_with_criteria("02", &["a"]));
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W103");
+}
+
+#[test]
+fn a_criterion_with_a_comma_counts_once() {
+    let p = project("roadmap");
+    // Joined by `, ` the field text would read as three.
+    p.write(
+        "spec/more.spec",
+        &phase_with_criteria(
+            "02",
+            &["A task is added, listed, and saved", "A task is completed"],
+        ),
+    );
+    assert_eq!(p.findings(), []);
+    p.write(
+        "spec/more.spec",
+        &phase_with_criteria("02", &["A task is added, listed, and saved"]),
+    );
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "one item, however many commas: {found:#?}");
+    assert!(found[0].1.contains("has 1 success criteria"), "{found:#?}");
+}
+
+#[test]
+fn w103_is_an_error_under_gsd_strict() {
+    let p = project("roadmap");
+    p.write("spec/more.spec", &phase_with_criteria("02", &["a"]));
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 1, "check: {}", check.all());
+    assert!(check.all().contains("W103"), "check: {}", check.all());
 }
