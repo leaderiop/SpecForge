@@ -3,6 +3,7 @@
 
 mod claude_code;
 mod codex;
+mod cursor;
 mod hook_json;
 mod json_merge;
 mod markdown;
@@ -19,7 +20,7 @@ pub fn renderer(host: Host) -> Option<Box<dyn HostRenderer>> {
     match host {
         Host::ClaudeCode => Some(Box::new(claude_code::ClaudeCode)),
         Host::Codex => Some(Box::new(codex::Codex)),
-        Host::Cursor => None,
+        Host::Cursor => Some(Box::new(cursor::Cursor)),
     }
 }
 

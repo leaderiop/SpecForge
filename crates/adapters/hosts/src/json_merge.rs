@@ -454,11 +454,12 @@ fn insert(text: &str, entry: &MergedEntry, wrap_multiline: bool) -> Result<Strin
 }
 
 /// `existing` with the entries of ours replaced by `entries`, everything else untouched; see the module docs.
-/// `scaffold` names the root keys that are not content: a file holding only them is as good as empty.
+/// `scaffold` is the root keys, with the value install writes, that are not content: a file holding only them, so
+/// valued, is as good as empty.
 pub fn merge(
     existing: Option<&str>,
     entries: &[MergedEntry],
-    scaffold: &[&str],
+    scaffold: &[(&str, Value)],
 ) -> Result<Merged, String> {
     let blank = existing.is_none_or(|t| t.trim().is_empty());
     let mut text = if blank {
@@ -484,7 +485,11 @@ pub fn merge(
             });
         match occupied {
             Some(member) if is_ours(&value_of(&text, &member.value)) => wanted.push(entry),
-            Some(_) if entry.name.as_deref().is_some_and(|n| scaffold.contains(&n)) => {}
+            Some(_)
+                if entry
+                    .name
+                    .as_deref()
+                    .is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n)) => {}
             Some(member) => {
                 let _ = member;
                 not_rendered.push(NotRendered {
@@ -510,14 +515,18 @@ pub fn merge(
     let mut have: Vec<String> = here.iter().map(|(k, n, v)| key(k, n, v)).collect();
     let mut want: Vec<String> = wanted
         .iter()
-        .filter(|e| !e.name.as_deref().is_some_and(|n| scaffold.contains(&n)))
+        .filter(|e| {
+            !e.name
+                .as_deref()
+                .is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n))
+        })
         .map(|e| key(&e.keys, &e.name, &e.value))
         .collect();
     have.sort();
     want.sort();
     let scaffold_present = wanted
         .iter()
-        .filter(|e| e.name.as_deref().is_some_and(|n| scaffold.contains(&n)))
+        .filter(|e| e.name.as_deref().is_some_and(|n| scaffold.iter().any(|(k, _)| *k == n)))
         .all(|e| {
             let (c, missing) = descend(&root, &text, &e.keys);
             missing.is_empty()
@@ -539,7 +548,12 @@ pub fn merge(
     let Kind::Object(members) = &root.kind else {
         return Err("the document is not an object".to_string());
     };
-    if members.iter().all(|m| scaffold.contains(&m.key.as_str())) && wanted.is_empty() {
+    if members.iter().all(|m| {
+        scaffold
+            .iter()
+            .any(|(k, v)| *k == m.key && *v == value_of(&text, &m.value))
+    }) && wanted.is_empty()
+    {
         return Ok(Merged {
             text: None,
             not_rendered,

@@ -86,3 +86,37 @@ fn json_merge_refuses_what_is_no_json_object() {
     assert!(merge(Some("[1]"), &[mcp()], &[]).is_err());
     assert!(merge(Some("{\"a\": "), &[mcp()], &[]).is_err());
 }
+
+#[test]
+fn json_merge_keeps_a_scaffold_key_only_while_something_else_stands() {
+    let version = MergedEntry {
+        keys: vec![],
+        name: Some("version".into()),
+        value: json!(1),
+    };
+    let entries = [version, hook("preToolUse", "t.a")];
+    let with = merge(None, &entries, &[("version", json!(1))])
+        .unwrap()
+        .text
+        .unwrap();
+    assert!(with.contains("\"version\": 1"));
+    assert_eq!(
+        merge(Some(&with), &[], &[("version", json!(1))])
+            .unwrap()
+            .text,
+        None
+    );
+    let mine = "{\n  \"version\": 2\n}\n";
+    let kept = merge(Some(mine), &entries, &[("version", json!(1))])
+        .unwrap()
+        .text
+        .unwrap();
+    assert!(kept.contains("\"version\": 2"));
+    assert_eq!(
+        merge(Some(&kept), &[], &[("version", json!(1))])
+            .unwrap()
+            .text
+            .unwrap(),
+        mine
+    );
+}

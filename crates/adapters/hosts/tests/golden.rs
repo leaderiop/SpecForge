@@ -82,3 +82,11 @@ fn claude_code_golden_is_the_fixture_rendered() {
 fn codex_golden_is_the_fixture_rendered() {
     check(Host::Codex);
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
+)]
+fn cursor_golden_is_the_fixture_rendered() {
+    check(Host::Cursor);
+}

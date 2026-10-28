@@ -87,3 +87,20 @@ pub fn codex_class(name: &str) -> ToolClass {
             .unwrap_or_default(),
     }
 }
+
+/// The class of a tool Cursor names; empty for a tool no class covers.
+pub fn cursor_class(name: &str) -> ToolClass {
+    match name {
+        "Shell" | "Bash" => "shell".into(),
+        "Read" => "read".into(),
+        "Write" => "write".into(),
+        "Edit" | "StrReplace" | "Delete" | "ApplyPatch" => "edit".into(),
+        "Grep" | "Glob" | "SemanticSearch" => "search".into(),
+        "Task" => "agent".into(),
+        _ => name
+            .strip_prefix("MCP:")
+            .and_then(|r| r.split_once(':'))
+            .map(|(server, tool)| format!("mcp:{server}/{tool}"))
+            .unwrap_or_default(),
+    }
+}

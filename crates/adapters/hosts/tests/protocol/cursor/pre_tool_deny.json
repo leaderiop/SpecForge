@@ -1,0 +1,32 @@
+{
+  "stdin": {
+    "conversation_id": "c1",
+    "workspace_roots": [
+      "/p"
+    ],
+    "hook_event_name": "preToolUse",
+    "tool_name": "Write",
+    "tool_input": {
+      "path": "/p/a.spec"
+    }
+  },
+  "event": {
+    "event": "pre_tool",
+    "host": "cursor",
+    "cwd": "/p",
+    "session": "c1",
+    "tool": {
+      "name": "Write",
+      "class": "write",
+      "input": {
+        "path": "/p/a.spec"
+      }
+    }
+  },
+  "answer": {
+    "decision": "deny",
+    "reason": "a.spec would shrink"
+  },
+  "stdout": "{\"agent_message\":\"a.spec would shrink\",\"permission\":\"deny\",\"user_message\":\"a.spec would shrink\"}\n",
+  "exit_code": 0
+}

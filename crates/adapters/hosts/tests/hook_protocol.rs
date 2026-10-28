@@ -71,3 +71,8 @@ fn a_host_input_that_is_no_event_is_refused() {
 fn codex_reads_and_answers_its_hook_protocol() {
     check(Host::Codex);
 }
+
+#[test]
+fn cursor_reads_and_answers_its_hook_protocol() {
+    check(Host::Cursor);
+}

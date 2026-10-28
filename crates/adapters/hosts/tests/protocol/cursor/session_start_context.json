@@ -1,0 +1,20 @@
+{
+  "stdin": {
+    "conversation_id": "c1",
+    "workspace_roots": [
+      "/p"
+    ],
+    "hook_event_name": "sessionStart"
+  },
+  "event": {
+    "event": "session_start",
+    "host": "cursor",
+    "cwd": "/p",
+    "session": "c1"
+  },
+  "answer": {
+    "context": "phase 03"
+  },
+  "stdout": "{\"additional_context\":\"phase 03\"}\n",
+  "exit_code": 0
+}

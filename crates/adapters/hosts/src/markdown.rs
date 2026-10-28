@@ -22,6 +22,17 @@ pub fn yaml(value: &str) -> String {
     }
 }
 
+/// How long a short description may be.
+const SHORT_DESCRIPTION: usize = 180;
+
+pub fn short(description: &str) -> String {
+    if description.chars().count() <= SHORT_DESCRIPTION {
+        return description.to_string();
+    }
+    let cut: String = description.chars().take(SHORT_DESCRIPTION - 3).collect();
+    format!("{}...", cut.trim_end())
+}
+
 /// A frontmatter line `key: value`.
 pub fn field(key: &str, value: &str) -> String {
     format!("{key}: {}\n", yaml(value))

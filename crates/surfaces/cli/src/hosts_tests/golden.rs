@@ -76,7 +76,6 @@ fn cursor_renders_the_fixture() {
     behavior = "run_a_hook",
     verify = "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
 )]
-#[ignore = "K9 T8"]
 fn each_host_reads_and_answers_its_hook_protocol() {
     // Recorded stdin and the stdout and exit code each host gets, per host, are fixtures of the adapter crate.
     let protocol = specforge_repo_root::repo_root().join("crates/adapters/hosts/tests/protocol");

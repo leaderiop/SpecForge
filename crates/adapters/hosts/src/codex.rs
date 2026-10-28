@@ -10,13 +10,12 @@ use specforge_ops::host::{
 };
 use specforge_protocol_types::{Attribution, HookEvent};
 
-use crate::markdown::{document, field, notice};
+use crate::markdown::{document, field, notice, short};
 use crate::tools::{codex_class, codex_names, unique};
 use crate::{hook_json, json_merge, toml_merge, trampoline};
 
 const HOOKS: &str = ".codex/hooks.json";
 const CONFIG: &str = ".codex/config.toml";
-const SHORT_DESCRIPTION: usize = 180;
 
 pub struct Codex;
 
@@ -39,14 +38,6 @@ fn anthropic(id: &str) -> bool {
     ["claude", "opus", "sonnet", "haiku", "anthropic"]
         .iter()
         .any(|w| id.contains(w))
-}
-
-fn short(description: &str) -> String {
-    if description.chars().count() <= SHORT_DESCRIPTION {
-        return description.to_string();
-    }
-    let cut: String = description.chars().take(SHORT_DESCRIPTION - 3).collect();
-    format!("{}...", cut.trim_end())
 }
 
 fn skill(
