@@ -106,6 +106,7 @@ pub fn call_every_command(
                     Default::default()
                 },
                 state: None,
+                files: Default::default(),
             };
             let output = b
                 .call_command(&command.export, &input)

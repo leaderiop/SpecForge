@@ -16,7 +16,7 @@ use crate::{
     AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CodeDescriptor,
     CollectorDescriptor, CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor,
     DescribeResponse, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
+    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, FileRead, HandshakeResponse,
     HookDescriptor, McpResourceDescriptor, McpToolDescriptor, PeerDependency, PresetDescriptor,
     PromptArgDescriptor, PromptDescriptor, PromptStep, ProtocolError, SecretDescriptor,
     SettingDescriptor, SettingsItem, SkillDescriptor, SlashCommandDescriptor, SurfaceDescriptor,
@@ -425,9 +425,13 @@ static ARG: Shape = Shape {
     fields: struct_fields::<CommandArgDescriptor>,
     nested: &[],
 };
+static READ: Shape = Shape {
+    fields: struct_fields::<FileRead>,
+    nested: &[],
+};
 static COMMAND: Shape = Shape {
     fields: struct_fields::<CommandDescriptor>,
-    nested: &[("args", Nested::List(&ARG))],
+    nested: &[("args", Nested::List(&ARG)), ("reads", Nested::List(&READ))],
 };
 static TOOL: Shape = Shape {
     fields: struct_fields::<McpToolDescriptor>,
@@ -500,7 +504,7 @@ static ANALYZER: Shape = Shape {
 };
 static PASS: Shape = Shape {
     fields: struct_fields::<CompilerPassDescriptor>,
-    nested: &[],
+    nested: &[("reads", Nested::List(&READ))],
 };
 static CODE: Shape = Shape {
     fields: struct_fields::<CodeDescriptor>,

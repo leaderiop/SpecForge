@@ -544,6 +544,7 @@ fn run_on(
             .declaration()
             .reads_state
             .then(|| crate::host::state::read(view, command.extension(), None)),
+        files: Default::default(),
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(

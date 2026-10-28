@@ -226,5 +226,6 @@ fn command_input() -> specforge_protocol_types::CommandInput<specforge_protocol_
         evidence: Default::default(),
         revisions: Default::default(),
         state: None,
+        files: Default::default(),
     }
 }

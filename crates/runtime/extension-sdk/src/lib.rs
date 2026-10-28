@@ -70,6 +70,7 @@ mod guest;
 pub mod host_contrib;
 mod plan;
 pub mod prompt;
+mod reads;
 mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
@@ -83,6 +84,7 @@ pub use host_contrib::{
 };
 pub use plan::{PlanBuilder, Verdict};
 pub use prompt::{PromptArgBuilder, PromptBuilder, PromptCall, PromptStepBuilder};
+pub use reads::FileReadSpec;
 pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
@@ -600,10 +602,11 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
-        FieldConstraintBuilder, FieldType, FileBase, KindBuilder, MigrationInput, PassAnswer,
-        PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge, PassEntity,
-        PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder, ScanRequest,
-        ScanResponse, ScannedItem, Settings, TestResult, TestResults, TestStatus, Vocabulary,
+        FieldConstraintBuilder, FieldType, FileBase, FileReadSpec, KindBuilder, MigrationInput,
+        PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge,
+        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder,
+        ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults, TestStatus,
+        Vocabulary,
     };
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence, CommandFormat,

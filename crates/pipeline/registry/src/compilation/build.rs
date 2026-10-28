@@ -130,6 +130,16 @@ impl DeclaredPass {
         &self.pass.baseline
     }
 
+    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W145 at the declaration check.
+    pub fn reads(&self) -> &[specforge_protocol_types::FileRead] {
+        &self.pass.reads
+    }
+
+    /// Whether the pass receives the recorded test report (a check, compute or guard pass; protocol 1.11.0).
+    pub fn reads_tests(&self) -> bool {
+        self.pass.reads_tests
+    }
+
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
     pub fn full_name(&self) -> String {
         format!("{}:{}", self.extension, self.pass.name)

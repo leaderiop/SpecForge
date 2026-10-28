@@ -94,6 +94,9 @@ pub struct CommandInput<G = GraphWire> {
     /// The extension's state, for a command that declares `reads_state` (protocol 1.10.0, ADR 0292).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
+    /// The facts of the files the command's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 /// What a command's input says the recorded tests prove. On the wire an
@@ -394,6 +397,9 @@ pub struct PassInput {
     /// Why the host runs the pass; absent reads a write (protocol 1.10.0, ADR 0291). Sent to a guard pass only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger: Option<crate::Trigger>,
+    /// The facts of the files the pass's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,

@@ -60,6 +60,7 @@ fn run(
         evidence: CommandEvidence::None,
         revisions: Default::default(),
         state: None,
+        files: Default::default(),
     };
     ExtensionCalls::new(runtime)
         .run_command(PRODUCT, export, &input)

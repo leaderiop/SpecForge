@@ -88,6 +88,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
         previous: None,
         trigger: input.trigger.cloned(),
+        files: Default::default(),
     }
 }
 

@@ -619,7 +619,7 @@ impl McpResourceBuilder {
 /// as E028), so a test calling the command finds it.
 pub struct CommandCall<'a> {
     command: &'a Command,
-    input: &'a CommandInput,
+    pub(crate) input: &'a CommandInput,
     /// The declared args the caller set, normalized to their declared type
     /// (a string, an integer or a boolean).
     values: serde_json::Map<String, Value>,
