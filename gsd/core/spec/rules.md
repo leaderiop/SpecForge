@@ -52,8 +52,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E302 | a plan of a phase names at least one requirement; a quick plan (no `phase`) is exempt, it names no roadmap requirement (no declarative check reads "`phase` is unset") | pass | E | E | plan template (`requirements` non-empty), D1 |
 | gsd/E303 | an `auto`, `tdd` or `tracer` task has `files` and a verify of some form (`verify`, `verify_text` or `verify_human`); `action` and `done` are required fields, so the host reports those; `manual` is exempt. Severity divergence: GSD's `verify plan-structure` warns on a missing `<verify>`, `<files>` and `<done>` and errors on a missing `<action>`; the plan checker's D2 blocks all four, and that is the severity kept | pass | E | E | D2, `verify plan-structure` |
 | gsd/W304 | a plan has at most 3 tasks (4 warns; the count is GSD's `task_count`: tasks plus checkpoints) | pass | W | E | D5 |
-| gsd/W305 | plans of one wave share no path in `files_modified ∪ files_deleted`; under compat that wave runs sequentially | pass | W | E | wave guard (#3003), execute-phase overlap check |
-| gsd/W306 | a task's files are among its plan's `files_modified` | pass | W | E | plan checker (task files) |
+| gsd/W305 | plans of one wave share no path in `files_modified ∪ files_deleted`; under compat that wave runs sequentially (one warning per shared path, on the later plan by id; paths are the list's items, compared as written; a plan with no computed wave is not compared) | pass | W | E | `agents/gsd-planner.md:753-761`, `workflows/execute-phase.md:548-578` |
+| gsd/W306 | a task's files are among its plan's `files_modified ∪ files_deleted` (one warning per item) | pass | W | E | (new: no upstream check) |
 | gsd/E307 | `auto_select` and `answer.option` name one of the checkpoint's options, and option names are unique (pass); each checkpoint kind has its fields: `human_verify` `what_built` and `how_to_verify`, `decision` `decision` and `options`, `human_action` `instructions`, `action` and `verification` (seven `conditional_field_required` rules under one code; `resume_signal` is a required field) | decl + pass | E | E | checkpoint validation (`src/verify.cts:1206-1232`) |
 | gsd/W308 | a `one_way` task follows a decision checkpoint of its plan (a checkpoint without `after` stands before the first task), or names the decision that already settles it in `reversibility.settled_by`: GSD warns, "never error", and sees no "settled" (the model first made it an error; renamed to a warning for GSD's severity) | pass | W | E | `src/verify.cts:1397-1415` (reversibility), `planner-reversibility.md` |
 | gsd/W309 | a plan (a quick plan too) has a truth and an artifact | pass | W | E | must-haves |
@@ -117,8 +117,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   the facts and capped text of those files.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
   `gsd/E502`, `gsd/W408`, `gsd/E515`.
-- Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` is built (r36); `gsd/W305`, `gsd/W306` and `gsd/E517`
-  are not yet, and read the items in `values`.
+- Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
+  `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
 
 ## Setting-gated rules

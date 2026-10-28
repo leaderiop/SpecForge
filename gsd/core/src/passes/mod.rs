@@ -2,6 +2,7 @@
 
 mod derive;
 mod drift;
+mod file_scope;
 mod plan_shape;
 mod plans;
 mod research;
@@ -20,5 +21,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     research::declare(c);
     drift::declare(c);
     plan_shape::declare(c);
+    file_scope::declare(c);
     waves::declare(c);
 }

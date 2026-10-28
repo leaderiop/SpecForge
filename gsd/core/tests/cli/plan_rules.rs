@@ -285,3 +285,63 @@ fn a_plan_depending_on_another_phase_is_e102() {
         "plan 'v1.0/02/02-01' depends on 'v1.0/01/01-02', which is not a plan of its phase: GSD drops the edge"
     ));
 }
+
+/// A third plan of phase 01 with the must-haves W309 wants, modifying `modified` and deleting `deleted`.
+fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
+    format!(
+        "plan 01-03 \"Third\" {{\n  phase          v1.0/01\n  type           execute\n{depends}  files_modified [{modified}]\n  files_deleted  [{deleted}]\n  requirements   [TASK-01]\n  objective      \"A third plan\"\n}}\n\ntruth TR1 \"Third\" {{\n  plan v1.0/01/01-03\n  text \"Third\"\n}}\n\nartifact AR1 \"Third\" {{\n  plan     v1.0/01/01-03\n  path     \"src/third.js\"\n  provides \"third\"\n}}\n"
+    )
+}
+
+#[test]
+fn same_wave_overlap_is_w305() {
+    // 01-01 is wave 1, and so is a plan with no `depends_on` that also modifies `src/tasks.js`.
+    let p = with(&third_plan("", "\"src/tasks.js\"", ""));
+    assert_eq!(p.codes(), ["gsd/W305"]);
+    assert!(only(&p, "gsd/W305").contains(
+        "plans 'v1.0/01/01-01' and 'v1.0/01/01-03' of wave 1 both modify 'src/tasks.js': under gsd-compat the wave runs sequentially"
+    ));
+}
+
+#[test]
+fn a_deleted_file_counts_as_overlap() {
+    let p = with(&third_plan("", "\"src/third.js\"", "\"src/tasks.js\""));
+    assert_eq!(p.codes(), ["gsd/W305"]);
+}
+
+#[test]
+fn plans_of_different_waves_may_share_a_file() {
+    let p = with(&third_plan(
+        "  depends_on     [01-01]\n",
+        "\"src/tasks.js\"",
+        "",
+    ));
+    assert_eq!(p.codes(), CLEAN);
+}
+
+#[test]
+fn a_path_holding_a_comma_is_one_item() {
+    // One item `src/tasks.js,test/tasks.test.js`: equal to neither of 01-01's two paths.
+    let p = with(&third_plan("", "\"src/tasks.js,test/tasks.test.js\"", ""));
+    assert_eq!(p.codes(), CLEAN);
+}
+
+#[test]
+fn task_file_outside_plan_is_w306() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  files  [\"src/tasks.js\"]\n  action \"Write src/tasks.js",
+        "  files  [\"src/tasks.js\", \"src/extra.js\"]\n  action \"Write src/tasks.js",
+    );
+    assert_eq!(p.codes(), ["gsd/W306"]);
+    assert!(only(&p, "gsd/W306").contains(
+        "task 'v1.0/01/01-01/T1' names 'src/extra.js', which is not among the files of plan 'v1.0/01/01-01'"
+    ));
+}
+
+#[test]
+fn w305_is_an_error_under_gsd_strict() {
+    let p = with(&third_plan("", "\"src/tasks.js\"", ""));
+    strict_fails(&p, "W305");
+}
