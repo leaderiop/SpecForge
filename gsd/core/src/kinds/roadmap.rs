@@ -1,4 +1,4 @@
-//! `milestone` and `phase` (`spec/project.md`).
+//! `milestone`, `phase` and `workstream` (`spec/project.md`).
 
 use super::dsl::*;
 
@@ -15,7 +15,7 @@ const STATS: &[Field] = &[
 ];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
-/// A milestone section of `ROADMAP.md`, named `v1.0`. A workstream scopes it from the next ticket on.
+/// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one.
 pub const MILESTONE: Kind = Kind::new(
     "milestone",
     "A milestone: a shippable version of the project (GSD ROADMAP.md, MILESTONES.md)",
@@ -25,6 +25,9 @@ pub const MILESTONE: Kind = Kind::new(
         strs("accomplishments").doc("Key accomplishments"),
         str("whats_next").doc("What's next"),
         block("abandoned", ABANDONED).doc("gsd-path's abandon ruling"),
+        rf("workstream", "workstream")
+            .i()
+            .doc("the workstream that scopes it; absent outside one"),
         block("completion", COMPLETION)
             .h()
             .doc("written by /gsd-complete-milestone once its audit passes"),
@@ -39,7 +42,8 @@ pub const MILESTONE: Kind = Kind::new(
             .c()
             .doc("Git range: from the recorded commits"),
     ],
-);
+)
+.scoped_by("workstream");
 
 const MODES: &[&str] = &["standard", "mvp"];
 const PHASE_STATUS: &[&str] = &[
@@ -86,3 +90,17 @@ pub const PHASE: Kind = Kind::new(
     ],
 )
 .scoped_by("milestone");
+
+const WORKSTREAM_STATUS: &[&str] = &["active", "complete"];
+
+/// `.planning/workstreams/<name>/`: a scope for its milestones, phases and plans.
+pub const WORKSTREAM: Kind = Kind::new(
+    "workstream",
+    "A workstream: a scope with its own milestones and phases (GSD workstreams)",
+    &[
+        str("purpose").r().doc("the workstream's description"),
+        en("status", WORKSTREAM_STATUS)
+            .c()
+            .doc("complete when all its milestones shipped"),
+    ],
+);

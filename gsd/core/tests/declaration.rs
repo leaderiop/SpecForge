@@ -156,6 +156,7 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "accomplishments",
             "whats_next",
             "abandoned",
+            "workstream",
             "completion",
             "state",
             "shipped",
@@ -193,4 +194,58 @@ fn a_phase_is_scoped_by_its_milestone() {
         .and_then(|k| k.iter().find(|k| k["name"] == "phase"))
         .expect("phase");
     assert_eq!(phase["scoped_by"], "milestone");
+}
+
+#[test]
+fn the_learning_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(fields_of("workstream"), ["purpose", "status"]);
+    assert_eq!(
+        fields_of("retrospective"),
+        [
+            "milestone",
+            "built",
+            "worked",
+            "inefficient",
+            "patterns",
+            "cost",
+            "phases",
+            "plans",
+            "sessions"
+        ]
+    );
+    assert_eq!(
+        fields_of("lesson"),
+        ["retrospective", "text", "milestone", "top", "kind"]
+    );
+    assert_eq!(
+        fields_of("methodology"),
+        [
+            "name",
+            "diagnoses",
+            "recommends",
+            "apply_when",
+            "status",
+            "superseded_by"
+        ]
+    );
+}
+
+/// `project.md` lists 8 kinds and 72 top-level fields. The fixes of the model add the milestone's `workstream` and
+/// the lesson's `retrospective`; three fields are read back from their inverse, not declared (the requirement's
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`) or wait for a kind a
+/// later round declares (the project's `key_decisions`): 72 + 2 - 3.
+#[test]
+fn the_roadmap_kinds_declare_every_field_of_project_md() {
+    let kinds = [
+        "project",
+        "requirement",
+        "milestone",
+        "phase",
+        "workstream",
+        "retrospective",
+        "lesson",
+        "methodology",
+    ];
+    let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
+    assert_eq!(total, 72 + 2 - 3, "the kinds' fields");
 }

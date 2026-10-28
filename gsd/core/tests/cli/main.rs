@@ -115,3 +115,44 @@ fn an_ambiguous_short_form_names_each_candidate() {
         query.all()
     );
 }
+
+#[test]
+fn a_milestone_in_a_workstream_is_named_by_its_workstream() {
+    let p = project("roadmap");
+    // `v1.0` of the workstream is a second milestone beside the project's own `v1.0`.
+    p.write(
+        "spec/learning.spec",
+        "workstream auth-rework \"Auth rework\" {\n  purpose \"Replace the session store\"\n}\n\nmilestone v1.0 \"Auth rework 1.0\" {\n  name \"Auth rework 1.0\"\n  workstream auth-rework\n}\n\nphase 01 \"Store\" {\n  milestone auth-rework/v1.0\n  name \"Store\"\n  slug \"store\"\n  goal \"The store is replaced\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+    );
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 0, "check: {}", check.all());
+    for name in ["v1.0", "auth-rework/v1.0", "auth-rework/v1.0/01", "v1.0/01"] {
+        let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+        assert_eq!(node_ids(&query), [name], "query {name}: {}", query.all());
+    }
+}
+
+#[test]
+fn a_lesson_is_named_within_its_retrospective() {
+    let p = project("roadmap");
+    p.write(
+        "spec/learning.spec",
+        "retrospective v1.0-RETROSPECTIVE \"Taskboard 1.0 retrospective\" {\n  milestone v1.0\n  built [\"Add and complete tasks\"]\n}\n\nlesson L1 \"Plan the reload first\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Persistence decides the data model\"\n}\n",
+    );
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 0, "check: {}", check.all());
+    let query = p.run(&[
+        "query",
+        "v1.0/v1.0-RETROSPECTIVE/L1",
+        "--depth",
+        "0",
+        "--format",
+        "brief",
+    ]);
+    assert_eq!(
+        node_ids(&query),
+        ["v1.0/v1.0-RETROSPECTIVE/L1"],
+        "{}",
+        query.all()
+    );
+}
