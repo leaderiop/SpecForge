@@ -122,3 +122,14 @@ fn structured_values_count_and_a_missing_context_has_no_digest() {
     assert_ne!(digest_of(structured), digest_of(text_only));
     assert_eq!(context(&input(vec![]), CONTEXT), None);
 }
+
+#[test]
+fn a_structured_value_of_a_scalar_field_is_ignored() {
+    // The wire sending `values` for another type must not move a recorded digest: `boundary` is a `str`.
+    let plain = digest_of(context_entities());
+    let mut sent = context_entities();
+    sent[0]
+        .values
+        .insert("boundary".into(), serde_json::json!(["Tasks are saved"]));
+    assert_eq!(digest_of(sent), plain);
+}

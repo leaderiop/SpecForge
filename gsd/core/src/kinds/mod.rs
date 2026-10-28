@@ -43,6 +43,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
     dsl::declare(c, KINDS);
 }
 
+/// `kind.field` of every field whose structured value the digest reads (see `dsl::structured`).
+pub fn structured() -> Vec<String> {
+    dsl::structured(KINDS)
+}
+
 /// `kind.field` of every computed field: what the derive pass answers.
 pub fn computed() -> Vec<String> {
     dsl::computed(KINDS)

@@ -351,5 +351,24 @@ pub fn computed(kinds: &[&Kind]) -> Vec<String> {
         .collect()
 }
 
+/// The `kind.field` names of every top-level field of `kinds` whose type the kernel hands a pass as structured
+/// `values` today (lists and blocks): the only fields the context digest reads from `values`.
+pub fn structured(kinds: &[&Kind]) -> Vec<String> {
+    kinds
+        .iter()
+        .flat_map(|kind| {
+            kind.fields
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f.ty,
+                        Ty::Block(_) | Ty::Blocks(_) | Ty::Strs | Ty::Files | Ty::Refs(_)
+                    )
+                })
+                .map(move |f| format!("{}.{}", kind.name, f.name))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests;
