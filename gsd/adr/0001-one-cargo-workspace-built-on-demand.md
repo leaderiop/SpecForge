@@ -28,11 +28,13 @@ declared `name = "@gsd/core"`, `short = "gsd"`, version `0.1.0`.
 
 `specforge-extension-sdk = "0.3.0"` (with `features = ["testing"]` in dev), and a `[patch.crates-io]` to
 `../crates/runtime/extension-sdk`. This is the documented way to build against an unreleased SDK. The manifest never
-names a path outside `gsd/`, and the split deletes one config line.
+names a path outside `gsd/`, and the split deletes one config line. Cargo reads `.cargo/config.toml` from its working
+directory, not from `--manifest-path`, so every cargo command of the family runs in `gsd/` (from the repository root,
+`--manifest-path gsd/Cargo.toml` would not see the patch and fail to select a version, as crates.io has no 0.3.0 yet).
 
 ## D4. The blob is not committed; it is built on demand
 
-`cargo build --manifest-path gsd/Cargo.toml -p gsd-core --release --target wasm32-wasip2`, with the scaffold's release
+`cd gsd && cargo build -p gsd-core --release --target wasm32-wasip2`, with the scaffold's release
 profile (opt-level z, fat LTO, strip). The kernel's committed-blob machinery (`COMMITTED`, revendor, the 1 MB budget) is
 for its builtins and fixtures; listing `@gsd/core` there would tie the kernel's revendor to a domain extension.
 

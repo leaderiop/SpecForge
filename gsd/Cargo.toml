@@ -1,0 +1,28 @@
+# The @gsd family: one Cargo workspace, one lockfile, one target (ADR gsd/0001). The root workspace excludes this folder.
+[workspace]
+resolver = "3"
+members = ["core"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+# Copied from the repository root's [workspace.lints]: the family moves to its own repository with the same rules.
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+print_stdout = "deny"
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+allow_attributes_without_reason = "deny"
+
+# The scaffold's release profile: small over fast (opt-level z, fat LTO, one codegen unit, strip).
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"

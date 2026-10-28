@@ -1,0 +1,4 @@
+# Build against the SDK of this checkout until the version below is on crates.io (ADR 0277, ADR gsd/0001 D3). The
+# manifests name the SDK as crates.io would; deleting this file is the only change the split into its own repository needs.
+[patch.crates-io]
+specforge-extension-sdk = { path = "../crates/runtime/extension-sdk" }
