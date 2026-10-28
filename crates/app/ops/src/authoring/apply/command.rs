@@ -29,6 +29,9 @@ pub enum PlanOutcome {
 pub struct CommandRun {
     pub output: CommandOutput,
     pub plan: Option<PlanOutcome>,
+    /// The refusal of the state patch the command answered (over the cap, not an object): the run, and the files its
+    /// plan wrote, stand; only the state is unchanged (ADR 0022 D4: an error never drops the writes).
+    pub state_refused: Option<OpError>,
 }
 
 /// Run `command` over the project `view` describes ([`run`]) and apply the plan it answered, unless `dry_run`. A plan
@@ -72,11 +75,17 @@ pub fn execute_with(
 ) -> Result<CommandRun, RunError> {
     let mut output = called(view, command, given, format)?;
     let Some(plan) = &output.plan else {
-        if !dry_run {
-            settle(view, command, &mut output)?;
-        }
+        let state_refused = if dry_run {
+            None
+        } else {
+            keep_state(view, command, &mut output)
+        };
         output.state = None;
-        return Ok(CommandRun { output, plan: None });
+        return Ok(CommandRun {
+            output,
+            plan: None,
+            state_refused,
+        });
     };
     let outcome = if !command.writes() {
         PlanOutcome::Refused(OpError::new(
@@ -101,12 +110,28 @@ pub fn execute_with(
         }
     };
     // The state is kept after the plan, and only when the plan did not fail or get refused.
-    if !dry_run && !matches!(outcome, PlanOutcome::Refused(_) | PlanOutcome::Failed) {
-        settle(view, command, &mut output)?;
-    }
+    let state_refused =
+        if dry_run || matches!(outcome, PlanOutcome::Refused(_) | PlanOutcome::Failed) {
+            None
+        } else {
+            keep_state(view, command, &mut output)
+        };
     output.state = None;
     Ok(CommandRun {
         output,
         plan: Some(outcome),
+        state_refused,
     })
+}
+
+/// [`settle`], its refusal returned rather than raised.
+fn keep_state(
+    view: &ProjectView<'_>,
+    command: &ExtensionCommand,
+    output: &mut CommandOutput,
+) -> Option<OpError> {
+    match settle(view, command, output) {
+        Err(RunError::State(refusal)) => Some(*refusal),
+        _ => None,
+    }
 }

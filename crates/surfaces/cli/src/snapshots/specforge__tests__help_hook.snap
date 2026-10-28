@@ -21,7 +21,7 @@ Options:
           Tool classes the hook fires on, comma-separated (empty: any tool)
 
       --paths <PATHS>
-          Project-relative globs a path of the tool's input must match, comma-separated (empty: any path)
+          A project-relative glob a path of the tool's input must match; repeat it for several (none: any path)
 
   -h, --help
           Print help

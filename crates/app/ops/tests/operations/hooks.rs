@@ -126,6 +126,19 @@ fn pre_commit_fires_only_for_git_commit_with_its_message() {
     );
     assert_eq!(good.answer["decision"], "allow", "{good:?}");
     assert_eq!(hosted.input("hook__validate_commit")["shell"][0], "git");
+
+    // A cluster of short options still gives its message; a message read from elsewhere is unknown, not empty.
+    run_hook(
+        &hosted,
+        "validate_commit",
+        &shell("git commit -am \"wip stuff\""),
+    );
+    assert_eq!(
+        hosted.input("hook__validate_commit")["commit"]["message"],
+        "wip stuff"
+    );
+    run_hook(&hosted, "validate_commit", &shell("git commit -F msg.txt"));
+    assert!(hosted.input("hook__validate_commit")["commit"]["message"].is_null());
 }
 
 #[specforge_test(

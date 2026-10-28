@@ -10,7 +10,7 @@ use serde_json::Value;
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_protocol_types::{Decision, HookEvent};
 
-use super::{Outcome, facts, filter::Filter};
+use super::{Outcome, facts, filter::Filter, patch};
 use crate::authoring::apply::hand;
 use crate::host::render::{SPEC_GUARD_PATHS, SPEC_GUARD_TOOLS, spec_root_spelled};
 use crate::host::{HookAnswer, HostHookEvent};
@@ -83,24 +83,45 @@ pub(super) fn run(view: &ProjectView<'_>, event: &HostHookEvent) -> Outcome {
     else {
         return Outcome::default();
     };
-    let Some(key) = facts::path_names(&tool.input)
-        .iter()
-        .find_map(|name| facts::relative_to(root, &cwd, name))
-    else {
-        return Outcome::default();
+    let read = |key: &str| {
+        view.containment()
+            .resolve(&root.join(key))
+            .ok()
+            .and_then(|held| held.read_if_there().ok().flatten())
+            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
     };
-    let current = view
-        .containment()
-        .resolve(&root.join(&key))
-        .ok()
-        .and_then(|held| held.read_if_there().ok().flatten())
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-    // An edit that does not apply is the host's to refuse.
-    let Some(text) = after_text(&tool.input, current.as_deref()) else {
-        return Outcome::default();
+    let spec_file = |key: &str| key.ends_with(".spec");
+    // The files the tool leaves, by project path. An edit that does not apply is the host's to refuse.
+    let texts: BTreeMap<String, String> = if let Some(patch) = patch::text_of(&tool.input) {
+        let inside = |name: &str| facts::relative_to(root, &cwd, name).filter(|key| spec_file(key));
+        let Some(texts) = patch::after(
+            patch,
+            |name| inside(name).and_then(|key| read(&key)),
+            |name| inside(name).is_some(),
+        ) else {
+            return Outcome::default();
+        };
+        texts
+            .into_iter()
+            .filter_map(|(name, text)| Some((inside(&name)?, text)))
+            .collect()
+    } else {
+        let Some(key) = facts::path_names(&tool.input)
+            .iter()
+            .find_map(|name| facts::relative_to(root, &cwd, name))
+        else {
+            return Outcome::default();
+        };
+        let Some(text) = after_text(&tool.input, read(&key).as_deref()) else {
+            return Outcome::default();
+        };
+        BTreeMap::from([(key, text)])
     };
+    if texts.is_empty() {
+        return Outcome::default();
+    }
     let before = view.project();
-    let after = before.edited(&BTreeMap::from([(key, text)]));
+    let after = before.edited(&texts);
     let mut denied: Vec<String> = Vec::new();
     let new = added(&before.checked_diagnostics(), &after.checked_diagnostics());
     for d in new
@@ -113,7 +134,12 @@ pub(super) fn run(view: &ProjectView<'_>, event: &HostHookEvent) -> Outcome {
             .unwrap_or("write it through its tool");
         denied.push(format!("{}: {hint}", d.message));
     }
-    denied.extend(hand::human_changes(view, &ProjectView::of(&after)));
+    // A syntax error drops the file's entities from the compile: every person's own entity in it would read as removed.
+    // An agent in the middle of an edit is often briefly wrong, so the comparison waits for a text that parses.
+    let unparsed = new.iter().any(|d| d.code == codes::E001.id());
+    if !unparsed {
+        denied.extend(hand::human_changes(view, &ProjectView::of(&after)));
+    }
     let mut answer = HookAnswer::default();
     if denied.is_empty() {
         let others: Vec<String> = new

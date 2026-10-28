@@ -28,6 +28,9 @@ pub(crate) struct CommandReply {
     /// The plan the command answered, as `specforge.edit` reports an edit; absent when it answered none.
     #[serde(skip_serializing_if = "Option::is_none")]
     plan: Option<EditDocument>,
+    /// The state patch the host refused (over its cap): the command and its plan stood, the state did not change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state_error: Option<String>,
 }
 
 impl MutationReply for CommandReply {
@@ -100,7 +103,12 @@ fn attempt(
 }
 
 fn replied(command: &ExtensionCommand, run: CommandRun, dry_run: bool) -> Mutation<CommandReply> {
-    let CommandRun { output, plan } = run;
+    let CommandRun {
+        output,
+        plan,
+        state_refused,
+    } = run;
+    let state_error = state_refused.map(|e| format!("{}: {}", e.code, e.message));
     if output.exit_code != 0 {
         return Err(Failed::from(failed_run(command, output)));
     }
@@ -110,6 +118,7 @@ fn replied(command: &ExtensionCommand, run: CommandRun, dry_run: bool) -> Mutati
             CommandReply {
                 output: printed,
                 plan: None,
+                state_error,
             },
             Written::of(Wrote::of(dry_run, Writes::none())),
         )),
@@ -117,6 +126,7 @@ fn replied(command: &ExtensionCommand, run: CommandRun, dry_run: bool) -> Mutati
             CommandReply {
                 output: printed,
                 plan: Some(edited.document()),
+                state_error,
             },
             Written::of(edited.wrote.clone()).with_entities(edited.report.entities.iter().cloned()),
         )),

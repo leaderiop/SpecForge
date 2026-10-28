@@ -38,3 +38,21 @@ fn doctor_reports_an_edited_and_a_stale_install() {
         "{found:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "doctor reports an install that wrote only config entries as stale"
+)]
+fn doctor_sees_an_install_of_config_entries_only() {
+    let project = hosts_project(json!({}), json!({}));
+    project.write(
+        ".mcp.json",
+        "{\"mcpServers\": {\"specforge\": {\"command\": \"specforge\", \"args\": [\"mcp\"]}}}\n",
+    );
+    let hosted = hosted(project, GsdHosts::new());
+    let found = host_findings(&hosted);
+    assert!(
+        found.iter().any(|f| f.starts_with("host_install_stale")),
+        "{found:?}"
+    );
+}

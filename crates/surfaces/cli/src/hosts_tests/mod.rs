@@ -4,6 +4,7 @@
 mod golden;
 mod hook;
 mod install;
+mod safety;
 
 use std::collections::BTreeMap;
 
@@ -158,6 +159,17 @@ struct HookCli {
 /// `specforge hook <route> --host <host> --event <event> …` over `project` with `stdin`. The project is compiled only
 /// if the hook asks for it, and `exports` are the calls made after that compile.
 pub fn hook(project: &TestProject, id: &str, host: &str, args: &[&str], stdin: &Value) -> Hooked {
+    hook_bytes(project, id, host, args, stdin.to_string().as_bytes())
+}
+
+/// [`hook`] over raw `stdin` bytes, run in the project's directory.
+pub fn hook_bytes(
+    project: &TestProject,
+    id: &str,
+    host: &str,
+    args: &[&str],
+    stdin: &[u8],
+) -> Hooked {
     let mut argv = vec![
         "specforge".to_string(),
         id.to_string(),
@@ -170,7 +182,8 @@ pub fn hook(project: &TestProject, id: &str, host: &str, args: &[&str], stdin: &
     let compiled_at = std::cell::Cell::new(None);
     let (terminal, capture) = Terminal::captured("", Facts::PIPED);
     let exit = cli.args.run_with(
-        stdin.to_string().as_bytes(),
+        stdin,
+        project.root(),
         |_| {
             let compiled = project.compile_in(Arc::clone(&runtime) as SharedRuntime);
             compiled_at.set(Some(runtime.calls().len()));

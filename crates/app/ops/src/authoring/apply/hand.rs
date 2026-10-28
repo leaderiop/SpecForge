@@ -11,7 +11,8 @@ use crate::extension::command::graph_export;
 use crate::view::ProjectView;
 
 /// The graph export's entities by id, without what a move of the text changes (`file`, `line`) or a compile derives
-/// from other entities (`coverage_status`, `judgements`).
+/// from other entities (`coverage_status`, `judgements`, and every field a compute pass, the harness or a verdict
+/// gives: those change when another entity does, never by a person's hand).
 fn entities(view: &ProjectView<'_>) -> BTreeMap<String, Value> {
     let export: Value = serde_json::from_str(&graph_export(view)).unwrap_or(Value::Null);
     let mut out = BTreeMap::new();
@@ -19,6 +20,20 @@ fn entities(view: &ProjectView<'_>) -> BTreeMap<String, Value> {
         if let Some(map) = node.as_object_mut() {
             for key in ["file", "line", "coverage_status", "judgements"] {
                 map.remove(key);
+            }
+            let kind = map
+                .get("kind")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if let Some(fields) = map.get_mut("fields").and_then(Value::as_object_mut) {
+                fields.retain(|key, _| {
+                    view.registries()
+                        .fields()
+                        .get(&kind, key)
+                        .and_then(|entry| entry.form().writer())
+                        .is_none_or(|w| w == FieldWriter::Human)
+                });
             }
         }
         if let Some(id) = node["id"].as_str().map(str::to_string) {

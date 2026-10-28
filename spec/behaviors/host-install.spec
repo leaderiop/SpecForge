@@ -17,7 +17,7 @@ behavior install_into_a_host "Install Into a Host" {
     specforge install <host> renders every agent, skill and slash command the project's extensions contribute, their
     hooks, SpecForge's MCP server entry and its spec guard into the host's project-local files (ADR 0292). It is
     idempotent, all or nothing under the write lock, and owns exactly what it marked: a file it writes starts with a
-    generated-by marker holding its source and digest, a config entry it owns is the one whose command is specforge.
+    generated-by marker holding its source and digest, a config entry it owns is the one marked `# specforge-install` (a hook) or named specforge (the MCP server). It never follows a link.
     It refuses to overwrite an unmarked file (foreign_file) or a marked file edited since (edited_file, unless
     forced), removes what no extension contributes any more and reports what a host cannot take. A project whose
     extensions contribute nothing to a host declares and runs as it did.
@@ -40,6 +40,11 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "install --check exits 1 on drift and names what would change, per host"
   verify unit "uninstall removes exactly what install wrote"
   verify unit "install merges its entries without touching a user's hooks or servers"
+  verify unit "install and uninstall never write through a link, even a dangling one, and refuse"
+  verify unit "uninstall keeps a user's hook that only mentions specforge, and a settings file it did not create"
+  verify unit "a hook command repeats --paths per glob, so a glob holding a comma reaches the hook whole"
+  verify unit "a marked file whose line ends became CRLF is not an edited file"
+  verify unit "doctor reports an install that wrote only config entries as stale"
 }
 
 behavior run_a_hook "Run a Hook" {
@@ -61,10 +66,15 @@ behavior run_a_hook "Run a Hook" {
   verify unit "the spec guard denies a raw write of a computed value, naming the field and the tool that writes it"
   verify unit "the spec guard denies a raw write of a human-only value"
   verify unit "the spec guard allows prose and reports the errors an edit adds as context"
+  verify unit "the spec guard does not read a person's entity as removed from a file the write leaves unparsable"
   verify unit "state a hook patches is what another hook reads, per session"
   verify unit "a state patch that would exceed 64 KiB is refused and reported, and the state is unchanged"
   verify unit "a command reads its state when it declares it and patches it with what it answers"
+  verify unit "state is never written, read or pruned through a link, and an oversized document is ignored"
+  verify unit "a refused state patch is reported and the files its command's plan wrote stay written"
   verify unit "each host reads its hook stdin into the neutral event and writes the neutral answer as the host expects it"
   verify unit "a hook whose event does not match exits before loading anything"
-  verify unit "a guard hook denies in the protocol of Claude Code, Codex and Cursor"
+  verify unit "a guard hook denies in the protocol of Claude Code, and in the draft protocols of Codex and Cursor as their goldens have it"
+  verify unit "an event over the size limit or not the host's JSON is answered by the hook's failure policy"
+  verify unit "the spec guard judges the spec files a patch-text tool leaves and ignores a patch of other files"
 }

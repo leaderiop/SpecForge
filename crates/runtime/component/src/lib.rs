@@ -518,6 +518,9 @@ impl WasmRuntime for ComponentRuntime {
                     "fuel_exhausted" => {
                         format!("spent its fuel budget ({fuel} instructions) in one call")
                     }
+                    "deadline_exceeded" if max_ms < limits.execution_ms => {
+                        format!("ran past the call's {max_ms} ms budget")
+                    }
                     "deadline_exceeded" => format!(
                         "ran past its {} ms execution limit (sandbox_policy.max_execution_ms)",
                         limits.execution_ms

@@ -48,11 +48,9 @@ pub fn findings(
             .iter()
             .filter(|r| r.code == RefusalCode::EditedFile)
             .collect();
-        let installed = !edited.is_empty()
-            || marked
-                .files
-                .iter()
-                .any(|f| f.action == drift::Action::Remove);
+        // An install that wrote only config entries (the MCP server and the spec guard) is an install: anything
+        // taking its marks away, a file or an entry, says so.
+        let installed = !edited.is_empty() || marked.changes().next().is_some();
         if !installed {
             continue;
         }

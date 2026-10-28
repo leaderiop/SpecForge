@@ -109,3 +109,30 @@ fn the_spec_guard_allows_prose_and_reports_new_errors_as_context() {
     );
     let _ = VERIFIED;
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the spec guard does not read a person's entity as removed from a file the write leaves unparsable"
+)]
+fn the_spec_guard_waits_for_a_text_that_parses() {
+    let project = hosts_project(json!({}), json!({}));
+    project.write(
+        "o.spec",
+        "override O1 \"Waive\" {\n  by \"agent\"\n  phase 03\n}\n",
+    );
+    let hosted = hosted(project, GsdHosts::new());
+    let root = hosted.project.root().display().to_string();
+    let mid_edit = json!({"event": "pre_tool", "host": "claude-code", "session": "s1",
+        "tool": {"name": "Write", "class": "write",
+                 "input": {"file_path": format!("{root}/o.spec"),
+                           "content": "override O1 \"Waive\" {\n  by \"agent\"\n  phase 03\n"}}});
+    let run = run_core_hook(&hosted, "spec_guard", &mid_edit);
+    assert!(
+        run.answer["decision"].is_null() || run.answer["decision"] == "allow",
+        "{run:?}"
+    );
+    assert!(
+        run.answer["context"].as_str().unwrap().contains("E001"),
+        "{run:?}"
+    );
+}

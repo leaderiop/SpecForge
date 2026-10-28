@@ -1,13 +1,7 @@
 //! What the K9 tests of hooks, state, the spec guard and doctor share (ADR 0292): the GSD-shaped host fixture
 //! ([`specforge_project::testing::GsdHosts`]) served in process, and the one place a test calls the host.
 //!
-//! [`run_hook`] and [`diagnose`] are what the tickets that add `host::hook` and the doctor findings fill in; until
-//! then they are unimplemented and the pins that use them are ignored.
-
-#![allow(
-    clippy::unimplemented,
-    reason = "a K9 pin's helper stands unimplemented until the ticket that adds what it calls"
-)]
+//! [`run_hook`], [`run_core_hook`], [`state_of`] and [`host_findings`] are the one place a test calls the host.
 
 use std::sync::Arc;
 

@@ -20,6 +20,19 @@ pub(crate) struct Stager<'a> {
 impl Stager<'_> {
     /// `key` (from the project root) as the caller's containment holds it.
     pub(crate) fn held(&self, key: &str) -> Result<Held, OpError> {
+        // A host file is never reached through a link (it can lead outside the project).
+        if (crate::host::owned_path(key) || key.starts_with(".specforge/"))
+            && let Some(link) = crate::host::link_in(self.sources.base(), key)
+        {
+            return Err(OpError::new(
+                OpErrorKind::PermissionDenied,
+                crate::FILE_UNWRITABLE,
+                format!(
+                    "{key} passes through the link {}: not written",
+                    link.display()
+                ),
+            ));
+        }
         Ok(self.caller.containment().resolve(&self.sources.path(key))?)
     }
 

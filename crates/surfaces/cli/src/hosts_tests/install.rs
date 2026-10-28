@@ -228,13 +228,18 @@ fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
     let installed = tree(&project);
     let path = ".claude/agents/t-planner.md";
-    let original = project.read(path);
-    // The kill: the journal says the file was replaced, and the file holds half of what was meant.
-    let half = "half written\n";
-    project.write(path, half);
+    let written = project.read(path);
+    // The kill: the journal says two files were written; the first is on disk, the second never got there. A host file
+    // is not restored from the journal (it holds code the project directory could have planted): the next install
+    // plans over the disk and finishes the job.
+    let second = ".claude/agents/t-plan-checker.md";
+    let _ = std::fs::remove_file(project.root().join(second));
     let journal = json!({
         "format": 1, "doing": "cannot write the host files",
-        "files": [{"path": path, "before": original, "after": specforge_project::journal::digest(half.as_bytes())}],
+        "files": [
+            {"path": path, "before": "", "after": specforge_project::journal::digest(written.as_bytes())},
+            {"path": second, "before": "", "after": specforge_project::journal::digest(b"never written")},
+        ],
     });
     project.write(".specforge/write-journal.json", journal.to_string());
 

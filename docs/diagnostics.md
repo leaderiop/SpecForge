@@ -506,18 +506,18 @@ routed under the same names after the commands (ADR 0291), so a prompt whose
 name a command or an earlier prompt has is the one not routed; the first in load
 order is routed and the later runs on no surface. Or two agents, skills and
 slash commands claim one host name (ADR 0292): they are host file names
-(`.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`,
-`.claude/commands/<name>.md`, and the same in `.codex` and `.cursor`), one
-namespace per project across kinds and extensions, and a slash command is named
-`<short>-<route>`; the first in load order is rendered and the later is not. Or
-two hooks route as one `<short>.<id>`; the later is not wired. Or two extensions
-register one MCP tool name, or one MCP resource name. Or two loaded extensions
-share one code namespace (the namespace is the package name's scope and name:
-`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
-`a.b.c`): the first in load order owns the namespace and the later extension's
-codes are described by nobody. One command id under two short names is two
-names, not a collision. Rename the later contribution, or give its extension
-another short name (`ext_short`; the SDK's `short`).
+(`.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`, and the same in
+`.codex` and `.cursor`), one namespace per project across kinds and extensions,
+and a slash command is named `<short>-<route>`; the first in load order is
+rendered and the later is not. Or two hooks route as one `<short>.<id>`; the
+later is not wired. Or two extensions register one MCP tool name, or one MCP
+resource name. Or two loaded extensions share one code namespace (the namespace
+is the package name's scope and name: `@gsd/core` and a local `gsd` are both
+`gsd`, `@a/b.c` and `@a.b/c` are both `a.b.c`): the first in load order owns the
+namespace and the later extension's codes are described by nobody. One command
+id under two short names is two names, not a collision. Rename the later
+contribution, or give its extension another short name (`ext_short`; the SDK's
+`short`).
 
 Owner: core
 Level: error

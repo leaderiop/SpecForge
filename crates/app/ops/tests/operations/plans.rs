@@ -73,6 +73,8 @@ pub struct Ran {
     pub wrote: Vec<String>,
     /// The refusal of the plan the command answered: its code and its data.
     pub refusal: Option<(String, Value)>,
+    /// The command's state patch was refused; the plan stood.
+    pub state_refused: bool,
 }
 
 impl Ran {
@@ -115,6 +117,7 @@ pub fn run_command(
         specforge_ops::testing::caller(),
     )
     .unwrap();
+    let state_refused = run.state_refused.is_some();
     let refusal = match run.plan {
         Some(PlanOutcome::Refused(error)) => Some((
             error.code.to_string(),
@@ -130,6 +133,7 @@ pub fn run_command(
         calls: runtime.calls(),
         wrote,
         refusal,
+        state_refused,
     }
 }
 

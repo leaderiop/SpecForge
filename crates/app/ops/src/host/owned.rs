@@ -22,6 +22,11 @@ fn name(word: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
+/// Whether `path` is one of the config files install merges into: files a host runs code from.
+pub fn config_path(path: &str) -> bool {
+    CONFIGS.contains(&path)
+}
+
 /// Whether `path` (project-relative, `/`-separated) is a file of one of the host layouts, with no `..`, no absolute
 /// root and no empty segment.
 pub fn owned_path(path: &str) -> bool {
@@ -57,6 +62,23 @@ pub fn owned_path(path: &str) -> bool {
         || skill(".claude/skills")
         || skill(".codex/skills")
         || skill(".cursor/skills")
+}
+
+/// The first component of `relative` below `root` that is a link (a dangling one too), if any: install, uninstall and
+/// the state store never write or delete through one, since a link can lead outside the project (a `.claude` that is
+/// the user's dotfiles directory).
+pub fn link_in(root: &Path, relative: &str) -> Option<std::path::PathBuf> {
+    let mut at = root.to_path_buf();
+    for part in relative.split('/').filter(|p| !p.is_empty()) {
+        at.push(part);
+        match std::fs::symlink_metadata(&at) {
+            Ok(meta) if meta.file_type().is_symlink() => return Some(at),
+            Ok(_) => {}
+            // Nothing there, so nothing below it is a link.
+            Err(_) => return None,
+        }
+    }
+    None
 }
 
 #[cfg(test)]

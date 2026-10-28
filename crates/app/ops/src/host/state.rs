@@ -9,8 +9,10 @@ use std::time::{Duration, SystemTime};
 use serde_json::{Map, Value};
 use specforge_protocol_types::{StatePatch, StateView};
 
+use crate::asking::Asking;
+use crate::change::locked;
 use crate::view::ProjectView;
-use crate::{FILE_UNWRITABLE, OpError, OpErrorKind};
+use crate::{Caller, FILE_UNWRITABLE, OpError, OpErrorKind};
 
 /// What a state document may hold, serialized.
 pub const CAP: usize = 64 * 1024;
@@ -48,18 +50,35 @@ fn refused(message: String) -> OpError {
     OpError::new(OpErrorKind::InvalidInput, STATE_REFUSED, message)
 }
 
-/// The object at `name`; empty when it is missing, unreadable or not an object: state is never what a run depends on.
+/// The object at `name`; empty when it is missing, unreadable, over the cap, a link or not an object: state is never
+/// what a run depends on. A session read is a use: it keeps the session from being pruned.
 fn load(view: &ProjectView<'_>, root: &Path, extension: &str, name: &str) -> Map<String, Value> {
-    view.containment()
-        .resolve(&root.join(path(extension, name)))
+    let relative = path(extension, name);
+    if super::link_in(root, &relative).is_some() {
+        return Map::new();
+    }
+    let Some(held) = view.containment().resolve(&root.join(&relative)).ok() else {
+        return Map::new();
+    };
+    let Some(bytes) = held
+        .read_if_there()
         .ok()
-        .and_then(|held| held.read_if_there().ok().flatten())
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-        .and_then(|value| match value {
-            Value::Object(map) => Some(map),
-            _ => None,
-        })
-        .unwrap_or_default()
+        .flatten()
+        .filter(|b| b.len() <= CAP)
+    else {
+        return Map::new();
+    };
+    if name.starts_with("sessions/") {
+        // shortcut: the use is the file's mtime; a run that cannot write the file leaves it to age.
+        let _ = std::fs::File::options()
+            .write(true)
+            .open(&held.real)
+            .and_then(|file| file.set_modified(SystemTime::now()));
+    }
+    match serde_json::from_slice::<Value>(&bytes) {
+        Ok(Value::Object(map)) => map,
+        _ => Map::new(),
+    }
 }
 
 /// What `extension` has kept, for a run of the host `session` (none: a CLI command).
@@ -95,8 +114,9 @@ fn merge(target: &mut Value, patch: &Value) {
     }
 }
 
-/// `patch` applied to `extension`'s state. Both documents are checked before either is written: a patch that
-/// leaves a document over [`CAP`] or not an object, or names a session when there is none, changes nothing.
+/// `patch` applied to `extension`'s state, as one journaled change under the write lock: both documents are checked
+/// before either is written, so a patch that leaves a document over [`CAP`] or not an object, or names a session when
+/// there is none, changes nothing, and a failure in the middle is put back like any write.
 pub fn apply(
     view: &ProjectView<'_>,
     extension: &str,
@@ -121,32 +141,48 @@ pub fn apply(
     if documents.is_empty() {
         return Ok(());
     }
-    let _lock = specforge_project::harness::lock(root).map_err(unwritable)?;
-    let mut staged = Vec::new();
-    for (name, p) in documents {
-        let mut merged = Value::Object(load(view, root, extension, &name));
-        merge(&mut merged, p);
-        if !merged.is_object() {
-            return Err(refused(format!(
-                "{extension}: the state '{name}' must stay a JSON object"
-            )));
-        }
-        let bytes = serde_json::to_vec(&merged).expect("a JSON value serializes");
-        if bytes.len() > CAP {
-            return Err(refused(format!(
-                "{extension}: the state '{name}' would be {} bytes, over the 64 KiB cap; nothing was written",
-                bytes.len()
-            )));
-        }
-        staged.push((name, bytes));
-    }
-    for (name, bytes) in staged {
-        let held = view
-            .containment()
-            .resolve(&root.join(path(extension, &name)))?;
-        held.create_parent().map_err(unwritable)?;
-        held.replace(bytes).map_err(unwritable)?;
-    }
+    let caller = Caller::new(view.containment(), Asking::Nobody);
+    let sources = view.env().sources().clone();
+    locked::commit(
+        &sources,
+        "cannot write the extension state",
+        caller,
+        true,
+        || Ok(()),
+        |stager| {
+            for (name, p) in &documents {
+                let relative = path(extension, name);
+                let held = stager.held(&relative)?;
+                let before = held.read_if_there().map_err(unwritable)?;
+                let mut merged = Value::Object(
+                    before
+                        .as_deref()
+                        .filter(|b| b.len() <= CAP)
+                        .and_then(|b| serde_json::from_slice::<Value>(b).ok())
+                        .and_then(|v| match v {
+                            Value::Object(map) => Some(map),
+                            _ => None,
+                        })
+                        .unwrap_or_default(),
+                );
+                merge(&mut merged, p);
+                if !merged.is_object() {
+                    return Err(refused(format!(
+                        "{extension}: the state '{name}' must stay a JSON object"
+                    )));
+                }
+                let bytes = serde_json::to_vec(&merged).expect("a JSON value serializes");
+                if bytes.len() > CAP {
+                    return Err(refused(format!(
+                        "{extension}: the state '{name}' would be {} bytes, over the 64 KiB cap; nothing was written",
+                        bytes.len()
+                    )));
+                }
+                stager.write(&relative, before, bytes)?;
+            }
+            Ok(())
+        },
+    )?;
     prune(view, root);
     Ok(())
 }
@@ -159,24 +195,41 @@ fn unwritable(error: std::io::Error) -> OpError {
     )
 }
 
-/// Remove the sessions no run touched for [`SESSION_AGE`]. Best effort: a session that stays is pruned next time.
+/// Remove the session documents no run used for [`SESSION_AGE`]. Best effort, and only what this store wrote: a
+/// regular `.json` file in a real `sessions` directory of a real extension directory, never through a link.
 fn prune(view: &ProjectView<'_>, root: &Path) {
-    let Ok(extensions) = std::fs::read_dir(root.join(".specforge/state")) else {
+    let base = root.join(".specforge/state");
+    let real_dir =
+        |path: &Path| std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_dir());
+    if !real_dir(&base) {
+        return;
+    }
+    let Ok(extensions) = std::fs::read_dir(&base) else {
         return;
     };
     let now = SystemTime::now();
     for extension in extensions.flatten() {
-        let Ok(sessions) = std::fs::read_dir(extension.path().join("sessions")) else {
+        let sessions = extension.path().join("sessions");
+        if !real_dir(&extension.path()) || !real_dir(&sessions) {
+            continue;
+        }
+        let Ok(files) = std::fs::read_dir(&sessions) else {
             continue;
         };
-        for session in sessions.flatten() {
-            let old = session
+        for file in files.flatten() {
+            let regular = file.file_type().is_ok_and(|t| t.is_file());
+            let json = file.path().extension().is_some_and(|e| e == "json");
+            let old = file
                 .metadata()
                 .and_then(|m| m.modified())
                 .ok()
                 .and_then(|modified| now.duration_since(modified).ok())
                 .is_some_and(|age| age > SESSION_AGE);
-            if old && let Ok(held) = view.containment().resolve(&session.path()) {
+            if regular
+                && json
+                && old
+                && let Ok(held) = view.containment().resolve(&file.path())
+            {
                 let _ = held.remove();
             }
         }

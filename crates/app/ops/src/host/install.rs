@@ -124,6 +124,12 @@ pub(super) struct ContainedHostDisk<'a> {
 
 impl ContainedHostDisk<'_> {
     fn held(&self, path: &str) -> Result<Held, String> {
+        if let Some(link) = super::owned::link_in(self.sources.base(), path) {
+            return Err(format!(
+                "it passes through the link {}, and install never writes or removes through a link",
+                link.display()
+            ));
+        }
         self.caller
             .containment()
             .resolve(&self.sources.path(path))
@@ -273,7 +279,8 @@ fn remove_empty_dirs(
     let mut dirs: Vec<String> = Vec::new();
     for file in changes.iter().filter(|f| f.action == Action::Remove) {
         let mut at = file.path.as_str();
-        while let Some((parent, _)) = at.rsplit_once('/') {
+        // `.claude`, `.codex` and `.cursor` themselves are the user's: only the layout directories below them go.
+        while let Some((parent, _)) = at.rsplit_once('/').filter(|(p, _)| p.contains('/')) {
             if !dirs.iter().any(|d| d == parent) {
                 dirs.push(parent.to_string());
             }

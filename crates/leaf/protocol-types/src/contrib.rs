@@ -299,7 +299,10 @@ pub struct PathFact {
 /// The commit a `pre_commit` hook fires on.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitFact {
-    pub message: String,
+    /// The message `-m` or `--message` gives; none when the commit takes it from elsewhere (`-F`, `-C`, `-c`,
+    /// `--fixup`, `--squash`, the editor), which the host does not read: a message check must not judge it as empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
     pub amend: bool,
 }
 

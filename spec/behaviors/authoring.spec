@@ -380,6 +380,9 @@ behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
   verify unit "rollback leaves a removed file alone when something else was written at its name since"
   verify unit "rollback refuses a journal that names a file no write of the project records"
   verify unit "the next install rolls back an install killed between two writes before it plans"
+  verify unit "a journal never restores a host config file, which runs code"
+  verify unit "a journal never restores a host config file, which runs code, through an install"
+  verify unit "the journal keeps no text of a host config file"
 }
 
 behavior refuse_human_only_write "Refuse a Human-Only Write" {

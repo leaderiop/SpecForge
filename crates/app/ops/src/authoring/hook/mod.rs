@@ -5,6 +5,7 @@
 
 mod facts;
 mod filter;
+pub mod patch;
 pub mod spec_guard;
 
 use specforge_protocol_types::{Decision, HookInput, HookOutput, HookTool, OnFailure, RawGraph};
@@ -178,6 +179,25 @@ pub fn run(
         });
     }
     outcome
+}
+
+/// The answer for an event that could not be read (over the size limit, not the host's JSON): the policy of the hook
+/// routed `route`, as for a hook that trapped. The spec guard denies; a route the project does not declare cannot be
+/// known to object and allows.
+pub fn unreadable(view: &ProjectView<'_>, route: &str, why: &str) -> HookAnswer {
+    let policy = if route == crate::host::render::SPEC_GUARD {
+        OnFailure::Deny
+    } else {
+        view.registries()
+            .hook(route)
+            .map_or(OnFailure::Allow, |h| h.item.on_failure)
+    };
+    failed(
+        policy,
+        &format!("the host's event is unreadable: {why}"),
+        route,
+    )
+    .answer
 }
 
 /// The policy of a hook that did not answer.

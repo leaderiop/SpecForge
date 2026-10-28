@@ -18,8 +18,7 @@ const SEARCHED: usize = 4;
 
 /// `template` with its [`PLACEHOLDER`] line replaced by the marker line for `source` on `host`.
 pub fn stamp(host: Host, source: &Source, template: &str) -> String {
-    let without = remove_line(template, PLACEHOLDER);
-    let digest = Sha256::of(without.as_bytes());
+    let digest = digest_of(&remove_line(template, PLACEHOLDER));
     let line = format!(
         "{PREFIX}{}) from {}@{} {} {}; edits are overwritten; sha256:{digest}",
         host.as_str(),
@@ -29,6 +28,12 @@ pub fn stamp(host: Host, source: &Source, template: &str) -> String {
         source.id,
     );
     template.replacen(PLACEHOLDER, &line, 1)
+}
+
+/// The digest of a file without its marker line, as the same text with `\n` line ends: a checkout that turned them to
+/// `\r\n` (git `autocrlf`) has not edited the file.
+fn digest_of(text: &str) -> String {
+    Sha256::of(text.replace("\r\n", "\n").as_bytes()).to_string()
 }
 
 /// `text` without its first line that is (or starts with) `needle`, and that line's newline.
@@ -63,7 +68,7 @@ pub fn inspect(text: &str) -> Mark {
         return Mark::Foreign;
     };
     let claimed = line.rsplit_once("sha256:").map(|(_, hex)| hex.trim());
-    let digest = Sha256::of(remove_line(text, PREFIX).as_bytes()).to_string();
+    let digest = digest_of(&remove_line(text, PREFIX));
     Mark::Ours {
         host: host.to_string(),
         intact: claimed == Some(digest.as_str()),
@@ -130,5 +135,24 @@ mod tests {
         // A marker buried below the searched lines is no marker.
         let deep = format!("a\nb\nc\nd\n{stamped}");
         assert_eq!(inspect(&deep), Mark::Foreign);
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "install_into_a_host",
+        verify = "a marked file whose line ends became CRLF is not an edited file"
+    )]
+    fn crlf_line_ends_are_not_an_edit() {
+        let stamped = stamp(
+            Host::Codex,
+            &source(),
+            &format!("{PLACEHOLDER}\nname = 'a'\n"),
+        );
+        assert_eq!(
+            inspect(&stamped.replace('\n', "\r\n")),
+            Mark::Ours {
+                host: "codex".into(),
+                intact: true
+            }
+        );
     }
 }

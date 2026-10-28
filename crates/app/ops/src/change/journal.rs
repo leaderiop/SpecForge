@@ -34,7 +34,7 @@ impl Record {
     pub(crate) fn add(&mut self, path: &str, before: Option<&[u8]>, after: &[u8]) {
         let before = match before.map(std::str::from_utf8) {
             None => None,
-            Some(Ok(text)) => Some(text.to_string()),
+            Some(Ok(text)) => Some(kept(path, text)),
             Some(Err(_)) => {
                 self.complete = false;
                 return;
@@ -55,7 +55,7 @@ impl Record {
         };
         self.entries.push(Entry {
             path: path.to_string(),
-            before: Some(text.to_string()),
+            before: Some(kept(path, text)),
             after: ABSENT.to_string(),
         });
     }
@@ -123,6 +123,16 @@ impl Record {
     }
 }
 
+/// The text the journal keeps of what `path` held: a host config file may hold secrets (`env` tokens) and is never
+/// restored from the journal, so none of it is kept.
+fn kept(path: &str, text: &str) -> String {
+    if crate::host::config_path(path) {
+        String::new()
+    } else {
+        text.to_string()
+    }
+}
+
 /// Whether a rollback may touch `entry`: a source, the ledger or `.gitattributes` inside the project root (no
 /// absolute path, no `..`), whose `after` is a digest.
 fn restorable(entry: &Entry) -> bool {
@@ -133,7 +143,8 @@ fn restorable(entry: &Entry) -> bool {
     let kind = entry.path.ends_with(".spec")
         || entry.path == specforge_project::harness::LEDGER_FILE
         || entry.path == ".gitattributes"
-        || crate::host::owned_path(&entry.path);
+        || crate::host::owned_path(&entry.path)
+        || entry.path.starts_with(".specforge/state/");
     let digest = entry.after == ABSENT
         || entry.after.strip_prefix("sha256:").is_some_and(|hex| {
             hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
@@ -165,7 +176,21 @@ pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Write
                 ),
             ));
         }
-        for entry in &journal.files {
+        for entry in journal.files.iter() {
+            // A host file is restored only to what install itself writes: a config file (it runs code: hooks, MCP
+            // servers) never, an agent or skill only to a text that carries an intact install marker. The next
+            // install plans over whatever is on disk.
+            if crate::host::config_path(&entry.path)
+                || (crate::host::owned_path(&entry.path)
+                    && entry.before.as_deref().is_some_and(|text| {
+                        !matches!(
+                            crate::host::marker::inspect(text),
+                            crate::host::marker::Mark::Ours { intact: true, .. }
+                        )
+                    }))
+            {
+                continue;
+            }
             let held = caller.containment().resolve(&sources.path(&entry.path))?;
             let now = held.read_if_there().map_err(|e| {
                 OpError::new(

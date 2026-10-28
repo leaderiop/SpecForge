@@ -2,7 +2,8 @@
 //! host's hook runs. The host's event is read from stdin through the host's adapter, filtered by the flags before
 //! anything is loaded, and, if it is one the hook fires on, answered by the hook in the project the event's `cwd`
 //! is in; the answer is written in the host's protocol. A hook never fails its host: whatever goes wrong answers by the
-//! hook's own policy or allows.
+//! hook's own policy (`on_failure`; the spec guard denies), and allows only where no hook of the project is known to
+//! object: outside a project, or for a route the project does not declare.
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
@@ -10,13 +11,13 @@ use std::path::{Path, PathBuf};
 use crate::outcome::Exit;
 use crate::terminal::{Terminal, err, errln, out};
 use specforge_ops::authoring::hook::{self, Filter};
-use specforge_ops::host::{Host, HostRenderer, HostReply};
+use specforge_ops::host::{Host, HostHookEvent, HostRenderer, HostReply};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
 use specforge_protocol_types::HookEvent;
 
-/// The most stdin a host may send.
-const STDIN_LIMIT: u64 = 4 * 1024 * 1024;
+/// The most stdin a host may send; more is a failure of the hook, not a truncated event.
+pub(crate) const STDIN_LIMIT: u64 = 4 * 1024 * 1024;
 
 /// `specforge hook`'s command line.
 #[derive(clap::Args)]
@@ -37,23 +38,27 @@ pub(crate) struct Args {
     #[arg(long, value_delimiter = ',')]
     tools: Vec<String>,
 
-    /// Project-relative globs a path of the tool's input must match, comma-separated (empty: any path)
-    #[arg(long, value_delimiter = ',')]
+    /// A project-relative glob a path of the tool's input must match; repeat it for several (none: any path)
+    #[arg(long)]
     paths: Vec<String>,
 }
 
 impl Args {
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
         let mut stdin = Vec::new();
-        // shortcut: a stdin that cannot be read is an empty one; the host gets the no-op answer.
-        let _ = std::io::stdin().take(STDIN_LIMIT).read_to_end(&mut stdin);
-        self.run_with(&stdin, crate::project::compile_dir, terminal)
+        // One byte past the limit says it was passed; a stdin that cannot be read is what was read of it.
+        let _ = std::io::stdin()
+            .take(STDIN_LIMIT + 1)
+            .read_to_end(&mut stdin);
+        let cwd = std::env::current_dir().unwrap_or_default();
+        self.run_with(&stdin, &cwd, crate::project::compile_dir, terminal)
     }
 
     /// Over `stdin`; `compile` loads the project at a root, and is called only for an event the hook fires on.
     pub(crate) fn run_with(
         self,
         stdin: &[u8],
+        cwd: &Path,
         compile: impl FnOnce(&Path) -> CompiledProject,
         terminal: &Terminal,
     ) -> Exit {
@@ -71,7 +76,7 @@ impl Args {
         let Some(adapter) = specforge_hosts::renderer(host) else {
             return Exit::Passed;
         };
-        let reply = answer(&*adapter, &self, event, stdin, compile, terminal);
+        let reply = answer(&*adapter, &self, event, stdin, cwd, compile, terminal);
         out!(terminal, "{}", reply.stdout);
         if !reply.stderr.is_empty() {
             err!(terminal, "{}", reply.stderr);
@@ -96,23 +101,43 @@ fn answer(
     args: &Args,
     event: HookEvent,
     stdin: &[u8],
+    process_cwd: &Path,
     compile: impl FnOnce(&Path) -> CompiledProject,
     terminal: &Terminal,
 ) -> HostReply {
     let nothing = HostReply::default();
-    let mut read = match adapter.read_event(stdin) {
+    let parsed = if stdin.len() as u64 > STDIN_LIMIT {
+        Err(format!(
+            "the event is over {} MiB",
+            STDIN_LIMIT / (1024 * 1024)
+        ))
+    } else {
+        adapter.read_event(stdin).map_err(|why| why.to_string())
+    };
+    let mut read = match parsed {
         Ok(read) => read,
         Err(why) => {
             errln!(terminal, "hook {}: {why}", args.route);
-            return nothing;
+            // An event that cannot be read cannot be judged: the hook's own policy answers, as for a trap.
+            let Some(root) = project_at(process_cwd) else {
+                return nothing;
+            };
+            let project = compile(&root);
+            let view = ProjectView::of(&project);
+            let event = HostHookEvent {
+                event,
+                host: args.host.clone(),
+                ..HostHookEvent::default()
+            };
+            let answer = hook::unreadable(&view, &args.route, &why);
+            return adapter.write_answer(&event, &answer);
         }
     };
     let cwd = read
         .cwd
         .as_deref()
         .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok())
-        .unwrap_or_default();
+        .unwrap_or_else(|| process_cwd.to_path_buf());
     // The project is found before the filter needs its paths made relative; outside one, the hook is a no-op.
     let Some(root) = project_at(&cwd) else {
         return nothing;

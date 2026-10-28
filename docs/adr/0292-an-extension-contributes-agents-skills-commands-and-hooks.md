@@ -35,8 +35,13 @@ a value that only a command computes or only a person writes (ADR 0287, ADR 0289
   The Claude Code layout and protocol follow its documentation; the Codex and Cursor ones could not be verified when this
   was written and are documented as such.
 - **D3. Install owns exactly what it marked.** A file it writes carries a marker line with its host, source and the
-  digest of the rest; a config entry it owns is the one whose command is `specforge` or starts `specforge hook `. An
-  unmarked file is never written, moved or removed (`foreign_file`); a marked file edited since is refused
+  digest of the rest. A config entry (JSON or TOML) carries no marker line of its own, so it is owned by a mark and a
+  place: a hook command ends with the comment `# specforge-install` (the hook command line of a TOML entry carries it
+  too), and the MCP server is the entry named `specforge` of the host's server table, in the hook table or server table
+  install itself merges into. A user's hook or server whose command merely mentions `specforge` is not owned and is
+  never changed or removed; uninstall strips only what it marked, and removes a config file only if nothing else is left
+  in it and install created it. Install never follows a link: a link where it would write or remove, or in the path to
+  it, is refused. An unmarked file is never written, moved or removed (`foreign_file`); a marked file edited since is refused
   (`edited_file`) unless forced. The plan is compared with the disk file by file and entry by entry, refusals are
   reported together and nothing is written, and the write is one change under the write lock and the journal (ADR 0289):
   idempotent, all or nothing, uninstall the same plan against a tree that renders nothing. `doctor` reports a marked
@@ -51,10 +56,13 @@ a value that only a command computes or only a person writes (ADR 0287, ADR 0289
   neutral answer to the host's protocol.
 - **D5. A hook or command keeps small state the host writes.** Per extension, per project and per session, JSON objects
   under `.specforge/state/` of at most 64 KiB, read when declared and patched with JSON merge patches the host applies
-  after any plan under the write lock; a patch over the cap is refused whole. Sessions untouched for 30 days go at the
+  after any plan, as one journaled change under the write lock (never through a link); a patch over the cap is refused
+  whole, and the plan the command applied stands, the refusal reported beside it. Sessions untouched for 30 days go at the
   next write. State is never project truth: no rule reads it and a compile never depends on it.
-- **D6. Every install wires `core.spec_guard`**, the host's own hook, on a host's Write or Edit of a `.spec` file. It
-  judges the file as the write would leave it, as a hand edit: a computed value (E082), a harness value with no ledger
+- **D6. Every install wires `core.spec_guard`**, the host's own hook, on a host's Write or Edit of a `.spec` file
+  (on Codex and Cursor also the patch-text tools `apply_patch` and `ApplyPatch`, read from their `*** Update File:` and
+  `*** Add File:` sections; the shape of that input is the one the hosts document and is a draft, like the rest of
+  those two hosts). It fails closed: an event over 4 MiB or not the host's JSON is denied. It judges the file as the write would leave it, as a hand edit: a computed value (E082), a harness value with no ledger
   line (E083) or a kind or field only a person writes is denied, naming the entity, the field and the tool; any other new
   error is context for the agent. It is a boundary of the host's tools, not of the file system. There is no new judging
   mode: the compiled project's `edited` and a comparison of the human-only entities of the two graphs are enough.
@@ -72,4 +80,7 @@ Reading a commit message from a `-F` file: the file is not a project file, so th
 Four declaration lists and two exports (`render__`, `hook__<id>`), a host port and a crate of adapters, `install`,
 `uninstall` and `hook` commands, a state store, a core hook, two doctor findings and a protocol minor shared with ADR
 0291. An older host ignores the new keys and installs nothing. A project whose extensions contribute nothing to a host
-declares and runs as it did. Codex and Cursor output is a draft until it has run in those hosts.
+declares and runs as it did. Codex and Cursor output is a draft until it has run in those hosts: their tests compare
+with goldens the adapters wrote, not with a run of the host. A host that cannot find `specforge` on its PATH (a GUI
+launch) runs no hook at all, the spec guard among them, and says so in its own way only; install writes the bare command
+name, and `doctor` does not check the host's PATH.

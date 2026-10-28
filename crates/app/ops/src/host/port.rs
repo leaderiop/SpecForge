@@ -114,7 +114,10 @@ impl RenderedHook {
             words.extend(["--tools".to_string(), self.tools.join(",")]);
         }
         if !self.paths.is_empty() {
-            words.extend(["--paths".to_string(), quoted(&self.paths.join(","))]);
+            // One flag per glob: a glob may hold a comma (`{a,b}`), which no list separator may.
+            for path in &self.paths {
+                words.extend(["--paths".to_string(), quoted(path)]);
+            }
         }
         words.push(HOOK_MARK.to_string());
         words.join(" ")
@@ -128,6 +131,7 @@ impl RenderedHook {
 }
 
 /// `word` as one shell word: a glob or a space in it must reach the process as written.
+// shortcut: POSIX quoting only; the hosts run the command under `sh`, a Windows shell is not quoted for.
 fn quoted(word: &str) -> String {
     let plain = |c: char| c.is_ascii_alphanumeric() || "._/,:=@%+-".contains(c);
     if word.chars().all(plain) {
@@ -295,4 +299,31 @@ pub trait HostRenderer: Send + Sync {
 
     /// The neutral `answer` to `event`, as the host expects it.
     fn write_answer(&self, event: &HostHookEvent, answer: &HookAnswer) -> HostReply;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[specforge_test_macros::test(
+        behavior = "install_into_a_host",
+        verify = "a hook command repeats --paths per glob, so a glob holding a comma reaches the hook whole"
+    )]
+    fn a_hook_command_passes_each_glob_whole() {
+        let hook = RenderedHook {
+            route: "t.g".into(),
+            description: String::new(),
+            event: HookEvent::PreTool,
+            tools: Vec::new(),
+            paths: vec!["specs/**/*.{spec,md}".into(), "a b/*.spec".into()],
+            timeout_ms: 1000,
+        };
+        assert_eq!(
+            hook.command(Host::ClaudeCode),
+            concat!(
+                "specforge hook t.g --host claude-code --event pre_tool ",
+                "--paths 'specs/**/*.{spec,md}' --paths 'a b/*.spec' # specforge-install"
+            )
+        );
+    }
 }

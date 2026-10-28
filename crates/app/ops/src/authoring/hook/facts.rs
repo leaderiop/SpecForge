@@ -8,7 +8,8 @@ use specforge_protocol_types::{CommitFact, PathFact};
 
 use crate::host::shell;
 
-/// The paths a tool's input names: `file_path`, `path`, `notebook_path`, and each of `paths`.
+/// The paths a tool's input names: `file_path`, `path`, `notebook_path`, each of `paths` and each file a patch text
+/// names.
 pub fn path_names(input: &Value) -> Vec<String> {
     let mut out = Vec::new();
     for key in ["file_path", "path", "notebook_path"] {
@@ -18,6 +19,9 @@ pub fn path_names(input: &Value) -> Vec<String> {
     }
     if let Some(paths) = input.get("paths").and_then(Value::as_array) {
         out.extend(paths.iter().filter_map(Value::as_str).map(str::to_string));
+    }
+    if let Some(patch) = super::patch::text_of(input) {
+        out.extend(super::patch::paths(patch));
     }
     out
 }
@@ -101,13 +105,53 @@ pub fn shell_words(input: &Value) -> Option<Vec<String>> {
     shell::words(input.get("command")?.as_str()?).ok()
 }
 
-/// The `git commit` a command line makes: its message (`-m` or `--message`; a `-F` file is not read) and whether it amends; none when no command of the line is a commit.
-// shortcut: `git commit` is found by its words (global options skipped); an alias or a script is not seen.
+/// The `git commit` a command line makes: its message (`-m` or `--message`, alone or in a cluster of short options such
+/// as `-am`) and whether it amends; none when no command of the line is a commit. A message the commit takes from
+/// elsewhere (`-F`, `-C`, `-c`, `--fixup`, `--squash`, the editor) is none, not empty.
+// shortcut: `git commit` is found by its words (global options and the wrappers `env`, `command`, `sudo`, `exec`,
+// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen.
 pub fn commit(input: &Value) -> Option<CommitFact> {
-    let line = input.get("command")?.as_str()?;
+    commit_of_line(input.get("command")?.as_str()?, 0)
+}
+
+fn commit_of_line(line: &str, depth: usize) -> Option<CommitFact> {
     let commands = shell::commands(line).ok()?;
-    let words = commands.iter().find(|c| is_commit(c))?;
-    let mut message = Vec::new();
+    for words in &commands {
+        if let Some(inner) = shell_c(words).filter(|_| depth < 3) {
+            if let Some(fact) = commit_of_line(inner, depth + 1) {
+                return Some(fact);
+            }
+        } else if let Some(args) = commit_args(words) {
+            return Some(commit_fact(args));
+        }
+    }
+    None
+}
+
+/// The script of `sh -c '…'` (or bash, zsh), the wrappers skipped.
+fn shell_c(words: &[String]) -> Option<&str> {
+    let mut it = words.iter().skip_while(|w| wrapper(w));
+    let name = it.next()?.rsplit('/').next()?;
+    if !matches!(name, "sh" | "bash" | "zsh") {
+        return None;
+    }
+    let flag = |w: &String| w.starts_with('-') && !w.starts_with("--");
+    let mut rest = it.skip_while(|w| flag(w) && !w.ends_with('c'));
+    rest.next().filter(|w| flag(w) && w.ends_with('c'))?;
+    rest.next().map(String::as_str)
+}
+
+fn wrapper(word: &str) -> bool {
+    (word.contains('=') && !word.starts_with('-'))
+        || matches!(
+            word,
+            "env" | "command" | "sudo" | "exec" | "nohup" | "time" | "nice"
+        )
+}
+
+fn commit_fact(words: &[String]) -> CommitFact {
+    let mut message: Vec<String> = Vec::new();
+    let mut elsewhere = false;
     let mut amend = false;
     let mut at = 0;
     while at < words.len() {
@@ -118,41 +162,72 @@ pub fn commit(input: &Value) -> Option<CommitFact> {
         };
         match word {
             "--amend" => amend = true,
-            "-m" | "--message" => message.extend(value(&mut at)),
-            // The message file is not a project file: it is skipped, its message left empty.
-            "-F" | "--file" => at += 1,
+            "--message" => message.extend(value(&mut at)),
+            "--file" | "--reuse-message" | "--reedit-message" | "--fixup" | "--squash" => {
+                elsewhere = true;
+                at += 1;
+            }
             w if w.starts_with("--message=") => message.push(w["--message=".len()..].to_string()),
-            w if w.starts_with("-m") && w.len() > 2 && !w.starts_with("--") => {
-                message.push(w[2..].to_string());
+            w if w.starts_with("--file=")
+                || w.starts_with("--reuse-message=")
+                || w.starts_with("--reedit-message=")
+                || w.starts_with("--fixup=")
+                || w.starts_with("--squash=") =>
+            {
+                elsewhere = true;
+            }
+            w if w.starts_with('-') && !w.starts_with("--") => {
+                // A cluster of short options: the first that takes a value ends it.
+                for (i, c) in w.char_indices().skip(1) {
+                    match c {
+                        'm' => {
+                            let rest = &w[i + 1..];
+                            if rest.is_empty() {
+                                message.extend(value(&mut at));
+                            } else {
+                                message.push(rest.to_string());
+                            }
+                            break;
+                        }
+                        'F' | 'C' | 'c' => {
+                            elsewhere = true;
+                            if w[i + 1..].is_empty() {
+                                at += 1;
+                            }
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
             }
             _ => {}
         }
         at += 1;
     }
-    Some(CommitFact {
-        message: message.join("\n\n"),
+    CommitFact {
+        message: (!elsewhere && !message.is_empty()).then(|| message.join("\n\n")),
         amend,
-    })
+    }
 }
 
-/// Whether `words` is `git [global options] commit …`.
-fn is_commit(words: &[String]) -> bool {
-    let mut it = words
-        .iter()
-        .skip_while(|w| w.contains('=') && !w.starts_with('-'));
-    if it.next().map(String::as_str) != Some("git") {
-        return false;
+/// The words after `commit` when `words` is `git [global options] commit …`, the wrappers skipped.
+fn commit_args(words: &[String]) -> Option<&[String]> {
+    let start = words.iter().take_while(|w| wrapper(w)).count();
+    let mut it = words.iter().enumerate().skip(start);
+    if it.next().map(|(_, w)| w.as_str()) != Some("git") {
+        return None;
     }
-    while let Some(word) = it.next() {
+    while let Some((at, word)) = it.next() {
         match word.as_str() {
             "-C" | "-c" | "--git-dir" | "--work-tree" | "--namespace" => {
                 it.next();
             }
             w if w.starts_with('-') => {}
-            w => return w == "commit",
+            "commit" => return Some(&words[at + 1..]),
+            _ => return None,
         }
     }
-    false
+    None
 }
 
 #[cfg(test)]
@@ -168,18 +243,59 @@ mod tests {
     #[test]
     fn a_git_commit_is_found_with_its_message() {
         let fact = commit_of("git commit -m \"feat(x): y\" --amend").unwrap();
-        assert_eq!((fact.message.as_str(), fact.amend), ("feat(x): y", true));
+        assert_eq!(
+            (fact.message.as_deref(), fact.amend),
+            (Some("feat(x): y"), true)
+        );
         assert_eq!(
             commit_of("git -C sub commit --message=wip")
                 .unwrap()
-                .message,
-            "wip"
+                .message
+                .as_deref(),
+            Some("wip")
         );
         assert_eq!(
-            commit_of("cd x && git commit -m 'a b'").unwrap().message,
-            "a b"
+            commit_of("cd x && git commit -m 'a b'")
+                .unwrap()
+                .message
+                .as_deref(),
+            Some("a b")
         );
-        assert_eq!(commit_of("git commit -m a -m b").unwrap().message, "a\n\nb");
+        assert_eq!(
+            commit_of("git commit -m a -m b")
+                .unwrap()
+                .message
+                .as_deref(),
+            Some("a\n\nb")
+        );
+    }
+
+    #[test]
+    fn clustered_options_wrappers_and_unread_messages_are_told_apart() {
+        let message = |line: &str| commit_of(line).unwrap().message;
+        for line in [
+            "git commit -am 'wip'",
+            "git commit -sm wip",
+            "git commit -qam wip",
+            "git commit -S -m wip",
+            "git commit -amwip",
+            "env GIT_X=1 git commit -m wip",
+            "sudo git commit -m wip",
+            "sh -c 'git add . && git commit -m wip'",
+            "bash -lc \"git commit -am wip\"",
+        ] {
+            assert_eq!(message(line).as_deref(), Some("wip"), "{line}");
+        }
+        for line in [
+            "git commit -F msg.txt",
+            "git commit -C HEAD",
+            "git commit --fixup=abc",
+            "git commit -e",
+            "git commit",
+        ] {
+            assert_eq!(message(line), None, "{line}");
+        }
+        assert!(commit_of("git commit --amend -m x").unwrap().amend);
     }
 
     #[test]

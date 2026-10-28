@@ -29,10 +29,14 @@ c.hook("write_guard", HookEvent::PreTool, |h| {
 ## Events
 
 `pre_tool`, `post_tool` and `pre_commit` fire for a tool and take `tools` (host-neutral classes; empty means every tool)
-and `paths` (project-relative globs a path of the tool's input must match; `{spec_root}` is the spec root). The others
+and `paths` (project-relative globs a path of the tool's input must match, one `--paths` flag per glob in the installed
+command; a patch-text tool such as `apply_patch` names its files in the patch, which is read; `{spec_root}` is the spec root). The others
 are `user_prompt`, `session_start`, `stop`, `subagent_start`, `subagent_stop`, `pre_compact` and `statusline`. A host
 that has no such event reports it as `not_rendered` at install. `pre_commit` fires only for a shell tool running
-`git commit`, with the commit's message (`-m`, `--message`; a message read from a file with `-F` is not read).
+`git commit`, with the commit's message (`-m`, `--message`, alone or in a cluster such as `-am`; found through `env`,
+`sudo`, `command` and `sh -c '…'`). A message the commit takes from elsewhere (`-F`, `-C`, `--fixup`, the editor) is
+absent from `commit`, not empty: a message check must treat that as unknown. An alias, a script, `xargs` and `$(…)`
+are not seen.
 
 A hook that does not match its event, tool class or paths costs a process start and nothing else: the extension is not
 loaded. A hook whose `when` setting is false is a no-op.
@@ -43,7 +47,7 @@ A sandboxed guest cannot read files or run commands, so the host computes what a
 
 - `paths`: for each path the tool names, `in_project`, `in_spec_root`, `exists`, `bytes` and, for a write, `new_bytes`;
 - `shell`: a shell tool's command as words (POSIX quoting; a command the host cannot split gives none);
-- `commit`: the message and whether it amends;
+- `commit`: the message (absent when it is not given with `-m`) and whether it amends;
 - `prompt`, `response`, `status`: what the host sent for those events;
 - `graph` (`reads_graph`), `revisions` (`writes`) and `state` (`reads_state`), only when declared.
 
@@ -58,7 +62,10 @@ reading and says so.
   seconds more, so it never kills the process before your failure policy applies.
 - **Failure.** A trap, a timeout or an answer that is no `HookOutput` applies `on_failure`: `allow` (the default) is
   the host's no-op answer with the E028 line on stderr; `deny` denies with the E028 text. A guard should say `deny`;
-  everything else should not stop an agent.
+  everything else should not stop an agent. An event the host sends that cannot be read (over 4 MiB, or not the host's
+  JSON) is a failure of the hook too, and `on_failure` answers it; the project is loaded for that, from the hook's
+  working directory. A route the project does not declare (an extension was removed, install not run again) allows
+  with a line on stderr, since its policy is not known.
 - **Plans.** A hook that declares `writes` may answer an edit plan. It is checked and applied exactly as a command's
   plan is, with the hook as its origin, so a computed value, a harness value you do not own and a person's own value are
   refused. A refused plan becomes a deny on a pre event and a notice otherwise, naming the refusal.
