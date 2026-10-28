@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use specforge_graph::{Found, Graph, Node};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
-use specforge_registry::judged::{CITED, JudgedRule, Selector};
+use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
 use specforge_registry::{Disk, EntitySnapshot};
 
 use super::report::{self, Report};
@@ -239,23 +239,24 @@ impl<'a> Cx<'a> {
         let Report::Read(results) = self.report() else {
             return None;
         };
-        Some(
-            results
-                .results
-                .get(id)
-                .map(|t| {
-                    t.tests
-                        .iter()
-                        .map(|t| {
-                            json!([
-                                t.name,
-                                serde_json::to_value(t.status).unwrap_or(Value::Null)
-                            ])
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-        )
+        let mut tests: Vec<Value> = results
+            .results
+            .get(id)
+            .map(|t| {
+                t.tests
+                    .iter()
+                    .map(|t| {
+                        json!([
+                            t.name,
+                            serde_json::to_value(t.status).unwrap_or(Value::Null)
+                        ])
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        // a re-run that reorders the same tests is the same input
+        tests.sort_by_key(Value::to_string);
+        Some(tests)
     }
 
     pub fn inputs(&self, node: &Node, rule: &JudgedRule, cited: &Cited) -> Inputs {
@@ -355,9 +356,26 @@ impl<'a> Cx<'a> {
                 .collect();
             let cited_from = out.files.len();
             let files = self.files("cited", &paths, &mut out.files);
+            // The entities and files are digested whatever the report holds; the cited tests are an input of their
+            // own, so a missing report hides nothing else.
+            let digest = hash(&json!({"entities": entities, "files": files}));
+            out.cited = CitedReport {
+                entities: entities
+                    .iter()
+                    .filter_map(|e| e[1].as_str().map(str::to_string))
+                    .collect(),
+                files: out.files[cited_from..]
+                    .iter()
+                    .map(|f| f.path.clone())
+                    .collect(),
+                tests: cited.tests.clone(),
+                digest: digest.clone(),
+            };
+            out.digests.push((CITED.to_string(), digest));
             // shortcut: a cited test is a test name looked up across every entity's recorded tests; name a
             // test by entity when a project reuses names.
-            let tests = match self.report() {
+            match self.report() {
+                _ if cited.tests.is_empty() => {}
                 Report::Read(results) => {
                     let mut seen: Vec<Value> = Vec::new();
                     for name in &cited.tests {
@@ -372,32 +390,15 @@ impl<'a> Cx<'a> {
                         }
                     }
                     seen.sort_by_key(Value::to_string);
-                    Value::Array(seen)
+                    out.digests
+                        .push((CITED_TESTS.to_string(), hash(&Value::Array(seen))));
                 }
-                _ if cited.tests.is_empty() => json!([]),
                 _ => {
                     out.tests_unjudged = true;
-                    Value::String(NONE.into())
+                    out.digests
+                        .push((CITED_TESTS.to_string(), NONE.to_string()));
                 }
-            };
-            let digest = if tests == Value::String(NONE.into()) {
-                NONE.to_string()
-            } else {
-                hash(&json!({"entities": entities, "files": files, "tests": tests}))
-            };
-            out.cited = CitedReport {
-                entities: entities
-                    .iter()
-                    .filter_map(|e| e[1].as_str().map(str::to_string))
-                    .collect(),
-                files: out.files[cited_from..]
-                    .iter()
-                    .map(|f| f.path.clone())
-                    .collect(),
-                tests: cited.tests.clone(),
-                digest: digest.clone(),
-            };
-            out.digests.push((CITED.to_string(), digest));
+            }
         }
         out
     }

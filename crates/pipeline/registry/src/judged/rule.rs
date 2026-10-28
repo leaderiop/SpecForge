@@ -12,6 +12,8 @@ use crate::rules::Registries;
 
 /// The name a verdict's cited files and entities digest under: an input cannot take it.
 pub const CITED: &str = "cited";
+/// The input a verdict's `cited_tests` are digested as, beside `cited`.
+pub const CITED_TESTS: &str = "cited_tests";
 
 /// One target kind of a judged rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,10 +89,10 @@ pub(crate) fn shape(
             || target
                 .inputs
                 .iter()
-                .any(|i| !is_word(&i.name) || i.name == CITED)
+                .any(|i| !is_word(&i.name) || i.name == CITED || i.name == CITED_TESTS)
         {
             return Err(format!(
-                "target '{}': input names must be words, each once, and not '{CITED}'",
+                "target '{}': input names must be words, each once, and not '{CITED}' or '{CITED_TESTS}'",
                 target.kind
             ));
         }

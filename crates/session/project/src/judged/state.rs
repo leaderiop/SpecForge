@@ -299,9 +299,8 @@ pub fn evaluate(
                                     .iter()
                                     .find(|(n, _)| n == name)
                                     .map(|(_, d)| d.as_str());
-                                digest != NONE
-                                    && then != Some(NONE)
-                                    && then != Some(digest.as_str())
+                                // `none` now is not judged; a recorded `none` is stale once the digest is real
+                                digest != NONE && then != Some(digest.as_str())
                             })
                             .map(|(name, _)| name.clone())
                             .collect();

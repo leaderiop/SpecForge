@@ -4,6 +4,6 @@
 mod rule;
 mod selector;
 
-pub use rule::{CITED, JudgedRule, JudgedTargetRule};
+pub use rule::{CITED, CITED_TESTS, JudgedRule, JudgedTargetRule};
 pub(crate) use rule::{resolve, shape};
 pub use selector::{Chain, Head, Selector, Step};
