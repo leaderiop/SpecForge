@@ -1,6 +1,8 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
 
 pub mod codes;
+mod kinds;
+mod passes;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -17,6 +19,8 @@ struct GsdCore;
 impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
+        kinds::declare(c);
+        passes::declare(c);
         codes::declare(c);
     }
 }

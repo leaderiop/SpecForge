@@ -1,0 +1,413 @@
+{
+  "edges": {
+    "category": "edges",
+    "items": [
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ProjectValidated",
+        "source_kind": "project",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ProjectActive",
+        "source_kind": "project",
+        "target_kind": "requirement"
+      }
+    ]
+  },
+  "entities": {
+    "category": "entities",
+    "items": [
+      {
+        "description": "The project: what it is, its core value, context and constraints (GSD PROJECT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "# [Project Name]",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "What This Is",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "what",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Core Value",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "core_value",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "customer",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "revenue_model",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "success_metric",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Constraints",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "tech_stack",
+                  "timeline",
+                  "budget",
+                  "dependencies",
+                  "compatibility",
+                  "performance",
+                  "security",
+                  "other"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "kind",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "what",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "constraints",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Out of Scope",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "item",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "out_of_scope",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "config project_code: ^[A-Z][A-Z0-9_]*$",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "project_code",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Validated: from requirement status",
+            "edge": "ProjectValidated",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "validated",
+            "required": false,
+            "target_kind": "requirement",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Active: from requirement status",
+            "edge": "ProjectActive",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "active",
+            "required": false,
+            "target_kind": "requirement",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Last updated: the latest recorded commit or summary completion",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "updated",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows still open",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_open",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows waived",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_waived",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows fixed",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_fixed",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows recorded",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_total",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "project",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": true,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the description after the ID",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "### [Category]",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "category",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "v1, v2 or Out of Scope",
+            "edge": null,
+            "enum_values": [
+              "v1",
+              "v2",
+              "out_of_scope"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "tier",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Out of Scope reason: required when out_of_scope (gsd/E105)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Defined",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "defined",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Traceability status, from plans, summaries and verifications",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "in_progress",
+              "complete",
+              "blocked",
+              "gaps_found"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "requirement",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      }
+    ]
+  }
+}

@@ -13,6 +13,21 @@ fn describe(category: &str) -> serde_json::Value {
     serde_json::from_str(&text).expect("describe answers JSON")
 }
 
+/// The names of the fields a kind declares, in order.
+fn fields_of(kind: &str) -> Vec<String> {
+    let entities = describe("entities");
+    let entity = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    entity["fields"]
+        .as_array()
+        .expect("fields")
+        .iter()
+        .map(|f| f["name"].as_str().expect("a name").to_string())
+        .collect()
+}
+
 #[test]
 fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
     let host = MockHost::new(build());
@@ -89,4 +104,44 @@ fn the_code_book_matches_rules_md() {
 #[test]
 fn the_code_book_golden() {
     common::golden("codebook.json", &describe("codes"));
+}
+
+#[test]
+fn project_and_requirement_declare_the_fields_of_the_model() {
+    // `spec/project.md`, except `key_decisions` (a reference to `decision`, which round r36 declares) and a
+    // requirement's `phase` (a reference to `phase`, declared by the next ticket).
+    assert_eq!(
+        fields_of("project"),
+        [
+            "name",
+            "what",
+            "core_value",
+            "customer",
+            "revenue_model",
+            "success_metric",
+            "context",
+            "constraints",
+            "out_of_scope",
+            "project_code",
+            "validated",
+            "active",
+            "updated",
+            "windows_open",
+            "windows_waived",
+            "windows_fixed",
+            "windows_total"
+        ]
+    );
+    assert_eq!(
+        fields_of("requirement"),
+        ["text", "category", "tier", "reason", "defined", "status"]
+    );
+}
+
+#[test]
+fn the_kinds_golden() {
+    common::golden(
+        "kinds.json",
+        &serde_json::json!({ "entities": describe("entities"), "edges": describe("edges") }),
+    );
 }

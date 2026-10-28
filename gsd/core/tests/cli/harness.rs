@@ -26,6 +26,13 @@ pub struct Run {
     pub stderr: String,
 }
 
+impl Run {
+    /// Everything it printed: the diagnostics go to stderr, the answers to stdout.
+    pub fn all(&self) -> String {
+        format!("{}{}", self.stdout, self.stderr)
+    }
+}
+
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
     dir: tempfile::TempDir,
@@ -62,6 +69,13 @@ impl Project {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         }
+    }
+
+    /// Writes (or replaces) a file of the project, creating its folders.
+    pub fn write(&self, relative: &str, text: &str) {
+        let path = self.dir.path().join(relative);
+        std::fs::create_dir_all(path.parent().expect("a file has a parent")).expect("create dirs");
+        std::fs::write(path, text).expect("write file");
     }
 }
 
