@@ -1840,7 +1840,8 @@ Level: info
 I205: Test inputs not judged
 
 A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
-`test(..)` selector, or a verdict that cites tests), but there is no
+`test(..)` selector, or a verdict that cites tests), or a check, compute or
+guard pass declares `reads_tests` (protocol 1.11.0), but there is no
 `specforge-report.json`: run `specforge collect`. The rule's other inputs are
 judged as usual and the test input is left out of the comparison, so a verdict
 is not made stale by a report that is not there. Nothing is wrong with the

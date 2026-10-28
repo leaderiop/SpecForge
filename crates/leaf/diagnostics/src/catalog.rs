@@ -423,7 +423,7 @@ catalog! {
         "The project declares a history flag (a field `immutable` or `append_only`, a kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is no commit to judge against: the project is not in a git repository, or the repository has no commit yet. Nothing is judged, and nothing is wrong with the project. The first commit is the baseline from then on.";
     I205: Info core,
         "Test inputs not judged",
-        "A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a `test(..)` selector, or a verdict that cites tests), but there is no `specforge-report.json`: run `specforge collect`. The rule's other inputs are judged as usual and the test input is left out of the comparison, so a verdict is not made stale by a report that is not there. Nothing is wrong with the project. A report that exists but cannot be used is E045.";
+        "A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a `test(..)` selector, or a verdict that cites tests), or a check, compute or guard pass declares `reads_tests` (protocol 1.11.0), but there is no `specforge-report.json`: run `specforge collect`. The rule's other inputs are judged as usual and the test input is left out of the comparison, so a verdict is not made stale by a report that is not there. Nothing is wrong with the project. A report that exists but cannot be used is E045.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";

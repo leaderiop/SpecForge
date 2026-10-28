@@ -144,6 +144,46 @@ impl TestReport {
     }
 }
 
+/// What `specforge-report.json` is to a reader that wants its results: absent (no such file), unusable (E045, with
+/// why) or read, as a pass receives it.
+pub(crate) enum ReportRead {
+    Absent,
+    Unusable(String),
+    Read(TestResults),
+}
+
+impl ReportRead {
+    /// What a compile says when `passes` passes read the report and it could not give it: I205 (nothing recorded) or
+    /// E045 (unusable); nothing when it was read.
+    pub(crate) fn unread(&self, passes: usize) -> Option<specforge_common::Diagnostic> {
+        use specforge_common::{Diagnostic, codes};
+        match self {
+            ReportRead::Read(_) => None,
+            ReportRead::Unusable(why) => Some(Diagnostic::new(codes::E045, why.clone())),
+            ReportRead::Absent => Some(Diagnostic::new(
+                codes::I205,
+                format!(
+                    "test inputs of {passes} passes were not read: there is no specforge-report.json, run `specforge collect`"
+                ),
+            )),
+        }
+    }
+}
+
+/// The report at `root`, read through `disk` once: the one reader of a judged rule's `test(..)` input and of a pass
+/// that declares `reads_tests`.
+pub(crate) fn read_report(root: &Path, entities: &EntitySnapshot, disk: &dyn Disk) -> ReportRead {
+    let path = root.join(REPORT_FILE);
+    match disk.read(&path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => ReportRead::Absent,
+        Err(e) => ReportRead::Unusable(ReportError::unreadable(&path, &e).to_string()),
+        Ok(bytes) => match TestReport::parse(&path, &bytes) {
+            Ok(report) => ReportRead::Read(report.results(entities)),
+            Err(e) => ReportRead::Unusable(e.to_string()),
+        },
+    }
+}
+
 /// A project's coverage, computed by the one rule the `coverage` pass
 /// applies (ADR 0004, D2-f). Per-entity views and stats read its verdicts
 /// and summary; standings are the snapshot's.

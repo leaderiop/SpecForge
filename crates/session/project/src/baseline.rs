@@ -509,7 +509,10 @@ impl Baseline {
                     None,
                     &judged.values,
                     &judged.judgements,
-                    &commit_disk,
+                    crate::compute::Reads {
+                        disk: &commit_disk,
+                        tests: None,
+                    },
                 )
                 .0
             }

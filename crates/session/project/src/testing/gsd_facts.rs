@@ -99,21 +99,34 @@ pub fn pass_input(runtime: &InProcessRuntime, pass: &str) -> Value {
         .input
 }
 
-/// [`FACTS_EXTENSION`]'s kinds and one check pass `probe` declaring `reads` (as the wire carries them), answering no
-/// finding.
-pub fn gsd_facts_probe(reads: Value) -> InProcessRuntime {
+/// [`FACTS_EXTENSION`]'s kinds and the `passes` (as the wire carries them), each answering no finding.
+pub fn gsd_facts_serving(passes: Value) -> InProcessRuntime {
     let none = json!({"diagnostics": [], "summary": {}, "values": []})
         .to_string()
         .into_bytes();
-    InProcessRuntime::new()
-        .with(move || {
-            let mut c = ContributionsBuilder::new(ExtensionMeta::new(FACTS_EXTENSION, "1.0.0"));
-            c.raw_category(DeclaredCategory::Entities, gsd_facts_wire());
-            c.raw_category(
-                DeclaredCategory::Passes,
-                json!([{"name": "probe", "phase": "check", "reads": reads.clone()}]),
-            );
-            c
-        })
-        .answer_raw(FACTS_EXTENSION, "__pass_probe", WasmCallResult::Ok(none))
+    let names: Vec<String> = passes
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|pass| pass["name"].as_str().map(str::to_string))
+        .collect();
+    let mut runtime = InProcessRuntime::new().with(move || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(FACTS_EXTENSION, "1.0.0"));
+        c.raw_category(DeclaredCategory::Entities, gsd_facts_wire());
+        c.raw_category(DeclaredCategory::Passes, passes.clone());
+        c
+    });
+    for name in names {
+        runtime = runtime.answer_raw(
+            FACTS_EXTENSION,
+            &format!("__pass_{name}"),
+            WasmCallResult::Ok(none.clone()),
+        );
+    }
+    runtime
+}
+
+/// [`gsd_facts_serving`] with one check pass `probe` declaring `reads` (as the wire carries them).
+pub fn gsd_facts_probe(reads: Value) -> InProcessRuntime {
+    gsd_facts_serving(json!([{"name": "probe", "phase": "check", "reads": reads}]))
 }

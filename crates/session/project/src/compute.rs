@@ -6,7 +6,7 @@ use serde_json::Value;
 use specforge_common::{Diagnostic, codes};
 use specforge_graph::field_form::declared_path;
 use specforge_graph::{Computed, Found};
-use specforge_protocol_types::PassValue;
+use specforge_protocol_types::{PassValue, TestResults};
 use specforge_registry::{DeclaredPass, Disk, EntitySnapshot};
 use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
@@ -14,6 +14,14 @@ use crate::Environment;
 use crate::baseline::Baseline;
 use crate::judged::Judgements;
 use crate::passes::{PassContext, pass_findings, pass_input};
+
+/// What the compute passes read besides the snapshot: the disk their `reads` are read through (ADR 0293) and the
+/// recorded report for those that declare `reads_tests`.
+#[derive(Clone, Copy)]
+pub(crate) struct Reads<'a> {
+    pub disk: &'a dyn Disk,
+    pub tests: Option<&'a TestResults>,
+}
 
 /// Run `env`'s compute passes over `authored`: what they computed, and what they reported (their findings, E028
 /// for one that failed, W165 for each value refused).
@@ -24,8 +32,9 @@ pub(crate) fn run(
     baseline: Option<&Baseline>,
     given: &Computed,
     judgements: &Judgements,
-    disk: &dyn Disk,
+    reads: Reads,
 ) -> (Computed, Vec<Diagnostic>) {
+    let Reads { disk, tests } = reads;
     let mut computed = given.clone();
     let mut diagnostics = Vec::new();
     let calls = ExtensionCalls::new(runtime);
@@ -43,6 +52,7 @@ pub(crate) fn run(
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())
                 .map(|b| b.pass_view(declared.baseline()));
+            payload.test_results = tests.filter(|_| declared.reads_tests()).cloned();
             if !declared.reads().is_empty() {
                 payload.files =
                     crate::file_reads::read(declared.reads(), &seen, &env.file_source(disk));

@@ -130,7 +130,7 @@ impl DeclaredPass {
         &self.pass.baseline
     }
 
-    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W145 at the declaration check.
+    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W021 at the declaration check.
     pub fn reads(&self) -> &[specforge_protocol_types::FileRead] {
         &self.pass.reads
     }
@@ -379,6 +379,18 @@ impl RegistryBuild {
     /// The passes that run only when a write is judged (`phase: "guard"`, ADR 0289), in order.
     pub fn guard_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
         self.passes.iter().filter(|p| p.is_guard_phase())
+    }
+
+    /// How many check, compute or guard passes declare `reads_tests`: the compile then reads the recorded report once
+    /// (and says I205 or E045 when it cannot).
+    pub fn passes_reading_tests(&self) -> usize {
+        let compile_or_write =
+            |p: &&DeclaredPass| p.is_check_phase() || p.is_compute_phase() || p.is_guard_phase();
+        self.passes
+            .iter()
+            .filter(compile_or_write)
+            .filter(|p| p.reads_tests())
+            .count()
     }
 
     /// The passes `specforge analyze` runs, in order.

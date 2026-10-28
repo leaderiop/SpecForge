@@ -9,7 +9,7 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
-use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, Trigger};
+use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, TestResults, Trigger};
 use specforge_wasm::{Encoded, ExtensionCalls};
 use std::collections::HashSet;
 
@@ -43,6 +43,9 @@ pub struct PassContext<'a> {
     /// Where a pass that declares `reads` has its files read from (ADR 0293). Absent, such a pass is sent no
     /// `files`.
     pub files: Option<FileSource<'a>>,
+    /// The recorded report, for a check, compute or guard pass that declares `reads_tests` (protocol 1.11.0); an
+    /// analyze pass is given `test_results` instead. Absent, no pass is sent a report it did not ask `analyze` for.
+    pub reported: Option<&'a TestResults>,
 }
 
 impl<'a> PassContext<'a> {
@@ -57,6 +60,7 @@ impl<'a> PassContext<'a> {
             judgements: None,
             trigger: None,
             files: None,
+            reported: None,
         }
     }
 }
@@ -199,16 +203,22 @@ pub fn run_extension_passes<'p>(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        // A pass that declares `reads` is given the facts of its files, so its payload is its own (ADR 0293).
+        // A pass that declares `reads` is given the facts of its files, one that declares `reads_tests` the recorded
+        // report, so its payload is its own (ADR 0293).
         let own;
+        let tests = context.reported.filter(|_| declared.reads_tests());
         let input: &Encoded<PassInput> = match (context.files, declared.reads()) {
-            (Some(source), reads) if !reads.is_empty() => {
+            (files, reads) if tests.is_some() || (files.is_some() && !reads.is_empty()) => {
                 own = ExtensionCalls::encode(&PassInput {
                     previous: context
                         .previous
                         .filter(|_| !declared.baseline().is_empty())
                         .map(|b| b.pass_view(declared.baseline())),
-                    files: file_reads::read(reads, context.entities, &source),
+                    files: files
+                        .filter(|_| !reads.is_empty())
+                        .map(|source| file_reads::read(reads, context.entities, &source))
+                        .unwrap_or_default(),
+                    test_results: tests.cloned().or_else(|| payload.test_results.clone()),
                     ..payload.clone()
                 });
                 &own

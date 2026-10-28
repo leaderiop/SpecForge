@@ -78,11 +78,25 @@ impl CompiledProject {
             checked.check(&mut crate::ledger::Unrecorded::plain());
         }
         let baseline = crate::baseline::Baseline::of_project(self);
+        let report = named
+            .iter()
+            .any(|declared| declared.reads_tests())
+            .then(|| {
+                crate::coverage::read_report(
+                    self.env.root(),
+                    checked.memo().entities(),
+                    &specforge_registry::PlainDisk,
+                )
+            });
         let context = crate::passes::PassContext {
             previous: Some(&baseline),
             judgements: Some(&checked.judgements),
             trigger: Some(trigger),
             files: Some(self.env.file_source(&specforge_registry::PlainDisk)),
+            reported: match &report {
+                Some(crate::coverage::ReportRead::Read(results)) => Some(results),
+                _ => None,
+            },
             ..crate::passes::PassContext::of(checked.memo().entities())
         };
         let reports = crate::passes::run_extension_passes(

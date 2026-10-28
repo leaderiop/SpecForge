@@ -553,6 +553,14 @@ impl Environment {
             (Ok(Some(baseline)), None, _) => Some((**baseline).clone()),
             _ => None,
         };
+        // The recorded report, once, for the passes that declare `reads_tests` (protocol 1.11.0).
+        let reading = self.registries.passes_reading_tests();
+        let report = (reading > 0 && runtime.is_some())
+            .then(|| coverage::read_report(self.root(), entities, disk));
+        let tests = match &report {
+            Some(coverage::ReportRead::Read(results)) => Some(results),
+            _ => None,
+        };
         let mut found = judged::Evaluated::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
             found = judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
@@ -571,7 +579,7 @@ impl Environment {
                 translated.as_ref(),
                 &values,
                 &judgements,
-                disk,
+                compute::Reads { disk, tests },
             );
             values = computed_values;
             diagnostics.extend(reported);
@@ -607,8 +615,15 @@ impl Environment {
                     translated.as_ref(),
                     &judgements,
                     disk,
+                    tests,
                 ));
             }
+        }
+        // I205 or E045 once, unless a judged rule already said it.
+        if let Some(unread) = report.as_ref().and_then(|r| r.unread(reading))
+            && !diagnostics.iter().any(|d| d.code == unread.code)
+        {
+            diagnostics.push(unread);
         }
         match (baseline, &translated, build) {
             (Err(notice), ..) => diagnostics.push(notice.clone()),

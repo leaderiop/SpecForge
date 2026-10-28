@@ -5,6 +5,7 @@
 
 use crate::Environment;
 use crate::baseline::Baseline;
+use crate::coverage::{ReportRead, read_report};
 use crate::passes::{PassContext, run_extension_passes};
 use specforge_common::Diagnostic;
 use specforge_registry::{Disk, EntitySnapshot};
@@ -23,10 +24,20 @@ pub(crate) fn run(
     if env.registries().guard_passes().next().is_none() {
         return Vec::new();
     }
+    // A guard never says I205: the compile of the same project did, and a guard's job is the write.
+    let report = env
+        .registries()
+        .guard_passes()
+        .any(|declared| declared.reads_tests())
+        .then(|| read_report(env.root(), entities, disk));
     let context = PassContext {
         previous: Some(previous),
         judgements: Some(judgements),
         files: Some(env.file_source(disk)),
+        reported: match &report {
+            Some(ReportRead::Read(results)) => Some(results),
+            _ => None,
+        },
         ..PassContext::of(entities)
     };
     run_extension_passes(
