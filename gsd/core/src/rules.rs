@@ -1,5 +1,5 @@
 //! The declarative rules of `@gsd/core`. `gsd/E107` is declared with the kinds (`kinds::dsl`), over each authored
-//! `ts` field; the rest are here.
+//! `ts` field (none in r34; `kinds::dsl`'s tests declare one on a test kind); the rest are here.
 
 use specforge_extension_sdk::prelude::*;
 

@@ -290,3 +290,6 @@ pub fn computed(kinds: &[&Kind]) -> Vec<String> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests;
