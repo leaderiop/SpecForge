@@ -108,7 +108,7 @@ fn starts_word(text: &str, word: &str) -> bool {
 }
 
 /// `^MISSING(\s|$)`: the Wave-0 sentinel is not a command.
-fn missing_sentinel(text: &str) -> bool {
+pub fn missing_sentinel(text: &str) -> bool {
     text.strip_prefix("MISSING")
         .is_some_and(|after| after.is_empty() || after.starts_with(char::is_whitespace))
 }

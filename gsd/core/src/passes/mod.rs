@@ -3,6 +3,7 @@
 mod cross_plan;
 mod derive;
 mod drift;
+mod fails_when;
 mod file_scope;
 mod plan_shape;
 mod plans;
@@ -25,6 +26,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     drift::declare(c);
     plan_shape::declare(c);
     cross_plan::declare(c);
+    fails_when::declare(c);
     file_scope::declare(c);
     scope::declare(c);
     verify_paths::declare(c);

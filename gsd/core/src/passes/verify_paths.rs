@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{children, of_kind, rows, strings, text};
+pub use grounding::missing_sentinel;
 use grounding::{Need, Target, Verdict, resolve};
 
 pub fn declare(c: &mut ContributionsBuilder) {

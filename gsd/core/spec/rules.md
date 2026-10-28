@@ -72,7 +72,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |
 | gsd/W323 | a plan is named `<phase>-<NN>` in its phase (`02.1-01` in phase `02.1`: the phase's name, a dash, two or more digits), and by its quick id `YYMMDD-xxx` without one (three base-36 digits; a forgotten `phase` would otherwise silently make a quick plan) | pass | W | E | `phase-plan-index` (non-canonical plan names, `describeNonCanonicalPlans`) |
 | gsd/W324 | a verify command is not checked, and upstream never blocks on it: its `cd` or `--prefix` directory is dynamic (`$`, a backtick, `*`, `?`, a leading `~`; `dynamic_path`) or outside the project (absolute, or climbing out; `outside_root`), or its `package.json` cannot be read as an object (`manifest_unreadable`) or has no script the `npm run` names (`script_missing`). A broken directory or manifest is `gsd/E320` instead | pass | W | W | `gate-verify-command-paths` (warning reasons) |
-| gsd/E507 | each task's verify commands name their failing direction (`fails_when`), one statement per `automated` | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
+| gsd/E507 | each task's verify commands name their failing direction: one `fails_when` per `automated` item, not missing, empty or a whole-value placeholder (`tbd`, `todo`, `n/a`, `na`, `none`, `unknown`, `tba`, `?`, `-`, any case); the `MISSING - Wave 0 ...` sentinel is exempt, and a bare `verify_text` is not a command. One finding per item, on the task | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
 
 ## Execute
 

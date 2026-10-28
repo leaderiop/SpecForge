@@ -120,3 +120,72 @@ fn a_broken_directory_is_e320_and_not_also_w324() {
     with_task(&p, "cd nowhere && npm run build", "\"src/complete.js\"");
     assert_eq!(p.codes(), ["gsd/E320"]);
 }
+
+fn verify_task(p: &Project, items: &str) {
+    p.write(
+        "spec/verify.spec",
+        &format!(
+            "task T2 \"Check it\" {{\n  plan v1.0/01/01-02\n  type auto\n  files [\"src/complete.js\"]\n  action \"Check it\"\n  verify [\n{items}  ]\n  done \"It is checked\"\n}}\n"
+        ),
+    );
+}
+
+#[test]
+fn automated_without_fails_when_is_e507() {
+    let p = project("plan");
+    verify_task(
+        &p,
+        "    { automated \"node --test\" }\n    { automated \"node a.js\" fails_when \"it exits non-zero\" }\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E507"]);
+    let found = p.findings();
+    assert!(
+        found[0].1.contains("`node --test` states no `fails_when`"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn an_empty_fails_when_is_e507() {
+    let p = project("plan");
+    verify_task(&p, "    { automated \"node --test\" fails_when \"\" }\n");
+    assert_eq!(p.codes(), ["gsd/E507"]);
+}
+
+#[test]
+fn a_placeholder_fails_when_is_e507() {
+    let p = project("plan");
+    for text in ["TBD", "n/a", "-"] {
+        verify_task(
+            &p,
+            &format!("    {{ automated \"node --test\" fails_when \"{text}\" }}\n"),
+        );
+        assert_eq!(p.codes(), ["gsd/E507"], "{text}");
+    }
+}
+
+#[test]
+fn a_vacuous_but_real_statement_is_clean() {
+    let p = project("plan");
+    verify_task(
+        &p,
+        "    { automated \"node --test\" fails_when \"TBD in the harness output\" }\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_missing_sentinel_is_not_e507() {
+    let p = project("plan");
+    verify_task(
+        &p,
+        "    { automated \"MISSING - Wave 0 creates the test\" }\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_bare_verify_text_is_not_e507() {
+    // Plan 02-01's task has only `verify_text`.
+    assert_eq!(project("plan").codes(), Vec::<String>::new());
+}
