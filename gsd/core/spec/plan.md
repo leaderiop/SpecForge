@@ -23,20 +23,20 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
-| phase | → phase | R I | `phase:` (absent for a quick plan) |
+| phase | → phase | I | `phase:`; absent for a quick plan, which is in the project scope and named by its quick id (not `R`: a quick plan has none) |
 | type | enum{execute, tdd} | R | `type:` |
 | depends_on | →* plan | | `depends_on:` |
-| files_modified | files | R | `files_modified:` |
+| files_modified | strs | R | `files_modified:`: paths from the project root, not existence-checked (a plan names files it will create, so `files` would be E016 on each) |
 | files_deleted | strs | | `files_deleted:` |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty: not `R`, so gsd/E302 is the one diagnostic of its absence) |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
-| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` |
+| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (declared in round r39, with those kinds: a reference to a kind no loaded extension declares is W021) |
 | agent_hint | str | | `agent_hint:` |
 | estimate | {tokens int} | | `estimate:` |
 | objective | str | R | `<objective>` |
 | purpose, output | str | | `Purpose:` / `Output:` |
-| context_refs | files | | `<context>` @-refs |
+| context_refs | strs | | `<context>` @-refs (paths, not existence-checked) |
 | verification | strs | | `<verification>` |
 | success_criteria | strs | | `<success_criteria>` |
 | wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |

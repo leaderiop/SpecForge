@@ -2,31 +2,9 @@
 
 mod common;
 
+use common::{describe, field_of, fields_of};
 use gsd_core::build;
 use specforge_extension_sdk::testing::MockHost;
-
-fn describe(category: &str) -> serde_json::Value {
-    let host = MockHost::new(build());
-    let text = host
-        .describe_json(category)
-        .unwrap_or_else(|| panic!("no category {category}"));
-    serde_json::from_str(&text).expect("describe answers JSON")
-}
-
-/// The names of the fields a kind declares, in order.
-fn fields_of(kind: &str) -> Vec<String> {
-    let entities = describe("entities");
-    let entity = entities["items"]
-        .as_array()
-        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
-        .unwrap_or_else(|| panic!("no kind {kind}"));
-    entity["fields"]
-        .as_array()
-        .expect("fields")
-        .iter()
-        .map(|f| f["name"].as_str().expect("a name").to_string())
-        .collect()
-}
 
 #[test]
 fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
@@ -302,19 +280,6 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
 }
 
 /// `name` of the field `field` of `kind`, with its described properties.
-fn field_of(kind: &str, field: &str) -> serde_json::Value {
-    let entities = describe("entities");
-    let entity = entities["items"]
-        .as_array()
-        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
-        .unwrap_or_else(|| panic!("no kind {kind}"));
-    entity["fields"]
-        .as_array()
-        .and_then(|fields| fields.iter().find(|f| f["name"] == field))
-        .unwrap_or_else(|| panic!("no field {kind}.{field}"))
-        .clone()
-}
-
 #[test]
 fn the_discuss_kinds_are_scoped_by_their_phase() {
     let entities = describe("entities");

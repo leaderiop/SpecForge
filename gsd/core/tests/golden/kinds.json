@@ -289,6 +289,42 @@
         "label": "PackageAuditResearch",
         "source_kind": "package_audit",
         "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanPhase",
+        "source_kind": "plan",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanDependsOn",
+        "source_kind": "plan",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanCouplingJustifiedPeer",
+        "source_kind": "plan",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanRequirements",
+        "source_kind": "plan",
+        "target_kind": "requirement"
       }
     ]
   },
@@ -3186,6 +3222,290 @@
         "name": "package_audit",
         "open_fields": false,
         "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A plan: the work of one phase in tasks, with its must-haves (GSD NN-MM-PLAN.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`; absent for a quick plan (gsd/W323 checks the name)",
+            "edge": "PlanPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`type:`",
+            "edge": null,
+            "enum_values": [
+              "execute",
+              "tdd"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`depends_on:`",
+            "edge": "PlanDependsOn",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "depends_on",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`files_modified:` (paths from the project root, not existence-checked)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files_modified",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`files_deleted:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files_deleted",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`coupling_justified:`; exempts only non-file coupling",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "PlanCouplingJustifiedPeer",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "peer",
+                "required": true,
+                "target_kind": "plan"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "coupling_justified",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)",
+            "edge": "PlanRequirements",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirements",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`wave: 0`: the plan builds the phase's wave-0 items",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave0",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`agent_hint:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "agent_hint",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`estimate:`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "estimate",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<objective>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "objective",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Purpose:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "purpose",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Output:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "output",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<context>` @-refs (paths, not existence-checked)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_refs",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verification>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<success_criteria>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "success_criteria",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "longest `depends_on` path plus the phase's base (phase-plan-index)",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "false exactly when the plan has a checkpoint",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "autonomous",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "derived from the plan-check verdict and the summary",
+            "edge": null,
+            "enum_values": [
+              "draft",
+              "checked",
+              "ready",
+              "executing",
+              "complete",
+              "halted",
+              "blocked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "plan",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

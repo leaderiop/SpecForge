@@ -4,6 +4,7 @@ mod discuss;
 mod harness;
 mod parity_discuss;
 mod parity_roadmap;
+mod plan;
 mod roadmap;
 mod settings;
 

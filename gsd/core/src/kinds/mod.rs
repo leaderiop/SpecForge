@@ -3,6 +3,7 @@
 mod discuss;
 mod dsl;
 mod learning;
+mod plan;
 mod project;
 mod research;
 mod roadmap;
@@ -37,6 +38,7 @@ const KINDS: &[&Kind] = &[
     &research::OPEN_QUESTION,
     &research::SOURCE,
     &research::PACKAGE_AUDIT,
+    &plan::PLAN,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

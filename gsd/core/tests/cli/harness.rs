@@ -178,6 +178,22 @@ impl Project {
         self.write(file, &format!("{header}\n{}\n", lines.join("\n")));
     }
 
+    /// Replaces `from` by `to` in a file of the project. The anchor must be there: a fixture that was reformatted
+    /// must fail the test, not silently leave it editing nothing.
+    pub fn edit(&self, relative: &str, from: &str, to: &str) {
+        let text = self.read(relative);
+        assert!(
+            text.contains(from),
+            "`{from}` is not in {relative}:\n{text}"
+        );
+        self.write(relative, &text.replacen(from, to, 1));
+    }
+
+    /// Whether a path of the project exists.
+    pub fn exists(&self, relative: &str) -> bool {
+        self.dir.path().join(relative).exists()
+    }
+
     /// A file of the project, as it is now.
     pub fn read(&self, relative: &str) -> String {
         std::fs::read_to_string(self.dir.path().join(relative))

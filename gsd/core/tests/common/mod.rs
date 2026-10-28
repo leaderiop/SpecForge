@@ -77,3 +77,51 @@ pub fn golden(name: &str, actual: &serde_json::Value) {
         "{name} differs: review the change, then GSD_BLESS=1 cargo test"
     );
 }
+
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn describe(category: &str) -> serde_json::Value {
+    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
+    let text = host
+        .describe_json(category)
+        .unwrap_or_else(|| panic!("no category {category}"));
+    serde_json::from_str(&text).expect("describe answers JSON")
+}
+
+/// The names of the fields a kind declares, in order.
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn fields_of(kind: &str) -> Vec<String> {
+    let entities = describe("entities");
+    let entity = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    entity["fields"]
+        .as_array()
+        .expect("fields")
+        .iter()
+        .map(|f| f["name"].as_str().expect("a name").to_string())
+        .collect()
+}
+
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn field_of(kind: &str, field: &str) -> serde_json::Value {
+    let entities = describe("entities");
+    let entity = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    entity["fields"]
+        .as_array()
+        .and_then(|fields| fields.iter().find(|f| f["name"] == field))
+        .unwrap_or_else(|| panic!("no field {kind}.{field}"))
+        .clone()
+}

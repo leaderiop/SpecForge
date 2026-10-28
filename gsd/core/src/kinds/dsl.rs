@@ -297,11 +297,7 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
             }
         });
         for field in kind.fields {
-            if let Ty::Ref(target) | Ty::Refs(target) = field.ty {
-                c.edge(&edge_label(kind.name, field.name), |e| {
-                    e.source_kind(kind.name).target_kind(target);
-                });
-            }
+            declare_edges(c, kind.name, kind.name, field);
             if field.writer == Writer::Author {
                 for path in authored_timestamps(field) {
                     c.rule("E107", |r| {
@@ -317,6 +313,25 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
                 }
             }
         }
+    }
+}
+
+/// The edge of a reference field (`owner` is its kind), and of each reference member of a block: `apply` labels a member's edge by its
+/// path (`<Kind><Field><Member>`), and the host would otherwise find the label undeclared.
+fn declare_edges(c: &mut ContributionsBuilder, kind: &str, owner: &str, field: &Field) {
+    match field.ty {
+        Ty::Ref(target) | Ty::Refs(target) => {
+            c.edge(&edge_label(owner, field.name), |e| {
+                e.source_kind(kind).target_kind(target);
+            });
+        }
+        Ty::Block(members) | Ty::Blocks(members) => {
+            let owner = format!("{owner}_{}", field.name);
+            for member in members {
+                declare_edges(c, kind, &owner, member);
+            }
+        }
+        _ => {}
     }
 }
 

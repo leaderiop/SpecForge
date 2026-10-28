@@ -73,3 +73,32 @@ fn a_local_time_is_e107() {
         assert!(pattern.is_match(accepted), "{accepted} is accepted");
     }
 }
+
+const PEER: &[Field] = &[rf("peer", "stamped").r(), str("reason")];
+const SETTLED: &[Field] = &[en("rating", &["a"]), rf("settled_by", "stamped")];
+const WITH_REFERENCE_MEMBERS: Kind = Kind::new(
+    "linked",
+    "a kind with a reference member of a block list and of a block",
+    &[blocks("coupling", PEER), block("reversibility", SETTLED)],
+);
+
+#[test]
+fn a_reference_member_declares_its_edge() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[&WITH_REFERENCE_MEMBERS]);
+    let text = MockHost::new(c).describe_json("edges").expect("edges");
+    let edges: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+    let mut labels: Vec<String> = edges["items"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .map(|e| e["label"].as_str().unwrap_or_default().to_string())
+        .collect();
+    labels.sort();
+    assert_eq!(
+        labels,
+        ["LinkedCouplingPeer", "LinkedReversibilitySettledBy"],
+        "{edges}"
+    );
+}
