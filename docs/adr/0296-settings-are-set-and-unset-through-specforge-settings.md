@@ -13,12 +13,13 @@ load, its layout rewritten, and a credential could be put there. The edit plan w
 ## Decision
 
 - **D1. The form.** `specforge settings` stays the listing (`--all`, `--extension`, `--path`, `--format`).
-  `specforge settings set <extension> <name> [VALUE]... [--json] [--dry-run]` and
+  `specforge settings set <extension> <name> [VALUE]... [--value-json JSON] [--dry-run]` and
   `specforge settings unset <extension> <name> [--dry-run]` write. `extension` is the name the listing shows and `name`
   the flat dotted name or family key as written in `specforge.json`. The value is read by the setting's declared type:
   `string` and `enum` take one word; `integer` one word read as an integer; `bool` `true` or `false`; `string_list` and
-  `enum_list` every remaining word as an item, none being `[]`; `block` and `block_list` take `--json` only; `--json`
-  reads the single VALUE as JSON for any type. A word that does not fit its type is passed through as text so the form's
+  `enum_list` every remaining word as an item, none being `[]`; `block` and `block_list` take `--value-json` only; `--value-json`
+  reads its argument as JSON for any type, in place of the VALUE words (`--json` is not a flag of any command: a convention
+  test keeps `--format json` the one way to ask for JSON output). A word that does not fit its type is passed through as text so the form's
   own E086 says "must be an integer, found string". `unset` removes the member, so the setting reverts to its preset or
   default (or is unset); it never writes `null`, which a setting with a default refuses. Unsetting what is not written
   succeeds and changes nothing.

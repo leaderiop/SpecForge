@@ -18,7 +18,7 @@ of two things (K9 U4):
   (the sandbox), and worktrees and updates need git and the package manager, which the agent runs.
 
 A configuration command (`/gsd-settings`, `/gsd-config`, `/gsd-surface`) writes `specforge.json` through
-`specforge settings set|unset` (kernel follow-up K16, r35), which admits a value by the setting's own type; `/gsd-surface`
+`specforge settings set|unset` (K16, protocol 1.11.0; MCP `specforge.settings_set`), which admits a value by the setting's own type and never writes a secret; `/gsd-surface`
 toggles skills, which are `when` settings.
 
 The workflows' steps call writing commands that are not slash commands; they are the [roster below](#writing-commands).

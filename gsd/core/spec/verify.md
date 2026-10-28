@@ -33,11 +33,12 @@ the item and its plan, the code the item or its plan names, and every file the v
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
-`wave0_item.done`, the refactor trigger's complexity) wait for kernel follow-up K11 (r35): a pass declares the paths it
-reads and receives a `PathFact` per file (`exists`, `bytes`, `lines`, `sha256`) and, for declared text reads, the text.
-Every status computed from test evidence waits for K12: compute, check and guard passes receive the recorded test report.
+`wave0_item.done`, the refactor trigger's complexity) are available since protocol 1.11.0 (K11): a pass declares the paths it
+reads (`reads`) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
+Every status computed from test evidence declares `reads_tests` (K12): compute, check and guard passes then receive the
+recorded test report, and I205 says once when none is recorded.
 The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
-kernel follow-up K14 (`now` beside `today`, r35).
+`CommandInput.now` (K14).
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 ## verification

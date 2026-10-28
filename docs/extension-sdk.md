@@ -400,6 +400,9 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.category(..)` | A CLI grouping |
 | `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
+| `cmd.reads(name, FileReadSpec::field("kind.field").text())` | Project files the host reads for the call (protocol 1.11.0, ADR 0293): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern |
+
+A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time.
 
 An arg is a string unless its builder says otherwise:
 
@@ -517,7 +520,9 @@ c.command("record", |cmd| {
 
 A judged rule is declared with `r.judged("judge", |j| { j.outcomes(..).passing(..); j.target("kind", |t| { t.input("name", "selector"); }) })` inside `c.rule(..)`
 and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a command's `GraphNode`
-lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`.
+lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`. The judge is an agent
+of the extension or a declared peer, or `"prompt:<id>"`, a prompt of the extension itself (protocol 1.11.0, ADR 0295);
+the prompt's rendered payload lists the rules it judges under `judged`.
 
 `PlanBuilder` has one method per op: `create`, `set`, `unset`, `append`, `remove`, `link`, `unlink`, `retitle`,
 `add_verify`, `remove_verify`, `delete`, `rename` and `set_verdict(Verdict { .. })`. A collector declares `k.writes()`
@@ -592,6 +597,13 @@ and `specforge check` exits 1 on its errors. Check passes run in their
 after/before order; a trap or malformed answer is E028. Any other phase, or
 none, runs the pass only under `specforge analyze`, which skips check passes.
 
+A pass may declare `p.reads(name, FileReadSpec::field("plan.files_modified"))` or `FileReadSpec::glob(..)` (add `.text()` for the
+file's text, at most 64 KiB; `.base(FileBase::Spec)` for a field whose relative paths start at the spec) and receives the facts
+under `input.files[name]` (protocol 1.11.0, ADR 0293): `{path, entity?, exists, bytes?, lines?, digest?, text?, error?}`,
+and `truncated` on a glob that matched over 2000 files. A file the host reads is a check input, so the pass runs again
+when it changes. `p.reads_tests()` makes a check, compute or guard pass receive the recorded test report as `test_results`
+(an analyze pass always does); with no report recorded the host reports I205 once, and E045 for one it cannot use.
+
 A pass receives `PassInput`: `entities` (each with its field texts by name
 ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
@@ -625,9 +637,10 @@ field is left out and no value is `null`. A name written twice in one block
 is E081: every rule, pass and custom validator sees its first entry, once.
 
 A joined list cannot be split back when an item itself contains the joiner:
-`["a, b", "c"]` is `"a, b, c"`. A rule that must tell items apart needs a
-structured value, which would come beside the text (ADR 0019, "What would
-reopen this").
+`["a, b", "c"]` is `"a, b, c"`. Since protocol `1.11.0` (ADR 0294) a pass's
+`PassEntity.values[name]` and a validator's `ValidatorEntity.values[name]` hold every
+`string_list`, `reference_list` and `enum_list` field as an array of its items
+(`["a, b", "c"]`, `[]` for a written empty list), beside the joined text in `fields`.
 
 This is protocol `1.1.0`; under `1.0.0` a validator received `null` for variant
 lists, mixed lists, expressions and type unions, and a pass did not receive
@@ -661,7 +674,7 @@ c.secret("api_key", "MY_API_KEY", "The service key");
 
 A dotted name or a family (`*` segments) has a type, an optional default and the codes it gates: while a bool setting is false, those codes are reported by no source. A preset maps each value of an enum or bool setting (the extension's own, or a peer's as `@ext:name`) to settings it sets and codes it raises, never lowers. `c.feature_flag(name, default, description)` is a bool setting. A secret is never written in `specforge.json` (E087); the extension is told only whether its variable is set.
 
-A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)` (in a command, a tool, a resource or a prompt, whose text should not depend on it; a pass or validator always reads `false`, as its result must not depend on the machine). A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
+A handler reads them with `Settings::current()`: `bool(name)`, `string(name)`, `integer(name)`, `get(name)`, `under(prefix)` for a family's keys and `secret_set(name)` (in a command, a tool, a resource or a prompt, whose text should not depend on it; a pass or validator always reads `false`, as its result must not depend on the machine). A call without a value gets the declared default. A tool's arguments never hold them. `specforge settings` lists what a project resolves them to, `specforge settings set <extension> <name> <value>` and `unset` write one into `specforge.json` after the same check the load makes (a secret is refused, ADR 0296), and `specforge schema --config` writes the project's `specforge.json` schema with them typed.
 
 ## Host Functions
 

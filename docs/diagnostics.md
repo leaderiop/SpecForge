@@ -581,9 +581,10 @@ tool that reads coverage report the same code when `specforge-report.json`
 exists but can't be read or parsed (a recorded test's status is `passed`,
 `failed` or `skipped`, and every test has a name: a report in another
 vocabulary, such as one written before 1.4, is not usable), or when a judged
-rule reads the report (ADR 0290), or when a `--test-results` (`test_results`)
-file can't be read or doesn't exist (over MCP: `schema_mismatch`,
-`permission_denied`, `file_not_found`, `invalid_input` when
+rule reads the report (ADR 0290), or when a check, compute or guard pass that
+declares `reads_tests` is sent it (protocol 1.11.0), or when a `--test-results`
+(`test_results`) file can't be read or doesn't exist (over MCP:
+`schema_mismatch`, `permission_denied`, `file_not_found`, `invalid_input` when
 `specforge-report.json` is a link that leads outside the project, or
 `internal_error`), rather than scoring the project as if no test ran: run
 `specforge collect` again to rewrite it, or fix or remove the file.
@@ -1203,8 +1204,10 @@ and vocabulary, `null` on a setting that has a default, or an extension's value
 that is not an object. The message names the key, never the written value, and
 the diagnostic points at the key in `specforge.json`. A value that cannot be
 used is ignored: the preset, else the default, applies. `specforge settings`
-lists every setting with its type and effective value, and `specforge schema
---config` writes the project's config schema for an editor.
+lists every setting with its type and effective value, `specforge settings set`
+and `unset` refuse the same way (E086, and E087 for a secret) before they write
+`specforge.json`, and `specforge schema --config` writes the project's config
+schema for an editor.
 
 Owner: core
 Level: error
@@ -1225,7 +1228,8 @@ read from its environment variable only: SpecForge never reads it from a file a
 repository holds, and no message or output repeats a written value. The value is
 ignored. Remove it from `specforge.json`, set the variable the message names,
 and rotate the secret if it was committed. `specforge settings` shows whether
-each declared secret is set.
+each declared secret is set, and `specforge settings set` refuses to write one
+(ADR 0296).
 
 Owner: core
 Level: error

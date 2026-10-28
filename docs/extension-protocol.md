@@ -49,14 +49,14 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 **Input:**
 
 ```json
-{ "host_version": "1.10.0" }
+{ "host_version": "1.11.0" }
 ```
 
 **Output** (`specforge_protocol_types::HandshakeResponse`):
 
 ```json
 {
-  "protocol_version": "1.10.0",
+  "protocol_version": "1.11.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "peer_dependencies": [
@@ -313,7 +313,9 @@ check's message reads it as the default `{field}`, and its text as the default
 check leaves it as written.
 
 A rule of `check: "judged"` (1.9.0, ADR 0290) holds while a fresh `verdict` of its `judge` says so, instead of computing
-anything. Its `judged` descriptor is `{judge, outcomes, passing, targets: [{kind, inputs: [{name, selector}], unless_set}],
+anything. The `judge` is a word naming an agent of the extension or of a declared peer, or, since 1.11.0 (ADR 0295),
+`prompt:<id>`, a prompt of **the rule's own extension** (a prompt of a peer is not a judge); any other judge is W112.
+A rendered prompt then lists the rules it judges under `judged` in its payload. Its `judged` descriptor is `{judge, outcomes, passing, targets: [{kind, inputs: [{name, selector}], unless_set}],
 values, outcome_fields}`; selectors are `self`, `Kind`, `.field`, `<Kind.field`, `file(..)` and `test(..)`
 ([guide](guides/judged-rules.md)). The host evaluates it after the graph build and before the compute passes: a
 `PassEntity` then carries its `judgements` (`{rule, state, passed, outcome?, at?, changed?, files?}`, gated rules
@@ -436,6 +438,8 @@ that does not know the field ignores it). The host reads the declaration by one 
   values, minimum, default and description, `required` lists the required args that are not flags, and
   `additionalProperties` is `false`.
 
+- **Reads and the clock (1.11.0, ADR 0293, ADR 0294).** A command may declare `reads` (see "File reads" under
+  [Category: passes](#category-passes)); its input then carries `files`, and it always carries `now`, the host's clock.
 - **Gates (1.10.0, ADR 0291).** A command may declare `gates`, local codes of its extension, and `subject`, the
   name of one of its args (a `reference`'s entity scopes the gates; absent, the project). Before the export runs
   the host evaluates the gate in the subject's scope: a gated code fails while the project holds an error of that
@@ -488,7 +492,7 @@ W021 and dropped; the rest of the declaration is kept.
 `today`) and answers a `RenderOutput` (`body`): the body without the host's frontmatter or marker.
 
 `hook__<id>` receives a `HookInput` and answers a `HookOutput`. The input carries what a sandboxed guest cannot read
-for itself, computed by the host: the host's event (`event`, `host`, `cwd`, `today`, `session`), the tool (`class`, the
+for itself, computed by the host: the host's event (`event`, `host`, `cwd`, `today`, `now`, `session`), the tool (`class`, the
 host's `name`, its `input`), one `PathFact` per path the tool names (`path`, `in_project`, `in_spec_root`, `exists`,
 `bytes`, a write's `new_bytes`), a shell tool's command as `shell` words, the `commit` a `pre_commit` fires on
 (`message`, `amend`), the `prompt` of a `user_prompt`, the tool `response` of a `post_tool`, the `status` of a
@@ -496,7 +500,9 @@ host's `name`, its `input`), one `PathFact` per path the tool names (`path`, `in
 carries the neutral answer (`decision`: `allow`, `deny` or `ask`, with a `reason`; `context`; `notice`; `statusline`),
 an edit `plan` of a hook that declares `writes` (checked and applied by the host as any plan, with the hook as its
 origin; a plan the host refuses becomes a deny on a pre event and a notice otherwise), and a `state` patch. A trap, a
-timeout or a malformed answer applies the hook's `on_failure` and reports E028.
+timeout or a malformed answer applies the hook's `on_failure` and reports E028. `now` (1.11.0, ADR 0294) is the host's
+clock at the call, `YYYY-MM-DDTHH:MM:SSZ`: RFC 3339, UTC, seconds, a literal `Z`. It is the same instant as `today`, which
+is its date; an input without one omits the key.
 
 **State (1.10.0, ADR 0292).** A hook, command or prompt that declares `reads_state` is sent `state`:
 `{"project": {…}, "session": {…}}` (`session` only when the host names one; a CLI command has none). It answers a
@@ -617,9 +623,11 @@ Returns compiler pass descriptors. Each pass declares ordering constraints relat
 graph checks, and its diagnostics join the compile's (`specforge check`,
 watch, the LSP, MCP). Passes with any other phase, or none, run only under
 `specforge analyze`. The `__pass_<name>` export receives a `PassInput`
-(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?}`;
+(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?}`;
 `test_results` is the recorded test report as `TestResults`, `{"runner"?,
-"results": {"<id>": {"tests": [TestResult]}}}`;
+"results": {"<id>": {"tests": [TestResult]}}}`, sent to an analyze pass and, since 1.11.0, to a check, compute or guard
+pass that declares `reads_tests: true` (ADR 0293: with no report recorded the host reports I205 once, with one that
+cannot be used E045; a pass that does not declare it is sent none, as before);
 each entity is `{"id", "kind", "fields", "incoming_edge_count",
 "outgoing_edge_count", "span"?, "testable", "owes_none", "verify_kinds",
 "verify_texts"}`, `owes_none` meaning it owes no obligations of its own, decided
@@ -632,6 +640,31 @@ entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
 A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface; a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
+
+**File reads (1.11.0, ADR 0293).** A pass or a command may declare `reads`, a list of `{"name", "field"?, "glob"?,
+"base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
+`field` (`kind.field` or `kind.field.member`: the paths the entities of that kind write there, read as `file_exists`
+reads them) or `glob` (project-relative, `/`-separated; `*`, `?` and a `**` segment; never `..` or an absolute path).
+`name` is a word, unique among the owner's reads. `base` (`spec` or `project`, default `project`) says where a field's
+relative paths start and is for a field read only. `text: true` asks for the file's text as well as its facts. A
+malformed read (neither or both of `field` and `glob`, a repeated name, a field no loaded extension declares, a bad
+glob, `base` on a glob) is W021 from the registry build, and that read is served empty: the pass is kept.
+
+The input then carries `files`, `{"<name>": {"facts": [FileFact], "truncated"?: true}}`. A `FileFact` is `{"path",
+"entity"?, "exists", "bytes"?, "lines"?, "digest"?, "text"?, "error"?}`, one per (entity, path) sorted by `(entity, path)`
+(a glob: by `path`): `path` is project-relative and normalised, `entity` is the entity whose field named it, `exists`
+follows links, `bytes`, `lines` and `digest` (`sha256:` over the CRLF-normalised bytes, the digest judged rules use) are
+present for a regular file that was read, and `text` is the UTF-8 file when the read asks for it. `error` says why text
+or facts are missing: `too_large` (text over 64 KiB), `not_utf8`, `unreadable`, `outside_project`, `budget` (a read sends
+at most 1 MiB of text in all); a path that does not exist is `exists: false`, not an error. `truncated` is set when a glob
+matched more than 2000 files. A glob never enters `.git`, `.specforge`, `node_modules` or `target` unless a literal
+segment names it. No cap is a diagnostic: the pass sees `error` and `truncated` and reports with a code of its own. A
+file the host reads is a check input: editing it, creating an absent one or adding a file under a globbed directory
+re-runs the checks (a command and an analyze pass read once). A pass or command that declares nothing is sent no `files`.
+
+**List items (1.11.0, ADR 0294).** A field of type `string_list`, `reference_list` or `enum_list` is in `values` as a
+JSON array of its items' texts (`["a, b", "c"]`, `[]` for a written empty list), beside the joined text in `fields` that
+a 1.10 guest reads. A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the same.
 `previous` (compute and check passes that name kinds in `baseline`) is the
 git baseline of those kinds, `{"revision", "entities": {"<id>": {"kind",
 "fields": {...}}}}`; it is absent with no baseline (not in a git repository, no
@@ -728,12 +761,12 @@ Every call but the handshake and describe also carries the extension's own `sett
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "graph", "revisions"?}`; `cwd` is the project root, absolute and canonical | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "graph", "revisions"?, "files"?}`; `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293) | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
 | Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?}`; `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}]}`, at least one |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
-| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "graph", "revisions"}`) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
+| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "now"?, "graph", "revisions"}`) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
 | Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
 | Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
 | Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |
@@ -782,7 +815,7 @@ next one; W167 reports one that is waiting). Only a command or collector that de
 (`undeclared_write` otherwise).
 
 A writing command's input also carries `revisions`, `{"<file>": "sha256:<hex>" | "absent"}` for the project's
-sources, and every `graph` node carries its `file`. A writing collector is sent `cwd`, `today`, `graph` and
+sources, and every `graph` node carries its `file`. A writing collector is sent `cwd`, `today`, `now`, `graph` and
 `revisions` beside the report. The command answers `CommandOutput.plan`, a collector `CollectOutput.plan`:
 
 ```json
@@ -884,6 +917,7 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | `1.8.0` | the same as `1.0.0` |
 | `1.9.0` | the same as `1.0.0` |
 | `1.10.0` | the same as `1.0.0` |
+| `1.11.0` | the same as `1.0.0` |
 
 ### Protocol Versions
 
@@ -909,6 +943,7 @@ or answered.
 | `1.8.0` | A field and a block member may declare `writer` (`computed` or `harness`), `immutable` and `append_only`, and a kind `append_only` (ADR 0287): E082 a hand-written computed value, E083 a harness value with no line in `specforge-harness`, E084 an immutable value that differs from its git baseline, E085 an append-only list or kind that rewrites it. A pass may declare `baseline` and `computes`, phase `compute` runs it before the checks, and `PassOutput.values` gives it computed values (W165 for a field that is not computed). `previous` is the git baseline of the kinds `baseline` names, not the build cache (`specforge-cache.json` and `check --cache` are gone). `lifecycle_field` is ignored. An extension may declare the `settings` category (ADR 0288): typed settings, presets and secrets, and an older guest is not asked for it. A 1.7 host ignores the new keys. |
 | `1.9.0` | A rule may be `check: "judged"` with a `judged` descriptor, an entity may hold `verdict` statements, a field may declare `writer: "verdict"`, and `PassContext.judgements`, `GraphNode.judgements` and `PassBaselineEntity.judgements` carry each judged rule's state (ADR 0290); `set_verdict` takes `values` and `basis`. A command or collector may declare `writes` and answer an edit `plan` the host checks and applies (ADR 0289); a writing command's input carries `revisions`, a graph node its `file`, and a writing collector the graph, `cwd`, `today` and `revisions`. A kind and a field may declare `writer: "human"`, and a pass `phase: "guard"`. A 1.8 host ignores the new keys. |
 | `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. A `surfaces` item may also declare `agents`, `skills`, `slash_commands` and `hooks`, written into a host's files by `specforge install` (ADR 0292): the `render__` export writes an agent's or skill's body (`RenderInput`, `RenderOutput`), a `hook__<id>` export answers a host event (`HookInput`, `HookOutput`), and a command, hook or prompt that declares `reads_state` is sent, and may patch, its extension's state (`StateView`, `StatePatch`). A 1.9 host ignores the new keys and installs nothing. |
+| `1.11.0` | A pass or a command may declare `reads` (`name`, `field` or `glob`, `base`, `text`) and its input then carries `files`, the facts and capped text of the project files it names; a pass may declare `reads_tests` to be sent the recorded test report at compile (ADR 0293). A pass's `values` and a validator's carry every `string_list`, `reference_list` and `enum_list` field as an array of its items, and a command's, a collector's and a hook's input carries `now`, `YYYY-MM-DDTHH:MM:SSZ` (ADR 0294). A judged rule's `judge` may be `prompt:<id>`, a prompt of its own extension (ADR 0295). `specforge settings set` and `unset` write the settings an extension declares (ADR 0296). A 1.10 host ignores the new keys, so a guest that needs a file gets none there. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.
@@ -918,7 +953,8 @@ A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a
 An extension runs with no capability: its component's WASI context preopens no directory, passes
 no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
 lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
-command the graph). No declaration grants more (ADR 0037). No text an extension supplies acts on
+command the graph, a pass or command that declares `reads` the facts and capped text of exactly those files, read
+by the host). No declaration grants more access (ADR 0037). No text an extension supplies acts on
 the user's terminal either: the host reads a handshake, describe, pass or validator answer, and a
 call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
 or resource's answer are the extension's own and are written as answered.

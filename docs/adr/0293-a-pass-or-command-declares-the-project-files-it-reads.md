@@ -25,8 +25,8 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   segment). `base` (`spec` or `project`, default `project`) applies to a field read only: a path in a spec names a project
   file, and a glob is always from the project root. `text` (default false) asks for the capped text as well as the facts.
   A malformed read (neither or both of `field` and `glob`, a name that is no word or repeats, a field no loaded extension
-  declares, a glob that is absolute, climbs with `..` or does not parse, `base` on a glob) is W145 from the declaration
-  check, and that read is served empty; the pass is kept, because a dropped check is worse than an empty read.
+  declares, a glob that is absolute, climbs with `..` or does not parse, `base` on a glob) is W021 from the registry build
+  (W145 is the pass-order cycle), and that read is served empty; the pass is kept, because a dropped check is worse than an empty read.
 - **D2. The input carries `files`.** `PassInput.files` and `CommandInput.files` map a read's name to `FileFacts {facts,
   truncated?}`; a `FileFact {path, entity?, exists, bytes?, lines?, digest?, text?, error?}` is one per (entity, path),
   sorted by `(entity, path)` (a glob: by `path`). `path` is project-relative, `/` separated and lexically normalised;

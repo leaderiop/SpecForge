@@ -1227,7 +1227,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
-  command format and today's date, UTC). The CLI runs it as `specforge <short> <command>`, MCP as
+  command format, today's date and the time, UTC, and the files it declared it reads). The CLI runs it as `specforge <short> <command>`, MCP as
   the auto-promoted tool `specforge.<short>.<id>`, `short` being the declaration's (`ext_short`,
   else its name's last segment); neither knows any command (ADR 0008). The registry build routes it
   under `(short, CLI name)`, the first in load order; a later one of that name is E039 and runs on no
@@ -1674,3 +1674,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   optional `base` and `text`; the host reads the files it names and sends the facts under that name in `files` (ADR 0293).
 - **File fact**: a `FileFact` of that input: a project-relative path, whether it exists, its bytes, lines and digest and,
   within the cap, its text, or the reason (`error`) there is none; not a hook's `PathFact` (ADR 0293).
+- **Now**: the host's clock at a call, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds): `CommandInput.now`,
+  `HookInput.now` and a writing collector's `CollectInput.now`, the same instant as `today`, its date (ADR 0294). A pass
+  and a prompt are not told it.
+- **Prompt judge**: a judged rule's judge `prompt:<id>`, a prompt of the rule's own extension instead of an agent; the
+  registry checks the prompt (W112) and the verdict names it (ADR 0295).
+- **Settings set**: `specforge settings set` and `unset`, MCP `specforge.settings_set`: one setting of `specforge.json`
+  admitted by its form (`specforge_project::admit`), never a secret, spliced into the file's text and written as one
+  change under the write lock and the journal (ADR 0296).

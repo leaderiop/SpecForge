@@ -97,3 +97,17 @@ c.rule("<code>", |r| {
     });
 });
 ```
+
+## Who judges
+
+The judge is a word naming an agent of the rule's extension or of a declared peer, or `prompt:<id>`, a prompt of the
+rule's own extension (ADR 0295): for a judgement an agent does inline, in the session that follows a workflow, with
+nothing to spawn. A prompt of a peer is not a judge, and a missing one is W112. The verdict reads `judge
+"prompt:spec_phase@1.0.0"`, `set_verdict` takes it from a command of the same extension as for an agent, and a rendered
+prompt lists the rules it judges under `judged` in its payload, with their outcomes and passing outcomes.
+
+```rust
+c.rule("<code>", |r| {
+    r.judged("prompt:spec_phase", |j| { j.outcomes(&["clear", "vague"]).passing(&["clear"]); /* targets as above */ });
+});
+```

@@ -48,7 +48,7 @@ the rest of this folder keeps their K names.
 | K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
-protocol 1.11.0), and the model cites them where it relies on them: **K11** a pass or command reads the project files
+protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
 it declares (file facts), **K12** compile, check and guard passes receive the recorded test report, **K13** a pass gets
 list fields as items, **K14** a writing call knows the time (`now`), **K15** a judged rule's judge may be a prompt,
 **K16** `specforge settings set|unset` writes settings through SpecForge.
