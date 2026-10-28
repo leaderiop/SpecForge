@@ -233,7 +233,6 @@ fn handshake_protocol(runtime: &ComponentRuntime, name: &str) -> String {
     behavior = "load_extension_declaration",
     verify = "every committed SDK blob answers the host's protocol version; a bridge component answers the version it declares"
 )]
-#[ignore = "R32 revendor: the committed blobs still speak protocol 1.8.0"]
 fn every_sdk_blob_answers_the_host_protocol() {
     let runtime = ComponentRuntime::new();
     let mut stale = Vec::new();
