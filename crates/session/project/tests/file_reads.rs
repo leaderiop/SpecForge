@@ -440,6 +440,83 @@ mod links {
     }
 }
 
+const SECRETS: [&str; 8] = [
+    ".env",
+    ".env.local",
+    "certs/server.pem",
+    "keys/id_ed25519",
+    ".npmrc",
+    "credentials.json",
+    ".git/config",
+    "tls.key",
+];
+
+fn secrets_project() -> TestProject {
+    let mut names = SECRETS.to_vec();
+    names.push("notes.txt");
+    let mut project = project_of(&plan_naming(&names));
+    for name in names {
+        project = project.file(name, "hunter2\n");
+    }
+    project
+}
+
+#[test]
+fn a_text_read_withholds_a_secret_looking_file() {
+    let (_, _, input) = probed(secrets_project(), modified());
+
+    for name in SECRETS {
+        let f = fact(&input, "modified", name);
+        assert_eq!(f["exists"], true, "{f}");
+        assert_eq!(f["error"], "denied", "{f}");
+        for key in ["text", "digest", "bytes", "lines"] {
+            assert!(f.get(key).is_none(), "{name} leaks {key}: {f}");
+        }
+    }
+    assert_eq!(fact(&input, "modified", "notes.txt")["text"], "hunter2\n");
+}
+
+#[test]
+fn a_read_without_text_still_has_the_facts_of_a_secret_looking_file() {
+    let reads = json!([{"name": "facts", "field": "plan.files_modified"}]);
+    let (_, _, input) = probed(secrets_project(), reads);
+
+    let f = fact(&input, "facts", ".env");
+    assert_eq!(
+        (f["bytes"].as_u64(), f.get("error")),
+        (Some(8), None),
+        "{f}"
+    );
+    assert!(f.get("text").is_none());
+}
+
+#[test]
+fn a_withheld_file_is_still_a_check_input() {
+    let project = secrets_project();
+    let runtime = Arc::new(gsd_facts_runtime());
+    let mut session = project.session_in(runtime.clone() as SharedRuntime);
+
+    let env = project.root().join(".env");
+    fs::write(&env, "changed").unwrap();
+    let update = session.apply(&session.changes([env.as_path()]));
+    assert_eq!(update.map(|u| u.kind), Some(UpdateKind::Checks));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_to_a_secret_looking_file_is_withheld() {
+    let project = project_of(&plan_naming(&["alias.txt"])).file(".env", "hunter2");
+    std::os::unix::fs::symlink(".env", project.root().join("alias.txt")).unwrap();
+    let (_, _, input) = probed(project, modified());
+
+    let f = fact(&input, "modified", "alias.txt");
+    assert_eq!(
+        (f["error"].as_str(), f.get("text")),
+        (Some("denied"), None),
+        "{f}"
+    );
+}
+
 #[test]
 fn passes_with_equal_reads_share_one_walk() {
     use specforge_project::file_reads::{FileSource, Memo};

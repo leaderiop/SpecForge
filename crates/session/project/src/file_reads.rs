@@ -4,8 +4,11 @@
 //! Every read of a file goes through `source.disk`, so a session's recording disk makes an edit to a read file, the
 //! creation of an absent one and a new file under a globbed directory a check input (ADR 0107).
 //!
-//! shortcut: the facts of every declared file are recomputed on each re-check, with no memo across runs; upgrade to a
-//! stamp-keyed memo in the digest memo when `specforge doctor` shows reads that are slow.
+//! A read for text withholds the text of a file that looks like a credential (`error: "denied"`, ADR 0293 D3).
+//!
+//! shortcut: the facts of every declared file are recomputed on each re-check, with no memo across runs (the `lines`
+//! fact needs the bytes, so a stamp-keyed digest would not save the read); upgrade when `specforge doctor` shows
+//! reads that are slow.
 
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
@@ -294,6 +297,18 @@ fn fact(
         fact.error = Some("outside_project".into());
         return fact;
     }
+    // A text read never carries a secret-looking file, by its name or the name a link resolves to. Its existence is
+    // still a fact and still a check input.
+    if text
+        && (withheld(&fact.path)
+            || source
+                .disk
+                .canonical(at)
+                .is_some_and(|real| withheld(&slashed(&real))))
+    {
+        fact.error = Some("denied".into());
+        return fact;
+    }
     match source.disk.read(at) {
         Ok(bytes) => {
             fact.bytes = Some(bytes.len() as u64);
@@ -345,6 +360,25 @@ fn inside(root: &Path, written: &str, base: &Path) -> Option<PathBuf> {
         .ok()
         .map(Path::to_path_buf)
         .filter(|rel| !rel.as_os_str().is_empty())
+}
+
+/// Whether the file at `path` looks like it holds a credential, which a read for text does not hand to a guest:
+/// `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and
+/// `.git/config`. shortcut: names only, and no project can opt a file in; upgrade when a project needs to.
+fn withheld(path: &str) -> bool {
+    let path = path.to_ascii_lowercase();
+    let name = path.rsplit('/').next().unwrap_or_default();
+    name == ".env"
+        || name.starts_with(".env.")
+        || name.ends_with(".pem")
+        || name.ends_with(".key")
+        || name.starts_with("id_rsa")
+        || name.starts_with("id_ed25519")
+        || name == ".npmrc"
+        || name == ".netrc"
+        || name.starts_with("credentials")
+        || path == ".git/config"
+        || path.ends_with("/.git/config")
 }
 
 fn slashed(path: &Path) -> String {
