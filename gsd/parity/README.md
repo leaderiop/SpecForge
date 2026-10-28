@@ -9,5 +9,5 @@
 | rules | every rule in [rules.md](../core/spec/rules.md) fires on its fixture and stays silent on its counterpart |
 | upgrade | for a new gsd-core release, the diff of its inventory manifest, `capability.json` files, templates, prompts and gate modules against the tracked one, written as a parity backlog |
 
-`tracks: gsd-core@<version>` moves only when roster, scenario and rules pass on that version. The fixture projects and
+`tracks` (the crate's `[package.metadata.gsd] tracks = "gsd-core@<version>"` and the handshake keyword `tracks:gsd-core@<version>`) moves only when roster, scenario and rules pass on that version. The fixture projects and
 the version matrix live here.

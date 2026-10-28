@@ -3,7 +3,7 @@
 ```
  phase ─1──0..1─ context ─1──*─ decision           phase ─1──0..1─ phase_spec ─1──*─ locked_req
                     ├──*─ deferred_idea                              └──*─ interview
-                    └──*─ canonical_ref
+                    └──*─ canonical_refs (a block of the context)
  phase ─1──0..1─ discussion (audit log, append-only)
  phase | project ─1──0..1─ research ─1──*─ finding | stack_choice | pattern | pitfall | dont_hand_roll
                                       └──*─ open_question            each item ─*─ source
@@ -13,7 +13,7 @@ Files: `context.spec`, `research.spec` in the phase folder; project research in 
 
 ## context
 
-GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it.
+GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by it. Name `03-CONTEXT`.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -22,7 +22,7 @@ GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by 
 | boundary | text | R | `<domain>` `## Phase Boundary` |
 | discretion | strs | | `### Claude's Discretion` |
 | specifics | text | | `<specifics>` |
-| canonical_refs | {topic str, paths files} | R | `<canonical_refs>` (mandatory) |
+| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once canonical_refs and boundary are present and no interview is open |
 
@@ -50,12 +50,12 @@ GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`. Excluded from e
 
 ## phase_spec, locked_req, interview
 
-GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`.
+GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
 
-**phase_spec**: `phase → phase R I`, `created date I`, `goal str R` (X changes from A to B), `background text`,
+**phase_spec**: `phase → phase R I`, `context_digest str H` (the digest of the phase's context, written by the command that records the spec; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
-is `V`: the spec agent's verdict, in percent (GSD's 0–1 score × 100), gated at
+is `V`: the judged verdict of the `spec_phase` prompt (K15), in percent (GSD's 0–1 score × 100), gated at
 goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
@@ -67,7 +67,7 @@ goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity �
 
 ## discussion
 
-GSD: `NN-DISCUSSION-LOG.md`. `phase → phase R I`;
+GSD: `NN-DISCUSSION-LOG.md`. Name `03-DISCUSSION-LOG`. `phase → phase R I`;
 `entries {area str, question str, options strs, chosen str, mode enum{interactive, assumptions, advisor}}` `+`.
 An audit record: no agent context is built from it.
 
@@ -76,7 +76,8 @@ An audit record: no agent context is built from it.
 GSD: `NN-RESEARCH.md` (phase) and `research/{STACK, FEATURES, ARCHITECTURE, PITFALLS, SUMMARY}.md` (project). The
 Markdown sections become typed items, so a pitfall or an open question can be referenced, checked and queried.
 
-**research**: `phase → phase` (absent for project research), `domain str`, `researched date I`,
+**research**: name `03-RESEARCH` (project research: `RESEARCH`); each item kind below is scoped by its `research` and named `F1`, `SC1`, `P1`, `PF1`, `DH1`, `OQ1`, `SRC1`, `PA1`.
+`phase → phase` (absent for project research), `context_digest str H` (as on the spec; gsd/W406), `domain str`, `researched date I`,
 `confidence enum{high, medium, low} R`, `summary text R`, `user_constraints →* decision`,
 `responsibility_map {capability str, tier str}`.
 

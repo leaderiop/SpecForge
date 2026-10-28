@@ -2,7 +2,7 @@
 
 **Status: being designed; nothing is built yet.** The unified GSD meta-model: project, requirements, milestones, phases, plans, tasks,
 decisions, research, results, verification, UAT and validation, with GSD's checks as rules and its commands, agents,
-prompts and hooks as contributions. Tracks gsd-core 1.18.0.
+prompts and hooks as contributions. Tracks gsd-core 1.18.0 (the crate's `[package.metadata.gsd] tracks` and the handshake keyword `tracks:gsd-core@1.18.0`).
 
 | Folder | What |
 |---|---|

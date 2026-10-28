@@ -10,7 +10,7 @@ nothing is kept as Markdown.
 | [discuss.md](discuss.md) | context, decision, deferred_idea, phase_spec, locked_req, interview, discussion, research and its items |
 | [plan.md](plan.md) | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |
 | [execute.md](execute.md) | summary, deliverable, deviation, commit, handoff, pause, blocker; the session state |
-| [verify.md](verify.md) | verification, verify_gap, override, human_item, uat_session, uat_test, uat_gap, validation, validation_row, wave0_item, manual_check, broken_window, refactor_proposal |
+| [verify.md](verify.md) | verification, verify_gap, override, human_item, uat_session, uat_test, uat_gap, validation, validation_row, wave0_item, manual_check, milestone_audit, broken_window, refactor_proposal |
 | [settings.md](settings.md) | the settings and profiles that replace `config.json` |
 | [rules.md](rules.md) | every GSD check as a rule, with its code, kind and profile |
 
@@ -18,7 +18,7 @@ nothing is kept as Markdown.
 
 ```
  str     quoted string            text   triple-quoted prose          int     integer        int{1..4}  bounded
- bool    true/false               date   YYYY-MM-DD                   ts      ISO-8601 string
+ bool    true/false               date   YYYY-MM-DD                   ts      RFC 3339 UTC string (a `str` that `matches`, gsd/E107)
  enum{}  one closed value         enums{} list of closed values       id      bare identifier
  strs    list of strings          file   path, existence-checked      files   list of paths
  → K     reference to kind K      →* K   list of references           → A|B   reference to a kind union
@@ -38,7 +38,7 @@ nothing is kept as Markdown.
 | `C` | **computed**: derived by a compute pass (a collector files a report the pass reads), held in the compiled graph only, never in `.spec`; writing it is an error. A value that compares with the past (`re_verification`) compares with the git baseline | K4 |
 | `H` | set only by a command's or a collector's plan; its digest goes in `specforge-harness`; any other value is an error | K4 |
 | `V` | its value comes from the fresh, recorded verdict of the judged rule that binds it (its outcome or a value it records); absent otherwise; written by hand it is an error (K4 E082) | K7 |
-| `U` | human-only: refused in every extension's plan and every MCP write; the CLI writes it only from an interactive terminal; hand edits stay free | K5 |
+| `U` | human-only: refused in every extension's plan and every MCP write; the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
 
 The rule this table carries: an agent may author a plan, but it may not author `status passed`.
 
@@ -61,16 +61,42 @@ while it is unique.
 | milestone | `v1.0` | project (workstream) | `v1.0` |
 | phase | `03`, `03.1`, `999.1` | milestone | `v1.0/03` |
 | plan | `03-02` | phase | `03/03-02` |
-| task, truth, artifact, key_link | `T1`, `TR1`, `AR1`, `KL1` | plan | `03-02/T1` |
+| task, checkpoint, truth, artifact, key_link | `T1`, `C1`, `TR1`, `AR1`, `KL1` | plan | `03-02/T1` |
 | decision | `D-01` | phase (project-level decisions: project) | `03/D-01` |
-| uat_gap | `G-03-1` | phase | `03/G-03-1` |
-| deliverable | `D1` | summary | `03-02/D1` |
+| verify_gap | `VG1` | verification | `03/03-VERIFICATION/VG1` |
+| uat_test | `U1` | uat_session | `03/03-UAT/U1` |
+| uat_gap | `G-03-1` | uat_test | `03/03-UAT/U1/G-03-1` |
+| deliverable | `D1` | summary | `03-02-SUMMARY/D1` |
 | broken_window | `BW1` | project | `BW1` |
 | refactor_proposal | `RP1` | phase | `03/RP1` |
 
+### Names of every kind
+
+Every entity needs a name (K1, K2), and a kind with one entity per parent cannot be named after its keyword (E013). It
+takes GSD's own file stem; every other kind takes a letter prefix and a number, in order.
+
+| Name | Kinds |
+|---|---|
+| any word | project (by convention the slug of its name) |
+| the GSD id | requirement `AUTH-01`, milestone `v1.0`, phase `03`, workstream `auth-rework`, plan `03-02` (a quick plan: its quick id, `260321-a1b`), decision `D-01`, uat_gap `G-03-1` |
+| the GSD file stem | context `03-CONTEXT`, phase_spec `03-SPEC`, discussion `03-DISCUSSION-LOG`, research `03-RESEARCH` (project research: `RESEARCH`), summary `03-02-SUMMARY`, verification `03-VERIFICATION`, uat_session `03-UAT`, validation `03-VALIDATION`, retrospective `v1.0-RETROSPECTIVE` |
+| a letter prefix and a number | task `T1`, checkpoint `C1`, truth `TR1`, artifact `AR1`, key_link `KL1`, prohibition `PR1`, disposition `DSP1`, user_setup `US1`, deliverable `D1`, deviation `DV1`, pause `PS1`, handoff `HO1`, blocker `BL1`, deferred_idea `DI1`, locked_req `LR1`, interview `IV1`, finding `F1`, stack_choice `SC1`, pattern `P1`, pitfall `PF1`, dont_hand_roll `DH1`, open_question `OQ1`, source `SRC1`, package_audit `PA1`, verify_gap `VG1`, override `OV1`, human_item `HI1`, uat_test `U1`, validation_row `VR1`, wave0_item `W0-1`, manual_check `MC1`, milestone_audit `A1`, broken_window `BW1`, refactor_proposal `RP1`, lesson `L1`, methodology `M1` |
+| the first 12 hex digits of the hash | commit |
+
+Each prefix-numbered kind is scoped (`scoped_by`) by its parent reference: plan for task, checkpoint, truth, artifact,
+key_link, prohibition, disposition, user_setup and summary; summary for deliverable and deviation; phase for decision,
+deferred_idea, the one-per-phase kinds, refactor_proposal and (optionally) pause and handoff; research for its items;
+phase_spec for locked_req and interview; verification for verify_gap, override and human_item; uat_session for
+uat_test; uat_test for uat_gap; validation for validation_row, wave0_item and manual_check; retrospective for lesson;
+milestone for milestone_audit and retrospective. A blocker, a broken_window, a methodology and a commit are in the
+project scope. A one-per-parent kind's name is unique within its parent, so `03-CONTEXT` of phase `03` and of phase `04` coexist
+as `v1.0/03/03-CONTEXT`; a kind without an entry above is named by the same rule.
 A workstream is a scope too: `auth-rework/v1.0/03` names phase 03 of milestone v1.0 of the workstream `auth-rework`.
-Commands accept the short form where the scope is known (`/gsd-plan-phase 03.1` in the active milestone), and any
-unique suffix; several matches are refused, naming each.
+A prompt or command argument that names an entity is resolved project-wide, before anything runs and with no session
+state (ADR 0291 D1): `/gsd-plan-phase 03.1` works while `03.1` is unique in the project, and any unique suffix works
+the same way. An ambiguous short form is refused, naming each candidate, and the agent passes the full path
+(`v1.0/03.1`). The session's active milestone or workstream never picks one, so an argument means the same entity on
+every machine.
 
 ## What it looks like
 
@@ -111,7 +137,7 @@ task T1 "Issue a token on sign-in" {
   action   """
     Issue a signed token on sign-in; store its id in the session table.
   """
-  verify_automated "npm test -- session"
+  verify   [{ automated "npm test -- session" fails_when "no token is returned or the middleware rejects it" }]
   done     "sign-in returns a token the middleware accepts"
 }
 ```
@@ -139,7 +165,7 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
-| git history (no GSD file) | commit (collected, never authored) | core |
+| git history (no GSD file) | commit (written by the git collector, never by an agent) | core |
 | `WINDOWS.md` | broken_window | core |
 | `NN-REFACTOR.md` | refactor_proposal | core |
 | `quick/*` | plan, summary (a quick plan has no phase) | core |

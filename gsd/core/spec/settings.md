@@ -29,7 +29,7 @@ one `@gsd/*` extension or listed below as not applicable, with its reason.
 
 | Owner | Key families |
 |---|---|
-| `@gsd/core` | `mode`, `granularity`, `granularities.*`, `model_profile`, `model_profile_overrides.*`, `model_policy.*`, `models.*`, `dynamic_routing.*`, `runtime`, `phase_id_convention`, `project_code`, `phase_naming`, `response_language`, `context_window`, `context_profile`, `context`, `workflow.*` (but the ones below), `executor.*`, `planner.*`, `parallelization.*`, `gates.*`, `git.*`, `worktree.*`, `ship.*`, `review.*`, `agent_skills`, `agent_tools.*`, `hooks.*`, `statusline.*`, `refactor.*`, `model_overrides.*`, `effort.*`, `fast_mode.*`, `manager.*`, `plan_review.*`, `audit.*`, `features.*`, `learnings.*`, `claude_orchestration.*`, `external_job.*`, `agent_skills_security.*`, `planning.chunked_parallel`, `parallelization` (the shorthand for `parallelization.enabled`), the search availability flags (`brave_search` … `jina`) |
+| `@gsd/core` | `mode`, `granularity`, `granularities.*`, `model_profile`, `model_profile_overrides.*`, `model_policy.*`, `models.*`, `dynamic_routing.*`, `runtime`, `phase_id_convention`, `project_code`, `phase_naming`, `response_language`, `context_window`, `context_profile`, `context`, `workflow.*` (but the ones below), `executor.*`, `planner.*`, `parallelization.*`, `gates.*`, `git.*`, `worktree.*`, `ship.*`, `review.*`, `agent_skills`, `agent_tools.*`, `hooks.*`, `statusline.*`, `refactor.*`, `model_overrides.*`, `resolve_model_ids`, `effort.*`, `fast_mode.*`, `manager.*`, `plan_review.*`, `audit.*`, `features.*`, `learnings.*`, `claude_orchestration.*`, `external_job.*`, `agent_skills_security.*`, `planning.chunked_parallel`, `parallelization` (the shorthand for `parallelization.enabled`), the search availability flags (`brave_search` … `jina`) |
 | `@gsd/security` | `workflow.security_enforcement`, `workflow.security_asvs_level`, `workflow.security_block_on`, `security.*` |
 | `@gsd/ui` | `workflow.ui_phase`, `workflow.ui_safety_gate`, `workflow.ui_review`, `workflow.live_dom_uat`, `workflow.ui_interaction_capture` |
 | `@gsd/ai` | `workflow.ai_integration_phase`, `workflow.api_coverage_gate` |
@@ -50,7 +50,7 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Why |
 |---|---|
-| `planning.commit_docs`, `planning.search_gitignored`, `planning.pr_strict`, `search_gitignored` | there is no `.planning/`; `spec/gsd/` is source and is committed like code |
+| `planning.commit_docs`, `commit_docs`, `phase_commit_docs.<phase-id>`, `planning.search_gitignored`, `planning.pr_strict`, `search_gitignored` | there is no `.planning/`; `spec/gsd/` is source and is committed like code (and `phase_commit_docs.<phase-id>` has a `.` in its segment, which a setting family key cannot hold) |
 | `planning.sub_repos` | a sub-repository is another SpecForge project |
 | `claude_md_path`, `claude_md_assembly.*` | host files are rendered by `specforge install`, which owns their paths |
 | `workflow.auto_prune_state` | `STATE.md` is derived, nothing to prune |
@@ -81,6 +81,15 @@ A profile presets these settings:
 | `specforge.traceability_gate` | false | false | true |
 | `specforge.stale_verdict_gate` | false | false | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
+
+## Other presets
+
+A setting has one preset source, and these two are independent of `profile`:
+
+| Source | Presets |
+|---|---|
+| `model_profile` (four values) | `model_overrides.<agent>` from GSD's model-profile table (round r40, with the agents) |
+| `workflow.context_drift_action` | `block` raises gsd/W406 to an error (raise only); the other values set nothing |
 
 ## SpecForge-only settings
 

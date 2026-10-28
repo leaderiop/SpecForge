@@ -12,12 +12,18 @@ of two things (K9 U4):
   also reached through the core tool `specforge.prompt` and the CLI `specforge prompt`. The host agent follows it;
   each step's writes are a command's edit plan (K5), and a step whose gate fails is refused.
 - **a command**: code in the extension, served as the MCP tool `specforge.gsd.<name>` and the CLI
-  `specforge gsd <name>`. These are the command-backed ones: `/gsd-health`, `/gsd-help`, `/gsd-stats`,
-  `/gsd-surface`, `/gsd-update`, `/gsd-phase`, `/gsd-workstreams`, `/gsd-workspace`, `/gsd-cleanup`,
-  `/gsd-graphify`. Every other row below is a workflow.
+  `specforge gsd <name>`. The command-backed ones are `@gsd/core`'s `/gsd-health`, `/gsd-help`, `/gsd-stats`,
+  `/gsd-surface`, `/gsd-phase`, `/gsd-workstreams` and `/gsd-cleanup` (7), and `@gsd/codebase`'s `/gsd-graphify`.
+  Every other row below is a workflow. `/gsd-workspace` and `/gsd-update` are workflows too: a command runs nothing
+  (the sandbox), and worktrees and updates need git and the package manager, which the agent runs.
 
-The workflows' steps call writing commands that are not slash commands (record a verdict, record a commit, set a
-UAT result …); those are listed with their workflow in the parity roster.
+A configuration command (`/gsd-settings`, `/gsd-config`, `/gsd-surface`) writes `specforge.json` through
+`specforge settings set|unset` (kernel follow-up K16, r35), which admits a value by the setting's own type; `/gsd-surface`
+toggles skills, which are `when` settings.
+
+The workflows' steps call writing commands that are not slash commands; they are the [roster below](#writing-commands).
+A workflow that names an entity takes the full path when a short form is ambiguous project-wide (the host refuses an
+ambiguous one, naming each candidate).
 
 ## Commands
 
@@ -32,6 +38,27 @@ UAT result …); those are listed with their workflow in the parity roster.
 | @gsd/ui | `/gsd-ui-phase`, `/gsd-ui-review` | 2 |
 | @gsd/core skills (namespace routers: they list and dispatch, nothing else) | `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review`, `/gsd-ns-workflow` | 6 |
 | **total** | | **72** |
+
+## Writing commands
+
+Every `H` field of the model has exactly one writer, a command whose edit plan the host checks and applies (K5), or a
+collector. The workflows call these; none is a slash command. Round r41 builds all but `record_verdict` (r40).
+
+| Command | Writes (`H` fields) |
+|---|---|
+| `start_plan`, `complete_plan` | summary `started`, `completed`, `status`, the plan's state |
+| `answer_checkpoint` | checkpoint `answer` |
+| `confirm_setup` | user_setup `done` |
+| `set_uat_result` | uat_test `result`, `source` |
+| `approve_validation` | validation `approval` |
+| `complete_milestone` | milestone `completion` (gated by gsd/E106), its retrospective |
+| `pause`, `resume` | pause `at`, `by`; removes the pause |
+| `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
+| `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
+| `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
+| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
+| `record_verdict` | a verdict (`V` fields), through `set_verdict` (round r40) |
+| the `gsd-git` collector | commit (every field) |
 
 ## Agents
 
@@ -64,7 +91,7 @@ GSD's `hooks/` become typed hook contributions (K9). `specforge install <host>` 
 | gsd-prompt-guard | `pre_tool` write: scans content written to spec files |
 | gsd-agent-isolation-guard | `pre_tool` agent: a subagent is started with its own worktree |
 | gsd-worktree-path-guard | `pre_tool` write within the executor's worktree |
-| gsd-workflow-guard | `pre_tool` shell, write and edit outside a running workflow (`hooks.workflow_guard`) |
+| gsd-workflow-guard | `pre_tool` shell, write and edit outside a running workflow (`hooks.workflow_guard`); the running-workflow marker is session state set by a `user_prompt` hook that sees a `/gsd-…` prompt and cleared at `stop` |
 | gsd-context-monitor | `post_tool`, `stop`, `subagent_stop`, `pre_compact`: context warnings (`hooks.context_*`), its metrics kept in the extension's session state |
 | gsd-statusline | `statusline`, from the graph and the session state |
 | gsd-validate-commit | `pre_commit`: the commit subject convention the git collector reads |

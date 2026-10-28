@@ -24,7 +24,10 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 ```
 
 The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
-`testing`, `cargo-test` or `vitest`. Loading both is refused (E013), so `milestone` and `decision` never clash.
+`testing`, `cargo-test` or `vitest`. That is policy, not kernel-enforced: `@specforge/product` (`milestone`,
+`deliverable`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also declares, and loading both is
+E026 (the first registration wins), so `specforge check` fails on a real clash. `@specforge/testing` declares no kind,
+so `@gsd/core` ships its own JUnit test collector instead of relying on a test-runner extension.
 
 ## Decisions
 
@@ -44,6 +47,12 @@ the rest of this folder keeps their K names.
 | K9 | [0292](../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) | an extension contributes agents, skills, commands and hooks |
 | K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
 
+Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
+protocol 1.11.0), and the model cites them where it relies on them: **K11** a pass or command reads the project files
+it declares (file facts), **K12** compile, check and guard passes receive the recorded test report, **K13** a pass gets
+list fields as items, **K14** a writing call knows the time (`now`), **K15** a judged rule's judge may be a prompt,
+**K16** `specforge settings set|unset` writes settings through SpecForge.
+
 ### Parity contract
 
 | Decision | |
@@ -51,7 +60,7 @@ the rest of this folder keeps their K names.
 | Scope | The whole GSD ecosystem. `gsd-core` is the unified meta-model; `gsd-path` and `gsd-loop` are profile extensions over it. `gsd-pi`, `gsd-pi-config`, `gsd-cloud-daemon` and the marketplace are dropped: SpecForge's surfaces replace them. |
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
-| Versions | Our extensions keep their own semver and declare `tracks: gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
+| Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.18.0"` and the handshake keyword `tracks:gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
 | Upgrades | Per upstream release a diff tool (inventory manifest, `capability.json`, templates, prompts, gates) writes a parity backlog; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
