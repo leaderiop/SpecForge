@@ -2,9 +2,13 @@
 //! formats and hook protocol and nothing of what a contribution means. The CLI wires them to the operations.
 
 mod claude_code;
+mod codex;
+mod hook_json;
 mod json_merge;
 mod markdown;
+mod toml_merge;
 mod tools;
+mod trampoline;
 
 use specforge_ops::host::{Host, HostRenderer};
 
@@ -14,7 +18,8 @@ pub use json_merge::is_ours;
 pub fn renderer(host: Host) -> Option<Box<dyn HostRenderer>> {
     match host {
         Host::ClaudeCode => Some(Box::new(claude_code::ClaudeCode)),
-        Host::Codex | Host::Cursor => None,
+        Host::Codex => Some(Box::new(codex::Codex)),
+        Host::Cursor => None,
     }
 }
 

@@ -74,3 +74,11 @@ fn check(host: Host) {
 fn claude_code_golden_is_the_fixture_rendered() {
     check(Host::ClaudeCode);
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
+)]
+fn codex_golden_is_the_fixture_rendered() {
+    check(Host::Codex);
+}

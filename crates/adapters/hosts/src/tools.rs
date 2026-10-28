@@ -59,3 +59,31 @@ pub fn unique(names: impl IntoIterator<Item = String>) -> Vec<String> {
     }
     out
 }
+
+/// Codex's tool names for `class`: it has a shell, a patch tool and MCP; no other class names a tool.
+pub fn codex_names(class: &str) -> Vec<String> {
+    match class {
+        "write" | "edit" => vec!["apply_patch".into(), "Edit".into(), "Write".into()],
+        "shell" => vec!["Bash".into()],
+        _ => class
+            .strip_prefix("mcp:")
+            .and_then(|r| r.split_once('/'))
+            .map(|(server, glob)| format!("mcp__{server}__{glob}"))
+            .into_iter()
+            .collect(),
+    }
+}
+
+/// The class of a tool Codex names; empty for a tool no class covers.
+pub fn codex_class(name: &str) -> ToolClass {
+    match name {
+        "Bash" | "shell" | "local_shell" => "shell".into(),
+        "apply_patch" | "Edit" => "edit".into(),
+        "Write" => "write".into(),
+        _ => name
+            .strip_prefix("mcp__")
+            .and_then(|r| r.split_once("__"))
+            .map(|(server, tool)| format!("mcp:{server}/{tool}"))
+            .unwrap_or_default(),
+    }
+}

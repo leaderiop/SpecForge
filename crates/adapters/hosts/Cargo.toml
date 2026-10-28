@@ -9,10 +9,12 @@ repository.workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml_edit = { workspace = true }
 specforge-ops = { workspace = true }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 
 [dev-dependencies]
+toml_edit = { workspace = true }
 proptest = { version = "1.11", default-features = false, features = ["std"] }
 specforge-repo-root = { path = "../../leaf/repo-root" }
 specforge-test = { workspace = true }

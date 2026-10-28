@@ -1,0 +1,58 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.write_guard --host codex --event pre_tool --tools write",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "apply_patch|Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.validate_commit --host codex --event pre_commit",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.context_monitor --host codex --event post_tool",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.record_hook --host codex --event post_tool --tools write --paths 'spec/**'",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "apply_patch|Edit|Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "specforge hook t.session_cursor --host codex --event session_start",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

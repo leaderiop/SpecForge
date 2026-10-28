@@ -1,0 +1,32 @@
+{
+  "stdin": {
+    "session_id": "s1",
+    "cwd": "/p",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "mcp__specforge__check",
+    "tool_input": {},
+    "tool_response": {
+      "ok": true
+    }
+  },
+  "event": {
+    "event": "post_tool",
+    "host": "codex",
+    "cwd": "/p",
+    "session": "s1",
+    "tool": {
+      "name": "mcp__specforge__check",
+      "class": "mcp:specforge/check",
+      "input": {}
+    },
+    "response": {
+      "ok": true
+    }
+  },
+  "answer": {
+    "context": "3 diagnostics",
+    "notice": "seen"
+  },
+  "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"3 diagnostics\",\"hookEventName\":\"PostToolUse\"},\"systemMessage\":\"seen\"}\n",
+  "exit_code": 0
+}

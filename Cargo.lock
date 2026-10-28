@@ -3019,6 +3019,7 @@ dependencies = [
  "specforge-repo-root",
  "specforge-test",
  "specforge-test-macros",
+ "toml_edit",
 ]
 
 [[package]]

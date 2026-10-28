@@ -1,0 +1,18 @@
+{
+  "stdin": {
+    "session_id": "s1",
+    "cwd": "/p",
+    "hook_event_name": "SubagentStart"
+  },
+  "event": {
+    "event": "subagent_start",
+    "host": "codex",
+    "cwd": "/p",
+    "session": "s1"
+  },
+  "answer": {
+    "context": "isolated"
+  },
+  "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"isolated\",\"hookEventName\":\"SubagentStart\"}}\n",
+  "exit_code": 0
+}
