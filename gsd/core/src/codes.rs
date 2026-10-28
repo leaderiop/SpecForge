@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 61 codes of `spec/rules.md`, in the order of its tables.
+/// The 63 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -207,7 +207,7 @@ pub static CODES: &[Code] = &[
     code(
         "E302",
         "Plan names no requirement",
-        "A plan names at least one requirement (missing_required_field and non_empty under one code)",
+        "A plan of a phase names at least one requirement (a quick plan names none)",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -215,7 +215,7 @@ pub static CODES: &[Code] = &[
     code(
         "E303",
         "Task is missing a required field",
-        "An auto or tdd task has files, action, automated verify and done",
+        "An auto, tdd or tracer task has files and a verify (action and done are required fields)",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -247,17 +247,17 @@ pub static CODES: &[Code] = &[
     code(
         "E307",
         "Checkpoint option or fields invalid",
-        "Auto_select and answer.option name one of the checkpoint's options; each checkpoint kind has its fields",
+        "Auto_select and answer.option name one of the checkpoint's options, option names are unique, and each checkpoint kind has its fields",
         "plan",
         Severity::Error,
         Severity::Error,
     ),
     code(
-        "E308",
-        "One-way task without a decision",
-        "A one_way task follows a decision checkpoint or a settled decision",
+        "W308",
+        "One-way task without a decision or a settled_by",
+        "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by",
         "plan",
-        Severity::Error,
+        Severity::Warning,
         Severity::Error,
     ),
     code(
@@ -270,8 +270,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E310",
-        "Settled decision not honoured by a plan",
-        "Every settled decision of the phase is honoured by some plan",
+        "Context decision cited by no plan",
+        "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -358,8 +358,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "I321",
-        "Same-wave coupling undeclared",
-        "Same-wave non-file coupling is declared by depends_on or coupling_justified naming the peer",
+        "Justified coupling between plans",
+        "A coupling_justified item names a peer of the same phase and wave: the applied exemption is reported as an advisory",
         "plan",
         Severity::Info,
         Severity::Info,
@@ -371,6 +371,22 @@ pub static CODES: &[Code] = &[
         "plan",
         Severity::Error,
         Severity::Error,
+    ),
+    code(
+        "W323",
+        "Plan not named after its phase",
+        "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one",
+        "plan",
+        Severity::Warning,
+        Severity::Error,
+    ),
+    code(
+        "W324",
+        "Verify command not checked",
+        "A task's verify command runs in a dynamic or outside-the-project directory, or its package.json is unreadable or has no such script",
+        "plan",
+        Severity::Warning,
+        Severity::Warning,
     ),
     code(
         "E507",

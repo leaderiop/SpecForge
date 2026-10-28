@@ -33,7 +33,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
-`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and not yet built (r37 and r39): a pass declares the paths it
+`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and not yet built (r39; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
 reads (`reads`) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
 Every status computed from test evidence declares `reads_tests` (K12): compute, check and guard passes then receive the
 recorded test report, and I205 says once when none is recorded.

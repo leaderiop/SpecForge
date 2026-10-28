@@ -1,5 +1,7 @@
 # Plans and tasks
 
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger), `gap_closure` (r39) and `commits` (with `commit`, r38) wait for later rounds.**
+
 ```
  phase ─1──*─ plan ─1──*─ task
                 │   ├──*─ checkpoint         (options are a block of it)
@@ -23,20 +25,20 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
-| phase | → phase | R I | `phase:` (absent for a quick plan) |
+| phase | → phase | I | `phase:`; absent for a quick plan, which is in the project scope and named by its quick id (not `R`: a quick plan has none, so a forgotten `phase` is gsd/W323, the name check) |
 | type | enum{execute, tdd} | R | `type:` |
 | depends_on | →* plan | | `depends_on:` |
-| files_modified | files | R | `files_modified:` |
+| files_modified | strs | R | `files_modified:`: paths from the project root, not existence-checked (a plan names files it will create, so `files` would be E016 on each) |
 | files_deleted | strs | | `files_deleted:` |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
-| requirements | →* requirement | | `requirements:` (non-empty: not `R`, so gsd/E302 is the one diagnostic of its absence) |
+| requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
-| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` |
+| gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (declared in round r39, with those kinds: a reference to a kind no loaded extension declares is W021) |
 | agent_hint | str | | `agent_hint:` |
 | estimate | {tokens int} | | `estimate:` |
 | objective | str | R | `<objective>` |
 | purpose, output | str | | `Purpose:` / `Output:` |
-| context_refs | files | | `<context>` @-refs |
+| context_refs | strs | | `<context>` @-refs (paths, not existence-checked) |
 | verification | strs | | `<verification>` |
 | success_criteria | strs | | `<success_criteria>` |
 | wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
@@ -51,16 +53,18 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 |---|---|---|---|
 | plan | → plan | R I | parent |
 | type | enum{auto, tdd, tracer, manual} | R | `type=` |
-| files | files | | `<files>` (required for `auto`, a rule) |
-| read_first | files | | `<read_first>` |
+| files | strs | | `<files>`: paths, not existence-checked (required for `auto`, gsd/E303) |
+| read_first | strs | | `<read_first>`: paths, not existence-checked |
 | precondition | str | | `<precondition>` |
-| reversibility | {rating enum{reversible, costly, one_way} R, why str} | | `<reversibility>` |
+| reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |
 | verify | {automated str R, fails_when str} | | `<verify><automated>` and its `<fails_when>`: a block list, N commands with N failing-direction statements (required for `auto`; gsd/E303, gsd/E507) |
+| verify_text | str | | a bare `<verify>` body (the v1.18.0 template's shape): not an `<automated>` command, so neither gsd/E320 nor gsd/E507 reads it |
 | verify_human | str | | `<verify><human-check>`: harvested into UAT |
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
-| commits | →* commit | C | the git collector links commits naming the task |
+| verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
+| commits | →* commit | C | the git collector links commits naming the task (declared in round r38, with `commit`) |
 | status | enum{pending, done} | C | done when its plan's summary lists it complete |
 
 ## checkpoint
@@ -73,11 +77,12 @@ GSD: `<task type="checkpoint:*">`. Name `C1`, scoped by its plan.
 | after | → task | | position in the task order |
 | kind | enum{human_verify, decision, human_action, tdd_review} | R | `type=` |
 | gate | enum{blocking, blocking_human, advisory} | | `gate=` (blocking when absent) |
-| what_built, how_to_verify | str | | required for `human_verify` |
-| decision | str | | required for `decision` |
-| options | {name str R, pros strs, cons strs} | | required for `decision`; option names unique within the checkpoint |
-| auto_select | str | | `auto_select=`: must name one of `options` |
-| instructions | str | | required for `human_action` |
+| what_built, how_to_verify | str | | required for `human_verify` (gsd/E307) |
+| decision | str | | required for `decision` (gsd/E307) |
+| options | {name str R, pros strs, cons strs} | | required for `decision`; option names unique within the checkpoint (gsd/E307) |
+| auto_select | str | | `auto_select=`: must name one of `options` (gsd/E307) |
+| instructions | str | | required for `human_action` (gsd/E307) |
+| action, verification | str | | required for `human_action` (`<action>`, `<verification>`; gsd/E307) |
 | resume_signal | str | R | `<resume-signal>` |
 | answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (`now`, K14) |
 
@@ -90,8 +95,8 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 | Kind | Fields |
 |---|---|
 | truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}`, `criterion int` (the phase success criterion it proves). Name `TR1`. |
-| artifact | `plan R I`, `path file R`, `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
-| key_link | `plan R I`, `from file R`, `to file R`, `via str R`, `pattern str`. Name `KL1`. |
+| artifact | `plan R I`, `path str R` (a path the plan creates: not existence-checked), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
+| key_link | `plan R I`, `from str R`, `to str R` (paths the plan creates: not existence-checked), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
 
 ## disposition
@@ -101,8 +106,8 @@ GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-co
 
 ## user_setup
 
-GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R`, `service str R`, `why str R`,
-`env_vars {name str R, source str}`, `dashboard {task str, location str, details str}`, `local_dev strs`;
+GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
+`env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
 `done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`).
 
 ## The plan check

@@ -94,13 +94,13 @@
     {
       "code": "E302",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan names at least one requirement (missing_required_field and non_empty under one code). It is an error.",
+      "explanation": "A plan of a phase names at least one requirement (a quick plan names none). It is an error.",
       "title": "Plan names no requirement"
     },
     {
       "code": "E303",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "An auto or tdd task has files, action, automated verify and done. It is an error.",
+      "explanation": "An auto, tdd or tracer task has files and a verify (action and done are required fields). It is an error.",
       "title": "Task is missing a required field"
     },
     {
@@ -124,14 +124,14 @@
     {
       "code": "E307",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Auto_select and answer.option name one of the checkpoint's options; each checkpoint kind has its fields. It is an error.",
+      "explanation": "Auto_select and answer.option name one of the checkpoint's options, option names are unique, and each checkpoint kind has its fields. It is an error.",
       "title": "Checkpoint option or fields invalid"
     },
     {
-      "code": "E308",
+      "code": "W308",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A one_way task follows a decision checkpoint or a settled decision. It is an error.",
-      "title": "One-way task without a decision"
+      "explanation": "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by. It is a warning, and an error under gsd-strict.",
+      "title": "One-way task without a decision or a settled_by"
     },
     {
       "code": "W309",
@@ -142,8 +142,8 @@
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every settled decision of the phase is honoured by some plan. It is an error.",
-      "title": "Settled decision not honoured by a plan"
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans. It is an error.",
+      "title": "Context decision cited by no plan"
     },
     {
       "code": "W311",
@@ -208,14 +208,26 @@
     {
       "code": "I321",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Same-wave non-file coupling is declared by depends_on or coupling_justified naming the peer. It is information.",
-      "title": "Same-wave coupling undeclared"
+      "explanation": "A coupling_justified item names a peer of the same phase and wave: the applied exemption is reported as an advisory. It is information.",
+      "title": "Justified coupling between plans"
     },
     {
       "code": "E322",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
       "explanation": "A plan has fewer than 5 tasks. It is an error.",
       "title": "Plan has five or more tasks"
+    },
+    {
+      "code": "W323",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one. It is a warning, and an error under gsd-strict.",
+      "title": "Plan not named after its phase"
+    },
+    {
+      "code": "W324",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A task's verify command runs in a dynamic or outside-the-project directory, or its package.json is unreadable or has no such script. It is a warning.",
+      "title": "Verify command not checked"
     },
     {
       "code": "E507",

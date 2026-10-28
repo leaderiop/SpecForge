@@ -3,6 +3,8 @@
 mod discuss;
 mod dsl;
 mod learning;
+mod must_haves;
+mod plan;
 mod project;
 mod research;
 mod roadmap;
@@ -37,6 +39,15 @@ const KINDS: &[&Kind] = &[
     &research::OPEN_QUESTION,
     &research::SOURCE,
     &research::PACKAGE_AUDIT,
+    &plan::PLAN,
+    &plan::TASK,
+    &plan::CHECKPOINT,
+    &must_haves::TRUTH,
+    &must_haves::ARTIFACT,
+    &must_haves::KEY_LINK,
+    &must_haves::PROHIBITION,
+    &plan::DISPOSITION,
+    &plan::USER_SETUP,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

@@ -289,6 +289,132 @@
         "label": "PackageAuditResearch",
         "source_kind": "package_audit",
         "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanPhase",
+        "source_kind": "plan",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanDependsOn",
+        "source_kind": "plan",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanCouplingJustifiedPeer",
+        "source_kind": "plan",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PlanRequirements",
+        "source_kind": "plan",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TaskPlan",
+        "source_kind": "task",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TaskReversibilitySettledBy",
+        "source_kind": "task",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "CheckpointPlan",
+        "source_kind": "checkpoint",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "CheckpointAfter",
+        "source_kind": "checkpoint",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TruthPlan",
+        "source_kind": "truth",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ArtifactPlan",
+        "source_kind": "artifact",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "KeyLinkPlan",
+        "source_kind": "key_link",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ProhibitionPlan",
+        "source_kind": "prohibition",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DispositionPlan",
+        "source_kind": "disposition",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UserSetupPlan",
+        "source_kind": "user_setup",
+        "target_kind": "plan"
       }
     ]
   },
@@ -3186,6 +3312,1397 @@
         "name": "package_audit",
         "open_fields": false,
         "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A plan: the work of one phase in tasks, with its must-haves (GSD NN-MM-PLAN.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`; absent for a quick plan (gsd/W323 checks the name)",
+            "edge": "PlanPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`type:`",
+            "edge": null,
+            "enum_values": [
+              "execute",
+              "tdd"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`depends_on:`",
+            "edge": "PlanDependsOn",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "depends_on",
+            "required": false,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`files_modified:` (paths from the project root, not existence-checked)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files_modified",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`files_deleted:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files_deleted",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`coupling_justified:`; exempts only non-file coupling",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "PlanCouplingJustifiedPeer",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "peer",
+                "required": true,
+                "target_kind": "plan"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "coupling_justified",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)",
+            "edge": "PlanRequirements",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirements",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`wave: 0`: the plan builds the phase's wave-0 items",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave0",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`agent_hint:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "agent_hint",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`estimate:`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "tokens",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "estimate",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<objective>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "objective",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Purpose:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "purpose",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Output:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "output",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<context>` @-refs (paths, not existence-checked)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_refs",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verification>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<success_criteria>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "success_criteria",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "longest `depends_on` path plus the phase's base (phase-plan-index)",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "false exactly when the plan has a checkpoint",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "autonomous",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "derived from the plan-check verdict and the summary",
+            "edge": null,
+            "enum_values": [
+              "draft",
+              "checked",
+              "ready",
+              "executing",
+              "complete",
+              "halted",
+              "blocked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "plan",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A task of a plan (GSD <task>)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "TaskPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`type=`",
+            "edge": null,
+            "enum_values": [
+              "auto",
+              "tdd",
+              "tracer",
+              "manual"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<files>` (paths, not existence-checked; required for `auto`, gsd/E303)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "files",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<read_first>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "read_first",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<precondition>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "precondition",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<reversibility>`; `settled_by` names the decision that already settles a one-way door (gsd/W308)",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "reversible",
+                  "costly",
+                  "one_way"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "rating",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "TaskReversibilitySettledBy",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "settled_by",
+                "required": false,
+                "target_kind": "decision"
+              }
+            ],
+            "name": "reversibility",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<action>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "action",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verify><automated>` and its `<fails_when>`: one item per command (gsd/E303, gsd/E507)",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "automated",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "fails_when",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "verify",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a bare `<verify>` body: not an `<automated>` command, so no probe reads it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_text",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verify><human-check>`: harvested into UAT",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_human",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<acceptance_criteria>`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "acceptance",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<done>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "done",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verify_paths",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "done when its plan's summary lists it complete",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "done"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "task",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A checkpoint of a plan: a point where a human verifies, decides or acts (GSD <task type=\"checkpoint:*\">)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "CheckpointPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "position in the task order",
+            "edge": "CheckpointAfter",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "after",
+            "required": false,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "`type=`",
+            "edge": null,
+            "enum_values": [
+              "human_verify",
+              "decision",
+              "human_action",
+              "tdd_review"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`gate=` (blocking when absent)",
+            "edge": null,
+            "enum_values": [
+              "blocking",
+              "blocking_human",
+              "advisory"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "gate",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<what-built>`: required for `human_verify` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "what_built",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<how-to-verify>`: required for `human_verify` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "how_to_verify",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<decision>`: required for `decision` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "decision",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<options>`: required for `decision`; names unique within the checkpoint (gsd/E307)",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "pros",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "cons",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "options",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`auto_select=`: names one of `options` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "auto_select",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<instructions>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "instructions",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<action>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "action",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<verification>`: required for `human_action` (gsd/E307)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`<resume-signal>`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resume_signal",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the human's reply, written by the command that resumes, with the host's clock",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "option",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "text",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "answer",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "checkpoint",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A user-observable truth the plan makes true (GSD must_haves.truths)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "TruthPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the truth, as a user observes it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "explicit: a named passing test; backstop: judged",
+            "edge": null,
+            "enum_values": [
+              "explicit",
+              "backstop"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase success criterion it proves",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "criterion",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "truth",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A file the plan provides (GSD must_haves.artifacts)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ArtifactPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`path:` (from the project root; not existence-checked)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "path",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`provides:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "provides",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`min_lines:`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "min_lines",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`exports:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "exports",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`contains:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "contains",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "artifact",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A wiring between two files the plan creates (GSD must_haves.key_links)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "KeyLinkPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`from:` (a path, not existence-checked)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "from",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`to:` (a path, not existence-checked)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "to",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`via:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "via",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`pattern:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "pattern",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "key_link",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "Something the plan must not do (GSD must_haves.prohibitions)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ProhibitionPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`statement:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "statement",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`verification:`",
+            "edge": null,
+            "enum_values": [
+              "test",
+              "judgment"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the test it names when `verification test` (gsd/E319)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "test",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "prohibition",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "append_only": true,
+        "description": "A review finding and what the plan did about it (GSD Review Dispositions Ledger)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "DispositionPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the review round",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "round",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who raised it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reviewer",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the finding",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "feedback",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "addressed or deferred",
+            "edge": null,
+            "enum_values": [
+              "addressed",
+              "deferred"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "outcome",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why it was deferred",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "disposition",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A setup step only a human can do: an account, an environment variable, a dashboard setting (GSD user_setup)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UserSetupPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`service:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "service",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`why:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`env_vars:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "source",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "env_vars",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`dashboard_config:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "task",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "location",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "details",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "dashboard",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`local_dev:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "local_dev",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "written when the human confirms (`confirm_setup`)",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "done",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "user_setup",
+        "open_fields": false,
+        "scoped_by": "plan",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,
