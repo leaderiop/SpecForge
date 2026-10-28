@@ -199,8 +199,8 @@ fn a_score_above_100_is_refused() {
     assert_eq!(codes(&p).len(), 1, "{:?}", codes(&p));
 }
 
-const FIRST_ENTRY: &str = "    { area \"Storage\" question \"Where are tasks kept?\" options [\"One JSON file\", \"SQLite\"] chosen \"One JSON file\" mode interactive }\n";
-const SECOND_ENTRY: &str = "    { area \"Safety\" question \"How is the file written?\" options [\"In place\", \"Atomically\"] chosen \"Atomically\" mode interactive }\n";
+const FIRST_ENTRY: &str = "    {\n      area     \"Storage\"\n      question \"Where are tasks kept?\"\n      options  [\"One JSON file\", \"SQLite\"]\n      chosen   \"One JSON file\"\n      mode     interactive\n    }\n";
+const SECOND_ENTRY: &str = "    {\n      area     \"Safety\"\n      question \"How is the file written?\"\n      options  [\"In place\", \"Atomically\"]\n      chosen   \"Atomically\"\n      mode     interactive\n    }\n";
 
 #[test]
 fn a_removed_log_entry_is_refused() {
@@ -216,7 +216,7 @@ fn a_removed_log_entry_is_refused() {
 
 #[test]
 fn a_rewritten_log_entry_is_refused() {
-    let p = edited("chosen \"Atomically\"", "chosen \"In place\"");
+    let p = edited("chosen   \"Atomically\"", "chosen   \"In place\"");
     assert_eq!(codes(&p), ["E085"]);
 }
 
