@@ -95,5 +95,7 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | source | `research R`, `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
+`package_audit.legitimacy` is `V` like `phase_spec.scores`, and is declared authored until r40 binds `gsd/W205` (a verdict field no judged rule lists is the kernel's W021). `context.status` is declared `C` and answered by no pass yet: r38 derives it (`ready_for_planning` when `boundary` is written, `canonical_refs` is non-empty and no interview of the phase's spec lacks an `answer`, else `gathering`).
+
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
 rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research is exempt.

@@ -1,6 +1,6 @@
 # Parity suite
 
-**Status: the config roster and the taskboard roadmap are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
+**Status: the config roster, the taskboard roadmap and the taskboard's discussed and researched phase are built; the rest is being designed.** What makes "1:1 with GSD, version by version" a check rather than a hope.
 
 | Check | Proves |
 |---|---|

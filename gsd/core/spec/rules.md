@@ -111,7 +111,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
   is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
   D3). The roster maps `gate-evidence` to that refusal.
-- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r36 onwards): `gsd/E320`, `gsd/E505`, and the file facts under
+- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r37 for `gsd/E320`, r39 for the rest): `gsd/E320`, `gsd/E505`, and the file facts under
   `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`) declare `reads` and are sent
   the facts and capped text of those files.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
