@@ -22,7 +22,7 @@ GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by 
 | boundary | text | R | `<domain>` `## Phase Boundary` |
 | discretion | strs | | `### Claude's Discretion` |
 | specifics | text | | `<specifics>` |
-| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence) |
+| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once canonical_refs and boundary are present and no interview is open |
 

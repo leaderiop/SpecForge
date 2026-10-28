@@ -289,3 +289,37 @@ fn an_unknown_legitimacy_is_refused() {
     );
     assert_eq!(codes(&p), ["E061"]);
 }
+
+fn with_canonical_refs(refs: Option<&str>) -> Project {
+    let p = project("discuss");
+    let spec = fixture("discuss.spec");
+    let field = "  canonical_refs [\n    { topic \"Storage\" paths [\"docs/storage.md\"] }\n  ]\n";
+    assert!(spec.contains(field), "the fixture holds the refs");
+    let replacement = refs.map_or_else(String::new, |r| format!("  canonical_refs {r}\n"));
+    p.write("spec/discuss.spec", &spec.replace(field, &replacement));
+    p
+}
+
+#[test]
+fn context_without_refs_is_e201() {
+    let found = with_canonical_refs(None).findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/E201");
+    assert!(found[0].1.contains("no canonical_refs"), "{found:#?}");
+}
+
+#[test]
+fn context_with_empty_refs_is_e201() {
+    let found = with_canonical_refs(Some("[]")).findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/E201");
+    assert!(found[0].1.contains("empty canonical_refs"), "{found:#?}");
+}
+
+#[test]
+fn a_context_that_says_no_external_specs_is_clean() {
+    let p = with_canonical_refs(Some(
+        "[\n    { topic \"No external specs — requirements are fully captured in decisions above\" paths [] }\n  ]",
+    ));
+    checks_clean(&p);
+}

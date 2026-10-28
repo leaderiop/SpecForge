@@ -278,7 +278,8 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     }
 }
 
-/// Declares the kinds, the edge of each reference field, and `gsd/E107` over each authored `ts` field.
+/// Declares the kinds, the edge of each reference field, and `gsd/E107` over each authored `ts` field and each
+/// authored `ts` member of an authored block.
 pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
     for kind in kinds {
         c.kind(kind.name, |k| {
@@ -301,19 +302,35 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
                     e.source_kind(kind.name).target_kind(target);
                 });
             }
-            if matches!(field.ty, Ty::Ts) && field.writer == Writer::Author {
-                c.rule("E107", |r| {
-                    r.check(CheckKind::FieldValueConstraint)
-                        .target_kind(kind.name)
-                        .field(field.name)
-                        .constraint(|fc| {
-                            fc.kind(ConstraintKind::Matches).pattern(RFC3339_UTC);
-                        })
-                        .severity(ValidationSeverity::Error)
-                        .message_template("{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs");
-                });
+            if field.writer == Writer::Author {
+                for path in authored_timestamps(field) {
+                    c.rule("E107", |r| {
+                        r.check(CheckKind::FieldValueConstraint)
+                            .target_kind(kind.name)
+                            .field(&path)
+                            .constraint(|fc| {
+                                fc.kind(ConstraintKind::Matches).pattern(RFC3339_UTC);
+                            })
+                            .severity(ValidationSeverity::Error)
+                            .message_template("{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs");
+                    });
+                }
             }
         }
+    }
+}
+
+/// The written paths of the authored `ts` values under `field`: the field itself, or `block.member` of a block's
+/// members. A member of a computed or harness field is never reached (the caller checks the field's writer).
+fn authored_timestamps(field: &Field) -> Vec<String> {
+    match field.ty {
+        Ty::Ts => vec![field.name.to_string()],
+        Ty::Block(members) | Ty::Blocks(members) => members
+            .iter()
+            .filter(|m| matches!(m.ty, Ty::Ts) && m.writer == Writer::Author)
+            .map(|m| format!("{}.{}", field.name, m.name))
+            .collect(),
+        _ => Vec::new(),
     }
 }
 

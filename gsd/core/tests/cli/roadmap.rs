@@ -1,7 +1,7 @@
 //! The roadmap rules, end to end: which codes `specforge check` reports on the `roadmap_errors` project, and that
 //! the clean `roadmap` project reports none.
 
-use crate::harness::{Project, project};
+use crate::harness::project;
 
 #[test]
 fn roadmap_errors_report_each_code_once() {
