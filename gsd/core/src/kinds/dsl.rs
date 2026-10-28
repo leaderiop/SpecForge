@@ -334,8 +334,9 @@ fn authored_timestamps(field: &Field) -> Vec<String> {
     }
 }
 
-/// `YYYY-MM-DDTHH:MM:SS[.fraction]Z`.
-pub const RFC3339_UTC: &str = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$";
+/// `YYYY-MM-DDTHH:MM:SS[.fraction]Z`, ASCII digits only, with RFC 3339's ranges (month 01-12, day 01-31, hour 00-23,
+/// minute 00-59, second 00-60). The day is not checked against the month (no 30 February test in a regex).
+pub const RFC3339_UTC: &str = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$";
 
 /// The `kind.field` names of every computed top-level field of `kinds`: what the derive pass lists in `computes`.
 pub fn computed(kinds: &[&Kind]) -> Vec<String> {

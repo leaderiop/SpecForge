@@ -28,7 +28,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
-| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field, and every authored `ts` member of an authored block, is a `str` that `matches`; generated per field and member, and no kind has one yet: `project.updated` is computed, and the first is `blocker.resolved.at`, r38) | decl | E | E | (new: SpecForge has no timestamp type) |
+| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field, and every authored `ts` member of an authored block, is a `str` that `matches` `YYYY-MM-DDTHH:MM:SS[.f]Z` with ASCII digits and RFC 3339's ranges for month, day, hour, minute and second; the day is not checked against the month; generated per field and member, and no kind has one yet: `project.updated` is computed, and the first is `blocker.resolved.at`, r38) | decl | E | E | (new: SpecForge has no timestamp type) |
 | gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
 
 ## Discuss, spec, research
