@@ -9,13 +9,26 @@ use std::process::Command;
 const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build -p specforge-cli) and (cd gsd && cargo build -p gsd-core --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_CORE_WASM to the two artifacts";
 
 fn required(var: &str) -> PathBuf {
-    match std::env::var_os(var) {
-        Some(path) if Path::new(&path).is_file() => PathBuf::from(path),
-        Some(path) => panic!(
-            "{var}={} is not a file; {HOW_TO_BUILD}",
-            Path::new(&path).display()
-        ),
+    match std::env::var_os(var).map(|value| existing_file(var, &value)) {
+        Some(Ok(path)) => path,
+        Some(Err(why)) => panic!("{why}; {HOW_TO_BUILD}"),
         None => panic!("{var} is not set; {HOW_TO_BUILD}"),
+    }
+}
+
+/// `value` as the file `var` names. It must be absolute: cargo runs the tests in `gsd/core`, and each test project
+/// resolves `@gsd/core=<path>` from its own temp directory, so a relative path means something else to each.
+fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> {
+    let path = Path::new(value);
+    if !path.is_absolute() {
+        Err(format!(
+            "{var}={} is a relative path; use an absolute one (e.g. $PWD/target/...)",
+            path.display()
+        ))
+    } else if !path.is_file() {
+        Err(format!("{var}={} is not a file", path.display()))
+    } else {
+        Ok(path.to_path_buf())
     }
 }
 
@@ -113,5 +126,27 @@ fn copy_dir(from: &Path, to: &Path) {
         } else {
             std::fs::copy(entry.path(), target).expect("copy file");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::existing_file;
+
+    #[test]
+    fn a_relative_path_is_refused_whether_or_not_the_file_exists() {
+        let why = existing_file("GSD_CORE_WASM", "Cargo.toml".as_ref()).unwrap_err();
+        assert!(
+            why.contains("relative path") && why.contains("absolute"),
+            "{why}"
+        );
+        let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+        assert!(existing_file("X", manifest.as_ref()).is_ok());
+        let missing = concat!(env!("CARGO_MANIFEST_DIR"), "/nothing");
+        assert!(
+            existing_file("X", missing.as_ref())
+                .unwrap_err()
+                .contains("not a file")
+        );
     }
 }

@@ -12,11 +12,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 specforge-extension-sdk = "0.3.0"
-serde_json = "1.0"
 
 [dev-dependencies]
 specforge-extension-sdk = { version = "0.3.0", features = ["testing"] }
 tempfile = "3"
+serde_json = "1.0"
 
 
 # The gsd-core release this crate tracks (the handshake carries it as the keyword `tracks:gsd-core@<version>`).

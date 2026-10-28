@@ -34,13 +34,15 @@ cd gsd
 cargo build -p gsd-core --release --target wasm32-wasip2      # target/wasm32-wasip2/release/gsd_core.wasm
 (cd .. && cargo build -p specforge-cli)                        # the binary the black-box tests drive
 SPECFORGE_BIN=<repo target>/debug/specforge \
-GSD_CORE_WASM=target/wasm32-wasip2/release/gsd_core.wasm \
+GSD_CORE_WASM=$PWD/target/wasm32-wasip2/release/gsd_core.wasm \
   cargo test                                                   # declaration, roster, profile and CLI tests
 ```
 
-From the repository root, `cargo gate --only gsd` runs all of it (clippy for native and wasm, the release build, the
-CLI build, the tests) and `cargo gate quick` runs it when `gsd/` changed. The component is built on demand and never
-committed.
+Both variables are **absolute** paths: cargo runs the tests in `gsd/core`, and each test project resolves the component
+from its own temp directory, so the harness refuses a relative one. From the repository root, `cargo gate full --only gsd`
+runs all of it (clippy for native and wasm, the release build, the CLI build, the tests); `cargo gate quick` runs it when
+`gsd/` or any crate changed. Plain `cargo gate --only gsd` is `quick`: on a clean tree nothing changed, so it selects
+nothing and runs nothing. The component is built on demand and never committed.
 
 To use it in a project, add the built file:
 

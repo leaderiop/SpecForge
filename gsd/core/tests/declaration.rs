@@ -43,6 +43,23 @@ fn the_handshake_names_gsd_core_and_tracks_1_18_0() {
 }
 
 #[test]
+fn the_crate_links_serde_json_only_for_its_tests() {
+    let manifest = include_str!("../Cargo.toml");
+    let dependencies = manifest
+        .split("[dependencies]")
+        .nth(1)
+        .and_then(|rest| rest.split("\n[").next())
+        .expect("a [dependencies] table");
+    assert!(!dependencies.contains("serde_json"), "{dependencies}");
+}
+
+#[test]
+fn the_family_carries_its_own_licence_texts() {
+    assert!(include_str!("../../LICENSE-MIT").contains("MIT License"));
+    assert!(include_str!("../../LICENSE-APACHE").contains("Apache License"));
+}
+
+#[test]
 fn the_tracked_release_is_the_manifests() {
     let manifest = include_str!("../Cargo.toml");
     assert!(

@@ -46,21 +46,28 @@ missing variable fails the test naming the command that sets it.
 
 ## D6. CI is one `cargo gate` check, `gsd`
 
-Reached by `cargo gate ci` and `full`, triggered by `gsd/**`, the SDK crates, the protocol types and the root manifest.
-Steps: clippy native and wasm (`-D warnings`), the wasm build, the `specforge` CLI build, `cargo test` with both
-variables set. `gsd/Cargo.toml` joins `OUTSIDE_WORKSPACE`, so the existing `rustfmt` check covers it.
+Reach `quick`, so `cargo gate quick`, `full` and `ci` run it; it is triggered by `gsd/**`, every crate under `crates/**`
+(the tests run through the `specforge` binary, which is built from all of them, the SDK included) and the root manifest and
+lockfile. `cargo gate ci` ignores triggers. `cargo gate --only gsd` is `quick`, and `quick` selects by the change set, so on
+a clean tree it runs nothing: use `cargo gate full --only gsd`. Steps: clippy native and wasm (`-D warnings`), the wasm
+build, the `specforge` CLI build, `cargo test` with both variables set (absolute paths); every cargo step is `--locked`.
+`gsd/Cargo.toml` joins `OUTSIDE_WORKSPACE`, so the existing `rustfmt` check covers it, and the fixture `.spec` directories
+join `spec-format`.
 
 ## D7. A test project loads the blob by path
 
 The harness copies a project from `gsd/core/tests/projects/<name>/` into a temp dir and writes
-`"extensions": ["@gsd/core=<GSD_CORE_WASM>"]`. A user runs `specforge add gsd/core` (the crate directory).
+`"extensions": ["@gsd/core=<GSD_CORE_WASM>"]`. A user runs `specforge add <path to gsd_core.wasm>` (the built component;
+`specforge add gsd/core` names a crate directory and fails with E040).
 
 ## D8. The parity fixture is `gsd/parity/fixtures/taskboard/`
 
-A small Node CLI (`node:test`, whose JUnit reporter needs no dependency), its `.planning/` produced once by real
-gsd-core 1.18.0 in an agent host and frozen, the deterministic `gsd-tools` answers over it recorded as goldens by
-`gsd/parity/record.sh` (run by hand with `GSD_CORE_DIR` and node, never in CI), and a hand-written `.spec` twin until
-`@gsd/import` exists.
+A small Node CLI (`node:test`, whose JUnit reporter needs no dependency), its `.planning/` frozen, the deterministic
+`gsd-tools` answers over it recorded as goldens by `gsd/parity/record.sh` (run by hand with `GSD_CORE_DIR` and node, never
+in CI), and a hand-written `.spec` twin until `@gsd/import` exists. The `.planning/` is a faithful hand-built tree, not the
+output of an agent run: the narrative files (`PROJECT.md`, `REQUIREMENTS.md`, plans, summaries, verification, UAT) were
+written by hand to GSD's templates and only the CLI verbs that write files were run by real gsd-core 1.18.0
+(`gsd/parity/README.md`, "How the taskboard was made"). What the oracle proves is gsd-core 1.18.0's answers over that tree.
 
 ## D9. Ported text lives in `gsd/core/assets/`
 
