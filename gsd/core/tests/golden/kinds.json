@@ -1690,6 +1690,18 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the context, its origin-context decisions and deferred ideas, that a research or spec records (gsd/W406)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -1915,6 +1927,18 @@
             "name": "phase",
             "required": true,
             "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the phase's context when the spec was recorded (gsd/W406)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
           },
           {
             "default_value": null,
@@ -2398,6 +2422,18 @@
             "name": "phase",
             "required": false,
             "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the phase's context when the research was recorded (gsd/W406)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
           },
           {
             "default_value": null,

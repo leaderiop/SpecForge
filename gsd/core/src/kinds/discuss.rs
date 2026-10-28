@@ -23,6 +23,9 @@ pub const CONTEXT: Kind = Kind::new(
         en("status", CONTEXT_STATUS)
             .c()
             .doc("**Status:** ready once canonical_refs and boundary are present and no interview is open"),
+        str("digest").c().doc(
+            "the digest of the context, its origin-context decisions and deferred ideas, that a research or spec records (gsd/W406)",
+        ),
     ],
 )
 .scoped_by("phase");

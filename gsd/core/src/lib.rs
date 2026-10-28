@@ -1,6 +1,7 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
 
 pub mod codes;
+mod digest;
 mod kinds;
 mod passes;
 mod rules;

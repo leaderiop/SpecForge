@@ -357,3 +357,136 @@ fn w204_is_an_error_under_gsd_strict() {
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(check.all().contains("W204"), "check: {}", check.all());
 }
+
+/// The `digest` the compute pass gave the context of phase 02.
+fn context_digest(p: &Project) -> String {
+    let query = p.run(&[
+        "query",
+        "v1.0/02/02-CONTEXT",
+        "--depth",
+        "0",
+        "--format",
+        "json",
+    ]);
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+        .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+    let node = graph["nodes"]
+        .as_array()
+        .and_then(|nodes| nodes.iter().find(|n| n["id"] == "v1.0/02/02-CONTEXT"))
+        .unwrap_or_else(|| panic!("the context is queried: {}", query.all()));
+    let digest = node["fields"]["digest"].as_str().unwrap_or_default();
+    assert!(
+        digest.starts_with("fnv1a64:"),
+        "the context's digest: {node}"
+    );
+    digest.to_string()
+}
+
+/// Writes `context_digest <digest>` after `anchor` in the fixture `file`, without the ledger line.
+fn write_digest(p: &Project, file: &str, anchor: &str, digest: &str) {
+    let spec = std::fs::read_to_string(format!(
+        "{}/tests/projects/discuss/spec/{file}",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("the fixture");
+    assert!(spec.contains(anchor), "the fixture holds `{anchor}`");
+    p.write(
+        &format!("spec/{file}"),
+        &spec.replace(anchor, &format!("{anchor}  context_digest {digest:?}\n")),
+    );
+}
+
+/// Writes `context_digest <digest>` on the research (or the spec) and records it in the ledger.
+fn record(p: &Project, file: &str, entity: &str, anchor: &str, digest: &str) {
+    write_digest(p, file, anchor, digest);
+    p.record_harness(entity, "context_digest", &format!("{digest:?}"));
+}
+
+const RESEARCH_ANCHOR: &str = "research 02-RESEARCH \"Persistence research\" {\n";
+const SPEC_ANCHOR: &str = "phase_spec 02-SPEC \"Persistence spec\" {\n";
+
+fn edit_decision(p: &Project) {
+    let spec = p.read("spec/discuss.spec");
+    p.write(
+        "spec/discuss.spec",
+        &spec.replace(
+            "Tasks are kept in a single JSON file",
+            "Tasks are kept in SQLite",
+        ),
+    );
+}
+
+#[test]
+fn context_changed_after_research_is_w406() {
+    let p = project("discuss");
+    let digest = context_digest(&p);
+    record(
+        &p,
+        "research.spec",
+        "v1.0/02/02-RESEARCH",
+        RESEARCH_ANCHOR,
+        &digest,
+    );
+    checks_clean(&p);
+    edit_decision(&p);
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W406");
+    assert!(
+        found[0].1.contains("research 'v1.0/02/02-RESEARCH'")
+            && found[0].1.contains("'v1.0/02/02-CONTEXT' changed since"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_spec_recorded_before_its_context_is_w406() {
+    let p = project("discuss");
+    let before = context_digest(&p);
+    record(&p, "discuss.spec", "v1.0/02/02-SPEC", SPEC_ANCHOR, &before);
+    checks_clean(&p);
+    edit_decision(&p);
+    assert_ne!(context_digest(&p), before, "the edit moves the digest");
+    let found = p.findings();
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W406");
+    assert!(
+        found[0].1.contains("phase spec 'v1.0/02/02-SPEC'"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_decision_of_another_origin_does_not_move_the_digest() {
+    let p = project("discuss");
+    let summary = |text: &str| {
+        format!(
+            "decision D-09 \"From a summary\" {{\n  phase  v1.0/02\n  text   \"{text}\"\n  origin summary\n}}\n"
+        )
+    };
+    p.write("spec/summary.spec", &summary("first"));
+    let digest = context_digest(&p);
+    record(
+        &p,
+        "research.spec",
+        "v1.0/02/02-RESEARCH",
+        RESEARCH_ANCHOR,
+        &digest,
+    );
+    p.write("spec/summary.spec", &summary("second"));
+    checks_clean(&p);
+}
+
+#[test]
+fn a_hand_written_digest_is_e083() {
+    let p = project("discuss");
+    let digest = context_digest(&p);
+    write_digest(&p, "research.spec", RESEARCH_ANCHOR, &digest);
+    assert_eq!(codes(&p), ["E083"]);
+    p.record_harness(
+        "v1.0/02/02-RESEARCH",
+        "context_digest",
+        &format!("{digest:?}"),
+    );
+    assert_eq!(codes(&p), Vec::<String>::new());
+}

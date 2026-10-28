@@ -14,6 +14,9 @@ pub const RESEARCH: Kind = Kind::new(
         rf("phase", "phase")
             .i()
             .doc("absent for the project's research"),
+        str("context_digest")
+            .h()
+            .doc("the digest of the phase's context when the research was recorded (gsd/W406)"),
         str("domain"),
         date("researched").i(),
         en("confidence", CONFIDENCE).r(),

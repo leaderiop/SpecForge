@@ -1,6 +1,7 @@
 //! The passes of `@gsd/core`.
 
 mod derive;
+mod drift;
 mod research;
 mod roadmap;
 
@@ -10,4 +11,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     derive::declare(c);
     roadmap::declare(c);
     research::declare(c);
+    drift::declare(c);
 }

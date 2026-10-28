@@ -280,7 +280,8 @@ fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
             "reusable_assets",
             "patterns",
             "integration_points",
-            "status"
+            "status",
+            "digest"
         ]
     );
     assert_eq!(
@@ -355,6 +356,7 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
         fields_of("phase_spec"),
         [
             "phase",
+            "context_digest",
             "created",
             "goal",
             "background",
@@ -425,9 +427,9 @@ fn the_discussion_entries_are_append_only() {
     assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
 }
 
-/// `discuss.md` lists 95 fields over its 16 kinds. The model fixes: the research's and the spec's `context_digest`
-/// (2) wait for the round that writes them (r41's `record_*` commands), the decision's `from_summary` for `summary`
-/// (r38), and `source` gains `research` (the model says every item has one): 95 - 2 - 1 + 1 = 93.
+/// `discuss.md` lists 95 fields over its 16 kinds. The model fixes: the decision's `from_summary` waits for `summary`
+/// (r38) and `source` gains `research` (the model says every item has one); the context gains its computed `digest`
+/// (the fix of round r36): 95 - 1 + 1 + 1 = 96, the research's and the spec's `context_digest` included.
 #[test]
 fn the_discuss_kinds_declare_every_field_of_discuss_md() {
     let kinds = [
@@ -449,7 +451,7 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "package_audit",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 95 - 2 - 1 + 1, "the kinds' fields");
+    assert_eq!(total, 95 - 1 + 1 + 1, "the kinds' fields");
 }
 
 #[test]
@@ -471,5 +473,17 @@ fn every_research_item_is_scoped_by_its_research() {
             .expect("the kind");
         assert_eq!(entity["scoped_by"], "research", "{kind}");
         assert_eq!(fields_of(kind)[0], "research", "{kind}");
+    }
+}
+
+#[test]
+fn the_context_digest_is_computed_and_the_recorded_copies_are_harness_values() {
+    assert_eq!(field_of("context", "digest")["writer"], "computed");
+    for kind in ["research", "phase_spec"] {
+        assert_eq!(
+            field_of(kind, "context_digest")["writer"],
+            "harness",
+            "{kind}"
+        );
     }
 }

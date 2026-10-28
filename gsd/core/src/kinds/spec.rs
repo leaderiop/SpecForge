@@ -19,6 +19,9 @@ pub const PHASE_SPEC: Kind = Kind::new(
     "A phase's spec: what it delivers, falsifiably (GSD NN-SPEC.md)",
     &[
         rf("phase", "phase").r().i().doc("file location"),
+        str("context_digest")
+            .h()
+            .doc("the digest of the phase's context when the spec was recorded (gsd/W406)"),
         date("created").i().doc("**Created:**"),
         str("goal").r().doc("X changes from A to B"),
         str("background"),

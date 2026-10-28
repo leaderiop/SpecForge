@@ -148,6 +148,28 @@ impl Project {
         git(&["commit", "-q", "--allow-empty", "-m", "baseline"]);
     }
 
+    /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the
+    /// host's ledger writes it: `path key sha256(path NUL key NUL value)`, sorted, under the header.
+    pub fn record_harness(&self, entity: &str, field: &str, value_json: &str) {
+        use sha2::{Digest, Sha256};
+        let file = "specforge-harness";
+        let header = "# specforge-harness 1";
+        let mut lines: Vec<String> = std::fs::read_to_string(self.dir.path().join(file))
+            .map(|text| text.lines().skip(1).map(String::from).collect())
+            .unwrap_or_default();
+        let digest = Sha256::digest(format!("{entity}\0{field}\0{value_json}").as_bytes());
+        lines.push(format!("{entity} {field} {digest:x}"));
+        lines.sort();
+        lines.dedup();
+        self.write(file, &format!("{header}\n{}\n", lines.join("\n")));
+    }
+
+    /// A file of the project, as it is now.
+    pub fn read(&self, relative: &str) -> String {
+        std::fs::read_to_string(self.dir.path().join(relative))
+            .unwrap_or_else(|e| panic!("read {relative}: {e}"))
+    }
+
     /// Writes (or replaces) a file of the project, creating its folders.
     pub fn write(&self, relative: &str, text: &str) {
         let path = self.dir.path().join(relative);
