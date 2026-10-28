@@ -408,6 +408,9 @@ pub enum RunError {
     /// The command's gate fails, or its subject names no entity (`gate_failed`, `entity_not_found`,
     /// `invalid_input`; ADR 0291). The export was not called, and nothing was written.
     Gate(Box<OpError>),
+    /// The state patch the command answered would break the 64 KiB cap, or is not a patch of an object
+    /// (`state_refused`, ADR 0292). The command ran, and the state is unchanged.
+    State(Box<OpError>),
 }
 
 impl RunError {
@@ -422,7 +425,7 @@ impl RunError {
                 suggestion: error.suggestion.clone(),
                 ..CommandError::new(error.code.to_string(), error.message.clone())
             },
-            RunError::Gate(error) => CommandError {
+            RunError::Gate(error) | RunError::State(error) => CommandError {
                 suggestion: error.suggestion.clone(),
                 ..CommandError::new(error.code.to_string(), error.message.clone())
             },
@@ -468,7 +471,34 @@ pub fn run(
     given: &Map<String, Value>,
     format: CommandFormat,
 ) -> Result<CommandOutput, RunError> {
+    let mut output = called(view, command, given, format)?;
+    settle(view, command, &mut output)?;
+    Ok(output)
+}
+
+/// [`run`] without keeping the state the command patched: the caller applies the plan first, then [`settle`]s.
+pub(crate) fn called(
+    view: &ProjectView<'_>,
+    command: &ExtensionCommand,
+    given: &Map<String, Value>,
+    format: CommandFormat,
+) -> Result<CommandOutput, RunError> {
     run_on(view, command, given, format, &today())
+}
+
+/// Keep the state `output` patched (and take it out of `output`), unless the command failed.
+pub(crate) fn settle(
+    view: &ProjectView<'_>,
+    command: &ExtensionCommand,
+    output: &mut CommandOutput,
+) -> Result<(), RunError> {
+    match output.state.take() {
+        Some(patch) if output.exit_code == 0 => {
+            crate::host::state::apply(view, command.extension(), None, &patch)
+                .map_err(|e| RunError::State(Box::new(e)))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// The view's graph as the plain graph export, naming the version of the
@@ -510,7 +540,10 @@ fn run_on(
         } else {
             Default::default()
         },
-        state: None,
+        state: command
+            .declaration()
+            .reads_state
+            .then(|| crate::host::state::read(view, command.extension(), None)),
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(

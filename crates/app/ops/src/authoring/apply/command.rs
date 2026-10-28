@@ -4,7 +4,7 @@ use super::{
     Clock, HostJudgedRules, JudgedRules, Origin, SystemClock, UNDECLARED_WRITE, apply_plan_with,
 };
 use crate::authoring::edit::Edited;
-use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, run};
+use crate::extension::command::{CommandFormat, ExtensionCommand, RunError, called, settle};
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind};
 use serde_json::{Map, Value};
@@ -70,8 +70,12 @@ pub fn execute_with(
     rules: &Arc<dyn JudgedRules>,
     clock: &dyn Clock,
 ) -> Result<CommandRun, RunError> {
-    let output = run(view, command, given, format)?;
+    let mut output = called(view, command, given, format)?;
     let Some(plan) = &output.plan else {
+        if !dry_run {
+            settle(view, command, &mut output)?;
+        }
+        output.state = None;
         return Ok(CommandRun { output, plan: None });
     };
     let outcome = if !command.writes() {
@@ -96,6 +100,11 @@ pub fn execute_with(
             Err(refusal) => PlanOutcome::Refused(refusal.into_error()),
         }
     };
+    // The state is kept after the plan, and only when the plan did not fail or get refused.
+    if !dry_run && !matches!(outcome, PlanOutcome::Refused(_) | PlanOutcome::Failed) {
+        settle(view, command, &mut output)?;
+    }
+    output.state = None;
     Ok(CommandRun {
         output,
         plan: Some(outcome),

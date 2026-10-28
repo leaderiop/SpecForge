@@ -113,8 +113,12 @@ pub fn run_hook(hosted: &Hosted, id: &str, event: &Value) -> HookRun {
 }
 
 /// The state document of `extension` (`project` or `sessions/<id>`), if it exists.
-pub fn state_of(_hosted: &Hosted, _extension: &str, _document: &str) -> Option<Value> {
-    unimplemented!("K9 T11: host::state::read")
+pub fn state_of(hosted: &Hosted, extension: &str, document: &str) -> Option<Value> {
+    let root = ProjectView::of(&hosted.compiled).root()?.to_path_buf();
+    let text =
+        std::fs::read_to_string(root.join(specforge_ops::host::state::path(extension, document)))
+            .ok()?;
+    serde_json::from_str(&text).ok()
 }
 
 /// The doctor findings about hosts, as `code path`.

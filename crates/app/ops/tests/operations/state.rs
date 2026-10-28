@@ -17,7 +17,6 @@ fn event(class: &str, name: &str) -> serde_json::Value {
     behavior = "run_a_hook",
     verify = "state a hook patches is what another hook reads, per session"
 )]
-#[ignore = "K9 T11"]
 fn state_round_trips_between_hooks() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     // The statusline reads the graph and patches the session; the context monitor reads the session.
@@ -57,7 +56,6 @@ fn state_round_trips_between_hooks() {
     behavior = "run_a_hook",
     verify = "a state patch that would exceed 64 KiB is refused and reported, and the state is unchanged"
 )]
-#[ignore = "K9 T11"]
 fn a_state_patch_over_the_cap_is_refused() {
     let big = "x".repeat(64 * 1024 + 1);
     let hosted = hosted(
@@ -91,7 +89,6 @@ fn a_state_patch_over_the_cap_is_refused() {
     behavior = "run_a_hook",
     verify = "a command reads its state when it declares it and patches it with what it answers"
 )]
-#[ignore = "K9 T11"]
 fn a_command_patches_its_state() {
     let hosted = hosted(
         hosts_project(json!({}), json!({})),

@@ -114,7 +114,9 @@ pub fn run(
         } else {
             Default::default()
         },
-        state: None,
+        state: declared
+            .reads_state
+            .then(|| crate::host::state::read(view, extension, event.session.as_deref())),
     };
     let called = view.runtime().map(|runtime| {
         ExtensionCalls::new(runtime.as_ref()).run_hook(
@@ -141,6 +143,8 @@ pub fn run(
             );
         }
     };
+    let mut output = output;
+    let patch = output.state.take();
     let mut outcome = Outcome {
         called: true,
         ..Outcome::default()
@@ -155,6 +159,17 @@ pub fn run(
         caller,
         &mut outcome,
     );
+    // After the plan: a patch the cap refuses is a notice, the answer stands.
+    if let Some(patch) = patch
+        && let Err(refusal) =
+            crate::host::state::apply(view, extension, event.session.as_deref(), &patch)
+    {
+        let note = format!("hook {route}: {}", refusal.message);
+        outcome.answer.notice = Some(match outcome.answer.notice.take() {
+            Some(old) => format!("{old}\n{note}"),
+            None => note,
+        });
+    }
     outcome
 }
 

@@ -236,7 +236,9 @@ pub fn render(
             RawGraph::new(graph_export(view)).expect("the graph export is one JSON value")
         }),
         host: host.map(|h| h.as_str().to_string()),
-        state: None,
+        state: declared
+            .reads_state
+            .then(|| crate::host::state::read(view, &prompt.extension, None)),
     };
     let Some(runtime) = view.runtime() else {
         return Err(RenderError::Call(CallError::new(

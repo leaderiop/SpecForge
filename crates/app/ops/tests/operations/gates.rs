@@ -97,7 +97,7 @@ pub fn refusal(error: RunError) -> Refused {
             code: error.diagnostic().code,
             data: Value::Null,
         },
-        RunError::Gate(error) => Refused {
+        RunError::Gate(error) | RunError::State(error) => Refused {
             code: error.code.to_string(),
             data: error
                 .data

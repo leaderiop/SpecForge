@@ -241,9 +241,10 @@ fn ended(
             err!(terminal, "{}", written(&error, format));
             match error {
                 RunError::Args(_) => Exit::Unjudged.code(),
-                RunError::NoProject(_) | RunError::Call(_) | RunError::Gate(_) => {
-                    Exit::Failed.code()
-                }
+                RunError::NoProject(_)
+                | RunError::Call(_)
+                | RunError::Gate(_)
+                | RunError::State(_) => Exit::Failed.code(),
             }
         }
     }
@@ -273,6 +274,7 @@ fn written(error: &RunError, format: CommandFormat) -> String {
             RunError::Args(error) => format!("error: {error}\n"),
             RunError::Call(error) => call_text(&error.diagnostic()),
             RunError::NoProject(error) => format!("error[{}]: {}\n", error.code, error.message),
+            RunError::State(error) => format!("error[{}]: {}\n", error.code, error.message),
             RunError::Gate(error) => failed_gate(error),
         },
     }
