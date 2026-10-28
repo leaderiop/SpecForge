@@ -88,7 +88,8 @@ fn a_coupling_peer_is_an_edge() {
         "depends_on     [01-01]\n",
         "depends_on     [01-01]\n  coupling_justified [{ peer 01-01 reason \"both read the store\" }]\n",
     );
-    assert_eq!(p.codes(), Vec::<String>::new());
+    // 01-02 follows 01-01, so the exemption covers nothing (gsd/I321, an advisory).
+    assert_eq!(p.codes(), ["gsd/I321"]);
     let found = edges(&p, "v1.0/01/01-02");
     assert!(
         found.contains(&(

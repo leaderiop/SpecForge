@@ -142,8 +142,8 @@
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every settled decision of the phase is honoured by some plan. It is an error.",
-      "title": "Settled decision not honoured by a plan"
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans. It is an error.",
+      "title": "Context decision cited by no plan"
     },
     {
       "code": "W311",
@@ -208,8 +208,8 @@
     {
       "code": "I321",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Same-wave non-file coupling is declared by depends_on or coupling_justified naming the peer. It is information.",
-      "title": "Same-wave coupling undeclared"
+      "explanation": "A coupling_justified item names a peer of the same phase and wave: the applied exemption is reported as an advisory. It is information.",
+      "title": "Justified coupling between plans"
     },
     {
       "code": "E322",

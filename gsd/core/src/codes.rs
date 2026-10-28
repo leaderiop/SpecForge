@@ -270,8 +270,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E310",
-        "Settled decision not honoured by a plan",
-        "Every settled decision of the phase is honoured by some plan",
+        "Context decision cited by no plan",
+        "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -358,8 +358,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "I321",
-        "Same-wave coupling undeclared",
-        "Same-wave non-file coupling is declared by depends_on or coupling_justified naming the peer",
+        "Justified coupling between plans",
+        "A coupling_justified item names a peer of the same phase and wave: the applied exemption is reported as an advisory",
         "plan",
         Severity::Info,
         Severity::Info,
