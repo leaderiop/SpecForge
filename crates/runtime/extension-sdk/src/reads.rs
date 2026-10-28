@@ -78,4 +78,10 @@ impl CommandCall<'_> {
     pub fn files(&self, name: &str) -> Option<&FileFacts> {
         self.input.files.get(name)
     }
+
+    /// The host's clock when the command was called: `YYYY-MM-DDTHH:MM:SSZ`, RFC 3339 UTC with seconds (protocol
+    /// 1.11.0, ADR 0294); the same instant as [`Self::today`]. Empty when the host passed none.
+    pub fn now(&self) -> &str {
+        &self.input.now
+    }
 }

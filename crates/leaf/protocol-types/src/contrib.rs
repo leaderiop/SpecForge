@@ -239,6 +239,10 @@ pub struct HookInput<G = GraphWire> {
     pub host: String,
     pub cwd: String,
     pub today: String,
+    /// [`CommandInput::now`]: the same instant as `today`, RFC 3339 UTC with seconds (protocol 1.11.0); empty, and
+    /// not sent, when the host passed none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub now: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -5,6 +5,7 @@
 )]
 
 use specforge_extension_sdk::prelude::*;
+use specforge_extension_sdk::testing::call_every_command;
 
 #[test]
 fn the_sdk_declares_reads_and_reads_tests() {
@@ -43,4 +44,20 @@ fn the_sdk_declares_reads_and_reads_tests() {
     assert_eq!(pass.reads[1].base.as_deref(), Some("spec"));
     let command = &declaration.surfaces.commands[0];
     assert_eq!(command.reads[0].name, "plans");
+}
+
+#[test]
+fn a_command_reads_the_hosts_clock_as_now() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/clock", "1.0.0"));
+    c.command("stamp", |cmd| {
+        cmd.title("Stamp")
+            .description("Stamp")
+            .handler(|call: &CommandCall| {
+                CommandOutput::ok(format!("{} {}", call.today(), call.now()))
+            });
+    });
+    let out = call_every_command(&c, &CommandGraph::default(), "2026-10-28", |_, _| {
+        String::new()
+    });
+    assert_eq!(out[0].1.stdout, "2026-10-28 2026-10-28T00:00:00Z");
 }

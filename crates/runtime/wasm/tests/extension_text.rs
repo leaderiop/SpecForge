@@ -221,6 +221,7 @@ fn command_input() -> specforge_protocol_types::CommandInput<specforge_protocol_
         cwd: String::new(),
         format: Default::default(),
         today: String::new(),
+        now: String::new(),
         graph: specforge_protocol_types::RawGraph::new(r#"{"nodes":[],"edges":[]}"#.into())
             .unwrap(),
         evidence: Default::default(),

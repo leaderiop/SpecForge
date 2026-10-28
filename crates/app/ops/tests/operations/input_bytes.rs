@@ -1,5 +1,5 @@
-//! Pins the collector and hook inputs as 1.10 sent them: a collector is told `today` only when it writes, a hook is
-//! told `today`, and neither is told `now` (K14). The ticket that adds `now` re-blesses these with that one key.
+//! Pins the collector and hook inputs: they differ from 1.10's by one key, `now` (ADR 0294). A collector is told
+//! `today` and `now` only when it writes, a hook is told both.
 
 use std::sync::Arc;
 
@@ -27,8 +27,8 @@ fn keys(value: &serde_json::Value) -> Vec<&str> {
     behavior = "answer_edit_plan",
     verify = "a writing collector receives the graph and its plan is applied after the report"
 )]
-fn command_collect_and_hook_inputs_are_byte_equal_without_k14() {
-    // A writing collector: the graph, the revisions it may name, and the date.
+fn command_collect_and_hook_inputs_differ_from_1_10_only_by_now() {
+    // A writing collector: the graph, the revisions it may name, and the date and the instant.
     let p = project().file(".specforge/reports/git.json", "{}");
     let runtime = Arc::new(
         GsdWrites::new()
@@ -59,11 +59,13 @@ fn command_collect_and_hook_inputs_are_byte_equal_without_k14() {
         .input;
     assert_eq!(
         keys(&sent),
-        ["cwd", "graph", "reports", "revisions", "today"],
+        ["cwd", "graph", "now", "reports", "revisions", "today"],
         "{sent}"
     );
+    let now = sent["now"].as_str().unwrap();
+    assert_eq!(&now[..10], sent["today"].as_str().unwrap(), "{sent}");
 
-    // A hook: the event, the host, the date and the facts of its paths.
+    // A hook: the event, the host, the date and the instant, and the facts of its paths.
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let root = hosted.project.root().display().to_string();
     run_hook(
@@ -73,5 +75,5 @@ fn command_collect_and_hook_inputs_are_byte_equal_without_k14() {
     );
     let sent = hosted.input("hook__write_guard");
     let keys = keys(&sent);
-    assert!(keys.contains(&"today") && !keys.contains(&"now"), "{sent}");
+    assert!(keys.contains(&"today") && keys.contains(&"now"), "{sent}");
 }

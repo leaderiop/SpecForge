@@ -1,5 +1,4 @@
-//! K14 (ADR 0294): a command input carries `now`, RFC 3339 UTC. Pin for the ticket that delivers it; ignored until
-//! then.
+//! K14 (ADR 0294): a command input carries `now`, RFC 3339 UTC, beside `today`.
 
 use serde_json::json;
 use specforge_project::testing::CORE;
@@ -7,7 +6,6 @@ use specforge_project::testing::CORE;
 use crate::plans::{compiled, project, run_command, serving};
 
 #[test]
-#[ignore = "pins K14; T9 un-ignores"]
 fn a_command_input_carries_now() {
     let project = project();
     let runtime = serving(&[(CORE, "cmd__quiet", 0, json!([]))]);

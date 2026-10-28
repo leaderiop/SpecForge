@@ -483,7 +483,7 @@ pub(crate) fn called(
     given: &Map<String, Value>,
     format: CommandFormat,
 ) -> Result<CommandOutput, RunError> {
-    run_on(view, command, given, format, &today())
+    run_on(view, command, given, format, instant())
 }
 
 /// Keep the state `output` patched (and take it out of `output`), unless the command failed.
@@ -516,14 +516,14 @@ pub(crate) fn graph_export(view: &ProjectView<'_>) -> String {
     .expect("a graph export cannot fail")
 }
 
-/// [`run`], on the date `today` (unit tests pin it here; `run` passes the
-/// clock's).
+/// [`run`], at the instant `at` (unit tests pin it here; `run` passes the
+/// clock's): `today` and `now` are its two renderings.
 fn run_on(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,
     given: &Map<String, Value>,
     format: CommandFormat,
-    today: &str,
+    at: chrono::DateTime<chrono::Utc>,
 ) -> Result<CommandOutput, RunError> {
     let mut args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
@@ -532,7 +532,8 @@ fn run_on(
         args,
         cwd: canonical(root).display().to_string(),
         format,
-        today: today.to_string(),
+        today: today_of(at),
+        now: now_of(at),
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
         revisions: if command.writes() {
@@ -568,9 +569,25 @@ fn run_on(
         .map_err(RunError::Call)
 }
 
-/// Today's date in UTC, `YYYY-MM-DD`: the one clock every command reads.
+/// The instant a call is made, taken once: a command, a hook and a writing collector are told its two renderings,
+/// [`today_of`] and [`now_of`], so they never straddle midnight (ADR 0294).
+pub(crate) fn instant() -> chrono::DateTime<chrono::Utc> {
+    chrono::Utc::now()
+}
+
+/// `at`'s date in UTC, `YYYY-MM-DD`.
+pub(crate) fn today_of(at: chrono::DateTime<chrono::Utc>) -> String {
+    at.format("%Y-%m-%d").to_string()
+}
+
+/// `at` as RFC 3339 UTC with seconds and a literal `Z`, `YYYY-MM-DDTHH:MM:SSZ`: fixed width, so it sorts as text.
+pub(crate) fn now_of(at: chrono::DateTime<chrono::Utc>) -> String {
+    at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+}
+
+/// Today's date in UTC, `YYYY-MM-DD`: the clock of a prompt and of `set_verdict`'s `at`, which stay dates.
 pub(crate) fn today() -> String {
-    chrono::Utc::now().format("%Y-%m-%d").to_string()
+    today_of(instant())
 }
 
 /// `root` absolute and canonical, else as given.

@@ -1,8 +1,6 @@
-//! Pins that a 1.10 input, read into its protocol type and written back, is the same bytes: every field the
-//! protocol adds later (`files`, `now`) is absent from the wire when it is empty, so a 1.10 guest reads what it read.
-//! Flips with nothing: these goldens stay as they are; the command, collect and hook inputs the host builds carry
-//! `now` from 1.11.0 on (`tests/calls.rs` and the ops tests pin that), the goldens here are what a guest may be sent
-//! by an older host.
+//! Pins that an input, read into its protocol type and written back, is the same bytes, and that an input of 1.10
+//! (without `files` or `now`, the fields 1.11.0 adds) is still read and written as it was: a field the protocol adds is
+//! absent from the wire when it is empty, so a 1.10 guest reads what it read.
 
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -30,7 +28,7 @@ fn round_trips<T: DeserializeOwned + Serialize>(name: &str, without: Option<&str
 }
 
 #[test]
-fn every_1_10_golden_encodes_byte_equal_without_new_fields() {
+fn every_golden_encodes_byte_equal() {
     round_trips::<CommandInput>("command.input.json", Some("graph"));
     round_trips::<CommandInput>("command.writes.input.json", Some("graph"));
     round_trips::<CollectInput>("collect.input.json", None);
@@ -43,4 +41,51 @@ fn every_1_10_golden_encodes_byte_equal_without_new_fields() {
     ] {
         round_trips::<PassInput>(pass, None);
     }
+}
+
+/// `name` without its `now`, as a 1.10 host sent it.
+fn without_now(name: &str) -> Value {
+    let mut value = golden(name);
+    assert!(
+        value.as_object_mut().unwrap().remove("now").is_some(),
+        "{name} carries now"
+    );
+    value
+}
+
+#[test]
+fn a_1_10_input_without_now_is_read_and_written_without_it() {
+    for (name, graph) in [
+        ("command.input.json", true),
+        ("command.writes.input.json", true),
+        ("hook.input.json", false),
+    ] {
+        let mut old = without_now(name);
+        let typed: Value = if name.starts_with("hook") {
+            let input: HookInput = serde_json::from_value(old.clone()).unwrap();
+            assert_eq!(input.now, "");
+            serde_json::to_value(input).unwrap()
+        } else {
+            let input: CommandInput = serde_json::from_value(old.clone()).unwrap();
+            assert_eq!(input.now, "");
+            serde_json::to_value(input).unwrap()
+        };
+        let mut written = typed;
+        if graph {
+            old.as_object_mut().unwrap().remove("graph");
+            written.as_object_mut().unwrap().remove("graph");
+        }
+        assert_eq!(written, old, "{name}");
+    }
+}
+
+#[test]
+fn a_collect_input_carries_now_only_when_it_has_one() {
+    let mut input: CollectInput = serde_json::from_value(golden("collect.input.json")).unwrap();
+    assert!(serde_json::to_value(&input).unwrap().get("now").is_none());
+    input.now = Some("2026-10-28T09:30:00Z".into());
+    assert_eq!(
+        serde_json::to_value(&input).unwrap()["now"],
+        "2026-10-28T09:30:00Z"
+    );
 }

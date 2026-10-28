@@ -49,6 +49,7 @@ fn a_hook_call_sends_the_golden_input_and_reads_the_golden_output() {
         host: plain.host,
         cwd: plain.cwd,
         today: plain.today,
+        now: plain.now,
         session: plain.session,
         tool: plain.tool,
         paths: plain.paths,

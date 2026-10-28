@@ -93,6 +93,12 @@ pub fn call_every_command(
                 graph: graph.clone(),
                 format: CommandFormat::Json,
                 today: today.to_string(),
+                // Midnight of that date: the harness has a date, not an instant.
+                now: if today.is_empty() {
+                    String::new()
+                } else {
+                    format!("{today}T00:00:00Z")
+                },
                 evidence: Default::default(),
                 // A writing command receives the revision of every source its graph names.
                 revisions: if command.writes {

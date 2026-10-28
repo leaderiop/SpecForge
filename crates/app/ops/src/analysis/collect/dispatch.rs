@@ -90,6 +90,7 @@ pub(super) fn dispatch_over(
     view: Option<&ProjectView<'_>>,
 ) -> Result<CollectOutput, CallError> {
     let writing = view.filter(|_| collector.writes);
+    let at = crate::extension::command::instant();
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
@@ -98,7 +99,8 @@ pub(super) fn dispatch_over(
                 .display()
                 .to_string()
         }),
-        today: writing.map(|_| crate::extension::command::today()),
+        today: writing.map(|_| crate::extension::command::today_of(at)),
+        now: writing.map(|_| crate::extension::command::now_of(at)),
         graph: writing.map(|view| {
             RawGraph::new(crate::extension::command::graph_export(view))
                 .expect("the graph export is one JSON value")

@@ -78,6 +78,10 @@ pub struct CommandInput<G = GraphWire> {
     /// empty when the host passed none.
     #[serde(default)]
     pub today: String,
+    /// The same instant as `today`, `YYYY-MM-DDTHH:MM:SSZ`: RFC 3339, UTC, seconds, a literal `Z` (protocol 1.11.0,
+    /// ADR 0294); empty, and not sent, when the host passed none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub now: String,
     /// The compiled project's graph, in the graph export's shape
     /// (`specforge export --format graph` without the schema).
     #[serde(default)]
@@ -718,6 +722,9 @@ pub struct CollectInput<G = GraphWire> {
     pub cwd: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub today: Option<String>,
+    /// [`CommandInput::now`], for a collector that declares `writes` (protocol 1.11.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub graph: Option<G>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -731,6 +738,7 @@ impl<G> Default for CollectInput<G> {
             stdout: None,
             cwd: None,
             today: None,
+            now: None,
             graph: None,
             revisions: BTreeMap::new(),
         }
