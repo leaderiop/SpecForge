@@ -100,7 +100,7 @@
     {
       "code": "E303",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "An auto or tdd task has files, action, automated verify and done. It is an error.",
+      "explanation": "An auto, tdd or tracer task has files and a verify (action and done are required fields). It is an error.",
       "title": "Task is missing a required field"
     },
     {
@@ -124,14 +124,14 @@
     {
       "code": "E307",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Auto_select and answer.option name one of the checkpoint's options; each checkpoint kind has its fields. It is an error.",
+      "explanation": "Auto_select and answer.option name one of the checkpoint's options, option names are unique, and each checkpoint kind has its fields. It is an error.",
       "title": "Checkpoint option or fields invalid"
     },
     {
-      "code": "E308",
+      "code": "W308",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A one_way task follows a decision checkpoint or a settled decision. It is an error.",
-      "title": "One-way task without a decision"
+      "explanation": "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by. It is a warning, and an error under gsd-strict.",
+      "title": "One-way task without a decision or a settled_by"
     },
     {
       "code": "W309",

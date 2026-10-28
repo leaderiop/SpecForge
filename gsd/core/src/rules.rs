@@ -38,4 +38,46 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .severity(ValidationSeverity::Error)
             .message_template("context '{id}' has an empty canonical_refs");
     });
+
+    // E307: each checkpoint kind has its fields (`src/verify.cts:1206-1232`). `resume_signal` is required by the
+    // kind itself. The options of a decision and `auto_select` are checked by the plan-shape pass.
+    for (kind, field) in [
+        ("human_verify", "what_built"),
+        ("human_verify", "how_to_verify"),
+        ("decision", "decision"),
+        ("decision", "options"),
+        ("human_action", "instructions"),
+        ("human_action", "action"),
+        ("human_action", "verification"),
+    ] {
+        c.rule("E307", |r| {
+            r.check(CheckKind::ConditionalFieldRequired)
+                .target_kind("checkpoint")
+                .field(field)
+                .severity(ValidationSeverity::Error)
+                .message_template(&format!(
+                    "checkpoint '{{id}}' of kind {kind} has no {field}"
+                ));
+            r.constraint(|fc| {
+                fc.kind(ConstraintKind::WhenFieldEquals)
+                    .pattern("kind")
+                    .values(&[kind]);
+            });
+        });
+    }
+
+    // E319: a prohibition checked by a test names it (the prohibition probe's LOCATE guard fails closed without a
+    // check target).
+    c.rule("E319", |r| {
+        r.check(CheckKind::ConditionalFieldRequired)
+            .target_kind("prohibition")
+            .field("test")
+            .severity(ValidationSeverity::Error)
+            .message_template("prohibition '{id}' is verified by a test but names none");
+        r.constraint(|fc| {
+            fc.kind(ConstraintKind::WhenFieldEquals)
+                .pattern("verification")
+                .values(&["test"]);
+        });
+    });
 }

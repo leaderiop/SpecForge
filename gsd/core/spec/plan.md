@@ -74,12 +74,12 @@ GSD: `<task type="checkpoint:*">`. Name `C1`, scoped by its plan.
 | after | → task | | position in the task order |
 | kind | enum{human_verify, decision, human_action, tdd_review} | R | `type=` |
 | gate | enum{blocking, blocking_human, advisory} | | `gate=` (blocking when absent) |
-| what_built, how_to_verify | str | | required for `human_verify` |
-| decision | str | | required for `decision` |
-| options | {name str R, pros strs, cons strs} | | required for `decision`; option names unique within the checkpoint |
-| auto_select | str | | `auto_select=`: must name one of `options` |
-| instructions | str | | required for `human_action` |
-| action, verification | str | | required for `human_action` (`<action>`, `<verification>`) |
+| what_built, how_to_verify | str | | required for `human_verify` (gsd/E307) |
+| decision | str | | required for `decision` (gsd/E307) |
+| options | {name str R, pros strs, cons strs} | | required for `decision`; option names unique within the checkpoint (gsd/E307) |
+| auto_select | str | | `auto_select=`: must name one of `options` (gsd/E307) |
+| instructions | str | | required for `human_action` (gsd/E307) |
+| action, verification | str | | required for `human_action` (`<action>`, `<verification>`; gsd/E307) |
 | resume_signal | str | R | `<resume-signal>` |
 | answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (`now`, K14) |
 

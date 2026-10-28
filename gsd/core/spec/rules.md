@@ -50,13 +50,13 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/E301 | every requirement of a phase is in at least one of its plans | pass | E | E | D1 |
 | gsd/E302 | a plan names at least one requirement (`missing_required_field` and `non_empty` under one code) | decl | E | E | plan template (`requirements` non-empty) |
-| gsd/E303 | an `auto` or `tdd` task has files, action, automated verify and done | decl | E | E | D2 |
-| gsd/W304 | a plan has at most 3 tasks (4 warns) | pass | W | E | D5 |
+| gsd/E303 | an `auto`, `tdd` or `tracer` task has `files` and a verify of some form (`verify`, `verify_text` or `verify_human`); `action` and `done` are required fields, so the host reports those; `manual` is exempt. Severity divergence: GSD's `verify plan-structure` warns on a missing `<verify>`, `<files>` and `<done>` and errors on a missing `<action>`; the plan checker's D2 blocks all four, and that is the severity kept | pass | E | E | D2, `verify plan-structure` |
+| gsd/W304 | a plan has at most 3 tasks (4 warns; the count is GSD's `task_count`: tasks plus checkpoints) | pass | W | E | D5 |
 | gsd/W305 | plans of one wave share no path in `files_modified ∪ files_deleted`; under compat that wave runs sequentially | pass | W | E | wave guard (#3003), execute-phase overlap check |
 | gsd/W306 | a task's files are among its plan's `files_modified` | pass | W | E | plan checker (task files) |
-| gsd/E307 | `auto_select` and `answer.option` name one of the checkpoint's options; each checkpoint kind has its fields | decl + pass | E | E | checkpoint validation |
-| gsd/E308 | a `one_way` task follows a decision checkpoint or a settled decision | pass | E | E | reversibility gate |
-| gsd/W309 | a plan has a truth and an artifact | pass | W | E | must-haves |
+| gsd/E307 | `auto_select` and `answer.option` name one of the checkpoint's options, and option names are unique (pass); each checkpoint kind has its fields: `human_verify` `what_built` and `how_to_verify`, `decision` `decision` and `options`, `human_action` `instructions`, `action` and `verification` (seven `conditional_field_required` rules under one code; `resume_signal` is a required field) | decl + pass | E | E | checkpoint validation (`src/verify.cts:1206-1232`) |
+| gsd/W308 | a `one_way` task follows a decision checkpoint of its plan (a checkpoint without `after` stands before the first task), or names the decision that already settles it in `reversibility.settled_by`: GSD warns, "never error", and sees no "settled" (the model first made it an error; renamed to a warning for GSD's severity) | pass | W | E | `src/verify.cts:1397-1415` (reversibility), `planner-reversibility.md` |
+| gsd/W309 | a plan (a quick plan too) has a truth and an artifact | pass | W | E | must-haves |
 | gsd/E310 | every settled decision of the phase is honoured by some plan | pass | E | E | `gate-decision-coverage-plan` |
 | gsd/W311 | the plan achieves its phase goal, keeps to scope and contradicts no settled decision | judged (plan checker) | W | E | D7 and the goal and scope dimensions |
 | gsd/E312 | no task action reduces scope ("for now", "simplified", "v1") | pass | E | E | D7b |
@@ -66,7 +66,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W316 | the plan follows the project's agent instructions and the mapped patterns | judged (plan checker) | W | W | plan checker (CLAUDE.md, patterns) |
 | gsd/W317 | the post-planning gap report finds nothing open | pass | W | W | `gate-gap-analysis-plan-post` |
 | gsd/W318 | the plan-check verdict is fresh before execution (reads the judgements K7 hands the guard pass) | guard | W | E | plan-check loop (up to 3 rounds) |
-| gsd/E319 | a prohibition with `verification test` names a test | pass | E | E | `gate-prohibition-enforcement` |
+| gsd/E319 | a prohibition with `verification test` names a test (`conditional_field_required`) | decl | E | E | the prohibition probe's LOCATE guard (a test-tier prohibition with no check target fails closed), `src/prohibition-enforcement.cts:746-756` |
 | gsd/E320 | a task's verify command names paths that exist | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | same-wave non-file coupling is declared by `depends_on` or `coupling_justified` naming the peer | pass | I | I | D3b |
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |

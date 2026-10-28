@@ -205,7 +205,7 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
         .as_array()
         .expect("rules")
         .iter()
-        .filter(|r| r["target_kind"] == "checkpoint")
+        .filter(|r| r["target_kind"] == "checkpoint" && r["code"].to_string().contains("E107"))
         .count();
     assert_eq!(on_checkpoint, 0, "{rules}");
 }

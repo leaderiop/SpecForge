@@ -41,7 +41,7 @@ fn two_phases_may_each_have_a_plan_01() {
     let p = project("plan");
     p.write(
         "spec/v2.0.spec",
-        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nrequirement SHARE-02 \"Share a board\" {\n  text \"A board is shared by link\"\n  category \"Sharing\"\n  tier v2\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  requirements [SHARE-02]\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 01-01 \"Share link\" {\n  phase v2.0/01\n  type execute\n  files_modified [\"src/share.js\"]\n  requirements [SHARE-02]\n  objective \"A board has a share link\"\n}\n",
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nrequirement SHARE-02 \"Share a board\" {\n  text \"A board is shared by link\"\n  category \"Sharing\"\n  tier v2\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  requirements [SHARE-02]\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 01-01 \"Share link\" {\n  phase v2.0/01\n  type execute\n  files_modified [\"src/share.js\"]\n  requirements [SHARE-02]\n  objective \"A board has a share link\"\n}\n\ntruth TR1 \"A link\" {\n  plan v2.0/01/01-01\n  text \"A board has a link\"\n}\n\nartifact AR1 \"Link\" {\n  plan v2.0/01/01-01\n  path \"src/share.js\"\n  provides \"share()\"\n}\n",
     );
     assert_eq!(p.codes(), Vec::<String>::new());
     for name in ["v1.0/01/01-01", "v2.0/01/01-01"] {

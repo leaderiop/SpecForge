@@ -215,7 +215,7 @@ pub static CODES: &[Code] = &[
     code(
         "E303",
         "Task is missing a required field",
-        "An auto or tdd task has files, action, automated verify and done",
+        "An auto, tdd or tracer task has files and a verify (action and done are required fields)",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -247,17 +247,17 @@ pub static CODES: &[Code] = &[
     code(
         "E307",
         "Checkpoint option or fields invalid",
-        "Auto_select and answer.option name one of the checkpoint's options; each checkpoint kind has its fields",
+        "Auto_select and answer.option name one of the checkpoint's options, option names are unique, and each checkpoint kind has its fields",
         "plan",
         Severity::Error,
         Severity::Error,
     ),
     code(
-        "E308",
-        "One-way task without a decision",
-        "A one_way task follows a decision checkpoint or a settled decision",
+        "W308",
+        "One-way task without a decision or a settled_by",
+        "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by",
         "plan",
-        Severity::Error,
+        Severity::Warning,
         Severity::Error,
     ),
     code(
