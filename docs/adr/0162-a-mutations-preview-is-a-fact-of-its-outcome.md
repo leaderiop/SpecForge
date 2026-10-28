@@ -1,6 +1,6 @@
 # A mutation's preview is a fact of its outcome
 
-**Status:** accepted (2026-10-19, architecture round 16, plan 05). Amends [ADR 0022](0022-a-mutation-reports-what-it-wrote.md)
+**Status:** accepted (2026-10-19, architecture round 16, plan 05). Amends [ADR 0022](0022-a-mutation-reports-what-it-wrote.md) Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (`--dry-run` on a writing command).
 D6 and [ADR 0052](0052-an-operations-outcome-is-one-document-both-surfaces-print.md) D4 and D8.
 Amended by round 17 plan 05 (2026-10-19): rename runs through `rename::run`.
 Extended by ADR 0229 (round 25): P3's "the arguments are all it has" holds for a refusal before the handler too.

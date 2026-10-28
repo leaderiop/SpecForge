@@ -6,9 +6,10 @@ use crate::target::View;
 use crate::tool::{CoreTool, Effect, ReplySpec, ToolGroup};
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{Codebook, DiagnosticList, SourceSpan};
-use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation};
-use specforge_ops::read::inspect::{EntityCoverage, EntityFacts};
+use specforge_common::{DiagnosticList, SourceSpan};
+
+use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation, VerdictJson};
+use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, JudgementJson};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::args::Arguments;
@@ -45,6 +46,11 @@ pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     source_extension: Option<String>,
     source_span: SourceSpan,
+    /// The file it is written in, relative to the spec root.
+    file: String,
+    /// The revision of that file as the project was read (`sha256:<digest>`): what a later `specforge.edit` or
+    /// `specforge.rename` names to be refused when the file has changed since (ADR 0289).
+    revision: String,
     /// The statement the extension declares (headline and normative): a
     /// behavior's `contract`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,6 +67,12 @@ pub struct Reply {
     /// Its methods, as the graph export writes them.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     methods: Vec<MethodJson>,
+    /// Its verdict statements, as the graph export writes them; absent when it has none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    verdicts: Vec<VerdictJson>,
+    /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    judgements: Vec<JudgementJson>,
     /// Its obligations, as the graph export writes them; absent when it declares none.
     #[serde(skip_serializing_if = "Option::is_none")]
     verify_declarations: Option<Vec<Obligation>>,
@@ -91,7 +103,8 @@ impl CoreTool for Tool {
         group: ToolGroup::Navigation,
     };
     const SPEC: ReplySpec = ReplySpec::Type("McpInspectResult");
-    const OPEN_VALUES: &'static [&'static str] = &["$.fields", "$.annotations"];
+    const OPEN_VALUES: &'static [&'static str] =
+        &["$.fields", "$.annotations", "$.verdicts[].members"];
     type Args = Args;
     type Input = View;
     type Returns = Answered<Reply>;
@@ -102,12 +115,14 @@ impl CoreTool for Tool {
         // A recorded report that cannot be read fails the call (ADR 0004 D2-e).
         let coverage =
             specforge_ops::read::inspect::coverage(&view, &facts).map_err(McpError::from)?;
-        Ok(Reply::of(&facts, &coverage, view.registries().codes()).into())
+        Ok(Reply::of(&facts, &coverage, &view).into())
     }
 }
 
 impl Reply {
-    fn of(facts: &EntityFacts, coverage: &EntityCoverage, codes: &Codebook) -> Self {
+    fn of(facts: &EntityFacts, coverage: &EntityCoverage, view: &ProjectView<'_>) -> Self {
+        let codes = view.registries().codes();
+        let file = facts.node.source_span.file.to_string();
         let node = facts.node;
         let refs = &facts.references;
         let declared = facts.standing.declares_obligations();
@@ -120,11 +135,15 @@ impl Reply {
             obligated: facts.standing.obligated(),
             source_extension: facts.kind.map(|kind| kind.source_extension.to_string()),
             source_span: node.source_span.clone(),
+            revision: specforge_ops::revision::of_file(view.project(), &file),
+            file,
             contract: facts.headline.as_ref().map(ToString::to_string),
             fields: facts.members.fields.clone(),
             computed: facts.members.computed.clone(),
             annotations: facts.members.annotations.clone(),
             methods: facts.members.methods.clone(),
+            verdicts: facts.members.verdicts.clone(),
+            judgements: facts.judgements.iter().map(JudgementJson::of).collect(),
             verify_declarations: declared.then(|| facts.obligations.to_vec()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),

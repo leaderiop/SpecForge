@@ -35,6 +35,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     }
 }
@@ -148,6 +149,7 @@ fn json_includes_fields() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -241,6 +243,7 @@ fn json_includes_source_location() {
         },
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
 
@@ -415,4 +418,19 @@ fn an_export_without_k3_attributes_is_unchanged() {
             "mixed": ["1", "a"],
         })
     );
+}
+
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
+)]
+fn the_graph_export_lists_verdicts_and_judgements() {
+    let text = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
+    let file = specforge_parser::parse(text, "a.spec");
+    let (graph, _) = specforge_graph::build_graph(std::slice::from_ref(&file));
+    let json: serde_json::Value = serde_json::from_str(&crate::support::emit_json(&graph)).unwrap();
+    let node = &json["nodes"][0];
+    assert_eq!(node["verdicts"][0]["rule"], "gsd/W311", "{node}");
+    // An entity with no verdict and no judged rule lists neither key.
+    assert!(json["nodes"][0].get("judgements").is_none());
 }

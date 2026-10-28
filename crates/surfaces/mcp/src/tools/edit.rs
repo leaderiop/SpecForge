@@ -7,6 +7,7 @@ use crate::args::{Arguments, Edits};
 use crate::mutation::{FreshDiagnostics, Mutated, Mutation, MutationArgs, MutationReply, Written};
 use crate::refusal::ArgumentOf;
 use crate::target::ProjectRef;
+use specforge_ops::authoring::apply::Origin;
 use specforge_ops::authoring::edit::{self, EditDocument, EditField};
 
 /// `specforge.edit`'s arguments.
@@ -56,10 +57,11 @@ impl CoreTool for Tool {
     fn call(project: ProjectRef<'_>, args: Args) -> Mutation<EditDocument> {
         // Planned on the call's project as it is on disk; an edit list that leaves an error the project did not
         // have is refused (E080) and nothing is written.
-        let edited = edit::run(
+        let edited = edit::run_revised(
             &project.view(),
             &args.edits.0,
             args.dry_run,
+            &Origin::mcp(),
             project.caller(),
         )
         .map_err(Self::failed)?;

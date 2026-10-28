@@ -149,6 +149,25 @@ fn agrees(path: &Path, text: &str, view: &ProjectView, declared: &[&str]) {
                     );
                 }
             }
+            kind::VERDICT_STATEMENT => {
+                let first = node.child(0).unwrap();
+                assert_eq!(
+                    token_at(first).map(|t| t.0),
+                    Some("keyword"),
+                    "{}",
+                    where_(first)
+                );
+                for part in [field::RULE, field::OUTCOME] {
+                    let part = node.child_by_field_name(part).unwrap();
+                    let first = part.child(0).unwrap_or(part);
+                    assert_eq!(
+                        token_at(first).map(|t| t.0),
+                        Some("enumMember"),
+                        "{}",
+                        where_(first)
+                    );
+                }
+            }
             kind::METHOD_STATEMENT => {
                 let first = node.child(0).unwrap();
                 assert_eq!(

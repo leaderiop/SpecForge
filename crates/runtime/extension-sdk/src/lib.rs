@@ -25,7 +25,10 @@ pub use wit_bindgen as __wit_bindgen;
 /// constraint kinds — as the host's registry build reads it. `Custom` hands
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
-pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase};
+pub use specforge_protocol_types::{
+    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, FileBase, PlanObligation,
+    PlanOp,
+};
 
 pub use specforge_protocol_types::{
     DeclaredCategory, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
@@ -63,13 +66,16 @@ pub use vocabulary::Vocabulary;
 mod builders;
 mod command_graph;
 mod guest;
+mod plan;
 mod settings;
 pub use builders::{
     AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
-    FieldConstraintBuilder, KindBuilder, PassBuilder, RuleBuilder,
+    FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
+    RuleBuilder,
 };
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
+pub use plan::{PlanBuilder, Verdict};
 pub use settings::{PresetBuilder, PresetEntryBuilder, SettingBuilder, Settings};
 
 /// Identity of the extension: what `__handshake` reports.
@@ -585,7 +591,7 @@ pub mod prelude {
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder,
+        CollectorBuilder, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{

@@ -94,6 +94,17 @@ pub fn call_every_command(
                 format: CommandFormat::Json,
                 today: today.to_string(),
                 evidence: Default::default(),
+                // A writing command receives the revision of every source its graph names.
+                revisions: if command.writes {
+                    graph
+                        .nodes()
+                        .iter()
+                        .filter_map(|n| n.file.clone())
+                        .map(|file| (file, "sha256:test".to_string()))
+                        .collect()
+                } else {
+                    Default::default()
+                },
             };
             let output = b
                 .call_command(&command.export, &input)

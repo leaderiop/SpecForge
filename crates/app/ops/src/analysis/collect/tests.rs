@@ -15,6 +15,7 @@ fn collector(report: &str) -> Collector {
         run: vec!["acme".into(), "--out={report}".into()],
         report: report.into(),
         capture: None,
+        writes: false,
     }
 }
 
@@ -66,6 +67,7 @@ fn collected(entries: &[(&str, &str, TestStatus)]) -> CollectOutput {
             })
             .collect(),
         unlinked: Vec::new(),
+        plan: None,
     }
 }
 
@@ -107,6 +109,7 @@ fn known_entities_are_the_snapshots_records() {
             },
         ],
         scope: None,
+        verdicts: Vec::new(),
     });
     let fixture = specforge_project::testing::Assembled::new().graph(graph);
     let view = fixture.view();

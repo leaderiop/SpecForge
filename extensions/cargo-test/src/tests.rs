@@ -87,6 +87,10 @@ fn reports_tests_the_attribute_did_not_record_as_unlinked() {
     let out = collect(&CollectInput {
         reports: vec![file("target/specforge/shop_lib.json", report)],
         stdout: Some(LIBTEST.to_string()),
+        cwd: None,
+        today: None,
+        graph: None,
+        revisions: Default::default(),
     })
     .unwrap();
     let names: Vec<&str> = out.unlinked.iter().map(|t| t.name.as_str()).collect();

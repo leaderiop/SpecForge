@@ -45,6 +45,10 @@ pub(crate) fn added(
     }
     let (mut errors, mut rest) = (Vec::new(), Vec::new());
     for d in after {
+        // Another writer's journal, live while this write is planned, is not a thing this write adds.
+        if d.code == codes::W167.to_string() {
+            continue;
+        }
         match had.get_mut(&key(&d)) {
             Some(n) if *n > 0 => *n -= 1,
             _ if d.severity == Severity::Error => errors.push(d),
@@ -52,6 +56,20 @@ pub(crate) fn added(
         }
     }
     (errors, rest)
+}
+
+/// Refuse (E080) when `after` has an error `before` does not.
+pub(crate) fn refuse_new_errors(
+    before: &[Diagnostic],
+    after: Vec<Diagnostic>,
+    codes: &Codebook,
+) -> Result<(), Refusal<EditField>> {
+    let (errors, _) = added(before, after);
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(new_errors(errors, codes))
+    }
 }
 
 /// What the project reports once `texts` are written that its checked report does not have now: the warnings and
@@ -63,8 +81,12 @@ pub fn check(
     declared: &Declared,
     ledger: Option<&[u8]>,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
-    let before = view.project().checked_diagnostics();
-    let post = view.project().edited_with(texts, ledger);
+    let before = view.project().judged_diagnostics();
+    // The project the write would leave, judged: the guard passes read it and the project before it (ADR 0289).
+    let post = view
+        .project()
+        .edited_with(texts, ledger)
+        .judged_against(view.project());
     let (errors, rest) = added(&before, post.diagnostics());
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
@@ -133,4 +155,22 @@ fn undeclared(beyond: &GraphDelta) -> Refusal<EditField> {
     OpError::new(OpErrorKind::CompilationFailed, UNDECLARED_CHANGE, message)
         .with_data(serde_json::json!({ "delta": beyond }))
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "roll_back_interrupted_write",
+        verify = "a pending journal another writer holds is no error this write adds"
+    )]
+    fn a_pending_journal_is_not_an_error_a_write_adds() {
+        let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
+        // A preset that raises W167 makes it an error of the edited project.
+        pending.severity = Severity::Error;
+        let (errors, rest) = added(&[], vec![pending]);
+        assert!(errors.is_empty() && rest.is_empty());
+    }
 }

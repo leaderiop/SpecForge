@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.8.0");
+    assert_eq!(PROTOCOL_VERSION, "1.9.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -207,6 +207,7 @@ fn entity_kind_descriptor_full_round_trip() {
         dot_fillcolor: Some("#e8f0fe".to_string()),
         verify_kinds: vec!["smoke".to_string(), "contract".to_string()],
         inference_guide: None,
+        writer: None,
     };
     let json = serde_json::to_string(&entity).unwrap();
     let decoded: EntityKindDescriptor = serde_json::from_str(&json).unwrap();
@@ -358,6 +359,7 @@ fn validation_rule_descriptor_declarative() {
         constraint: None,
         wasm_function: None,
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -387,6 +389,7 @@ fn validation_rule_descriptor_with_constraint() {
         }),
         wasm_function: None,
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
@@ -406,6 +409,7 @@ fn validation_rule_descriptor_custom_wasm() {
         constraint: None,
         wasm_function: Some("validate__custom_check".to_string()),
         target_extension: None,
+        judged: None,
     };
     let json = serde_json::to_string(&rule).unwrap();
     assert!(
@@ -449,6 +453,7 @@ fn surface_descriptor_full_round_trip() {
                 description: Some("Project path".to_string()),
                 minimum: None,
             }],
+            writes: false,
         }],
         mcp_tools: vec![McpToolDescriptor {
             name: "specforge.validate".to_string(),
@@ -528,6 +533,7 @@ fn collector_descriptor_with_auto_detect() {
         run: vec![],
         report: None,
         capture: None,
+        writes: false,
     };
     let json = serde_json::to_string(&collector).unwrap();
     let decoded: CollectorDescriptor = serde_json::from_str(&json).unwrap();

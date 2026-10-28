@@ -58,6 +58,7 @@ fn run(
         today: "2026-10-03".into(),
         graph: RawGraph::new(graph.to_string()).expect("one JSON value"),
         evidence: CommandEvidence::None,
+        revisions: Default::default(),
     };
     ExtensionCalls::new(runtime)
         .run_command(PRODUCT, export, &input)

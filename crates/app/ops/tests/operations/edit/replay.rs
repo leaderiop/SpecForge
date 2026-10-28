@@ -122,7 +122,7 @@ fn the_todo_app_replays_through_typed_edits() {
         })
         .collect();
     let plan = edit::plan(&ProjectView::of(&original), &removal).unwrap();
-    plan.change().apply(caller()).unwrap();
+    specforge_ops::authoring::apply::testing::apply(plan.change(), caller()).unwrap();
     let root = original.environment().sources().base().to_path_buf();
     for (file, block) in &kept {
         let path = root.join(file);
@@ -135,7 +135,7 @@ fn the_todo_app_replays_through_typed_edits() {
     // Write them back, in one plan.
     let creation: Vec<Edit> = creates.into_iter().flat_map(|(_, e)| e).collect();
     let plan = edit::plan(&ProjectView::of(&emptied), &creation).unwrap();
-    plan.change().apply(caller()).unwrap();
+    specforge_ops::authoring::apply::testing::apply(plan.change(), caller()).unwrap();
     let rebuilt = todo.compile();
 
     // The review document says the same, line for line, but for where each block sits (a `file:line` line of its

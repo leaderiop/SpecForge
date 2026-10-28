@@ -208,6 +208,30 @@ pub(crate) fn consistency(
     };
     let warn = |message: String| Diagnostic::new(codes::W021, message);
 
+    // ADR 0289: a kind's `writer` is only `human`, and a `human` field a kind's agents must write is no field an
+    // agent can leave out: required on a kind not human-only, no agent could create the entity.
+    for kind in &declaration.entities {
+        let kind_keyword = keyword(kind);
+        let human_kind = kind.writer.as_deref() == Some("human");
+        if let Some(writer) = kind.writer.as_deref().filter(|w| *w != "human") {
+            diagnostics.push(warn(format!(
+                "extension '{}': kind '{}' declares writer '{}'; only 'human' is a kind writer",
+                name, kind_keyword, writer
+            )));
+        }
+        if !human_kind {
+            for field in &kind.fields {
+                field.for_each_path(&field.name, &mut |path, f| {
+                    if f.required && f.writer.as_deref() == Some("human") {
+                        diagnostics.push(warn(format!(
+                            "extension '{}': field '{}' on kind '{}' is human and required, so no agent can create an entity of the kind; make the kind human or the field optional",
+                            name, path, kind_keyword
+                        )));
+                    }
+                });
+            }
+        }
+    }
     for kind in &declaration.entities {
         let kind_keyword = keyword(kind);
         for field in &kind.fields {
@@ -270,10 +294,14 @@ pub(crate) fn consistency(
     // ADR 0287: a computed field is computed by exactly one compute pass of this extension, and a pass computes
     // only fields that are computed.
     let mut computed: Vec<String> = Vec::new();
+    let mut verdict_fields: Vec<String> = Vec::new();
     let mut collect = |kind: &str, field: &FieldDescriptor| {
         field.for_each_path(&field.name, &mut |path, f| {
             if f.writer.as_deref() == Some("computed") && f.derived_from.is_none() {
                 computed.push(format!("{kind}.{path}"));
+            }
+            if f.writer.as_deref() == Some("verdict") {
+                verdict_fields.push(format!("{kind}.{path}"));
             }
         });
     };
@@ -292,6 +320,14 @@ pub(crate) fn consistency(
     let mut claimed: Vec<(&str, &str)> = Vec::new();
     for pass in &declaration.passes {
         let compute = pass.phase.as_deref() == Some(super::build::COMPUTE_PHASE);
+        if pass.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE)
+            && !pass.computes.is_empty()
+        {
+            diagnostics.push(warn(format!(
+                "extension '{}': guard pass '{}' declares computes; a guard answers diagnostics only",
+                name, pass.name
+            )));
+        }
         if !pass.computes.is_empty() && !compute {
             diagnostics.push(warn(format!(
                 "extension '{}': pass '{}' declares computes, but its phase is not 'compute'",
@@ -323,6 +359,27 @@ pub(crate) fn consistency(
                     name, pass.name, kind
                 )));
             }
+        }
+    }
+    // ADR 0290: a verdict field is set by exactly one judged rule of this extension, from its `values` or as its
+    // `outcome_fields`.
+    for entry in &verdict_fields {
+        let binders: Vec<&str> = declaration
+            .validation_rules
+            .iter()
+            .filter_map(|r| r.judged.as_ref().map(|j| (r, j)))
+            .filter(|(_, j)| j.values.contains(entry) || j.outcome_fields.contains(entry))
+            .map(|(r, _)| r.code.as_str())
+            .collect();
+        match binders.as_slice() {
+            [_] => {}
+            [] => diagnostics.push(warn(format!(
+                "extension '{name}': field '{entry}' is written by a verdict, but no judged rule lists it in values or outcome_fields"
+            ))),
+            _ => diagnostics.push(warn(format!(
+                "extension '{name}': field '{entry}' is written by a verdict, but rules {} list it: one rule sets a field",
+                binders.join(" and ")
+            ))),
         }
     }
     for entry in &computed {

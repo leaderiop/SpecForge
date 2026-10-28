@@ -7,6 +7,9 @@
 //! Each core tool reads its arguments into one `Args` struct that derives
 //! `Arguments` (ADR 0033), from which its input schema is derived.
 
+use crate::fake_extension::{self, FakeExtension};
+use crate::support::call;
+use serde_json::json;
 use specforge_test::prelude::*;
 use std::collections::BTreeMap;
 
@@ -269,4 +272,26 @@ fn each_core_prompt_is_one_module() {
     names.sort_unstable();
     names.dedup();
     assert_eq!(names.len(), listed.len(), "names are unique");
+}
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a read-only command's tool keeps its annotations and schema"
+)]
+fn read_only_command_tools_keep_their_annotations_and_schema() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let listed = call(&mut server, "tools/list", json!({}));
+    let tools = listed["result"]["tools"].as_array().unwrap();
+    let commands: Vec<_> = tools
+        .iter()
+        .filter(|t| t["source"] == fake_extension::EXT)
+        .collect();
+    assert!(!commands.is_empty());
+    for tool in commands {
+        assert_eq!(tool["annotations"]["readOnlyHint"], true, "{tool}");
+        assert!(
+            tool["inputSchema"]["properties"]["dry_run"].is_null(),
+            "{tool}"
+        );
+    }
 }

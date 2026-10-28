@@ -1,0 +1,28 @@
+{
+  "args": {
+    "all": true,
+    "limit": 2,
+    "status": "done"
+  },
+  "cwd": "/p",
+  "format": "json",
+  "graph": {
+    "edges": [],
+    "format_version": "1.0",
+    "nodes": [
+      {
+        "fields": {},
+        "file": "main.spec",
+        "id": "f1",
+        "kind": "feature",
+        "line": 1,
+        "title": "One"
+      }
+    ],
+    "schema_version": "1.0.0"
+  },
+  "revisions": {
+    "main.spec": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "today": "2026-10-03"
+}

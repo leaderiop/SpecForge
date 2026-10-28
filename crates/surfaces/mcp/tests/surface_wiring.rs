@@ -367,6 +367,7 @@ fn recompilation_refreshes_surfaces() {
         "specforge.suggest_fixes",
         "specforge.trace",
         "specforge.validate",
+        "specforge.verdict_inputs",
     ];
     let listed = |resp: &Value| -> Vec<String> {
         let tools = resp["result"]["tools"].as_array().unwrap();

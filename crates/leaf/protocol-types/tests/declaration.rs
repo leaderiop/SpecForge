@@ -89,6 +89,7 @@ fn full() -> ExtensionDeclaration {
                     description: None,
                     minimum: Some(0),
                 }],
+                writes: false,
             }],
             ..Default::default()
         },
@@ -665,4 +666,28 @@ fn a_feature_flag_reads_as_a_bool_setting() {
     );
     assert_eq!(setting.default, Some(json!(true)));
     assert_eq!(setting.description.as_deref(), Some("Try it"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_judged_rule",
+    verify = "a judged rule is declared with its judge, outcomes and per-target selectors"
+)]
+fn a_judged_rule_is_declared_with_selectors() {
+    let wire = json!({
+        "code": "W311", "severity": "warning", "check": "judged", "message_template": "m",
+        "judged": {
+            "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+            "targets": [{"kind": "plan", "unless_set": ["pattern"],
+                "inputs": [{"name": "plan", "selector": "self"}]}],
+            "values": ["phase_spec.scores"], "outcome_fields": ["plan.verdict"],
+        },
+    });
+    let rule: ValidationRuleDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    // It round-trips whole: the host keeps what an extension declared.
+    let written = serde_json::to_value(&rule).unwrap();
+    assert_eq!(written["judged"], wire["judged"]);
+    assert_eq!(
+        serde_json::from_value::<ValidationRuleDescriptor>(written).unwrap(),
+        rule
+    );
 }

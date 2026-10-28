@@ -479,6 +479,7 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
 
     // The graph before any file is touched, read through the same bound: a refused source is its E025 (ADR 0166).
     // The plan is judged against it in memory (ADR 0186).
+    let serialized = env.serializes_writes();
     let pre = CompiledProject::compile_through(env, &bound);
     let planned: BTreeMap<String, String> = outcome
         .summary
@@ -554,6 +555,8 @@ pub fn run(request: &Request, runtime: Option<SharedRuntime>) -> Result<Outcome,
     }
 
     // A kept migration made without backups removes the record, since a rollback after it would mix versions.
+    let _lock = crate::change::lock_if(serialized, project.dir())
+        .map_err(|e| unwritable(project.dir(), &e).prefixed("cannot migrate: "))?;
     let written = if request.no_backup {
         change.commit_then(|| remove_record(&record))
     } else {

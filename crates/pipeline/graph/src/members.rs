@@ -11,6 +11,7 @@ use specforge_common::shape::Shape;
 use specforge_parser::{Annotation, FieldMap, FieldValue, MethodDecl, Parameter, VerifyStatement};
 
 use crate::field_form::{FieldJson, spell, write_fields};
+use crate::verdict::VerdictJson;
 use crate::{Computed, Node};
 
 /// One `verify` statement as every output writes it and `specforge.edit` reads it (ADR 0273): its
@@ -144,6 +145,8 @@ pub struct Members {
     pub annotations: BTreeMap<String, Vec<AnnotationJson>>,
     /// Its methods, in written order.
     pub methods: Vec<MethodJson>,
+    /// Its `verdict` statements, in written order (ADR 0290).
+    pub verdicts: Vec<VerdictJson>,
     /// The written paths of the fields and members in `fields` a compute pass gave (ADR 0287); empty on
     /// [`Members::new`] and [`Members::of`], which read the node alone.
     pub computed: BTreeSet<String>,
@@ -159,6 +162,7 @@ impl Members {
             fields: write_fields(fields),
             annotations,
             methods: methods.iter().map(MethodJson::of).collect(),
+            verdicts: Vec::new(),
             computed: BTreeSet::new(),
         }
     }
@@ -186,7 +190,10 @@ impl Members {
 
     /// `Members::new(&node.fields, &node.methods)`.
     pub fn of(node: &Node) -> Members {
-        Members::new(&node.fields, &node.methods)
+        Members {
+            verdicts: node.verdicts.iter().map(VerdictJson::of).collect(),
+            ..Members::new(&node.fields, &node.methods)
+        }
     }
 
     /// The field (top-level name) an annotation path belongs to: `outer` for `outer.key`.

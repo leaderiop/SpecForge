@@ -98,3 +98,40 @@ fn history_reads_only_the_specs_and_the_ledger() {
     let names: Vec<_> = files.iter().map(|(p, _)| p.to_string_lossy()).collect();
     assert_eq!(names, ["a.spec", "specforge-harness"]);
 }
+
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "history reads named files at a commit in one question"
+)]
+fn history_reads_named_files_at_a_commit() {
+    if !has_git() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/a.ts"), "one\n").unwrap();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "c1"]);
+    std::fs::write(root.join("src/a.ts"), "changed\n").unwrap();
+    let cli = GitCli::default();
+    let Located::Repo(place) = cli.locate(root) else {
+        panic!("a repository");
+    };
+    let head: Sha = cli.commit(&place, "HEAD").unwrap().unwrap();
+    let asked: Vec<std::path::PathBuf> = ["src/a.ts", "gone.txt", "src"]
+        .iter()
+        .map(Into::into)
+        .collect();
+    let found = cli.blobs(&place, &head, &asked).unwrap();
+    // The commit's bytes, not the working tree's; a missing path and a directory are no file.
+    assert_eq!(
+        found,
+        vec![
+            ("src/a.ts".into(), Some(b"one\n".to_vec())),
+            ("gone.txt".into(), None),
+            ("src".into(), None),
+        ]
+    );
+}

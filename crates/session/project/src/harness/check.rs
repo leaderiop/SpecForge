@@ -1,14 +1,11 @@
 //! The ledger's diagnostics (ADR 0287): E083 for a harness value no line records, W163 for a line that is not one,
 //! I203 once for a file the host would write differently.
 
-use std::path::Path;
-
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_graph::{FieldForms, Graph};
-use specforge_registry::Disk;
 
 use super::Harness;
-use super::format::{LEDGER_FILE, Ledger, digest};
+use super::format::{LEDGER_FILE, Ledger, VERDICT_KEY, digest};
 use super::rewrite::{LedgerChange, View};
 
 /// The diagnostics of the ledger at `root` for the harness values `graph` holds: nothing when no extension
@@ -18,15 +15,13 @@ pub fn check(
     harness: &Harness,
     graph: &Graph,
     forms: &FieldForms,
-    root: &Path,
-    disk: &dyn Disk,
+    ledger: &[u8],
     source_errors: bool,
 ) -> Vec<Diagnostic> {
     if harness.is_empty() {
         return Vec::new();
     }
-    let bytes = disk.read(&root.join(LEDGER_FILE)).unwrap_or_default();
-    let text = String::from_utf8_lossy(&bytes);
+    let text = String::from_utf8_lossy(ledger);
     let parsed = Ledger::parse(&text);
     let mut diagnostics: Vec<Diagnostic> = parsed
         .malformed
@@ -42,24 +37,53 @@ pub fn check(
 
     for node in graph.nodes() {
         let (path, kind) = (node.id.raw.as_str(), node.kind.raw.as_str());
-        for field in harness.fields(kind) {
-            let Some(value) = harness.value(graph, forms, path, field) else {
+        // The values the ledger records for the entity: its harness fields, and its verdicts (the first of a rule).
+        let mut values: Vec<(String, SourceSpan, String)> = harness
+            .fields(kind)
+            .map(|field| {
+                let span = node
+                    .fields
+                    .entries()
+                    .iter()
+                    .find(|e| e.key.as_str() == field)
+                    .and_then(|e| e.value_span.clone())
+                    .unwrap_or_else(|| node.source_span.clone());
+                (field.to_string(), span, format!("harness field '{field}'"))
+            })
+            .collect();
+        let mut seen = Vec::new();
+        for verdict in &node.verdicts {
+            if !seen.contains(&verdict.rule) {
+                seen.push(verdict.rule.clone());
+                values.push((
+                    format!("{VERDICT_KEY}{}", verdict.rule),
+                    verdict.span.clone(),
+                    format!("verdict '{}'", verdict.rule),
+                ));
+            }
+        }
+        for (key, span, what) in values {
+            let Some(value) = harness.value(graph, forms, path, &key) else {
                 continue;
             };
             if parsed
                 .ledger
-                .records(path, field, &digest(path, field, &value))
+                .records(path, &key, &digest(path, &key, &value))
             {
                 continue;
             }
-            let mut message = format!(
-                "harness field '{field}' of {kind} '{path}' has no line in {LEDGER_FILE}: only a command's plan sets it"
-            );
+            let how = if key.starts_with(VERDICT_KEY) {
+                "only set_verdict records one"
+            } else {
+                "only a command's plan sets it"
+            };
+            let mut message =
+                format!("{what} of {kind} '{path}' has no line in {LEDGER_FILE}: {how}");
             // An orphan line (its entity is gone) that records this value under its own path: a rename by hand.
             let orphan = parsed.ledger.lines().find(|l| {
-                l.key == field
+                l.key == key
                     && graph.node(&l.path).is_none()
-                    && l.digest == digest(&l.path, field, &value)
+                    && l.digest == digest(&l.path, &key, &value)
             });
             if let Some(orphan) = orphan {
                 message.push_str(&format!(
@@ -67,13 +91,6 @@ pub fn check(
                     orphan.path
                 ));
             }
-            let span = node
-                .fields
-                .entries()
-                .iter()
-                .find(|e| e.key.as_str() == field)
-                .and_then(|e| e.value_span.clone())
-                .unwrap_or_else(|| node.source_span.clone());
             diagnostics.push(
                 Diagnostic::new(codes::E083, message)
                     .with_span(span)

@@ -373,3 +373,17 @@ fn the_cli_and_mcp_send_a_command_the_same_evidence() {
         "{cli}"
     );
 }
+
+#[specforge_test(
+    behavior = "apply_edit_plan",
+    verify = "a read-only command's help and output are unchanged"
+)]
+fn a_read_only_commands_help_and_output_are_unchanged() {
+    let dir = setup_product_project();
+    let listing = product_help(&dir, &["--help"]);
+    assert!(!listing.contains("dry-run"), "{listing}");
+    for command in listed_commands(&listing) {
+        let help = product_help(&dir, &[command.as_str(), "--help"]);
+        assert!(!help.contains("dry-run"), "{command}: {help}");
+    }
+}

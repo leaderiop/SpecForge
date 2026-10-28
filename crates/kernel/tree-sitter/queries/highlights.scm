@@ -5,6 +5,7 @@
 "ref" @keyword
 "define" @keyword
 "verify" @keyword
+"verdict" @keyword
 
 ; Generic entity block — kind is a keyword, name is a constant
 (entity_block
@@ -31,6 +32,11 @@
 (verify_statement
   kind: (identifier) @type
   description: (string) @string)
+
+; Verdict statements: the judged rule and its outcome
+(verdict_statement
+  rule: (_) @constant
+  outcome: (identifier) @type)
 
 ; Fields
 (field

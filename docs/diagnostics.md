@@ -571,9 +571,10 @@ error and the report path. `specforge stats`, `specforge analyze` and every MCP
 tool that reads coverage report the same code when `specforge-report.json`
 exists but can't be read or parsed (a recorded test's status is `passed`,
 `failed` or `skipped`, and every test has a name: a report in another
-vocabulary, such as one written before 1.4, is not usable), or when a
-`--test-results` (`test_results`) file can't be read or doesn't exist (over MCP:
-`schema_mismatch`, `permission_denied`, `file_not_found`, `invalid_input` when
+vocabulary, such as one written before 1.4, is not usable), or when a judged
+rule reads the report (ADR 0290), or when a `--test-results` (`test_results`)
+file can't be read or doesn't exist (over MCP: `schema_mismatch`,
+`permission_denied`, `file_not_found`, `invalid_input` when
 `specforge-report.json` is a link that leads outside the project, or
 `internal_error`), rather than scoring the project as if no test ran: run
 `specforge collect` again to rewrite it, or fix or remove the file.
@@ -1114,7 +1115,9 @@ A spec file writes a field, or a member of a block item, that its extension
 declares `writer: computed` (ADR 0287). A compute pass of the extension gives
 its value when the project is checked; the value lives beside the graph and in
 every output, and is never in a `.spec` file. The pass's value wins; this code
-reports the written one at its value. Delete the line.
+reports the written one at its value. Delete the line. A field declared `writer:
+verdict` (ADR 0290) is the same: the fresh verdict of the judged rule that binds
+it gives its outcome or value, and the message names that rule.
 
 Owner: core
 Level: error
@@ -1817,6 +1820,22 @@ kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is
 no commit to judge against: the project is not in a git repository, or the
 repository has no commit yet. Nothing is judged, and nothing is wrong with the
 project. The first commit is the baseline from then on.
+
+Owner: core
+Level: info
+```
+
+## I205
+
+```
+I205: Test inputs not judged
+
+A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
+`test(..)` selector, or a verdict that cites tests), but there is no
+`specforge-report.json`: run `specforge collect`. The rule's other inputs are
+judged as usual and the test input is left out of the comparison, so a verdict
+is not made stale by a report that is not there. Nothing is wrong with the
+project. A report that exists but cannot be used is E045.
 
 Owner: core
 Level: info
@@ -2556,23 +2575,26 @@ twice or not one identifier, a member that declares `derived_from`,
 than `integer` or a `minimum` above the `maximum`, and a `file_base` other than
 `spec` or `project`, or without `file_reference`; a `scoped_by` field with
 `target_kinds` scopes nothing. Who writes a field is checked too (ADR 0287): a
-`writer` other than `computed` or `harness`, `harness` on a member, a computed
-field that is also `required`, `immutable`, `append_only` or `derived_from`,
-`append_only` on a field that is not a list, a computed field no compute pass
-lists in `computes`, a `computes` entry that is not a computed field of the
-extension or that two passes list or whose pass is not in the `compute` phase,
-and a `baseline` naming a kind no loaded extension declares. The `settings`
-category is checked too (ADR 0288): a setting named twice or not a dotted name
-or a family (`*` segments), of a type the field forms do not have, with a
-default its type refuses, with `gates` on a type other than `bool` or on a
-family (only a setting named whole gates codes), or naming a code the extension
-does not catalog, or with `keys` that do not match its `*`s; a preset whose
-source is not an enum or bool setting of the extension or of a loaded peer, that
-names a value its source does not take, that sets a setting the extension does
-not declare to a value its type refuses, or that raises a code the extension
-does not catalog; a secret named twice or whose environment variable is not a
-name; and an item of a kind the host does not know. The item is dropped, the
-rest of the category is kept.
+`writer` other than `computed`, `harness`, `human` or `verdict`, `harness` or
+`verdict` on a member, a computed or verdict field that is also `required`,
+`immutable`, `append_only` or `derived_from`, `append_only` on a field that is
+not a list, a computed field no compute pass lists in `computes`, a `computes`
+entry that is not a computed field of the extension or that two passes list or
+whose pass is not in the `compute` phase, and a `baseline` naming a kind no
+loaded extension declares. Who writes a kind is checked as well (ADR 0289): a
+kind `writer` other than `human`, a `human` field marked `required` on a kind
+that is not human-only (an agent could then create no entity of the kind), and a
+`guard` pass that declares `computes`. The `settings` category is checked too
+(ADR 0288): a setting named twice or not a dotted name or a family (`*`
+segments), of a type the field forms do not have, with a default its type
+refuses, with `gates` on a type other than `bool` or on a family (only a setting
+named whole gates codes), or naming a code the extension does not catalog, or
+with `keys` that do not match its `*`s; a preset whose source is not an enum or
+bool setting of the extension or of a loaded peer, that names a value its source
+does not take, that sets a setting the extension does not declare to a value its
+type refuses, or that raises a code the extension does not catalog; a secret
+named twice or whose environment variable is not a name; and an item of a kind
+the host does not know. The item is dropped, the rest of the category is kept.
 
 Owner: core
 Level: warning
@@ -2976,8 +2998,18 @@ is unrecognized, it is missing a field or constraint its check needs (a
 `cycle_detection` rule needs an `edge_type`, a `verify_kind_allowlist` rule a
 constraint with values; a rule that reads `verify` statements needs a target
 kind that accepts them), its values list is empty, its `matches` regex does not
-compile, or its `wasm_function` is absent or failed a probe call. Fix or remove
-the rule in the extension's manifest.
+compile, or its `wasm_function` is absent or failed a probe call. A `judged`
+rule (ADR 0290) is W112 when its `judged` declaration is absent or sits on
+another check, its judge, outcomes or passing outcomes are not words (`passing`
+must be a non-empty subset of `outcomes`), a target kind is not loaded or is
+listed twice, an input name repeats or is `cited`, a selector does not parse or
+does not resolve (a field the kind does not declare, one that is not a
+reference, a computed or verdict field, a `file(...)` of a path that leaves the
+project, holds a glob or is a `.spec` source, or of a field that is not a file
+field), an `unless_set` field the kind does not declare, a `values` or
+`outcome_fields` entry that is not a `verdict`-written field of a target kind of
+the extension, or the code is another judged rule's. Fix or remove the rule in
+the extension's manifest.
 
 Owner: core
 Level: warning
@@ -3308,10 +3340,11 @@ W147: Validation rule property ignored
 An extension-declared validation rule sets a property its check does not read
 — an `edge_type` on a field check, a `constraint` on an edge check, a
 `wasm_function` on a declarative check, a constraint kind, `pattern` or `values`
-its check does not read. The rule is registered without it, so it does not do
-what its author meant. Remove the property, or use the check that reads it
-(`conditional_field_required` reads `constraint.pattern` as the condition
-field's name, `field_value_constraint` with `matches` as a regex).
+its check does not read, or a `target_kind` or `field` on a `judged` rule (it
+judges the kinds its `judged` names). The rule is registered without it, so it
+does not do what its author meant. Remove the property, or use the check that
+reads it (`conditional_field_required` reads `constraint.pattern` as the
+condition field's name, `field_value_constraint` with `matches` as a regex).
 
 Owner: core
 Level: warning
@@ -3568,6 +3601,42 @@ W166: Settings for an extension that is not enabled
 provider. Add the extension to `extensions` (`specforge add <name>`), or remove
 its settings. An enabled extension that failed to load keeps its settings
 unchecked and reports its own failure (E028, E070).
+
+Owner: core
+Level: warning
+```
+
+## W167
+
+```
+W167: Interrupted write pending rollback
+
+`.specforge/write-journal.json` exists (ADR 0289): a write of the project's
+files was interrupted after it recorded what it would replace and before it
+finished, so some of its files may hold part of it. The journal is the write's
+record, kept under the write lock: the next SpecForge write puts back each file
+that still holds what the interrupted one wrote, leaves a file that holds what
+it replaced, and names a file that holds neither, then removes the journal. A
+check never rolls it back, so it reports this once until a writer does. Run a
+write again, or `specforge harness gc`, to roll it back; then re-run the command
+that was interrupted, since its plan is stale.
+
+Owner: core
+Level: warning
+```
+
+## W168
+
+```
+W168: Verdict cannot be read
+
+An entity's `verdict` statement (ADR 0290) names a rule that is not a loaded
+judged rule, a rule that does not judge the entity's kind, an outcome the rule
+does not declare, a member missing or of the wrong form (`judge`, `model`, `at`
+and `inputs` are required), `values` for a field the rule does not bind or that
+the field's form refuses, or a second verdict of one rule. It counts as no
+verdict, so the rule reports the entity as missing. Record a verdict through
+`set_verdict`, or remove the statement.
 
 Owner: core
 Level: warning

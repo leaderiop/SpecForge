@@ -1619,6 +1619,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the `History` port only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287). The old build cache and `lifecycle_field` are gone.
+- **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops
+  the host checks, plans with the typed edit engine, judges (E080, guard passes included) and applies all or nothing;
+  an extension never writes a file (ADR 0289).
+- **File revision**: `sha256:<hex>` of a file's bytes as the host compiled them, or `absent`; an op names the revision
+  of the file it writes, and a file that changed since is `stale_revision` (ADR 0289).
+- **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
+  takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
+- **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
+  non-interactive CLI are refused `human_only` (ADR 0289).
+- **Guard pass**: a pass of phase `guard`; it runs only when a write is judged, reads the project before the write as
+  `previous`, and its errors refuse the write (ADR 0289).
+- **Write lock**: `.specforge/write.lock`, held by every host write of a project that has a `.specforge/`.
+- **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
+  one that is pending (ADR 0289).
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288).
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
@@ -1630,3 +1644,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Call containment**: the one **Containment** an MCP call reads and writes its project through, built when the call is
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.
+- **Judged rule**: a rule of `check: "judged"` that holds while a fresh verdict of a passing outcome says so; it names
+  its judge, outcomes and per-kind inputs (ADR 0290).
+- **Verdict**: a `verdict <rule> <outcome> { … }` statement, an entity's own member written by `set_verdict`; not the
+  registry's custom-rule pass or fail, and not a coverage verdict.
+- **Judgement**: where one judged rule stands on one entity: `fresh`, `stale`, `missing`, `unrecorded` or `unreadable`,
+  with `passed`, the outcome and the inputs that changed; passes, graph nodes and baseline entities carry them.
+- **Basis**: the digest of each input (and of `cited`) a `set_verdict` was judged over; a digest that differs is
+  `stale_revision`. `specforge query --inputs` reads it.

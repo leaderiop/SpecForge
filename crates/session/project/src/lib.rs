@@ -20,14 +20,18 @@
 //!   the checks it reports what a fresh compile reports, in the same order.
 
 pub mod baseline;
+mod baseline_judged;
 mod buffers;
 mod check_passes;
 mod compiled;
 mod compute;
 pub mod coverage;
 mod diagnostics_delta;
+mod guards;
 pub mod harness;
 pub mod history;
+pub mod journal;
+pub mod judged;
 mod ledger;
 pub mod passes;
 mod policy;
@@ -113,6 +117,8 @@ pub struct Checked {
     pub diagnostics: Vec<Diagnostic>,
     pub entities: Option<EntitySnapshot>,
     pub computed: Computed,
+    /// Each judged rule's state on each entity (ADR 0290).
+    pub judgements: judged::Judgements,
 }
 
 /// Everything derived from `specforge.json` and the loaded extensions,
@@ -442,6 +448,19 @@ impl Environment {
         &self.registries
     }
 
+    /// Whether a write of this project is serialized by the write lock (ADR 0289): it declares a harness field, or an
+    /// enabled extension has a writing command or collector or a guard pass. A plain project writes without it.
+    pub fn serializes_writes(&self) -> bool {
+        !crate::harness::Harness::of(self.registries()).is_empty()
+            || self.registries().declarations().iter().any(|d| {
+                d.surfaces.commands.iter().any(|c| c.writes)
+                    || d.collectors.iter().any(|c| c.writes)
+                    || d.passes
+                        .iter()
+                        .any(|p| p.phase.as_deref() == Some(specforge_protocol_types::GUARD_PHASE))
+            })
+    }
+
     /// The configured providers, registered once against the loaded
     /// declarations (ADR 0004 D3-c).
     pub fn providers(&self) -> &Providers {
@@ -488,8 +507,14 @@ impl Environment {
     /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
     /// a check reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
-        self.checked(None, entities, disk, &baseline::Baseline::of_head(self))
-            .diagnostics
+        self.checked(
+            None,
+            entities,
+            disk,
+            &baseline::Baseline::of_head(self),
+            &judged::DigestMemo::default(),
+        )
+        .diagnostics
     }
 
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
@@ -503,6 +528,7 @@ impl Environment {
         entities: &EntitySnapshot,
         disk: &dyn Disk,
         baseline: &baseline::BaselineRead,
+        digests: &judged::DigestMemo,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
         let mut diagnostics = Vec::new();
@@ -510,28 +536,47 @@ impl Environment {
         let mut merged = None;
         // The baseline with the ledger's moves applied: what the passes get as `previous`, and what history is
         // judged against.
-        let translated = match (baseline, build) {
-            (Ok(Some(baseline)), Some(build)) => {
-                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
-                    &disk
-                        .read(&self.root().join(harness::LEDGER_FILE))
-                        .unwrap_or_default(),
-                ))
-                .ledger;
+        let harness = harness::Harness::of(&self.registries);
+        // The ledger is read once, and only by a run that has a use for it: history, a harness value or a verdict.
+        let ledger_bytes = build
+            .filter(|_| matches!(baseline, Ok(Some(_))) || !harness.is_empty())
+            .map(|_| {
+                disk.read(&self.root().join(harness::LEDGER_FILE))
+                    .unwrap_or_default()
+            });
+        let translated = match (baseline, build, &ledger_bytes) {
+            (Ok(Some(baseline)), Some(build), Some(bytes)) => {
+                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(bytes)).ledger;
                 Some(baseline.translated(&ledger, build.graph(), self.registries.field_forms()))
             }
-            (Ok(Some(baseline)), None) => Some((**baseline).clone()),
+            (Ok(Some(baseline)), None, _) => Some((**baseline).clone()),
             _ => None,
         };
+        let mut found = judged::Evaluated::default();
+        if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
+            found = judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
+            diagnostics.append(&mut found.diagnostics);
+        }
+        // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).
+        let mut values = std::mem::take(&mut found.values);
+        let judgements = found.judgements;
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
-            let (values, reported) = compute::run(self, entities, runtime, translated.as_ref());
+            let (computed_values, reported) = compute::run(
+                self,
+                entities,
+                runtime,
+                translated.as_ref(),
+                &values,
+                &judgements,
+            );
+            values = computed_values;
             diagnostics.extend(reported);
-            if !values.is_empty() {
-                merged = Some(entities.with_computed(&values, self.registries.fields()));
-                computed = values;
-            }
+        }
+        if !values.is_empty() {
+            merged = Some(entities.with_computed(&values, self.registries.fields()));
+            computed = values;
         }
         {
             let entities = merged.as_ref().unwrap_or(entities);
@@ -543,13 +588,12 @@ impl Environment {
                 self.registries
                     .check(&entities.rule_input(disk), verdicts.as_ref()),
             );
-            if let Some(build) = build {
+            if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
                 diagnostics.extend(harness::check(
-                    &harness::Harness::of(&self.registries),
+                    &harness,
                     build.graph(),
                     self.registries.field_forms(),
-                    self.root(),
-                    disk,
+                    bytes,
                     build.files().any(|(_, file)| !file.errors.is_empty()),
                 ));
             }
@@ -559,6 +603,7 @@ impl Environment {
                     entities,
                     runtime,
                     translated.as_ref(),
+                    &judgements,
                 ));
             }
         }
@@ -583,6 +628,7 @@ impl Environment {
             diagnostics,
             entities: merged,
             computed,
+            judgements,
         }
     }
 

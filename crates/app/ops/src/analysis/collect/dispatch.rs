@@ -1,9 +1,10 @@
 //! Reading a runner's report and handing it to the extension's `collect__<name>` export.
 
 use super::collector::Collector;
+use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile};
+use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, RawGraph};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -76,9 +77,35 @@ pub fn dispatch(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
 ) -> Result<CollectOutput, CallError> {
+    dispatch_over(runtime, collector, reports, stdout, None)
+}
+
+/// [`dispatch`], and a collector that declares `writes` also receives the project root, the date, the graph and the
+/// revisions of `view`'s sources, so its plan can place entities and name what it read (ADR 0289).
+pub(super) fn dispatch_over(
+    runtime: Option<&dyn specforge_wasm::runtime::WasmRuntime>,
+    collector: &Collector,
+    reports: &[CollectReportFile],
+    stdout: Option<&str>,
+    view: Option<&ProjectView<'_>>,
+) -> Result<CollectOutput, CallError> {
+    let writing = view.filter(|_| collector.writes);
     let input = CollectInput {
         reports: reports.to_vec(),
         stdout: stdout.map(str::to_string),
+        cwd: writing.and_then(|v| v.project_root().ok()).map(|root| {
+            crate::extension::command::canonical(root)
+                .display()
+                .to_string()
+        }),
+        today: writing.map(|_| crate::extension::command::today()),
+        graph: writing.map(|view| {
+            RawGraph::new(crate::extension::command::graph_export(view))
+                .expect("the graph export is one JSON value")
+        }),
+        revisions: writing
+            .map(|view| crate::revision::of_project(view.project()))
+            .unwrap_or_default(),
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(
@@ -88,5 +115,5 @@ pub fn dispatch(
             CallFailure::NotLoaded,
         ));
     };
-    ExtensionCalls::new(runtime).collect(&collector.extension, &collector.export, &input)
+    ExtensionCalls::new(runtime).collect_writing(&collector.extension, &collector.export, &input)
 }

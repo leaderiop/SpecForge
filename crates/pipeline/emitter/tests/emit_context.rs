@@ -43,6 +43,7 @@ fn rich_node() -> Node {
             description: "it works".to_string(),
         }],
         scope: None,
+        verdicts: Vec::new(),
     }
 }
 
@@ -119,6 +120,7 @@ fn context_includes_edges_and_schema_version() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     };
     node_b.fields.push(
@@ -212,6 +214,7 @@ fn context_keeps_every_field_an_entity_writes() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     let registries = build_of(vec![kind(
@@ -269,6 +272,7 @@ fn context_lifts_the_fields_an_extension_declares_headline() {
             source_span: span(),
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         });
     }
@@ -322,6 +326,7 @@ fn a_headline_field_named_coverage_status_is_not_lifted() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     let registries = build_of(vec![kind(
@@ -372,6 +377,7 @@ fn context_lifts_a_headline_field_as_its_field_text() {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     });
     let registries = crate::support::headline_build(&["behavior"]);

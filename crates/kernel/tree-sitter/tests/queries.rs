@@ -535,3 +535,24 @@ fn highlights_colour_a_number_a_date_and_a_boolean_by_shape() {
     assert!(!colour("AUTH-01").contains(&"number"), "{captures:?}");
     assert!(!colour("v1.0").contains(&"number"), "{captures:?}");
 }
+
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "highlights.scm captures a verdict statement's keyword, rule and outcome"
+)]
+fn highlights_captures_a_verdict_statement() {
+    let source = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n  }\n}\n";
+    let captures = highlight_captures(source);
+    assert!(
+        captures.contains(&("keyword".into(), "verdict".into())),
+        "{captures:?}"
+    );
+    assert!(
+        captures.contains(&("constant".into(), "gsd/W311".into())),
+        "{captures:?}"
+    );
+    assert!(
+        captures.contains(&("type".into(), "passed".into())),
+        "{captures:?}"
+    );
+}

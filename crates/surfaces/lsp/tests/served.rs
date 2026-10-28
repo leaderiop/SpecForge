@@ -331,6 +331,11 @@ impl Served {
         self.apply(Change::Closed(uri.clone()))
     }
 
+    /// As `shutdown`: `LspState::shutdown`.
+    pub fn shutdown(&mut self) {
+        self.state.blocking_write().shutdown();
+    }
+
     /// Write `text` at `file` on disk (no event).
     pub fn write(&self, file: &str, text: &str) {
         let path = self.dir.path().join(file);

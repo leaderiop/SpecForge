@@ -32,10 +32,12 @@ expression: "normalized(result, root)"
       "inactive"
     ]
   },
+  "file": "spec/main.spec",
   "kind": "type",
   "obligated": true,
   "referenced_by": [],
   "refers_to": [],
+  "revision": "sha256:[SHA256]",
   "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 41,

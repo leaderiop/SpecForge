@@ -951,6 +951,11 @@ const NOTHING_SERVED_PROBES: &[(Entry, &str, &str)] = &[
     (Entry::Tool, "specforge.extensions", "{}"),
     (Entry::Tool, "specforge.providers", "{}"),
     (Entry::Tool, "specforge.settings", "{}"),
+    (
+        Entry::Tool,
+        "specforge.verdict_inputs",
+        r#"{"entity":"x","rule":"nothing"}"#,
+    ),
     (Entry::Tool, "specforge.doctor", "{}"),
     (Entry::Tool, "specforge.collect", "{}"),
     (Entry::Tool, "specforge.render", r#"{"format":"brief"}"#),

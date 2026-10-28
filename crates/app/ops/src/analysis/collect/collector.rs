@@ -19,6 +19,8 @@ pub struct Collector {
     pub report: String,
     /// What else the host keeps from the run: `"stdout"` or nothing.
     pub capture: Option<String>,
+    /// It answers an edit plan, so it receives the graph and the revisions (ADR 0289).
+    pub writes: bool,
 }
 
 /// The only `capture` value: the command's standard output.
@@ -44,6 +46,7 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                     .clone()
                     .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
                 capture: c.capture.clone(),
+                writes: c.writes,
             })
         })
         .collect()

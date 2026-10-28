@@ -135,3 +135,54 @@ fn lifecycle_field_is_read_and_ignored() {
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     assert!(build.fields().contains("thing", "status"));
 }
+
+#[spec(
+    behavior = "judge_field_history",
+    verify = "a kind and a field may be human-only and a pass a guard, or W021"
+)]
+fn a_kind_and_a_field_may_be_human_and_a_pass_a_guard() {
+    let kinds = json!([
+        {"name": "override", "keyword": "override", "writer": "human", "fields": [
+            {"name": "reason", "field_type": "string", "writer": "human", "required": true},
+        ]},
+        {"name": "thing", "keyword": "thing", "fields": [
+            {"name": "note", "field_type": "string", "writer": "human"},
+        ]},
+    ]);
+    let passes = json!([{"name": "gate", "phase": "guard"}]);
+    let good = build([wire(kinds, passes.clone())]);
+    assert!(diagnostics(&good).is_empty(), "{:?}", diagnostics(&good));
+    assert!(good.kinds().get("override").unwrap().is_human_only());
+    assert!(!good.kinds().get("thing").unwrap().is_human_only());
+    // A guard runs when a write is judged: not with a compile, not under analyze.
+    assert_eq!(good.guard_passes().count(), 1);
+    assert_eq!(good.check_passes().count(), 0);
+    assert_eq!(good.analyze_passes().count(), 0);
+
+    // A kind writer other than human; a required human field on a kind agents write; computes on a guard.
+    for (kinds, passes) in [
+        (
+            json!([{"name": "thing", "keyword": "thing", "writer": "agent"}]),
+            passes.clone(),
+        ),
+        (
+            json!([{"name": "thing", "keyword": "thing", "fields": [
+                {"name": "note", "field_type": "string", "writer": "human", "required": true},
+            ]}]),
+            passes.clone(),
+        ),
+        (
+            json!([{"name": "thing", "keyword": "thing", "fields": [
+                {"name": "status", "field_type": "string", "writer": "computed"},
+            ]}]),
+            json!([{"name": "gate", "phase": "guard", "computes": ["thing.status"]}]),
+        ),
+    ] {
+        let build = build([wire(kinds.clone(), passes)]);
+        assert!(
+            !coded(&build, "W021").is_empty(),
+            "{kinds}: {:?}",
+            diagnostics(&build)
+        );
+    }
+}

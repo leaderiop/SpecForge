@@ -304,3 +304,235 @@ fn rename_of_a_name_written_below_its_kind_edits_it_and_its_references() {
     let from_declaration = renamed_edits(&state, "/p/types.spec", (1, 4), "session_token");
     assert_eq!(from_declaration.unwrap(), want);
 }
+
+// -- the ledger of a rename (ADR 0289) -----------------------------------------------------------
+
+mod ledger {
+    use specforge_extension_sdk::DeclaredCategory;
+    use specforge_lsp::changes::Change;
+    use specforge_project::testing::gsd::{gsd_history_passes, gsd_history_wire};
+    use specforge_project::testing::{GSD_EXTENSION, revision_of};
+    use specforge_test_macros::test as spec;
+    use tower_lsp::lsp_types::{FileChangeType, FileEvent, Position};
+
+    use crate::recorder::Sent;
+    use crate::served::Served;
+    use specforge_lsp::answers;
+
+    const M: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n";
+    const U: &str = "uat_test U1 \"One\" {\n  phase 03\n  result \"pass\"\n}\n";
+
+    const HEADER: &str = "# specforge-harness 1\n";
+
+    /// A ledger line: `path key digest`, the digest of `path\0key\0value`.
+    fn line(path: &str, key: &str, value: &str) -> String {
+        let digest = revision_of(format!("{path}\0{key}\0{value}").as_bytes());
+        format!("{path} {key} {}\n", digest.trim_start_matches("sha256:"))
+    }
+
+    fn served() -> Served {
+        let ledger = format!("{HEADER}{}", line("v1.0/03/U1", "result", "\"pass\""));
+        Served::new(&[("m.spec", M), ("u.spec", U), ("specforge-harness", &ledger)])
+            .extension(GSD_EXTENSION, |c| {
+                c.raw_category(DeclaredCategory::Entities, gsd_history_wire());
+                c.raw_category(DeclaredCategory::Passes, gsd_history_passes());
+            })
+            .open(&["m.spec", "u.spec"])
+    }
+
+    fn e083(sent: &[Sent]) -> bool {
+        sent.iter().any(|s| {
+            matches!(s, Sent::Published { diagnostics, .. }
+                if diagnostics.iter().any(|d| matches!(&d.code,
+                    Some(tower_lsp::lsp_types::NumberOrString::String(c)) if c == "E083")))
+        })
+    }
+
+    fn ledger_on_disk(served: &Served) -> String {
+        std::fs::read_to_string(served.root().join("specforge-harness")).unwrap_or_default()
+    }
+
+    /// The rename of phase `03` to `05` as the editor applies it to its buffers, then the editor's save.
+    fn rename_and_type(served: &mut Served) -> (Vec<Sent>, tower_lsp::lsp_types::WorkspaceEdit) {
+        let uri = served.uri("m.spec");
+        let at = Position::new(2, 7);
+        let edit = answers::rename(&served.state(), &uri, at, "05")
+            .unwrap()
+            .expect("the cursor names an entity");
+        // The editor applies the whole edit before the debounce reacts: one change for both buffers.
+        served.type_text("m.spec", &M.replace("phase 03", "phase 05"));
+        served.type_text("u.spec", &U.replace("phase 03", "phase 05"));
+        served.apply(Change::Edited(vec![
+            served.uri("m.spec"),
+            served.uri("u.spec"),
+        ]));
+        (served.sent(), edit)
+    }
+
+    fn save(served: &mut Served) {
+        for (file, text) in [("m.spec", M), ("u.spec", U)] {
+            served.write(file, &text.replace("phase 03", "phase 05"));
+        }
+        let events = ["m.spec", "u.spec"]
+            .map(|file| FileEvent {
+                uri: served.uri(file),
+                typ: FileChangeType::CHANGED,
+            })
+            .to_vec();
+        served.apply(Change::Watched(events));
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "the LSP rename writes its ledger change once the rename lands on disk"
+    )]
+    fn the_lsp_rename_writes_its_ledger_once_it_lands() {
+        let mut served = served();
+        let (sent, edit) = rename_and_type(&mut served);
+        let changes = edit.changes.expect("changes");
+        assert!(
+            changes
+                .keys()
+                .all(|uri| !uri.path().ends_with("specforge-harness")),
+            "{changes:?}"
+        );
+        // Before the save, the buffers hold the rename and the ledger does not yet: no E083.
+        assert!(!e083(&sent), "{sent:?}");
+        assert!(!ledger_on_disk(&served).contains("v1.0/05"));
+        save(&mut served);
+        let ledger = ledger_on_disk(&served);
+        assert!(
+            ledger.contains(&line("v1.0/05", "moved:v1.0/03", "")),
+            "{ledger}"
+        );
+        assert!(
+            ledger.contains(&line("v1.0/05/U1", "result", "\"pass\"")),
+            "{ledger}"
+        );
+        assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "an undone LSP rename writes no ledger change"
+    )]
+    fn an_undone_lsp_rename_writes_no_ledger_change() {
+        let mut served = served();
+        let before = ledger_on_disk(&served);
+        rename_and_type(&mut served);
+        served.type_text("m.spec", M);
+        served.type_text("u.spec", U);
+        served.apply(Change::Edited(vec![
+            served.uri("m.spec"),
+            served.uri("u.spec"),
+        ]));
+        for file in ["m.spec", "u.spec"] {
+            let uri = served.uri(file);
+            served.apply(Change::Watched(vec![FileEvent {
+                uri,
+                typ: FileChangeType::CHANGED,
+            }]));
+        }
+        assert_eq!(ledger_on_disk(&served), before);
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "an applied LSP rename whose buffers are closed unsaved is undone"
+    )]
+    fn an_applied_lsp_rename_whose_buffers_are_closed_unsaved_is_undone() {
+        let mut served = served();
+        let before = ledger_on_disk(&served);
+        rename_and_type(&mut served);
+        assert_eq!(served.state().pending().open().len(), 1);
+        served.close("m.spec");
+        served.close("u.spec");
+        assert!(served.state().pending().open().is_empty());
+        // What the editor was last told of each file: the ledger is no longer read as renamed.
+        let sent = served.sent();
+        for file in ["m.spec", "u.spec"] {
+            let codes = crate::recorder::last_codes(&sent, &served.uri(file)).unwrap_or_default();
+            assert!(!codes.iter().any(|c| c == "E083"), "{file}: {codes:?}");
+        }
+        assert_eq!(ledger_on_disk(&served), before);
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "a rename whose ledger write fails stays pending and lands on the next event"
+    )]
+    fn a_rename_whose_ledger_write_fails_stays_pending() {
+        let mut served = served();
+        rename_and_type(&mut served);
+        // `.specforge` is a file: the write lock cannot be taken.
+        let _ = std::fs::remove_dir_all(served.root().join(".specforge"));
+        served.write(".specforge", "in the way");
+        save(&mut served);
+        assert_eq!(served.state().pending().open().len(), 1, "not done");
+        assert!(!ledger_on_disk(&served).contains("v1.0/05"));
+        std::fs::remove_file(served.root().join(".specforge")).unwrap();
+        save(&mut served);
+        assert!(ledger_on_disk(&served).contains("v1.0/05"));
+        assert!(served.state().pending().open().is_empty());
+    }
+
+    #[spec(
+        behavior = "land_rename_ledger",
+        verify = "a saved LSP rename lands its ledger change at shutdown"
+    )]
+    fn a_saved_lsp_rename_lands_its_ledger_change_at_shutdown() {
+        let mut served = served();
+        rename_and_type(&mut served);
+        // Saved, and the server exits before the watch event.
+        for (file, text) in [("m.spec", M), ("u.spec", U)] {
+            served.write(file, &text.replace("phase 03", "phase 05"));
+        }
+        served.shutdown();
+        assert!(ledger_on_disk(&served).contains(&line("v1.0/05/U1", "result", "\"pass\"")));
+    }
+}
+
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "the LSP rename and fixes are versioned for a client that takes document changes"
+)]
+fn the_lsp_rename_and_fixes_are_versioned() {
+    use specforge_lsp::ClientSupport;
+    use tower_lsp::lsp_types::{
+        ClientCapabilities, DocumentChanges, WorkspaceClientCapabilities,
+        WorkspaceEditClientCapabilities,
+    };
+    let mut state = buffers(&[("/p/types.spec", TYPES), ("/p/auth.spec", AUTH)]);
+    let rename = |state: &LspState| {
+        answers::rename(
+            state,
+            &uri_of_path("/p/types.spec"),
+            Position::new(0, 6),
+            "session_token",
+        )
+        .unwrap()
+        .unwrap()
+    };
+    // Without the client's support, `changes` as today.
+    let plain = rename(&state);
+    assert!(plain.changes.is_some() && plain.document_changes.is_none());
+    state.set_client(ClientSupport::of(&ClientCapabilities {
+        workspace: Some(WorkspaceClientCapabilities {
+            workspace_edit: Some(WorkspaceEditClientCapabilities {
+                document_changes: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }));
+    let versioned = rename(&state);
+    let Some(DocumentChanges::Edits(edits)) = versioned.document_changes else {
+        panic!("a client that takes document changes gets versioned edits");
+    };
+    assert!(versioned.changes.is_none());
+    assert!(
+        edits.iter().all(|e| e.text_document.version.is_some()),
+        "{edits:?}"
+    );
+}

@@ -8,6 +8,7 @@ mod checks;
 pub mod compilation;
 mod disk;
 pub mod entity;
+pub mod judged;
 mod registries;
 pub mod rules;
 pub mod snapshot;
@@ -16,7 +17,7 @@ pub mod snapshot;
 mod invariants;
 
 // --- What the checks see of the file system (ADR 0107) ---
-pub use disk::{Asked, Disk, MemoryDisk, PlainDisk};
+pub use disk::{Asked, Disk, FileStamp, MemoryDisk, PlainDisk};
 
 // --- Core registries ---
 pub use registries::{

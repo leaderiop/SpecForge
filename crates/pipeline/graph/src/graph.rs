@@ -28,6 +28,8 @@ pub struct Node {
     /// `verify` statements in declaration order (ADR 0094): an entity's own
     /// member, never a field.
     pub obligations: Vec<specforge_parser::VerifyStatement>,
+    /// `verdict` statements in declaration order (ADR 0290): an entity's own member, never a field.
+    pub verdicts: Vec<specforge_parser::VerdictMember>,
     /// The path of the entity this one is scoped by, as its scope field resolved, or as it is written when it
     /// resolves to none; `None`: the project. Never derived by splitting `id` on `/`, since a scheme ref id may hold
     /// one.
@@ -62,6 +64,7 @@ impl Node {
             source_span,
             methods: Vec::new(),
             obligations: Vec::new(),
+            verdicts: Vec::new(),
             scope: None,
         }
     }

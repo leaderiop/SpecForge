@@ -303,3 +303,91 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
   verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
 }
+
+behavior apply_edit_plan "Apply an Edit Plan" {
+  invariants [typed_edit_atomicity]
+  category   mutation
+  contract   """
+    A command or a collector that declares `writes` may answer an edit plan (ADR 0289): typed operations the host
+    checks, plans with the typed edit engine, judges and applies all or nothing, the only writer. A project whose
+    extensions declare no writing command, no writing collector, no human-only value and no guard pass reads and
+    writes as it did before: a read-only command's input carries no revisions, its tool is announced read-only with
+    the schema its arguments derive, its help has no `--dry-run`, and a typed edit writes the same bytes.
+  """
+  verify unit "a read-only command's input carries no revisions"
+  verify unit "a read-only command's tool keeps its annotations and schema"
+  verify unit "a read-only command's help and output are unchanged"
+  verify unit "a typed edit writes the same bytes and report"
+  verify unit "an edit plan and a writing command's input read back as they were written"
+  verify unit "a writing declaration reaches the wire and its plan carries the call's revisions"
+  verify unit "a writing command receives the revision of every source and its plan is applied"
+  verify unit "a plan is all or nothing, the ledger included"
+  verify unit "two plans on disjoint files both land with their ledger lines"
+  verify unit "a plan may not write a computed value"
+  verify unit "a harness value is set only by a plan of its extension or of a peer"
+  verify unit "a plan from a command that does not declare writes, or that failed, is not applied"
+  verify unit "a plan renames in order and re-keys the ledger once"
+  verify unit "a malformed plan is invalid_plan and names the operation"
+  verify unit "a writing command previews its plan with --dry-run and writes it otherwise on the command line"
+  verify unit "a writing command's plan and the file it writes agree on the command line and over MCP"
+  verify unit "a cite naming more than one thing is not a cite"
+  verify unit "an edit naming a revision for an entity the compile does not hold is refused"
+  verify unit "a writing collector's plan is previewed with dry_run over MCP"
+  verify unit "set_verdict is refused without a judged rule"
+  verify unit "set_verdict checks the rule and its basis"
+  verify unit "set_verdict is refused on a human-only kind and for a computed value"
+  verify unit "set_verdict compares its inputs with the disk under the lock"
+  verify unit "set_verdict writes its verdict and its ledger line"
+  verify unit "set_verdict refuses a value its field refuses"
+  verify unit "set_verdict refuses a finding whose member name a spec block cannot write"
+  verify unit "format does not overwrite a concurrent write"
+  verify unit "format locks a project with a writing extension and not one that merely has a .specforge directory"
+}
+
+behavior refuse_stale_revision "Refuse a Stale Revision" {
+  invariants [typed_edit_atomicity]
+  category   validation
+  contract   """
+    An operation of an edit plan names the revision of its file: `sha256:<hex>` of the bytes the host compiled and
+    sent, or `absent` for a file it creates (ADR 0289). A plan whose file changed since is refused `stale_revision`
+    with the file, the revision planned on and the current one, and writes nothing; a plan that names no revision
+    (a core typed edit) is planned on the current compile, as before.
+  """
+  verify unit "a typed edit naming no revision is refused file_changed when its file changed since the compile"
+  verify unit "a plan naming a stale revision is refused and writes nothing"
+  verify unit "two plans whose union adds an error refuse the later"
+  verify unit "a core edit names the revision it was planned on and is refused when it is stale"
+}
+
+behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
+  invariants [typed_edit_atomicity]
+  category   mutation
+  contract   """
+    A write of several files is journaled under the write lock before its first file is replaced (ADR 0289). The next
+    writer that finds the journal restores each file that holds the bytes the interrupted write was putting there,
+    leaves a file that holds what it held before, and notes both; a project check reports a journal left behind as
+    W167 and writes nothing.
+  """
+  verify unit "an interrupted write is rolled back by the next writer"
+  verify unit "an interrupted write is W167 until the next writer rolls it back"
+  verify unit "a session reports a journal that appears and drops one that goes"
+  verify unit "a pending journal another writer holds is no error this write adds"
+  verify unit "rollback restores exactly the files at their after digest"
+  verify unit "a typed edit of a project with a writing command and no harness field takes the write lock"
+  verify unit "a journal marked done is removed by the next writer and rolls nothing back"
+  verify unit "a journal naming a path outside the project root or a malformed digest is refused and restores nothing"
+}
+
+behavior refuse_human_only_write "Refuse a Human-Only Write" {
+  invariants [typed_edit_atomicity]
+  category   validation
+  contract   """
+    A kind, a field or a member an extension declares human-only is written by a person: a plan of a command or a
+    collector, an MCP edit and a command line without a terminal are refused `human_only` and write nothing, and the
+    command line at a terminal writes it (ADR 0289).
+  """
+  verify unit "a human-only value is refused in an agents write"
+  verify unit "the command line writes a human-only value from a terminal and refuses it without one"
+  verify unit "a human-only or computed member is refused in the value of a set, append or create"
+  verify unit "a delete that unlinks references and a rename do not change a human-only entity"
+}

@@ -30,6 +30,39 @@ pub trait Disk {
     fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
         self.read(path)
     }
+    /// What the file at `path` looks like: two equal stamps of one path hold the same bytes, so a digest kept
+    /// against a stamp stays true while the stamp does (ADR 0290). The default reads the file; the plain file system
+    /// answers from its metadata. A session records it as it records a read.
+    fn stamp(&self, path: &Path) -> io::Result<FileStamp> {
+        self.read(path).map(|bytes| FileStamp::of(&bytes))
+    }
+}
+
+/// What a file looked like (see [`Disk::stamp`]): its length and modification time, and its content's hash when the
+/// time alone cannot be trusted (modified within the filesystem's granularity of now), or when a disk has no time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileStamp {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    content: Option<u64>,
+}
+
+impl FileStamp {
+    /// The stamp of `bytes`, whatever file held them: their length and hash.
+    pub fn of(bytes: &[u8]) -> Self {
+        Self {
+            len: bytes.len() as u64,
+            modified: None,
+            content: Some(hash(bytes)),
+        }
+    }
+}
+
+fn hash(bytes: &[u8]) -> u64 {
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// The file system, nothing recorded: what a one-shot compile and every
@@ -48,6 +81,25 @@ impl Disk for PlainDisk {
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         specforge_common::regular::read(path)
+    }
+
+    fn stamp(&self, path: &Path) -> io::Result<FileStamp> {
+        let metadata = std::fs::metadata(path)?;
+        let modified = metadata.modified().ok();
+        // Coarse filesystems keep a modification time to the second or two: a file modified that close to now
+        // could change again without its stamp changing, so its content is hashed too (git's racy-clean rule).
+        let racy = modified
+            .is_none_or(|m| m + std::time::Duration::from_secs(2) >= std::time::SystemTime::now());
+        let content = if racy || !metadata.is_file() {
+            Some(hash(&self.read(path)?))
+        } else {
+            None
+        };
+        Ok(FileStamp {
+            len: metadata.len(),
+            modified,
+            content,
+        })
     }
 }
 

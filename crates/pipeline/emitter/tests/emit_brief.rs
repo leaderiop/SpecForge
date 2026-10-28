@@ -24,6 +24,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     }
 }
@@ -44,6 +45,7 @@ fn node_with_contract(id: &str, kind: &str, title: &str, contract: &str) -> Node
         source_span: span(),
         methods: Vec::new(),
         obligations: Vec::new(),
+        verdicts: Vec::new(),
         scope: None,
     }
 }

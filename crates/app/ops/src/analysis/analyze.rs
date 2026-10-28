@@ -384,6 +384,7 @@ pub fn analyze(
         let context = PassContext {
             test_results: report.as_deref(),
             proved_claims: proved.as_ref().map(|_| &proved_claims),
+            judgements: Some(view.project().judgements()),
             ..PassContext::of(view.entities())
         };
         // Declared `after` constraints order a single extension's passes;

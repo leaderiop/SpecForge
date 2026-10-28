@@ -189,13 +189,18 @@ impl ExtensionCommand {
             short: short.to_string(),
             declaration: declaration.clone(),
             args,
-            refusal: command_args::refusal(&declaration.args),
+            refusal: command_args::refusal_of(&declaration.args, declaration.writes),
         }
     }
 
     /// The declaring extension's name.
     pub fn extension(&self) -> &str {
         &self.extension
+    }
+
+    /// Whether it answers an edit plan the host applies (ADR 0289).
+    pub fn writes(&self) -> bool {
+        self.declaration.writes
     }
 
     /// The declaring extension's short name, which routes its commands.
@@ -264,6 +269,13 @@ impl ExtensionCommand {
             "properties": properties,
             "additionalProperties": false,
         });
+        if self.writes() {
+            // The host's option on a writing command's tool (ADR 0289), beside the command's own args.
+            schema["properties"]["dry_run"] = json!({
+                "type": "boolean",
+                "description": "Plan the command's edits and write nothing",
+            });
+        }
         let required: Vec<&str> = self
             .args
             .iter()
@@ -452,7 +464,7 @@ pub fn run(
 
 /// The view's graph as the plain graph export, naming the version of the
 /// project's schema.
-fn graph_export(view: &ProjectView<'_>) -> String {
+pub(crate) fn graph_export(view: &ProjectView<'_>) -> String {
     let versioned = view.versioned_schema();
     specforge_emitter::emit(
         view.graph(),
@@ -483,6 +495,11 @@ fn run_on(
         today: today.to_string(),
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
+        revisions: if command.writes() {
+            crate::revision::of_project(view.project())
+        } else {
+            Default::default()
+        },
     };
     let Some(runtime) = view.runtime() else {
         return Err(RunError::Call(CallError::new(
@@ -498,12 +515,12 @@ fn run_on(
 }
 
 /// Today's date in UTC, `YYYY-MM-DD`: the one clock every command reads.
-fn today() -> String {
+pub(crate) fn today() -> String {
     chrono::Utc::now().format("%Y-%m-%d").to_string()
 }
 
 /// `root` absolute and canonical, else as given.
-fn canonical(root: &Path) -> PathBuf {
+pub(crate) fn canonical(root: &Path) -> PathBuf {
     std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf())
 }
 

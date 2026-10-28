@@ -66,7 +66,7 @@ impl Ledger {
             if let Some(from) = line.moved_from() {
                 // `old moved:x` is now `new moved:x`.
                 lines.push(Line::moved(&path, from));
-            } else if !line.is_field() {
+            } else if !line.is_value() {
                 lines.push(line.clone());
             } else {
                 let matched = before
@@ -103,7 +103,7 @@ impl Ledger {
             }
             match l.moved_from() {
                 Some(_) => after.graph.node(&l.path).is_some(),
-                None if !l.is_field() => true,
+                None if !l.is_value() => true,
                 None => after.value(&l.path, &l.key).is_some(),
             }
         });
@@ -236,10 +236,10 @@ mod tests {
 
     #[test]
     fn a_move_rekeys_the_lines_under_it_and_records_the_move() {
-        let harness = Harness(BTreeMap::from([(
-            "uat".to_string(),
-            BTreeSet::from(["result".to_string()]),
-        )]));
+        let harness = Harness(
+            BTreeMap::from([("uat".to_string(), BTreeSet::from(["result".to_string()]))]),
+            false,
+        );
         let forms = forms();
         let (before, after) = (graph(&source("03", "pass")), graph(&source("04", "pass")));
         let view = |graph| View {
@@ -276,5 +276,53 @@ mod tests {
             "{}",
             after_ledger.canonical()
         );
+    }
+
+    const PLAN: &str = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    cited [R1]\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
+
+    fn verdict_graph(source: &str) -> specforge_graph::Graph {
+        build_graph_with_config(&[parse(source, "a.spec")], &GraphConfig::default()).0
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "judge_rule_by_fresh_verdict",
+        verify = "a verdict is a value of the ledger: set records it, a respelling keeps it, a move re-keys it"
+    )]
+    fn a_verdict_is_recorded_rekeyed_and_dropped_with_its_entity() {
+        let forms = FieldForms::default();
+        let harness = Harness(BTreeMap::new(), true);
+        let view = |graph| View {
+            graph,
+            forms: &forms,
+            harness: &harness,
+            keeps_gone: false,
+        };
+        let (empty, with) = (verdict_graph("plan P \"P\" {}\n"), verdict_graph(PLAN));
+        let key = "verdict:gsd/W311";
+        let change = LedgerChange {
+            set: vec![("P".into(), key.into())],
+            moves: Vec::new(),
+        };
+        let recorded = Ledger::default().rewritten(&view(&empty), &view(&with), &change);
+        let value = harness
+            .value(&with, &forms, "P", key)
+            .expect("a verdict is a value");
+        assert!(recorded.records("P", key, &digest("P", key, &value)));
+        // A write that does not touch it keeps it; a move re-keys it with the entity.
+        let renamed = verdict_graph(&PLAN.replace("plan P \"P\"", "plan Q \"P\""));
+        let moved = LedgerChange {
+            set: Vec::new(),
+            moves: vec![("P".into(), "Q".into())],
+        };
+        let after = recorded.rewritten(&view(&with), &view(&renamed), &moved);
+        let value = harness.value(&renamed, &forms, "Q", key).unwrap();
+        assert!(
+            after.records("Q", key, &digest("Q", key, &value)),
+            "{}",
+            after.canonical()
+        );
+        // Delete the entity: the line goes with it.
+        let gone = recorded.rewritten(&view(&with), &view(&empty), &LedgerChange::default());
+        assert!(gone.lines().all(|l| l.key != key), "{}", gone.canonical());
     }
 }

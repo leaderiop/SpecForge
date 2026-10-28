@@ -45,6 +45,7 @@ fn make_command(id: &str, export: &str) -> CommandDescriptor {
         category: None,
         export: export.to_string(),
         args: vec![],
+        writes: false,
     }
 }
 

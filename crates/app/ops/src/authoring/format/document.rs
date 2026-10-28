@@ -122,7 +122,7 @@ impl FormattedDocument<'_> {
 #[derive(Clone)]
 pub struct Forms<'a> {
     /// The project the caller holds and its forms: lent only when its environment was loaded at a project root.
-    held: Option<(&'a ProjectRoot, &'a FieldForms)>,
+    held: Option<(&'a ProjectRoot, &'a FieldForms, bool)>,
     /// Where another project's extensions load to read its forms; `Fixed(None)` writes its values as they are.
     extensions: RuntimeSource,
 }
@@ -148,9 +148,13 @@ impl<'a> Forms<'a> {
     /// MCP). An environment with no project root (empty, assembled in memory) lends nothing.
     pub fn lending(held: &'a Environment, extensions: RuntimeSource) -> Self {
         Forms {
-            held: held
-                .project_root()
-                .map(|root| (root, held.registries().field_forms())),
+            held: held.project_root().map(|root| {
+                (
+                    root,
+                    held.registries().field_forms(),
+                    held.serializes_writes(),
+                )
+            }),
             extensions,
         }
     }
@@ -211,7 +215,7 @@ pub(crate) struct Configs<'d> {
     /// Where the field forms of each project come from.
     forms: Forms<'d>,
     /// The forms of the projects loaded so far, by canonical root.
-    loaded: HashMap<PathBuf, FieldForms>,
+    loaded: HashMap<PathBuf, (FieldForms, bool)>,
     none: FieldForms,
     projects: HashMap<PathBuf, Option<ProjectRoot>>,
     found: HashMap<(PathBuf, PathBuf), Option<PathBuf>>,
@@ -258,30 +262,39 @@ impl<'d> Configs<'d> {
             Place::Detached => None,
         };
         match root {
-            Some(root) => self.forms_of(&root),
+            Some(root) => self.forms_of(&root).0,
             None => &self.none,
         }
     }
 
-    /// The field forms of the project at `root`.
-    fn forms_of(&mut self, root: &ProjectRoot) -> &FieldForms {
-        if let Some((held, forms)) = self.forms.held
+    /// The field forms of the project at `root`, and whether its writes are serialized by the write lock.
+    fn forms_of(&mut self, root: &ProjectRoot) -> (&FieldForms, bool) {
+        if let Some((held, forms, serialized)) = self.forms.held
             && held.canonical() == root.canonical()
         {
-            return forms;
+            return (forms, serialized);
         }
         if matches!(self.forms.extensions, RuntimeSource::Fixed(None)) {
-            return &self.none;
+            return (&self.none, false);
         }
         let extensions = &self.forms.extensions;
-        self.loaded
+        let (forms, serialized) = self
+            .loaded
             .entry(root.canonical().to_path_buf())
             .or_insert_with(|| {
-                Environment::load_from(root, extensions)
-                    .registries()
-                    .field_forms()
-                    .clone()
-            })
+                let env = Environment::load_from(root, extensions);
+                (
+                    env.registries().field_forms().clone(),
+                    env.serializes_writes(),
+                )
+            });
+        (forms, *serialized)
+    }
+
+    /// The root of the project `file` is in, when that project's writes are serialized by the write lock.
+    pub(super) fn serialized_root(&mut self, file: &Path) -> Option<PathBuf> {
+        let root = self.project_of(&directory_of(file))?;
+        self.forms_of(&root).1.then(|| root.dir().to_path_buf())
     }
 
     /// The configuration of `file`: its own project's (discovery from its

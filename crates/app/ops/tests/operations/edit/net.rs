@@ -48,6 +48,7 @@ fn a_new_file_the_edits_leave_empty_is_not_written() {
         &ProjectView::of(&c.project),
         &edits,
         false,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
     .unwrap();

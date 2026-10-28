@@ -323,6 +323,7 @@ fn node_from_entity(path: Sym, winner: &Winner<'_>, defaults: Option<&FileDefaul
         source_span: entity.span.clone(),
         methods: entity.methods.clone(),
         obligations: entity.obligations.clone(),
+        verdicts: entity.verdicts.clone(),
         scope: winner.scope,
     }
 }

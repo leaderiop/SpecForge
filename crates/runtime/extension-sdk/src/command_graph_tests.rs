@@ -39,6 +39,7 @@ fn a_command_input_is_built_by_its_fields() {
         format: CommandFormat::Json,
         today: String::new(),
         evidence: Default::default(),
+        revisions: Default::default(),
     };
     assert!(input.is_json());
     assert!(!CommandInput::default().is_json());

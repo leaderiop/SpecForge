@@ -125,6 +125,7 @@ pub(super) fn run_input(
         today: today.into(),
         graph: RawGraph::new(g.graph().to_string()).expect("one JSON value"),
         evidence,
+        revisions: Default::default(),
     };
     let export = format!("cmd__product_{id}");
     let output = ExtensionCalls::new(runtime)

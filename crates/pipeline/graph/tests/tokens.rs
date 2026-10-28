@@ -396,3 +396,21 @@ fn a_use_bindings_imported_name_is_a_token_held_by_no_block() {
     );
     assert!(tokens.iter().all(|t| t.held_by.is_empty()), "{tokens:?}");
 }
+
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "a cited reference is a finder token and no edge"
+)]
+fn a_cited_reference_is_respelled_by_a_rename() {
+    let source = "requirement AUTH-07 \"R\" {}\n\nplan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    cited [AUTH-07]\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
+    let (graph, tokens) = find(source, defaults_inputs);
+    assert!(
+        show(&tokens)
+            .iter()
+            .any(|t| t.starts_with("AUTH-07 P cited")),
+        "{:?}",
+        show(&tokens)
+    );
+    // It is a token a rename respells, and it is no edge: the verdict changes no degree.
+    assert_eq!(graph.edge_count(), 0);
+}

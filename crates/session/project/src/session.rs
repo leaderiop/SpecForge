@@ -419,6 +419,20 @@ impl ProjectSession {
         mode: CheckMode,
         rechecks: bool,
     ) -> (UpdateKind, Applied) {
+        let (kind, mut applied) = self.apply_sources(reads, mode, rechecks);
+        // A kept digest that differs from a cold one is a divergence, reported as the graph's are.
+        if let Err(divergence) = self.project.verify_digests() {
+            applied.verification = Some(Err(divergence));
+        }
+        (kind, applied)
+    }
+
+    fn apply_sources(
+        &mut self,
+        reads: Vec<(String, Read)>,
+        mode: CheckMode,
+        rechecks: bool,
+    ) -> (UpdateKind, Applied) {
         if reads.is_empty() {
             if rechecks || self.project.checks_skipped() {
                 self.project.check(&mut self.ledger);
@@ -538,6 +552,21 @@ impl ProjectSession {
             s.sources(reads, CheckMode::Full, rechecks)
         });
         (!update.changed_nothing()).then_some(update)
+    }
+
+    /// The renames the editor applied to its buffers and has not saved (ADR 0289): the checks read the ledger as
+    /// they will have written it, so no E083 shows between the rename and its save. The next update runs the
+    /// checks when these changed; [`Self::recheck`] runs them now.
+    pub fn overlay_ledger(&mut self, overlay: Vec<Arc<crate::harness::LedgerOverlay>>) -> bool {
+        self.project.overlay_ledger(overlay)
+    }
+
+    /// Run the checks again over the sources as the session holds them, reading what they read now.
+    pub fn recheck(&mut self) -> Update {
+        self.update(|s| {
+            s.project.check(&mut s.ledger);
+            (UpdateKind::Checks, Applied::default())
+        })
     }
 
     /// What changed on disk since the session last built (behavior

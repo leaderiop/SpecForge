@@ -8,6 +8,7 @@
 //! and is left alone (ADR 0016). A rename changes the graph by a substitution only: a name written for no entity that
 //! its new ID would capture refuses it (`name_captured`, ADR 0198).
 
+use crate::authoring::apply::{self, Origin};
 use crate::authoring::entity_id::validate_id;
 use crate::authoring::planned::PlannedChange;
 use crate::read::navigate::{Navigator, Precision, TextEdit, apply_edits};
@@ -282,7 +283,7 @@ pub struct Renamed {
     pub wrote: Wrote,
 }
 
-/// Plan renaming `old_id` to `new_id` over `nav` ([`plan`]) and write its planned change ([`PlannedChange::apply`])
+/// Plan renaming `old_id` to `new_id` over `nav` ([`plan`]) and write its planned change ([`apply::apply`], for `origin`)
 /// unless `dry_run`. Refused as [`plan`] refuses, before anything is written, or with the change's error: about no
 /// field, its writes the files it could not put back.
 pub fn run(
@@ -290,10 +291,29 @@ pub fn run(
     old_id: &str,
     new_id: &str,
     dry_run: bool,
+    origin: &Origin,
     caller: Caller<'_>,
 ) -> Result<Renamed, Refusal<RenameField>> {
+    run_revised(nav, old_id, new_id, None, dry_run, origin, caller)
+}
+
+/// [`run`] when the caller read the file of `old_id` at `revision`: `stale_revision` when the file is no longer at it
+/// (ADR 0289).
+pub fn run_revised(
+    nav: &Navigator<'_>,
+    old_id: &str,
+    new_id: &str,
+    revision: Option<&str>,
+    dry_run: bool,
+    origin: &Origin,
+    caller: Caller<'_>,
+) -> Result<Renamed, Refusal<RenameField>> {
+    apply::check_rename(nav.view(), origin, old_id, new_id)?;
+    let files = apply::entity_revision(nav.view(), old_id, revision)?;
     let plan = plan(nav, old_id, new_id)?;
-    let wrote = Wrote::unless_preview(dry_run, || plan.change().apply(caller))?;
+    let wrote = Wrote::unless_preview(dry_run, || {
+        apply::apply_revised(nav.view(), plan.change(), &files, origin, caller)
+    })?;
     Ok(Renamed { plan, wrote })
 }
 
@@ -409,7 +429,7 @@ mod tests {
             plan.change().affected_files().collect::<Vec<_>>(),
             ["limit.spec", "login.spec"]
         );
-        plan.change().apply(crate::testing::caller()).unwrap();
+        crate::authoring::apply::testing::apply(plan.change(), crate::testing::caller()).unwrap();
         let login = std::fs::read_to_string(dir.path().join("login.spec")).unwrap();
         assert!(login.contains("invariants [session_cap]"), "{login}");
         let limit = std::fs::read_to_string(dir.path().join("limit.spec")).unwrap();
@@ -432,7 +452,7 @@ mod tests {
             .map(|e| (e.span.start_line, e.span.start_col))
             .collect();
         assert_eq!(at, [(1, 11), (5, 15)], "the declaration and the reference");
-        plan.change().apply(crate::testing::caller()).unwrap();
+        crate::authoring::apply::testing::apply(plan.change(), crate::testing::caller()).unwrap();
         assert_eq!(
             std::fs::read_to_string(dir.path().join("a.spec")).unwrap(),
             text.replace("invariant session_limit", "invariant session_cap")
@@ -453,7 +473,9 @@ mod tests {
             return; // permissions don't bind this user (root)
         }
 
-        let error = plan.change().apply(crate::testing::caller()).unwrap_err();
+        let error =
+            crate::authoring::apply::testing::apply(plan.change(), crate::testing::caller())
+                .unwrap_err();
 
         assert_eq!(error.code, crate::FILE_UNWRITABLE);
         assert_eq!(
@@ -476,10 +498,9 @@ mod tests {
         std::os::unix::fs::symlink(&elsewhere, dir.path().join("login.spec")).unwrap();
 
         let held = crate::Containment::within(dir.path());
-        let error = plan
-            .change()
-            .apply(crate::testing::bounded(&held))
-            .unwrap_err();
+        let error =
+            crate::authoring::apply::testing::apply(plan.change(), crate::testing::bounded(&held))
+                .unwrap_err();
 
         assert_eq!(error.code, crate::OUTSIDE_ROOT, "{error:?}");
         assert_eq!(

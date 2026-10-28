@@ -219,3 +219,27 @@ fn mcp_inspect_shows_a_computed_value() {
     assert_eq!(inspected["fields"]["status"], "passed", "{inspected}");
     assert_eq!(inspected["computed"], json!(["status"]), "{inspected}");
 }
+
+#[specforge_test(
+    behavior = "refuse_stale_revision",
+    verify = "a core edit names the revision it was planned on and is refused when it is stale"
+)]
+fn core_edits_name_their_revision() {
+    let mut server = served();
+    let inspected = tool(&mut server, "specforge.inspect", json!({"entity_id": "b3"}));
+    assert_eq!(inspected["file"], "a.spec", "{inspected}");
+    let revision = inspected["revision"]
+        .as_str()
+        .expect("a revision")
+        .to_string();
+    assert!(revision.starts_with("sha256:"), "{inspected}");
+    let edit = |revision: &str| {
+        json!({"edits": [{"op": "set", "entity_id": "b3", "field": "contract",
+            "value": "The system MUST x", "revision": revision}], "dry_run": true})
+    };
+    let reply = call_tool(&mut server, "specforge.edit", edit(&revision));
+    assert!(!tool_text(&reply).contains("stale_revision"), "{reply}");
+    let stale = format!("sha256:{}", "0".repeat(64));
+    let reply = call_tool(&mut server, "specforge.edit", edit(&stale));
+    assert!(tool_text(&reply).contains("stale_revision"), "{reply}");
+}

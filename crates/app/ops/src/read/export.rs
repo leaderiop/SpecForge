@@ -323,6 +323,7 @@ fn export_versioned(
     }
     let selected = selection.selected(None);
     let statuses = request.coverage.map(ProjectCoverage::statuses);
+    let judgements = view.project().judgements().listed();
     let options = EmitOptions {
         format: request.format().emit_format(),
         selected: Some(&selected),
@@ -332,6 +333,7 @@ fn export_versioned(
         registries: view.registries(),
         coverage: statuses.as_ref(),
         computed: Some(view.computed()),
+        judgements: Some(&judgements),
     };
     let document = emit(view.graph(), &options).map_err(failure)?;
     Ok(Noticed::new(document, selection.into_notices()))

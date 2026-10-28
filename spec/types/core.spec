@@ -17,6 +17,8 @@ type Entity "Entity" {
   title       string
   fields      FieldMap
   obligations VerifyStatement[]
+  // A `verdict <rule> <outcome> { … }` statement is the entity's own member, never a field (ADR 0290).
+  verdicts    VerdictMember[]
   source_span SourceSpan @readonly
   // name_span is where the parse read the name (a spec block's string, quotes included)
   name_span   SourceSpan @readonly
@@ -78,6 +80,13 @@ type VerifyStatement "Verify Statement" {
   kind        VerifyKind
   description string
   verify unit "VerifyStatement schema is valid"
+}
+
+type VerdictMember "A judged rule's verdict as written: the rule, the outcome and the block's members, unread" {
+  rule    string
+  outcome string
+  body    FieldMap
+  verify unit "VerdictMember schema is valid"
 }
 
 type VerifyKind "VerifyKind is an open string — not a closed enum. Extensions declare allowedVerifyKinds per entity kind in their manifest. The core compiler does not define any built-in verify kinds." {

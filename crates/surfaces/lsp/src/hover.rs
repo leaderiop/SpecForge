@@ -83,6 +83,7 @@ pub fn diagnostics(shown: &[&Diagnostic], codes: &Codebook) -> Option<String> {
 ///   another word shows it beside its value);
 /// - **Methods**: its methods' signatures, one per line (ADR 0222);
 /// - **Obligations**: its `verify` statements, the review document's table (ADR 0273);
+/// - **Verdicts**: one row per judged rule that judges it, with its state (ADR 0290);
 /// - **Diagnostics**: the diagnostics about it that are not among those
 ///   `shown` for the cursor, each code linked to its docs page.
 pub fn entity(
@@ -224,6 +225,12 @@ pub fn entity(
     sections.extend(
         obligations_table(facts.obligations).map(|rows| format!("**Obligations**\n\n{rows}")),
     );
+
+    // Section 5c: where each judged rule that judges it stands (ADR 0290)
+    sections.extend(crate::verdicts::section(
+        &facts.judgements,
+        &facts.members.verdicts,
+    ));
 
     // Section 6: the diagnostics about it the cursor's do not already show
     let listed: Vec<String> = facts

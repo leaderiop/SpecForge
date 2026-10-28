@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use specforge_protocol_types::EntityKindDescriptor;
+use specforge_protocol_types::{EntityKindDescriptor, FieldWriter};
 
 /// One registered entity kind: what its extension declared, and what the
 /// registry build resolved of it. Everything else is read from `declared`
@@ -22,6 +22,13 @@ pub struct KindRegistryEntry {
     pub scoped_by: Option<String>,
     /// The kind as its extension declared it.
     pub declared: EntityKindDescriptor,
+}
+
+impl KindRegistryEntry {
+    /// Whether only a person writes its entities (`writer: human`, ADR 0289).
+    pub fn is_human_only(&self) -> bool {
+        self.declared.writer.as_deref() == Some(FieldWriter::Human.as_str())
+    }
 }
 
 #[derive(Debug, Default)]

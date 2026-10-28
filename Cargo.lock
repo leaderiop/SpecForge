@@ -3116,6 +3116,7 @@ dependencies = [
  "chrono",
  "getrandom 0.3.4",
  "proc-macro2",
+ "proptest",
  "serde",
  "serde_json",
  "sha2",
@@ -3243,6 +3244,7 @@ name = "specforge-registry"
 version = "0.3.0"
 dependencies = [
  "insta",
+ "proptest",
  "regex",
  "serde",
  "serde_json",

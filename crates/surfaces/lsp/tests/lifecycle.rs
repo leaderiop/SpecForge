@@ -392,6 +392,7 @@ fn file_watchers_follow_what_the_session_is_built_from() {
             format!("{root}/specforge.json"),
             format!("{root}/specforge.lock"),
             format!("{root}/ext/local.wasm"),
+            format!("{root}/.specforge/write-journal.json"),
         ]
     );
 

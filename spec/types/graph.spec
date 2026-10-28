@@ -23,6 +23,7 @@ type Node "Node" {
   title       string
   fields      FieldMap
   obligations VerifyStatement[]
+  verdicts    VerdictMember[]
   source_span SourceSpan @readonly
   verify unit "Node schema is valid"
 }
@@ -49,6 +50,26 @@ type MethodJson "One method member as every output writes it: no position" {
   /// Absent when the method writes no return type.
   returns string @optional
   verify unit "MethodJson schema is valid"
+}
+
+type VerdictJson "One verdict statement as every output writes it: no position" {
+  rule    string
+  outcome string
+  /// The block's members by key (judge, model, at, cited, inputs, findings, values), as a field's value is written.
+  members object
+  verify unit "VerdictJson schema is valid"
+}
+
+type JudgementJson "Where one judged rule that judges an entity stands: fresh, stale, missing, unrecorded or unreadable" {
+  rule    string
+  state   string
+  /// Fresh, recorded and its outcome passing.
+  passed  boolean
+  outcome string   @optional
+  at      string   @optional
+  /// The inputs that changed since the verdict (stale only); absent when none.
+  changed string[] @optional
+  verify unit "JudgementJson schema is valid"
 }
 
 type Obligation "One verify statement as every output writes it and specforge.edit reads it" {
@@ -220,14 +241,14 @@ type ModifiedNodeChange "Modified Node Change" {
   /// The fields whose values differ, by name, sorted: a field named kind or
   /// methods is a field here.
   changed_fields  string[]
-  /// What else differs, sorted: its kind, title, methods, obligations or outgoing edges.
+  /// What else differs, sorted: its kind, title, methods, obligations, verdicts or outgoing edges.
   changed_aspects NodeAspect[]
   file            string  @readonly
   line            integer @readonly
   verify unit "ModifiedNodeChange schema is valid"
 }
 
-type NodeAspect "Node Aspect" = "kind" | "title" | "methods" | "obligations" | "edges"
+type NodeAspect "Node Aspect" = "kind" | "title" | "methods" | "obligations" | "verdicts" | "edges"
 
 type EdgeChange "One edge in a GraphDelta, as the graph export writes an edge." {
   source string @readonly

@@ -30,10 +30,12 @@ expression: "normalized(result, root)"
     "expression": "once logged in, a session stays until logout",
     "property_type": "safety"
   },
+  "file": "spec/main.spec",
   "kind": "property",
   "obligated": false,
   "referenced_by": [],
   "refers_to": [],
+  "revision": "sha256:[SHA256]",
   "source_extension": "@specforge/formal",
   "source_span": {
     "end_col": 2,

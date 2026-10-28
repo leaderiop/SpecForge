@@ -213,3 +213,15 @@ fn a_block_list_item_with_a_trailing_comment_stays_multi_line() {
     assert!(!formatted.contains("// note b"), "{formatted}");
     assert_eq!(fmt(&formatted), formatted, "idempotent");
 }
+
+#[specforge_test(
+    behavior = "parse_verdict_statement",
+    verify = "the formatter keeps a verdict's members in their fixed order"
+)]
+fn the_formatter_lays_out_a_verdict() {
+    let scrambled = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n  inputs { plan \"sha256:1\" }\n      at \"t\"\n  model \"m\"\n judge \"j\"\n  }\n}\n";
+    let want = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at    \"t\"\n    inputs {\n      plan \"sha256:1\"\n    }\n  }\n}\n";
+    let once = fmt(scrambled);
+    assert_eq!(once, want);
+    assert_eq!(fmt(&once), once);
+}

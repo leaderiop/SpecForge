@@ -87,13 +87,15 @@ pub struct FieldRecord {
     pub origin: Origin,
 }
 
-/// Who gave a field's value: the spec file's author, a compute pass, or a compute pass over a value the author
-/// wrote by hand (the pass wins; E082 reports the written one at `value_span`).
+/// Who gave a field's value: the spec file's author, a compute pass, a fresh verdict (ADR 0290), or a pass or verdict
+/// over a value the author wrote by hand (the host's wins; E082 reports the written one at `value_span`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Origin {
     #[default]
     Authored,
     Computed,
+    /// A fresh verdict's outcome or value, in a field it writes.
+    Verdict,
     Overwritten,
 }
 

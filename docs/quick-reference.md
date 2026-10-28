@@ -34,6 +34,10 @@ specforge explore [<id>]             # starting points, hubs and unconnected ent
 specforge review [<id>]              # coverage gaps around an entity (or the whole project)
 specforge infer-guide [<kind>]       # what to look for in code to write a kind's entities
 
+# Judged rules: what a judge reads before it records a verdict (ADR 0290)
+specforge query <id> --inputs <rule> [--cite <entity>] [--cite-file <path>] [--cite-test <name>]   # inputs, digests, state, basis
+# MCP: specforge.verdict_inputs { entity, rule, cite_entities?, cite_files?, cite_tests? }; the verdict is recorded by a command's set_verdict
+
 # Editing entities (no hand-written .spec): each edit is checked, then written all or nothing (E080)
 specforge new behavior <id> "<title>" --in <file> --contract "…" --invariants a,b   # a new entity; its kind's fields are flags
 specforge set <id> <field> <value>   # set a field; `field.entry` edits one entry of a block field
@@ -42,7 +46,8 @@ specforge unset <id> <field>         # remove a field
 specforge link <id> <field> <target> # add a reference (on the relation's owning side); unlink removes it
 specforge link <id> --verify unit:"<text>"   # add a verify obligation; unlink removes it
 specforge delete <id> [--unlink-references]  # delete an entity (and, with the flag, every reference to it)
-# Every edit takes --dry-run (print the diff, write nothing) and --format json. MCP: specforge.edit takes a list.
+# Every edit takes --dry-run (print the diff, write nothing), --revision <sha256:..|absent> (refuse the write if the file has changed: stale_revision) and --format json.
+# MCP: specforge.edit takes a list; each item may name a revision. An extension's writing command takes --dry-run too.
 
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions

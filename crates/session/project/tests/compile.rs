@@ -599,11 +599,7 @@ mod declared_in_process {
         b.command("list", |c| {
             c.title("List")
                 .description("List reports")
-                .handler(|_| CommandOutput {
-                    exit_code: 0,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                });
+                .handler(|_| CommandOutput::ok(""));
         });
         b
     }
@@ -613,11 +609,7 @@ mod declared_in_process {
         b.command("hello", |c| {
             c.title("Hello")
                 .description("Say hello")
-                .handler(|_| CommandOutput {
-                    exit_code: 0,
-                    stdout: "hi".to_string(),
-                    stderr: String::new(),
-                });
+                .handler(|_| CommandOutput::ok("hi"));
         });
         b
     }

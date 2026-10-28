@@ -81,6 +81,10 @@
           "named": true
         },
         {
+          "type": "verdict_statement",
+          "named": true
+        },
+        {
           "type": "verify_statement",
           "named": true
         }
@@ -132,6 +136,10 @@
         },
         {
           "type": "method_statement",
+          "named": true
+        },
+        {
+          "type": "verdict_statement",
           "named": true
         },
         {
@@ -889,6 +897,10 @@
           "named": true
         },
         {
+          "type": "verdict_statement",
+          "named": true
+        },
+        {
           "type": "verify_statement",
           "named": true
         }
@@ -1087,6 +1099,46 @@
     }
   },
   {
+    "type": "verdict_statement",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "nested_block",
+            "named": true
+          }
+        ]
+      },
+      "outcome": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "rule": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "reference_path",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "verify_statement",
     "named": true,
     "fields": {
@@ -1275,6 +1327,10 @@
   },
   {
     "type": "use",
+    "named": false
+  },
+  {
+    "type": "verdict",
     "named": false
   },
   {

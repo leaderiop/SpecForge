@@ -37,6 +37,8 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 | Code | Symptom | Cause | Fix |
 |------|---------|-------|-----|
 | **E001** | a parse / syntax error | A `.spec` file could not be parsed (missing brace, unclosed string, invalid field syntax). | Fix the syntax at the reported span. |
+| **E082** | `field 'F' of K 'X' is set by the verdict of rule R and was written by hand` | A field bound to a judged rule's verdict holds a hand-written value. | Remove it; the verdict sets it. |
+| **E083** | `verdict of K 'X' has no line in specforge-harness` | A verdict statement was written by hand (no ledger line). | Remove it and record the verdict through the rule's command. |
 | **E003** | `unresolved reference 'X' in entity 'Y'` | A reference list points at an entity that doesn't exist (often a typo or a missing `use`). | Correct the name, or `use` the file that defines it. |
 | **E006** | `entity 'X' is missing required field 'F'` | A required field is absent (e.g. `constraint` without `description`, `feature` without `problem`, `persona`/`channel` without `description`, `journey` without `flow`, `term` without `definition`). | Add the required field. |
 | **E022** | `reference 'X' in field 'F' of 'Y' targets a 'A', but this field expects 'B'` | A reference points to the wrong *kind* of entity (e.g. `term.see_also` pointing at a behavior — it only accepts terms). | Point the field at an entity of the expected kind. |
@@ -57,6 +59,7 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W001** | `behavior 'X' does not implement any feature` | The behavior has no `features [...]` edge. | Add `features [some_feature]` (or accept it if intentional during early authoring). |
 | **W020** | `unrecognized field 'F' on entity 'X' of kind 'K'` | The kind declares no such field (often a field another kind has, or one an enhancing extension adds that isn't enabled). | Fix the name; `specforge model` lists every kind's fields. |
 | **W158** | `entity 'X' of kind 'K' declares verify statements, which its kind does not accept` | `verify` lines on a kind that takes none, or `@specforge/testing` isn't enabled. | Remove them, or enable `@specforge/testing`. |
+| **W168** | `verdict of K 'X': ...` | A `verdict` statement the host cannot read: an unknown rule or outcome, a second verdict of one rule, or a value its field refuses. | Record it again through the rule's command ([judged rules](judged-rules.md)). |
 | **W002** | `type 'X' is not referenced by any behavior, port, or type` | Unreferenced type. | Reference it from a behavior/port, or remove it. |
 | **W003** (governance) | `invariant 'X' is referenced by nothing` | No behavior enforces it, no decision or constraint protects it, no failure mode threatens it, no axiom or property relies on it. | Reference it where it is kept (a behavior's `invariants [...]`, a decision's `invariants`, ...), or remove it. |
 | **W061** | reference cycle | A reference chain forms a cycle (A → B → A). | Break the cycle — references must form a DAG. |

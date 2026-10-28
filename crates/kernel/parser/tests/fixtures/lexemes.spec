@@ -78,3 +78,15 @@ requirement H-01 "Typed members" {
 requirement H-02 "x" {
   r [ { plan 03-02 } ]
 }
+
+requirement H-03 "Verdicts" {
+  verdict gsd/W311 passed {
+    judge "j"
+    cited [H-01, "src/a.ts"]
+    inputs { plan "sha256:1" }
+  }
+  verdict W312 issues {
+    verify string
+  }
+  verdict ValidatorVerdictKind
+}

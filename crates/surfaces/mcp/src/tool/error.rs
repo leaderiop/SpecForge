@@ -223,6 +223,10 @@ impl From<OpError> for McpError {
         } else if let Some(suggestion) = error.suggestion {
             data["suggestion"] = Value::from(suggestion);
         }
+        // A write the host refused an agent keeps its slug: it is what the agent acts on (ADR 0289).
+        if specforge_ops::authoring::apply::WRITE_REFUSALS.contains(&error.code.as_ref()) {
+            data["code"] = Value::from(error.code.as_ref());
+        }
         if data.as_object().is_some_and(|d| !d.is_empty()) {
             mcp_error = mcp_error.with_data(data);
         }

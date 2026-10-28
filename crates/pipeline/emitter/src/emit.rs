@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use specforge_coverage::Status;
 use specforge_graph::{Computed, Graph, Members, Node, Selected};
+use specforge_protocol_types::Judgement;
 use specforge_registry::{FieldRegistry, RegistryBuild};
 
 use crate::budget::TokenBudget;
@@ -61,6 +62,9 @@ pub struct EmitOptions<'a> {
     /// The values compute passes gave (ADR 0287). With it, every node's `fields` hold them and its `computed`
     /// names them (graph, context and markdown). Default: None — only the authored values.
     pub computed: Option<&'a Computed>,
+    /// Each entity's judgements by id (ADR 0290). With it, a node whose entity has some lists them as `judgements`
+    /// (graph). Default: None. Its `verdicts` are always written.
+    pub judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
 }
 
 /// Default: graph format 1.0 of the whole graph against the unversioned
@@ -76,6 +80,7 @@ impl Default for EmitOptions<'_> {
             registries: no_extensions(),
             coverage: None,
             computed: None,
+            judgements: None,
         }
     }
 }
@@ -141,6 +146,7 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         fields: options.registries.fields(),
         coverage: options.coverage,
         computed: options.computed,
+        judgements: options.judgements,
     };
     match options.token_budget {
         None => shape.render(&selected, None),
@@ -192,6 +198,7 @@ struct Shape<'a> {
     fields: &'a FieldRegistry,
     coverage: Option<&'a BTreeMap<String, Status>>,
     computed: Option<&'a Computed>,
+    judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
 }
 
 impl Shape<'_> {
@@ -203,7 +210,7 @@ impl Shape<'_> {
                 .envelope(
                     graph,
                     Some(ExportVersion::V1),
-                    graph_nodes(graph, self.coverage, self.computed),
+                    graph_nodes(graph, self.coverage, self.computed, self.judgements),
                     budget,
                 )
                 .to_json(),
@@ -268,11 +275,12 @@ fn graph_nodes(
     graph: &Graph,
     coverage: Option<&BTreeMap<String, Status>>,
     computed: Option<&Computed>,
+    judgements: Option<&BTreeMap<String, Vec<Judgement>>>,
 ) -> Vec<crate::json::JsonNode> {
     graph
         .nodes()
         .into_iter()
-        .map(|n| crate::json::graph_node(n, status_of(n, coverage), computed))
+        .map(|n| crate::json::graph_node(n, status_of(n, coverage), computed, judgements))
         .collect()
 }
 

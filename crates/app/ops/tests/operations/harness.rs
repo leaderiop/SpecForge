@@ -15,15 +15,19 @@ use specforge_test_macros::test as specforge_test;
 
 const BASE: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\n";
 
-fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> bool {
+/// The code a typed edit is refused with: the field flags' (`computed_field`, `harness_field`, ADR 0289) before it is
+/// planned, else E080 once it is judged.
+fn refused(project: &TestProject, entity: &str, field: &str, value: &str) -> Option<String> {
     let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
     edit::run(
         &ProjectView::of(&compiled),
         &[crate::edit::set(entity, field, Input::One(value.into()))],
         true,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
-    .is_err_and(|e| e.error.is(specforge_common::codes::E080))
+    .err()
+    .map(|e| e.error.code.to_string())
 }
 
 fn gsd(spec: &str) -> TestProject {
@@ -40,9 +44,15 @@ fn gsd(spec: &str) -> TestProject {
 )]
 fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
     let verification = gsd("verification V \"V\" {\n  phase 03\n}\n");
-    assert!(refused(&verification, "v1.0/03/V", "status", "passed"));
+    assert_eq!(
+        refused(&verification, "v1.0/03/V", "status", "passed").as_deref(),
+        Some("computed_field")
+    );
     let uat = gsd("uat_test U \"U\" {\n  phase 03\n}\n");
-    assert!(refused(&uat, "v1.0/03/U", "result", "pass"));
+    assert_eq!(
+        refused(&uat, "v1.0/03/U", "result", "pass").as_deref(),
+        Some("harness_field")
+    );
     let decision = "decision D \"D\" {\n  phase 03\n  origin context\n}\n";
     let committed = gsd(decision);
     let fake = Arc::new(FakeHistory::repo(
@@ -51,7 +61,10 @@ fn a_typed_edit_of_a_computed_harness_or_immutable_field_is_refused() {
         vec![("a.spec".into(), format!("{BASE}{decision}").into_bytes())],
     ));
     let _installed = history::install(fake);
-    assert!(refused(&committed, "v1.0/03/D", "origin", "project"));
+    assert_eq!(
+        refused(&committed, "v1.0/03/D", "origin", "project").as_deref(),
+        Some("E080")
+    );
 }
 
 /// The ledger line that records `value` (JSON text) for `field` of `path`.
@@ -63,9 +76,16 @@ fn line(path: &str, field: &str, value: &str) -> String {
 fn rename(project: &TestProject, old: &str, new: &str) -> Result<(), String> {
     let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
     let nav = Navigator::new(ProjectView::of(&compiled));
-    rename::run(&nav, old, new, false, specforge_ops::testing::caller())
-        .map(|_| ())
-        .map_err(|r| r.error.message)
+    rename::run(
+        &nav,
+        old,
+        new,
+        false,
+        &specforge_ops::authoring::apply::testing::origin(),
+        specforge_ops::testing::caller(),
+    )
+    .map(|_| ())
+    .map_err(|r| r.error.message)
 }
 
 fn e083(project: &TestProject) -> usize {
@@ -139,9 +159,11 @@ fn two_writers_both_land_their_lines() {
     std::thread::scope(|scope| {
         for plan in [&first, &second] {
             scope.spawn(|| {
-                plan.change()
-                    .apply(specforge_ops::testing::caller())
-                    .unwrap()
+                specforge_ops::authoring::apply::testing::apply(
+                    plan.change(),
+                    specforge_ops::testing::caller(),
+                )
+                .unwrap()
             });
         }
     });
@@ -149,6 +171,33 @@ fn two_writers_both_land_their_lines() {
     assert!(ledger.contains("v1.0/05/U03 result "), "{ledger}");
     assert!(ledger.contains("v1.0/06/U04 result "), "{ledger}");
     assert_eq!(e083(&project), 0, "{ledger}");
+}
+
+#[specforge_test(
+    behavior = "record_harness_values",
+    verify = "a rename planned on an unchanged ledger re-keys a line another writer added"
+)]
+fn a_rename_planned_on_an_unchanged_ledger_rekeys_a_line_another_writer_added() {
+    let project = gsd("uat_test U1 \"U\" {\n  phase 03\n  result pass\n}\n");
+    let compiled = project.compile_in(Arc::new(gsd_history_runtime(json!([]))));
+    let nav = Navigator::new(ProjectView::of(&compiled));
+    let plan = rename::plan(&nav, "v1.0/03", "05").unwrap();
+    // The line arrives after the plan was made, before it is written.
+    project.write(
+        "specforge-harness",
+        format!(
+            "# specforge-harness 1\n{}",
+            line("v1.0/03/U1", "result", "\"pass\"")
+        ),
+    );
+    specforge_ops::authoring::apply::testing::apply(
+        plan.change(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    let ledger = std::fs::read_to_string(project.root().join("specforge-harness")).unwrap();
+    assert!(ledger.contains("v1.0/05/U1 result "), "{ledger}");
+    assert!(!ledger.contains("v1.0/03/U1 result"), "{ledger}");
 }
 
 #[specforge_test(
@@ -193,6 +242,7 @@ fn harness_gc_rewrites_the_ledger_canonically() {
         specforge_ops::authoring::harness::run(
             &ProjectView::of(&compiled),
             dry_run,
+            &specforge_ops::authoring::apply::testing::origin(),
             specforge_ops::testing::caller(),
         )
         .unwrap();
@@ -218,6 +268,7 @@ fn every_write_takes_the_lock_only_where_a_ledger_can_exist() {
             &ProjectView::of(&compiled),
             &[crate::edit::set(entity, field, Input::One("x".into()))],
             false,
+            &specforge_ops::authoring::apply::testing::origin(),
             specforge_ops::testing::caller(),
         )
         .unwrap();

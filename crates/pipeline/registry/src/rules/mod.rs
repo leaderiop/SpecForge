@@ -20,9 +20,10 @@ mod verdicts;
 
 use specforge_common::{Diagnostic, Severity};
 use specforge_diagnostics::Codebook;
-use specforge_protocol_types::{CheckKind, ConstraintKind, ExtensionDeclaration};
+use specforge_protocol_types::{CheckKind, ConstraintKind, ExtensionDeclaration, JudgedDescriptor};
 
 use crate::entity::RuleInput;
+use crate::judged::JudgedRule;
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use check::Check;
 
@@ -87,6 +88,8 @@ struct Declared {
     target_extension: Option<String>,
     constraint: Option<DeclaredConstraint>,
     wasm_function: Option<String>,
+    /// A judged rule's declaration, and the rule it registers (ADR 0290).
+    judged: Option<(JudgedDescriptor, JudgedRule)>,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +134,11 @@ impl Rule {
         &self.origin
     }
 
+    /// The judged rule this registers, when its check is `judged` (ADR 0290).
+    pub fn judged(&self) -> Option<&JudgedRule> {
+        self.declared.judged.as_ref().map(|(_, rule)| rule)
+    }
+
     /// The rule as the registry build snapshot lists it: the descriptor's
     /// keys (`code`, `severity`, `message_template`, `check`, `target_kind`,
     /// `edge_type`, `field`, `constraint`, `wasm_function`), plus
@@ -162,6 +170,9 @@ impl Rule {
         }
         if let Some(extension) = &self.declared.target_extension {
             described["target_extension"] = serde_json::json!(extension);
+        }
+        if let Some((judged, _)) = &self.declared.judged {
+            described["judged"] = serde_json::json!(judged);
         }
         described
     }
@@ -230,6 +241,11 @@ impl Rules {
     /// Whether some `no_verify_statements` rule applies to `kind`.
     pub fn obligates(&self, kind: &str) -> bool {
         self.verify_rule_for(kind).is_some()
+    }
+
+    /// The judged rules, in execution order (ADR 0290).
+    pub fn judged(&self) -> impl Iterator<Item = &JudgedRule> {
+        self.rules.iter().filter_map(Rule::judged)
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, Rule> {

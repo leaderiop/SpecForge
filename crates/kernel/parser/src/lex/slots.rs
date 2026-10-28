@@ -10,6 +10,7 @@
 //! | value | the first lexeme after a key in a body or nested block, unless it opens a string, `[`, `{` or `expr {` | `Number` when it has the shape of a number or a date, else `Ident` |
 //! | list item | after `[` or `,` of a value list | as a value |
 //! | binding | after `{` or `,` of `use { }` | `Ident` |
+//! | verdict rule | after `verdict` of a verdict statement (ADR 0290) | as a value |
 //!
 //! Everywhere else (`expr { }`, union variants, type expressions, keys, verify kinds, methods, parameters and
 //! annotations) the base lexemes stand: `a-b` is `a`, `-`, `b`.
@@ -349,6 +350,10 @@ impl Reader<'_> {
                             self.method();
                             return;
                         }
+                        BodyStatement::Verdict => {
+                            self.verdict(open);
+                            return;
+                        }
                         BodyStatement::VerifyTyped | BodyStatement::Field => {}
                     }
                 }
@@ -370,6 +375,22 @@ impl Reader<'_> {
                 }
             }
             _ => self.copy(),
+        }
+    }
+
+    /// `verdict <rule> <outcome> {`: the rule is a value slot (a word or a path), the outcome an identifier, and the
+    /// block holds fields (ADR 0290).
+    fn verdict(&mut self, open: &mut Open) {
+        self.copy();
+        self.word(false);
+        if let Some(outcome) = self.code(self.at) {
+            self.copy_through(outcome);
+        }
+        if let Some(brace) = self.code(self.at)
+            && self.punct(brace, '{')
+        {
+            self.copy_through(brace);
+            open.push(Frame::Block, false);
         }
     }
 

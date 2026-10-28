@@ -115,6 +115,7 @@ pub(crate) fn context_node(
         annotations,
         methods,
         computed,
+        verdicts: _,
     } = crate::emit::members_of(n, computed);
     // A lifted field is not written twice.
     fields.retain(|name, _| !headline.contains_key(name));

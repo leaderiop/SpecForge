@@ -512,7 +512,18 @@ fn read_writer(
             refuse(
                 problems,
                 path,
-                format!("declares writer '{name}': expected 'computed' or 'harness'"),
+                format!(
+                    "declares writer '{name}': expected 'computed', 'harness', 'human' or 'verdict'"
+                ),
+            );
+            declared.writer = None;
+            return None;
+        }
+        Some(FieldWriter::Verdict) if is_member => {
+            refuse(
+                problems,
+                path,
+                "declares writer 'verdict' on a member: a verdict sets whole fields".into(),
             );
             declared.writer = None;
             return None;
@@ -529,12 +540,12 @@ fn read_writer(
         }
         Some(writer) => writer,
     };
-    if writer == FieldWriter::Computed {
+    if matches!(writer, FieldWriter::Computed | FieldWriter::Verdict) {
         if declared.derived_from.is_some() {
             refuse(
                 problems,
                 path,
-                "is computed and derived_from: two writers for one field".into(),
+                format!("is {writer} and derived_from: two writers for one field"),
             );
             declared.writer = None;
             return None;
@@ -549,7 +560,7 @@ fn read_writer(
                     problems,
                     path,
                     format!(
-                        "is computed and {what}: a computed value is never authored, and its history is its inputs'"
+                        "is {writer} and {what}: a {writer} value is never authored, and its history is its inputs'"
                     ),
                 );
             }

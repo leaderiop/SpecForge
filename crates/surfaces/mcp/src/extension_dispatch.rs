@@ -44,6 +44,9 @@ pub(crate) fn run_tool(call: &mut Call<'_>, entry: &ToolEntry, arguments: &Value
                 Err(refused) => (refused.into(), None),
             }
         }
+        ToolKind::Command(command) if command.writes() => {
+            return writing::run(call, entry, command, arguments);
+        }
         ToolKind::Command(command) => match call.project() {
             Ok(project) => command_adapter(&project, command, arguments),
             Err(refused) => (refused.into(), None),
@@ -310,6 +313,8 @@ fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
 fn elapsed_ms(started: std::time::Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
+
+pub(crate) mod writing;
 
 #[cfg(test)]
 mod tests;

@@ -14,11 +14,13 @@ pub mod editor;
 pub mod files;
 pub mod hover;
 mod navigation;
+pub mod pending;
 pub mod publish;
 pub mod reaction;
 mod state;
 mod unwind;
 mod uri;
+mod verdicts;
 pub mod views;
 pub mod watchers;
 

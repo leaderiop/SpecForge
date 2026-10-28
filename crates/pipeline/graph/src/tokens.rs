@@ -51,6 +51,9 @@ pub enum Form {
     /// A name before the last of a path (`v1.0` and `03` in `v1.0/03/D-01`, ADR 0284): it names the scope the path
     /// goes through. No block holds it, no edge is made of it, and a rename of that scope edits it.
     Qualifier,
+    /// A bare item of a verdict's `cited` list (ADR 0290): it names an entity a rename respells and no edge, no
+    /// typed edit unlinks.
+    Cited,
 }
 
 /// One token of a file that names an entity.
@@ -163,6 +166,21 @@ pub fn written_tokens(file: &SpecFile, inputs: &GraphInputs, scopes: &Scopes) ->
         for token in &mut tokens[from..] {
             if token.form != Form::Qualifier {
                 token.held_by = vec![id];
+            }
+        }
+        // A cited entity is written, never linked: no one holds it.
+        for verdict in &entity.verdicts {
+            for item in crate::verdict::cited_entities(verdict) {
+                let found = scopes.chain(Some(id), &item.text, &|_| true);
+                read.push(
+                    &item.text,
+                    &item.span,
+                    resolved(&found),
+                    holder,
+                    Sym::new("cited"),
+                    Form::Cited,
+                    &mut tokens,
+                );
             }
         }
     }

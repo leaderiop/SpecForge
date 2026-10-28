@@ -4,7 +4,7 @@
 `verify` statements; W158 for W020), [ADR 0019](0019-one-entity-snapshot-per-compile.md) (field text has no statement row),
 [ADR 0064](0064-a-declared-field-type-decides-one-wire-form.md) (D5 restored: the graph node's own `verify`; `FieldJson`
 without `VerifyStatement`) and [ADR 0032](0032-one-graph-build.md) (the incremental check compares
-obligations). The decisions of those ADRs otherwise stand.
+obligations). The decisions of those ADRs otherwise stand. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (an entity's `verdict` statements are its own member).
 
 The parser wrote an entity's `verify` statements into its `FieldMap` as a pseudo-field: the key `verify` with the value
 `FieldValue::VerifyList`. The grammar also lets a user declare a real field named `verify` (`verify string @optional`),

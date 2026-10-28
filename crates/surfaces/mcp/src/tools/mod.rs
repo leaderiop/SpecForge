@@ -34,6 +34,7 @@ mod stats;
 mod suggest_fixes;
 pub(crate) mod trace;
 pub(crate) mod validate;
+mod verdict_inputs;
 
 use serde_json::Value;
 use specforge_common::Codebook;
@@ -79,6 +80,7 @@ pub static CORE_TOOLS: &[&dyn ToolSpec] = &[
     spec(&extensions::Tool),
     spec(&providers::Tool),
     spec(&settings::Tool),
+    spec(&verdict_inputs::Tool),
     spec(&doctor::Tool),
     spec(&collect::Tool),
     spec(&render::Tool),

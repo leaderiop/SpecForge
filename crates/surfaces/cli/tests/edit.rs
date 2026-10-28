@@ -675,3 +675,22 @@ fn a_field_value_spelled_as_path_names_no_project() {
         assert!(!root.join("spec/behaviors/x.spec").exists(), "{root:?}");
     }
 }
+
+#[specforge_test(
+    behavior = "refuse_stale_revision",
+    verify = "a core edit names the revision it was planned on and is refused when it is stale"
+)]
+fn core_edits_name_their_revision() {
+    let project = todo();
+    let before = project.read(TASKS);
+    let stale = format!("sha256:{}", "0".repeat(64));
+    let run = sf(
+        &project,
+        &["set", "list_tasks", "--title", "List", "--revision", &stale],
+    );
+    assert_eq!(run.code, 1, "{}{}", run.stdout, run.stderr);
+    assert!(run.stderr.contains("[stale_revision]"), "{}", run.stderr);
+    assert_eq!(project.read(TASKS), before);
+    // Without a revision, as today.
+    sf(&project, &["set", "list_tasks", "--title", "List"]).exits(0);
+}

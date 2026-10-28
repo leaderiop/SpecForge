@@ -160,6 +160,7 @@ fn run_edits(
         &ProjectView::of(&c.project),
         edits,
         dry_run,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
 }
@@ -247,6 +248,7 @@ fn rename_over(
         "session_limit",
         new_id,
         dry_run,
+        &specforge_ops::authoring::apply::testing::origin(),
         specforge_ops::testing::caller(),
     )
 }

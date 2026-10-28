@@ -346,6 +346,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "an unreadable baseline is W164 and nothing is judged"
   verify unit "the baseline is cached by commit and environment"
   verify unit "history reads the commits files through a port"
+  verify unit "history reads named files at a commit in one question"
   verify unit "history reads only the specs and the ledger of a commit"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
   verify unit "validate since judges per request"
@@ -367,6 +368,7 @@ behavior judge_field_history "Judge Field History" {
   verify unit "no builtin or pinned example declaration declares a writer, an immutable or append-only flag, a baseline or computes"
   verify unit "a field declares its writer and history, and the registry refuses a contradiction with W021"
   verify unit "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
+  verify unit "a kind and a field may be human-only and a pass a guard, or W021"
   verify unit "lifecycle_field is read and ignored: a kind that sends it loads without W138"
   verify unit "an immutable value that differs from its baseline is E084"
   verify unit "an immutable field unset at the baseline may be set once"
@@ -421,4 +423,5 @@ behavior record_harness_values "Record Harness Values" {
   verify unit "a union-merged ledger reads, and is I203 once"
   verify unit "a rename records its move and re-keys its lines"
   verify unit "two writers both land their lines"
+  verify unit "a rename planned on an unchanged ledger re-keys a line another writer added"
 }

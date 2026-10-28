@@ -186,12 +186,12 @@ type McpPromptArgument "Mcp Prompt Argument" {
 // McpInferGapsResult and McpTraceChainResult.
 
 type McpInspectResult "Mcp Inspect Result" {
-  entity_id           string       @readonly
-  kind                string       @readonly
+  entity_id           string          @readonly
+  kind                string          @readonly
   /// Absent when the entity declares no title.
-  title               string       @optional
+  title               string          @optional
   /// The extension that declares the entity's kind; absent when none does.
-  source_extension    string       @optional
+  source_extension    string          @optional
   /// The entity's kind is testable, the standing the LSP hover shows.
   testable            boolean
   /// The entity declares at least one verify obligation.
@@ -199,26 +199,35 @@ type McpInspectResult "Mcp Inspect Result" {
   /// Its kind must declare obligations (a no_verify_statements rule targets
   /// it): why an exempt entity is exempt.
   obligated           boolean
-  source_span         SourceSpan   @readonly
+  source_span         SourceSpan      @readonly
+  /// The file the entity is written in, relative to the spec root.
+  file                string          @readonly
+  /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and
+  /// specforge.rename name to be refused when the file has changed since (ADR 0289).
+  revision            string          @readonly
   /// The field text of the field the entity's extension declares headline and
   /// normative (a behavior's contract); absent when its kind declares none.
-  contract            string       @optional
+  contract            string          @optional
   /// Every field the entity declares, by name (its verify statements are
   /// `verify_declarations`).
   fields              object
   /// The written paths of the fields and members in `fields` a compute pass gave; absent when none.
-  computed            string[]     @optional
+  computed            string[]        @optional
   /// Each annotated field's annotations, by its name (a block field's entry's by outer.key); absent when none.
-  annotations         object       @optional
+  annotations         object          @optional
   /// Its methods, as the graph export writes them; absent when none.
-  methods             MethodJson[] @optional
+  methods             MethodJson[]    @optional
   /// The entities that reference this one (incoming), distinct, sorted.
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
+  /// Its verdict statements as the graph export writes them; absent when it has none.
+  verdicts            VerdictJson[]   @optional
+  /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
+  judgements          JudgementJson[] @optional
   /// Its obligations, each its kind (absent for a bare verify) and its text, as the graph export
   /// writes them and specforge.edit reads them; absent when it declares none.
-  verify_declarations Obligation[] @optional
+  verify_declarations Obligation[]    @optional
   /// Whether the entity counts (exempt, not_testable) and, when it does, how
   /// it is proven, as specforge.coverage's row says.
   coverage_status     CoverageStatus
@@ -413,6 +422,57 @@ type McpSettingsResult "Mcp Settings Result" {
   /// E086, E087 and W166 from specforge.json.
   diagnostics Diagnostic[]
   verify unit "McpSettingsResult schema is valid"
+}
+
+type McpVerdictInputsResult "Mcp Verdict Inputs Result" {
+  /// The entity's path.
+  entity   string          @readonly
+  /// The rule's qualified code.
+  rule     string
+  judge    string
+  outcomes string[]
+  passing  string[]
+  /// The rule's setting is off: nothing is read and nothing is judged.
+  gated    boolean
+  /// Where the verdict stands; absent when the rule is gated.
+  verdict  McpVerdictState @optional
+  inputs   McpVerdictInput[]
+  cited    McpVerdictCited
+  /// Every input's name and `cited` with its digest: what `set_verdict` names as its `basis`.
+  basis    any
+  verify unit "McpVerdictInputsResult schema is valid"
+}
+
+type McpVerdictState "Mcp Verdict State" {
+  /// "fresh", "stale", "missing", "unrecorded" or "unreadable".
+  state   string
+  passed  boolean
+  outcome string @optional
+  at      string @optional
+  /// The inputs that changed since the verdict (stale only).
+  changed string[]
+  verify unit "McpVerdictState schema is valid"
+}
+
+type McpVerdictInput "Mcp Verdict Input" {
+  name     string @readonly
+  selector string
+  /// "entities", "files" or "tests".
+  kind     string
+  /// The entities (by path) or files (from the project root) it picked.
+  members  string[]
+  digest   string
+  /// It differs from what the current verdict was judged over.
+  changed  boolean
+  verify unit "McpVerdictInput schema is valid"
+}
+
+type McpVerdictCited "Mcp Verdict Cited" {
+  entities string[]
+  files    string[]
+  tests    string[]
+  digest   string
+  verify unit "McpVerdictCited schema is valid"
 }
 
 type McpExtensionSettings "Mcp Extension Settings" {
@@ -792,12 +852,12 @@ type McpCollectResult "Mcp Collect Result" {
 
 type McpCollectRunner "What one runner's collection found" {
   /// The collector's name, e.g. cargo-test.
-  name          string  @readonly
+  name          string         @readonly
   /// The extension contributing the collector.
-  extension     string  @readonly
+  extension     string         @readonly
   /// Whether the runner's command ran (run=true), or its report was read.
   ran           boolean
-  exit_code     integer @optional
+  exit_code     integer        @optional
   /// Report files read.
   files         integer
   /// Entities the results name.
@@ -807,7 +867,23 @@ type McpCollectRunner "What one runner's collection found" {
   skipped       integer
   /// Tests linked by naming convention rather than by the report.
   by_convention integer
+  /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
+  plan          McpCollectPlan @optional
   verify unit "McpCollectRunner schema is valid"
+}
+
+type McpCollectPlan "What a writing collector's plan did to the project" {
+  /// The entities whose blocks the plan creates, changes or deletes, sorted.
+  entities       string[]
+  /// The files the plan changes, relative to the project root.
+  affected_files string[]
+  /// A unified diff of every affected file.
+  diff           string
+  /// The warnings and infos the edited project reports that the project did not.
+  added          Diagnostic[]
+  /// True when the plan was only planned.
+  dry_run        boolean
+  verify unit "McpCollectPlan schema is valid"
 }
 
 type McpRenderResult "Mcp Render Result" {

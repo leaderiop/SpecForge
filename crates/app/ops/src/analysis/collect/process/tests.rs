@@ -12,6 +12,7 @@ fn collector(report: &str) -> Collector {
         run: vec!["acme".into(), "--out={report}".into()],
         report: report.into(),
         capture: None,
+        writes: false,
     }
 }
 

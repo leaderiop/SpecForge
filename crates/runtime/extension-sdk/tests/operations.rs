@@ -51,6 +51,7 @@ fn extension() -> ContributionsBuilder {
                     }],
                 }],
                 unlinked: Vec::new(),
+                plan: None,
             })
         });
     });
@@ -370,4 +371,19 @@ fn the_sdk_reads_a_setting_or_its_declared_default() {
         serde_json::from_slice::<serde_json::Value>(&answer).unwrap(),
         json!({"q": 1})
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "answer_judged_inputs",
+    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
+)]
+fn a_command_graph_node_lists_its_judgements() {
+    let node: specforge_protocol_types::GraphNode = serde_json::from_value(json!({
+        "id": "v1.0/03/03-02", "kind": "plan", "title": "T", "fields": {},
+        "judgements": [{"rule": "gsd/W311", "state": "missing", "passed": false}],
+    }))
+    .unwrap();
+    // The node a command reads keeps what the export lists: a graph node names what needs judging.
+    let wire = serde_json::to_value(&node).unwrap();
+    assert_eq!(wire["judgements"][0]["state"], "missing", "{wire}");
 }

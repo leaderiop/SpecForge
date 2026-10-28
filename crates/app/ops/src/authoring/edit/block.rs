@@ -22,7 +22,7 @@ mod verbs;
 mod tests;
 
 pub use site::{Site, order};
-pub use verbs::{link, retitle, set, spelled, unset, verify};
+pub use verbs::{link, retitle, set, spelled, unset, verdict, verify};
 
 /// The entity's block holds a region the parser could not read whole.
 pub const BLOCK_UNREADABLE: &str = "block_unreadable";

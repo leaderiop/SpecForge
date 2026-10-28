@@ -199,6 +199,7 @@ fn config_lock_and_loaded_modules_are_environment_inputs() {
             Watched::File(root.join("specforge.json")),
             Watched::File(root.join("specforge.lock")),
             Watched::File(root.join("ext/local.wasm")),
+            Watched::File(root.join(".specforge/write-journal.json")),
         ]
     );
     for path in ["specforge.json", "specforge.lock", "ext/local.wasm"] {
@@ -306,6 +307,10 @@ fn a_session_without_a_runtime_records_the_config_and_the_lock_only() {
         .collect();
     assert_eq!(
         files,
-        vec![root.join("specforge.json"), root.join("specforge.lock")]
+        vec![
+            root.join("specforge.json"),
+            root.join("specforge.lock"),
+            root.join(".specforge/write-journal.json")
+        ]
     );
 }

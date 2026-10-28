@@ -39,6 +39,10 @@ pub(crate) struct Args {
     #[arg(long = "report", value_name = "FILE")]
     reports: Vec<PathBuf>,
 
+    /// Plan a writing collector's edits and write none of them
+    #[arg(long)]
+    dry_run: bool,
+
     /// Run the declared test command without asking (for CI)
     #[arg(long)]
     yes: bool,
@@ -90,13 +94,25 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
-    let outcome =
-        match collect::collect(&ProjectView::of(&project), request, &ProcessMachine::user()) {
-            Ok(outcome) => outcome,
-            Err(e) => {
-                return Refusal::of(format).report(terminal, &e);
-            }
-        };
+    let view = ProjectView::of(&project);
+    let mut outcome = match collect::collect(&view, request, &ProcessMachine::user()) {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            return Refusal::of(format).report(terminal, &e);
+        }
+    };
+    // A writing collector's plans are applied after the report was written (ADR 0289).
+    let plans = std::mem::take(&mut outcome.plans);
+    let caller = crate::caller::of(options.yes, format, terminal);
+    let outcome = match specforge_ops::authoring::apply::apply_collected(
+        &view,
+        plans,
+        options.dry_run,
+        caller,
+    ) {
+        Ok(applied) => outcome.with_applied(applied),
+        Err(e) => return Refusal::of(format).report(terminal, &e),
+    };
     for why in &outcome.unsaved_approvals {
         notes.warning(format_args!(
             "warning: could not remember the approval: {why}"
@@ -122,6 +138,20 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
                 s.skipped,
                 r.files
             );
+            if let Some(plan) = &r.plan {
+                let n = plan.report.affected_files.len();
+                if plan.dry_run {
+                    outln!(
+                        terminal,
+                        "  plan: {n} file(s) would change; nothing was written"
+                    );
+                    if !plan.report.diff.is_empty() {
+                        outln!(terminal, "{}", plan.report.diff.trim_end());
+                    }
+                } else {
+                    outln!(terminal, "  plan: wrote {n} file(s)");
+                }
+            }
             if let Some(code) = r.exit_code.filter(|c| *c != 0) {
                 outln!(
                     terminal,

@@ -1,6 +1,6 @@
 # One contract for extension commands; the product surface is its commands
 
-**Status:** accepted (2026-10-03). B's "over MCP … the same object" and O2's refused-args clause amended by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md). Amended by [ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md) (the artifact type and interaction model filters are open).
+**Status:** accepted (2026-10-03). B's "over MCP … the same object" and O2's refused-args clause amended by [ADR 0252](0252-every-mcp-tool-refuses-with-an-mcp-error.md). Amended by [ADR 0279](0279-a-builtin-closes-a-fields-words-only-when-they-fit-any-domain.md) (the artifact type and interaction model filters are open). Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (a command may declare `writes` and answer a plan).
 
 ADR 0008 made the `specforge product` queries `@specforge/product`'s commands, run over the graph
 the host passes. The product spec still describes a larger surface than that contract can carry:

@@ -31,6 +31,7 @@ fn reports() -> ContributionsBuilder {
                 exit_code: 0,
                 stdout: "hi".to_string(),
                 stderr: String::new(),
+                plan: None,
             });
     });
     b.pass("audit", |p| {
@@ -387,4 +388,40 @@ fn settings_presets_secrets_and_flags_are_declared() {
     assert_eq!(wire[4]["env"], "BRAVE_API_KEY");
     assert_eq!(wire[5]["field_type"], "bool");
     assert_eq!(wire[5]["default"], true);
+}
+
+#[specforge_test_macros::test(
+    behavior = "declare_judged_rule",
+    verify = "an SDK judged rule builds the descriptor the host reads"
+)]
+fn a_judged_rule_builds_the_descriptor_the_host_reads() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/judged", "1.0.0"));
+    b.rule("W311", |r| {
+        r.severity(ValidationSeverity::Warning)
+            .message_template("the check of {id} does not hold")
+            .judged("checker", |j| {
+                j.outcomes(&["passed", "issues"])
+                    .passing(&["passed"])
+                    .target("plan", |t| {
+                        t.input("plan", "self")
+                            .input("decisions", "self.phase<decision.phase")
+                            .unless_set(&["pattern"]);
+                    })
+                    .values(&["phase_spec.scores"])
+                    .outcome_fields(&["plan.verdict"]);
+            });
+    });
+    let rule = &b.declaration().validation_rules[0];
+    assert_eq!(rule.check, "judged");
+    assert_eq!(
+        serde_json::to_value(rule.judged.as_ref().unwrap()).unwrap(),
+        serde_json::json!({
+            "judge": "checker", "outcomes": ["passed", "issues"], "passing": ["passed"],
+            "targets": [{"kind": "plan", "unless_set": ["pattern"], "inputs": [
+                {"name": "plan", "selector": "self"},
+                {"name": "decisions", "selector": "self.phase<decision.phase"},
+            ]}],
+            "values": ["phase_spec.scores"], "outcome_fields": ["plan.verdict"],
+        })
+    );
 }

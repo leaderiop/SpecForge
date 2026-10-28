@@ -324,3 +324,12 @@ pub(crate) fn unwritable(file: &Path, error: &std::io::Error) -> OpError {
 mod owned_tests;
 #[cfg(test)]
 mod tests;
+
+/// The project's write lock when `serialized` (its extensions declare a harness field, a writing command or
+/// collector, or a guard pass, ADR 0289); none otherwise, so a plain project gets no `.specforge/` and a read-only one
+/// still formats.
+pub(crate) fn lock_if(serialized: bool, root: &Path) -> std::io::Result<Option<std::fs::File>> {
+    serialized
+        .then(|| specforge_project::harness::lock(root))
+        .transpose()
+}

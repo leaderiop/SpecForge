@@ -20,6 +20,9 @@ pub const HEADER: &str = "# specforge-harness 1";
 /// The key of a move record: `<new path> moved:<old path> <digest>`.
 pub const MOVED: &str = "moved:";
 
+/// The prefix of the key of a verdict's line: `<path> verdict:<rule> <digest>` (ADR 0290).
+pub const VERDICT_KEY: &str = "verdict:";
+
 /// `sha256(path NUL key NUL value)`: the line that records `value` as `key` of `path`.
 pub fn digest(path: &str, key: &str, value: &[u8]) -> String {
     let mut bytes = Vec::with_capacity(path.len() + key.len() + value.len() + 2);
@@ -52,6 +55,11 @@ impl Line {
     /// The path this line records a move from, when it is a move record.
     pub fn moved_from(&self) -> Option<&str> {
         self.key.strip_prefix(MOVED)
+    }
+
+    /// Whether the line records a value of the entity: a harness field, or a verdict (`verdict:<rule>`).
+    pub fn is_value(&self) -> bool {
+        self.is_field() || self.key.starts_with(VERDICT_KEY)
     }
 
     /// Whether the key names a harness field (not a move record or another namespace's key).

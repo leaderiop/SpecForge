@@ -275,6 +275,21 @@ fn structured_results_conform_to_each_tool_output_schema() {
         );
         conforming.insert(name);
     }
+    // `specforge.verdict_inputs` answers only over a judged rule, which no extension of this fixture declares: a
+    // result as the tool writes it is held to the schema instead.
+    let inputs = json!({
+        "entity": "v1/P", "rule": "gsd/W311", "judge": "j", "outcomes": ["passed"], "passing": ["passed"],
+        "gated": false,
+        "verdict": {"state": "stale", "passed": false, "outcome": "passed", "at": "2026-10-28", "changed": ["plan"]},
+        "inputs": [{"name": "plan", "selector": "self", "kind": "entities", "members": ["v1/P"],
+            "digest": "sha256:00", "changed": true}],
+        "cited": {"entities": [], "files": [], "tests": [], "digest": "sha256:00"},
+        "basis": {"plan": "sha256:00", "cited": "sha256:00"}
+    });
+    let tool = specforge_mcp::tools::core_tool("specforge.verdict_inputs").unwrap();
+    let violations = specforge_common::shape::violations(tool.output_schema().unwrap(), &inputs);
+    assert!(violations.is_empty(), "{violations:#?}");
+    conforming.insert("specforge.verdict_inputs");
     // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
         if spec.output_schema().is_some() {

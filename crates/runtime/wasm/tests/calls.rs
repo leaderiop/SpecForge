@@ -63,6 +63,7 @@ fn command_answer() -> CommandOutput {
         exit_code: 3,
         stdout: "out\n".into(),
         stderr: "err\n".into(),
+        plan: None,
     }
 }
 
@@ -108,6 +109,7 @@ fn collect_answer() -> CollectOutput {
             path: vec!["m".into(), "t".into()],
             status: TestStatus::Failed,
         }],
+        plan: None,
     }
 }
 
@@ -212,7 +214,7 @@ fn command_input() -> WireCommandInput<RawGraph> {
         format: typed(&golden["format"]),
         today: golden["today"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
-        evidence: Default::default(),
+        ..Default::default()
     }
 }
 
@@ -241,7 +243,7 @@ fn every_call_encodes_its_input_as_the_protocol_type() {
     let golden = wire("command.input.json");
     assert_eq!(sent(&runtime), golden);
     let mut read = golden.clone();
-    read["graph"] = json!({"nodes": [{"id": "f1", "kind": "feature", "title": "One", "fields": {}}],
+    read["graph"] = json!({"nodes": [{"id": "f1", "kind": "feature", "title": "One", "fields": {}, "file": "main.spec"}],
                            "edges": []});
     assert_eq!(received("cmd__raw"), read);
 
@@ -522,8 +524,6 @@ fn an_answer_that_does_not_decode_is_e028() {
             "CollectOutput",
             &[
                 b"not json",
-                b"[]",
-                b"{}",
                 br#"{"entity_results":[{"entity_id":"a","test_results":[{"status":"passed"}]}]}"#,
             ],
         ),

@@ -2,6 +2,7 @@
 //! [`PlannedChange`], which answers the affected files, the after texts, the text edits and the diff, and writes
 //! them as one project change (ADR 0128).
 
+use crate::authoring::apply::journal;
 use crate::authoring::init::gitattributes_with;
 use crate::change::ProjectChange;
 use crate::read::navigate::{SourceText, TextEdit};
@@ -84,13 +85,46 @@ impl PlannedChange {
         self.with_ledger(before, LedgerChange::default(), true)
     }
 
+    /// This change writing only the ledger of a rename the editor applied to its buffers and has saved (ADR 0289): the
+    /// ledger as the rename leaves it, `after` being the project the buffers show.
+    pub(crate) fn landing_ledger(
+        self,
+        before: &CompiledProject,
+        after: &CompiledProject,
+        change: LedgerChange,
+    ) -> Self {
+        self.with_ledger_after(before, after.clone(), change, false)
+    }
+
     fn with_ledger(mut self, before: &CompiledProject, change: LedgerChange, force: bool) -> Self {
-        if before.root().is_none() || !before.declares_harness() {
+        if before.root().is_none() {
             return self;
         }
-        self.locked = true;
-        let current = before.root_file(LEDGER_FILE);
+        if !before.declares_harness() {
+            // No ledger to keep, but a writing command, collector or guard pass still serializes the write.
+            self.locked = before.serializes_writes();
+            return self;
+        }
         let after = before.edited(&self.after());
+        self.with_ledger_after(before, after, change, force)
+    }
+
+    fn with_ledger_after(
+        mut self,
+        before: &CompiledProject,
+        after: CompiledProject,
+        change: LedgerChange,
+        force: bool,
+    ) -> Self {
+        if before.root().is_none() {
+            return self;
+        }
+        // Every write of this project takes the lock, the ledger changing or not.
+        self.locked = before.serializes_writes();
+        if !before.declares_harness() {
+            return self;
+        }
+        let current = before.root_file(LEDGER_FILE);
         let bytes = before.rewritten_ledger(&after, &current, &change, false);
         let unchanged = bytes == current
             || (current.is_empty()
@@ -100,7 +134,10 @@ impl PlannedChange {
         // A ledger that is written, or kept by `gc`, goes with its merge attribute.
         let attributes = (!unchanged || (force && !current.is_empty()))
             && gitattributes_with(&before.root_file(".gitattributes")).is_some();
-        if unchanged && !attributes {
+        // A write that moves or sets a value keeps its ledger part though the ledger reads the same now: under the
+        // lock the ledger may have changed, and the part is made again over what it holds.
+        let keeps = !change.moves.is_empty() || !change.set.is_empty();
+        if unchanged && !attributes && !keeps {
             return self;
         }
         let before = before.clone();
@@ -119,9 +156,25 @@ impl PlannedChange {
         self.ledger.as_ref().map(|l| l.after.as_slice())
     }
 
+    /// The bytes the change writes to `specforge-harness` when the file holds `now` when it is applied: the planned
+    /// bytes, or the change made again over what is there (another writer may have landed since).
+    pub(crate) fn ledger_over(&self, now: &[u8]) -> Option<Vec<u8>> {
+        self.ledger.as_ref().map(|ledger| {
+            if now == ledger.planned_on {
+                ledger.after.clone()
+            } else {
+                (ledger.redo)(now)
+            }
+        })
+    }
+
     /// Nothing to write.
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty() && self.ledger.is_none()
+        self.files.is_empty()
+            && !self
+                .ledger
+                .as_ref()
+                .is_some_and(|l| l.after != l.planned_on || l.attributes)
     }
 
     /// The files the change writes, relative to the project root, in key order.
@@ -208,9 +261,27 @@ impl PlannedChange {
     /// Write the change as one project change (ADR 0128), each file resolved through the caller's containment (ADR
     /// 0104): checked against the text it was planned on, then replaced or created; on any failure, every file
     /// already written is put back (one that cannot be is the error's writes). Returns the files it wrote.
-    pub fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
-        // A project with no harness field has no ledger to serialize: it gets no `.specforge/` from a write.
-        let _lock = (self.locked || self.ledger.is_some())
+    pub(crate) fn apply(&self, caller: Caller<'_>) -> Result<Writes, OpError> {
+        self.apply_checked(caller, || Ok(()))
+    }
+
+    /// This change taking the write lock whatever the project declares: an extension's plan always does (ADR 0289).
+    pub(crate) fn serialized(mut self) -> Self {
+        self.locked = true;
+        self
+    }
+
+    /// [`Self::apply`], running `under_lock` once the lock is held and before anything is staged: it reads the
+    /// disk as it is and may refuse the change (a stale revision, a union that adds an error).
+    pub(crate) fn apply_checked(
+        &self,
+        caller: Caller<'_>,
+        under_lock: impl FnOnce() -> Result<(), OpError>,
+    ) -> Result<Writes, OpError> {
+        // A project with no harness field and no writing extension has nothing to serialize: it gets no
+        // `.specforge/` from a write.
+        let locked = self.locked || self.ledger.is_some();
+        let _lock = locked
             .then(|| specforge_project::harness::lock(self.sources.base()))
             .transpose()
             .map_err(|e| {
@@ -220,14 +291,20 @@ impl PlannedChange {
                     format!("{}: cannot take the write lock: {e}", self.doing),
                 )
             })?;
+        // A write that was interrupted is put back first (ADR 0289); what the checks below read is the result.
+        let mut rolled = if locked {
+            journal::rollback(&self.sources, caller)?
+        } else {
+            Writes::none()
+        };
+        under_lock()?;
         let mut change = ProjectChange::new(self.sources.base(), self.doing.as_str());
+        let mut record = journal::Record::new(&self.sources);
         for (key, (before, after)) in &self.files {
             let held = caller.containment().resolve(&self.sources.path(key))?;
-            change.stage(
-                held,
-                before.as_ref().map(|b| b.as_bytes().to_vec()),
-                after.clone().into_bytes(),
-            );
+            let before = before.as_ref().map(|b| b.as_bytes().to_vec());
+            record.add(key, before.as_deref(), after.as_bytes());
+            change.stage(held, before, after.clone().into_bytes());
         }
         if let Some(ledger) = &self.ledger {
             let held = caller
@@ -240,18 +317,40 @@ impl PlannedChange {
             } else {
                 (ledger.redo)(&now)
             };
-            change.stage(held, current, after);
+            if after != now {
+                record.add(LEDGER_FILE, current.as_deref(), &after);
+                change.stage(held, current, after);
+            }
             if ledger.attributes {
                 let held = caller
                     .containment()
                     .resolve(&self.sources.path(".gitattributes"))?;
                 let current = held.read_if_there().ok().flatten();
                 if let Some(after) = gitattributes_with(current.as_deref().unwrap_or_default()) {
+                    record.add(".gitattributes", current.as_deref(), &after);
                     change.stage(held, current, after);
                 }
             }
         }
-        change.commit()
+        if locked {
+            record.begin(&self.doing)?;
+        }
+        let result = change.commit();
+        if locked {
+            match &result {
+                // Written: the record says so before it goes, and a failure to do either is the caller's.
+                Ok(writes) => record
+                    .finish(&self.doing)
+                    .map_err(|e| e.with_writes(writes.clone()))?,
+                // Put back, or nothing written: the record is not needed. A file that could not be put back keeps it.
+                Err(e) if e.writes.is_empty() => record.discard(),
+                Err(_) => {}
+            }
+        }
+        result.map(|writes| {
+            rolled.merge(writes);
+            rolled
+        })
     }
 }
 

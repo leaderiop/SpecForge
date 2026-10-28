@@ -11,6 +11,9 @@ use specforge_graph::{
     Applied, Computed, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes,
 };
 
+mod disk;
+mod judged;
+
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
 use crate::sources::{Read, SourceCache};
@@ -54,6 +57,8 @@ pub struct CompiledProject {
     check_diagnostics: Vec<Diagnostic>,
     /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
     computed: Arc<Computed>,
+    judgements: Arc<crate::judged::Judgements>,
+    digests: Arc<crate::judged::DigestMemo>,
     /// The graph's entity snapshot, the recorded test report and the
     /// coverage: seeded with the snapshot the checks read; made over the
     /// graph on first use after an update that skipped them.
@@ -75,6 +80,9 @@ pub struct CompiledProject {
     /// What reading the baseline gave at the last check (ADR 0287): held, so a typed edit or an update asks git
     /// nothing again. A new commit drops it.
     baseline: Option<Arc<crate::baseline::HeldBaseline>>,
+    /// Renames applied to the editor's buffers and not yet saved (ADR 0289): the checks read the ledger as they will
+    /// have written it. Empty but for a session of an editor.
+    ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
 }
 
 impl CompiledProject {
@@ -178,6 +186,12 @@ impl CompiledProject {
             |key| self.sources.as_read(key),
         );
         project.baseline = self.baseline.clone();
+        // The digests kept so far hold for every entity the edit leaves alone: the judge of a write does not
+        // digest the project again.
+        project.digests = Arc::new(
+            self.digests
+                .after(&compute_graph_delta(self.graph(), project.graph())),
+        );
         match ledger {
             Some(bytes) => {
                 let overlay = crate::harness::Overlay::new(self.env.root(), bytes);
@@ -200,6 +214,13 @@ impl CompiledProject {
     /// Whether an extension the project enables declares a harness field (ADR 0287).
     pub fn declares_harness(&self) -> bool {
         !crate::harness::Harness::of(self.env.registries()).is_empty()
+    }
+
+    /// Whether a write of this project is serialized by the write lock (ADR 0289): the project declares a field
+    /// whose ledger a write keeps true, or an extension that writes through a plan (a writing command or
+    /// collector) or judges a write (a guard pass). Plain projects write without taking it.
+    pub fn serializes_writes(&self) -> bool {
+        self.env.serializes_writes()
     }
 
     /// The harness ledger after a write that took this project to `after`, from the ledger `current` (the file's
@@ -226,11 +247,18 @@ impl CompiledProject {
         let ledger = Ledger::parse(&String::from_utf8_lossy(current)).ledger;
         let mut rewritten = ledger.rewritten(&view(self, false), &view(after, errors), change);
         if keep_unseen {
-            // The ledger was rewritten by another writer since this change was planned: its lines for entities
-            // neither project holds are that writer's, and stay.
-            for line in ledger.lines().filter(|l| {
-                self.graph().node(&l.path).is_none() && after.graph().node(&l.path).is_none()
-            }) {
+            // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
+            // for values, neither project holds are that writer's, and stay.
+            let held = |project: &CompiledProject, l: &crate::harness::Line| {
+                if l.is_value() {
+                    harness
+                        .value(project.graph(), forms, &l.path, &l.key)
+                        .is_some()
+                } else {
+                    project.graph().node(&l.path).is_some()
+                }
+            };
+            for line in ledger.lines().filter(|l| !held(self, l) && !held(after, l)) {
                 rewritten.insert(line.clone());
             }
         }
@@ -397,10 +425,13 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -419,10 +450,13 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -446,10 +480,13 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -492,10 +529,13 @@ impl CompiledProject {
             import_diagnostics: imports,
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
+            digests: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
+            ledger_overlay: Vec::new(),
             baseline: None,
         }
     }
@@ -514,6 +554,7 @@ impl CompiledProject {
             .map(|(path, read)| self.sources.change(&path, read))
             .collect();
         let applied = self.graph.apply(changes);
+        self.digests = Arc::new(self.digests.after(&applied.delta));
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.import_diagnostics = if self.on_disk {
@@ -531,7 +572,8 @@ impl CompiledProject {
     /// from that snapshot.
     pub(crate) fn check(&mut self, reads: &mut impl Reads) {
         let env = Arc::clone(&self.env);
-        let graph = &self.graph;
+        let this = &*self;
+        let graph = &this.graph;
         let mut outcome = None;
         let held = self.baseline.clone();
         let mut baseline = None;
@@ -547,19 +589,54 @@ impl CompiledProject {
                 }),
             };
             let authored = env.entity_snapshot(graph);
-            let checked = env.checked(Some(graph), &authored, disk, &read.read);
+            let mut ledger = Vec::new();
+            let overlaid;
+            let disk: &dyn specforge_registry::Disk = if this.ledger_overlay.is_empty() {
+                disk
+            } else {
+                overlaid =
+                    crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
+                &overlaid
+            };
+            let checked = env.checked(Some(graph), &authored, disk, &read.read, &this.digests);
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
-            outcome = Some((checked.diagnostics, entities, checked.computed));
+            let mut diagnostics = checked.diagnostics;
+            // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.
+            // Read through the checks' disk, so a journal that appears or goes is an input; a detached project has none.
+            if let Some(root) = this.root() {
+                diagnostics.extend(crate::journal::pending(root, disk));
+            }
+            outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed)) = outcome {
+        if let Some((diagnostics, entities, computed, judgements)) = outcome {
             self.check_diagnostics = diagnostics;
             self.computed = Arc::new(computed);
+            self.judgements = Arc::new(judgements);
             self.recorded = OnceLock::from(RecordedCoverage::of(entities));
             self.reported = OnceLock::new();
         }
+    }
+
+    /// The renames the editor applied to its buffers and has not saved (ADR 0289), in the order they were made.
+    /// Changing them owes the checks: the next update runs them. `true` when they changed.
+    pub(crate) fn overlay_ledger(
+        &mut self,
+        overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
+    ) -> bool {
+        let same = self.ledger_overlay.len() == overlay.len()
+            && self
+                .ledger_overlay
+                .iter()
+                .zip(&overlay)
+                .all(|(a, b)| Arc::ptr_eq(a, b));
+        if !same {
+            self.ledger_overlay = overlay;
+            self.checks_skipped = true;
+        }
+        !same
     }
 
     /// The checks are skipped for this state: none is reported, and the
@@ -567,6 +644,7 @@ impl CompiledProject {
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
         self.computed = Arc::default();
+        self.judgements = Arc::default();
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.checks_skipped = true;

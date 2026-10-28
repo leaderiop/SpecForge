@@ -32,6 +32,9 @@ module.exports = grammar({
 
   word: ($) => $.identifier,
 
+  // After `verdict X` a word is the next field's key or the statement's outcome, decided by the `{` (ADR 0290).
+  conflicts: ($) => [[$._value, $.verdict_statement]],
+
   rules: {
     source_file: ($) =>
       repeat(
@@ -108,7 +111,7 @@ module.exports = grammar({
         field("name", choice($.identifier, alias($._name, $.identifier))),
         optional(field("title", $.string)),
         "{",
-        repeat(choice($.field, $.verify_statement, $.method_statement, $._in_body)),
+        repeat(choice($.field, $.verify_statement, $.verdict_statement, $.method_statement, $._in_body)),
         "}",
       ),
 
@@ -118,7 +121,7 @@ module.exports = grammar({
         "spec",
         field("name", $.string),
         "{",
-        repeat(choice($.field, $.verify_statement, $.method_statement, $._in_body)),
+        repeat(choice($.field, $.verify_statement, $.verdict_statement, $.method_statement, $._in_body)),
         "}",
       ),
 
@@ -158,7 +161,7 @@ module.exports = grammar({
         "define",
         field("name", $.identifier),
         "{",
-        repeat(choice($.field, $.verify_statement, $.method_statement, $._in_body)),
+        repeat(choice($.field, $.verify_statement, $.verdict_statement, $.method_statement, $._in_body)),
         "}",
       ),
 
@@ -188,7 +191,7 @@ module.exports = grammar({
     // string after it, it is a field key.
     field: ($) =>
       seq(
-        field("key", choice($.identifier, alias("verify", $.identifier))),
+        field("key", choice($.identifier, alias("verify", $.identifier), alias("verdict", $.identifier))),
         // A name typed before a form line has no value yet: `_close` ends
         // the field there, and the body misses its "}" (ADR 0063 D2).
         field("value", choice($._value, $._close)),
@@ -295,6 +298,20 @@ module.exports = grammar({
           "verify",
           optional(field("kind", $.identifier)),
           field("description", $.string),
+        ),
+      ),
+
+    // verdict <rule> <outcome> { ... } (ADR 0290): a judged rule's verdict, written by the host. `verdict` is
+    // word-reserved like `verify`: with no rule, outcome and block after it, it is a field key (spec/types/wasm.spec
+    // declares a field named `verdict`).
+    verdict_statement: ($) =>
+      prec.dynamic(
+        1,
+        seq(
+          "verdict",
+          field("rule", choice($.identifier, $.reference_path)),
+          field("outcome", $.identifier),
+          field("body", $.nested_block),
         ),
       ),
 
