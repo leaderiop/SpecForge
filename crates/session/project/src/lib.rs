@@ -551,22 +551,31 @@ impl Environment {
             (Ok(Some(baseline)), None, _) => Some((**baseline).clone()),
             _ => None,
         };
-        let mut judgements = judged::Judgements::default();
+        let mut found = judged::Evaluated::default();
         if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
-            let (found, reported) =
-                judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
-            judgements = found;
-            diagnostics.extend(reported);
+            found = judged::evaluate(self, build.graph(), entities, disk, digests, bytes);
+            diagnostics.append(&mut found.diagnostics);
         }
+        // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).
+        let mut values = std::mem::take(&mut found.values);
+        let judgements = found.judgements;
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
-            let (values, reported) = compute::run(self, entities, runtime, translated.as_ref());
+            let (computed_values, reported) = compute::run(
+                self,
+                entities,
+                runtime,
+                translated.as_ref(),
+                &values,
+                &judgements,
+            );
+            values = computed_values;
             diagnostics.extend(reported);
-            if !values.is_empty() {
-                merged = Some(entities.with_computed(&values, self.registries.fields()));
-                computed = values;
-            }
+        }
+        if !values.is_empty() {
+            merged = Some(entities.with_computed(&values, self.registries.fields()));
+            computed = values;
         }
         {
             let entities = merged.as_ref().unwrap_or(entities);
@@ -593,6 +602,7 @@ impl Environment {
                     entities,
                     runtime,
                     translated.as_ref(),
+                    &judgements,
                 ));
             }
         }

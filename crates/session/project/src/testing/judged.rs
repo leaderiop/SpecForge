@@ -325,7 +325,8 @@ truth TR1 "Tokens survive a reload" {
   plan 03-02
 }
 
-package_audit PA "Audit" {}
+package_audit PA "Audit" {
+}
 "#;
 
 /// A project over `@gsd/core` whose spec is [`GSD_JUDGED_SPEC`] and `extra`, the instructions file `CLAUDE.md` and a

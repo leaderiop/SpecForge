@@ -12,6 +12,7 @@ use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
 use crate::Environment;
 use crate::baseline::Baseline;
+use crate::judged::Judgements;
 use crate::passes::{PassContext, pass_findings, pass_input};
 
 /// Run `env`'s compute passes over `authored`: what they computed, and what they reported (their findings, E028
@@ -21,14 +22,23 @@ pub(crate) fn run(
     authored: &EntitySnapshot,
     runtime: &dyn WasmRuntime,
     baseline: Option<&Baseline>,
+    given: &Computed,
+    judgements: &Judgements,
 ) -> (Computed, Vec<Diagnostic>) {
-    let mut computed = Computed::default();
+    let mut computed = given.clone();
     let mut diagnostics = Vec::new();
     let calls = ExtensionCalls::new(runtime);
-    let mut seen = authored.clone();
+    let mut seen = if given.is_empty() {
+        authored.clone()
+    } else {
+        authored.with_computed(given, env.registries().fields())
+    };
     for declared in env.registries().compute_passes() {
         let input = {
-            let mut payload = pass_input(&PassContext::of(&seen));
+            let mut payload = pass_input(&PassContext {
+                judgements: Some(judgements),
+                ..PassContext::of(&seen)
+            });
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())
                 .map(|b| b.pass_view(declared.baseline()));

@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 pub use digest::{entity_digest, file_digest};
 pub use inputs::{Cited, Inputs, inputs};
 pub use memo::DigestMemo;
-pub use state::evaluate;
+pub use state::{Evaluated, evaluate};
 
 use specforge_protocol_types::Judgement;
 

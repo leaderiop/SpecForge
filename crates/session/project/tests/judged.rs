@@ -519,14 +519,13 @@ fn a_change_not_yet_applied_misses_the_memo() {
     );
 }
 
-#[ignore = "K7 T8"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a compute pass reads judgements and a V field is its fresh verdict's value"
 )]
 fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
     let project = gsd_judged_project("");
-    record(&project, "v1.0/PA", "gsd/W205", "suspicious");
+    record(&project, "PA", "gsd/W205", "suspicious");
     let compiled = compile(&project);
     let (record, _) = compiled.entities().get("PA").unwrap();
     let legitimacy = record
@@ -535,9 +534,21 @@ fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
         .find(|f| f.key == "legitimacy")
         .expect("a V field");
     assert_eq!(legitimacy.text, "suspicious");
+    // A pass is handed the judgements of each entity.
+    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
+        judgements: Some(compiled.judgements()),
+        ..specforge_project::passes::PassContext::of(compiled.entities())
+    });
+    let audit = input.entities.iter().find(|e| e.id == "PA").unwrap();
+    assert!(
+        audit.judgements.iter().any(|j| j.rule == "gsd/W205"
+            && j.state == "fresh"
+            && j.outcome.as_deref() == Some("suspicious")),
+        "{:?}",
+        audit.judgements
+    );
 }
 
-#[ignore = "K7 T8"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a V field written by hand is E082"

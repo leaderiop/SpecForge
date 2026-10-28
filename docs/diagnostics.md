@@ -1115,7 +1115,9 @@ A spec file writes a field, or a member of a block item, that its extension
 declares `writer: computed` (ADR 0287). A compute pass of the extension gives
 its value when the project is checked; the value lives beside the graph and in
 every output, and is never in a `.spec` file. The pass's value wins; this code
-reports the written one at its value. Delete the line.
+reports the written one at its value. Delete the line. A field declared `writer:
+verdict` (ADR 0290) is the same: the fresh verdict of the judged rule that binds
+it gives its outcome or value, and the message names that rule.
 
 Owner: core
 Level: error

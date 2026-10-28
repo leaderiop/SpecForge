@@ -68,6 +68,14 @@ impl RegistryBuild {
                         .find(|pass| pass.computes().contains(&entry))
                         .map(|pass| format!("pass '{}' of '{}'", pass.pass.name, pass.extension))
                 },
+                |kind, field| {
+                    let entry = format!("{kind}.{field}");
+                    self.judged_rules()
+                        .find(|rule| {
+                            rule.values.contains(&entry) || rule.outcome_fields.contains(&entry)
+                        })
+                        .map(|rule| rule.code.clone())
+                },
             )); // E082
             diagnostics.extend(obligations::refused(entities, &self.kinds)); // W158
             diagnostics.extend(values::mistyped(entities, &self.kinds, &self.fields)); // E061

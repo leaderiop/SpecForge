@@ -1,6 +1,9 @@
 //! The state of each judged rule on each entity (ADR 0290), and what the rule reports for it.
 
+use serde_json::Value;
 use specforge_common::{Diagnostic, SourceSpan, codes};
+use specforge_graph::Computed;
+use specforge_graph::field_form::write;
 use specforge_parser::{FieldValue, VerdictMember};
 use specforge_protocol_types::{Judgement, JudgementState};
 use specforge_registry::judged::JudgedRule;
@@ -108,6 +111,67 @@ fn finding(rule: &JudgedRule, id: &str, kind: &str, why: &str, span: &SourceSpan
     .with_span(span.clone())
 }
 
+/// What an evaluation found.
+#[derive(Default)]
+pub struct Evaluated {
+    pub judgements: Judgements,
+    pub diagnostics: Vec<Diagnostic>,
+    /// The `V` fields the fresh verdicts give: their outcome or `values` (ADR 0290).
+    pub values: Computed,
+}
+
+/// The `V` fields of `kind` that the fresh `verdict` of `rule` gives `id`: the outcome for an outcome field, a member
+/// of `values` for a bound one, admitted by its field's form.
+fn given(
+    env: &Environment,
+    rule: &JudgedRule,
+    node: &specforge_graph::Node,
+    verdict: &VerdictMember,
+    out: &mut Evaluated,
+) {
+    let (id, kind) = (node.id.raw.as_str(), node.kind.raw.as_str());
+    let own = |list: &[String]| -> Vec<String> {
+        list.iter()
+            .filter_map(|v| v.strip_prefix(&format!("{kind}.")).map(str::to_string))
+            .collect()
+    };
+    for field in own(&rule.outcome_fields) {
+        if let Some((_, form)) = env.registries().fields().get_path(kind, &field)
+            && let Ok(admitted) = form.admit_json(&Value::String(verdict.outcome.clone()))
+        {
+            out.values.insert(id, &field, admitted);
+        }
+    }
+    let Some(FieldValue::Block(values)) = verdict.body.get("values") else {
+        return;
+    };
+    let bound = own(&rule.values);
+    for entry in values.entries() {
+        let field = entry.key.as_str();
+        if !bound.iter().any(|b| b == field) {
+            continue;
+        }
+        let Some((_, form)) = env.registries().fields().get_path(kind, field) else {
+            continue;
+        };
+        match form.admit_json(write(&entry.value).as_value()) {
+            Ok(admitted) => out.values.insert(id, field, admitted),
+            Err(refusal) => out.diagnostics.push(
+                Diagnostic::new(
+                    codes::W168,
+                    format!(
+                        "verdict of {kind} '{id}': 'values' gives '{field}' a value its form refuses{}",
+                        refusal
+                            .suggestion
+                            .map_or_else(String::new, |s| format!(": {s}"))
+                    ),
+                )
+                .with_span(verdict.span.clone()),
+            ),
+        }
+    }
+}
+
 /// Every judged rule's state on every entity of `graph`, and the diagnostics: a rule's own for each entity whose
 /// verdict does not hold, W168 for a verdict that cannot be read, I205 once when test inputs were not judged, E045
 /// when the report is unusable. `ledger` is the bytes of `specforge-harness`. A rule gated by its setting reads nothing.
@@ -118,16 +182,15 @@ pub fn evaluate(
     disk: &dyn Disk,
     memo: &DigestMemo,
     ledger: &[u8],
-) -> (Judgements, Vec<Diagnostic>) {
+) -> Evaluated {
     let registries = env.registries();
     let rules: Vec<&JudgedRule> = registries
         .judged_rules()
         .filter(|rule| !env.settings().gated().contains(&rule.code))
         .collect();
-    let mut found = Judgements::default();
-    let mut diagnostics = Vec::new();
+    let mut out = Evaluated::default();
     if rules.is_empty() {
-        return (found, diagnostics);
+        return out;
     }
     let all: Vec<&JudgedRule> = registries.judged_rules().collect();
     let ledger = Ledger::parse(&String::from_utf8_lossy(ledger)).ledger;
@@ -141,7 +204,7 @@ pub fn evaluate(
         let mut broken: Vec<&JudgedRule> = Vec::new();
         for verdict in &node.verdicts {
             let Some(rule) = rule_of(&all, &verdict.rule) else {
-                diagnostics.push(
+                out.diagnostics.push(
                     Diagnostic::new(
                         codes::W168,
                         format!(
@@ -165,7 +228,7 @@ pub fn evaluate(
             };
             match why {
                 Some(why) => {
-                    diagnostics.push(
+                    out.diagnostics.push(
                         Diagnostic::new(codes::W168, format!("verdict of {kind} '{id}': {why}"))
                             .with_span(verdict.span.clone()),
                     );
@@ -265,17 +328,22 @@ pub fn evaluate(
                     }
                 }
             };
+            if state == JudgementState::Fresh
+                && let Some(verdict) = verdict
+            {
+                given(env, rule, node, verdict, &mut out);
+            }
             judgement.state = state.as_str().to_string();
             if !judgement.passed {
-                diagnostics.push(finding(rule, id, kind, &why, &span));
+                out.diagnostics.push(finding(rule, id, kind, &why, &span));
             }
-            found.insert(id, judgement);
+            out.judgements.insert(id, judgement);
         }
     }
     if unjudged > 0 {
         match cx.report() {
-            Report::Unusable(why) => diagnostics.push(Diagnostic::new(codes::E045, why.clone())),
-            _ => diagnostics.push(Diagnostic::new(
+            Report::Unusable(why) => out.diagnostics.push(Diagnostic::new(codes::E045, why.clone())),
+            _ => out.diagnostics.push(Diagnostic::new(
                 codes::I205,
                 format!(
                     "test inputs of {unjudged} judged verdicts were not judged: there is no specforge-report.json, run `specforge collect`"
@@ -283,5 +351,5 @@ pub fn evaluate(
             )),
         }
     }
-    (found, diagnostics)
+    out
 }

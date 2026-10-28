@@ -20,12 +20,14 @@ pub(crate) fn run(
     entities: &EntitySnapshot,
     runtime: &dyn WasmRuntime,
     baseline: Option<&Baseline>,
+    judgements: &crate::judged::Judgements,
 ) -> Vec<Diagnostic> {
     if env.registries().check_passes().next().is_none() {
         return Vec::new();
     }
     let context = PassContext {
         previous: baseline,
+        judgements: Some(judgements),
         ..PassContext::of(entities)
     };
     run_extension_passes(

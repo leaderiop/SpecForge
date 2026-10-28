@@ -451,7 +451,15 @@ impl Baseline {
         let snapshot = env.entity_snapshot(&built.graph);
         let computed = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
-                crate::compute::run(env, &snapshot, &**runtime as &dyn WasmRuntime, None).0
+                crate::compute::run(
+                    env,
+                    &snapshot,
+                    &**runtime as &dyn WasmRuntime,
+                    None,
+                    &specforge_graph::Computed::default(),
+                    &crate::judged::Judgements::default(),
+                )
+                .0
             }
             _ => Default::default(),
         };

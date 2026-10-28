@@ -4,7 +4,7 @@
 use serde_json::Value;
 use specforge_graph::field_form::{declared_path, json::set_path};
 use specforge_graph::{Computed, ValueShape};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{FieldType, FieldWriter};
 
 use super::EntitySnapshot;
 use crate::FieldRegistry;
@@ -23,15 +23,20 @@ impl EntitySnapshot {
                     .get_path(&record.kind, &declared)
                     .map(|(_, form)| form);
                 let date = form.is_some_and(|f| f.field_type() == FieldType::Date);
+                let origin = if form.is_some_and(|f| f.writer() == Some(FieldWriter::Verdict)) {
+                    Origin::Verdict
+                } else {
+                    Origin::Computed
+                };
                 let value = value.as_value();
                 match path.find(['.', '[']) {
-                    None => put(&mut record.fields, path, &declared, value, date),
+                    None => put(&mut record.fields, path, &declared, value, (date, origin)),
                     Some(at) => {
                         let Some(top) = record.fields.iter_mut().find(|f| f.key == path[..at])
                         else {
                             continue;
                         };
-                        put(&mut top.members, path, &declared, value, date);
+                        put(&mut top.members, path, &declared, value, (date, origin));
                         if let Some(written) = &mut top.written {
                             set_path(written, &path[at..], value);
                         }
@@ -44,8 +49,15 @@ impl EntitySnapshot {
 }
 
 /// `value` as the record of `key` in `records`, replacing the one there.
-fn put(records: &mut Vec<FieldRecord>, key: &str, declared: &str, value: &Value, date: bool) {
+fn put(
+    records: &mut Vec<FieldRecord>,
+    key: &str,
+    declared: &str,
+    value: &Value,
+    (date, origin): (bool, Origin),
+) {
     let mut record = of_json(key, declared, value, date);
+    record.origin = origin;
     match records.iter_mut().find(|r| r.key == key) {
         Some(old) => {
             record.value_span = old.value_span.clone();

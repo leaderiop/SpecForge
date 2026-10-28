@@ -35,6 +35,8 @@ pub struct PassContext<'a> {
     /// The baseline, moves applied (ADR 0287): handed to a pass as `previous`, restricted to the kinds it names in
     /// `baseline`.
     pub previous: Option<&'a Baseline>,
+    /// Where each judged rule stands on each entity (ADR 0290): handed to a pass on the entity, gated rules absent.
+    pub judgements: Option<&'a crate::judged::Judgements>,
 }
 
 impl<'a> PassContext<'a> {
@@ -46,6 +48,7 @@ impl<'a> PassContext<'a> {
             test_results: None,
             proved_claims: None,
             previous: None,
+            judgements: None,
         }
     }
 }
@@ -68,8 +71,14 @@ pub struct ExtensionPassReport {
 /// formal `property`, does not count), and `owes_none` says it owes no
 /// obligations of its own (ADR 0004, D2-b), its standing's.
 pub fn pass_input(input: &PassContext) -> PassInput {
+    let mut entities = input.entities.pass_entities();
+    if let Some(judgements) = input.judgements {
+        for entity in &mut entities {
+            entity.judgements = judgements.of(&entity.id).cloned().collect();
+        }
+    }
     PassInput {
-        entities: input.entities.pass_entities(),
+        entities,
         edges: input.entities.pass_edges(),
         test_results: input.test_results.map(|r| r.results(input.entities)),
         proved_claims: input.proved_claims.map(sorted_ids),

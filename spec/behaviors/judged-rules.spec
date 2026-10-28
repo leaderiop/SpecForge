@@ -105,6 +105,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a changed file input rechecks the session"
   verify unit "a compute pass reads judgements and a V field is its fresh verdict's value"
   verify unit "a V field written by hand is E082"
+  verify unit "a pass input carries each entity's judgements as they were written"
   verify unit "re-verification reads the baseline's judgements"
 }
 

@@ -34,6 +34,7 @@ impl CompiledProject {
             self.memo().entities(),
             &**runtime as &dyn specforge_wasm::WasmRuntime,
             &baseline,
+            &self.judgements,
         );
         self.check_diagnostics.extend(found);
         self.reported = OnceLock::new();
