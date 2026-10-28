@@ -476,7 +476,10 @@ behavior provide_mcp_settings_set_tool "Provide MCP Settings Set Tool" {
     secret or a name that looks like a credential is refused as E087 naming
     name, an unknown setting or a value its form refuses as E086 naming name
     or value, an extension that is not enabled as extension_not_found naming
-    extension; nothing is written in any of these cases. It writes
+    extension; nothing is written in any of these cases. An unset removes
+    any member written under the extension, a misspelt key and a committed
+    secret included, and refuses only a name that is neither declared nor
+    written. It writes
     specforge.json as one journalled change under the write lock, splicing
     the member into the file's text so the rest of the file is as it was.
     Its reply is the settings set document specforge settings set --format
@@ -486,6 +489,7 @@ behavior provide_mcp_settings_set_tool "Provide MCP Settings Set Tool" {
   verify integration "specforge.settings_set refuses E086 and E087 naming the argument, before it writes"
   verify unit "specforge.settings_set takes exactly one of value and unset"
   verify integration "dry_run previews the change and lists no file written"
+  verify integration "specforge.settings_set takes a path to another project and does not reload the served one"
   verify contract "Provide MCP Settings Set Tool: MCP settings set tool holds — filesystem_available, setting_written, secret_never_written, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 

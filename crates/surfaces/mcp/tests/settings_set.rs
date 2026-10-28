@@ -110,6 +110,13 @@ fn settings_set_refuses_e086_and_e087_before_writing() {
     );
     assert_eq!(absent["argument"], "extension", "{absent}");
     assert_eq!(config_text(&server), before, "nothing was written");
+    // A refusal takes no lock and leaves no journal.
+    for file in ["write-journal.json", "write.lock"] {
+        assert!(
+            !server.root().join(".specforge").join(file).exists(),
+            "{file} after a refusal"
+        );
+    }
 }
 
 #[specforge_test(
@@ -160,4 +167,46 @@ fn settings_set_dry_run_previews_and_lists_no_files() {
     assert_eq!(document["value"], 2, "{document}");
     assert!(document["files_written"].is_null(), "{document}");
     assert_eq!(config_text(&server), before);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_settings_set_tool",
+    verify = "specforge.settings_set takes a path to another project and does not reload the served one"
+)]
+fn settings_set_takes_a_path_and_does_not_serve_it() {
+    let runtime = Arc::new(InProcessRuntime::new().with(settings_extension));
+    let mut server = TestProject::new()
+        .config(|c| c["settings"] = json!({"@t/s": {"profile": "compat"}}))
+        .enabling(&[SETTINGS_EXTENSION])
+        .serve_in(runtime.clone());
+    let served_before = config_text(&server);
+    // Another project, inside the served root (a path is bounded by it), that enables the same extension.
+    let other = server.root().join("nested/other");
+    std::fs::create_dir_all(&other).unwrap();
+    std::fs::write(
+        other.join("specforge.json"),
+        r#"{"name": "o", "version": "0.1.0", "extensions": ["@t/s"]}"#,
+    )
+    .unwrap();
+    specforge_installed::testing::install(&other, &*runtime, &[SETTINGS_EXTENSION]);
+    std::fs::write(other.join("a.spec"), "").unwrap();
+    let generation = server.state().session_generation();
+
+    let reply = call_tool(
+        &mut server,
+        "specforge.settings_set",
+        json!({"path": other.to_str().unwrap(), "extension": "@t/s", "name": "level", "value": 2}),
+    );
+
+    assert_ne!(reply["result"]["isError"], json!(true), "{reply}");
+    let written: Value =
+        serde_json::from_str(&std::fs::read_to_string(other.join("specforge.json")).unwrap())
+            .unwrap();
+    assert_eq!(written["settings"]["@t/s"]["level"], 2, "{written}");
+    assert_eq!(
+        config_text(&server),
+        served_before,
+        "the served project is untouched"
+    );
+    assert_eq!(server.state().session_generation(), generation);
 }

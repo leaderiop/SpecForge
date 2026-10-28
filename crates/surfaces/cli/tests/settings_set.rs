@@ -1,7 +1,8 @@
 //! K16 (ADR 0296): `specforge settings set` and `unset`. The command line over the real binary, which loads the
 //! builtins and no extension that declares a setting: what it can show is the refusal before any write, and that the
-//! listing form stays. The writes themselves are pinned in process (`src/settings_tests`) and in `specforge-ops`.
-//!
+//! listing form stays. The success path (the words, `--value-json`, `--dry-run`, the printed lines, `--format json`,
+//! the exit codes) is pinned in process over an extension that declares settings in `src/settings_tests.rs`, and the
+//! writes themselves in `specforge-ops`.
 use crate::support::{Cli, TestProject};
 
 const CONFIG: &str = "{\n  \"name\": \"p\",\n  \"version\": \"0.1.0\",\n  \"extensions\": [],\n  \"settings\": {}\n}\n";

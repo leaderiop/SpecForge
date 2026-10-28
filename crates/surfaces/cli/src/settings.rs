@@ -2,6 +2,7 @@ use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal, Written};
 use crate::terminal::{Terminal, errln, outln};
 use specforge_ops::extension::{self, SetRequest, SettingChange};
 use specforge_ops::view::ProjectView;
+use specforge_project::{CompiledProject, SharedRuntime};
 
 // `specforge settings`'s command line: the listing, or `set` and `unset` (ADR 0296).
 #[derive(clap::Args)]
@@ -42,7 +43,11 @@ struct SetArgs {
     name: String,
 
     /// The value; a list takes every remaining word as an item
-    #[arg(value_name = "VALUE", conflicts_with = "json")]
+    #[arg(
+        value_name = "VALUE",
+        conflicts_with = "json",
+        allow_negative_numbers = true
+    )]
     value: Vec<String>,
 
     /// The value as one JSON document (a block, a list of blocks)
@@ -93,23 +98,40 @@ fn print_diagnostic(terminal: &Terminal, diagnostic: &specforge_common::Diagnost
     );
 }
 
-/// `settings set` and `unset`: the one write, printed as the setting it left.
+/// What a `settings set` or `unset` line names: the project, the format, the setting and whether to only preview.
+struct Target<'a> {
+    project: &'a crate::project::ProjectArg,
+    output: &'a OutputArg,
+    extension: &'a str,
+    name: &'a str,
+    dry_run: bool,
+}
+
+/// `settings set` and `unset`: the one write, printed as the setting it left. The project is compiled with
+/// `runtime` when given (the tests' in-process extensions), else with the installed ones.
 fn write(
     terminal: &Terminal,
-    project: &crate::project::ProjectArg,
-    output: &OutputArg,
-    extension: &str,
-    name: &str,
+    runtime: Option<SharedRuntime>,
+    target: Target<'_>,
     change: SettingChange,
-    dry_run: bool,
 ) -> Exit {
+    let Target {
+        project,
+        output,
+        extension,
+        name,
+        dry_run,
+    } = target;
     let format = output.format;
     let root = match project.root() {
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
     let path = root.dir();
-    let compiled = crate::project::compile_at(&root);
+    let compiled = match runtime {
+        Some(runtime) => CompiledProject::compile(&root, Some(runtime)),
+        None => crate::project::compile_at(&root),
+    };
     let request = SetRequest {
         extension,
         name,
@@ -147,6 +169,11 @@ impl Args {
     /// `specforge settings`: each loaded extension's settings as `specforge.json` and the presets resolve them
     /// (ADR 0288), then the diagnostics reading them produced. Exit 1 when one is an error.
     pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+        self.run_in(terminal, None)
+    }
+
+    /// [`Self::run`] with the extensions in `runtime` when given.
+    pub(crate) fn run_in(self, terminal: &Terminal, runtime: Option<SharedRuntime>) -> Exit {
         match self.action {
             Some(Action::Set(a)) => {
                 let json = match a
@@ -173,23 +200,29 @@ impl Args {
                 );
                 return write(
                     terminal,
-                    &a.project,
-                    &a.output,
-                    &a.extension,
-                    &a.name,
+                    runtime,
+                    Target {
+                        project: &a.project,
+                        output: &a.output,
+                        extension: &a.extension,
+                        name: &a.name,
+                        dry_run: a.dry_run,
+                    },
                     change,
-                    a.dry_run,
                 );
             }
             Some(Action::Unset(a)) => {
                 return write(
                     terminal,
-                    &a.project,
-                    &a.output,
-                    &a.extension,
-                    &a.name,
+                    runtime,
+                    Target {
+                        project: &a.project,
+                        output: &a.output,
+                        extension: &a.extension,
+                        name: &a.name,
+                        dry_run: a.dry_run,
+                    },
                     SettingChange::Unset,
-                    a.dry_run,
                 );
             }
             None => {}

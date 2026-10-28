@@ -47,6 +47,8 @@ mod review;
 mod scaffold;
 mod search;
 mod settings;
+#[cfg(test)]
+mod settings_tests;
 mod stats;
 mod terminal;
 mod trace;

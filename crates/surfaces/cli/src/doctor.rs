@@ -307,6 +307,42 @@ mod tests {
         }
     }
 
+    #[test]
+    fn doctor_names_each_declared_read() {
+        let mut declaration = declaring_feature_and_uses("acme");
+        declaration.passes = vec![specforge_protocol_types::CompilerPassDescriptor {
+            name: "scan".into(),
+            reads: vec![specforge_protocol_types::FileRead {
+                name: "env".into(),
+                glob: Some(".env*".into()),
+                text: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }];
+        let project = specforge_project::testing::Assembled::over(
+            specforge_registry::build_registries(vec![declaration]),
+        );
+        let report = specforge_ops::analysis::doctor::diagnose(
+            &ProjectView::of(project.compiled()),
+            &specforge_ops::testing::ScriptedSolver::ready(),
+        );
+
+        let shown = render_human(
+            &report,
+            &CredentialHealth {
+                lines: Vec::new(),
+                failures: 0,
+                signing_key_present: false,
+            },
+        );
+
+        assert!(
+            shown.contains("      reads pass:scan env: .env* (with text)\n"),
+            "{shown}"
+        );
+    }
+
     // No shipped builtin set produces an extension conflict (all nine
     // together compile clean), so the conflicts come in at the registry
     // build's seam: two declarations that claim one kind and one edge type.

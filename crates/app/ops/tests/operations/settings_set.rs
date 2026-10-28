@@ -49,6 +49,13 @@ impl Project {
         std::fs::read_to_string(self.dir.path().join("specforge.json")).unwrap()
     }
 
+    /// Whether a write left its journal or took the write lock: a refusal before the write does neither.
+    fn touched_the_write_machinery(&self) -> bool {
+        ["write-journal.json", "write.lock"]
+            .iter()
+            .any(|f| self.dir.path().join(".specforge").join(f).exists())
+    }
+
     fn json(&self) -> Value {
         serde_json::from_str(&self.config()).unwrap()
     }
@@ -139,6 +146,10 @@ fn set_refuses_before_writing() {
     );
     assert_eq!(null.err().unwrap().kind, OpErrorKind::InvalidInput);
     assert_eq!(p.config(), CONFIG);
+    assert!(
+        !p.touched_the_write_machinery(),
+        "a refusal takes no lock and leaves no journal"
+    );
 }
 
 #[test]
@@ -391,4 +402,21 @@ fn unset_removes_a_committed_secret_and_never_repeats_it() {
         .err()
         .unwrap();
     assert!(unwritten.is(codes::E087), "{}", unwritten.message);
+}
+
+#[test]
+fn the_edit_that_would_not_round_trip_writes_nothing() {
+    // `@t/s` is a number: nothing can be spliced under it, and the load already says E086 for it.
+    let config = CONFIG.replace("{\n      \"profile\": \"compat\"\n    }", "5");
+    assert_ne!(config, CONFIG);
+    let p = project(&config);
+
+    let error = p.set("level", &["2"]).err().unwrap();
+
+    assert_eq!(&*error.code, "config_edit_failed", "{}", error.message);
+    assert_eq!(p.config(), config, "no half file");
+    assert!(
+        !p.dir.path().join(".specforge/write-journal.json").exists(),
+        "no journal left"
+    );
 }
