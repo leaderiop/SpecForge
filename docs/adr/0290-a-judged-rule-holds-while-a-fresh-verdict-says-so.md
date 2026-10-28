@@ -16,6 +16,7 @@ now".
 - **D1. A rule may be judged**: `check: "judged"` with a `judged` descriptor (`judge`, `outcomes`, `passing`, targets
   with named inputs and `unless_set`, `values`, `outcome_fields`). It holds while a fresh verdict of an outcome it calls
   passing says so; no verdict fires it as missing, a stale one as stale, a failing outcome as failed.
+  Amended by [ADR 0295](0295-a-judged-rules-judge-may-be-a-prompt-of-its-extension.md): the `judge` may be `prompt:<id>`.
 - **D2. A verdict is a member of an entity's block**: `verdict <rule> <outcome> { judge model at cited cited_tests
   inputs findings values }`, beside fields and `verify` statements, never a field. Only `set_verdict` writes it, and
   records a ledger line under `verdict:<rule>`; a verdict with no line is unrecorded (E083) and counts as missing.
