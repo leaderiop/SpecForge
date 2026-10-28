@@ -3813,7 +3813,7 @@
           },
           {
             "default_value": null,
-            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320",
+            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
             "edge": null,
             "field_type": "string_list",
             "file_reference": false,

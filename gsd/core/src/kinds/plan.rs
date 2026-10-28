@@ -92,7 +92,7 @@ pub const TASK: Kind = Kind::new(
         str("done").r().doc("`<done>`"),
         strs("verify_paths")
             .c()
-            .doc("the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320"),
+            .doc("the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once"),
         en("status", TASK_STATUS)
             .c()
             .doc("done when its plan's summary lists it complete"),

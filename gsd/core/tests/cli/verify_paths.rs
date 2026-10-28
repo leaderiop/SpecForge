@@ -189,3 +189,75 @@ fn a_bare_verify_text_is_not_e507() {
     // Plan 02-01's task has only `verify_text`.
     assert_eq!(project("plan").codes(), Vec::<String>::new());
 }
+
+/// `count` tasks of plan 01-02, task `i` running `command(i)`.
+fn many_tasks(p: &Project, count: usize, command: impl Fn(usize) -> String) {
+    let tasks: String = (0..count)
+        .map(|i| {
+            format!(
+                "task T{i:04} \"Task {i}\" {{\n  plan v1.0/01/01-02\n  type auto\n  files [\"src/complete.js\"]\n  action \"Do it\"\n  verify [\n    {{ automated \"{}\" fails_when \"it exits non-zero\" }}\n  ]\n  done \"Done\"\n}}\n\n",
+                command(i)
+            )
+        })
+        .collect();
+    p.write("spec/verify.spec", &tasks);
+}
+
+/// The codes but E322 (a plan of five or more tasks), which the many-task tests cannot avoid.
+fn codes_but_size(p: &Project) -> Vec<String> {
+    let mut codes = p.codes();
+    codes.retain(|c| c != "gsd/E322");
+    codes
+}
+
+/// 25 tasks run in the same 52 KB `web/package.json`: the host spends its 1 MiB text budget once, not once a task.
+#[test]
+fn one_manifest_is_read_once_for_all_the_tasks_that_name_it() {
+    let p = project("plan");
+    let padding = "x".repeat(52 * 1024);
+    p.write(
+        "web/package.json",
+        &format!("{{ \"scripts\": {{ \"lint\": \"eslint .\" }}, \"pad\": \"{padding}\" }}\n"),
+    );
+    many_tasks(&p, 25, |_| "cd web && npm run lint".into());
+    assert_eq!(codes_but_size(&p), Vec::<String>::new());
+}
+
+/// More distinct paths than the host serves (2000): a path it dropped is not checked, so it is no E320.
+#[test]
+fn a_path_the_host_did_not_serve_is_not_checked() {
+    let p = project("plan");
+    for i in 0..2001 {
+        p.write(&format!("many/d{i}/keep.txt"), "x\n");
+    }
+    many_tasks(&p, 2001, |i| format!("cd many/d{i} && ls"));
+    assert_eq!(codes_but_size(&p), Vec::<String>::new());
+}
+
+#[test]
+fn a_manifest_over_the_host_cap_is_not_checked() {
+    let p = project("plan");
+    let padding = "x".repeat(70 * 1024);
+    p.write(
+        "big/package.json",
+        &format!("{{ \"pad\": \"{padding}\" }}\n"),
+    );
+    with_task(&p, "cd big && npm run lint", "\"src/complete.js\"");
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_withheld_file_is_not_a_directory() {
+    let p = project("plan");
+    p.write(".env", "SECRET=1\n");
+    with_task(&p, "cd .env && ls", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/E320"]);
+}
+
+#[test]
+fn task_files_are_split_on_commas_and_white_space() {
+    let p = project("plan");
+    with_task(&p, "cd fresh && ls", "\"a.js, fresh/b.js\"");
+    // W306 compares the item as written; only the pending-creation check splits it, as GSD does.
+    assert_eq!(p.codes(), ["gsd/W306"]);
+}
