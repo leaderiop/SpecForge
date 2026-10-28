@@ -79,6 +79,8 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "duplicate MCP tool name across extensions produces E039"
   verify unit "registration succeeds with no duplicates"
   verify unit "a surfaces description that does not parse fails the extension's load"
+  verify unit "a prompt and a command of one route are E039, and the command is the one routed"
+  verify unit "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
 }
 

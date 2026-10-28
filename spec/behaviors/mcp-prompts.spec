@@ -79,6 +79,18 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
     project whose extensions declare no prompt lists and serves the core prompts exactly as before.
   """
   verify unit "a project whose extensions declare no prompt lists and serves the core prompts unchanged"
+  verify unit "a prompt argument is read by its field type and a reference is sent as its full path"
+  verify unit "a prompt argument outside its field type is invalid input on that argument"
+  verify unit "a prompt whose entry gate fails is refused and its export is not called"
+  verify unit "a rendered prompt shows its version, digest, attribution and each step with its gate"
+  verify unit "a prompt export that traps is E028"
+  verify unit "specforge prompt prints a rendered prompt, as JSON with its host message, and refuses a failing gate"
+  verify unit "an extension's name routes a prompt when no command of it has that name"
+  verify unit "a prompt declaration round-trips through the protocol with its args, steps and attribution"
+  verify unit "an extension prompt is listed after the core ones and served by prompts/get"
+  verify unit "a prompt whose when setting is off is not listed or served"
+  verify unit "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
+  verify unit "the client names the host a prompt renders for, and a host argument overrides it"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

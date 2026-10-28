@@ -2,7 +2,13 @@
 //! `prompts.rs` is over the file-size cap and may not grow, so this is where the extension half lives.
 
 use crate::prompt_golden::{get, project, send, server};
-use serde_json::json;
+use serde_json::{Value, json};
+use specforge_mcp::testing::{Served, rpc};
+use specforge_project::SharedRuntime;
+use specforge_project::testing::{
+    CORE as EXT, GsdPrompts, NO_CONTEXT, TestProject, gsd_prompts_sources,
+};
+use std::sync::Arc;
 
 /// The core prompts, by name, in the order `prompts/list` gives them.
 const CORE: [&str; 5] = ["context", "review", "trace", "explore", "infer"];
@@ -38,4 +44,198 @@ fn a_project_without_extension_prompts_lists_the_core_prompts_unchanged() {
         assert_eq!(messages.len(), 2, "{name}: {reply}");
         assert!(messages.iter().all(|m| m["role"] == "user"), "{name}");
     }
+}
+
+/// `@t/core` served in process over a project whose phase has `goal`, with `settings` for the extension.
+fn gsd(goal: &str, state: &str, settings: Value) -> Served {
+    let project = TestProject::new()
+        .config(|c| {
+            c["name"] = "p".into();
+            c["settings"] = json!({ EXT: settings });
+        })
+        .enabling(&[EXT]);
+    for (path, text) in gsd_prompts_sources(goal, state) {
+        project.write(path, text);
+    }
+    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    Served::initialized_in(project, runtime)
+}
+
+fn listed(served: &mut Served) -> Vec<String> {
+    let reply = rpc::call(served, "prompts/list", json!({}));
+    reply["result"]["prompts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "an extension prompt is listed after the core ones and served by prompts/get"
+)]
+#[ignore = "K8 T7"]
+fn an_extension_prompt_is_listed_and_served() {
+    let mut served = gsd("fine", "ok", json!({}));
+    let names = listed(&mut served);
+    assert_eq!(
+        names[CORE_PROMPTS..],
+        ["specforge.t.plan_phase", "specforge.t.research_phase"],
+        "{names:?}"
+    );
+    let reply = rpc::get_prompt(
+        &mut served,
+        "specforge.t.plan_phase",
+        json!({"phase": "03", "research": "true"}),
+    );
+    let messages = reply["result"]["messages"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{reply}"));
+    assert!(
+        messages[0]["content"]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("prompt__plan_phase ")
+    );
+    let payload: Value = serde_json::from_str(
+        messages.last().unwrap()["content"]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(payload["prompt"], "@t/core@0.4.0:plan_phase");
+    assert_eq!(payload["subject"], "v1.0/03");
+}
+
+/// The core prompts `prompts/list` gives before an extension's.
+const CORE_PROMPTS: usize = 5;
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt whose when setting is off is not listed or served"
+)]
+#[ignore = "K8 T7"]
+fn a_prompt_disabled_by_its_setting_is_not_served() {
+    let mut served = gsd("fine", "ok", json!({"workflow.research": false}));
+    let names = listed(&mut served);
+    assert!(
+        names.contains(&"specforge.t.plan_phase".to_string()),
+        "{names:?}"
+    );
+    assert!(
+        !names.contains(&"specforge.t.research_phase".to_string()),
+        "{names:?}"
+    );
+    let reply = rpc::get_prompt(
+        &mut served,
+        "specforge.t.research_phase",
+        json!({"phase": "03"}),
+    );
+    assert!(reply.get("error").is_some(), "{reply}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
+)]
+#[ignore = "K8 T7"]
+fn an_agent_renders_a_prompt_through_specforge_prompt() {
+    let mut served = gsd("fine", "ok", json!({}));
+    let by_name = rpc::tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03", "depth": 2}}),
+    );
+    let by_argv = rpc::tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.plan_phase", "argv": "03 --depth 2"}),
+    );
+    assert_eq!(by_name, by_argv, "one render behind both");
+    assert_eq!(by_name["messages"][0]["role"], "user");
+    assert_eq!(by_name["payload"]["subject"], "v1.0/03");
+
+    let both = rpc::call_tool(
+        &mut served,
+        "specforge.prompt",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}, "argv": "03"}),
+    );
+    assert_eq!(
+        both["result"]["isError"], true,
+        "at most one of arguments and argv: {both}"
+    );
+    let core = rpc::tool(&mut served, "specforge.prompt", json!({"name": "review"}));
+    assert!(
+        core["messages"].is_array(),
+        "a core prompt is reachable too: {core}"
+    );
+
+    let mut empty = gsd(NO_CONTEXT, "ok", json!({}));
+    let refused = rpc::call_tool(
+        &mut empty,
+        "specforge.prompt",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}}),
+    );
+    assert!(
+        rpc::tool_text(&refused).contains("gate_failed"),
+        "{refused}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "the client names the host a prompt renders for, and a host argument overrides it"
+)]
+#[ignore = "K8 T7"]
+fn the_client_names_the_host_a_prompt_renders_for() {
+    let host_of = |served: &mut Served, extra: Value| {
+        let mut arguments = json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}});
+        arguments
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let rendered = rpc::tool(served, "specforge.prompt", arguments);
+        let text = rendered["messages"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let echoed: Value = serde_json::from_str(text.split_once(' ').unwrap().1).unwrap();
+        echoed["host"].clone()
+    };
+    let mut served = gsd("fine", "ok", json!({}));
+    assert_eq!(
+        host_of(&mut served, json!({})),
+        Value::Null,
+        "an unnamed client has no host"
+    );
+    assert_eq!(host_of(&mut served, json!({"host": "cursor"})), "cursor");
+    // `initialize` carries `clientInfo.name`.
+    let root = served.root().to_str().unwrap().to_string();
+    let hello = rpc::call(
+        &mut served,
+        "initialize",
+        json!({"projectRoot": root, "clientInfo": {"name": "claude-code", "version": "2"}}),
+    );
+    assert!(hello["error"].is_null(), "{hello}");
+    assert_eq!(host_of(&mut served, json!({})), "claude-code");
+}
+
+#[specforge_test_macros::test(
+    behavior = "gate_a_command",
+    verify = "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
+)]
+#[ignore = "K8 T5"]
+fn a_gated_command_is_refused_over_mcp() {
+    let mut served = gsd("fine", "blocked", json!({}));
+    let reply = rpc::call_tool(
+        &mut served,
+        "specforge.t.execute_phase",
+        json!({"phase": "03"}),
+    );
+    let text = rpc::tool_text(&reply);
+    assert!(
+        text.contains("gate_failed") && text.contains("t/E902"),
+        "{text}"
+    );
 }

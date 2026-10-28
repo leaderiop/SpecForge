@@ -516,6 +516,8 @@ fn arg_values(command: &ExtensionCommand, matches: &ArgMatches) -> Map<String, V
 
 mod plan;
 #[cfg(test)]
+mod prompts;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod writes;

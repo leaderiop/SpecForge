@@ -1033,4 +1033,12 @@ behavior gate_a_command "Gate a Command" {
   """
   verify unit "a command that declares no gate runs as it did"
   verify unit "a command descriptor that declares no gate serializes as it did"
+  verify unit "a command whose gate fails is refused before its export runs"
+  verify unit "a gate is scoped to its subject"
+  verify unit "a gate runs the guard passes it names"
+  verify unit "a gate on a code its setting turns off passes"
+  verify unit "a warning a preset raises to an error fails a gate"
+  verify unit "a subject given as a short form is sent as its full path"
+  verify unit "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
+  verify unit "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
 }
