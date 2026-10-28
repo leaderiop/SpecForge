@@ -104,6 +104,18 @@ fn each_refused_prompt_is_dropped_whole_and_the_rest_is_kept() {
             json!({"args": [{"name": "path", "field_type": "string"}]}),
         ),
         (
+            "host_arg",
+            json!({"args": [{"name": "host", "field_type": "string"}]}),
+        ),
+        (
+            "argv_arg",
+            json!({"args": [{"name": "argv", "field_type": "string"}]}),
+        ),
+        (
+            "dashed_arg",
+            json!({"args": [{"name": "a-b", "field_type": "string"}]}),
+        ),
+        (
             "no_target",
             json!({"args": [{"name": "p", "field_type": "reference"}]}),
         ),
@@ -234,4 +246,20 @@ fn the_later_of_two_prompts_of_one_route_is_e039() {
     );
     assert_eq!(build.prompts().len(), 1);
     assert_eq!(build.prompts()[0].extension(), "@t/core");
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "a prompt whose step names a command the registry dropped is dropped too, with a W021"
+)]
+fn a_step_naming_a_dropped_command_drops_its_prompt() {
+    let mut declaration = core(json!([prompt(
+        "plan_phase",
+        json!({"steps": [{"id": "s", "title": "S", "command": "record_plan"}]})
+    )]));
+    declaration.surfaces.commands[0].gates = vec!["E999".into()];
+    let build = build_registries(vec![declaration]);
+    let messages = w021(&build);
+    assert_eq!(messages.len(), 2, "{messages:#?}");
+    assert!(build.prompts().is_empty());
 }

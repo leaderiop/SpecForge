@@ -115,7 +115,7 @@ impl CoreTool for Tool {
         let spelled;
         let given = match (&args.arguments, &args.argv) {
             (_, Some(argv)) => {
-                spelled = words(argv);
+                spelled = words(argv).map_err(|e| Box::new(McpError::from(e)))?;
                 PromptArgs::Words(&spelled)
             }
             (Some(named), None) => PromptArgs::Named(named),

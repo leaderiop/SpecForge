@@ -85,6 +85,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "a step's agent and an empty attribution are dropped alone, with a W021 each"
   verify unit "a command whose gate the extension does not catalog, or whose subject is no arg, is W021 and not routed"
   verify unit "two prompts of one route are E039 and the later is not routed"
+  verify unit "a prompt whose step names a command the registry dropped is dropped too, with a W021"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, unparsed_fails_load"
 }
 

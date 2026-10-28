@@ -103,6 +103,11 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a prompt renders the same messages and payload on the command line and over MCP"
   verify unit "completions and help list an extension's prompts beside its commands, with their arguments"
   verify unit "a prompt message keeps its lines and tabs, and every other control character is escaped"
+  verify unit "an unterminated quote is refused, a quoted word is a value, --name=value and -- are read, and null or an empty string is an unfilled optional"
+  verify unit "specforge prompt refuses an unknown prompt, an unknown host or format and an option without its value, rendering nothing"
+  verify unit "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
+  verify unit "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
+  verify unit "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

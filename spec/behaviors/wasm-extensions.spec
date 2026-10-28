@@ -1046,4 +1046,5 @@ behavior gate_a_command "Gate a Command" {
   verify unit "a subject that names no entity or several is refused before the gate runs"
   verify unit "a guard pass that fails at a gate fails the gate, and the export is not called"
   verify unit "a finding that names no entity is in a gate's scope by the block that holds its span"
+  verify unit "a gated writing command is refused gate_failed even as a dry run, and writes nothing"
 }

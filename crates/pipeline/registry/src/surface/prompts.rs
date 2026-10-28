@@ -52,61 +52,68 @@ pub fn refuse_prompts(
     declarations: &mut [ExtensionDeclaration],
     judge: &Judge<'_>,
 ) -> Vec<Diagnostic> {
-    let loaded: Vec<Loaded> = declarations
-        .iter()
-        .map(|d| Loaded {
-            name: d.name().to_string(),
-            short: d.short().into_owned(),
-            commands: d.surfaces.commands.iter().map(|c| c.id.clone()).collect(),
-            prompts: d.surfaces.prompts.iter().map(|p| p.id.clone()).collect(),
-        })
-        .collect();
     let mut diagnostics = Vec::new();
-    for declaration in declarations {
-        let name = declaration.name().to_string();
-        let peers: Vec<String> = declaration
-            .handshake
-            .peer_dependencies
+    // Dropping a command or prompt can leave a step naming nothing: go again until a pass drops no more.
+    loop {
+        let before = diagnostics.len();
+        let loaded: Vec<Loaded> = declarations
             .iter()
-            .map(|p| p.name.clone())
+            .map(|d| Loaded {
+                name: d.name().to_string(),
+                short: d.short().into_owned(),
+                commands: d.surfaces.commands.iter().map(|c| c.id.clone()).collect(),
+                prompts: d.surfaces.prompts.iter().map(|p| p.id.clone()).collect(),
+            })
             .collect();
-        let ctx = Ctx {
-            judge,
-            extension: &name,
-            peers: &peers,
-            loaded: &loaded,
-        };
-        let surfaces = &mut declaration.surfaces;
-        surfaces
-            .commands
-            .retain(|command| match ctx.command(command) {
-                Ok(()) => true,
-                Err(reason) => {
-                    diagnostics.push(warn(format!(
-                        "command '{}' of '{name}' is not served: {reason}",
-                        command.id
-                    )));
-                    false
+        for declaration in declarations.iter_mut() {
+            let name = declaration.name().to_string();
+            let peers: Vec<String> = declaration
+                .handshake
+                .peer_dependencies
+                .iter()
+                .map(|p| p.name.clone())
+                .collect();
+            let ctx = Ctx {
+                judge,
+                extension: &name,
+                peers: &peers,
+                loaded: &loaded,
+            };
+            let surfaces = &mut declaration.surfaces;
+            surfaces
+                .commands
+                .retain(|command| match ctx.command(command) {
+                    Ok(()) => true,
+                    Err(reason) => {
+                        diagnostics.push(warn(format!(
+                            "command '{}' of '{name}' is not served: {reason}",
+                            command.id
+                        )));
+                        false
+                    }
+                });
+            let mut seen = BTreeSet::new();
+            surfaces.prompts.retain_mut(|prompt| {
+                let verdict = if seen.insert(prompt.id.clone()) {
+                    ctx.prompt(prompt, &mut diagnostics)
+                } else {
+                    Err("it is declared twice".to_string())
+                };
+                match verdict {
+                    Ok(()) => true,
+                    Err(reason) => {
+                        diagnostics.push(warn(format!(
+                            "prompt '{}' of '{name}' is not served: {reason}",
+                            prompt.id
+                        )));
+                        false
+                    }
                 }
             });
-        let mut seen = BTreeSet::new();
-        surfaces.prompts.retain_mut(|prompt| {
-            let verdict = if seen.insert(prompt.id.clone()) {
-                ctx.prompt(prompt, &mut diagnostics)
-            } else {
-                Err("it is declared twice".to_string())
-            };
-            match verdict {
-                Ok(()) => true,
-                Err(reason) => {
-                    diagnostics.push(warn(format!(
-                        "prompt '{}' of '{name}' is not served: {reason}",
-                        prompt.id
-                    )));
-                    false
-                }
-            }
-        });
+        }
+        if diagnostics.len() == before {
+            break;
+        }
     }
     diagnostics
 }
@@ -139,10 +146,10 @@ impl Ctx<'_> {
     fn command(&self, command: &CommandDescriptor) -> Result<(), String> {
         self.gates(&command.gates)?;
         if let Some(subject) = &command.subject {
-            let takes_entity = command.args.iter().any(|a| {
-                a.name == *subject
-                    && matches!(a.arg_type, CommandArgType::String | CommandArgType::Path)
-            });
+            let takes_entity = command
+                .args
+                .iter()
+                .any(|a| a.name == *subject && matches!(a.arg_type, CommandArgType::String));
             if !takes_entity {
                 return Err(format!(
                     "its subject '{subject}' is not a string arg it declares"
@@ -233,6 +240,9 @@ impl Ctx<'_> {
             return Err(format!(
                 "its argument name '{name}' is empty or taken by the host"
             ));
+        }
+        if !snake_case(name) {
+            return Err(format!("its argument name '{name}' is not snake_case"));
         }
         let field_type = FieldType::parse(&arg.field_type)
             .filter(|t| {

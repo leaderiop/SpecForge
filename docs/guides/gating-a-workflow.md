@@ -86,3 +86,6 @@ of the extension already has is E039 and is not served; a prompt or gate the hos
   code to an error.
 - **A prompt's text may not depend on secrets.** A prompt is told which secrets are set, as a command is; echoing that
   into its messages makes its digest differ between machines.
+- **A step's gate is shown for the prompt's subject.** The state beside a command step is that command's gate over the
+  prompt's own subject (the project when the command declares no subject); the command, when it runs, gates the
+  arguments it is given.

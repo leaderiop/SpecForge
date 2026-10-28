@@ -175,3 +175,34 @@ fn the_extension_command_line_lists_its_prompts() {
         "and its commands"
     );
 }
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "specforge prompt refuses an unknown prompt, an unknown host or format and an option without its value, rendering nothing"
+)]
+fn specforge_prompt_refuses_what_it_cannot_render() {
+    let ok = project("fine", "ok");
+    for (words, said) in [
+        (&["t.nope"][..], "no prompt 't.nope'"),
+        (
+            &["t.plan_phase", "03", "--host", "vim"][..],
+            "unknown host 'vim'",
+        ),
+        (
+            &["t.plan_phase", "03", "--host"][..],
+            "--host takes a value",
+        ),
+        (
+            &["t.plan_phase", "03", "--format", "yaml"][..],
+            "unknown format 'yaml'",
+        ),
+        (&["t.plan_phase", "03", "--depth", "9"][..], "depth"),
+    ] {
+        let (code, out, err) = prompt(&ok, words);
+        assert_ne!(code, 0, "{words:?}");
+        assert!(
+            out.is_empty() && err.contains(said),
+            "{words:?}: {out} {err}"
+        );
+    }
+}

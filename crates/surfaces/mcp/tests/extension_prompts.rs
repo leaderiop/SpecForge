@@ -53,6 +53,10 @@ fn gsd(goal: &str, state: &str, settings: Value) -> Served {
 
 /// [`gsd`], the client's `initialize` also sending `init`.
 fn gsd_for(goal: &str, state: &str, settings: Value, init: Value) -> Served {
+    gsd_using(GsdPrompts::new(), goal, state, settings, init)
+}
+
+fn gsd_using(fixture: GsdPrompts, goal: &str, state: &str, settings: Value, init: Value) -> Served {
     let project = TestProject::new()
         .config(|c| {
             c["name"] = "p".into();
@@ -62,7 +66,7 @@ fn gsd_for(goal: &str, state: &str, settings: Value, init: Value) -> Served {
     for (path, text) in gsd_prompts_sources(goal, state) {
         project.write(path, text);
     }
-    let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
+    let runtime: SharedRuntime = Arc::new(fixture.runtime());
     Served::initialized_in_with(project, runtime, init)
 }
 
@@ -237,5 +241,72 @@ fn a_gated_command_is_refused_over_mcp() {
     assert!(
         text.contains("gate_failed") && text.contains("t/E902"),
         "{text}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "prompts/get of a prompt whose gate fails is a JSON-RPC error naming gate_failed, and its export is not called"
+)]
+fn prompts_get_of_a_failing_gate_is_a_rpc_error() {
+    let mut served = gsd(NO_CONTEXT, "ok", json!({}));
+    let reply = rpc::call(
+        &mut served,
+        "prompts/get",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}}),
+    );
+    assert!(reply.get("result").is_none(), "{reply}");
+    assert!(
+        reply["error"].to_string().contains("gate_failed"),
+        "{reply}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "specforge.prompt refuses an unknown host, an unknown prompt (naming the served ones) and argv for a core prompt"
+)]
+fn specforge_prompt_refuses_what_it_cannot_render() {
+    let mut served = gsd("fine", "ok", json!({}));
+    let mut refuse = |arguments: Value| {
+        let reply = rpc::call_tool(&mut served, "specforge.prompt", arguments);
+        assert_eq!(reply["result"]["isError"], true, "{reply}");
+        rpc::tool_text(&reply)
+    };
+    let host = refuse(
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}, "host": "vim"}),
+    );
+    assert!(host.contains("unknown host 'vim'"), "{host}");
+    let unknown = refuse(json!({"name": "specforge.t.nope"}));
+    assert!(
+        unknown.contains("no prompt") && unknown.contains("specforge.t.plan_phase"),
+        "{unknown}"
+    );
+    let argv = refuse(json!({"name": "review", "argv": "x"}));
+    assert!(argv.contains("by name"), "{argv}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a prompt's multi-line message reaches the agent with its lines, and other controls escaped"
+)]
+fn a_multi_line_prompt_message_reaches_the_agent_whole() {
+    use specforge_wasm::WasmCallResult;
+    let answer =
+        json!({"messages": [{"role": "user", "text": "# Plan\n\n- one\n\t- two\u{1b}[0m"}]});
+    let fixture = GsdPrompts::new().answering(
+        EXT,
+        "prompt__plan_phase",
+        WasmCallResult::Ok(answer.to_string().into_bytes()),
+    );
+    let mut served = gsd_using(fixture, "fine", "ok", json!({}), json!({}));
+    let got = rpc::call(
+        &mut served,
+        "prompts/get",
+        json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}}),
+    );
+    assert_eq!(
+        got["result"]["messages"][0]["content"]["text"], "# Plan\n\n- one\n\t- two\\u{1b}[0m",
+        "{got}"
     );
 }

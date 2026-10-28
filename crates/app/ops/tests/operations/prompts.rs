@@ -43,7 +43,10 @@ pub fn render(served: &Served, id: &str, args: Args<'_>) -> Result<Rendered, Ref
     let given = match &args {
         Args::Named(named) => PromptArgs::Named(named.as_object().unwrap()),
         Args::Argv(argv) => {
-            words = specforge_ops::extension::prompt::words(argv);
+            words = specforge_ops::extension::prompt::words(argv).map_err(|e| Refused {
+                code: e.code.to_string(),
+                data: json!({"message": e.message}),
+            })?;
             PromptArgs::Words(&words)
         }
     };
@@ -236,7 +239,42 @@ fn a_reference_argument_must_name_its_target_kind() {
     assert!(!served.called("prompt__plan_phase"));
 
     assert_eq!(
-        specforge_ops::extension::prompt::words(r#"03 --labels "a b",c"#),
+        specforge_ops::extension::prompt::words(r#"03 --labels "a b",c"#).unwrap(),
         ["03", "--labels", "a b,c"]
     );
+}
+
+#[specforge_test(
+    behavior = "serve_extension_prompt",
+    verify = "an unterminated quote is refused, a quoted word is a value, --name=value and -- are read, and null or an empty string is an unfilled optional"
+)]
+fn the_words_of_a_command_line_are_read_exactly() {
+    let served = served(project("fine", "ok", json!({})));
+    let sent = |served: &Served| served.input("prompt__plan_phase")["args"].clone();
+
+    let open = plan_phase(&served, Args::Argv(r#"03 --labels "a b"#)).unwrap_err();
+    assert_eq!(open.code, "invalid_input", "{open:?}");
+
+    plan_phase(&served, Args::Argv(r#"03 --labels "--research""#)).unwrap();
+    assert_eq!(
+        sent(&served),
+        json!({"phase": "v1.0/03", "labels": ["--research"]}),
+        "a quoted word is a value, never an option"
+    );
+    plan_phase(&served, Args::Argv("03 --depth=2 --mode=fast")).unwrap();
+    assert_eq!(
+        sent(&served),
+        json!({"phase": "v1.0/03", "depth": 2, "mode": "fast"})
+    );
+    plan_phase(&served, Args::Argv("--depth 1 -- 03")).unwrap();
+    assert_eq!(sent(&served), json!({"phase": "v1.0/03", "depth": 1}));
+
+    plan_phase(
+        &served,
+        Args::Named(json!({"phase": "03", "depth": null, "mode": "", "labels": ""})),
+    )
+    .expect("an unfilled optional is absent");
+    assert_eq!(sent(&served), json!({"phase": "v1.0/03"}));
+    let required = plan_phase(&served, Args::Named(json!({"phase": null}))).unwrap_err();
+    assert_eq!(required.code, "invalid_input", "{required:?}");
 }

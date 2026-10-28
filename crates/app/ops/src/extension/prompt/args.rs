@@ -20,18 +20,31 @@ pub enum PromptArgs<'a> {
     Words(&'a [String]),
 }
 
-/// `text` as words: split at spaces, a double-quoted run is one word.
-pub fn words(text: &str) -> Vec<String> {
-    let (mut out, mut word, mut quoted, mut started) = (Vec::new(), String::new(), false, false);
+/// Marks a word that was quoted and starts with `--`: it is a value, never an option. Stripped by [`named`].
+const QUOTED: char = '\u{1}';
+
+/// `text` as words: split at spaces, a double-quoted run is one word (a quoted word starting `--` is a value, not an
+/// option). An unterminated quote is `invalid_input`.
+pub fn words(text: &str) -> Result<Vec<String>, OpError> {
+    let (mut out, mut word, mut quoted, mut started, mut was_quoted) =
+        (Vec::new(), String::new(), false, false, false);
+    let mut finish = |word: &mut String, was_quoted: &mut bool| {
+        let mut done = std::mem::take(word);
+        if std::mem::take(was_quoted) && done.starts_with("--") {
+            done.insert(0, QUOTED);
+        }
+        out.push(done);
+    };
     for c in text.chars() {
         match c {
             '"' => {
                 quoted = !quoted;
                 started = true;
+                was_quoted = true;
             }
             c if c.is_whitespace() && !quoted => {
                 if started {
-                    out.push(std::mem::take(&mut word));
+                    finish(&mut word, &mut was_quoted);
                     started = false;
                 }
             }
@@ -41,10 +54,13 @@ pub fn words(text: &str) -> Vec<String> {
             }
         }
     }
-    if started {
-        out.push(word);
+    if quoted {
+        return Err(bad("arguments", "a double quote is not closed"));
     }
-    out
+    if started {
+        finish(&mut word, &mut was_quoted);
+    }
+    Ok(out)
 }
 
 fn bad(name: &str, message: impl std::fmt::Display) -> OpError {
@@ -66,28 +82,41 @@ fn named(args: &[PromptArgDescriptor], words: &[String]) -> Result<Map<String, V
         .iter()
         .filter(|a| a.required && field_type(a) != FieldType::Bool)
         .collect();
-    let (mut given, mut next) = (Map::new(), 0);
+    let (mut given, mut next, mut options) = (Map::new(), 0, true);
+    let value_of =
+        |word: &str| Value::String(word.strip_prefix(QUOTED).unwrap_or(word).to_string());
     let mut words = words.iter();
     while let Some(word) = words.next() {
-        let Some(long) = word.strip_prefix("--") else {
+        let long = word.strip_prefix("--").filter(|_| options);
+        if word == "--" && options {
+            options = false;
+            continue;
+        }
+        let Some(long) = long else {
             let arg = positional
                 .get(next)
                 .ok_or_else(|| bad(word, "no positional argument takes this word"))?;
             next += 1;
-            given.insert(arg.name.clone(), Value::String(word.clone()));
+            given.insert(arg.name.clone(), value_of(word));
             continue;
+        };
+        let (long, attached) = match long.split_once('=') {
+            Some((long, value)) => (long, Some(value)),
+            None => (long, None),
         };
         let arg = args
             .iter()
             .find(|a| option_name(&a.name) == long)
             .ok_or_else(|| bad(long, "no such option"))?;
-        let value = if field_type(arg) == FieldType::Bool {
+        let value = if field_type(arg) == FieldType::Bool && attached.is_none() {
             Value::Bool(true)
+        } else if let Some(value) = attached {
+            value_of(value)
         } else {
             let value = words
                 .next()
                 .ok_or_else(|| bad(&arg.name, "the option takes a value"))?;
-            Value::String(value.clone())
+            value_of(value)
         };
         if given.insert(arg.name.clone(), value).is_some() {
             return Err(bad(&arg.name, "given twice"));
@@ -173,7 +202,13 @@ pub fn read(
     }
     let mut sent = Map::new();
     for arg in declared {
-        let Some(value) = given.get(&arg.name).or(arg.default.as_ref()) else {
+        // A client sends null or "" for a field it left unfilled: that is no value.
+        let unfilled = |v: &&Value| !matches!(v, Value::Null) && !(!arg.required && *v == "");
+        let Some(value) = given
+            .get(&arg.name)
+            .filter(unfilled)
+            .or(arg.default.as_ref())
+        else {
             if arg.required {
                 return Err(bad(&arg.name, "it is required"));
             }

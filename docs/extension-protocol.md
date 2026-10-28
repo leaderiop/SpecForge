@@ -494,8 +494,9 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
   `target_kind`, or kinds as `a|b`); never `path`. A caller's value is read by its type (a word `2` is an integer,
   `a,b` a list) and admitted by the form every field of that type is admitted by; a reference is resolved by
   `Graph::find` (a short form is accepted) and the export is sent its full path. An argument named `path`,
-  `format`, `help`, `settings`, `secrets`, `host` or `argv` is the host's. Defaults fill an absent argument; an absent
-  optional argument is absent; a bool is not defaulted to `false`.
+  `format`, `help`, `settings`, `secrets`, `host` or `argv` is the host's, and a name is snake_case. Defaults fill an absent argument; an absent
+  optional argument (or one given as `null` or `""`) is absent; on a command line a double-quoted run is one word and a
+  quoted `--x` is a value, `--name=value` and `--` (the rest are positional) are read, and an unclosed quote is refused; a bool is not defaulted to `false`.
 - **Entry gate.** `gates` and `subject` are a command's: the prompt is refused `gate_failed` before its export runs
   while a gated code fails in the subject's scope.
 - **Steps** are the order the agent works in. A step runs a `command` of this extension (or `<peer>:<id>` of a

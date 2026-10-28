@@ -322,3 +322,76 @@ fn a_finding_with_only_a_span_is_scoped_by_its_block() {
     assert_eq!(inside.code, "gate_failed");
     run_command(&build(8), "execute_phase", args).expect("line 8 is phase 04's block");
 }
+
+#[specforge_test(
+    behavior = "gate_a_command",
+    verify = "a gated writing command is refused gate_failed even as a dry run, and writes nothing"
+)]
+fn a_gated_writing_command_is_refused_as_a_dry_run() {
+    use specforge_extension_sdk::DeclaredCategory;
+    use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
+    use specforge_ops::authoring::apply::execute;
+
+    const W: &str = "@w/gate";
+    fn declared() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta {
+            short: Some("w".into()),
+            ..ExtensionMeta::new(W, "1.0.0")
+        });
+        c.raw_category(
+            DeclaredCategory::Codes,
+            json!([{"code": "E801", "title": "Always", "explanation": "A guard that always objects."}]),
+        );
+        c.raw_category(
+            DeclaredCategory::Passes,
+            json!([{"name": "always", "phase": "guard", "reports": ["E801"]}]),
+        );
+        c.raw_category(
+            DeclaredCategory::Surfaces,
+            json!([{"commands": [{"id": "fix", "title": "fix", "description": "fix", "export": "cmd__fix",
+                "args": [], "writes": true, "gates": ["E801"]}]}]),
+        );
+        c
+    }
+    fn answer(export: &str, _: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        match export {
+            "__pass_always" => Some(Ok(
+                json!({"diagnostics": [{"code": "E801", "severity": "Error",
+                "message": "no"}], "summary": {}, "values": []})
+                .to_string()
+                .into_bytes(),
+            )),
+            _ => None,
+        }
+    }
+    let runtime = Arc::new(InProcessRuntime::new().with_handler(declared, answer));
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[W])
+        .installing_enabled();
+    project.write("m.spec", "");
+    let compiled = project.compile_in(Arc::clone(&runtime) as SharedRuntime);
+    let before = files_under(project.root());
+    let view = ProjectView::of(&compiled);
+    let commands = ExtensionCommands::build(view.registries());
+    let command = commands
+        .of("w")
+        .next()
+        .expect("the writing command is served");
+    for dry_run in [true, false] {
+        let result = execute(
+            &view,
+            command,
+            &serde_json::Map::new(),
+            CommandFormat::Json,
+            dry_run,
+            specforge_ops::testing::caller(),
+        );
+        let Err(error) = result else {
+            panic!("dry_run {dry_run}: a failing gate refuses a writing command");
+        };
+        assert_eq!(refusal(error).code, "gate_failed");
+    }
+    assert!(runtime.calls().iter().all(|c| c.export != "cmd__fix"));
+    assert!(changed_since(project.root(), &before).is_empty());
+}

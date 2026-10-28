@@ -58,17 +58,20 @@ impl Args {
     }
 }
 
-/// Remove `--<name> <value>` or `--<name>=<value>` from `words`, and give the value.
-fn take(words: &mut Vec<String>, name: &str) -> Option<String> {
+/// Remove `--<name> <value>` or `--<name>=<value>` from `words`, and give the value; `Err` when it has none.
+fn take(words: &mut Vec<String>, name: &str) -> Result<Option<String>, String> {
     let flag = format!("--{name}");
-    let at = words
+    let Some(at) = words
         .iter()
-        .position(|w| *w == flag || w.starts_with(&format!("{flag}=")))?;
+        .position(|w| *w == flag || w.starts_with(&format!("{flag}=")))
+    else {
+        return Ok(None);
+    };
     let word = words.remove(at);
     match word.strip_prefix(&format!("{flag}=")) {
-        Some(value) => Some(value.to_string()),
-        None if at < words.len() => Some(words.remove(at)),
-        None => None,
+        Some(value) => Ok(Some(value.to_string())),
+        None if at < words.len() => Ok(Some(words.remove(at))),
+        None => Err(format!("{flag} takes a value")),
     }
 }
 
@@ -109,11 +112,26 @@ pub(crate) fn served(
         }
         return Exit::Unjudged;
     };
-    take(&mut rest, "path");
-    if take(&mut rest, "format").is_some_and(|f| f == "json") {
-        format = OutputFormat::Json;
+    let mut options = || -> Result<(Option<String>, Option<String>), String> {
+        take(&mut rest, "path")?;
+        Ok((take(&mut rest, "format")?, take(&mut rest, "host")?))
+    };
+    let (chosen, host) = match options() {
+        Ok(options) => options,
+        Err(message) => {
+            errln!(terminal, "error: {message}");
+            return Exit::Unjudged;
+        }
+    };
+    match chosen.as_deref() {
+        Some("json") => format = OutputFormat::Json,
+        Some("human") | None => {}
+        Some(other) => {
+            errln!(terminal, "error: unknown format '{other}': human or json");
+            return Exit::Unjudged;
+        }
     }
-    let host = match take(&mut rest, "host") {
+    let host = match host {
         Some(flag) => match Host::from_flag(&flag) {
             Some(host) => Some(host),
             None => {
