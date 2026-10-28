@@ -234,10 +234,15 @@ fn read(
 /// `name` is a declared secret or looks like a credential (never written), then E086 when no setting of `extension`
 /// takes it or `value` is not the form's. `Some(value)` sets, `None` unsets; the answer is the value to write, `None`
 /// for an unset or a written `null`. An extension that declares no settings is E086 (a caller asks it is enabled first).
+///
+/// An unset only removes, so it is admitted whenever `name` is a declared setting or is `written` in the file (a stale
+/// or misspelt key, or a secret that was committed, both reported by the load): it is the way out the load's
+/// suggestion asks for. Only a name that is neither is refused.
 pub fn admit(
     extension: &str,
     name: &str,
     value: Option<&Value>,
+    written: bool,
     registry: &SettingsRegistry,
 ) -> Result<Option<Value>, Diagnostic> {
     let Some(declared) = registry.of(extension) else {
@@ -246,14 +251,23 @@ pub fn admit(
             format!("'{extension}' declares no settings"),
         ));
     };
-    if let Some(diagnostic) = secret(extension, name, declared) {
-        return Err(diagnostic);
-    }
     match value {
-        Some(value) => check(extension, name, value, declared, registry),
-        None if declared.find(name).is_some() => Ok(None),
-        None => Err(unknown(extension, name, declared, registry)),
+        None if written || declared.find(name).is_some() => Ok(None),
+        None => Err(secret(extension, name, declared)
+            .unwrap_or_else(|| unknown(extension, name, declared, registry))),
+        Some(value) => match secret(extension, name, declared) {
+            Some(diagnostic) => Err(diagnostic),
+            None => check(extension, name, value, declared, registry),
+        },
     }
+}
+
+/// Whether `name` is a declared secret of `extension` or looks like a credential: what a set refuses (E087), and
+/// whose written value a result never repeats.
+pub fn is_secret(extension: &str, name: &str, registry: &SettingsRegistry) -> bool {
+    registry
+        .of(extension)
+        .is_some_and(|declared| secret(extension, name, declared).is_some())
 }
 
 /// E087 when `key` names a declared secret or looks like a credential and is no declared setting.

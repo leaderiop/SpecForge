@@ -333,3 +333,62 @@ fn an_interrupted_set_is_rolled_back_by_the_journal() {
     assert_eq!(written["settings"]["@t/s"]["level"], 2);
     assert!(!p.dir.path().join(".specforge/write-journal.json").exists());
 }
+
+const STALE: &str = "{\n  \"name\": \"p\",\n  \"version\": \"0.1.0\",\n  \"extensions\": [\"@t/s\", \"@t/l\"],\n  \"settings\": {\n    \"@t/s\": {\n      \"profile\": \"compat\",\n      \"level_typo\": 3,\n      \"api_key\": \"hunter2-committed\"\n    }\n  }\n}\n";
+
+#[test]
+fn unset_removes_a_stale_key_the_load_reports() {
+    let p = project(STALE);
+
+    let done = p
+        .run(
+            SETTINGS_EXTENSION,
+            "level_typo",
+            SettingChange::Unset,
+            false,
+        )
+        .unwrap();
+
+    assert!(done.document.changed);
+    assert_eq!(done.document.previous, Some(json!(3)));
+    assert_eq!(p.config(), STALE.replace("      \"level_typo\": 3,\n", ""));
+    // A name neither declared nor written is still refused.
+    let none = p
+        .run(
+            SETTINGS_EXTENSION,
+            "never_written",
+            SettingChange::Unset,
+            false,
+        )
+        .err()
+        .unwrap();
+    assert!(none.is(codes::E086), "{}", none.message);
+}
+
+#[test]
+fn unset_removes_a_committed_secret_and_never_repeats_it() {
+    let p = project(STALE);
+
+    let done = p
+        .run(SETTINGS_EXTENSION, "api_key", SettingChange::Unset, false)
+        .unwrap();
+
+    assert!(done.document.changed);
+    assert_eq!(done.document.previous, None, "the value is not echoed");
+    let shown = serde_json::to_string(&done.document).unwrap();
+    assert!(!shown.contains("hunter2"), "{shown}");
+    assert!(!p.config().contains("hunter2"), "{}", p.config());
+    assert_eq!(p.json()["settings"]["@t/s"]["profile"], "compat");
+    // Setting a secret is still refused, and a secret-named key that is not written cannot be unset.
+    assert!(p.set("api_key", &["x"]).err().unwrap().is(codes::E087));
+    let unwritten = p
+        .run(
+            SETTINGS_EXTENSION,
+            "github_token",
+            SettingChange::Unset,
+            false,
+        )
+        .err()
+        .unwrap();
+    assert!(unwritten.is(codes::E087), "{}", unwritten.message);
+}

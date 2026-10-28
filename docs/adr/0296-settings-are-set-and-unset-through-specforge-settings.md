@@ -21,8 +21,10 @@ load, its layout rewritten, and a credential could be put there. The edit plan w
   reads its argument as JSON for any type, in place of the VALUE words (`--json` is not a flag of any command: a convention
   test keeps `--format json` the one way to ask for JSON output). A word that does not fit its type is passed through as text so the form's
   own E086 says "must be an integer, found string". `unset` removes the member, so the setting reverts to its preset or
-  default (or is unset); it never writes `null`, which a setting with a default refuses. Unsetting what is not written
-  succeeds and changes nothing.
+  default (or is unset); it never writes `null`, which a setting with a default refuses. Unsetting a declared setting that is not written
+  succeeds and changes nothing. `unset` skips the secret and `check` admission when the member is written: a stale or
+  misspelt key (E086 at the load) and a committed secret (E087) are removed, which is the way out those diagnostics
+  name, and the result never repeats the removed value. A name that is neither declared nor written is still refused.
 - **D2. Admission before any write.** One function takes the extension, the name, the value and the registry, and
   answers the value or a diagnostic: the load's own `secret` check first, then its own `check`, so a load and a `set` can
   never disagree. A refusal is E086 (unknown name, wrong type or bound, an object that is not one) or E087 (a declared

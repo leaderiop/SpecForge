@@ -1205,9 +1205,11 @@ that is not an object. The message names the key, never the written value, and
 the diagnostic points at the key in `specforge.json`. A value that cannot be
 used is ignored: the preset, else the default, applies. `specforge settings`
 lists every setting with its type and effective value, `specforge settings set`
-and `unset` refuse the same way (E086, and E087 for a secret) before they write
-`specforge.json`, and `specforge schema --config` writes the project's config
-schema for an editor.
+refuses the same way (E086, and E087 for a secret) before it writes
+`specforge.json`, while `unset` removes any written key, a misspelt one and a
+committed secret included, and refuses only a name that is neither declared nor
+written, and `specforge schema --config` writes the project's config schema for
+an editor.
 
 Owner: core
 Level: error

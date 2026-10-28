@@ -74,7 +74,7 @@ pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintP
 pub use providers::Providers;
 pub use raises::Raises;
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
-pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin, admit};
+pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin, admit, is_secret};
 pub use setup::{SetupDiagnostic, SetupPart};
 pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeAspect, NodeChange, compute_graph_delta,

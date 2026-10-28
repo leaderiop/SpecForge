@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use specforge_common::shape::Shape;
 use specforge_common::{Diagnostic, DiagnosticList, codes};
-use specforge_project::{ResolvedSettings, admit};
+use specforge_project::{ResolvedSettings, admit, is_secret};
 use specforge_protocol_types::FieldType;
 
 use crate::change::locked;
@@ -144,6 +144,26 @@ pub fn set_setting(
     })
 }
 
+/// Whether `specforge.json` now writes the member the request names (an unreadable or malformed file writes none:
+/// the edit itself reports that).
+fn is_written(view: &ProjectView<'_>, request: &SetRequest<'_>) -> Result<bool, OpError> {
+    let held = request
+        .caller
+        .containment()
+        .resolve(&view.env().sources().path(CONFIG_FILE))?;
+    let document = held
+        .read_if_there()
+        .ok()
+        .flatten()
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    Ok(document.is_some_and(|document| {
+        ["settings", request.extension, request.name]
+            .iter()
+            .try_fold(&document, |at, key| at.get(*key))
+            .is_some()
+    }))
+}
+
 fn write(view: &ProjectView<'_>, request: &SetRequest<'_>) -> Result<SetOutcome, OpError> {
     let root = view.project_root()?;
     let registry = view.registries().settings();
@@ -174,8 +194,15 @@ fn write(view: &ProjectView<'_>, request: &SetRequest<'_>) -> Result<SetOutcome,
         SettingChange::Unset => None,
     };
     // shortcut: the value of a rejected secret is never scanned or echoed, only its name is checked; a secret hidden inside a JSON block value is not looked for.
-    let admitted =
-        admit(request.extension, request.name, value.as_ref(), registry).map_err(refused)?;
+    let written = matches!(request.change, SettingChange::Unset) && is_written(view, request)?;
+    let admitted = admit(
+        request.extension,
+        request.name,
+        value.as_ref(),
+        written,
+        registry,
+    )
+    .map_err(refused)?;
     if value.is_some() && admitted.is_none() {
         return Err(invalid(
             format!("'{}' cannot be set to null", request.name),
@@ -280,7 +307,9 @@ fn write(view: &ProjectView<'_>, request: &SetRequest<'_>) -> Result<SetOutcome,
             extension: request.extension.to_string(),
             name: request.name.to_string(),
             value: current(&after),
-            previous: current(&text),
+            // A committed secret is being removed: its value is not repeated.
+            previous: current(&text)
+                .filter(|_| !is_secret(request.extension, request.name, registry)),
             changed: after != text,
             dry_run: request.dry_run,
             file: CONFIG_FILE.to_string(),
