@@ -65,8 +65,8 @@ fn session_method(
     }
     Some(match method {
         // Listing: an environment change on disk changes the extension
-        // tools and resources listed (the pipeline brings the served project
-        // up to date; no extension declares a prompt).
+        // tools, resources and prompts listed (the pipeline brings the served
+        // project up to date).
         SessionMethod::ListTools => listed::<Tools, _>(state, |state| {
             crate::registry::handle_list_tools(state, revision, id)
         }),

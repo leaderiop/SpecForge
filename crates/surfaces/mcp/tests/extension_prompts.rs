@@ -48,6 +48,11 @@ fn a_project_without_extension_prompts_lists_the_core_prompts_unchanged() {
 
 /// `@t/core` served in process over a project whose phase has `goal`, with `settings` for the extension.
 fn gsd(goal: &str, state: &str, settings: Value) -> Served {
+    gsd_for(goal, state, settings, json!({}))
+}
+
+/// [`gsd`], the client's `initialize` also sending `init`.
+fn gsd_for(goal: &str, state: &str, settings: Value, init: Value) -> Served {
     let project = TestProject::new()
         .config(|c| {
             c["name"] = "p".into();
@@ -58,7 +63,7 @@ fn gsd(goal: &str, state: &str, settings: Value) -> Served {
         project.write(path, text);
     }
     let runtime: SharedRuntime = Arc::new(GsdPrompts::new().runtime());
-    Served::initialized_in(project, runtime)
+    Served::initialized_in_with(project, runtime, init)
 }
 
 fn listed(served: &mut Served) -> Vec<String> {
@@ -75,7 +80,6 @@ fn listed(served: &mut Served) -> Vec<String> {
     behavior = "serve_extension_prompt",
     verify = "an extension prompt is listed after the core ones and served by prompts/get"
 )]
-#[ignore = "K8 T7"]
 fn an_extension_prompt_is_listed_and_served() {
     let mut served = gsd("fine", "ok", json!({}));
     let names = listed(&mut served);
@@ -115,7 +119,6 @@ const CORE_PROMPTS: usize = 5;
     behavior = "serve_extension_prompt",
     verify = "a prompt whose when setting is off is not listed or served"
 )]
-#[ignore = "K8 T7"]
 fn a_prompt_disabled_by_its_setting_is_not_served() {
     let mut served = gsd("fine", "ok", json!({"workflow.research": false}));
     let names = listed(&mut served);
@@ -139,7 +142,6 @@ fn a_prompt_disabled_by_its_setting_is_not_served() {
     behavior = "serve_extension_prompt",
     verify = "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
 )]
-#[ignore = "K8 T7"]
 fn an_agent_renders_a_prompt_through_specforge_prompt() {
     let mut served = gsd("fine", "ok", json!({}));
     let by_name = rpc::tool(
@@ -187,7 +189,6 @@ fn an_agent_renders_a_prompt_through_specforge_prompt() {
     behavior = "serve_extension_prompt",
     verify = "the client names the host a prompt renders for, and a host argument overrides it"
 )]
-#[ignore = "K8 T7"]
 fn the_client_names_the_host_a_prompt_renders_for() {
     let host_of = |served: &mut Served, extra: Value| {
         let mut arguments = json!({"name": "specforge.t.plan_phase", "arguments": {"phase": "03"}});
@@ -211,14 +212,14 @@ fn the_client_names_the_host_a_prompt_renders_for() {
     );
     assert_eq!(host_of(&mut served, json!({"host": "cursor"})), "cursor");
     // `initialize` carries `clientInfo.name`.
-    let root = served.root().to_str().unwrap().to_string();
-    let hello = rpc::call(
-        &mut served,
-        "initialize",
-        json!({"projectRoot": root, "clientInfo": {"name": "claude-code", "version": "2"}}),
+    let init = json!({"clientInfo": {"name": "claude-code", "version": "2"}});
+    let mut named = gsd_for("fine", "ok", json!({}), init);
+    assert_eq!(host_of(&mut named, json!({})), "claude-code");
+    assert_eq!(
+        host_of(&mut named, json!({"host": "codex"})),
+        "codex",
+        "a host argument overrides the client's"
     );
-    assert!(hello["error"].is_null(), "{hello}");
-    assert_eq!(host_of(&mut served, json!({})), "claude-code");
 }
 
 #[specforge_test_macros::test(

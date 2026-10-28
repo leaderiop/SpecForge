@@ -328,7 +328,6 @@ fn recompilation_refreshes_surfaces() {
         "initialize",
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
-
     // Exactly the core tools: nothing missing, no extension tool.
     let core_tools = [
         "specforge.add_extension",
@@ -355,6 +354,7 @@ fn recompilation_refreshes_surfaces() {
         "specforge.model",
         "specforge.outline",
         "specforge.outline_extensions",
+        "specforge.prompt",
         "specforge.providers",
         "specforge.query",
         "specforge.remove_extension",

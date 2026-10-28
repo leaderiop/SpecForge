@@ -8787,5 +8787,71 @@ expression: listing
       "readOnlyHint": true,
       "openWorldHint": false
     }
+  },
+  {
+    "name": "specforge.prompt",
+    "description": "Render a prompt by name: an extension's (specforge.<short>.<id>, with its typed arguments or an argv string) or a core prompt's; the reply is the prompt's messages and the host's payload with each step's gate",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "additionalProperties": true,
+          "description": "The prompt's arguments by name; a reference as it is spelled, a list as a JSON array or a comma-separated string",
+          "type": "object"
+        },
+        "argv": {
+          "description": "The prompt's arguments as one `$ARGUMENTS` string, read as the command line reads them; instead of arguments",
+          "type": "string"
+        },
+        "host": {
+          "description": "The host to render for: claude-code, codex or cursor; absent, the one the client named",
+          "type": "string"
+        },
+        "name": {
+          "description": "The prompt: `specforge.<short>.<id>` for an extension's, a core prompt's name (`review`)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "messages": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "text"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "payload": {}
+      },
+      "required": [
+        "messages",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
   }
 ]

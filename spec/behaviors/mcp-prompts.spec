@@ -71,12 +71,14 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
 behavior serve_extension_prompt "Serve an Extension Prompt" {
   invariants [mcp_structured_error_responses, mcp_served_project_consistency]
   category   query
-  types      [McpPromptDescriptor, McpPromptArgument, McpError]
+  types      [McpPromptDescriptor, McpPromptArgument, McpPromptResult, McpPromptReplyMessage, McpError]
   contract   """
     An extension contributes MCP prompts in its surfaces (ADR 0291): each is served as specforge.<short>.<id>
     after the core prompts, rendered by the extension's prompt export from typed arguments, with one host message
     appended (the prompt's version and digest, its attribution, each step and whether its gate passes now). A
-    project whose extensions declare no prompt lists and serves the core prompts exactly as before.
+    project whose extensions declare no prompt lists and serves the core prompts exactly as before. The core tool
+    specforge.prompt renders any prompt by name from its arguments or an argv string, for the host the client named
+    or the one it is given, and answers its messages and the host message's payload.
   """
   verify unit "a project whose extensions declare no prompt lists and serves the core prompts unchanged"
   verify unit "a prompt argument is read by its field type and a reference is sent as its full path"

@@ -62,6 +62,8 @@ pub struct McpState {
     /// The machine `specforge.collect` runs commands on and keeps approvals in: the user's unless the
     /// host gave another ([`crate::McpServer::with_collector_machine`], ADR 0125).
     pub(crate) collector_machine: Arc<dyn CollectorMachine>,
+    /// The host the client named in `initialize` (`clientInfo.name`), when it is one SpecForge renders prompts for.
+    pub(crate) host: Option<specforge_ops::host::Host>,
 }
 
 impl McpState {
@@ -78,6 +80,7 @@ impl McpState {
             extension_runtime: None,
             solver: Arc::new(Z3::default()),
             collector_machine: Arc::new(ProcessMachine::user()),
+            host: None,
         }
     }
 

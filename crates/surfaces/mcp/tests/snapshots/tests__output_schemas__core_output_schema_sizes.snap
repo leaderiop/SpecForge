@@ -35,4 +35,5 @@ specforge.infer_gaps 1101
 specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
-total 67145
+specforge.prompt 283
+total 67428

@@ -961,6 +961,7 @@ const NOTHING_SERVED_PROBES: &[(Entry, &str, &str)] = &[
     (Entry::Tool, "specforge.render", r#"{"format":"brief"}"#),
     (Entry::Tool, "specforge.infer_progress", "{}"),
     (Entry::Tool, "specforge.infer_gaps", "{}"),
+    (Entry::Tool, "specforge.prompt", r#"{"name":"review"}"#),
     (
         Entry::Tool,
         "specforge.infer_session",
@@ -1078,7 +1079,6 @@ fn every_core_entry_with_nothing_served_answers_or_refuses_as_its_target_declare
             );
         }
     }
-
     // The probes cover every core tool but init, every prompt and every core
     // resource.
     let probed = |entry: Entry| -> Vec<&str> {

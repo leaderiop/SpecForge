@@ -159,6 +159,23 @@ type McpPromptDescriptor "Mcp Prompt Descriptor" {
   verify unit "McpPromptDescriptor schema is valid"
 }
 
+/// specforge.prompt's reply (ADR 0291): a prompt rendered by name, wherever its host lists no MCP prompts.
+type McpPromptResult "Mcp Prompt Result" {
+  /// What the prompt says, in order: an extension prompt's export answered them.
+  messages McpPromptReplyMessage[]
+  /// The host's payload: an extension prompt's version, digest, attribution, subject and each step with its gate; a
+  /// core prompt's is its own (an open value).
+  payload  object
+  verify unit "McpPromptResult schema is valid"
+}
+
+type McpPromptReplyMessage "Mcp Prompt Reply Message" {
+  /// user or assistant.
+  role string
+  text string
+  verify unit "McpPromptReplyMessage schema is valid"
+}
+
 type McpPromptArgument "Mcp Prompt Argument" {
   name        string @readonly
   description string

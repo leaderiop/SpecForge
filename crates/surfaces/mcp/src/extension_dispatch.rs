@@ -306,7 +306,7 @@ fn output_result(command: &ExtensionCommand, output: CommandOutput) -> ToolOutco
 
 /// A failed extension call as an MCP error: the diagnostic the runtime
 /// reported, in `diagnostic`.
-fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
+pub(crate) fn failed_call(diagnostic: &specforge_common::Diagnostic) -> McpError {
     McpError::new(ErrorCode::InternalError, diagnostic.message.clone()).with_diagnostic(diagnostic)
 }
 

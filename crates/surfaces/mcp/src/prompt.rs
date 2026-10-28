@@ -12,6 +12,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 use specforge_common::shape::{self, Object, Shape};
+use specforge_protocol_types::{PromptMessage, PromptRole};
 
 use crate::args::{Argument, Arguments};
 use crate::protocol::JsonRpcResponse;
@@ -50,12 +51,25 @@ pub struct Prompted<P> {
     pub payload: P,
 }
 
-/// What a `prompts/get` produced, erased: the instruction and the payload
-/// as JSON text in its type's field order.
+/// What a `prompts/get` produced, erased: the messages, each a role and its text. A core prompt's are its instruction
+/// then its payload as JSON text in its type's field order ([`Rendered::pair`]); an extension prompt's are what its
+/// export said, then the host's payload (ADR 0291).
 #[derive(Debug, Clone)]
 pub struct Rendered {
-    pub instruction: String,
-    pub payload: String,
+    pub messages: Vec<PromptMessage>,
+}
+
+impl Rendered {
+    /// A core prompt: its instruction, then its payload.
+    pub fn pair(instruction: String, payload: String) -> Self {
+        let user = |text| PromptMessage {
+            role: PromptRole::User,
+            text,
+        };
+        Rendered {
+            messages: vec![user(instruction), user(payload)],
+        }
+    }
 }
 
 /// What a `prompts/get` produced. A refusal is the spec's `McpError`, boxed
@@ -142,43 +156,40 @@ impl<T: CorePrompt> PromptSpec for T {
             instruction,
             payload,
         } = T::render(view, args)?;
-        Ok(Rendered {
+        Ok(Rendered::pair(
             instruction,
-            payload: serde_json::to_string(&payload).expect("a payload serializes"),
-        })
+            serde_json::to_string(&payload).expect("a payload serializes"),
+        ))
     }
 }
 
-/// The `prompts/get` reply for `outcome`: the only place that builds a
-/// prompt's `messages` or a prompt's error. A rendered prompt is its
-/// description and two user messages: the instruction, then the payload
-/// as JSON text. MCP prompts have no `isError`,
+/// The `prompts/get` reply for `outcome` of the prompt `name`: the only place that builds a
+/// prompt's `messages` or a prompt's error. A rendered prompt is its description and its messages, each a user
+/// (or, for an extension's, assistant) message of text. MCP prompts have no `isError`,
 /// so a refusal is a JSON-RPC error under the one code rule
 /// ([`McpError::into_rpc_error`]), its `McpError`, naming the prompt, as the
 /// error's `data`.
 pub fn prompt_envelope(
     outcome: PromptOutcome,
-    spec: &dyn PromptSpec,
+    name: &str,
+    description: &str,
     id: Option<Value>,
 ) -> JsonRpcResponse {
     match outcome {
-        // Both user messages (C9-14): graph data, user-authored text
+        // A core prompt's messages are both the user's (C9-14): graph data, user-authored text
         // included, never poses as the model's own earlier turn.
-        Ok(Rendered {
-            instruction,
-            payload,
-        }) => JsonRpcResponse::success(
+        Ok(Rendered { messages }) => JsonRpcResponse::success(
             id,
             json!({
-                "description": spec.description(),
-                "messages": [
-                    { "role": "user", "content": { "type": "text", "text": instruction } },
-                    { "role": "user", "content": { "type": "text", "text": payload } },
-                ],
+                "description": description,
+                "messages": messages
+                    .iter()
+                    .map(|m| json!({ "role": m.role, "content": { "type": "text", "text": m.text } }))
+                    .collect::<Vec<_>>(),
             }),
         ),
         Err(mut error) => {
-            error.prompt.get_or_insert_with(|| spec.name().to_string());
+            error.prompt.get_or_insert_with(|| name.to_string());
             JsonRpcResponse::from_error(id, error.into_rpc_error())
         }
     }

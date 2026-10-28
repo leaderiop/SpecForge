@@ -39,6 +39,7 @@ served specforge.infer_gaps => invalid_input argument=specforge_bogus data= | ev
 served specforge.infer_session => invalid_input argument=specforge_bogus data=files_written | events: mcp_tool_invoked:mutation,mcp_mutation_completed:false
 served specforge.find_implementation => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:navigation
 served specforge.find_spec_for_source => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:navigation
+served specforge.prompt => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 nothing specforge.query => invalid_input argument=entity_id data= | events: mcp_tool_invoked:core
 nothing specforge.validate => precondition_failed argument=path data= | events: mcp_tool_invoked:core
 nothing specforge.analyze => precondition_failed argument=path data= | events: mcp_tool_invoked:core
@@ -76,3 +77,4 @@ nothing specforge.infer_gaps => precondition_failed argument=- data= | events: m
 nothing specforge.infer_session => precondition_failed argument=- data=files_written | events: mcp_tool_invoked:mutation,mcp_mutation_completed:false
 nothing specforge.find_implementation => precondition_failed argument=- data= | events: mcp_tool_invoked:navigation
 nothing specforge.find_spec_for_source => precondition_failed argument=- data= | events: mcp_tool_invoked:navigation
+nothing specforge.prompt => invalid_input argument=name data= | events: mcp_tool_invoked:core
