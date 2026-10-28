@@ -397,6 +397,7 @@ impl Baseline {
                 let files = history
                     .files(place, commit, within)
                     .map_err(|e| e.to_string())?;
+                let failed = std::cell::RefCell::new(None);
                 let fetch = |keys: &[String]| -> Vec<(String, Option<Vec<u8>>)> {
                     let asked = crate::baseline_judged::paths(within, keys);
                     match history.blobs(place, commit, &asked) {
@@ -405,10 +406,20 @@ impl Baseline {
                             .cloned()
                             .zip(found.into_iter().map(|(_, bytes)| bytes))
                             .collect(),
-                        Err(_) => keys.iter().map(|key| (key.clone(), None)).collect(),
+                        Err(error) => {
+                            *failed.borrow_mut() = Some(error.to_string());
+                            keys.iter().map(|key| (key.clone(), None)).collect()
+                        }
                     }
                 };
                 let compiled = Self::compile(env, commit.clone(), within, files, &fetch);
+                // Files git could not give are not files it lacks: nothing is cached, and the baseline is unreadable.
+                if let Some(why) = failed.into_inner() {
+                    return Err(format!(
+                        "the files the judged rules read could not be read at {}: {why}",
+                        commit.as_str()
+                    ));
+                }
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
                 if let Ok(json) = serde_json::to_vec(&compiled) {
                     let dir = env.root().join(CACHE_DIR);

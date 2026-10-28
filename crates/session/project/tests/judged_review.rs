@@ -206,3 +206,58 @@ fn a_cited_file_outside_the_project_is_not_read() {
         assert_eq!(read.digest, "unreadable", "{file}");
     }
 }
+
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a baseline whose files git could not read is neither cached nor judged"
+)]
+fn a_failed_blob_read_poisons_no_baseline() {
+    use specforge_project::baseline::Baseline;
+    use specforge_project::history::{History, HistoryError, Located, Sha};
+    use specforge_project::testing::FakeHistory;
+    use std::path::PathBuf;
+    let project = gsd_judged_project("");
+    record(&project, PLAN, W311, "passed");
+    let compiled = compile(&project);
+    let id = Sha::new("b".repeat(40));
+    let files = vec![
+        (PathBuf::from("a.spec"), project.read("a.spec").into_bytes()),
+        (
+            PathBuf::from("specforge-harness"),
+            project.read("specforge-harness").into_bytes(),
+        ),
+    ];
+    let mut fake = FakeHistory::repo(project.root(), id.as_str(), files);
+    fake.blobs_fail = Some(HistoryError("git went away".into()));
+    let Located::Repo(place) = History::locate(&fake, project.root()) else {
+        panic!("a repository")
+    };
+    let env = compiled.environment();
+    let why = Baseline::at(env, &fake, &place, &id).expect_err("an unreadable baseline");
+    assert!(why.contains("git went away"), "{why}");
+    let cached = std::fs::read_dir(project.root().join(".specforge"))
+        .map(|dir| {
+            dir.flatten()
+                .any(|e| e.file_name().to_string_lossy().ends_with(".json"))
+        })
+        .unwrap_or(false);
+    assert!(!cached, "a failed read was cached");
+    // Git answering again gives the baseline the verdict holds in.
+    fake.blobs_fail = None;
+    fake.blobs = vec![
+        (PathBuf::from("CLAUDE.md"), b"# Instructions\n".to_vec()),
+        (
+            PathBuf::from("src/auth/session.ts"),
+            b"export const session = 1;\n".to_vec(),
+        ),
+    ];
+    let baseline = Baseline::at(env, &fake, &place, &id).expect("a baseline");
+    assert!(
+        baseline.entities[PLAN]
+            .judgements
+            .iter()
+            .any(|j| j.rule == W311 && j.state == "fresh"),
+        "{:?}",
+        baseline.entities[PLAN].judgements
+    );
+}
