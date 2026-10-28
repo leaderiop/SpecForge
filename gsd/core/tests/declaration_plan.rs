@@ -259,3 +259,61 @@ fn must_haves_golden() {
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }
 }
+
+#[test]
+fn the_disposition_kind_is_append_only_and_every_field_immutable() {
+    let disposition = kind_of("disposition");
+    assert_eq!(disposition["append_only"], true);
+    assert_eq!(disposition["scoped_by"], "plan");
+    let fields = disposition["fields"].as_array().expect("fields");
+    assert_eq!(fields.len(), 6);
+    for field in fields {
+        assert_eq!(field["immutable"], true, "{}", field["name"]);
+    }
+    assert_ne!(kind_of("plan")["append_only"], true);
+}
+
+#[test]
+fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
+    assert_eq!(
+        fields_of("user_setup"),
+        [
+            "plan",
+            "service",
+            "why",
+            "env_vars",
+            "dashboard",
+            "local_dev",
+            "done"
+        ]
+    );
+    let done = field_of("user_setup", "done");
+    assert_eq!(done["writer"], "harness");
+    assert_eq!(done["field_type"], "block");
+    assert_eq!(
+        field_of("user_setup", "dashboard")["field_type"],
+        "block_list"
+    );
+    assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
+}
+
+/// `plan.md` lists 77 fields over its nine kinds. The model fixes: `gap_closure` waits for `verify_gap` and
+/// `uat_gap` (r39) and `task.commits` for `commit` (r38), which are 2 fewer, and `task.verify_text`,
+/// `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification` are 4 more: 77 - 2 + 4 = 79,
+/// and 78 until `verify_paths` lands with gsd/E320.
+#[test]
+fn the_plan_kinds_declare_every_field_of_plan_md() {
+    let kinds = [
+        "plan",
+        "task",
+        "checkpoint",
+        "truth",
+        "artifact",
+        "key_link",
+        "prohibition",
+        "disposition",
+        "user_setup",
+    ];
+    let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
+    assert_eq!(total, 77 - 2 + 3, "the kinds' fields");
+}

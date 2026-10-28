@@ -127,3 +127,44 @@ pub const CHECKPOINT: Kind = Kind::new(
     ],
 )
 .scoped_by("plan");
+
+const OUTCOME: &[&str] = &["addressed", "deferred"];
+
+/// A row of the plan's Review Dispositions Ledger, named `DSP1`: append-only, every field immutable (GSD
+/// `planner-reviews.md`; written by `/gsd-plan-review-convergence`).
+pub const DISPOSITION: Kind = Kind::new(
+    "disposition",
+    "A review finding and what the plan did about it (GSD Review Dispositions Ledger)",
+    &[
+        rf("plan", "plan").r().i().doc("parent"),
+        int("round").r().i().doc("the review round"),
+        str("reviewer").r().i().doc("who raised it"),
+        str("feedback").r().i().doc("the finding"),
+        en("outcome", OUTCOME).r().i().doc("addressed or deferred"),
+        str("reason").i().doc("why it was deferred"),
+    ],
+)
+.append_only()
+.scoped_by("plan");
+
+const ENV_VAR: &[Field] = &[str("name").r(), str("source")];
+const DASHBOARD: &[Field] = &[str("task"), str("location"), str("details")];
+const SETUP_DONE: &[Field] = &[ts("at"), str("by")];
+
+/// `user_setup:` of a plan, named `US1`: what a human must do outside the code.
+pub const USER_SETUP: Kind = Kind::new(
+    "user_setup",
+    "A setup step only a human can do: an account, an environment variable, a dashboard setting (GSD user_setup)",
+    &[
+        rf("plan", "plan").r().i().doc("parent"),
+        str("service").r().doc("`service:`"),
+        str("why").r().doc("`why:`"),
+        blocks("env_vars", ENV_VAR).doc("`env_vars:`"),
+        blocks("dashboard", DASHBOARD).doc("`dashboard_config:`"),
+        strs("local_dev").doc("`local_dev:`"),
+        block("done", SETUP_DONE)
+            .h()
+            .doc("written when the human confirms (`confirm_setup`)"),
+    ],
+)
+.scoped_by("plan");

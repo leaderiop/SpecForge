@@ -244,3 +244,46 @@ fn the_readme_example_checks_clean() {
     p.write("spec/readme.spec", &format!("{block}\n"));
     assert_eq!(p.codes(), Vec::<String>::new());
 }
+
+const DISPOSITION: &str = "disposition DSP1 \"Name the file format\" {\n  plan     v1.0/02/02-01\n  round    1\n  reviewer \"codex\"\n  feedback \"The plan does not say which file format the store writes\"\n  outcome  addressed\n}\n";
+
+#[test]
+fn a_rewritten_disposition_is_refused() {
+    let p = project("plan");
+    p.commit();
+    p.edit("spec/plans.spec", "outcome  addressed", "outcome  deferred");
+    assert_eq!(p.codes(), ["E084"]);
+}
+
+#[test]
+fn a_removed_disposition_is_e085() {
+    let p = project("plan");
+    p.commit();
+    p.edit("spec/plans.spec", DISPOSITION, "");
+    assert_eq!(p.codes(), ["E085"]);
+}
+
+#[test]
+fn an_appended_disposition_is_clean() {
+    let p = project("plan");
+    p.commit();
+    p.edit(
+        "spec/plans.spec",
+        DISPOSITION,
+        &format!(
+            "{DISPOSITION}\ndisposition DSP2 \"Pin the path\" {{\n  plan     v1.0/02/02-01\n  round    2\n  reviewer \"codex\"\n  feedback \"The data directory is not pinned\"\n  outcome  deferred\n  reason   \"Decided in phase 3\"\n}}\n"
+        ),
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_hand_written_setup_done_is_e083() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "local_dev [\"mkdir -p data\"]\n",
+        "local_dev [\"mkdir -p data\"]\n  done      { at \"2026-10-28T09:30:00Z\" by \"me\" }\n",
+    );
+    assert_eq!(p.codes(), ["E083"]);
+}

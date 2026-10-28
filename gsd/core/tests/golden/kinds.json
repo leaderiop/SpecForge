@@ -397,6 +397,24 @@
         "label": "ProhibitionPlan",
         "source_kind": "prohibition",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DispositionPlan",
+        "source_kind": "disposition",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UserSetupPlan",
+        "source_kind": "user_setup",
+        "target_kind": "plan"
       }
     ]
   },
@@ -4390,6 +4408,287 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "prohibition",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "append_only": true,
+        "description": "A review finding and what the plan did about it (GSD Review Dispositions Ledger)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "DispositionPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "the review round",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "round",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who raised it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reviewer",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the finding",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "feedback",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "addressed or deferred",
+            "edge": null,
+            "enum_values": [
+              "addressed",
+              "deferred"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "outcome",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why it was deferred",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "disposition",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A setup step only a human can do: an account, an environment variable, a dashboard setting (GSD user_setup)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UserSetupPlan",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "`service:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "service",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`why:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`env_vars:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "name",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "source",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "env_vars",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`dashboard_config:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "task",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "location",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "details",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "dashboard",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`local_dev:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "local_dev",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "written when the human confirms (`confirm_setup`)",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "done",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "user_setup",
         "open_fields": false,
         "scoped_by": "plan",
         "semantic_token": null,

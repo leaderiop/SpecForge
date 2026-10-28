@@ -46,6 +46,8 @@ const KINDS: &[&Kind] = &[
     &must_haves::ARTIFACT,
     &must_haves::KEY_LINK,
     &must_haves::PROHIBITION,
+    &plan::DISPOSITION,
+    &plan::USER_SETUP,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
