@@ -14,7 +14,7 @@ use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
 use specforge_registry::{Disk, EntitySnapshot, FileStamp};
 
 use super::report::{self, Report};
-use super::select::{FileRef, Select};
+use super::select::{FileRef, Referrers, Select};
 use super::{DigestMemo, entity_digest, file_digest};
 use crate::{CompiledProject, Environment};
 
@@ -120,6 +120,7 @@ pub(super) struct Cx<'a> {
     disk: &'a dyn Disk,
     memo: &'a DigestMemo,
     report: OnceCell<Report>,
+    referrers: Referrers,
 }
 
 pub(super) fn hash(value: &Value) -> String {
@@ -142,6 +143,7 @@ impl<'a> Cx<'a> {
             disk,
             memo,
             report: OnceCell::new(),
+            referrers: Referrers::default(),
         }
     }
 
@@ -155,6 +157,7 @@ impl<'a> Cx<'a> {
             graph: self.graph,
             fields: self.env.registries().fields(),
             forms: self.env.registries().field_forms(),
+            referrers: &self.referrers,
         }
     }
 

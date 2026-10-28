@@ -2,7 +2,9 @@
 //! Resolution is type-directed like the registry's check (`reference_end`): a block field's next word is a member, a
 //! reference followed by more words begins the next hop. Every reference is read as the full path it resolves to.
 
-use std::collections::BTreeSet;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 use serde_json::Value;
 use specforge_graph::{FieldForms, Graph, Node, wire};
@@ -18,10 +20,15 @@ pub(super) struct FileRef {
     pub project: bool,
 }
 
+/// For a `(kind, field path)`: each target the field of a `kind` entity names, with the entities that name it.
+pub(super) type Referrers = RefCell<BTreeMap<(String, String), Rc<BTreeMap<String, Vec<String>>>>>;
+
 pub(super) struct Select<'a> {
     pub graph: &'a Graph,
     pub fields: &'a FieldRegistry,
     pub forms: &'a FieldForms,
+    /// Built once per check and shared by every selector evaluation (not per judged entity).
+    pub referrers: &'a Referrers,
 }
 
 impl Select<'_> {
@@ -57,9 +64,13 @@ impl Select<'_> {
                 Step::Referrers { kinds, path } => {
                     set = kinds
                         .iter()
-                        .flat_map(|k| self.graph.nodes_by_kind(k))
-                        .filter(|n| self.values_at(n, path).iter().any(|v| set.contains(v)))
-                        .map(|n| n.id.raw.to_string())
+                        .map(|k| self.index(k, path))
+                        .flat_map(|index| {
+                            set.iter()
+                                .filter_map(|target| index.get(target).cloned())
+                                .flatten()
+                                .collect::<Vec<_>>()
+                        })
                         .collect();
                 }
             }
@@ -135,6 +146,26 @@ impl Select<'_> {
         None
     }
 
+    /// The referrer index of `path` over the entities of `kind`, built on first use.
+    fn index(&self, kind: &str, path: &str) -> Rc<BTreeMap<String, Vec<String>>> {
+        let key = (kind.to_string(), path.to_string());
+        if let Some(held) = self.referrers.borrow().get(&key) {
+            return Rc::clone(held);
+        }
+        let mut index: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for node in self.graph.nodes_by_kind(kind) {
+            for value in self.values_at(node, path) {
+                index
+                    .entry(value)
+                    .or_default()
+                    .push(node.id.raw.to_string());
+            }
+        }
+        let index = Rc::new(index);
+        self.referrers.borrow_mut().insert(key, Rc::clone(&index));
+        index
+    }
+
     /// The strings the field or member `path` of `node` holds, a reference as the full path of its target.
     fn values_at(&self, node: &Node, path: &str) -> Vec<String> {
         let words: Vec<&str> = path.split('.').collect();
@@ -157,5 +188,35 @@ fn pick(value: &Value, words: &[&str], out: &mut Vec<String>) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::{gsd_judged_project, gsd_judged_runtime};
+    use specforge_registry::judged::Selector;
+    use std::sync::Arc;
+
+    #[test]
+    fn referrer_steps_share_one_index_per_check() {
+        let project = gsd_judged_project("");
+        let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as crate::SharedRuntime);
+        let registries = compiled.environment().registries();
+        let referrers = Referrers::default();
+        let select = Select {
+            graph: compiled.graph(),
+            fields: registries.fields(),
+            forms: registries.field_forms(),
+            referrers: &referrers,
+        };
+        let Ok(Selector::Entities(chain)) = Selector::parse("self.phase<decision.phase") else {
+            panic!("an entities selector")
+        };
+        let first = select.entities("v1.0/03/03-02", &chain);
+        let second = select.entities("v1.0/03/03-03", &chain);
+        assert_eq!(first, BTreeSet::from(["v1.0/03/D-01".to_string()]));
+        assert_eq!(first, second);
+        assert_eq!(referrers.borrow().len(), 1, "one index serves every entity");
     }
 }
