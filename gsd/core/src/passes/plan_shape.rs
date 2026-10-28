@@ -1,5 +1,5 @@
 //! The plan-shape pass: the rules that read one plan with its tasks, checkpoints and must-haves. `gsd/W323` (its
-//! name), `gsd/E303` (a task's parts), `gsd/W304` and `gsd/E322` (how many tasks), `gsd/E307` (a checkpoint's
+//! name), `gsd/E302` (its requirements), `gsd/E303` (a task's parts), `gsd/W304` and `gsd/E322` (how many tasks), `gsd/E307` (a checkpoint's
 //! options; its required fields are declarative, `rules.rs`), `gsd/W308` (a one-way door) and `gsd/W309` (its
 //! must-haves). Each reads what GSD's `verify plan-structure` and the plan checker's dimensions read.
 
@@ -17,6 +17,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = names(input);
+    found.extend(requirements(input));
     found.extend(task_parts(input));
     found.extend(task_counts(input));
     found.extend(checkpoint::check(input));
@@ -80,6 +81,26 @@ fn names(input: &PassInput) -> Vec<PassDiagnostic> {
                 ),
             }
             .map(|d| d.with_entity(&plan.id))
+        })
+        .collect()
+}
+
+/// E302: a phase plan names at least one requirement (GSD's plan template makes `requirements` non-empty, and the
+/// checker's D1 blocks a plan that covers none). A quick plan is exempt: it names no roadmap requirement. It cannot
+/// be declarative: no declarative check reads "the field `phase` is unset".
+fn requirements(input: &PassInput) -> Vec<PassDiagnostic> {
+    of_kind(input, "plan")
+        .filter(|plan| {
+            plan.fields.contains_key("phase") && strings(plan, "requirements").is_empty()
+        })
+        .map(|plan| {
+            PassDiagnostic::new(
+                "E302",
+                PassSeverity::Error,
+                format!("plan '{}' names no requirement", plan.id),
+            )
+            .with_suggestion("list the requirements the plan delivers in requirements")
+            .with_entity(&plan.id)
         })
         .collect()
 }

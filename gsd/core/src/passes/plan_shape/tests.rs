@@ -115,7 +115,10 @@ const PLAN: &str = "v/1/1-01";
 /// A plan with a truth and an artifact, so that W309 stays silent, and `more`.
 fn input(more: Vec<PassEntity>, edges: Vec<PassEdge>) -> PassInput {
     let mut entities = vec![
-        entity(PLAN, "plan", &[("phase", "v/1")]),
+        with_values(
+            entity(PLAN, "plan", &[("phase", "v/1")]),
+            &[("requirements", serde_json::json!(["REQ-1"]))],
+        ),
         entity("v/1/1-01/TR1", "truth", &[]),
         entity("v/1/1-01/AR1", "artifact", &[]),
     ];
@@ -308,7 +311,10 @@ fn w308_is_silent_when_settled_or_after_a_decision_checkpoint() {
 #[test]
 fn w309_needs_both_a_truth_and_an_artifact() {
     let bare = PassInput {
-        entities: vec![entity(PLAN, "plan", &[("phase", "v/1")])],
+        entities: vec![with_values(
+            entity(PLAN, "plan", &[("phase", "v/1")]),
+            &[("requirements", serde_json::json!(["REQ-1"]))],
+        )],
         edges: vec![edge(PLAN, "v/1", "phase")],
         ..Default::default()
     };
@@ -319,4 +325,30 @@ fn w309_needs_both_a_truth_and_an_artifact() {
         "{found:?}"
     );
     assert!(check(&input(vec![], vec![])).is_empty());
+}
+
+#[test]
+fn e302_fires_on_a_phase_plan_with_no_or_empty_requirements() {
+    for values in [vec![], vec![("requirements", serde_json::json!([]))]] {
+        let plan = with_values(entity(PLAN, "plan", &[("phase", "v/1")]), &values);
+        let found = requirements(&PassInput {
+            entities: vec![plan],
+            ..Default::default()
+        });
+        assert_eq!(codes_of(&found), [("E302", Some(PLAN))], "{values:?}");
+    }
+}
+
+#[test]
+fn e302_is_silent_on_a_quick_plan_and_on_a_plan_with_requirements() {
+    let quick = entity("261028-a1b", "plan", &[]);
+    let named = with_values(
+        entity(PLAN, "plan", &[("phase", "v/1")]),
+        &[("requirements", serde_json::json!(["REQ-1"]))],
+    );
+    let found = requirements(&PassInput {
+        entities: vec![quick, named],
+        ..Default::default()
+    });
+    assert!(found.is_empty(), "{found:?}");
 }

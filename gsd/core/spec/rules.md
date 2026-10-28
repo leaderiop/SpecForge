@@ -23,7 +23,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E101 | every v1 requirement maps to exactly one phase (waits for the first phase: requirements written before the roadmap are not unmapped yet) | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
-| gsd/E102 | phase and plan `depends_on` are acyclic and point at earlier ones only | decl + pass | E | E | D3 |
+| gsd/E102 | phase `depends_on` is acyclic and points at earlier phases of its milestone only; plan `depends_on` is acyclic and names plans of its own phase only (a token that does not resolve in the phase is dropped by GSD, which then places the wave unreliably; a quick plan is checked for cycles only) | pass | E | E | D3, `src/phase.cts` (`depends_on` resolution and cycle error) |
 | gsd/W103 | a phase has 2–5 success criteria (reads the list's items) | pass | W | E | roadmap template |
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
@@ -49,7 +49,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E301 | every requirement of a phase is in at least one of its plans | pass | E | E | D1 |
-| gsd/E302 | a plan names at least one requirement (`missing_required_field` and `non_empty` under one code) | decl | E | E | plan template (`requirements` non-empty) |
+| gsd/E302 | a plan of a phase names at least one requirement; a quick plan (no `phase`) is exempt, it names no roadmap requirement (no declarative check reads "`phase` is unset") | pass | E | E | plan template (`requirements` non-empty), D1 |
 | gsd/E303 | an `auto`, `tdd` or `tracer` task has `files` and a verify of some form (`verify`, `verify_text` or `verify_human`); `action` and `done` are required fields, so the host reports those; `manual` is exempt. Severity divergence: GSD's `verify plan-structure` warns on a missing `<verify>`, `<files>` and `<done>` and errors on a missing `<action>`; the plan checker's D2 blocks all four, and that is the severity kept | pass | E | E | D2, `verify plan-structure` |
 | gsd/W304 | a plan has at most 3 tasks (4 warns; the count is GSD's `task_count`: tasks plus checkpoints) | pass | W | E | D5 |
 | gsd/W305 | plans of one wave share no path in `files_modified ∪ files_deleted`; under compat that wave runs sequentially | pass | W | E | wave guard (#3003), execute-phase overlap check |

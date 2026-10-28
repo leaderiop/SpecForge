@@ -29,7 +29,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | files_modified | strs | R | `files_modified:`: paths from the project root, not existence-checked (a plan names files it will create, so `files` would be E016 on each) |
 | files_deleted | strs | | `files_deleted:` |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
-| requirements | →* requirement | | `requirements:` (non-empty: not `R`, so gsd/E302 is the one diagnostic of its absence) |
+| requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (declared in round r39, with those kinds: a reference to a kind no loaded extension declares is W021) |
 | agent_hint | str | | `agent_hint:` |

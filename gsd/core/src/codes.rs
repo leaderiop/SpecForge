@@ -207,7 +207,7 @@ pub static CODES: &[Code] = &[
     code(
         "E302",
         "Plan names no requirement",
-        "A plan names at least one requirement (missing_required_field and non_empty under one code)",
+        "A plan of a phase names at least one requirement (a quick plan names none)",
         "plan",
         Severity::Error,
         Severity::Error,

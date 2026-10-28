@@ -94,7 +94,7 @@
     {
       "code": "E302",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan names at least one requirement (missing_required_field and non_empty under one code). It is an error.",
+      "explanation": "A plan of a phase names at least one requirement (a quick plan names none). It is an error.",
       "title": "Plan names no requirement"
     },
     {

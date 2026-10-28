@@ -223,3 +223,65 @@ fn w308_is_an_error_under_gsd_strict() {
     );
     strict_fails(&p, "W308");
 }
+
+#[test]
+fn plan_without_requirements_is_e302() {
+    let p = project("plan");
+    p.edit("spec/plans.spec", "  requirements   [TASK-01]\n", "");
+    // Phase 01 still lists TASK-01, so only the plan is wrong.
+    assert_eq!(p.codes(), ["gsd/E302"]);
+    assert!(only(&p, "gsd/E302").contains("plan 'v1.0/01/01-01' names no requirement"));
+}
+
+#[test]
+fn plan_with_empty_requirements_is_e302() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  requirements   [TASK-01]\n",
+        "  requirements   []\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E302"]);
+}
+
+#[test]
+fn a_quick_plan_without_requirements_is_clean() {
+    // The fixture's quick plan `261028-a1b` names none.
+    let p = project("plan");
+    assert!(p.read("spec/plans.spec").contains("plan 261028-a1b"));
+    assert_eq!(p.codes(), CLEAN);
+}
+
+#[test]
+fn plan_cycle_is_e102() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  files_modified [\"src/tasks.js\", \"test/tasks.test.js\"]\n",
+        "  depends_on     [01-02]\n  files_modified [\"src/tasks.js\", \"test/tasks.test.js\"]\n",
+    );
+    // 01-01 and 01-02 depend on each other: the kernel's own W061 for the reference cycle, and one E102 per plan.
+    assert_eq!(p.codes(), ["W061", "gsd/E102", "gsd/E102"]);
+    let messages: Vec<String> = p.findings().into_iter().map(|(_, m)| m).collect();
+    assert_eq!(
+        messages,
+        [
+            "plan 'v1.0/01/01-01' is on a dependency cycle",
+            "plan 'v1.0/01/01-02' is on a dependency cycle"
+        ]
+    );
+}
+
+#[test]
+fn a_plan_depending_on_another_phase_is_e102() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  files_modified [\"src/store.js\"]\n",
+        "  depends_on     [v1.0/01/01-02]\n  files_modified [\"src/store.js\"]\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E102"]);
+    assert!(only(&p, "gsd/E102").contains(
+        "plan 'v1.0/02/02-01' depends on 'v1.0/01/01-02', which is not a plan of its phase: GSD drops the edge"
+    ));
+}
