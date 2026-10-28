@@ -1638,6 +1638,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Preset**: a declared map from each value of an enum or bool setting to settings and raised codes; it raises
   severities upward only (ADR 0288).
 - **Gate**: a bool setting's list of codes; while it is false no source reports them (ADR 0288).
+- **Prompt (extension)**: a workflow an extension declares in its surfaces: typed arguments, `gates`, a `subject`, `steps`
+  and an `attribution`, rendered by a `prompt__<id>` export. Served as `specforge.<short>.<id>` (MCP), `specforge prompt`
+  and `specforge <short> <id>`; the host appends a message with the version, a digest, the attribution and each step's
+  gate. It is not a contract: only a gate refuses (ADR 0291).
+- **Command gate**: `gates` (local codes) and a `subject` argument on a command or prompt; the call is refused
+  `gate_failed` before its export runs while a gated code is an error in the subject's scope, a guard pass that
+  `reports` it asked once with a `trigger` (ADR 0291).
 - **Secret**: a declared environment variable an extension reads; the file may not hold it (E087) and no value
   crosses into a guest, only whether it is set (ADR 0288).
 - **Origin**: where a setting's value came from, `SettingOrigin`: explicit, preset, default or unset (ADR 0288).
