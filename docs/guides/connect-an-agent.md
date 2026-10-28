@@ -77,7 +77,10 @@ moment it is installed ([Extending SpecForge](extending-specforge.md#a-command))
   hears when they change.
 - **Prompts:** `specforge://prompts/context`, `review`, `trace`, `explore` and `infer`: ready-made
   instructions for common jobs (load the context of an entity, review coverage gaps, explore the graph,
-  infer specs from code).
+  infer specs from code). An extension may add prompts, listed after these as `specforge.<extension>.<prompt>`
+  with each argument's type in its description; a client that lists no MCP prompts calls the `specforge.prompt`
+  tool with the prompt's name and its arguments (or an `argv` string). The server reads the host from the
+  client's `initialize` (`clientInfo.name`), and `host` overrides it ([gated workflows](gating-a-workflow.md)).
 
 ## 4. The validate-every-edit loop
 

@@ -279,6 +279,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.enhance(kind, \|e\| ..)` | fields and verify kinds on another extension's kind | `enhancements` |
 | `c.rule(code, \|r\| ..)` | a declarative rule, or a custom one with `r.validate(..)` | `validation_rules` |
 | `c.command(id, \|cmd\| ..)` | a CLI command (also an MCP tool) and its handler | `surfaces` |
+| `c.prompt(id, \|p\| ..)` | an MCP prompt (also `specforge prompt`) and the handler that renders it | `surfaces` |
 | `c.mcp_tool(..)`, `c.mcp_resource(..)` | an MCP tool or resource and its handler | `surfaces` |
 | `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
@@ -427,6 +428,41 @@ An MCP tool's `input_schema` may not declare `path`, as a property or a required
 the project, the host's call target reads it from every MCP call and takes it out before the tool's
 export sees it (`specforge_protocol_types::tool_input`, ADR 0239). The builder panics on such a tool,
 as on a command arg named `path`, so the extension's first test finds it.
+
+### Prompts and gates
+
+A prompt is a workflow an agent follows (ADR 0291, protocol 1.10.0). It is declared with typed arguments, the codes
+that gate it, the steps it asks of the agent and the handler that renders its messages; the host adds one message of
+its own (the prompt's version, a digest of yours, the attribution and each step with its gate now):
+
+```rust
+c.prompt("plan_phase", |p| {
+    p.title("Plan a phase")
+        .description("Plan the phase, then check the plans")
+        .arg("phase", |a| { a.reference("phase").required(); })
+        .arg("depth", |a| { a.integer().minimum(1).maximum(3); })
+        .gate("E901").subject("phase")                    // refused gate_failed while E901 fails in the phase
+        .step("plan", |s| { s.title("Write the plans").command("record_plan"); })
+        .step("check", |s| { s.title("Check the plans"); })
+        .attribution(Attribution { upstream: "gsd-core".into(), path: "workflows/plan-phase.md".into(),
+            version: "1.18.0".into(), license: "MIT".into(), copyright: "Copyright (c) 2026 Open GSD".into() })
+        .handler(|call| {
+            let phase = call.str("phase").unwrap_or_default();   // a reference arrives as its full path
+            Ok(PromptOutput::user(format!("Plan {phase} for the host {:?}", call.host())))
+        });
+});
+```
+
+`PromptCall` reads the typed arguments (`str`, `bool`, `integer`, `list`), `host()` (`claude-code`, `codex` or
+`cursor` when known), `cwd()`, `today()` and, after `p.reads_graph()`, `graph()`. `p.when("setting")` serves the prompt
+only while a bool setting of the extension is not false. An argument is `string`, `integer`, `bool`, `date`,
+`string_list`, `one_of(..)`, `many_of(..)`, `reference(kind)` or `reference_list(kind)`; there is no path argument.
+A step runs a `command(id)` of the extension, an `agent(id)` or a `prompt(id)`, or nothing.
+
+A command is gated the same way: `cmd.gate("E902").subject("phase")` refuses the call `gate_failed` before the handler
+runs while the code fails in the subject's scope (the project, with no subject). A pass declared `guard()` names the
+codes it answers at a gate with `p.reports(&["E903"])`, and reads `PassInput.trigger` to tell a gate from a write.
+A prompt is not a contract: the agent may ignore a step, and only a gate refuses ([guide](guides/gating-a-workflow.md)).
 
 ### Writing commands and collectors
 
