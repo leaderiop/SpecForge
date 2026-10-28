@@ -1,0 +1,14 @@
+{
+  "args": {
+    "depth": 2,
+    "labels": [
+      "a",
+      "b"
+    ],
+    "phase": "v1.0/03",
+    "research": true
+  },
+  "cwd": "/p",
+  "host": "claude-code",
+  "today": "2026-10-28"
+}

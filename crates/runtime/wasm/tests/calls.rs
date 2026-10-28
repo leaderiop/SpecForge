@@ -7,8 +7,7 @@
 
 use std::cell::RefCell;
 
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
@@ -17,10 +16,9 @@ use specforge_extension_sdk::{
     ScannedItem, Served,
 };
 use specforge_protocol_types::{CommandInput as WireCommandInput, DeclaredCategory, RawGraph};
-use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{
     CallError, CallFailure, ExtensionCalls, Operation, WasmCallResult, WasmRuntime, WasmTrapInfo,
-    pass_diagnostics,
+    pass_diagnostics, testing::InProcessRuntime,
 };
 
 const EXT: &str = "@calls/x";
@@ -360,6 +358,7 @@ fn export_of(operation: Operation) -> &'static str {
         Operation::Validate => "validate__x",
         Operation::Scan => "scan__x",
         Operation::Migrate => "migrate__x",
+        Operation::Prompt => "prompt__x",
     }
 }
 
@@ -401,6 +400,7 @@ fn perform(calls: &ExtensionCalls, operation: Operation, extension: &str) -> Res
         Operation::Migrate => calls
             .migrate(extension, export, &MigrationInput::default())
             .map(drop),
+        Operation::Prompt => crate::prompt_wire::render(calls, extension, export),
     }
 }
 

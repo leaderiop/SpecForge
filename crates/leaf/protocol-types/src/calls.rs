@@ -382,6 +382,9 @@ pub struct PassInput {
     /// baseline (not in a git repository, no commit yet), and for analyze passes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous: Option<PassBaseline>,
+    /// Why the host runs the pass; absent reads a write (protocol 1.10.0, ADR 0291). Sent to a guard pass only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<crate::Trigger>,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,

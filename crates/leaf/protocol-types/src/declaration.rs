@@ -13,12 +13,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
+    AnalyzerDescriptor, Attribution, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
     CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
     EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, McpResourceDescriptor,
-    McpToolDescriptor, PeerDependency, PresetDescriptor, ProtocolError, SecretDescriptor,
-    SettingDescriptor, SettingsItem, SurfaceDescriptor, ValidationRuleDescriptor,
+    McpToolDescriptor, PeerDependency, PresetDescriptor, PromptArgDescriptor, PromptDescriptor,
+    PromptStep, ProtocolError, SecretDescriptor, SettingDescriptor, SettingsItem,
+    SurfaceDescriptor, ValidationRuleDescriptor,
 };
 
 /// Everything one extension declares: its handshake and every describe
@@ -435,12 +436,33 @@ static RESOURCE: Shape = Shape {
     fields: struct_fields::<McpResourceDescriptor>,
     nested: &[],
 };
+static PROMPT_ARG: Shape = Shape {
+    fields: struct_fields::<PromptArgDescriptor>,
+    nested: &[],
+};
+static PROMPT_STEP: Shape = Shape {
+    fields: struct_fields::<PromptStep>,
+    nested: &[],
+};
+static ATTRIBUTION: Shape = Shape {
+    fields: struct_fields::<Attribution>,
+    nested: &[],
+};
+static PROMPT: Shape = Shape {
+    fields: struct_fields::<PromptDescriptor>,
+    nested: &[
+        ("args", Nested::List(&PROMPT_ARG)),
+        ("steps", Nested::List(&PROMPT_STEP)),
+        ("attribution", Nested::One(&ATTRIBUTION)),
+    ],
+};
 static SURFACE: Shape = Shape {
     fields: struct_fields::<SurfaceDescriptor>,
     nested: &[
         ("commands", Nested::List(&COMMAND)),
         ("mcp_tools", Nested::List(&TOOL)),
         ("mcp_resources", Nested::List(&RESOURCE)),
+        ("prompts", Nested::List(&PROMPT)),
     ],
 };
 static AUTO_DETECT: Shape = Shape {

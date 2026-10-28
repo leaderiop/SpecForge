@@ -9,6 +9,7 @@ mod handshake_conformance;
 mod judged_wire;
 mod load_declaration;
 mod plan_wire;
+mod prompt_wire;
 mod protocol_host;
 mod protocol_types;
 mod read_only;

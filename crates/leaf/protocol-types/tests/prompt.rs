@@ -41,7 +41,6 @@ fn the_command_descriptor_without_gates_is_byte_equal() {
     behavior = "serve_extension_prompt",
     verify = "a prompt declaration round-trips through the protocol with its args, steps and attribution"
 )]
-#[ignore = "K8 T3"]
 fn a_prompt_declaration_round_trips() {
     let wire = json!({
         "commands": [{
@@ -78,5 +77,31 @@ fn a_prompt_declaration_round_trips() {
         serde_json::to_value(&surfaces).unwrap(),
         wire,
         "a declared prompt, gate and subject survive a decode and an encode"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_extension_prompt",
+    verify = "a pass input without a trigger reads a write and a gate trigger round-trips with its command and subject"
+)]
+fn a_pass_input_trigger_is_absent_for_a_write_and_round_trips_for_a_gate() {
+    use specforge_protocol_types::{PassInput, Trigger, TriggerKind};
+    let plain = serde_json::to_value(PassInput::default()).unwrap();
+    assert!(plain.get("trigger").is_none(), "{plain}");
+    let guard = PassInput {
+        trigger: Some(Trigger::gate("ship", Some("v1.0/03".into()))),
+        ..Default::default()
+    };
+    let wire = serde_json::to_value(&guard).unwrap();
+    assert_eq!(
+        wire["trigger"],
+        json!({"kind": "gate", "command": "ship", "subject": "v1.0/03"})
+    );
+    let back: PassInput = serde_json::from_value(wire).unwrap();
+    assert_eq!(back.trigger.unwrap().kind, TriggerKind::Gate);
+    assert_eq!(
+        Trigger::default().kind,
+        TriggerKind::Write,
+        "no trigger is a write"
     );
 }

@@ -91,6 +91,12 @@ behavior serve_extension_prompt "Serve an Extension Prompt" {
   verify unit "a prompt whose when setting is off is not listed or served"
   verify unit "an agent renders any prompt through specforge.prompt, by name and arguments or by argv"
   verify unit "the client names the host a prompt renders for, and a host argument overrides it"
+  verify unit "a prompt declared with the SDK is rendered by its export from the arguments and host the call carries"
+  verify unit "the SDK refuses a prompt declared twice or without a handler"
+  verify unit "the host sends a prompt export its typed arguments and host and reads back its messages"
+  verify unit "a prompt export that answers no message is E028"
+  verify unit "a pass input without a trigger reads a write and a gate trigger round-trips with its command and subject"
+  verify unit "a prompt answer that is not a PromptOutput is E028"
 }
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {

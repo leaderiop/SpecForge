@@ -81,6 +81,7 @@ fn command(id: &str) -> CommandDescriptor {
         export: format!("cmd__{id}"),
         args: Vec::new(),
         writes: false,
+        ..Default::default()
     }
 }
 

@@ -282,6 +282,7 @@ mod evidence {
                 export: "cmd__probe".into(),
                 args: Vec::new(),
                 writes: false,
+                ..Default::default()
             },
         );
         run(&project.view(), &command, &Map::new(), CommandFormat::Json)

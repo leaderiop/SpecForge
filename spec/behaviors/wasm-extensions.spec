@@ -145,12 +145,12 @@ behavior call_extension_exports "Call Extension Exports" {
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
-    The host performs ten operations on a loaded extension, each one call
+    The host performs eleven operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
     (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
     custom validator (the rule's wasm_function), a scanner (the analyzer's
-    scan export) and a migration hook. Each sends one protocol type as
+    scan export), a migration hook and an MCP prompt (prompt__, ADR 0291). Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
     optional field the host leaves unset is absent, never null. A trap, an
     export the guest does not route, an extension the runtime did not load,
@@ -1041,4 +1041,6 @@ behavior gate_a_command "Gate a Command" {
   verify unit "a subject given as a short form is sent as its full path"
   verify unit "a gated command is refused on the command line with its failing diagnostics, and its export is not called"
   verify unit "a gated command is refused gate_failed over MCP with its failing diagnostics, and its export is not called"
+  verify unit "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
+  verify unit "a guard pass's input carries the trigger that made the host run it"
 }

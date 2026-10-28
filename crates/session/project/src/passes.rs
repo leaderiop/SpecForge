@@ -84,6 +84,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         proved_claims: input.proved_claims.map(sorted_ids),
         // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
         previous: None,
+        ..Default::default()
     }
 }
 

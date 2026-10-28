@@ -31,8 +31,8 @@ use specforge_protocol_types::{
     CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
     DescribeResponse, HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest,
     MigrationInput, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
-    PassSeverity, PassSpan, RawGraph, ScanRequest, ScanResponse, ValidatorContext,
-    ValidatorVerdict, pass_export,
+    PassSeverity, PassSpan, PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse,
+    ValidatorContext, ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
@@ -51,22 +51,27 @@ pub enum Operation {
     Validate,
     Scan,
     Migrate,
+    Prompt,
 }
 
 impl Operation {
     /// Whether the host writes its answer's text into its own messages, help and listings (the
-    /// declaration, a pass's diagnostics and summary, a validator's verdict), so the answer is read
+    /// declaration, a pass's diagnostics and summary, a validator's verdict, a prompt's messages), so the answer is read
     /// printable (ADR 0244). A command's, an MCP tool's or resource's answer is the extension's own
     /// output, and a collector's or scanner's is data matched against the project: read as answered.
     pub const fn reads_text(self) -> bool {
         matches!(
             self,
-            Operation::Handshake | Operation::Describe | Operation::Pass | Operation::Validate
+            Operation::Handshake
+                | Operation::Describe
+                | Operation::Pass
+                | Operation::Validate
+                | Operation::Prompt
         )
     }
 
     /// Every operation.
-    pub const ALL: [Operation; 10] = [
+    pub const ALL: [Operation; 11] = [
         Operation::Handshake,
         Operation::Describe,
         Operation::Command,
@@ -77,6 +82,7 @@ impl Operation {
         Operation::Validate,
         Operation::Scan,
         Operation::Migrate,
+        Operation::Prompt,
     ];
 
     /// How a message names the operation.
@@ -92,6 +98,7 @@ impl Operation {
             Operation::Validate => "custom validator",
             Operation::Scan => "scanner",
             Operation::Migrate => "migration hook",
+            Operation::Prompt => "MCP prompt",
         }
     }
 }
@@ -312,6 +319,29 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
+    /// A prompt's `prompt__` export on `input` (ADR 0291): the messages it answers, at least one.
+    pub fn render_prompt(
+        &self,
+        extension: &str,
+        export: &str,
+        input: &PromptInput<RawGraph>,
+    ) -> Result<PromptOutput, CallError> {
+        let output: PromptOutput =
+            self.call_typed(Operation::Prompt, extension, export, input, "PromptOutput")?;
+        if output.messages.is_empty() {
+            return Err(CallError::new(
+                Operation::Prompt,
+                extension,
+                export,
+                CallFailure::Malformed {
+                    expected: "PromptOutput",
+                    reason: "it answered no message".to_string(),
+                },
+            ));
+        }
+        Ok(output)
+    }
+
     /// An MCP resource's export, reading `uri`.
     pub fn read_mcp_resource(
         &self,
@@ -459,7 +489,7 @@ impl<'r> ExtensionCalls<'r> {
         // Secret presence only where a person runs something on this machine (see `ExtensionSettings::members`).
         let secrets = matches!(
             operation,
-            Operation::Command | Operation::McpTool | Operation::McpResource
+            Operation::Command | Operation::McpTool | Operation::McpResource | Operation::Prompt
         );
         let members = self.runtime.settings_of(extension)?.members(secrets);
         (!members.is_empty()).then_some(members)
