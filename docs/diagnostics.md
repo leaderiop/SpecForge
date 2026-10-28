@@ -571,9 +571,10 @@ error and the report path. `specforge stats`, `specforge analyze` and every MCP
 tool that reads coverage report the same code when `specforge-report.json`
 exists but can't be read or parsed (a recorded test's status is `passed`,
 `failed` or `skipped`, and every test has a name: a report in another
-vocabulary, such as one written before 1.4, is not usable), or when a
-`--test-results` (`test_results`) file can't be read or doesn't exist (over MCP:
-`schema_mismatch`, `permission_denied`, `file_not_found`, `invalid_input` when
+vocabulary, such as one written before 1.4, is not usable), or when a judged
+rule reads the report (ADR 0290), or when a `--test-results` (`test_results`)
+file can't be read or doesn't exist (over MCP: `schema_mismatch`,
+`permission_denied`, `file_not_found`, `invalid_input` when
 `specforge-report.json` is a link that leads outside the project, or
 `internal_error`), rather than scoring the project as if no test ran: run
 `specforge collect` again to rewrite it, or fix or remove the file.
@@ -1817,6 +1818,22 @@ kind `append_only`, or a pass that reads the baseline, ADR 0287), but there is
 no commit to judge against: the project is not in a git repository, or the
 repository has no commit yet. Nothing is judged, and nothing is wrong with the
 project. The first commit is the baseline from then on.
+
+Owner: core
+Level: info
+```
+
+## I205
+
+```
+I205: Test inputs not judged
+
+A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
+`test(..)` selector, or a verdict that cites tests), but there is no
+`specforge-report.json`: run `specforge collect`. The rule's other inputs are
+judged as usual and the test input is left out of the comparison, so a verdict
+is not made stale by a report that is not there. Nothing is wrong with the
+project. A report that exists but cannot be used is E045.
 
 Owner: core
 Level: info
@@ -3601,6 +3618,23 @@ it replaced, and names a file that holds neither, then removes the journal. A
 check never rolls it back, so it reports this once until a writer does. Run a
 write again, or `specforge harness gc`, to roll it back; then re-run the command
 that was interrupted, since its plan is stale.
+
+Owner: core
+Level: warning
+```
+
+## W168
+
+```
+W168: Verdict cannot be read
+
+An entity's `verdict` statement (ADR 0290) names a rule that is not a loaded
+judged rule, a rule that does not judge the entity's kind, an outcome the rule
+does not declare, a member missing or of the wrong form (`judge`, `model`, `at`
+and `inputs` are required), `values` for a field the rule does not bind or that
+the field's form refuses, or a second verdict of one rule. It counts as no
+verdict, so the rule reports the entity as missing. Record a verdict through
+`set_verdict`, or remove the statement.
 
 Owner: core
 Level: warning

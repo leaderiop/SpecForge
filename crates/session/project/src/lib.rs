@@ -116,6 +116,8 @@ pub struct Checked {
     pub diagnostics: Vec<Diagnostic>,
     pub entities: Option<EntitySnapshot>,
     pub computed: Computed,
+    /// Each judged rule's state on each entity (ADR 0290).
+    pub judgements: judged::Judgements,
 }
 
 /// Everything derived from `specforge.json` and the loaded extensions,
@@ -526,19 +528,28 @@ impl Environment {
         let mut merged = None;
         // The baseline with the ledger's moves applied: what the passes get as `previous`, and what history is
         // judged against.
-        let translated = match (baseline, build) {
-            (Ok(Some(baseline)), Some(build)) => {
-                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(
-                    &disk
-                        .read(&self.root().join(harness::LEDGER_FILE))
-                        .unwrap_or_default(),
-                ))
-                .ledger;
+        let harness = harness::Harness::of(&self.registries);
+        // The ledger is read once, and only by a run that has a use for it: history, a harness value or a verdict.
+        let ledger_bytes = build
+            .filter(|_| matches!(baseline, Ok(Some(_))) || !harness.is_empty())
+            .map(|_| {
+                disk.read(&self.root().join(harness::LEDGER_FILE))
+                    .unwrap_or_default()
+            });
+        let translated = match (baseline, build, &ledger_bytes) {
+            (Ok(Some(baseline)), Some(build), Some(bytes)) => {
+                let ledger = harness::Ledger::parse(&String::from_utf8_lossy(bytes)).ledger;
                 Some(baseline.translated(&ledger, build.graph(), self.registries.field_forms()))
             }
-            (Ok(Some(baseline)), None) => Some((**baseline).clone()),
+            (Ok(Some(baseline)), None, _) => Some((**baseline).clone()),
             _ => None,
         };
+        let mut judgements = judged::Judgements::default();
+        if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
+            let (found, reported) = judged::evaluate(self, build.graph(), entities, disk, bytes);
+            judgements = found;
+            diagnostics.extend(reported);
+        }
         if let Some(runtime) = runtime
             && self.registries.compute_passes().next().is_some()
         {
@@ -559,13 +570,12 @@ impl Environment {
                 self.registries
                     .check(&entities.rule_input(disk), verdicts.as_ref()),
             );
-            if let Some(build) = build {
+            if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
                 diagnostics.extend(harness::check(
-                    &harness::Harness::of(&self.registries),
+                    &harness,
                     build.graph(),
                     self.registries.field_forms(),
-                    self.root(),
-                    disk,
+                    bytes,
                     build.files().any(|(_, file)| !file.errors.is_empty()),
                 ));
             }
@@ -599,6 +609,7 @@ impl Environment {
             diagnostics,
             entities: merged,
             computed,
+            judgements,
         }
     }
 

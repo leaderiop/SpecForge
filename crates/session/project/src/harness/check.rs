@@ -1,11 +1,8 @@
 //! The ledger's diagnostics (ADR 0287): E083 for a harness value no line records, W163 for a line that is not one,
 //! I203 once for a file the host would write differently.
 
-use std::path::Path;
-
 use specforge_common::{Diagnostic, SourceSpan, codes};
 use specforge_graph::{FieldForms, Graph};
-use specforge_registry::Disk;
 
 use super::Harness;
 use super::format::{LEDGER_FILE, Ledger, VERDICT_KEY, digest};
@@ -18,15 +15,13 @@ pub fn check(
     harness: &Harness,
     graph: &Graph,
     forms: &FieldForms,
-    root: &Path,
-    disk: &dyn Disk,
+    ledger: &[u8],
     source_errors: bool,
 ) -> Vec<Diagnostic> {
     if harness.is_empty() {
         return Vec::new();
     }
-    let bytes = disk.read(&root.join(LEDGER_FILE)).unwrap_or_default();
-    let text = String::from_utf8_lossy(&bytes);
+    let text = String::from_utf8_lossy(ledger);
     let parsed = Ledger::parse(&text);
     let mut diagnostics: Vec<Diagnostic> = parsed
         .malformed

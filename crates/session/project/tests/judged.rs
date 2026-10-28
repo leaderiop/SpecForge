@@ -35,8 +35,10 @@ fn a_project_without_judged_rules_reads_no_report_and_stamps_no_file() {
 
 use serde_json::json;
 use specforge_common::Diagnostic;
-use specforge_project::CompiledProject;
+use specforge_project::judged::Cited;
 use specforge_project::testing::{GSD_JUDGED, TestProject, gsd_judged_project, gsd_judged_runtime};
+use specforge_project::{CompiledProject, harness};
+use specforge_registry::PlainDisk;
 
 fn compile(project: &TestProject) -> CompiledProject {
     project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime)
@@ -46,18 +48,81 @@ fn found<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
     diagnostics.iter().filter(|d| d.code == code).collect()
 }
 
-/// Records a verdict of `rule` on `entity` (the entity's block in `a.spec`) as `set_verdict` would: the statement with
-/// the inputs the host computes now, and its line in `specforge-harness`. K7 T6 writes it through the host's own
-/// `inputs`.
+/// Records a verdict of `rule` on `entity` (the entity's block in `a.spec`) as `set_verdict` would: the statement
+/// with the inputs the host computes now, and its line in `specforge-harness`.
 fn record(project: &TestProject, entity: &str, rule: &str, outcome: &str) {
-    let _ = (project, entity, rule, outcome);
-    panic!("K7 T6: record a verdict through the host's inputs and the harness ledger")
+    let compiled = compile(project);
+    let env = compiled.environment();
+    let judged = env.registries().judged_rule(rule).expect("a judged rule");
+    let node = compiled
+        .graph()
+        .node(entity)
+        .expect("the entity is declared");
+    let now = specforge_project::judged::inputs(
+        env,
+        compiled.graph(),
+        compiled.entities(),
+        &PlainDisk,
+        entity,
+        judged,
+        &Cited::default(),
+    )
+    .expect("the rule judges the entity");
+    let digests: String = now
+        .digests
+        .iter()
+        .map(|(name, digest)| format!("      {name} \"{digest}\"\n"))
+        .collect();
+    let statement = format!(
+        "  verdict {rule} {outcome} {{\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26\"\n    inputs {{\n{digests}    }}\n  }}\n"
+    );
+    let head = format!(
+        "{} {} ",
+        node.kind.raw,
+        entity.rsplit('/').next().unwrap_or(entity)
+    );
+    let mut text = project.read("a.spec");
+    let start = text.find(&head).expect("the entity's block");
+    let mut close = start + text[start..].find("\n}\n").expect("a block") + 1;
+    // Recording again replaces the verdict of the rule.
+    if let Some(at) = text[start..close].find(&format!("\n  verdict {rule} ")) {
+        let from = start + at + 1;
+        let to = from + text[from..].find("\n  }\n").expect("a verdict") + 6;
+        text.replace_range(from..to, "");
+        close -= to - from;
+    }
+    text.insert_str(close, &statement);
+    project.write("a.spec", text);
+    let compiled = compile(project);
+    let node = compiled
+        .graph()
+        .node(entity)
+        .expect("the entity is declared");
+    let verdict = node
+        .verdicts
+        .iter()
+        .find(|v| v.rule == rule)
+        .expect("the verdict");
+    let key = format!("verdict:{rule}");
+    let bytes = specforge_graph::wire::verdict_bytes(compiled.graph(), node, verdict);
+    let file = project.root().join("specforge-harness");
+    let mut ledger =
+        harness::Ledger::parse(&std::fs::read_to_string(&file).unwrap_or_default()).ledger;
+    ledger.insert(harness::Line {
+        path: entity.to_string(),
+        digest: harness::digest(entity, &key, &bytes),
+        key,
+    });
+    std::fs::write(file, ledger.canonical()).expect("the ledger is written");
 }
 
-/// The state and the changed inputs of `rule`'s judgement of `entity`. K7 T6 reads them from the compiled project.
+/// The state and the changed inputs of `rule`'s judgement of `entity`.
 fn judgement(compiled: &CompiledProject, entity: &str, rule: &str) -> (String, Vec<String>) {
-    let _ = (compiled, entity, rule);
-    panic!("K7 T6: the judgement of a rule on an entity")
+    let judgement = compiled
+        .judgements()
+        .get(entity, rule)
+        .unwrap_or_else(|| panic!("{rule} judges {entity}"));
+    (judgement.state.clone(), judgement.changed.clone())
 }
 
 /// The digest of `entity` over its resolved authored values. K7 T5.
@@ -97,7 +162,6 @@ fn hand_written() -> String {
     )
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a hand-written verdict counts as missing"
@@ -132,7 +196,6 @@ fn an_entity_digest_ignores_layout_comments_verdicts_and_derived_values() {
     assert_ne!(before, digest_of(&compile(&project), PLAN));
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a respelling stales nothing and a rename stales the verdicts that read it"
@@ -149,14 +212,16 @@ fn a_respelling_stales_nothing_and_a_rename_stales_its_readers() {
         ),
     );
     assert_eq!(judgement(&compile(&project), PLAN, W311).0, "fresh");
-    // Renaming the phase changes the full path every reader digests.
-    project.write("a.spec", project.read("a.spec").replace("03", "04"));
-    let (state, changed) = judgement(&compile(&project), "v1.0/04/04-02", W311);
+    // Renaming the requirement changes the full path every reader digests.
+    project.write(
+        "a.spec",
+        project.read("a.spec").replace("AUTH-07", "AUTH-08"),
+    );
+    let (state, changed) = judgement(&compile(&project), PLAN, W311);
     assert_eq!(state, "stale");
-    assert!(changed.contains(&"phase".to_string()), "{changed:?}");
+    assert!(changed.contains(&"requirements".to_string()), "{changed:?}");
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a judged rule reports missing, stale and failed verdicts"
@@ -198,7 +263,6 @@ fn a_judged_rule_reports_missing_stale_and_failed_verdicts() {
     );
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a stale verdict names the inputs that changed"
@@ -215,7 +279,6 @@ fn a_stale_verdict_names_the_inputs_that_changed() {
     assert_eq!(changed, ["decisions"]);
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a file input reads from its field's base and an absent file digests as absent"
@@ -236,7 +299,6 @@ fn a_file_input_reads_from_its_fields_base_and_absent_digests_absent() {
     );
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "digest_judged_inputs",
     verify = "a file input that is a spec source digests as what it declares"
@@ -263,7 +325,6 @@ fn a_spec_source_file_input_ignores_its_verdicts() {
     assert_eq!(judgement(&compile(&project), truth, "gsd/E501").0, "stale");
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "test inputs are not judged without a report"
@@ -280,7 +341,6 @@ fn test_inputs_are_not_judged_without_a_report() {
     assert!(!found(&diagnostics, "E045").is_empty(), "{diagnostics:?}");
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a re-run that agrees on every status stales nothing"
@@ -289,7 +349,7 @@ fn a_rerun_that_agrees_stales_nothing() {
     let project = gsd_judged_project("");
     let truth = "v1.0/03/03-02/TR1";
     let report = |ms: u64, status: &str| {
-        json!({"v1.0/03/03-02/TR1": {"runner": "r", "tests": [{"name": "survives", "status": status, "duration_ms": ms}]}}).to_string()
+        json!({"results": {"v1.0/03/03-02/TR1": {"tests": [{"name": "survives", "status": status, "duration_ms": ms}]}}}).to_string()
     };
     project.write("specforge-report.json", report(5, "passed"));
     record(&project, truth, "gsd/E501", "passed");
@@ -301,7 +361,6 @@ fn a_rerun_that_agrees_stales_nothing() {
     assert_eq!(changed, ["tests"]);
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a gated judged rule computes and reports nothing"
@@ -325,7 +384,6 @@ fn a_gated_judged_rule_computes_and_reports_nothing() {
     );
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a verdict that cannot be read is W168"
@@ -336,7 +394,6 @@ fn an_unknown_rules_verdict_is_w168() {
     assert_eq!(found(&diagnostics, "W168").len(), 1, "{diagnostics:?}");
 }
 
-#[ignore = "K7 T6"]
 #[specforge_test(
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a changed file input rechecks the session"

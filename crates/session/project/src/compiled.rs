@@ -57,6 +57,7 @@ pub struct CompiledProject {
     check_diagnostics: Vec<Diagnostic>,
     /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
     computed: Arc<Computed>,
+    judgements: Arc<crate::judged::Judgements>,
     /// The graph's entity snapshot, the recorded test report and the
     /// coverage: seeded with the snapshot the checks read; made over the
     /// graph on first use after an update that skipped them.
@@ -369,6 +370,11 @@ impl CompiledProject {
         &self.computed
     }
 
+    /// Each judged rule's state on each entity, as the last checks found it (ADR 0290).
+    pub fn judgements(&self) -> &crate::judged::Judgements {
+        &self.judgements
+    }
+
     /// [`Self::entities`], shared: a test holds it across an update.
     #[cfg(feature = "testing")]
     pub fn shared_entities(&self) -> Arc<EntitySnapshot> {
@@ -417,6 +423,7 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
@@ -440,6 +447,7 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -468,6 +476,7 @@ impl CompiledProject {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
@@ -515,6 +524,7 @@ impl CompiledProject {
             import_diagnostics: imports,
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
+            judgements: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
@@ -590,13 +600,14 @@ impl CompiledProject {
             if let Some(root) = this.root() {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
-            outcome = Some((diagnostics, entities, checked.computed));
+            outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed)) = outcome {
+        if let Some((diagnostics, entities, computed, judgements)) = outcome {
             self.check_diagnostics = diagnostics;
             self.computed = Arc::new(computed);
+            self.judgements = Arc::new(judgements);
             self.recorded = OnceLock::from(RecordedCoverage::of(entities));
             self.reported = OnceLock::new();
         }
@@ -626,6 +637,7 @@ impl CompiledProject {
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
         self.computed = Arc::default();
+        self.judgements = Arc::default();
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.checks_skipped = true;
