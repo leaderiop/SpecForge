@@ -376,6 +376,10 @@ behavior roll_back_interrupted_write "Roll Back an Interrupted Write" {
   verify unit "a typed edit of a project with a writing command and no harness field takes the write lock"
   verify unit "a journal marked done is removed by the next writer and rolls nothing back"
   verify unit "a journal naming a path outside the project root or a malformed digest is refused and restores nothing"
+  verify unit "rollback restores a removed file and removes a created host file, and refuses a path no write records"
+  verify unit "rollback leaves a removed file alone when something else was written at its name since"
+  verify unit "rollback refuses a journal that names a file no write of the project records"
+  verify unit "the next install rolls back an install killed between two writes before it plans"
 }
 
 behavior refuse_human_only_write "Refuse a Human-Only Write" {

@@ -126,7 +126,7 @@ pub fn fixture(host: Host) -> Rendered {
             hook("statusline", HookEvent::Statusline, &[], &[]),
             hook("context_monitor", HookEvent::PostTool, &[], &[]),
             hook("session_cursor", HookEvent::SessionStart, &[], &[]),
-            hook("record_hook", HookEvent::PostTool, &["write"], &["spec/**"]),
+            hook("record_hook", HookEvent::PostTool, &["write"], &["**"]),
         ],
     }
 }

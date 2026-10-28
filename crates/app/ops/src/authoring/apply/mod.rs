@@ -7,7 +7,6 @@
 mod collector;
 mod command;
 mod flags;
-pub(crate) mod journal;
 mod judged;
 mod lower;
 mod revision;

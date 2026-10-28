@@ -33,12 +33,31 @@ fn golden(host: &str) -> BTreeMap<String, String> {
     out
 }
 
+/// The files that differ, with the first lines that do.
+fn same(got: BTreeMap<String, String>, want: BTreeMap<String, String>) {
+    let mut differ = Vec::new();
+    for path in got
+        .keys()
+        .chain(want.keys())
+        .collect::<std::collections::BTreeSet<_>>()
+    {
+        if got.get(path) != want.get(path) {
+            differ.push(format!(
+                "{path}:\n  installed: {:?}\n  golden:    {:?}",
+                got.get(path).map(|t| t.lines().collect::<Vec<_>>()),
+                want.get(path).map(|t| t.lines().collect::<Vec<_>>())
+            ));
+        }
+    }
+    assert!(differ.is_empty(), "{}", differ.join("\n"));
+}
+
 /// What installing the fixture into `host` adds to the project.
 fn rendered(host: &str) -> BTreeMap<String, String> {
     let project = project(json!({}), json!({"workflow.ui_phase": true}));
     let before = tree(&project);
     let out = install(&project, &[host], &[]);
-    assert_eq!(out.code, 0, "{}", out.stderr);
+    assert_eq!(out.code, 0, "{}{}", out.stderr, out.stdout);
     tree(&project)
         .into_iter()
         .filter(|(path, _)| !before.contains_key(path))
@@ -49,27 +68,24 @@ fn rendered(host: &str) -> BTreeMap<String, String> {
     behavior = "install_into_a_host",
     verify = "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
 )]
-#[ignore = "K9 T9"]
 fn claude_code_renders_the_fixture() {
-    assert_eq!(rendered("claude-code"), golden("claude-code"));
+    same(rendered("claude-code"), golden("claude-code"));
 }
 
 #[specforge_test(
     behavior = "install_into_a_host",
     verify = "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
 )]
-#[ignore = "K9 T9"]
 fn codex_renders_the_fixture() {
-    assert_eq!(rendered("codex"), golden("codex"));
+    same(rendered("codex"), golden("codex"));
 }
 
 #[specforge_test(
     behavior = "install_into_a_host",
     verify = "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
 )]
-#[ignore = "K9 T9"]
 fn cursor_renders_the_fixture() {
-    assert_eq!(rendered("cursor"), golden("cursor"));
+    same(rendered("cursor"), golden("cursor"));
 }
 
 #[specforge_test(

@@ -3,6 +3,7 @@
 //! the files a hook installs for it).
 
 pub mod drift;
+pub mod install;
 pub mod marker;
 pub mod owned;
 pub mod port;

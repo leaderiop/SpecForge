@@ -35,7 +35,7 @@
       {
         "hooks": [
           {
-            "command": "specforge hook t.record_hook --host codex --event post_tool --tools write --paths 'spec/**'",
+            "command": "specforge hook t.record_hook --host codex --event post_tool --tools write --paths '**'",
             "timeout": 10,
             "type": "command"
           }

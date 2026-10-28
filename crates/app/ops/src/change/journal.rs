@@ -9,6 +9,9 @@ use specforge_common::SourceRoot;
 use specforge_project::journal::{Entry, FORMAT, JOURNAL_FILE, Journal, digest};
 use std::path::PathBuf;
 
+/// What a record says a removed file holds after the write: nothing.
+const ABSENT: &str = "absent";
+
 /// What a write is about to replace, collected as its files are staged.
 pub(crate) struct Record {
     root: PathBuf,
@@ -41,6 +44,19 @@ impl Record {
             path: path.to_string(),
             before,
             after: digest(after),
+        });
+    }
+
+    /// The file `path` held `before` and will be removed (ADR 0292: install removes what it marked).
+    pub(crate) fn add_removal(&mut self, path: &str, before: &[u8]) {
+        let Ok(text) = std::str::from_utf8(before) else {
+            self.complete = false;
+            return;
+        };
+        self.entries.push(Entry {
+            path: path.to_string(),
+            before: Some(text.to_string()),
+            after: ABSENT.to_string(),
         });
     }
 
@@ -116,10 +132,12 @@ fn restorable(entry: &Entry) -> bool {
         && path.components().next().is_some();
     let kind = entry.path.ends_with(".spec")
         || entry.path == specforge_project::harness::LEDGER_FILE
-        || entry.path == ".gitattributes";
-    let digest = entry.after.strip_prefix("sha256:").is_some_and(|hex| {
-        hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
-    });
+        || entry.path == ".gitattributes"
+        || crate::host::owned_path(&entry.path);
+    let digest = entry.after == ABSENT
+        || entry.after.strip_prefix("sha256:").is_some_and(|hex| {
+            hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+        });
     inside && kind && digest
 }
 
@@ -159,7 +177,12 @@ pub(crate) fn rollback(sources: &SourceRoot, caller: Caller<'_>) -> Result<Write
                     ),
                 )
             })?;
-            if now.as_deref().map(digest).as_deref() != Some(entry.after.as_str()) {
+            let at_after = if entry.after == ABSENT {
+                now.is_none()
+            } else {
+                now.as_deref().map(digest).as_deref() == Some(entry.after.as_str())
+            };
+            if !at_after {
                 // At `before`, or at neither: the file is left alone.
                 continue;
             }
@@ -278,3 +301,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod owned_tests;

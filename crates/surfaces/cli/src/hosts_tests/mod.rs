@@ -1,6 +1,6 @@
 //! `specforge install`, `uninstall` and `hook` over the GSD-shaped host fixture, served in process (ADR 0292). The
-//! two helpers [`install`] and [`hook`] are the one place a test calls the command line; the tickets that add the
-//! commands fill them in, and until then the pins that use them are ignored.
+//! helpers [`install`], [`uninstall`] and [`hook`] are the one place a test calls the command line; the ticket that
+//! adds `hook` fills it in, and until then the pins that use it are ignored.
 
 #![allow(
     clippy::unimplemented,
@@ -13,7 +13,14 @@ mod install;
 
 use std::collections::BTreeMap;
 
+use std::sync::Arc;
+
+use clap::Parser;
 use serde_json::{Value, json};
+use specforge_project::SharedRuntime;
+use specforge_project::testing::GsdHosts;
+
+use crate::terminal::{Facts, Terminal};
 use specforge_project::testing::{CORE, GSD_HOSTS_EXTENSIONS, TestProject, UI, gsd_hosts_sources};
 
 /// A command's exit code and what it printed.
@@ -69,6 +76,7 @@ pub fn tree(project: &TestProject) -> BTreeMap<String, String> {
             if relative.starts_with(".specforge")
                 || relative.starts_with(".git")
                 || relative == "specforge.json"
+                || relative == "specforge.lock"
             {
                 continue;
             }
@@ -83,14 +91,62 @@ pub fn tree(project: &TestProject) -> BTreeMap<String, String> {
     out
 }
 
+#[derive(clap::Parser)]
+struct InstallCli {
+    #[command(flatten)]
+    args: crate::install::InstallArgs,
+}
+
+#[derive(clap::Parser)]
+struct UninstallCli {
+    #[command(flatten)]
+    args: crate::install::UninstallArgs,
+}
+
+/// The words of a command line: `hosts…`, `flags…`, then the format and the project.
+fn words(project: &TestProject, hosts: &[&str], flags: &[&str]) -> Vec<String> {
+    let mut argv = vec!["specforge".to_string()];
+    argv.extend(hosts.iter().map(ToString::to_string));
+    argv.extend(flags.iter().map(ToString::to_string));
+    argv.extend([
+        "--format".to_string(),
+        "json".to_string(),
+        "--path".to_string(),
+        project.root().display().to_string(),
+    ]);
+    argv
+}
+
+/// Run a command over `project` compiled with the fixture's extensions served in process.
+fn run(
+    project: &TestProject,
+    command: impl FnOnce(&specforge_project::CompiledProject, &Terminal) -> crate::outcome::Exit,
+) -> Out {
+    let runtime: SharedRuntime = Arc::new(GsdHosts::new().runtime());
+    let compiled = project.compile_in(runtime);
+    let (terminal, capture) = Terminal::captured("", Facts::PIPED);
+    let exit = command(&compiled, &terminal);
+    Out {
+        code: exit.code(),
+        stdout: capture.stdout(),
+        stderr: capture.stderr(),
+    }
+}
+
 /// `specforge install <hosts…> <flags…> --format json` over `project`.
-pub fn install(_project: &TestProject, _hosts: &[&str], _flags: &[&str]) -> Out {
-    unimplemented!("K9 T9: specforge install")
+pub fn install(project: &TestProject, hosts: &[&str], flags: &[&str]) -> Out {
+    let cli = InstallCli::parse_from(words(project, hosts, flags));
+    run(project, |compiled, terminal| {
+        cli.args.run_in(compiled, terminal)
+    })
 }
 
 /// `specforge uninstall <hosts…> <flags…> --format json` over `project`.
-pub fn uninstall(_project: &TestProject, _hosts: &[&str], _flags: &[&str]) -> Out {
-    unimplemented!("K9 T9: specforge uninstall")
+pub fn uninstall(project: &TestProject, hosts: &[&str], flags: &[&str]) -> Out {
+    let cli = UninstallCli::parse_from(words(project, hosts, flags));
+    run(project, |compiled, terminal| {
+        cli.args.run_in(compiled, terminal)
+    })
 }
 
 /// What `specforge hook` did: its exit code and output, and the exports the guest was asked for.

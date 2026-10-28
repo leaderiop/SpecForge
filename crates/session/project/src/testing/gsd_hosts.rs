@@ -228,7 +228,9 @@ impl GsdHosts {
 
     /// The runtime serving [`CORE`] and [`UI`] and the answers given.
     pub fn runtime(self) -> InProcessRuntime {
-        let mut runtime = InProcessRuntime::new().with_handler(core, handle).with(ui);
+        let mut runtime = InProcessRuntime::new()
+            .with_handler(core, handle)
+            .with_handler(ui, handle);
         for (extension, export, result) in self.answers {
             runtime = runtime.answer_raw(&extension, &export, result);
         }

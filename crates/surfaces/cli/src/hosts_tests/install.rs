@@ -11,7 +11,6 @@ const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
     behavior = "install_into_a_host",
     verify = "install writes the tree and a second install writes nothing"
 )]
-#[ignore = "K9 T9"]
 fn install_writes_the_tree_and_a_second_install_writes_nothing() {
     let project = project(json!({}), json!({}));
     let before = tree(&project);
@@ -44,7 +43,6 @@ fn install_writes_the_tree_and_a_second_install_writes_nothing() {
     behavior = "install_into_a_host",
     verify = "install refuses a file it did not write and writes nothing"
 )]
-#[ignore = "K9 T9"]
 fn install_refuses_a_foreign_file_and_writes_nothing() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -72,7 +70,6 @@ fn install_refuses_a_foreign_file_and_writes_nothing() {
     behavior = "install_into_a_host",
     verify = "install refuses a marked file edited since unless forced"
 )]
-#[ignore = "K9 T9"]
 fn install_refuses_an_edited_file_unless_forced() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
@@ -97,7 +94,6 @@ fn install_refuses_an_edited_file_unless_forced() {
     behavior = "install_into_a_host",
     verify = "install removes what no extension contributes any more and keeps a foreign sibling"
 )]
-#[ignore = "K9 T9"]
 fn install_removes_what_is_no_longer_contributed() {
     let project = project(json!({}), json!({"workflow.ui_phase": true}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
@@ -135,7 +131,6 @@ fn install_removes_what_is_no_longer_contributed() {
     behavior = "install_into_a_host",
     verify = "install --check exits 1 on drift and names what would change, per host"
 )]
-#[ignore = "K9 T9"]
 fn install_check_exits_1_on_drift() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &HOSTS, &[]).code, 0);
@@ -163,7 +158,6 @@ fn install_check_exits_1_on_drift() {
     behavior = "install_into_a_host",
     verify = "uninstall removes exactly what install wrote"
 )]
-#[ignore = "K9 T9"]
 fn uninstall_removes_exactly_what_install_wrote() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -192,7 +186,6 @@ fn uninstall_removes_exactly_what_install_wrote() {
     behavior = "install_into_a_host",
     verify = "install merges its entries without touching a user's hooks or servers"
 )]
-#[ignore = "K9 T9"]
 fn install_merges_without_touching_foreign_entries() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -224,4 +217,34 @@ fn install_merges_without_touching_foreign_entries() {
         "{settings}"
     );
     assert!(settings.to_string().contains("mine.sh"));
+}
+
+#[specforge_test(
+    behavior = "roll_back_interrupted_write",
+    verify = "the next install rolls back an install killed between two writes before it plans"
+)]
+fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
+    let project = project(json!({}), json!({}));
+    assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
+    let installed = tree(&project);
+    let path = ".claude/agents/t-planner.md";
+    let original = project.read(path);
+    // The kill: the journal says the file was replaced, and the file holds half of what was meant.
+    let half = "half written\n";
+    project.write(path, half);
+    let journal = json!({
+        "format": 1, "doing": "cannot write the host files",
+        "files": [{"path": path, "before": original, "after": specforge_project::journal::digest(half.as_bytes())}],
+    });
+    project.write(".specforge/write-journal.json", journal.to_string());
+
+    let out = install(&project, &["claude-code"], &[]);
+    assert_eq!(out.code, 0, "{}{}", out.stderr, out.stdout);
+    assert_eq!(tree(&project), installed);
+    assert!(
+        !project
+            .root()
+            .join(".specforge/write-journal.json")
+            .exists()
+    );
 }

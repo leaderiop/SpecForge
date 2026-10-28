@@ -19,7 +19,7 @@
         "command": "specforge hook t.context_monitor --host cursor --event post_tool"
       },
       {
-        "command": "specforge hook t.record_hook --host cursor --event post_tool --tools write --paths 'spec/**'"
+        "command": "specforge hook t.record_hook --host cursor --event post_tool --tools write --paths '**'"
       }
     ],
     "sessionStart": [

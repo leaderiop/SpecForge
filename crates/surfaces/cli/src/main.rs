@@ -26,6 +26,7 @@ mod hosts_tests;
 mod infer_guide;
 mod infer_status;
 mod init;
+mod install;
 mod login;
 mod mcp;
 mod migrate;
@@ -141,6 +142,10 @@ enum Commands {
         #[command(subcommand)]
         action: harness::Action,
     },
+    /// Render the project's agents, skills, slash commands and hooks into a host's files, idempotently
+    Install(install::InstallArgs),
+    /// Remove exactly the host files and entries install wrote
+    Uninstall(install::UninstallArgs),
     /// Run health checks on installed extensions
     Doctor(doctor::Args),
     /// Start MCP server (JSON-RPC over stdio)
@@ -260,6 +265,8 @@ fn run(command: Commands, terminal: &Terminal) -> Exit {
         Commands::Settings(args) => args.run(terminal),
         Commands::Collect(args) => args.run(terminal),
         Commands::Harness { action } => action.run(terminal),
+        Commands::Install(args) => args.run(terminal),
+        Commands::Uninstall(args) => args.run(terminal),
         Commands::Doctor(args) => args.run(terminal),
         Commands::Mcp(args) => args.run(terminal),
         Commands::Completions { shell, project } => completions(shell, &project, terminal),
