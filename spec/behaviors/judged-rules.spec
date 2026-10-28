@@ -80,6 +80,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "cited tests are an input of their own, judged once a report exists"
   verify unit "the tests of a report digest sorted, whatever order they ran in"
   verify unit "a cited entity is digested by the resolution that accepted it"
+  verify unit "a cited file outside the project is not read"
   verify unit "incremental digests equal cold digests"
   verify unit "a memo hit still watches its file"
   verify unit "a file change the session has not applied misses the memo"
@@ -126,6 +127,7 @@ behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   """
   verify unit "the inputs query answers the basis a set_verdict checks"
   verify unit "the verdict inputs tool answers what the inputs query answers"
+  verify unit "a cited file is a relative path inside the project"
   verify unit "inspect, query, the graph export and a command's graph list each entity's judgements"
 }
 

@@ -3,6 +3,7 @@
 //! <entity> --inputs <rule>` and `specforge.verdict_inputs` render it.
 
 use std::collections::BTreeMap;
+use std::path::{Component, Path};
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
@@ -111,9 +112,13 @@ pub(crate) fn cited_of(view: &ProjectView<'_>, cites: &[Cite]) -> Result<Cited, 
                 cited.entities.push(entity.clone());
             }
             Cite::File { file } => {
-                let held = view
-                    .root()
-                    .is_some_and(|root| PlainDisk.exists(&root.join(file)));
+                // inside the project: a relative path that never climbs out
+                let held = Path::new(file)
+                    .components()
+                    .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
+                    && view
+                        .root()
+                        .is_some_and(|root| PlainDisk.exists(&root.join(file)));
                 if !held {
                     return Err(file.clone());
                 }

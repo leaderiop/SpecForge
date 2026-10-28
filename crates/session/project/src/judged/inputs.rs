@@ -11,7 +11,7 @@ use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
-use specforge_registry::{Disk, EntitySnapshot};
+use specforge_registry::{Disk, EntitySnapshot, FileStamp};
 
 use super::report::{self, Report};
 use super::select::{FileRef, Select};
@@ -185,33 +185,45 @@ impl<'a> Cx<'a> {
             self.env.spec_root()
         };
         let abs = normalize(&base.join(&file.path));
-        let shown = abs
-            .strip_prefix(root)
-            .unwrap_or(&abs)
-            .to_string_lossy()
-            .replace('\\', "/");
+        // A file outside the project is not read: an absolute path, or one that climbs out with `..`.
+        let inside = abs.starts_with(root) || abs.starts_with(normalize(self.env.spec_root()));
+        let shown = if inside {
+            abs.strip_prefix(root)
+                .unwrap_or(&abs)
+                .to_string_lossy()
+                .replace('\\', "/")
+        } else {
+            file.path.clone()
+        };
+        let declared_by = |abs: &Path| -> Vec<(String, String)> {
+            let key = abs
+                .strip_prefix(self.env.spec_root())
+                .unwrap_or(abs)
+                .to_string_lossy()
+                .replace('\\', "/");
+            let mut declared: Vec<(String, String)> = self
+                .graph
+                .nodes_in_file(&key)
+                .into_iter()
+                .map(|n| (n.id.raw.to_string(), self.entity(n.id.raw.as_str())))
+                .collect();
+            declared.sort();
+            declared
+        };
+        let plain = |abs: &Path, stamp: &FileStamp| {
+            self.memo.file(abs, stamp, || match self.disk.read(abs) {
+                Ok(bytes) => file_digest(&bytes),
+                Err(_) => "unreadable".to_string(),
+            })
+        };
         let digest = match self.disk.stamp(&abs) {
+            _ if !inside => "unreadable".to_string(),
             Err(e) if e.kind() == ErrorKind::NotFound => "absent".to_string(),
             Err(_) => "unreadable".to_string(),
             Ok(_) if abs.extension().is_some_and(|e| e == "spec") => {
-                let key = abs
-                    .strip_prefix(self.env.spec_root())
-                    .unwrap_or(&abs)
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                let mut declared: Vec<(String, String)> = self
-                    .graph
-                    .nodes_in_file(&key)
-                    .into_iter()
-                    .map(|n| (n.id.raw.to_string(), self.entity(n.id.raw.as_str())))
-                    .collect();
-                declared.sort();
-                hash(&json!({"source": declared}))
+                hash(&json!({"source": declared_by(&abs)}))
             }
-            Ok(stamp) => self.memo.file(&abs, &stamp, || match self.disk.read(&abs) {
-                Ok(bytes) => file_digest(&bytes),
-                Err(_) => "unreadable".to_string(),
-            }),
+            Ok(stamp) => plain(&abs, &stamp),
         };
         JudgedFile {
             path: shown,

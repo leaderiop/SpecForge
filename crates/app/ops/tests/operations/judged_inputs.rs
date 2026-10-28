@@ -115,3 +115,43 @@ fn inspect_export_and_the_command_graph_list_judgements() {
     assert!(rules.contains(&W311), "{listed}");
     assert_eq!(listed[0]["state"], "missing");
 }
+
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "a cited file is a relative path inside the project"
+)]
+fn a_cited_file_is_a_relative_path_inside_the_project() {
+    let project = gsd_judged_project("");
+    let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
+    let view = ProjectView::of(&compiled);
+    let root = project.root();
+    let cites = [
+        root.join("CLAUDE.md").to_string_lossy().to_string(),
+        format!(
+            "../{}/CLAUDE.md",
+            root.file_name().unwrap().to_string_lossy()
+        ),
+        "src/../../x".to_string(),
+    ];
+    for file in cites {
+        let cited = [specforge_protocol_types::Cite::File { file: file.clone() }];
+        let request = InputsRequest {
+            entity: PLAN,
+            rule: W311,
+            cited: &cited,
+        };
+        let refused = judged_inputs(&view, &request)
+            .expect_err(&file)
+            .into_error();
+        assert_eq!(refused.code.to_string(), "unknown_cite", "{file}");
+    }
+    let cited = [specforge_protocol_types::Cite::File {
+        file: "./CLAUDE.md".into(),
+    }];
+    let request = InputsRequest {
+        entity: PLAN,
+        rule: W311,
+        cited: &cited,
+    };
+    assert!(judged_inputs(&view, &request).is_ok());
+}

@@ -34,6 +34,7 @@ mod harness;
 mod history;
 mod journal;
 mod judged;
+mod judged_review;
 mod link_identity;
 mod namespaced_codes;
 mod one_side;
