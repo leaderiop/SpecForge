@@ -7,3 +7,5 @@ and how the goldens are recorded.
 - `.planning/` is the GSD project: milestone-less, phases 1, 2, 2.1 (inserted) and 3. Phase 1 is executed, verified and
   has a UAT session; phase 2 is planned; 2.1 and 3 are empty.
 - `src/`, `test/`: what phase 1 built. `npm test` runs `node --test` and writes `junit.xml` (ignored).
+- `spec/`: the SpecForge twin of the roadmap (project, requirements, milestone and phases), compared with the goldens by
+  `gsd/core/tests/cli/parity_roadmap.rs`.

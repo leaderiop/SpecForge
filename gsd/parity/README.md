@@ -21,7 +21,8 @@ the version matrix live here.
 | `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health` |
 | `record.sh` | re-records the goldens |
 
-The goldens are data: nothing runs them in CI.
+The goldens are data: nothing runs gsd-tools in CI. `core/tests/cli/parity_roadmap.rs` compares the SpecForge twin in
+`fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`.
 
 ### Re-recording
 

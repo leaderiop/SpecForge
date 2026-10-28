@@ -40,12 +40,22 @@ pub struct Project {
 }
 
 pub fn project(name: &str) -> Project {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/projects")
-        .join(name);
+    from_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/projects")
+            .join(name),
+    )
+}
+
+/// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+pub fn taskboard() -> Project {
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard"))
+}
+
+fn from_dir(source: &Path) -> Project {
     let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
-    copy_dir(&source, dir.path());
+    copy_dir(source, dir.path());
     let p = Project { dir, wasm };
     p.settings(serde_json::json!({}));
     p
