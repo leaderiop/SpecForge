@@ -23,6 +23,7 @@ mod docs_relations;
 mod docs_truth;
 mod edit;
 mod edit_obligations;
+mod examples;
 mod expected_publisher;
 mod explain;
 mod explain_declared;

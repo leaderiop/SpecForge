@@ -1,0 +1,41 @@
+{
+  "exit_code": 0,
+  "diagnostics": [
+    {
+      "code": "W001",
+      "title": "Behavior implements no feature",
+      "severity": "Warning",
+      "message": "behavior 'login' does not implement any feature",
+      "span": {
+        "file": "main.spec",
+        "start_line": 1,
+        "start_col": 1,
+        "end_line": 4,
+        "end_col": 2
+      },
+      "suggestion": null,
+      "file": "main.spec",
+      "line": 1,
+      "column": 1,
+      "origin": "@specforge/software"
+    },
+    {
+      "code": "W006",
+      "title": "Behavior missing category",
+      "severity": "Warning",
+      "message": "behavior 'login' has no category \u2014 agents use category for task routing",
+      "span": {
+        "file": "main.spec",
+        "start_line": 1,
+        "start_col": 1,
+        "end_line": 4,
+        "end_col": 2
+      },
+      "suggestion": null,
+      "file": "main.spec",
+      "line": 1,
+      "column": 1,
+      "origin": "@specforge/software"
+    }
+  ]
+}
