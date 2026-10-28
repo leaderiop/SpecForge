@@ -1,7 +1,7 @@
 #!/bin/sh
 # Records what gsd-tools answers over the taskboard fixture into goldens/taskboard/.
 #
-#   GSD_CORE_DIR=~/Projects/OpenSource/gsd-core/<a v1.18.0 checkout with its lib built> gsd/parity/record.sh
+#   GSD_CORE_DIR=<a v1.18.0 checkout with its lib built> gsd/parity/record.sh
 #
 # GSD_CORE_DIR is the root of a gsd-core checkout at the tracked tag (`npm ci && npm run build:lib` there). The verbs run
 # on a copy of the fixture that is its own git repository, so what they say about git (stale worktrees, commit hashes)
@@ -18,11 +18,15 @@ version=$(node -p "require('$GSD_CORE_DIR/package.json').version")
 [ "$version" = "1.18.0" ] || { echo "record.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.18.0" >&2; exit 1; }
 [ -f "$tools" ] || { echo "record.sh: $tools is missing" >&2; exit 1; }
 
-mkdir -p "$out"
-
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-cp -R "$fixture/." "$work/"
+# The verbs write to a staging directory; the goldens are replaced only when every verb succeeded.
+staged="$work.staged"
+rm -rf "$staged"
+mkdir -p "$staged"
+trap 'rm -rf "$work" "$staged"' EXIT
+# The fixture's files git tracks or would track (not a local junit.xml from `npm test`).
+git -C "$fixture" ls-files -z --cached --others --exclude-standard | tar -C "$fixture" -c --null -T - -f - | tar -x -C "$work"
 (
   cd "$work"
   git init -q -b main
@@ -55,7 +59,10 @@ normalise() {
 record() {
   name=$1
   shift
-  node "$tools" --cwd "$work" "$@" | normalise >"$out/$name.json"
+  # Two steps, not a pipe: POSIX sh has no pipefail, and a failing gsd-tools that still prints JSON must not be recorded.
+  node "$tools" --cwd "$work" "$@" >"$staged/$name.raw"
+  normalise <"$staged/$name.raw" >"$staged/$name.json"
+  rm "$staged/$name.raw"
 }
 
 record roadmap-analyze roadmap analyze
@@ -64,4 +71,6 @@ record phase-plan-index-2 phase-plan-index 2
 record state-json state json
 record progress-json progress json
 record validate-health validate health
-echo "recorded $(ls "$out" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"
+mkdir -p "$out"
+cp "$staged"/*.json "$out"/
+echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"

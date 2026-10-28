@@ -83,6 +83,21 @@ fn defined_requirements() -> BTreeMap<String, &'static str> {
     found
 }
 
+/// The `Out of Scope` table of `REQUIREMENTS.md`: the reason of each row (a row has no id in GSD).
+fn out_of_scope_reasons() -> Vec<String> {
+    let text = parity("fixtures/taskboard/.planning/REQUIREMENTS.md");
+    let section = text.split("## Out of Scope").nth(1).unwrap_or_default();
+    let section = section.split("\n## ").next().unwrap_or_default();
+    let mut reasons: Vec<String> = section
+        .lines()
+        .filter(|l| l.starts_with('|') && !l.contains("---") && !l.contains("| Feature |"))
+        .filter_map(|l| l.trim_matches('|').split('|').nth(1))
+        .map(|reason| reason.trim().to_string())
+        .collect();
+    reasons.sort();
+    reasons
+}
+
 fn query(p: &crate::harness::Project, args: &[&str]) -> Value {
     let mut full = vec!["query"];
     full.extend_from_slice(args);
@@ -196,6 +211,55 @@ fn taskboard_roadmap_matches_gsd_tools() {
                 "requirement {id} tier: GSD {tier:?} != SpecForge {found:?}"
             ));
         }
+    }
+
+    // What the twin holds beyond the phases: every requirement GSD lists, the out-of-scope rows with their reasons, and
+    // the one milestone SpecForge needs where GSD's project is milestone-less (`"milestones": []`, a fixture README note).
+    let export = p.run(&["export", "--format", "graph"]);
+    let all: Value = serde_json::from_str(&export.stdout)
+        .unwrap_or_else(|e| panic!("export is JSON ({e}): {}", export.all()));
+    let of_kind = |kind: &str| -> Vec<&Value> {
+        all["nodes"]
+            .as_array()
+            .expect("nodes")
+            .iter()
+            .filter(|n| n["kind"] == kind)
+            .collect()
+    };
+    let mut twin_ids: Vec<String> = of_kind("requirement")
+        .iter()
+        .filter(|n| n["fields"]["tier"] != "out_of_scope")
+        .map(|n| n["id"].as_str().unwrap_or_default().to_string())
+        .collect();
+    twin_ids.sort();
+    let gsd_ids: Vec<String> = defined_requirements().into_keys().collect();
+    if twin_ids != gsd_ids {
+        mismatches.push(format!(
+            "v1 and v2 requirements: GSD {gsd_ids:?} != SpecForge {twin_ids:?}"
+        ));
+    }
+    let mut twin_reasons: Vec<String> = of_kind("requirement")
+        .iter()
+        .filter(|n| n["fields"]["tier"] == "out_of_scope")
+        .map(|n| {
+            n["fields"]["reason"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect();
+    twin_reasons.sort();
+    if twin_reasons != out_of_scope_reasons() {
+        mismatches.push(format!(
+            "out-of-scope reasons: GSD {:?} != SpecForge {twin_reasons:?}",
+            out_of_scope_reasons()
+        ));
+    }
+    if golden["milestones"] != serde_json::json!([]) || of_kind("milestone").len() != 1 {
+        mismatches.push(
+            "the twin's single milestone is synthetic: GSD's project must stay milestone-less"
+                .into(),
+        );
     }
     assert!(
         mismatches.is_empty(),

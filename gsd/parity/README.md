@@ -24,6 +24,12 @@ the version matrix live here.
 The goldens are data: nothing runs gsd-tools in CI. `core/tests/cli/parity_roadmap.rs` compares the SpecForge twin in
 `fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`.
 
+What `parity_roadmap.rs` compares: the phases `roadmap analyze` lists (number, name, goal, `depends_on`, requirements), every v1
+and v2 requirement with its tier, and the `Out of Scope` rows with their reasons. What it does not: computed values (a
+requirement's or phase's `status`, the progress percentages, `STATE.md`), which no round before r38 derives. The twin's
+milestone `v1.0` is synthetic: the fixture's GSD project is milestone-less (`"milestones": []`) and a SpecForge phase needs a
+milestone to sit in; the test asserts both so a change to either is noticed.
+
 ### Re-recording
 
 ```sh
