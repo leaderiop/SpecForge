@@ -401,13 +401,13 @@ type McpLockEntry "Mcp Lock Entry" {
 }
 
 type McpExtensionInfo "Mcp Extension Info" {
-  name             string @readonly
+  name             string            @readonly
   /// The loaded version; else an installed extension's locked one; else the
   /// version a legacy name@version entry writes; absent otherwise.
-  version          string @optional
+  version          string            @optional
   /// "builtin", the lock entry's source ("registry", "local:<path>"), or
   /// "file:<path>" for a .wasm file entry of specforge.json.
-  source           string @readonly
+  source           string            @readonly
   /// The entity kinds the extension contributes.
   entity_kinds     string[]
   /// The project's entities of those kinds.
@@ -416,6 +416,9 @@ type McpExtensionInfo "Mcp Extension Info" {
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status           "loaded" | "not_loaded" | "not_configured"
+  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// declares none.
+  reads            McpDeclaredRead[] @optional
   verify unit "McpExtensionInfo schema is valid"
 }
 
@@ -576,18 +579,32 @@ type McpDoctorFinding "Mcp Doctor Finding" {
 }
 
 type McpDoctorExtension "Mcp Doctor Extension" {
-  name              string  @readonly
+  name              string            @readonly
   /// The version the extensions listing gives it; absent when it has none.
-  version           string  @optional
+  version           string            @optional
   /// Where it comes from: builtin, the lock entry's source, file:<path>, or unknown.
   source            string
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
-  /// The file reads its passes and commands declare (ADR 0293); absent while it declares none.
-  reads             integer @optional
+  /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+  /// declares none.
+  reads             McpDeclaredRead[] @optional
   verify unit "McpDoctorExtension schema is valid"
+}
+
+type McpDeclaredRead "Mcp Declared Read" {
+  /// The pass or command that declares the read: "pass:<name>" or "command:<id>".
+  owner string
+  name  string
+  /// The "kind.field" whose paths are read; absent for a glob read.
+  field string @optional
+  /// The project-relative glob that is read; absent for a field read.
+  glob  string @optional
+  /// Whether the file's text, not only its facts, is handed to the extension.
+  text  boolean
+  verify unit "McpDeclaredRead schema is valid"
 }
 
 type McpDoctorReport "Mcp Doctor Report" {

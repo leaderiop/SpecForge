@@ -655,7 +655,10 @@ The input then carries `files`, `{"<name>": {"facts": [FileFact], "truncated"?: 
 (a glob: by `path`): `path` is project-relative and normalised, `entity` is the entity whose field named it, `exists`
 follows links, `bytes`, `lines` and `digest` (`sha256:` over the CRLF-normalised bytes, the digest judged rules use) are
 present for a regular file that was read, and `text` is the UTF-8 file when the read asks for it. `error` says why text
-or facts are missing: `too_large` (text over 64 KiB), `not_utf8`, `unreadable`, `outside_project`, `budget` (a read sends
+or facts are missing: `too_large` (text over 64 KiB), `not_utf8`, `unreadable`, `outside_project`, `denied` (a text read of
+a file that looks like a credential: `.env`, `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`,
+`credentials*`, `.git/config`; the fact has `exists` and no text, digest or bytes, and the file is still a check input),
+`budget` (a read sends
 at most 1 MiB of text in all); a path that does not exist is `exists: false`, not an error. `truncated` is set when a glob
 matched more than 2000 files or walked more than 20,000 entries. A glob never enters `.git`, `.specforge`, `.svn`,
 `.next`, `.venv`, `dist`, `node_modules`, `target` or `vendor` unless a literal segment names it, and does not descend
@@ -956,8 +959,10 @@ A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a
 An extension runs with no capability: its component's WASI context preopens no directory, passes
 no environment, arguments or stdin, discards stdout and stderr, and refuses sockets and name
 lookup. What it needs it is handed in each call's input (a scanner gets each file's content, a
-command the graph, a pass or command that declares `reads` the facts and capped text of exactly those files, read
-by the host). No declaration grants more access (ADR 0037). No text an extension supplies acts on
+command the graph, a pass or command that declares `reads` the facts and capped text of exactly the project files it
+names, read by the host: the one thing a declaration does grant, so `specforge extensions` and `specforge doctor` list
+every declared read, a text read withholds files that look like credentials, and a file whose real path leaves the
+project is refused). No other declaration grants more access (ADR 0037, ADR 0293). No text an extension supplies acts on
 the user's terminal either: the host reads a handshake, describe, pass or validator answer, and a
 call's failure text, printable where it reads them (ADR 0244); a command's output and an MCP tool's
 or resource's answer are the extension's own and are written as answered.

@@ -663,7 +663,7 @@ fn without_a_root_a_missing_module_is_a_load_finding() {
 }
 
 #[test]
-fn doctor_counts_declared_reads() {
+fn doctor_lists_declared_reads() {
     use specforge_protocol_types::{CommandDescriptor, CompilerPassDescriptor, FileRead};
     let read = |name: &str| FileRead {
         name: name.into(),
@@ -673,7 +673,13 @@ fn doctor_counts_declared_reads() {
     let mut declaration = Assembled::declaration("@acme/a", "1.0.0");
     declaration.passes = vec![CompilerPassDescriptor {
         name: "p".into(),
-        reads: vec![read("one"), read("two")],
+        reads: vec![
+            read("one"),
+            FileRead {
+                text: true,
+                ..read("two")
+            },
+        ],
         ..Default::default()
     }];
     declaration.surfaces.commands = vec![CommandDescriptor {
@@ -689,12 +695,16 @@ fn doctor_counts_declared_reads() {
     let report = diagnose(&fixture.view(), &ScriptedSolver::ready());
 
     let reads = |name: &str| {
-        report
-            .extensions
-            .iter()
-            .find(|e| e.name == name)
-            .unwrap()
-            .reads
+        let row = report.extensions.iter().find(|e| e.name == name).unwrap();
+        row.reads.iter().map(|r| r.line()).collect::<Vec<_>>()
     };
-    assert_eq!((reads("@acme/a"), reads("@acme/b")), (3, 0));
+    assert_eq!(
+        reads("@acme/a"),
+        [
+            "pass:p one: *.md",
+            "pass:p two: *.md (with text)",
+            "command:c three: *.md"
+        ]
+    );
+    assert!(reads("@acme/b").is_empty());
 }

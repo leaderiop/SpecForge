@@ -34,7 +34,7 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   `lines` (the `\n` count plus one for a last line without one) and `digest` (`sha256:` and the hex of the CRLF-normalised
   bytes, the digest judged rules and verdicts already use) are present for a regular file that was read. `text` is the
   file as UTF-8, only when the read asks for it and the file is within the cap. `error` says why text or facts are
-  missing: `too_large`, `not_utf8`, `unreadable`, `outside_project`, `budget`; a path that does not exist is
+  missing: `too_large`, `not_utf8`, `unreadable`, `outside_project`, `denied`, `budget`; a path that does not exist is
   `exists: false`, not an error. `truncated` is set on a read whose glob matched more than the file cap. The field is new
   and is not `PathFact`, whose `in_project`, `in_spec_root` and `new_bytes` mean nothing outside a hook.
 - **D3. Containment is lexical, then real.** A path is joined to its base, normalised lexically and refused as
@@ -47,6 +47,17 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   contained disk (ADR 0145) is unchanged and holds its own files. Residual limits: the check and the read are two calls,
   so a link swapped between them is read (the contained disk closes that by holding the file; a recording disk cannot);
   and a link to a directory inside the project is not walked, so a glob does not list files through it.
+- **D3a. A declared read is a capability, so it is listed and it has a deny-list.** A read hands a guest the text of
+  project files, which is more than the graph holds (`.env`, a key, `.git/config`), so (a) `specforge extensions` and
+  `specforge doctor` list every read an extension declares: its pass or command, its name, the field or glob, and
+  whether text is requested (`specforge add` prints no extension detail: the declaration is read at the next load, where
+  these two show it); (b) a read that asks for text withholds the text of a path that looks like a credential: `.env`,
+  `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and `.git/config`, by the
+  name as written and by the name a link resolves to. The fact has `exists` and `error: "denied"` and no `text`,
+  `digest`, `bytes` or `lines`; the path is still a check input, so changing it re-runs the pass. A read that does not
+  ask for text is not denied (facts only). Limit: the list is fixed, by name, and no project can opt a file in; a
+  project that needs to will get a setting in a later round. An unlisted file (a token in `config.json`) is still
+  readable by a declared read, which is why the listing in (a) exists.
 - **D4. Caps.** A file's text is capped at 64 KiB; the disk already refuses a file over 64 MiB, which is `too_large`.
   A read sends at most 1 MiB of text in all (`budget` after that) and 2000 files (`truncated`). A glob never enters
   `.git`, `.specforge`, `.svn`, `.next`, `.venv`, `dist`, `node_modules`, `target` or `vendor` unless a literal segment of

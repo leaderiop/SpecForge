@@ -67,6 +67,9 @@ impl Args {
                         entry.name,
                         entry.source
                     );
+                    for read in &entry.reads {
+                        outln!(terminal, "      reads {}", read.line());
+                    }
                 }
                 outln!(terminal);
                 let loaded = entries

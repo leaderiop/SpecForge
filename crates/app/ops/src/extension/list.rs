@@ -24,6 +24,10 @@ pub struct ExtensionInfo {
     pub entity_kinds: Vec<String>,
     pub entity_count: usize,
     pub validation_rules: usize,
+    /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; absent while it
+    /// declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<super::DeclaredRead>,
 }
 
 /// One entry of the project's `specforge.lock`.
@@ -75,6 +79,10 @@ pub fn list(view: &ProjectView) -> ExtensionsDocument {
                 validation_rules: extension
                     .declaration
                     .map_or(0, |d| d.validation_rules.len()),
+                reads: extension
+                    .declaration
+                    .map(super::declared_reads)
+                    .unwrap_or_default(),
             }
         })
         .collect();
@@ -224,6 +232,38 @@ mod tests {
         assert_eq!(greet.source, "file:greet.wasm");
         assert_eq!(greet.status, Status::Loaded);
         assert_eq!(greet.version.as_deref(), Some("0.1.0"));
+    }
+
+    #[test]
+    fn the_listing_names_each_declared_read() {
+        use specforge_protocol_types::{CompilerPassDescriptor, FileRead};
+        let mut declaration = Assembled::declaration("@acme/reader", "1.0.0");
+        declaration.passes = vec![CompilerPassDescriptor {
+            name: "scan".into(),
+            reads: vec![FileRead {
+                name: "env".into(),
+                glob: Some(".env*".into()),
+                text: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }];
+        let fixture = Assembled::new().declarations(vec![
+            declaration,
+            Assembled::declaration("@acme/quiet", "1.0.0"),
+        ]);
+
+        let listing = list(&fixture.view());
+
+        let reads = |name: &str| {
+            let row = listing.extensions.iter().find(|e| e.name == name).unwrap();
+            row.reads.iter().map(|r| r.line()).collect::<Vec<_>>()
+        };
+        assert_eq!(reads("@acme/reader"), ["pass:scan env: .env* (with text)"]);
+        assert!(reads("@acme/quiet").is_empty());
+        let json = serde_json::to_value(&listing).unwrap();
+        assert_eq!(json["extensions"][1]["reads"][0]["glob"], ".env*");
+        assert!(json["extensions"][0].get("reads").is_none());
     }
 
     #[test]

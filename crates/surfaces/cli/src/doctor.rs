@@ -117,6 +117,9 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
             ext.source,
             ext.enhancement_count
         );
+        for read in &ext.reads {
+            line!("      reads {}", read.line());
+        }
     }
 
     line!();

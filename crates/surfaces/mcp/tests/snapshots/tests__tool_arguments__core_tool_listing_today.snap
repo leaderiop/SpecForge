@@ -6070,6 +6070,35 @@ expression: listing
               "name": {
                 "type": "string"
               },
+              "reads": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "glob": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "name",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "source": {
                 "type": "string"
               },
@@ -7544,8 +7573,33 @@ expression: listing
                 "type": "string"
               },
               "reads": {
-                "minimum": 0,
-                "type": "integer"
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "glob": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "name",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               },
               "source": {
                 "type": "string"
