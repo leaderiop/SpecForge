@@ -9,9 +9,10 @@ use specforge_component::builtins::BUILTINS;
 use specforge_component::committed::COMMITTED;
 
 // The blob profile built the nine at 3.3 MB; the 1.8.0 SDK (field forms, computed values, typed settings) adds ~70 KB to
-// each (3.96 MB, product 0.86 MB). A build without the profile is 7 MB, well over either.
-const TOTAL_BUDGET: usize = 4_200_000;
-const BLOB_BUDGET: usize = 950_000;
+// each (3.96 MB, product 0.86 MB); protocol 1.10.0 (host contributions, state, hooks) brings them to 4.71 MB, product
+// 0.96 MB. A build without the profile is 7 MB, well over either.
+const TOTAL_BUDGET: usize = 4_800_000;
+const BLOB_BUDGET: usize = 1_000_000;
 
 #[test]
 fn committed_builtins_stay_under_their_size_budget() {

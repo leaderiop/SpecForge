@@ -112,7 +112,6 @@ fn load_pinned(dir: &str) -> ExtensionDeclaration {
 /// What the SDK builders declare is exactly what the builtin declares for
 /// the same contributions.
 #[test]
-#[ignore = "R33 revendor: the pinned handshake is the vendored blobs' 1.9.0"]
 fn the_builders_declare_what_the_builtin_declares() {
     let built = software_builder().declaration();
     let software = load_pinned("software");
