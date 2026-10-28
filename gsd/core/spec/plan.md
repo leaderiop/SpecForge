@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` wait for r39 and r40.**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger), `gap_closure` (r39) and `commits` (with `commit`, r38) wait for later rounds.**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -106,7 +106,7 @@ GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-co
 
 ## user_setup
 
-GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R`, `service str R`, `why str R`,
+GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
 `done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`).
 

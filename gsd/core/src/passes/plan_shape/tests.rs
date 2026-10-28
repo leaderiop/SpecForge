@@ -166,7 +166,7 @@ fn e303_fires_on_an_auto_task_without_files_or_verify() {
         ]
     );
     assert!(
-        found[2].message.contains("no files and no a verify"),
+        found[2].message.contains("no files and no verify"),
         "{found:?}"
     );
 }
@@ -351,4 +351,32 @@ fn e302_is_silent_on_a_quick_plan_and_on_a_plan_with_requirements() {
         ..Default::default()
     });
     assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn auto_select_is_checked_only_on_a_decision_checkpoint_with_options() {
+    let mut human = entity("v/1/1-01/C1", "checkpoint", &[("kind", "human_verify")]);
+    human.fields.insert("auto_select".into(), "zzz".into());
+    assert!(check(&input(vec![human], vec![])).is_empty());
+    // A decision without options: the declarative rule reports that; no "available: none" from the pass.
+    let mut bare = decision(&[]);
+    bare.fields.insert("auto_select".into(), "zzz".into());
+    assert!(check(&input(vec![bare], vec![])).is_empty());
+}
+
+#[test]
+fn a_checkpoint_after_a_task_of_another_plan_is_e307_and_counts_for_nothing() {
+    let foreign = edge("v/1/1-01/C1", "v/1/1-02/T1", "after");
+    let found = check(&input(
+        vec![one_way("T2", false), decision(&["a"])],
+        vec![foreign],
+    ));
+    assert_eq!(
+        codes_of(&found),
+        [("E307", Some("v/1/1-01/C1")), ("W308", Some("v/1/1-01/T2"))]
+    );
+    assert!(
+        found[0].message.contains("a task of another plan"),
+        "{found:?}"
+    );
 }

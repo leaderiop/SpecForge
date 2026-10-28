@@ -7,6 +7,8 @@ mod checkpoint;
 
 use specforge_extension_sdk::prelude::*;
 
+use crate::digest::scope_of;
+
 use super::plans::{block, children, name_of, of_kind, phase_of, strings, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -130,7 +132,7 @@ fn task_parts(input: &PassInput) -> Vec<PassDiagnostic> {
                 || text(task, "verify_text").is_some()
                 || text(task, "verify_human").is_some();
             if !verified {
-                missing.push("a verify (verify, verify_text or verify_human)");
+                missing.push("verify (verify, verify_text or verify_human)");
             }
             (!missing.is_empty()).then(|| {
                 PassDiagnostic::new(
@@ -195,16 +197,21 @@ fn number(name: &str) -> Option<u64> {
 fn one_way_doors(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "plan")
         .flat_map(|plan| {
+            // A decision checkpoint's position: after task N of this plan. One whose `after` is a task of another plan
+            // (E307) or has no number stands before nothing.
             let decisions: Vec<Option<u64>> = children(input, &plan.id, "checkpoint")
                 .into_iter()
                 .filter(|c| c.fields.get("kind").map(String::as_str) == Some("decision"))
                 .map(|c| {
-                    input
+                    match input
                         .edges
                         .iter()
                         .find(|e| e.source == c.id && e.label == "after")
-                        .map(|e| number(name_of(&e.target)))
-                        .unwrap_or(Some(0))
+                    {
+                        Some(e) if scope_of(&e.target) == plan.id => number(name_of(&e.target)),
+                        Some(_) => None,
+                        None => Some(0),
+                    }
                 })
                 .collect();
             children(input, &plan.id, "task")

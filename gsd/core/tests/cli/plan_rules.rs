@@ -109,7 +109,7 @@ fn each_plan_shape_code_fires_on_its_fixture() {
     let p = project("plan");
     p.edit("spec/plans.spec", T2_VERIFY, "");
     assert_eq!(p.codes(), ["gsd/E303"]);
-    assert!(only(&p, "gsd/E303").contains("task 'v1.0/01/01-01/T2' of type tdd has no a verify"));
+    assert!(only(&p, "gsd/E303").contains("task 'v1.0/01/01-01/T2' of type tdd has no verify"));
 
     // W304: four children, and E322: five. Never both.
     let four = format!(

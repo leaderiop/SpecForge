@@ -160,6 +160,8 @@ fn taskboard_plan_verdicts_match() {
         assert_eq!(verdict["valid"], true, "{plan}");
         assert_eq!(verdict["errors"], serde_json::json!([]), "{plan}");
     }
+    // These goldens list no command (every taskboard task has a bare `<verify>`): they prove only 0 blockers. The
+    // E320 and E507 proof is the gate-cutover test below.
     for name in ["verify-command-paths", "verify-failure-directions"] {
         for phase in ["1", "2"] {
             let verdict = golden(&format!("{name}-{phase}"));

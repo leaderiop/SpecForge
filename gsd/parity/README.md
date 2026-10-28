@@ -22,6 +22,8 @@ the version matrix live here.
 | `record.sh` | re-records the goldens |
 | `upstream/v1.18.0/gate-cutover/` | ten verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
+The taskboard's `verify-command-paths` and `verify-failure-directions` goldens are intentionally empty: every taskboard task has a bare `<verify>`, so there is no `<automated>` command to probe, and the comparison proves only that no blocker is reported. The E320 and E507 proof is the gate-cutover verdicts (`gate_cutover_plan_verdicts_reproduce`), whose blocker and missing rows are matched one for one. Adding an `<automated>` task to the taskboard would move other goldens, so it is not done.
+
 The goldens are data: nothing runs gsd-tools in CI. `core/tests/cli/parity_roadmap.rs` compares the SpecForge twin in
 `fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`. `core/tests/cli/parity_plans.rs` compares the twin's plans' waves, `autonomous`, dependencies, files and task counts with `phase-plan-index`, checks the plan verdict goldens against the twin's findings, and reproduces the gate-cutover verdicts on `core/tests/projects/gate_cutover/`. `core/tests/cli/parity_discuss.rs` compares the twin's contexts, decisions, discussion log and research with phase 2's `CONTEXT.md`, `DISCUSSION-LOG.md`, `RESEARCH.md`, PROJECT.md's Key Decisions and the two context goldens.
 
