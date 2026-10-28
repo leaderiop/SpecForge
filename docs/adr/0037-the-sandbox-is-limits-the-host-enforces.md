@@ -1,6 +1,6 @@
 # An extension's sandbox is the limits the host enforces
 
-**Status:** accepted (2026-10-07). D1 extended by [ADR 0244](0244-an-extensions-text-is-read-printable-where-the-host-reads-it.md): no extension text acts on the terminal. Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): no secret crosses into a guest.
+**Status:** accepted (2026-10-07). D1 extended by [ADR 0244](0244-an-extensions-text-is-read-printable-where-the-host-reads-it.md): no extension text acts on the terminal. Extended by [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md): no secret crosses into a guest. Extended by [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md): a hook is given host-computed facts, never a capability.
 
 An extension's handshake declared a sandbox policy of seven fields and each surface an override of
 three. The host read one: `max_execution_ms`, clamped to 30 s. `max_memory_mb` was read by nobody,

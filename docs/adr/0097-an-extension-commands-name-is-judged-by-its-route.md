@@ -1,6 +1,6 @@
 # An extension command's name is judged by its route
 
-**Status:** accepted (2026-10-15, round 10, plan 05). Narrows [ADR 0017](0017-one-extension-surface-table.md) D7 for
+**Status:** accepted (2026-10-15, round 10, plan 05). Narrows [ADR 0017](0017-one-extension-surface-table.md) D7 for Extended by [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (a slash command is named by the same route, and host names are one namespace).
 commands (its `check` keeps E039 is keyed by a command's route); D1's `ExtensionCommands` routes from the registry's
 table. D1-D14 otherwise stand. Extended by [ADR 0291](0291-an-extension-contributes-mcp-prompts.md) (an extension's prompts are routed under the commands' names, after the commands).
 
