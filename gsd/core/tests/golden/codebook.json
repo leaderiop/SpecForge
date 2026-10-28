@@ -44,6 +44,12 @@
       "title": "Timestamp is not RFC 3339 UTC"
     },
     {
+      "code": "E108",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A repository has one project (the kernel keeps `singleton` as metadata only). It is an error.",
+      "title": "More than one project"
+    },
+    {
       "code": "E201",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
       "explanation": "A context has canonical refs (missing_required_field and non_empty under one code). It is an error.",

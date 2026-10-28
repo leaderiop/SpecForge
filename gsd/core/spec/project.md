@@ -14,7 +14,7 @@ Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<category>.spec`, `spec/g
 
 ## project
 
-Singleton. GSD: `PROJECT.md`. Name: any word, by convention the slug of its `name`.
+Singleton: one per repository. The kernel keeps `singleton` as metadata (it reaches the LSP hover only), so `gsd/E108` reports the second and later `project` entities. GSD: `PROJECT.md`. Name: any word, by convention the slug of its `name`.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -33,7 +33,7 @@ Singleton. GSD: `PROJECT.md`. Name: any word, by convention the slug of its `nam
 
 ## requirement
 
-GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`.
+GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is unique across the whole project, workstreams included: GSD gives each workstream its own `REQUIREMENTS.md`, but SpecForge scopes only milestones and phases by workstream, and `gsd/E101` maps requirements project-wide. Two workstreams that both need `AUTH-01` name them apart (`AUTH-01`, `AUTH-R01`).
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|

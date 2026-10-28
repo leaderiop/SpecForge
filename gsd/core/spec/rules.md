@@ -22,13 +22,14 @@ every profile, while that setting is false; its letter is still the severity it 
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
-| gsd/E101 | every v1 requirement maps to exactly one phase | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
+| gsd/E101 | every v1 requirement maps to exactly one phase (waits for the first phase: requirements written before the roadmap are not unmapped yet) | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
 | gsd/E102 | phase and plan `depends_on` are acyclic and point at earlier ones only | decl + pass | E | E | D3 |
 | gsd/W103 | a phase has 2–5 success criteria (reads the list's items, K13) | pass | W | E | roadmap template |
-| gsd/W104 | phase numbers are continuous; an inserted phase sits between its neighbours | pass | W | W | roadmap |
+| gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
-| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field is a `str` that `matches`) | decl | E | E | (new: SpecForge has no timestamp type) |
+| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field is a `str` that `matches`; generated per field, and no r34 kind has one: `project.updated` is computed) | decl | E | E | (new: SpecForge has no timestamp type) |
+| gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
 
 ## Discuss, spec, research
 

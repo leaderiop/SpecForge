@@ -165,3 +165,197 @@ fn numbering_is_judged_per_milestone() {
     ));
     assert!(found.is_empty(), "{found:?}");
 }
+
+fn project(id: &str) -> PassEntity {
+    PassEntity {
+        id: id.into(),
+        kind: "project".into(),
+        ..Default::default()
+    }
+}
+
+fn ids<'a>(found: &'a [PassDiagnostic], code: &str) -> Vec<&'a str> {
+    found
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.entity.as_deref().unwrap_or(""))
+        .collect()
+}
+
+#[test]
+fn a_second_project_is_e108() {
+    let found = check(&input(
+        vec![project("taskboard"), project("alpha"), project("zeta")],
+        vec![],
+    ));
+    assert_eq!(ids(&found, "E108"), ["taskboard", "zeta"]);
+    assert!(found[0].message.contains("'alpha'"));
+    assert!(check(&input(vec![project("taskboard")], vec![])).is_empty());
+    assert!(check(&input(vec![], vec![])).is_empty());
+}
+
+#[test]
+fn requirements_before_any_phase_are_not_e101() {
+    let found = check(&input(vec![requirement("AUTH-01", "v1")], vec![]));
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn every_member_of_a_cycle_is_named_not_only_the_back_edge_path() {
+    // X->Y->Z->X and X->W->Z: W is on X->W->Z->X.
+    let found = check(&input(
+        vec![
+            phase("v1.0/05"),
+            phase("v1.0/06"),
+            phase("v1.0/07"),
+            phase("v1.0/08"),
+            phase("v1.0/09"),
+        ],
+        vec![
+            edge("v1.0/05", "v1.0/06", "PhaseDependsOn"),
+            edge("v1.0/06", "v1.0/07", "PhaseDependsOn"),
+            edge("v1.0/07", "v1.0/05", "PhaseDependsOn"),
+            edge("v1.0/05", "v1.0/08", "PhaseDependsOn"),
+            edge("v1.0/08", "v1.0/07", "PhaseDependsOn"),
+            edge("v1.0/09", "v1.0/05", "PhaseDependsOn"),
+        ],
+    ));
+    let on_cycle: Vec<_> = found
+        .iter()
+        .filter(|d| d.message.contains("cycle"))
+        .map(|d| d.entity.as_deref().unwrap_or(""))
+        .collect();
+    assert_eq!(on_cycle, ["v1.0/05", "v1.0/06", "v1.0/07", "v1.0/08"]);
+}
+
+#[test]
+fn a_long_dependency_chain_does_not_exhaust_the_stack() {
+    let phases: Vec<_> = (1..=5000).map(|n| phase(&format!("v1.0/{n}"))).collect();
+    let edges = (2..=5000)
+        .map(|n| {
+            edge(
+                &format!("v1.0/{n}"),
+                &format!("v1.0/{}", n - 1),
+                "PhaseDependsOn",
+            )
+        })
+        .collect();
+    // 999 is the backlog number, so W104 may speak once there; E102 must not.
+    assert!(ids(&check(&input(phases, edges)), "E102").is_empty());
+}
+
+#[test]
+fn a_letter_phase_and_a_nested_decimal_phase_are_numbered() {
+    let clean = check(&input(
+        vec![
+            phase("v1.0/12"),
+            phase("v1.0/12A"),
+            phase("v1.0/12.1"),
+            phase("v1.0/12.1.1"),
+            phase("v1.0/13"),
+        ],
+        vec![],
+    ));
+    assert!(clean.is_empty(), "{clean:?}");
+    let found = check(&input(
+        vec![phase("v1.0/12"), phase("v1.0/12.1.1"), phase("v1.0/12.3")],
+        vec![],
+    ));
+    assert_eq!(
+        codes(&found),
+        [("W104", "v1.0/12.1.1"), ("W104", "v1.0/12.3")]
+    );
+    assert!(found[0].message.contains("12.1, which does not exist"));
+    assert!(found[1].message.contains("skips 12.2"));
+}
+
+#[test]
+fn a_forward_dependency_between_letter_and_nested_phases_is_e102() {
+    let found = check(&input(
+        vec![
+            phase("v1.0/12A"),
+            phase("v1.0/12.1.1"),
+            phase("v1.0/12"),
+            phase("v1.0/12.1"),
+        ],
+        vec![
+            edge("v1.0/12", "v1.0/12A", "PhaseDependsOn"),
+            edge("v1.0/12.1", "v1.0/12.1.1", "PhaseDependsOn"),
+        ],
+    ));
+    assert_eq!(ids(&found, "E102"), ["v1.0/12", "v1.0/12.1"], "{found:?}");
+}
+
+#[test]
+fn decimal_parts_order_numerically() {
+    let ten = Number::of("v1.0/02.10").unwrap();
+    let nine = Number::of("v1.0/02.9").unwrap();
+    assert!(nine < ten);
+    assert!(Number::of("v1.0/12").unwrap() < Number::of("v1.0/12A").unwrap());
+    // upstream comparePhaseNum: the letter before the decimals, none before any letter.
+    assert!(Number::of("v1.0/12.1").unwrap() < Number::of("v1.0/12A").unwrap());
+    assert_eq!(Number::of("v1.0/12a"), Number::of("v1.0/12A"));
+    for custom in ["v1.0/setup", "v1.0/1A2", "v1.0/1..2", "v1.0/a", "v1.0/12.A"] {
+        assert_eq!(Number::of(custom), None, "{custom}");
+    }
+    let found = check(&input(
+        vec![
+            phase("v1.0/02"),
+            phase("v1.0/02.1"),
+            phase("v1.0/02.9"),
+            phase("v1.0/02.10"),
+        ],
+        vec![edge("v1.0/02.9", "v1.0/02.10", "PhaseDependsOn")],
+    ));
+    assert_eq!(ids(&found, "E102"), ["v1.0/02.9"]);
+}
+
+#[test]
+fn a_huge_gap_is_one_warning_and_cheap() {
+    let found = check(&input(
+        vec![
+            phase("v1.0/01"),
+            phase("v1.0/20000"),
+            phase("v1.0/20260115"),
+        ],
+        vec![],
+    ));
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert_eq!(
+        found[0].message,
+        "phase numbers skip 02-19999, before 'v1.0/20000'"
+    );
+    assert_eq!(
+        found[1].message,
+        "phase numbers skip 20001-20260114, before 'v1.0/20260115'"
+    );
+    let one = check(&input(vec![phase("v1.0/01"), phase("v1.0/03")], vec![]));
+    assert_eq!(one[0].message, "phase numbers skip 02, before 'v1.0/03'");
+}
+
+#[test]
+fn a_milestone_of_only_decimal_phases_is_still_checked() {
+    let found = check(&input(vec![phase("v1.0/02.1")], vec![]));
+    assert_eq!(codes(&found), [("W104", "v1.0/02.1")]);
+}
+
+#[test]
+fn two_ids_with_one_number_are_w104() {
+    let found = check(&input(vec![phase("v1.0/03"), phase("v1.0/003")], vec![]));
+    assert_eq!(codes(&found), [("W104", "v1.0/03")]);
+    assert!(found[0].message.contains("same number"));
+}
+
+#[test]
+fn custom_named_and_backlog_phases_are_outside_the_numbering() {
+    let found = check(&input(
+        vec![
+            phase("v1.0/01"),
+            phase("v1.0/setup"),
+            phase("v1.0/999.1"),
+            phase("v1.0/02"),
+        ],
+        vec![],
+    ));
+    assert!(found.is_empty(), "{found:?}");
+}

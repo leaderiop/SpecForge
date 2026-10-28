@@ -80,7 +80,7 @@ const fn code(
     }
 }
 
-/// The 59 codes of `spec/rules.md`, in the order of its tables.
+/// The 60 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -134,6 +134,14 @@ pub static CODES: &[Code] = &[
         "E107",
         "Timestamp is not RFC 3339 UTC",
         "A timestamp field holds an RFC 3339 UTC time (every authored ts field is a str that matches)",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "E108",
+        "More than one project",
+        "A repository has one project (the kernel keeps `singleton` as metadata only)",
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,

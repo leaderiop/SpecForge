@@ -1,8 +1,12 @@
-//! The roadmap pass: `gsd/E101`, `gsd/E102` and `gsd/W104` over the requirements, phases and their references.
-//! Pure functions over the pass input; the plan half of E102 lands with the plan kinds (r37), W103 with the list
-//! items the kernel hands a pass (K13, r35) and E106 is a gate guard (r39).
+//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W104` and `gsd/E108` over the project, requirements, phases and
+//! their references. Pure functions over the pass input; the plan half of E102 lands with the plan kinds (r37), W103
+//! with the list items the kernel hands a pass (K13, r35) and E106 is a gate guard (r39).
+
+mod numbering;
 
 use std::collections::{BTreeMap, BTreeSet};
+
+use numbering::Number;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -13,9 +17,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    let mut found = unmapped_requirements(input);
+    let mut found = one_project(input);
+    found.extend(unmapped_requirements(input));
     found.extend(dependencies(input));
-    found.extend(numbering(input));
+    found.extend(numbering::check(input));
     found
 }
 
@@ -44,8 +49,38 @@ fn edges_between<'a>(input: &'a PassInput, from: &str, to: &str) -> Vec<(&'a str
         .collect()
 }
 
-/// E101: every `v1` requirement is in exactly one phase's `requirements` (upstream `REQUIREMENT_UNMAPPED`).
+/// E108: a project has one `project` entity. The kernel keeps `singleton` as metadata (it only reaches the LSP hover),
+/// so the second and later ones, by id, are reported here.
+fn one_project(input: &PassInput) -> Vec<PassDiagnostic> {
+    let mut ids: Vec<&str> = of_kind(input, "project").map(|p| p.id.as_str()).collect();
+    ids.sort_unstable();
+    let Some((first, rest)) = ids.split_first() else {
+        return Vec::new();
+    };
+    rest.iter()
+        .map(|id| {
+            PassDiagnostic::new(
+                "E108",
+                PassSeverity::Error,
+                format!(
+                    "project '{id}' is a second project; this repository's project is '{first}'"
+                ),
+            )
+            .with_suggestion(format!(
+                "keep one project: merge '{id}' into '{first}' or remove it"
+            ))
+            .with_entity(*id)
+        })
+        .collect()
+}
+
+/// E101: every `v1` requirement is in exactly one phase's `requirements` (upstream `REQUIREMENT_UNMAPPED`, the
+/// roadmapper's coverage check). Requirements written before the roadmap are not unmapped yet: with no phase at all
+/// there is nothing to map them to, so the rule waits for the first phase.
 fn unmapped_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
+    if of_kind(input, "phase").next().is_none() {
+        return Vec::new();
+    }
     let mut phases_of: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
     for (phase, requirement) in edges_between(input, "phase", "requirement") {
         phases_of.entry(requirement).or_default().insert(phase);
@@ -85,21 +120,9 @@ fn unmapped_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// A phase's place in its milestone: `03` is `(3, 0)`, `03.1` is `(3, 1)`. `None` for a name that is no number.
-fn number(id: &str) -> Option<(u32, u32)> {
-    let name = id.rsplit('/').next()?;
-    let (whole, part) = name.split_once('.').map_or((name, "0"), |(w, p)| (w, p));
-    Some((whole.parse().ok()?, part.parse().ok()?))
-}
-
 /// The milestone a phase is in: its id without the last segment.
 fn milestone_of(id: &str) -> &str {
     id.rsplit_once('/').map_or("", |(milestone, _)| milestone)
-}
-
-/// A backlog phase is a `999.x`: outside the numbering.
-fn backlog((whole, _): (u32, u32)) -> bool {
-    whole == 999
 }
 
 /// E102: a phase's `depends_on` is acyclic and names earlier phases of its milestone only.
@@ -111,7 +134,7 @@ fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
     }
     let mut found = Vec::new();
     for (phase, on) in &depends {
-        let here_and_there = (number(phase), number(on));
+        let here_and_there = (Number::of(phase), Number::of(on));
         let forward = milestone_of(phase) == milestone_of(on)
             && matches!(here_and_there, (Some(here), Some(there)) if there >= here);
         if forward {
@@ -142,95 +165,57 @@ fn dependencies(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// The nodes that can reach themselves, by depth-first search with the nodes of the current path marked.
+/// The nodes on a cycle: every member of a strongly connected component of more than one node, and a node that
+/// depends on itself (Tarjan's algorithm, iterative so a long chain cannot exhaust the guest's stack).
 fn on_a_cycle<'a>(graph: &BTreeMap<&'a str, Vec<&'a str>>) -> BTreeSet<&'a str> {
-    fn walk<'a>(
-        node: &'a str,
-        graph: &BTreeMap<&'a str, Vec<&'a str>>,
-        path: &mut Vec<&'a str>,
-        done: &mut BTreeSet<&'a str>,
-        cyclic: &mut BTreeSet<&'a str>,
-    ) {
-        if let Some(at) = path.iter().position(|n| *n == node) {
-            cyclic.extend(&path[at..]);
-            return;
+    let mut nodes: BTreeSet<&str> = graph.keys().copied().collect();
+    nodes.extend(graph.values().flatten().copied());
+    let (mut index, mut low): (BTreeMap<&str, usize>, BTreeMap<&str, usize>) = Default::default();
+    let (mut stack, mut on_stack) = (Vec::new(), BTreeSet::new());
+    let mut cyclic = BTreeSet::new();
+    for root in nodes {
+        if index.contains_key(root) {
+            continue;
         }
-        if !done.insert(node) {
-            return;
+        // (node, how many of its successors are done)
+        let mut work = vec![(root, 0usize)];
+        while let Some((node, done)) = work.pop() {
+            if done == 0 {
+                index.insert(node, index.len());
+                low.insert(node, index[node]);
+                stack.push(node);
+                on_stack.insert(node);
+            }
+            let next = graph.get(node).and_then(|n| n.get(done)).copied();
+            if let Some(next) = next {
+                work.push((node, done + 1));
+                if !index.contains_key(next) {
+                    work.push((next, 0));
+                } else if on_stack.contains(next) {
+                    low.insert(node, low[node].min(index[next]));
+                }
+                continue;
+            }
+            if low[node] == index[node] {
+                let mut component = Vec::new();
+                while let Some(member) = stack.pop() {
+                    on_stack.remove(member);
+                    component.push(member);
+                    if member == node {
+                        break;
+                    }
+                }
+                let alone = component.len() == 1;
+                if !alone || graph.get(node).is_some_and(|n| n.contains(&node)) {
+                    cyclic.extend(component);
+                }
+            }
+            if let Some(&(parent, _)) = work.last() {
+                low.insert(parent, low[parent].min(low[node]));
+            }
         }
-        path.push(node);
-        for next in graph.get(node).into_iter().flatten() {
-            walk(next, graph, path, done, cyclic);
-        }
-        path.pop();
-    }
-    let (mut done, mut cyclic) = (BTreeSet::new(), BTreeSet::new());
-    for node in graph.keys() {
-        walk(node, graph, &mut Vec::new(), &mut done, &mut cyclic);
     }
     cyclic
-}
-
-/// W104: a milestone's integer phases are continuous, and a decimal phase has the integer phase it follows.
-fn numbering(input: &PassInput) -> Vec<PassDiagnostic> {
-    let mut by_milestone: BTreeMap<&str, Vec<(u32, u32, &str)>> = BTreeMap::new();
-    for phase in of_kind(input, "phase") {
-        if let Some(n) = number(&phase.id).filter(|n| !backlog(*n)) {
-            by_milestone
-                .entry(milestone_of(&phase.id))
-                .or_default()
-                .push((n.0, n.1, phase.id.as_str()));
-        }
-    }
-    let mut found = Vec::new();
-    for phases in by_milestone.values() {
-        let wholes: BTreeSet<u32> = phases.iter().filter(|p| p.1 == 0).map(|p| p.0).collect();
-        let (Some(first), Some(last)) = (wholes.first(), wholes.last()) else {
-            continue;
-        };
-        for missing in (*first..*last).filter(|n| !wholes.contains(n)) {
-            // Reported on the phase that follows the gap, which is the one the numbering skipped to.
-            let next = phases
-                .iter()
-                .filter(|p| p.1 == 0 && p.0 > missing)
-                .min_by_key(|p| p.0);
-            if let Some((_, _, id)) = next {
-                found.push(
-                    PassDiagnostic::new(
-                        "W104",
-                        PassSeverity::Warning,
-                        format!("phase numbers skip {missing:02}, before '{id}'"),
-                    )
-                    .with_suggestion("renumber with /gsd-phase, or insert the missing phase")
-                    .with_entity(*id),
-                );
-            }
-        }
-        for (whole, part, id) in phases.iter().filter(|p| p.1 != 0) {
-            if !wholes.contains(whole) {
-                found.push(
-                    PassDiagnostic::new(
-                        "W104",
-                        PassSeverity::Warning,
-                        format!("inserted phase '{id}' follows phase {whole:02}, which does not exist"),
-                    )
-                    .with_suggestion(format!("an inserted phase sits after the phase it is numbered from; add phase {whole:02}"))
-                    .with_entity(*id),
-                );
-            } else if *part > 1 && !phases.iter().any(|p| p.0 == *whole && p.1 == part - 1) {
-                found.push(
-                    PassDiagnostic::new(
-                        "W104",
-                        PassSeverity::Warning,
-                        format!("inserted phase '{id}' skips {whole:02}.{}", part - 1),
-                    )
-                    .with_suggestion("inserted phases are numbered .1, .2, … in order")
-                    .with_entity(*id),
-                );
-            }
-        }
-    }
-    found
 }
 
 #[cfg(test)]

@@ -59,3 +59,51 @@ fn roadmap_errors_report_each_code_once() {
 fn a_clean_roadmap_reports_no_gsd_code() {
     assert_eq!(findings(&project("roadmap")), []);
 }
+
+#[test]
+fn a_second_project_is_e108() {
+    let p = project("roadmap");
+    p.write(
+        "spec/second.spec",
+        "project second \"Second\" {\n  name \"Second\"\n  what \"A second project\"\n  core_value \"none\"\n  context \"a test\"\n  constraints [{ kind other what \"none\" why \"a test\" }]\n}\n",
+    );
+    let found = findings(&p);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/E108");
+    assert!(found[0].1.contains("a second project"), "{found:#?}");
+}
+
+fn phase_spec(number: &str) -> String {
+    format!(
+        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  name \"P{number}\"\n  slug \"p\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}}\n\n"
+    )
+}
+
+#[test]
+fn letter_and_nested_decimal_phases_are_numbered_not_skipped() {
+    let p = project("roadmap");
+    p.write(
+        "spec/more.spec",
+        &["02", "02A", "02.1", "02.1.1"].map(phase_spec).concat(),
+    );
+    assert_eq!(findings(&p), [], "a lettered and a nested phase are clean");
+    p.write("spec/more.spec", &["02", "02.1.1"].map(phase_spec).concat());
+    let found = findings(&p);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0]
+            .1
+            .contains("'v1.0/02.1.1' follows phase 02.1, which does not exist"),
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_far_phase_number_is_one_warning() {
+    let p = project("roadmap");
+    p.write("spec/more.spec", &["02", "20000"].map(phase_spec).concat());
+    let found = findings(&p);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0].0, "gsd/W104");
+    assert!(found[0].1.contains("skip 03-19999"), "{found:#?}");
+}
