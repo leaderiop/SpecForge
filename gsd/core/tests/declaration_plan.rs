@@ -317,3 +317,35 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     assert_eq!(total, 77 - 2 + 3, "the kinds' fields");
 }
+
+/// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
+/// the model is listed by exactly one compute pass.
+#[test]
+fn each_computed_field_is_listed_by_one_compute_pass() {
+    let passes = describe("passes");
+    let mut listed: Vec<String> = passes["items"]
+        .as_array()
+        .expect("passes")
+        .iter()
+        .flat_map(|p| p["computes"].as_array().cloned().unwrap_or_default())
+        .map(|f| f.as_str().expect("a field").to_string())
+        .collect();
+    let total = listed.len();
+    listed.sort();
+    listed.dedup();
+    assert_eq!(listed.len(), total, "a field is listed twice: {passes}");
+    let mut computed = Vec::new();
+    for kind in describe("entities")["items"].as_array().expect("kinds") {
+        for field in kind["fields"].as_array().expect("fields") {
+            if field["writer"] == "computed" {
+                computed.push(format!(
+                    "{}.{}",
+                    kind["name"].as_str().expect("a kind"),
+                    field["name"].as_str().expect("a field")
+                ));
+            }
+        }
+    }
+    computed.sort();
+    assert_eq!(listed, computed);
+}

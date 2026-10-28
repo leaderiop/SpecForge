@@ -287,3 +287,41 @@ fn a_hand_written_setup_done_is_e083() {
     );
     assert_eq!(p.codes(), ["E083"]);
 }
+
+#[test]
+fn waves_follow_phase_plan_index() {
+    let p = project("plan");
+    let second = fields_of(&p, "v1.0/01/01-02");
+    assert_eq!(
+        (&second["wave"], &second["autonomous"]),
+        (&2.into(), &false.into()),
+        "{second}"
+    );
+    let first = fields_of(&p, "v1.0/01/01-01");
+    assert_eq!(
+        (&first["wave"], &first["autonomous"]),
+        (&1.into(), &true.into()),
+        "{first}"
+    );
+    // Phase 02's plan depends on nothing and is a root of its own phase.
+    assert_eq!(fields_of(&p, "v1.0/02/02-01")["wave"], 1);
+}
+
+#[test]
+fn a_quick_plan_is_autonomous_and_has_no_wave() {
+    let p = project("plan");
+    let quick = fields_of(&p, "261028-a1b");
+    assert_eq!(quick["autonomous"], true, "{quick}");
+    assert!(quick.get("wave").is_none(), "{quick}");
+}
+
+#[test]
+fn a_dependency_on_another_phase_leaves_the_wave_alone() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "  files_modified [\"src/store.js\"]\n",
+        "  depends_on     [v1.0/01/01-02]\n  files_modified [\"src/store.js\"]\n",
+    );
+    assert_eq!(fields_of(&p, "v1.0/02/02-01")["wave"], 1);
+}

@@ -5,7 +5,10 @@
 use specforge_extension_sdk::prelude::*;
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    let computes = crate::kinds::computed();
+    let computes: Vec<String> = crate::kinds::computed()
+        .into_iter()
+        .filter(|field| !super::CLAIMED.contains(&field.as_str()))
+        .collect();
     c.pass("derive", |p| {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
         p.compute().computes(&names).run(derive);
