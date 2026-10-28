@@ -3,13 +3,16 @@
 //! E312: no task action reduces scope. GSD has no code matcher: the planner is told never to write these phrases in a
 //! task action (`agents/gsd-planner.md:81-85`, `references/planner-antipatterns.md:90-93`, MIT, `LICENSE-GSD`), and
 //! the rule is that prohibition. The checker's wider list (stub, hours, too complex) is judgment: `gsd/W311` (r40).
+//! Upstream's checker (`agents/gsd-plan-checker.md:430-446`) cross-references each hit with the context decision the
+//! plan claims to implement before it blocks, so a hit is exempt when the action cites a decision of the plan's phase
+//! (`\bD-NN\b`, as E310 matches). A dotted version is no hit: `v1.0` is a release, not a scope cut.
 //!
 //! W317: the post-planning gap report (`src/gap-checker.cts`). The items are the phase's requirement ids and every
 //! `D-NN` of its context; an item is covered when `\b<id>\b` is in the concatenated text of the phase's plans.
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, has_word, name_of, of_kind, strings, texts};
+use super::plans::{children, has_word, name_of, of_kind, phase_of, strings, texts};
 use crate::digest::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -41,20 +44,53 @@ pub const SCOPE_REDUCTION: &[&str] = &[
     "skip for now",
 ];
 
+/// A version (`v1.0`, `3.v1`) reads as one token: a `.` between two alphanumerics, one of them a digit, becomes a word
+/// character, so `v1` is not a hit in it. A sentence-ending `v1.` still is.
+fn without_versions(action: &str) -> String {
+    let chars: Vec<char> = action.chars().collect();
+    (0..chars.len())
+        .map(|i| {
+            let at = |j: Option<usize>| j.and_then(|j| chars.get(j)).copied().unwrap_or(' ');
+            let (before, after) = (at(i.checked_sub(1)), at(Some(i + 1)));
+            let inside = before.is_ascii_alphanumeric()
+                && after.is_ascii_alphanumeric()
+                && (before.is_ascii_digit() || after.is_ascii_digit());
+            if chars[i] == '.' && inside {
+                '_'
+            } else {
+                chars[i]
+            }
+        })
+        .collect()
+}
+
+/// The action cites a decision of the plan's phase: the cross-reference upstream makes before it blocks.
+fn cites_decision(input: &PassInput, task: &PassEntity, action: &str) -> bool {
+    phase_of(input, crate::digest::scope_of(&task.id)).is_some_and(|phase| {
+        children(input, phase, "decision")
+            .iter()
+            .any(|d| has_word(action, name_of(&d.id), false))
+    })
+}
+
 fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
         .filter_map(|task| {
             let action = task.fields.get("action")?;
+            let plain = without_versions(action);
             let phrase = SCOPE_REDUCTION
                 .iter()
-                .find(|phrase| has_word(action, phrase, true))?;
+                .find(|phrase| has_word(&plain, phrase, true))?;
+            if cites_decision(input, task, action) {
+                return None;
+            }
             Some(
                 PassDiagnostic::new(
                     "E312",
                     PassSeverity::Error,
                     format!("task '{}' reduces scope: its action says \"{phrase}\"", task.id),
                 )
-                .with_suggestion("deliver what the decision says, or split the plan: never simplify a user decision")
+                .with_suggestion("deliver what the decision says, or split the plan: never simplify a user decision; a task that cites the decision it implements (D-NN) is not reported")
                 .with_entity(&task.id),
             )
         })

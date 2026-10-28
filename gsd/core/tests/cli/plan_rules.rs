@@ -370,6 +370,23 @@ fn an_action_for_now_static_is_e312() {
     );
 }
 
+#[test]
+fn a_version_and_a_hit_citing_a_decision_are_not_e312() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "action \"Write src/tasks.js with add() and list()\"",
+        "action \"Tag the v1.0 release in package.json\"",
+    );
+    assert_eq!(p.codes(), CLEAN);
+    p.edit(
+        "spec/plans.spec",
+        "action \"Tag the v1.0 release in package.json\"",
+        "action \"Write src/tasks.js, v1 only, as D-01 settles\"",
+    );
+    assert_eq!(p.codes(), CLEAN);
+}
+
 /// Plan 01-02 delivers TASK-01 instead of TASK-02: the requirement of phase 01 that no plan cites is the one gap.
 fn uncovered_requirement() -> Project {
     let p = project("plan");

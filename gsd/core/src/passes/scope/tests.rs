@@ -55,6 +55,48 @@ fn a_phrase_inside_a_word_is_not_e312() {
     }
 }
 
+#[test]
+fn a_dotted_version_is_not_a_scope_cut() {
+    for clean in [
+        "Tag the v1.0 release in package.json",
+        "Bump to v2.3.1",
+        "Rename 3.v1 to 3.x",
+    ] {
+        assert!(scope_reduction(&action(clean)).is_empty(), "{clean}");
+    }
+    for hit in [
+        "Ship v1 only.",
+        "Ship v1. Then v1.0 follows",
+        "the API v2, v2.1 later",
+    ] {
+        assert_eq!(scope_reduction(&action(hit)).len(), 1, "{hit}");
+    }
+}
+
+#[test]
+fn a_hit_that_cites_a_decision_of_the_phase_is_clean() {
+    let mut input = action("Build the v1 only, as D-02 settles");
+    input.entities.push(entity("v/1", "phase", &[]));
+    input.entities.push(entity("v/1/D-02", "decision", &[]));
+    input.entities.push(entity("v/1/1-01", "plan", &[]));
+    // The plan is not yet in the phase: the citation names no decision of it.
+    assert_eq!(scope_reduction(&input).len(), 1);
+    input.edges.push(PassEdge {
+        source: "v/1/1-01".into(),
+        target: "v/1".into(),
+        label: "phase".into(),
+    });
+    assert!(scope_reduction(&input).is_empty());
+    input.entities[0]
+        .fields
+        .insert("action".into(), "v1 only, per D-20".into());
+    assert_eq!(
+        scope_reduction(&input).len(),
+        1,
+        "D-20 is no decision of the phase"
+    );
+}
+
 fn row(source: &'static str, item: &str, covered: bool) -> Row {
     Row {
         source,
