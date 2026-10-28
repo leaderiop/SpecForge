@@ -3,6 +3,7 @@
 pub mod codes;
 mod kinds;
 mod passes;
+mod rules;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -20,6 +21,7 @@ impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
         kinds::declare(c);
+        rules::declare(c);
         passes::declare(c);
         codes::declare(c);
     }
