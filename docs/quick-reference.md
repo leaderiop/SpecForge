@@ -73,7 +73,9 @@ specforge add ./path/to/ext.wasm     # load it in a project
 specforge format                     # format .spec files
 specforge migrate                    # bring .spec files to the current format: titles, and repeated reference lists moved into `defaults`
 specforge collect                    # run the test runners (with your approval) and record what they prove
-specforge doctor                     # health-check installed extensions
+specforge doctor                     # health-check installed extensions and the files install wrote into a host
+specforge install claude-code        # write the extensions' agents, skills, slash commands and hooks into a host (codex, cursor too); --check, --dry-run, --force
+specforge uninstall claude-code      # remove exactly what install wrote
 specforge mcp                        # start the MCP server (stdio); specforge.edit applies a list of typed edits
 specforge explain E001               # explain a diagnostic code
 ```

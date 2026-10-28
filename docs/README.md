@@ -24,6 +24,8 @@ New here? Start with the [root README](../README.md), then [what SpecForge is fo
 | [Connect an agent](guides/connect-an-agent.md) | Serve a project to Claude or any MCP client; the validate-every-edit loop; LSP and VS Code |
 | [Zero to hero](guides/authoring-spec-files.md) | The `.spec` language end to end, with a tour of the builtin extensions |
 | [Spec writing flow](spec-writing-flow.md) | One method for writing a project with the builtin extensions, in order |
+| [Installing into a host](guides/installing-into-a-host.md) | Write an extension's agents, skills, slash commands and hooks into Claude Code, Codex or Cursor; ownership, drift and the spec guard |
+| [Writing a hook](guides/writing-a-hook.md) | A function a host calls on its events: facts, answers, timeouts, failure policy, plans and state |
 | [Gating a workflow](guides/gating-a-workflow.md) | A command or prompt an extension refuses while a check fails; a workflow prompt with steps and attribution |
 | [Judged rules](guides/judged-rules.md) | A rule that holds while a fresh verdict says so: inputs, digests, states |
 | [Cookbook](guides/spec-cookbook.md) | Task recipes: "how do I model X?" |

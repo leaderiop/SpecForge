@@ -145,12 +145,12 @@ behavior call_extension_exports "Call Extension Exports" {
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
-    The host performs eleven operations on a loaded extension, each one call
+    The host performs thirteen operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
     (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
     custom validator (the rule's wasm_function), a scanner (the analyzer's
-    scan export), a migration hook and an MCP prompt (prompt__, ADR 0291). Each sends one protocol type as
+    scan export), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
     optional field the host leaves unset is absent, never null. A trap, an
     export the guest does not route, an extension the runtime did not load,

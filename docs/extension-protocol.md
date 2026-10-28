@@ -459,6 +459,53 @@ Extensions cannot contribute grammars or body parsers (ADR 0004, D5-a, ADR 0050)
 body carries syntax of its own may set `has_body_parser` on its entity descriptor; the flag changes
 nothing in the compiler: the core grammar reads every body and every parse error in it is reported.
 
+**Host contributions (1.10.0, ADR 0292).** A `surfaces` item may declare four lists, each skipped when empty. They
+describe files written into an agent host's project directory by `specforge install <host>`; the host itself
+(Claude Code, Codex, Cursor) knows no extension's domain, only file formats.
+
+| List | Item | What install writes |
+|---|---|---|
+| `agents` | `id` (kebab-case), `description`, `tools` (host-neutral classes), `model`, `effort`, `color`, `variants` and `variant_setting`, `when`, `attribution` | one agent file per host; its body is the `render__` export's |
+| `skills` | `id`, `description`, `tools`, `argument_hint`, `when`, `attribution` | one skill per host; its body is the `render__` export's |
+| `slash_commands` | exactly one of `prompt` or `command` (an id of the extension), `argument_hint`, `tools`, `effort`, `when`, `attribution` | a skill named `<short>-<route>` that holds a trampoline: it calls the prompt or command through its own surface |
+| `hooks` | `id` (snake_case), `description`, `event`, `tools`, `paths`, `timeout_ms` (5 s unless set), `on_failure` (`allow` or `deny`), `reads_graph`, `reads_state`, `writes`, `when`, `export` (`hook__<id>`) | one entry in the host's hook configuration that runs `specforge hook <short>.<id>` |
+
+A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
+`web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
+own names. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
+for Codex, a model id); `effort` is `minimal`, `low`, `medium`, `high`, `max` or `inherit`, or `setting:<name>`. A
+`when` names a bool setting of the extension: while it is false the agent, skill, slash command or hook is not
+rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre_commit`, `user_prompt`,
+`session_start`, `stop`, `subagent_start`, `subagent_stop`, `pre_compact` or `statusline`; only `pre_tool`,
+`post_tool` and `pre_commit` take `tools` and `paths`, and `{spec_root}/**` in a path names the spec root.
+
+A host name is one namespace per project: an agent id, a skill id and a slash command's `<short>-<route>` claimed
+twice are E039, and the later claimant is not rendered. A contribution the registry refuses (an unknown tool class,
+`tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no bool setting) is
+W021 and dropped; the rest of the declaration is kept.
+
+`render__` is called once per agent and skill and host with a `RenderInput` (`kind`, `id`, `host`, `variant`,
+`today`) and answers a `RenderOutput` (`body`): the body without the host's frontmatter or marker.
+
+`hook__<id>` receives a `HookInput` and answers a `HookOutput`. The input carries what a sandboxed guest cannot read
+for itself, computed by the host: the host's event (`event`, `host`, `cwd`, `today`, `session`), the tool (`class`, the
+host's `name`, its `input`), one `PathFact` per path the tool names (`path`, `in_project`, `in_spec_root`, `exists`,
+`bytes`, a write's `new_bytes`), a shell tool's command as `shell` words, the `commit` a `pre_commit` fires on
+(`message`, `amend`), the `prompt` of a `user_prompt`, the tool `response` of a `post_tool`, the `status` of a
+`statusline`, and, when declared, the `graph`, the `revisions` of a hook that `writes`, and the `state`. The output
+carries the neutral answer (`decision`: `allow`, `deny` or `ask`, with a `reason`; `context`; `notice`; `statusline`),
+an edit `plan` of a hook that declares `writes` (checked and applied by the host as any plan, with the hook as its
+origin; a plan the host refuses becomes a deny on a pre event and a notice otherwise), and a `state` patch. A trap, a
+timeout or a malformed answer applies the hook's `on_failure` and reports E028.
+
+**State (1.10.0, ADR 0292).** A hook, command or prompt that declares `reads_state` is sent `state`:
+`{"project": {…}, "session": {…}}` (`session` only when the host names one; a CLI command has none). It answers a
+`state` of `{"project": <patch>, "session": <patch>}`, JSON merge patches (RFC 7396). The host applies them after any
+plan, under the write lock, into `.specforge/state/<extension>/project.json` and `sessions/<id>.json`, each an object
+of at most 64 KiB; a patch that would exceed it is refused whole and reported (a notice for a hook, a
+`state_refused` error for a command), and the state is unchanged. A session untouched for 30 days is removed at the
+next write. State is never project truth: no rule reads it, a compile never depends on it, and `check` never sees it.
+
 **Prompts (1.10.0, ADR 0291).** A `surfaces` item may declare `prompts`: workflows an agent follows, served as MCP
 prompts `specforge.<short>.<id>`, as `specforge prompt <short>.<id>` and as `specforge <short> <id>` (an id's `_` is
 spelled `-`) when the extension has no command of that name. A prompt is routed under the same `(short name, name)` as
@@ -861,7 +908,7 @@ or answered.
 | `1.7.0` | An entity kind may declare `scoped_by`, the single `reference` field naming the entity its entities are scoped by (ADR 0284): a name is unique within its scope, and an entity's id is its scope's path and its name (`v1.0/03/D-01`), so a pass's `PassEntity.id` and edge ends may hold `/`; a 1.6 host ignores the key, and ids stay flat. An extension catalogs its codes (`codes`, ADR 0286); a guest older than 1.7 is not asked for the category and loads with none. A validation rule's `description` (added under 1.6.0 without a bump, ADR 0278) is gone, superseded by `codes`; a guest that still sends it loads, and the key is W138. A field's `field_type` may be `enum_list` or `block_list`, and a field may declare `members` (the typed fields of a `block` or of each `block_list` item, themselves field descriptors), `target_kinds` (a union of entity kinds a reference may name), integer `minimum` and `maximum`, and a file field's `file_base` (`spec` or `project`; ADR 0285). A pass's `PassEntity.values` and a validator's `ValidatorEntity.values` carry the structured value (`{"a": ..}`, `[{..}, ..]`) of every field that declares members, keyed by field name; `fields` keeps the text. A 1.6 host drops the new types with W019 and ignores the new keys. |
 | `1.8.0` | A field and a block member may declare `writer` (`computed` or `harness`), `immutable` and `append_only`, and a kind `append_only` (ADR 0287): E082 a hand-written computed value, E083 a harness value with no line in `specforge-harness`, E084 an immutable value that differs from its git baseline, E085 an append-only list or kind that rewrites it. A pass may declare `baseline` and `computes`, phase `compute` runs it before the checks, and `PassOutput.values` gives it computed values (W165 for a field that is not computed). `previous` is the git baseline of the kinds `baseline` names, not the build cache (`specforge-cache.json` and `check --cache` are gone). `lifecycle_field` is ignored. An extension may declare the `settings` category (ADR 0288): typed settings, presets and secrets, and an older guest is not asked for it. A 1.7 host ignores the new keys. |
 | `1.9.0` | A rule may be `check: "judged"` with a `judged` descriptor, an entity may hold `verdict` statements, a field may declare `writer: "verdict"`, and `PassContext.judgements`, `GraphNode.judgements` and `PassBaselineEntity.judgements` carry each judged rule's state (ADR 0290); `set_verdict` takes `values` and `basis`. A command or collector may declare `writes` and answer an edit `plan` the host checks and applies (ADR 0289); a writing command's input carries `revisions`, a graph node its `file`, and a writing collector the graph, `cwd`, `today` and `revisions`. A kind and a field may declare `writer: "human"`, and a pass `phase: "guard"`. A 1.8 host ignores the new keys. |
-| `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. |
+| `1.10.0` | A `surfaces` item may declare `prompts` (a `PromptDescriptor`: typed `args`, `gates`, `subject`, `steps`, `when`, `reads_graph`, `attribution`) served as MCP prompts, `specforge prompt` and `specforge <short> <id>`, rendered by a `prompt__<id>` export (`PromptInput`, `PromptOutput`) with a host message appended (ADR 0291). A command may declare `gates` and `subject`: the host refuses the call `gate_failed` while a gated code fails in the subject's scope. A pass may declare `reports`, the codes it answers at a gate, and `PassInput.trigger` says whether it is asked to judge a write or a gate. A 1.9 host ignores the new keys, so a gated command runs ungated there. A `surfaces` item may also declare `agents`, `skills`, `slash_commands` and `hooks`, written into a host's files by `specforge install` (ADR 0292): the `render__` export writes an agent's or skill's body (`RenderInput`, `RenderOutput`), a `hook__<id>` export answers a host event (`HookInput`, `HookOutput`), and a command, hook or prompt that declares `reads_state` is sent, and may patch, its extension's state (`StateView`, `StatePatch`). A 1.9 host ignores the new keys and installs nothing. |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.
@@ -947,6 +994,8 @@ All extension exports follow a strict naming convention that the host uses to di
 | `__describe` | Category description | `__describe` |
 | `cmd__` | CLI command execution | `cmd__product_features` |
 | `prompt__` | MCP prompt rendering | `prompt__plan_phase` |
+| `render__` | The body of an agent or skill (one export for all) | `render__` |
+| `hook__` | A host hook's answer (ADR 0292) | `hook__write_guard` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
 | `__pass_` | Compiler pass | `__pass_coverage` |
 | `collect__` | Collector execution | `collect__cargo_test` |

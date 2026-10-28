@@ -429,6 +429,37 @@ the project, the host's call target reads it from every MCP call and takes it ou
 export sees it (`specforge_protocol_types::tool_input`, ADR 0239). The builder panics on such a tool,
 as on a command arg named `path`, so the extension's first test finds it.
 
+### Host contributions
+
+An extension contributes agents, skills, slash commands and hooks to the agent hosts (protocol 1.10.0, ADR 0292).
+`specforge install <host>` writes them into the host's project files; see
+[Installing into a host](guides/installing-into-a-host.md) and [Writing a hook](guides/writing-a-hook.md).
+
+```rust
+c.agent("flow-planner", |a| {
+    a.description("Plans a phase")
+        .tools(&["read", "write", "mcp:context7/*"])
+        .model("setting:models.planner")
+        .variant("compact")
+        .variant_setting("context_profile");
+});
+c.skill("flow-context", |s| { s.description("Load the phase context"); });
+c.slash_prompt("plan_phase", |s| { s.tools(&["read", "agent"]); });
+c.hook("write_guard", HookEvent::PreTool, |h| {
+    h.description("Refuses a write that shrinks a file")
+        .tools(&["write"])
+        .on_failure_deny()
+        .handler(|call| Ok(HookOutput::allow()));
+});
+// One handler writes the body of every agent and skill, for the host and variant it is asked for.
+c.render(|call| Ok(format!("# {}\n", call.id())));
+```
+
+`agent`, `skill` and `hook` panic on a name already declared, so the extension's first test finds it. A hook builder
+has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `reads_graph`, `reads_state`, `writes` and `when`; its handler
+receives the host's facts (`call.facts()`) and `call.plan()` builds an edit plan the way a writing command does. The
+extension reads and patches its state through `HookInput.state` and `HookOutput::with_state`.
+
 ### Prompts and gates
 
 A prompt is a workflow an agent follows (ADR 0291, protocol 1.10.0). It is declared with typed arguments, the codes
