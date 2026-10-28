@@ -198,3 +198,35 @@ fn a_score_above_100_is_refused() {
     p.write("spec/discuss.spec", &scored("101"));
     assert_eq!(codes(&p).len(), 1, "{:?}", codes(&p));
 }
+
+const FIRST_ENTRY: &str = "    { area \"Storage\" question \"Where are tasks kept?\" options [\"One JSON file\", \"SQLite\"] chosen \"One JSON file\" mode interactive }\n";
+const SECOND_ENTRY: &str = "    { area \"Safety\" question \"How is the file written?\" options [\"In place\", \"Atomically\"] chosen \"Atomically\" mode interactive }\n";
+
+#[test]
+fn a_removed_log_entry_is_refused() {
+    let p = edited(FIRST_ENTRY, "");
+    assert_eq!(codes(&p), ["E085"]);
+    let run = p.run(&["check"]);
+    assert!(
+        run.all().contains("entries"),
+        "names the field: {}",
+        run.all()
+    );
+}
+
+#[test]
+fn a_rewritten_log_entry_is_refused() {
+    let p = edited("chosen \"Atomically\"", "chosen \"In place\"");
+    assert_eq!(codes(&p), ["E085"]);
+}
+
+#[test]
+fn an_appended_log_entry_is_clean() {
+    let p = edited(
+        SECOND_ENTRY,
+        &format!(
+            "{SECOND_ENTRY}    {{ area \"Safety\" question \"Keep a backup?\" options [\"Yes\", \"No\"] chosen \"No\" mode advisor }}\n"
+        ),
+    );
+    assert_eq!(codes(&p), Vec::<String>::new());
+}

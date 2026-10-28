@@ -409,3 +409,18 @@ fn every_field_of_an_interview_is_immutable() {
         assert_eq!(field["immutable"], true, "{}", field["name"]);
     }
 }
+
+#[test]
+fn the_discussion_entries_are_append_only() {
+    assert_eq!(fields_of("discussion"), ["phase", "entries"]);
+    let entries = field_of("discussion", "entries");
+    assert_eq!(entries["field_type"], "block_list");
+    assert_eq!(entries["append_only"], true);
+    let members: Vec<&str> = entries["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| m["name"].as_str().expect("a name"))
+        .collect();
+    assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
+}

@@ -172,6 +172,15 @@
         "label": "InterviewSpec",
         "source_kind": "interview",
         "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DiscussionPhase",
+        "source_kind": "discussion",
+        "target_kind": "phase"
       }
     ]
   },
@@ -2151,6 +2160,113 @@
         "name": "interview",
         "open_fields": false,
         "scoped_by": "spec",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A phase's discussion log: the options weighed and the choices made (GSD NN-DISCUSSION-LOG.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "file location",
+            "edge": "DiscussionPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "append_only": true,
+            "default_value": null,
+            "description": "one entry per question asked",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "area",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "question",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "options",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "chosen",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "interactive",
+                  "assumptions",
+                  "advisor"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "mode",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "entries",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "discussion",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

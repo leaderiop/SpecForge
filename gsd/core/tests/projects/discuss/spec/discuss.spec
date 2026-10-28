@@ -61,3 +61,23 @@ interview IV2 "What if the file is corrupt?" {
   perspective failure_analyst
   question    "What if the file is corrupt?"
 }
+
+discussion 02-DISCUSSION-LOG "Persistence discussion" {
+  phase   v1.0/02
+  entries [
+    {
+      area     "Storage"
+      question "Where are tasks kept?"
+      options  ["One JSON file", "SQLite"]
+      chosen   "One JSON file"
+      mode     interactive
+    }
+    {
+      area     "Safety"
+      question "How is the file written?"
+      options  ["In place", "Atomically"]
+      chosen   "Atomically"
+      mode     interactive
+    }
+  ]
+}

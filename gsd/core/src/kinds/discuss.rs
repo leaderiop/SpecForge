@@ -60,3 +60,25 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
     &[str("text").r(), rf("phase", "phase").r(), str("why")],
 )
 .scoped_by("phase");
+
+const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
+const ENTRY: &[Field] = &[
+    str("area"),
+    str("question"),
+    strs("options"),
+    str("chosen"),
+    en("mode", DISCUSSION_MODES),
+];
+
+/// `NN-DISCUSSION-LOG.md`, named `02-DISCUSSION-LOG`: an audit record no agent context is built from.
+pub const DISCUSSION: Kind = Kind::new(
+    "discussion",
+    "A phase's discussion log: the options weighed and the choices made (GSD NN-DISCUSSION-LOG.md)",
+    &[
+        rf("phase", "phase").r().i().doc("file location"),
+        blocks("entries", ENTRY)
+            .append()
+            .doc("one entry per question asked"),
+    ],
+)
+.scoped_by("phase");

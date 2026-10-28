@@ -41,6 +41,8 @@ pub struct Field {
     pub required: bool,
     pub writer: Writer,
     pub immutable: bool,
+    /// `+`: the baseline's list is a prefix of the current one.
+    pub append: bool,
     /// The inclusive bounds of an `int`.
     pub range: Option<(i64, i64)>,
     /// The name the target kind reads this reference by (`lessons` for `lesson.retrospective`).
@@ -56,6 +58,7 @@ impl Field {
             required: false,
             writer: Writer::Author,
             immutable: false,
+            append: false,
             range: None,
             inverse: "",
             doc: "",
@@ -79,6 +82,11 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `+`
+    pub const fn append(mut self) -> Self {
+        self.append = true;
         self
     }
     /// `int{lo..hi}`
@@ -261,6 +269,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     }
     if field.immutable {
         f.immutable();
+    }
+    if field.append {
+        f.append_only();
     }
     if !field.doc.is_empty() {
         f.description(field.doc);

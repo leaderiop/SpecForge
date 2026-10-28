@@ -26,6 +26,7 @@ const KINDS: &[&Kind] = &[
     &spec::PHASE_SPEC,
     &spec::LOCKED_REQ,
     &spec::INTERVIEW,
+    &discuss::DISCUSSION,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
