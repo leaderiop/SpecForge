@@ -123,6 +123,8 @@ pub(super) fn run_input(
         cwd: "/p".into(),
         format: CommandFormat::parse(format).expect("human or json"),
         today: today.into(),
+        now: String::new(),
+        files: Default::default(),
         graph: RawGraph::new(g.graph().to_string()).expect("one JSON value"),
         evidence,
         revisions: Default::default(),
