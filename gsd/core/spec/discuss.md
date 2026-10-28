@@ -41,7 +41,7 @@ GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisi
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
 | settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)) |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
-| from_summary | → summary | | when `origin summary` |
+| from_summary | → summary | | when `origin summary`; declared with `summary` (r38): a reference to a kind no extension declares is W021 |
 | superseded_by | → decision | | a later decision that reverses it |
 
 ## deferred_idea

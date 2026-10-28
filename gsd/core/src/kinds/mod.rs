@@ -1,5 +1,6 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod discuss;
 mod dsl;
 mod learning;
 mod project;
@@ -18,6 +19,9 @@ const KINDS: &[&Kind] = &[
     &learning::RETROSPECTIVE,
     &learning::LESSON,
     &learning::METHODOLOGY,
+    &discuss::CONTEXT,
+    &discuss::DECISION,
+    &discuss::DEFERRED_IDEA,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

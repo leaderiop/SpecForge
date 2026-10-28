@@ -15,7 +15,7 @@ const CONSTRAINT_KINDS: &[&str] = &[
 const CONSTRAINT: &[Field] = &[en("kind", CONSTRAINT_KINDS), str("what"), str("why")];
 const OUT_OF_SCOPE: &[Field] = &[str("item"), str("why").r()];
 
-/// Singleton. GSD: `PROJECT.md`. `key_decisions` joins with the `decision` kind (round r36).
+/// Singleton. GSD: `PROJECT.md`.
 pub const PROJECT: Kind = Kind::new(
     "project",
     "The project: what it is, its core value, context and constraints (GSD PROJECT.md)",
@@ -29,6 +29,7 @@ pub const PROJECT: Kind = Kind::new(
         str("context").r().doc("Context"),
         blocks("constraints", CONSTRAINT).r().doc("Constraints"),
         blocks("out_of_scope", OUT_OF_SCOPE).doc("Out of Scope"),
+        rfs("key_decisions", "decision").doc("Key Decisions"),
         str("project_code").doc("config project_code: ^[A-Z][A-Z0-9_]*$"),
         rfs("validated", "requirement")
             .c()

@@ -7,6 +7,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "ProjectKeyDecisions",
+        "source_kind": "project",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "ProjectValidated",
         "source_kind": "project",
         "target_kind": "requirement"
@@ -91,6 +100,42 @@
         "label": "MethodologySupersededBy",
         "source_kind": "methodology",
         "target_kind": "methodology"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ContextPhase",
+        "source_kind": "context",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DecisionPhase",
+        "source_kind": "decision",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DecisionSupersededBy",
+        "source_kind": "decision",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DeferredIdeaPhase",
+        "source_kind": "deferred_idea",
+        "target_kind": "phase"
       }
     ]
   },
@@ -270,6 +315,17 @@
             "name": "out_of_scope",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Key Decisions",
+            "edge": "ProjectKeyDecisions",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "key_decisions",
+            "required": false,
+            "target_kind": "decision"
           },
           {
             "default_value": null,
@@ -1328,6 +1384,361 @@
         "lsp_icon": null,
         "name": "methodology",
         "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A phase's context: its boundary, canonical references and discretion (GSD NN-CONTEXT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "file location",
+            "edge": "ContextPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "**Gathered:**",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "gathered",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<domain> Phase Boundary",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "boundary",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Claude's Discretion",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "discretion",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<specifics>",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "specifics",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<canonical_refs>",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "topic",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_base": "project",
+                "file_reference": true,
+                "inverse_of": null,
+                "name": "paths",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "canonical_refs",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<code_context>",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reusable_assets",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<code_context>",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "patterns",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "<code_context>",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "integration_points",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "**Status:** ready once canonical_refs and boundary are present and no interview is open",
+            "edge": null,
+            "enum_values": [
+              "gathering",
+              "ready_for_planning"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "context",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A decision, named D-01 within its phase or the project (GSD CONTEXT.md, PROJECT.md Key Decisions)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "owning CONTEXT; absent for a project decision",
+            "edge": "DecisionPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "### [Area]",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "area",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the decision",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Key Decisions Rationale",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "rationale",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Good, Revisit or Pending",
+            "edge": null,
+            "enum_values": [
+              "good",
+              "revisit",
+              "pending"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "outcome",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "planner reversibility rating",
+            "edge": null,
+            "enum_values": [
+              "reversible",
+              "costly",
+              "one_way"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reversibility",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "locked: a plan contradicting it is refused (judged)",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "settled",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "where it was recorded",
+            "edge": null,
+            "enum_values": [
+              "context",
+              "project",
+              "summary",
+              "checkpoint"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "origin",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a later decision that reverses it",
+            "edge": "DecisionSupersededBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "superseded_by",
+            "required": false,
+            "target_kind": "decision"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "decision",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "DeferredIdeaPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "deferred_idea",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

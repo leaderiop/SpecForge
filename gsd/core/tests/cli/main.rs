@@ -1,5 +1,6 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
+mod discuss;
 mod harness;
 mod parity_roadmap;
 mod roadmap;

@@ -15,6 +15,8 @@ pub enum Ty {
     Ts,
     Enum(&'static [&'static str]),
     Strs,
+    /// Paths of project files, from the project root: the host's `E016` checks that each exists.
+    Files,
     Ref(&'static str),
     Refs(&'static str),
     Block(&'static [Field]),
@@ -109,6 +111,9 @@ pub const fn en(name: &'static str, values: &'static [&'static str]) -> Field {
 pub const fn strs(name: &'static str) -> Field {
     Field::new(name, Ty::Strs)
 }
+pub const fn files(name: &'static str) -> Field {
+    Field::new(name, Ty::Files)
+}
 pub const fn rf(name: &'static str, kind: &'static str) -> Field {
     Field::new(name, Ty::Ref(kind))
 }
@@ -186,6 +191,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Ty::Strs => {
             f.field_type(FieldType::StringList);
+        }
+        Ty::Files => {
+            f.field_type(FieldType::StringList)
+                .file_reference()
+                .file_base(FileBase::Project);
         }
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)

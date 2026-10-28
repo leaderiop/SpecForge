@@ -125,8 +125,7 @@ fn the_code_book_golden() {
 
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
-    // `spec/project.md`, except `key_decisions` (a reference to `decision`, which round r36 declares); a
-    // requirement reads its phase back from `phase.requirements`.
+    // `spec/project.md`; a requirement reads its phase back from `phase.requirements`.
     assert_eq!(
         fields_of("project"),
         [
@@ -139,6 +138,7 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
             "context",
             "constraints",
             "out_of_scope",
+            "key_decisions",
             "project_code",
             "validated",
             "active",
@@ -248,9 +248,8 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
 }
 
 /// `project.md` lists 8 kinds and 72 top-level fields. The fixes of the model add the milestone's `workstream` and
-/// the lesson's `retrospective`; three fields are read back from their inverse, not declared (the requirement's
-/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`) or wait for a kind a
-/// later round declares (the project's `key_decisions`): 72 + 2 - 3.
+/// the lesson's `retrospective`; two fields are read back from their inverse, not declared (the requirement's
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 72 + 2 - 2.
 #[test]
 fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let kinds = [
@@ -264,5 +263,88 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 2 - 3, "the kinds' fields");
+    assert_eq!(total, 72 + 2 - 2, "the kinds' fields");
+}
+
+#[test]
+fn context_decision_and_deferred_idea_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("context"),
+        [
+            "phase",
+            "gathered",
+            "boundary",
+            "discretion",
+            "specifics",
+            "canonical_refs",
+            "reusable_assets",
+            "patterns",
+            "integration_points",
+            "status"
+        ]
+    );
+    assert_eq!(
+        fields_of("decision"),
+        [
+            "phase",
+            "area",
+            "text",
+            "rationale",
+            "outcome",
+            "reversibility",
+            "settled",
+            "origin",
+            "superseded_by"
+        ]
+    );
+    assert_eq!(fields_of("deferred_idea"), ["text", "phase", "why"]);
+}
+
+/// `name` of the field `field` of `kind`, with its described properties.
+fn field_of(kind: &str, field: &str) -> serde_json::Value {
+    let entities = describe("entities");
+    let entity = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == kind))
+        .unwrap_or_else(|| panic!("no kind {kind}"));
+    entity["fields"]
+        .as_array()
+        .and_then(|fields| fields.iter().find(|f| f["name"] == field))
+        .unwrap_or_else(|| panic!("no field {kind}.{field}"))
+        .clone()
+}
+
+#[test]
+fn the_discuss_kinds_are_scoped_by_their_phase() {
+    let entities = describe("entities");
+    for kind in ["context", "decision", "deferred_idea"] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect("the kind");
+        assert_eq!(entity["scoped_by"], "phase", "{kind}");
+    }
+}
+
+#[test]
+fn canonical_ref_paths_are_files_from_the_project_root() {
+    let refs = field_of("context", "canonical_refs");
+    let paths = refs["members"]
+        .as_array()
+        .and_then(|m| m.iter().find(|m| m["name"] == "paths"))
+        .expect("paths");
+    assert_eq!(paths["field_type"], "string_list");
+    assert_eq!(paths["file_reference"], true);
+    assert_eq!(paths["file_base"], "project");
+}
+
+#[test]
+fn a_decision_origin_is_required_and_immutable_and_its_phase_is_not_required() {
+    let origin = field_of("decision", "origin");
+    assert_eq!(
+        (&origin["required"], &origin["immutable"]),
+        (&true.into(), &true.into())
+    );
+    assert_ne!(field_of("decision", "phase")["required"], true);
+    assert_eq!(field_of("context", "status")["writer"], "computed");
 }
