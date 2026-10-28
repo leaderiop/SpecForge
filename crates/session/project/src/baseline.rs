@@ -32,6 +32,9 @@ pub struct BaselineEntity {
     /// The path it had at the baseline, when a move record matched it to its current one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub was: Option<String>,
+    /// Where each judged rule that judges it stood at the baseline: evaluated at that commit over its files (ADR 0290).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub judgements: Vec<specforge_protocol_types::Judgement>,
 }
 
 /// The project at a commit.
@@ -194,6 +197,7 @@ impl Baseline {
                         specforge_protocol_types::PassBaselineEntity {
                             kind: e.kind.clone(),
                             fields,
+                            judgements: e.judgements.clone(),
                         },
                     )
                 })
@@ -393,7 +397,18 @@ impl Baseline {
                 let files = history
                     .files(place, commit, within)
                     .map_err(|e| e.to_string())?;
-                let compiled = Self::compile(env, commit.clone(), within, files);
+                let fetch = |keys: &[String]| -> Vec<(String, Option<Vec<u8>>)> {
+                    let asked = crate::baseline_judged::paths(within, keys);
+                    match history.blobs(place, commit, &asked) {
+                        Ok(found) => keys
+                            .iter()
+                            .cloned()
+                            .zip(found.into_iter().map(|(_, bytes)| bytes))
+                            .collect(),
+                        Err(_) => keys.iter().map(|key| (key.clone(), None)).collect(),
+                    }
+                };
+                let compiled = Self::compile(env, commit.clone(), within, files, &fetch);
                 // shortcut: the cache is best effort and never pruned; prune by age if it grows.
                 if let Ok(json) = serde_json::to_vec(&compiled) {
                     let dir = env.root().join(CACHE_DIR);
@@ -423,8 +438,10 @@ impl Baseline {
         revision: Sha,
         within: &Path,
         files: Vec<CommitFile>,
+        fetch: crate::baseline_judged::Fetch<'_>,
     ) -> Baseline {
         let mut texts: BTreeMap<String, String> = BTreeMap::new();
+        let mut held: BTreeMap<String, Vec<u8>> = BTreeMap::new();
         let mut ledger = String::new();
         for (path, bytes) in files {
             let Ok(rest) = path.strip_prefix(within) else {
@@ -435,6 +452,7 @@ impl Baseline {
                 .map(|c| c.as_os_str().to_string_lossy())
                 .collect::<Vec<_>>()
                 .join("/");
+            held.insert(key.clone(), bytes.clone());
             if key == crate::harness::LEDGER_FILE {
                 ledger = String::from_utf8(bytes).unwrap_or_default();
             } else if key.ends_with(".spec")
@@ -444,11 +462,20 @@ impl Baseline {
                 texts.insert(key, text);
             }
         }
-        let held: BTreeMap<String, &str> =
+        let written: BTreeMap<String, &str> =
             texts.iter().map(|(k, v)| (k.clone(), v.as_str())).collect();
         let keys: Vec<String> = texts.keys().cloned().collect();
-        let built = env.build_sources(&keys, &held, |_| Read::Gone);
+        let built = env.build_sources(&keys, &written, |_| Read::Gone);
         let snapshot = env.entity_snapshot(&built.graph);
+        // The judged rules at the commit, over its files, before the compute passes read them.
+        let judged = crate::baseline_judged::judge(
+            env,
+            built.graph.graph(),
+            &snapshot,
+            held,
+            ledger.as_bytes(),
+            fetch,
+        );
         let computed = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
                 crate::compute::run(
@@ -456,8 +483,8 @@ impl Baseline {
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
                     None,
-                    &specforge_graph::Computed::default(),
-                    &crate::judged::Judgements::default(),
+                    &judged.values,
+                    &judged.judgements,
                 )
                 .0
             }
@@ -467,6 +494,7 @@ impl Baseline {
             built.graph.graph(),
             env.registries().field_forms(),
             &computed,
+            &judged.judgements,
         );
         Baseline {
             revision,
@@ -481,6 +509,7 @@ fn entities_of(
     graph: &specforge_graph::Graph,
     forms: &specforge_graph::FieldForms,
     computed: &specforge_graph::Computed,
+    judgements: &crate::judged::Judgements,
 ) -> BTreeMap<String, BaselineEntity> {
     let mut entities = BTreeMap::new();
     for node in graph.nodes() {
@@ -502,6 +531,7 @@ fn entities_of(
                 .computed
                 .insert(field.to_string(), value.as_value().clone());
         }
+        entity.judgements = judgements.of(path).cloned().collect();
         entities.insert(path.to_string(), entity);
     }
     entities
@@ -517,6 +547,7 @@ impl Baseline {
                 project.graph(),
                 project.environment().registries().field_forms(),
                 project.computed(),
+                project.judgements(),
             ),
             ledger: String::new(),
         }
@@ -541,6 +572,8 @@ fn fingerprint(env: &Environment) -> String {
         bytes.extend(entry.name.to_string().into_bytes());
         bytes.extend(entry.wasm_hash.as_str().as_bytes());
     }
+    // the baseline format: 2 holds each entity's judgements
+    bytes.extend(b"\0baseline-format:2");
     let config = env.config();
     bytes.push(0);
     bytes.extend(config.spec_root.clone().unwrap_or_default().into_bytes());

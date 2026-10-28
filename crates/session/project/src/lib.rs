@@ -20,6 +20,7 @@
 //!   the checks it reports what a fresh compile reports, in the same order.
 
 pub mod baseline;
+mod baseline_judged;
 mod buffers;
 mod check_passes;
 mod compiled;

@@ -75,6 +75,9 @@ impl std::fmt::Display for HistoryError {
 /// A file at a commit: its path from the repository's top, and its bytes.
 pub type CommitFile = (PathBuf, Vec<u8>);
 
+/// A file asked of a commit by name: its path, and its bytes when the commit holds it as a file.
+pub type Blob = (PathBuf, Option<Vec<u8>>);
+
 /// What the host asks of version control. Every method is read-only, and none runs unless a project declares
 /// history.
 pub trait History: Send + Sync {
@@ -91,6 +94,14 @@ pub trait History: Send + Sync {
         commit: &Sha,
         dir: &Path,
     ) -> Result<Vec<CommitFile>, HistoryError>;
+    /// The named files (from the repository's top) at `commit`, in the order asked: `None` for one the commit does
+    /// not hold as a file. One question for all of them (a judged rule's file inputs, ADR 0290).
+    fn blobs(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        paths: &[PathBuf],
+    ) -> Result<Vec<Blob>, HistoryError>;
 }
 
 pub type SharedHistory = Arc<dyn History>;

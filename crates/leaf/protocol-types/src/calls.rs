@@ -472,6 +472,9 @@ pub struct PassBaselineEntity {
     pub kind: String,
     #[serde(default)]
     pub fields: BTreeMap<String, serde_json::Value>,
+    /// Where each judged rule that judges it stood at the baseline (protocol 1.9.0, ADR 0290).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub judgements: Vec<crate::Judgement>,
 }
 
 /// A pass diagnostic's severity, on the wire as the host's (`"Error"`,

@@ -1,12 +1,12 @@
 //! A scripted [`History`] for tests: it answers what it was given and counts the files it was asked for.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::history::{
-    CommitFile, GitPlace, History, HistoryError, Located, Sha, SharedHistory, default_history,
-    set_default,
+    Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha, SharedHistory,
+    default_history, set_default,
 };
 
 /// Answers `located`, `head` and `files` as given.
@@ -16,6 +16,8 @@ pub struct FakeHistory {
     pub files: Result<Vec<CommitFile>, HistoryError>,
     /// Other revisions it knows by name: their commit and the files at it.
     pub named: Vec<(String, Sha, Vec<CommitFile>)>,
+    /// The other files it holds at every commit (what `blobs` answers).
+    pub blobs: Vec<CommitFile>,
     asked: AtomicUsize,
     any: AtomicUsize,
 }
@@ -35,6 +37,7 @@ impl FakeHistory {
             head: Ok(Some(Sha::new(sha))),
             files: Ok(files),
             named: Vec::new(),
+            blobs: Vec::new(),
             asked: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
@@ -47,6 +50,7 @@ impl FakeHistory {
             head: Ok(None),
             files: Ok(Vec::new()),
             named: Vec::new(),
+            blobs: Vec::new(),
             asked: AtomicUsize::new(0),
             any: AtomicUsize::new(0),
         }
@@ -90,6 +94,16 @@ impl History for FakeHistory {
             return Ok(files.clone());
         }
         self.files.clone()
+    }
+    fn blobs(&self, _: &GitPlace, _: &Sha, paths: &[PathBuf]) -> Result<Vec<Blob>, HistoryError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        Ok(paths
+            .iter()
+            .map(|path| {
+                let held = self.blobs.iter().find(|(held, _)| held == path);
+                (path.clone(), held.map(|(_, bytes)| bytes.clone()))
+            })
+            .collect())
     }
 }
 

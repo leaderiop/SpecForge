@@ -8,7 +8,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use specforge_common::process::{Ran, RunError, run_with};
-use specforge_project::history::{CommitFile, GitPlace, History, HistoryError, Located, Sha};
+use specforge_project::history::{Blob, CommitFile, GitPlace, History, HistoryError, Located, Sha};
 
 /// Runs `git` from `PATH`.
 pub struct GitCli {
@@ -232,5 +232,55 @@ impl History for GitCli {
             at = end + 1 + size + 1;
         }
         Ok(files)
+    }
+
+    fn blobs(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        paths: &[PathBuf],
+    ) -> Result<Vec<Blob>, HistoryError> {
+        // a path with a newline cannot be asked of `--batch`; it reads as missing
+        let askable = |path: &&PathBuf| !path.to_string_lossy().contains('\n');
+        let request: String = paths
+            .iter()
+            .filter(askable)
+            .map(|p| format!("{}:{}\n", commit.as_str(), p.to_string_lossy()))
+            .collect();
+        if request.is_empty() {
+            return Ok(paths.iter().map(|p| (p.clone(), None)).collect());
+        }
+        let answer = self.ok(
+            &place.toplevel,
+            &["cat-file", "--batch"],
+            Some(request.into_bytes()),
+        )?;
+        let short = || HistoryError("git cat-file answered a short reply".into());
+        let mut at = 0;
+        let mut found = Vec::with_capacity(paths.len());
+        for path in paths {
+            if !askable(&path) {
+                found.push((path.clone(), None));
+                continue;
+            }
+            let end = answer[at..]
+                .iter()
+                .position(|b| *b == b'\n')
+                .map(|i| at + i)
+                .ok_or_else(short)?;
+            let header = String::from_utf8_lossy(&answer[at..end]).into_owned();
+            at = end + 1;
+            match header.split(' ').collect::<Vec<_>>()[..] {
+                [_, "blob", size] => {
+                    let size = size.parse::<usize>().map_err(|_| short())?;
+                    let body = answer.get(at..at + size).ok_or_else(short)?;
+                    found.push((path.clone(), Some(body.to_vec())));
+                    at += size + 1;
+                }
+                // missing, or a tree or commit: no file
+                _ => found.push((path.clone(), None)),
+            }
+        }
+        Ok(found)
     }
 }
