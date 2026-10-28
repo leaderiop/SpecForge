@@ -55,6 +55,10 @@ pub const ROOT: &[(&str, &str)] = &[
     ("fixtures", "extension fixtures the tests load"),
     ("gate", "`cargo gate`, the check list"),
     (
+        "gsd",
+        "the GSD extension family (`@gsd/*`): its model, contributions and parity suite",
+    ),
+    (
         "install.sh",
         "the installer the README's `curl` line fetches from main",
     ),

@@ -1,0 +1,149 @@
+# GSD in SpecForge (`@gsd/*`)
+
+**Status: the kernel changes are built (protocol 1.10.0); the `@gsd/*` extensions are not.** This folder holds the model, the contribution rosters and the parity
+plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
+monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
+
+## The goal
+
+Any agent or engineer uses GSD's mental model (milestone → phase → plan → task, waves, requirements, decisions,
+verification, UAT) through SpecForge's own surfaces: MCP, CLI and LSP. SpecForge is the central system: every piece of
+project state is a `.spec` entity, there is no `.planning/` folder and no Markdown state.
+
+```
+┌────────────────────────── @gsd/core (the unified meta-model) ──────────────────────────┐
+│ project · requirement · milestone · phase · plan · task · decision · research ·        │
+│ summary · verification · uat · validation · handoff · settings                         │
+└───────────┬──────────────────────────────┬──────────────────────────────┬──────────────┘
+   profiles │                capabilities  │                       tooling│
+┌───────────┴───────────┐  ┌───────────────┴──────────────┐  ┌────────────┴─────────────┐
+│ @gsd/path  @gsd/loop  │  │ @gsd/security  @gsd/ai       │  │ collectors: tests, git,  │
+│ only their new        │  │ @gsd/ui  @gsd/codebase       │  │ browser, inbox           │
+│ concepts, by enhance  │  │ @gsd/ops                     │  │ @gsd/import (one-way)    │
+└───────────────────────┘  └──────────────────────────────┘  └──────────────────────────┘
+```
+
+The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
+`testing`, `cargo-test` or `vitest`. Loading both is refused (E013), so `milestone` and `decision` never clash.
+
+## Decisions
+
+Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, are built and accepted as ADRs;
+the rest of this folder keeps their K names.
+
+| Draft | ADR | Kernel change |
+|---|---|---|
+| K1 | [0283](../docs/adr/0283-a-name-may-hold-a-dash-and-a-dot-where-a-name-is-expected.md) | a name may hold a dash and a dot where a name is expected |
+| K2 | [0284](../docs/adr/0284-a-name-is-unique-within-its-scope.md) | a name is unique within its scope |
+| K3 | [0285](../docs/adr/0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md) | a field's type may be a list of words, a block, a union or a range |
+| K4 | [0287](../docs/adr/0287-who-writes-a-field-is-declared.md) | who writes a field is declared (`computed`, `harness`, `immutable`, `append_only`) |
+| K5 | [0289](../docs/adr/0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) | an extension writes through an edit plan the host applies |
+| K6 | [0288](../docs/adr/0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) | an extension's settings are typed and set in `specforge.json` |
+| K7 | [0290](../docs/adr/0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) | a judged rule holds while a fresh verdict says so |
+| K8 | [0291](../docs/adr/0291-an-extension-contributes-mcp-prompts.md) | an extension contributes MCP prompts |
+| K9 | [0292](../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) | an extension contributes agents, skills, commands and hooks |
+| K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
+
+### Parity contract
+
+| Decision | |
+|---|---|
+| Scope | The whole GSD ecosystem. `gsd-core` is the unified meta-model; `gsd-path` and `gsd-loop` are profile extensions over it. `gsd-pi`, `gsd-pi-config`, `gsd-cloud-daemon` and the marketplace are dropped: SpecForge's surfaces replace them. |
+| Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
+| Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
+| Versions | Our extensions keep their own semver and declare `tracks: gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
+| Upgrades | Per upstream release a diff tool (inventory manifest, `capability.json`, templates, prompts, gates) writes a parity backlog; `tracks` moves only when the [parity suite](parity/) passes. |
+| Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
+
+### Model
+
+| Decision | |
+|---|---|
+| Baseline | Modelled anew, not ported file by file. The model is the most important piece and should use what SpecForge does that shell scripts cannot. See [core/spec](core/spec/). |
+| Derived values | Phase status, waves, progress, requirement status, halted/blocked, milestone state: **computed only** (`[C]`), never written in `.spec`; writing one is an error (K4). |
+| Prose | Split into typed entities (research findings, pitfalls, hypotheses, concerns…); text fields hold only what stays narrative. |
+| Judgement | A check code cannot decide (scope sanity, context compliance, goal achievement) is a **judged rule**: a recorded verdict, stale when its input changes (K7). |
+| Identifiers | `AUTH-01`, `03-02`, `03.1` are identifiers where a reference is expected (K1); `D-01` is unique within its phase, `03/D-01` from outside (K2). |
+| Toggles | GSD's boolean and valued config become typed extension settings in `specforge.json` (K6). Capabilities that bring their own kinds are separate `@gsd/*` extensions, except broken windows: its writers (executor, verifier, refactor trigger) are all core, so `broken_window` and `refactor_proposal` are core kinds. |
+| Codes | Diagnostics are namespaced per extension: `gsd/E101`, `gsd.security/W003` (K10). |
+
+### Runtime
+
+| Decision | |
+|---|---|
+| Where | In SpecForge. Commands, agents, workflows and hooks are SpecForge contributions (K8, K9). |
+| Who orchestrates | The agent, first: workflows are MCP prompts the host agent follows, and a step whose gate fails is refused. A `specforged` harness runs unattended work (`/gsd-autonomous`) later. |
+| Writes | An extension returns an **edit plan**; the host checks it against the field flags and applies it, the only writer (K5). |
+| Hooks | Typed contributions; `specforge install <host>` wires them into the host as `specforge hook <id>` (K9). |
+| Git | The agent runs git; a collector records commits as evidence linked to their tasks. |
+| Hosts | Claude Code, Codex and Cursor first, plus any MCP client. Host Markdown (agents, skills, commands) is rendered output, never source. `specforge install <host>` writes project-local files only and owns only what it marks. |
+| Prompts | GSD's agent and workflow prompts are ported under MIT with attribution; only the parts naming `.planning/` files or `gsd-tools` change, to name SpecForge's typed tools. |
+
+### A project's layout
+
+```
+spec/gsd/
+├── project.spec                      project, settings that are not flags
+├── requirements/<category>.spec      AUTH-01, AUTH-02 …
+├── milestones/<v>/
+│   ├── milestone.spec
+│   └── phases/<NN-slug>/
+│       ├── phase.spec                goal, success criteria, must-haves
+│       ├── context.spec              decisions D-01 …, deferred ideas
+│       ├── research.spec             findings, stack choices, pitfalls, open questions
+│       ├── plans/<NN-MM>.spec        plan, tasks, checkpoints, and its summary
+│       └── verify.spec               verification, UAT, validation
+├── workstreams/<name>/               a scope: its own milestones and phases
+├── knowledge/                        codebase map, project research
+└── ops/                              debug, threads, todos, seeds, backlog, committed pause and handoff
+specforge-harness                     digests of applied harness values (K4), committed, kept canonical by the host
+.gitattributes                        specforge-harness merge=union
+.specforge/state/gsd/                 session cursor, active workstream, harness checkpoints (git-ignored; written by the host, K9)
+```
+
+A plan's results are written to its own file and every edit names the revision it was planned on, so parallel
+executors in one wave never write the same file and a stale edit is refused (K5). A workspace is another
+checkout of the same tree and is not modelled.
+
+## GSD capabilities, one by one
+
+Every `capabilities/*/capability.json` of gsd-core 1.18.0 and where it lands.
+
+| GSD capability | Role | Lands in |
+|---|---|---|
+| research, gap-analysis, pattern-mapper, assumption-delta, nyquist, tdd, schema-gate, refactor-trigger, broken-windows, audit | feature | `@gsd/core` settings and rules; broken windows also adds the `broken_window` kind |
+| drift | feature | `@gsd/codebase` (codebase drift reads the codebase map) |
+| claude-orchestration, external-job | feature | `@gsd/core` harness (`specforged`) |
+| code-review, mempalace, profile-pipeline | feature | `@gsd/ops` |
+| security | feature | `@gsd/security` |
+| ai-integration | feature | `@gsd/ai` |
+| ui, live-dom-uat | feature | `@gsd/ui` (DOM checks through the browser collector) |
+| intel, graphify | feature | `@gsd/codebase` (graphify is absorbed: SpecForge is the graph) |
+| coderabbit, ollama, lm-studio, llama-cpp | reviewer | `@gsd/core` settings: transports for cross-AI review |
+| claude, codex, cursor | runtime | install renderers, first |
+| opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi | runtime | install renderers, later, one at a time |
+
+## Folders
+
+| Folder | What |
+|---|---|
+| [core/](core/) | `@gsd/core`: the model ([core/spec](core/spec/)), the contribution rosters, later the extension crate |
+| [path/](path/), [loop/](loop/) | profile extensions: only what gsd-path and gsd-loop add |
+| [security/](security/), [ai/](ai/), [ui/](ui/), [codebase/](codebase/), [ops/](ops/) | capability extensions with their own kinds |
+| [import/](import/) | the one-way `.planning/` → `.spec` importer |
+| [parity/](parity/) | the parity harness, GSD fixture projects and the version matrix |
+
+Each extension builds to `wasm32-wasip2` on its own; the Cargo workspace excludes `gsd/` as it excludes `extensions/`.
+
+## Build order
+
+1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
+   K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
+   agents, skills, commands and hooks.
+2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project.
+3. The capability extensions, then `@gsd/path` and `@gsd/loop`, then more host renderers.
+
+## Credit
+
+GSD is Copyright (c) 2026 Open GSD, MIT licence. Ported prompts keep their notice and name the upstream file and version
+they came from.
