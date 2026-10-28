@@ -39,6 +39,7 @@ mod link_identity;
 mod namespaced_codes;
 mod one_side;
 mod one_update;
+mod pass_inputs;
 mod placement;
 mod policy;
 mod product_rules;

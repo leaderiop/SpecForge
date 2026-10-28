@@ -57,6 +57,7 @@ mod init_specifiers;
 mod init_starter;
 mod init_values;
 mod init_writes;
+mod input_bytes;
 mod inspect;
 mod journal;
 mod judged_inputs;

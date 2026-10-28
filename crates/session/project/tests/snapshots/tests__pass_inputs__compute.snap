@@ -1,0 +1,62 @@
+---
+source: crates/session/project/tests/pass_inputs.rs
+expression: compute
+---
+{
+  "edges": [],
+  "entities": [
+    {
+      "fields": {
+        "meta": "owner",
+        "parts": "{name, kind}",
+        "title": "First"
+      },
+      "id": "one",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "owes_none": true,
+      "span": {
+        "end_col": 2,
+        "end_line": 5,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "testable": false,
+      "values": {
+        "meta": {
+          "owner": "ann"
+        },
+        "parts": [
+          {
+            "kind": "x",
+            "name": "a"
+          }
+        ]
+      },
+      "verify_kinds": [],
+      "verify_texts": []
+    },
+    {
+      "fields": {
+        "title": "Second"
+      },
+      "id": "two",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "owes_none": true,
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "testable": false,
+      "verify_kinds": [],
+      "verify_texts": []
+    }
+  ]
+}
