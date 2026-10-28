@@ -130,6 +130,16 @@ impl DeclaredPass {
         &self.pass.baseline
     }
 
+    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W021 at the declaration check.
+    pub fn reads(&self) -> &[specforge_protocol_types::FileRead] {
+        &self.pass.reads
+    }
+
+    /// Whether the pass receives the recorded test report (a check, compute or guard pass; protocol 1.11.0).
+    pub fn reads_tests(&self) -> bool {
+        self.pass.reads_tests
+    }
+
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
     pub fn full_name(&self) -> String {
         format!("{}:{}", self.extension, self.pass.name)
@@ -371,6 +381,18 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_guard_phase())
     }
 
+    /// How many check, compute or guard passes declare `reads_tests`: the compile then reads the recorded report once
+    /// (and says I205 or E045 when it cannot).
+    pub fn passes_reading_tests(&self) -> usize {
+        let compile_or_write =
+            |p: &&DeclaredPass| p.is_check_phase() || p.is_compute_phase() || p.is_guard_phase();
+        self.passes
+            .iter()
+            .filter(compile_or_write)
+            .filter(|p| p.reads_tests())
+            .count()
+    }
+
     /// The passes `specforge analyze` runs, in order.
     pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
         self.passes
@@ -440,6 +462,16 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         BuildPart::Surfaces,
         crate::refuse_host_contributions(&mut declarations, &settings),
     ));
+    // A prompt or a gate the registry refuses is dropped (W021) before a rule names the prompt as its judge.
+    let judge = crate::Judge {
+        codes: &codes,
+        settings: &settings,
+        kinds: &kinds,
+    };
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_prompts(&mut declarations, &judge),
+    ));
     let (rules, rule_diagnostics) = Rules::build(
         &declarations,
         Registries {
@@ -452,17 +484,6 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
-
-    // A prompt or a gate the registry refuses is dropped before anything routes it (W021).
-    let judge = crate::Judge {
-        codes: &codes,
-        settings: &settings,
-        kinds: &kinds,
-    };
-    surface_diagnostics.extend(about(
-        BuildPart::Surfaces,
-        crate::refuse_prompts(&mut declarations, &judge),
-    ));
 
     // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
     surface_diagnostics.extend(about(

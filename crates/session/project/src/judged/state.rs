@@ -10,9 +10,9 @@ use specforge_registry::judged::JudgedRule;
 use specforge_registry::{Disk, EntitySnapshot};
 
 use super::inputs::{Cited, Cx, NONE};
-use super::report::Report;
 use super::{DigestMemo, Judgements};
 use crate::Environment;
+use crate::coverage::ReportRead;
 use crate::harness::{Harness, LEDGER_FILE, Ledger, VERDICT_KEY, digest};
 
 /// The rule `written` names: its qualified code, or its local code when one rule has it.
@@ -341,7 +341,7 @@ pub fn evaluate(
     }
     if unjudged > 0 {
         match cx.report() {
-            Report::Unusable(why) => out.diagnostics.push(Diagnostic::new(codes::E045, why.clone())),
+            ReportRead::Unusable(why) => out.diagnostics.push(Diagnostic::new(codes::E045, why.clone())),
             _ => out.diagnostics.push(Diagnostic::new(
                 codes::I205,
                 format!(

@@ -511,8 +511,7 @@ fn every_core_tool_lists_its_typed_arguments() {
             let name = format!("{}.{}", tool.name(), argument.name);
             let property = &properties[argument.name];
             assert_eq!(property, &argument.schema, "{name}");
-            // Its description is the field's doc comment (an enumerated
-            // argument's goes on to name each choice).
+            // Its description is the field's doc comment (an enumerated argument's goes on to name each choice).
             let text = property["description"].as_str().expect(&name);
             assert!(text.starts_with(argument.description), "{name}: {text}");
             // Its type is its Rust type's: a flag states its default,
@@ -526,6 +525,7 @@ fn every_core_tool_lists_its_typed_arguments() {
                 Some("integer") => assert_eq!(property["minimum"], 0, "{name}"),
                 Some("number") => assert!(property.get("default").is_none(), "{name}"),
                 Some("string" | "array" | "object") => {}
+                None if name == "specforge.settings_set.value" => {} // any JSON value, typed by its setting
                 other => panic!("{name}: type {other:?}"),
             }
             if argument.required {

@@ -30,6 +30,7 @@ served specforge.migrate => invalid_input argument=specforge_bogus data=files_wr
 served specforge.extensions => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:management
 served specforge.providers => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:management
 served specforge.settings => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:management
+served specforge.settings_set => invalid_input argument=specforge_bogus data=files_written | events: mcp_tool_invoked:mutation,mcp_mutation_completed:false
 served specforge.verdict_inputs => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:core
 served specforge.doctor => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:management
 served specforge.collect => invalid_input argument=specforge_bogus data= | events: mcp_tool_invoked:management
@@ -68,6 +69,7 @@ nothing specforge.migrate => precondition_failed argument=path data=files_writte
 nothing specforge.extensions => precondition_failed argument=- data= | events: mcp_tool_invoked:management
 nothing specforge.providers => precondition_failed argument=- data= | events: mcp_tool_invoked:management
 nothing specforge.settings => ok | events: mcp_tool_invoked:management
+nothing specforge.settings_set => precondition_failed argument=path data=files_written | events: mcp_tool_invoked:mutation,mcp_mutation_completed:false
 nothing specforge.verdict_inputs => invalid_input argument=entity data= | events: mcp_tool_invoked:core
 nothing specforge.doctor => precondition_failed argument=- data= | events: mcp_tool_invoked:management
 nothing specforge.collect => precondition_failed argument=path data= | events: mcp_tool_invoked:management

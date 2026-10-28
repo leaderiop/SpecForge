@@ -581,9 +581,10 @@ tool that reads coverage report the same code when `specforge-report.json`
 exists but can't be read or parsed (a recorded test's status is `passed`,
 `failed` or `skipped`, and every test has a name: a report in another
 vocabulary, such as one written before 1.4, is not usable), or when a judged
-rule reads the report (ADR 0290), or when a `--test-results` (`test_results`)
-file can't be read or doesn't exist (over MCP: `schema_mismatch`,
-`permission_denied`, `file_not_found`, `invalid_input` when
+rule reads the report (ADR 0290), or when a check, compute or guard pass that
+declares `reads_tests` is sent it (protocol 1.11.0), or when a `--test-results`
+(`test_results`) file can't be read or doesn't exist (over MCP:
+`schema_mismatch`, `permission_denied`, `file_not_found`, `invalid_input` when
 `specforge-report.json` is a link that leads outside the project, or
 `internal_error`), rather than scoring the project as if no test ran: run
 `specforge collect` again to rewrite it, or fix or remove the file.
@@ -1203,8 +1204,12 @@ and vocabulary, `null` on a setting that has a default, or an extension's value
 that is not an object. The message names the key, never the written value, and
 the diagnostic points at the key in `specforge.json`. A value that cannot be
 used is ignored: the preset, else the default, applies. `specforge settings`
-lists every setting with its type and effective value, and `specforge schema
---config` writes the project's config schema for an editor.
+lists every setting with its type and effective value, `specforge settings set`
+refuses the same way (E086, and E087 for a secret) before it writes
+`specforge.json`, while `unset` removes any written key, a misspelt one and a
+committed secret included, and refuses only a name that is neither declared nor
+written, and `specforge schema --config` writes the project's config schema for
+an editor.
 
 Owner: core
 Level: error
@@ -1225,7 +1230,8 @@ read from its environment variable only: SpecForge never reads it from a file a
 repository holds, and no message or output repeats a written value. The value is
 ignored. Remove it from `specforge.json`, set the variable the message names,
 and rotate the secret if it was committed. `specforge settings` shows whether
-each declared secret is set.
+each declared secret is set, and `specforge settings set` refuses to write one
+(ADR 0296).
 
 Owner: core
 Level: error
@@ -1840,7 +1846,8 @@ Level: info
 I205: Test inputs not judged
 
 A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
-`test(..)` selector, or a verdict that cites tests), but there is no
+`test(..)` selector, or a verdict that cites tests), or a check, compute or
+guard pass declares `reads_tests` (protocol 1.11.0), but there is no
 `specforge-report.json`: run `specforge collect`. The rule's other inputs are
 judged as usual and the test input is left out of the comparison, so a verdict
 is not made stale by a report that is not there. Nothing is wrong with the
@@ -2628,7 +2635,13 @@ that names no single prompt or command the extension declares, `tools` or
 `paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above the
 ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook export
 that is not `hook__<id>`, an attribution with an empty field, and a prompt step
-whose `agent` is no agent of the extension or of a declared peer.
+whose `agent` is no agent of the extension or of a declared peer. A pass's or
+command's `reads` that the host would serve empty are W021 too (ADR 0293), the
+pass or command being kept: a read whose name is no word or is repeated, that
+names neither or both of `field` and `glob`, a `field` that is not `kind.field`
+or that no loaded extension declares, a `base` on a glob or other than `spec` or
+`project`, and a glob that is empty, absolute, climbs with `..`, or has more
+than four `**` segments.
 
 Owner: core
 Level: warning
@@ -3043,8 +3056,9 @@ project, holds a glob or is a `.spec` source, or of a field that is not a file
 field), an `unless_set` field the kind does not declare, a `values` or
 `outcome_fields` entry that is not a `verdict`-written field of a target kind of
 the extension, its judge is no agent of its extension or of a declared peer (ADR
-0292), or the code is another judged rule's. Fix or remove the rule in the
-extension's manifest.
+0292), is `prompt:<id>` of a prompt its extension does not declare (a peer's
+prompt is not a judge, ADR 0295), or the code is another judged rule's. Fix or
+remove the rule in the extension's manifest.
 
 Owner: core
 Level: warning

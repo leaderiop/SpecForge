@@ -31,6 +31,7 @@ expression: names
   "specforge.extensions",
   "specforge.providers",
   "specforge.settings",
+  "specforge.settings_set",
   "specforge.verdict_inputs",
   "specforge.doctor",
   "specforge.collect",

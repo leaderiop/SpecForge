@@ -1,0 +1,32 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+Remove one setting from specforge.json: it reverts to its preset or default
+
+Usage: specforge settings unset [OPTIONS] <EXTENSION> <NAME>
+
+Arguments:
+  <EXTENSION>
+          The extension, as `specforge settings` lists it
+
+  <NAME>
+          The setting's name, or a family's key (`models.planning`)
+
+Options:
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --dry-run
+          Report what would be written; write nothing
+
+      --format <FORMAT>
+          Output format: human or json
+          
+          [default: human]
+          [possible values: human, json]
+
+  -h, --help
+          Print help

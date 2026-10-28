@@ -38,9 +38,11 @@ fn a_command_input_is_built_by_its_fields() {
         graph: CommandGraph::default(),
         format: CommandFormat::Json,
         today: String::new(),
+        now: String::new(),
         evidence: Default::default(),
         revisions: Default::default(),
         state: None,
+        files: Default::default(),
     };
     assert!(input.is_json());
     assert!(!CommandInput::default().is_json());

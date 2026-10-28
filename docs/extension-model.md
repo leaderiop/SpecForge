@@ -71,7 +71,11 @@ can declare tighter memory and time limits, never looser ones than the host allo
 
 That makes extensions **pure**: they read the graph SpecForge hands them and answer. They cannot read a database,
 call an API or write a file. When something needs to touch the outside world (running a test command, for
-example), the extension declares it and SpecForge does it, asking you first.
+example), the extension declares it and SpecForge does it. An extension can also declare project files it wants
+read (a `reads` list on a pass or command): SpecForge reads them and hands the extension their facts and, if it asked
+for it, their text, without asking each time. `specforge extensions` and `specforge doctor` list every declared read,
+files that look like credentials (`.env`, keys, `.git/config`) are never handed over as text, and a file outside the
+project is refused; other project files are readable.
 
 ## How a project loads them
 

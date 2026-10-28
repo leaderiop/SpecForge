@@ -323,6 +323,7 @@ constraint extension_system_integrity "Extension System Integrity" {
     load_provider_configurations,
     validate_provider_refs,
     remove_extension,
+    provide_mcp_settings_set_tool,
     list_installed_extensions,
     list_configured_providers,
     validate_ref_target_format,

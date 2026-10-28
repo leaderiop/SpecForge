@@ -6,6 +6,7 @@
 //! the prompt's version, a digest of what the export said, its attribution and each step with the state of its gate.
 
 pub mod args;
+mod judged;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -17,6 +18,7 @@ use specforge_protocol_types::{
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
 
 pub use args::{PromptArgs, words};
+pub use judged::JudgedRuleRef;
 
 use super::command::{ExtensionCommand, ExtensionCommands, canonical, graph_export, today};
 use super::gate::{self, Gate, GateState};
@@ -156,6 +158,9 @@ pub struct ExtensionPromptPayload {
     pub subject: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<RenderedStep>,
+    /// The judged rules whose judge is this prompt (`prompt:<id>`, ADR 0295).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub judged: Vec<JudgedRuleRef>,
 }
 
 /// A rendered prompt: the export's messages, and what the host says about them.
@@ -257,6 +262,7 @@ pub fn render(
         digest: format!("sha256:{}", Sha256::of(texts.as_bytes())),
         attribution: declared.attribution.clone(),
         steps: steps(view, prompt, subject.as_deref()),
+        judged: judged::of(view, prompt),
         subject,
     };
     Ok(RenderedPrompt {

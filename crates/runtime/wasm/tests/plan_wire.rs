@@ -26,6 +26,7 @@ fn a_writing_commands_input_and_answer_are_the_goldens() {
         cwd: golden["cwd"].as_str().unwrap().to_string(),
         format: serde_json::from_value(golden["format"].clone()).unwrap(),
         today: golden["today"].as_str().unwrap().to_string(),
+        now: golden["now"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
         revisions: serde_json::from_value(golden["revisions"].clone()).unwrap(),
         ..Default::default()

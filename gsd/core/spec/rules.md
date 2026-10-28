@@ -24,7 +24,7 @@ every profile, while that setting is false; its letter is still the severity it 
 |---|---|---|---|---|---|
 | gsd/E101 | every v1 requirement maps to exactly one phase (waits for the first phase: requirements written before the roadmap are not unmapped yet) | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
 | gsd/E102 | phase and plan `depends_on` are acyclic and point at earlier ones only | decl + pass | E | E | D3 |
-| gsd/W103 | a phase has 2–5 success criteria (reads the list's items, K13) | pass | W | E | roadmap template |
+| gsd/W103 | a phase has 2–5 success criteria (reads the list's items) | pass | W | E | roadmap template |
 | gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
@@ -36,8 +36,8 @@ every profile, while that setting is false; its letter is still the severity it 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E201 | a context has canonical refs (`missing_required_field` and `non_empty` under one code) | decl | E | E | `gate-phase-context`, context template |
-| gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`, K15) | E | E | spec-phase |
-| gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`, K15) | W | E | spec template |
+| gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`) | E | E | spec-phase |
+| gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`) | W | E | spec template |
 | gsd/W204 | a research open question is resolved by a decision before planning | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
 
@@ -105,16 +105,19 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
 
-## Retired and kernel-dependent
+## Retired and kernel-provided
 
 - `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
   is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
   D3). The roster maps `gate-evidence` to that refusal.
-- Rules that read project files wait for kernel follow-up K11 (r35): `gsd/E320`, `gsd/E505`, and the file facts under
-  `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`).
-- Rules that read the test report in a compile pass wait for K12: `gsd/E403`, `gsd/E502`, `gsd/W408`, `gsd/E515`.
-- Rules that count list items wait for K13: `gsd/W103`, `gsd/W305`, `gsd/W306`, `gsd/E517`.
-- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`) waits for K15.
+- Rules that read project files are *buildable* since protocol 1.11.0 (K11), and are not yet built (r36 onwards): `gsd/E320`, `gsd/E505`, and the file facts under
+  `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`) declare `reads` and are sent
+  the facts and capped text of those files.
+- Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E403`,
+  `gsd/E502`, `gsd/W408`, `gsd/E515`.
+- Rules that count list items are buildable since 1.11.0 (K13), not yet built: `gsd/W103`, `gsd/W305`, `gsd/W306`, `gsd/E517` read the
+  items in `values`.
+- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
 
 ## Setting-gated rules
 

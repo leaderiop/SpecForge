@@ -69,4 +69,12 @@ impl Disk for Overlay<'_> {
     fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
         self.inner.read_ref(path)
     }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        self.inner.is_dir(path)
+    }
+
+    fn canonical(&self, path: &Path) -> Option<std::path::PathBuf> {
+        self.inner.canonical(path)
+    }
 }

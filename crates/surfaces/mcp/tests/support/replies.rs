@@ -154,6 +154,10 @@ pub const WRITES: &[(&str, &str)] = &[
     ),
     ("specforge.migrate", r#"{"dry_run":true}"#),
     (
+        "specforge.settings_set",
+        r#"{"extension":"@specforge/software","name":"x","unset":true,"dry_run":true}"#,
+    ),
+    (
         "specforge.infer_session",
         r#"{"action":"start","source_roots":["src"]}"#,
     ),

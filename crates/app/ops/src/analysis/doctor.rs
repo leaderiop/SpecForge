@@ -64,6 +64,10 @@ pub struct ExtensionHealth {
     /// Whether it is part of the compiled project, as the listing says.
     pub status: Status,
     pub enhancement_count: usize,
+    /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; not listed while it
+    /// declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<crate::extension::DeclaredRead>,
 }
 
 #[derive(Debug, Clone, Serialize, Shape)]
@@ -376,6 +380,10 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
             source: extension.origin.source(),
             status: extension.status,
             enhancement_count: extension.declaration.map_or(0, |d| d.enhancements.len()),
+            reads: extension
+                .declaration
+                .map(crate::extension::declared_reads)
+                .unwrap_or_default(),
         })
         .collect();
 

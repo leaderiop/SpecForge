@@ -6070,6 +6070,35 @@ expression: listing
               "name": {
                 "type": "string"
               },
+              "reads": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "glob": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "name",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "source": {
                 "type": "string"
               },
@@ -6909,6 +6938,372 @@ expression: listing
     }
   },
   {
+    "name": "specforge.settings_set",
+    "description": "Write or remove one setting of specforge.json, admitted by its declared type; a secret is never written",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "dry_run": {
+          "default": false,
+          "description": "Preview the change without writing specforge.json",
+          "type": "boolean"
+        },
+        "extension": {
+          "description": "The extension, as specforge.settings lists it",
+          "type": "string"
+        },
+        "name": {
+          "description": "The setting's name, or a family's key as written (`models.planning`)",
+          "type": "string"
+        },
+        "path": {
+          "description": "Project root path (the served project if omitted)",
+          "type": "string"
+        },
+        "unset": {
+          "default": false,
+          "description": "Remove the setting from specforge.json: it reverts to its preset or default",
+          "type": "boolean"
+        },
+        "value": {
+          "description": "The value, by the setting's declared type (a number, a boolean, a string, a list, an object); exactly one of value and unset"
+        }
+      },
+      "required": [
+        "extension",
+        "name"
+      ],
+      "type": "object"
+    },
+    "outputSchema": {
+      "$defs": {
+        "Diagnostic": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "column": {
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidates": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "did_you_mean": {
+                      "type": "string"
+                    },
+                    "entity": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "unresolved_reference"
+                      ],
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "target",
+                    "entity",
+                    "field"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "did_you_mean": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "unresolved_import"
+                      ],
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "keyword": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "shadowed_keyword"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "keyword"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "reference_cycle"
+                      ],
+                      "type": "string"
+                    },
+                    "path": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "entity": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "subject"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "entity"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "failures": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entity": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entity",
+                          "error"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "function": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "custom_rule_failures"
+                      ],
+                      "type": "string"
+                    },
+                    "rule": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "rule",
+                    "function",
+                    "failures"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "type": "object"
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "severity": {
+              "enum": [
+                "Error",
+                "Warning",
+                "Info"
+              ],
+              "type": "string"
+            },
+            "span": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SourceSpan"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "suggestion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "title",
+            "severity",
+            "message",
+            "span",
+            "suggestion",
+            "file",
+            "line",
+            "column"
+          ],
+          "type": "object"
+        },
+        "SourceSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          },
+          "type": "array"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "files_written": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "previous": {},
+        "value": {}
+      },
+      "required": [
+        "extension",
+        "name",
+        "changed",
+        "dry_run",
+        "file",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "category": "mutation",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "specforge.verdict_inputs",
     "description": "Read what a judged rule judges for one entity: each input with its digest, the verdict's state, and the basis set_verdict checks",
     "inputSchema": {
@@ -7176,6 +7571,35 @@ expression: listing
               },
               "name": {
                 "type": "string"
+              },
+              "reads": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "glob": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "name",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               },
               "source": {
                 "type": "string"

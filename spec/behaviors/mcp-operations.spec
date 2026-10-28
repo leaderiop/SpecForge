@@ -1,7 +1,7 @@
 // MCP operation behaviors — mutations and project management queries
 //
-// 11 behaviors:
-//   - Mutation Tools (6): format, rename, init, add_extension, remove_extension, migrate
+// 12 behaviors:
+//   - Mutation Tools (7): format, rename, init, add_extension, remove_extension, settings_set, migrate
 //   - Project Management Tools (5): extensions, providers, doctor, collect, render
 
 use "events/compilation"
@@ -451,6 +451,46 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   verify unit "dry_run returns preview without modifying files"
   verify integration "remove_extension with force removes an extension another requires, which it refuses with E027 without it"
   verify contract "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, stranded_entities_listed, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+}
+
+behavior provide_mcp_settings_set_tool "Provide MCP Settings Set Tool" {
+  invariants [diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
+  category   mutation
+  types      [McpSettingsSetResult, McpToolDescriptor]
+  produces   [mcp_tool_invoked, mcp_mutation_completed]
+  requires {
+    filesystem_available "FileSystem port is available for updating specforge.json"
+  }
+  ensures {
+    setting_written            "A value its setting's form admits is written to specforge.json, the rest of the file as it was"
+    secret_never_written       "A secret or an unknown setting is refused before any write"
+    dry_run_safe               "When dry_run is true, no files modified and the change previewed"
+    mutation_completed_emitted "mcp_mutation_completed event emitted after the write"
+    tool_invoked_emitted       "mcp_tool_invoked event emitted"
+  }
+  contract   """
+    In MCP server mode, the system MUST register a specforge.settings_set
+    tool that accepts extension and name (required), exactly one of value
+    (any JSON value) and unset (true), dry_run? (default false) and path?
+    (as rename). It admits the value as the loader reads it: a declared
+    secret or a name that looks like a credential is refused as E087 naming
+    name, an unknown setting or a value its form refuses as E086 naming name
+    or value, an extension that is not enabled as extension_not_found naming
+    extension; nothing is written in any of these cases. An unset removes
+    any member written under the extension, a misspelt key and a committed
+    secret included, and refuses only a name that is neither declared nor
+    written. It writes
+    specforge.json as one journalled change under the write lock, splicing
+    the member into the file's text so the rest of the file is as it was.
+    Its reply is the settings set document specforge settings set --format
+    json prints (McpSettingsSetResult).
+  """
+  verify integration "specforge.settings_set writes an admitted value through the write lock and the journal"
+  verify integration "specforge.settings_set refuses E086 and E087 naming the argument, before it writes"
+  verify unit "specforge.settings_set takes exactly one of value and unset"
+  verify integration "dry_run previews the change and lists no file written"
+  verify integration "specforge.settings_set takes a path to another project and does not reload the served one"
+  verify contract "Provide MCP Settings Set Tool: MCP settings set tool holds — filesystem_available, setting_written, secret_never_written, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {

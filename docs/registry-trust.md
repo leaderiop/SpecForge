@@ -160,7 +160,14 @@ new teammate, CI) holds the package to it, and the version it pins to the bytes 
 
 An extension runs with no capability and within the limits its handshake
 declares, at most the host's ceiling; the host enforces both at execution time
-(see Sandbox in the [extension protocol](extension-protocol.md), ADR 0037). The host embeds wasmtime 49.x
+(see Sandbox in the [extension protocol](extension-protocol.md), ADR 0037).
+One declaration does let it see more: a pass or command may declare `reads`, project
+files the host reads and hands over (text capped at 64 KiB a file, 1 MiB a read). A
+text read withholds files that look like credentials (`.env*`, `*.pem`, `*.key`, `id_rsa*`,
+`id_ed25519*`, `.npmrc`, `.netrc`, `credentials*`, `.git/config`) and refuses anything whose
+real path leaves the project, but any other project file is readable, and nothing asks
+you first. `specforge extensions` and `specforge doctor` list every declared read: look
+before you add an extension you do not trust (ADR 0293). The host embeds wasmtime 49.x
 directly through the component model, with no intermediate plugin layer, so
 runtime security fixes can be taken as soon as wasmtime ships them. CI runs
 `cargo audit` against every committed `Cargo.lock` with no ignore list and

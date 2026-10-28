@@ -78,6 +78,10 @@ pub struct CommandInput<G = GraphWire> {
     /// empty when the host passed none.
     #[serde(default)]
     pub today: String,
+    /// The same instant as `today`, `YYYY-MM-DDTHH:MM:SSZ`: RFC 3339, UTC, seconds, a literal `Z` (protocol 1.11.0,
+    /// ADR 0294); empty, and not sent, when the host passed none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub now: String,
     /// The compiled project's graph, in the graph export's shape
     /// (`specforge export --format graph` without the schema).
     #[serde(default)]
@@ -94,6 +98,9 @@ pub struct CommandInput<G = GraphWire> {
     /// The extension's state, for a command that declares `reads_state` (protocol 1.10.0, ADR 0292).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
+    /// The facts of the files the command's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 /// What a command's input says the recorded tests prove. On the wire an
@@ -394,6 +401,9 @@ pub struct PassInput {
     /// Why the host runs the pass; absent reads a write (protocol 1.10.0, ADR 0291). Sent to a guard pass only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger: Option<crate::Trigger>,
+    /// The facts of the files the pass's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub files: crate::FileMap,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
@@ -412,8 +422,10 @@ pub struct PassEntity {
     #[serde(default)]
     pub fields: BTreeMap<String, String>,
     /// The structured value of each field whose text drops structure, as the export writes it: a `block` that
-    /// declares members and a `block_list` (an object, an array of objects), by name (protocol 1.7.0, ADR 0285).
-    /// Absent for every other field, whose text is its value, and when the entity has none.
+    /// declares members and a `block_list` (an object, an array of objects), by name (protocol 1.7.0, ADR 0285), and
+    /// a `string_list`, `reference_list` or `enum_list` as the array of its items, unjoined; a written empty list is
+    /// `[]` (protocol 1.11.0, ADR 0294). Absent for every other field, whose text is its value, and when the entity
+    /// has none.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub values: BTreeMap<String, serde_json::Value>,
     /// Edges from other entities into it; an edge from the entity to itself is not counted (ADR 0270).
@@ -710,6 +722,9 @@ pub struct CollectInput<G = GraphWire> {
     pub cwd: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub today: Option<String>,
+    /// [`CommandInput::now`], for a collector that declares `writes` (protocol 1.11.0).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub graph: Option<G>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -723,6 +738,7 @@ impl<G> Default for CollectInput<G> {
             stdout: None,
             cwd: None,
             today: None,
+            now: None,
             graph: None,
             revisions: BTreeMap::new(),
         }

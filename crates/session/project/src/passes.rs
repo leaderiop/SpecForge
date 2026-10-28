@@ -9,12 +9,13 @@
 
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
-use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, Trigger};
+use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, TestResults, Trigger};
 use specforge_wasm::{Encoded, ExtensionCalls};
 use std::collections::HashSet;
 
 use crate::baseline::Baseline;
 use crate::coverage::TestReport;
+use crate::file_reads::{self, FileSource};
 use specforge_registry::EntitySnapshot;
 
 /// What the passes of one run are given: the entity snapshot they read, and
@@ -39,6 +40,12 @@ pub struct PassContext<'a> {
     pub judgements: Option<&'a crate::judged::Judgements>,
     /// Why a guard pass runs (ADR 0291): a gate the host is evaluating. Absent, a write (protocol 1.10.0).
     pub trigger: Option<&'a Trigger>,
+    /// Where a pass that declares `reads` has its files read from (ADR 0293). Absent, such a pass is sent no
+    /// `files`.
+    pub files: Option<FileSource<'a>>,
+    /// The recorded report, for a check, compute or guard pass that declares `reads_tests` (protocol 1.11.0); an
+    /// analyze pass is given `test_results` instead. Absent, no pass is sent a report it did not ask `analyze` for.
+    pub reported: Option<&'a TestResults>,
 }
 
 impl<'a> PassContext<'a> {
@@ -52,6 +59,8 @@ impl<'a> PassContext<'a> {
             previous: None,
             judgements: None,
             trigger: None,
+            files: None,
+            reported: None,
         }
     }
 }
@@ -88,6 +97,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
         // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
         previous: None,
         trigger: input.trigger.cloned(),
+        files: Default::default(),
     }
 }
 
@@ -184,6 +194,7 @@ pub fn run_extension_passes<'p>(
     let mut with_baseline: std::collections::HashMap<Vec<String>, Encoded<PassInput>> =
         Default::default();
     let calls = ExtensionCalls::new(runtime);
+    let mut memo = file_reads::Memo::default();
 
     let mut reports = Vec::new();
     for declared in passes {
@@ -193,18 +204,39 @@ pub fn run_extension_passes<'p>(
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
         summary.insert("entities_analyzed".into(), entities_analyzed.into());
-        let input: &Encoded<PassInput> = match context.previous {
-            Some(baseline) if !declared.baseline().is_empty() => {
-                let mut kinds = declared.baseline().to_vec();
-                kinds.sort();
-                with_baseline.entry(kinds).or_insert_with_key(|kinds| {
-                    ExtensionCalls::encode(&PassInput {
-                        previous: Some(baseline.pass_view(kinds)),
-                        ..payload.clone()
-                    })
-                })
+        // A pass that declares `reads` is given the facts of its files, one that declares `reads_tests` the recorded
+        // report, so its payload is its own (ADR 0293).
+        let own;
+        let tests = context.reported.filter(|_| declared.reads_tests());
+        let input: &Encoded<PassInput> = match (context.files, declared.reads()) {
+            (files, reads) if tests.is_some() || (files.is_some() && !reads.is_empty()) => {
+                own = ExtensionCalls::encode(&PassInput {
+                    previous: context
+                        .previous
+                        .filter(|_| !declared.baseline().is_empty())
+                        .map(|b| b.pass_view(declared.baseline())),
+                    files: files
+                        .filter(|_| !reads.is_empty())
+                        .map(|source| memo.read(reads, context.entities, &source))
+                        .unwrap_or_default(),
+                    test_results: tests.cloned().or_else(|| payload.test_results.clone()),
+                    ..payload.clone()
+                });
+                &own
             }
-            _ => &encoded,
+            _ => match context.previous {
+                Some(baseline) if !declared.baseline().is_empty() => {
+                    let mut kinds = declared.baseline().to_vec();
+                    kinds.sort();
+                    with_baseline.entry(kinds).or_insert_with_key(|kinds| {
+                        ExtensionCalls::encode(&PassInput {
+                            previous: Some(baseline.pass_view(kinds)),
+                            ..payload.clone()
+                        })
+                    })
+                }
+                _ => &encoded,
+            },
         };
         let answer = calls.run_pass(&declared.extension, &pass.name, input);
         let findings = match answer {

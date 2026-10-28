@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.10.0); `@gsd/core` has its foundation (kinds, code book, settings, roadmap checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.11.0); `@gsd/core` has its foundation (kinds, code book, settings, roadmap checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -31,7 +31,7 @@ so `@gsd/core` ships its own JUnit test collector instead of relying on a test-r
 
 ## Decisions
 
-Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10, are built and accepted as ADRs;
+Settled in a design interview on 2026-10-26. The kernel changes they need, K1–K10 and K11–K16, are built and accepted as ADRs;
 the rest of this folder keeps their K names.
 
 | Draft | ADR | Kernel change |
@@ -46,9 +46,15 @@ the rest of this folder keeps their K names.
 | K8 | [0291](../docs/adr/0291-an-extension-contributes-mcp-prompts.md) | an extension contributes MCP prompts |
 | K9 | [0292](../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) | an extension contributes agents, skills, commands and hooks |
 | K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
+| K11 | [0293](../docs/adr/0293-a-pass-or-command-declares-the-project-files-it-reads.md) | a pass or command declares the project files it reads (file facts) |
+| K12 | [0293](../docs/adr/0293-a-pass-or-command-declares-the-project-files-it-reads.md) | compile, check and guard passes receive the recorded test report (`reads_tests`) |
+| K13 | [0294](../docs/adr/0294-a-pass-sees-a-list-field-as-its-items-and-a-writing-call-is-told-the-time.md) | a pass gets list fields as items |
+| K14 | [0294](../docs/adr/0294-a-pass-sees-a-list-field-as-its-items-and-a-writing-call-is-told-the-time.md) | a writing call knows the time (`now`) |
+| K15 | [0295](../docs/adr/0295-a-judged-rules-judge-may-be-a-prompt-of-its-extension.md) | a judged rule's judge may be a prompt of its extension |
+| K16 | [0296](../docs/adr/0296-settings-are-set-and-unset-through-specforge-settings.md) | settings are set and unset through `specforge settings` |
 
 Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
-protocol 1.11.0), and the model cites them where it relies on them: **K11** a pass or command reads the project files
+protocol 1.11.0, now in the kernel), and the model cites them where it relies on them: **K11** a pass or command reads the project files
 it declares (file facts), **K12** compile, check and guard passes receive the recorded test report, **K13** a pass gets
 list fields as items, **K14** a writing call knows the time (`now`), **K15** a judged rule's judge may be a prompt,
 **K16** `specforge settings set|unset` writes settings through SpecForge.

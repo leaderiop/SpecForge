@@ -15,6 +15,7 @@ mod graph_inputs;
 mod host;
 mod peers;
 mod populate;
+mod reads;
 mod sides;
 mod validate;
 
@@ -23,3 +24,4 @@ pub use build::{
 };
 pub use candidates::CandidateVocabulary;
 pub use codes::extension_codes;
+pub use reads::read_problem;

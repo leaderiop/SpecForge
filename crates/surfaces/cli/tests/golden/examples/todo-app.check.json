@@ -1,0 +1,59 @@
+{
+  "exit_code": 0,
+  "diagnostics": [
+    {
+      "code": "I080",
+      "title": "Entity without owner",
+      "severity": "Info",
+      "message": "feature 'task_management' has no owner",
+      "span": {
+        "file": "spec/features/task_management.spec",
+        "start_line": 3,
+        "start_col": 1,
+        "end_line": 14,
+        "end_col": 2
+      },
+      "suggestion": null,
+      "file": "spec/features/task_management.spec",
+      "line": 3,
+      "column": 1,
+      "origin": "@specforge/product"
+    },
+    {
+      "code": "I080",
+      "title": "Entity without owner",
+      "severity": "Info",
+      "message": "milestone 'mvp' has no owner",
+      "span": {
+        "file": "spec/product/planning.spec",
+        "start_line": 12,
+        "start_col": 1,
+        "end_line": 18,
+        "end_col": 2
+      },
+      "suggestion": null,
+      "file": "spec/product/planning.spec",
+      "line": 12,
+      "column": 1,
+      "origin": "@specforge/product"
+    },
+    {
+      "code": "I080",
+      "title": "Entity without owner",
+      "severity": "Info",
+      "message": "deliverable 'todo_cli' has no owner",
+      "span": {
+        "file": "spec/product/planning.spec",
+        "start_line": 20,
+        "start_col": 1,
+        "end_line": 26,
+        "end_col": 2
+      },
+      "suggestion": null,
+      "file": "spec/product/planning.spec",
+      "line": 20,
+      "column": 1,
+      "origin": "@specforge/product"
+    }
+  ]
+}

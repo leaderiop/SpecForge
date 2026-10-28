@@ -79,7 +79,7 @@ GSD: `<task type="checkpoint:*">`. Name `C1`, scoped by its plan.
 | auto_select | str | | `auto_select=`: must name one of `options` |
 | instructions | str | | required for `human_action` |
 | resume_signal | str | R | `<resume-signal>` |
-| answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (K14, r35) |
+| answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (`now`, K14) |
 
 An option is a block, not an entity: nothing outside its checkpoint names it, so it needs no identity (K3 D2).
 

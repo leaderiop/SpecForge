@@ -13,9 +13,9 @@ use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, JudgedRule, Selector};
 use specforge_registry::{Disk, EntitySnapshot, FileStamp};
 
-use super::report::{self, Report};
 use super::select::{FileRef, Referrers, Select};
 use super::{DigestMemo, entity_digest, file_digest};
+use crate::coverage::{ReportRead, read_report};
 use crate::{CompiledProject, Environment};
 
 /// What a verdict cites (`cited`, `cited_tests`): entity references as written, file paths, test names.
@@ -119,7 +119,7 @@ pub(super) struct Cx<'a> {
     entities: &'a EntitySnapshot,
     disk: &'a dyn Disk,
     memo: &'a DigestMemo,
-    report: OnceCell<Report>,
+    report: OnceCell<ReportRead>,
     referrers: Referrers,
 }
 
@@ -147,9 +147,9 @@ impl<'a> Cx<'a> {
         }
     }
 
-    pub fn report(&self) -> &Report {
+    pub fn report(&self) -> &ReportRead {
         self.report
-            .get_or_init(|| report::read(self.env.root(), self.entities, self.disk))
+            .get_or_init(|| read_report(self.env.root(), self.entities, self.disk))
     }
 
     fn select(&self) -> Select<'_> {
@@ -255,7 +255,7 @@ impl<'a> Cx<'a> {
 
     /// The recorded tests of `id`, as `[name, status]`; `None` without a usable report.
     fn tests_of(&self, id: &str) -> Option<Vec<Value>> {
-        let Report::Read(results) = self.report() else {
+        let ReportRead::Read(results) = self.report() else {
             return None;
         };
         let mut tests: Vec<Value> = results
@@ -386,7 +386,7 @@ impl<'a> Cx<'a> {
             // test by entity when a project reuses names.
             match self.report() {
                 _ if cited.tests.is_empty() => {}
-                Report::Read(results) => {
+                ReportRead::Read(results) => {
                     let mut seen: Vec<Value> = Vec::new();
                     for name in &cited.tests {
                         for (entity, recorded) in &results.results {

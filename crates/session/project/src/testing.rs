@@ -21,6 +21,7 @@
 
 pub mod assembled;
 pub mod gsd;
+pub mod gsd_facts;
 pub mod gsd_hosts;
 pub mod gsd_prompts;
 pub mod gsd_writes;
@@ -36,6 +37,10 @@ pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
     gsd_member_history_runtime,
 };
+pub use gsd_facts::{
+    FACTS_EXTENSION, GSD_FACTS_SPEC, LIB_RS, REPORT, gsd_facts_passes, gsd_facts_probe,
+    gsd_facts_project, gsd_facts_runtime, gsd_facts_serving, gsd_facts_wire, pass_input,
+};
 pub use gsd_hosts::{GSD_HOSTS_EXTENSIONS, GsdHosts, gsd_hosts_sources};
 pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompts_sources};
 pub use gsd_writes::{
@@ -44,8 +49,8 @@ pub use gsd_writes::{
 };
 pub use history::FakeHistory;
 pub use judged::{
-    GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, declare_gsd_judged, gsd_judged_project,
-    gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,
+    GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, declare_gsd_judged, gsd_judged_builder,
+    gsd_judged_project, gsd_judged_rules, gsd_judged_runtime, gsd_judged_wire,
 };
 pub use scoped::{SCOPED_EXTENSION, scoped_extension, scoped_kinds};
 pub use settings::{

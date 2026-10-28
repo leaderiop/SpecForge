@@ -722,7 +722,7 @@ reply_type! {
     mcp_secret_row => "McpSecretRow", "McpSecretRow schema is valid",
     mcp_raised_code => "McpRaisedCode", "McpRaisedCode schema is valid",
     mcp_doctor_finding => "McpDoctorFinding", "McpDoctorFinding schema is valid",
-    mcp_doctor_extension => "McpDoctorExtension", "McpDoctorExtension schema is valid",
+    mcp_doctor_extension => "McpDoctorExtension", "McpDoctorExtension schema is valid", mcp_declared_read => "McpDeclaredRead", "McpDeclaredRead schema is valid",
     mcp_doctor_report => "McpDoctorReport", "McpDoctorReport schema is valid",
     mcp_init_result => "McpInitResult", "McpInitResult schema is valid",
     mcp_format_result => "McpFormatResult", "McpFormatResult schema is valid",

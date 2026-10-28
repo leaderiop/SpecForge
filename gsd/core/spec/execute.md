@@ -31,7 +31,7 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | threat_flags | strs | | `## Threat Flags` |
 | next_readiness | text | | `## Next Phase Readiness` |
 | halted_because | str | | required when `status halted` |
-| started, completed | ts | H | `completed:`; written by the command that opens and closes the plan, with the host's clock (kernel follow-up K14, `now`, r35) |
+| started, completed | ts | H | `completed:`; written by the command that opens and closes the plan, with the host's clock (`now`, protocol 1.11.0, K14) |
 | duration | str | C | `duration:`: `completed` − `started` |
 | actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits. GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
 | files_created, files_modified | files | C | `key-files:`: from the plan's commits |
@@ -41,7 +41,7 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `summary → summary R I`, `description str R`, `requirement → requirement`, `human_judgment bool R`,
 `rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R}`;
-each check's `status enum{pass, fail, unknown}` is `C`, from the test report (kernel follow-up K12: compute passes receive it). A check's `ref` is a test tagged with its entity: `[gsd:<id>] stays signed in` (the test link, under commit below).
+each check's `status enum{pass, fail, unknown}` is `C`, from the test report (K12: a compute pass that declares `reads_tests` receives it). A check's `ref` is a test tagged with its entity: `[gsd:<id>] stays signed in` (the test link, under commit below).
 
 ## deviation
 

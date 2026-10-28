@@ -27,6 +27,7 @@ use crate::judged::JudgedRule;
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use check::Check;
 
+pub use files::paths_named;
 pub use verdicts::{CustomCall, CustomVerdicts, NoVerdicts, Subject, Verdict, VerdictError};
 
 /// The registries a rule resolves against: target kinds, the edge types

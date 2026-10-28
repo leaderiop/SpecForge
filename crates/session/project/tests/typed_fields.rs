@@ -361,9 +361,14 @@ fn a_pass_receives_a_block_structured() {
         plan["fields"]["coupling_justified"].is_string(),
         "the text is unchanged"
     );
+    // A list field is its items too (ADR 0294); a scalar still has no entry.
+    assert_eq!(
+        plan["values"]["files_modified"],
+        serde_json::json!(["src/a.ts"])
+    );
     assert!(
-        plan["values"].get("files_modified").is_none(),
-        "only block-shaped fields"
+        plan["values"].get("phase").is_none(),
+        "a scalar is its text"
     );
 }
 

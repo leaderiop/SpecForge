@@ -89,6 +89,7 @@ fn reports_tests_the_attribute_did_not_record_as_unlinked() {
         stdout: Some(LIBTEST.to_string()),
         cwd: None,
         today: None,
+        now: None,
         graph: None,
         revisions: Default::default(),
     })

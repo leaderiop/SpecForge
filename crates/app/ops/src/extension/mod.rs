@@ -7,6 +7,7 @@ mod add;
 mod candidate;
 mod claims;
 pub mod command;
+mod declared_reads;
 #[cfg(test)]
 mod fixtures;
 pub mod gate;
@@ -20,6 +21,7 @@ mod publish;
 mod remove;
 mod resolve;
 mod settings;
+mod settings_set;
 mod update;
 
 pub use add::{
@@ -30,6 +32,7 @@ pub use candidate::{
     Installable, LocalComponent, LocalFile, WASM_TARGET, builtin_declaration, not_a_builtins_name,
     target_dir,
 };
+pub use declared_reads::{DeclaredRead, declared_reads};
 pub use inventory::{Inventory, ProjectExtension, Selection, Status, inventory};
 pub use list::{
     ExtensionInfo, ExtensionsDocument, LockedExtension, ProviderRow, ProviderStatus,
@@ -45,6 +48,9 @@ pub use remove::{
 pub use resolve::{resolve, upgrade};
 pub use settings::{
     ExtensionSettingsRow, RaisedRow, SecretRow, SettingRow, SettingsDocument, settings,
+};
+pub use settings_set::{
+    SetOutcome, SetRequest, SettingChange, SettingsSetDocument, SettingsSetField, set_setting,
 };
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateDocument, UpdateOutcome, UpdateRequest,

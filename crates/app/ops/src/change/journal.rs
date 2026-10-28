@@ -133,7 +133,7 @@ fn kept(path: &str, text: &str) -> String {
     }
 }
 
-/// Whether a rollback may touch `entry`: a source, the ledger or `.gitattributes` inside the project root (no
+/// Whether a rollback may touch `entry`: a source, the ledger, `.gitattributes` or `specforge.json` inside the project root (no
 /// absolute path, no `..`), whose `after` is a digest.
 fn restorable(entry: &Entry) -> bool {
     use std::path::Component;
@@ -143,6 +143,7 @@ fn restorable(entry: &Entry) -> bool {
     let kind = entry.path.ends_with(".spec")
         || entry.path == specforge_project::harness::LEDGER_FILE
         || entry.path == ".gitattributes"
+        || entry.path == crate::config::CONFIG_FILE
         || crate::host::owned_path(&entry.path)
         || entry.path.starts_with(".specforge/state/");
     let digest = entry.after == ABSENT

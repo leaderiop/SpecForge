@@ -5,9 +5,10 @@
 
 use crate::Environment;
 use crate::baseline::Baseline;
+use crate::coverage::{ReportRead, read_report};
 use crate::passes::{PassContext, run_extension_passes};
 use specforge_common::Diagnostic;
-use specforge_registry::EntitySnapshot;
+use specforge_registry::{Disk, EntitySnapshot};
 use specforge_wasm::WasmRuntime;
 
 /// Run `env`'s guard passes over the entity snapshot `entities` of the edited project, `previous` being the project
@@ -18,13 +19,25 @@ pub(crate) fn run(
     runtime: &dyn WasmRuntime,
     previous: &Baseline,
     judgements: &crate::judged::Judgements,
+    disk: &dyn Disk,
 ) -> Vec<Diagnostic> {
     if env.registries().guard_passes().next().is_none() {
         return Vec::new();
     }
+    // A guard never says I205: the compile of the same project did, and a guard's job is the write.
+    let report = env
+        .registries()
+        .guard_passes()
+        .any(|declared| declared.reads_tests())
+        .then(|| read_report(env.root(), entities, disk));
     let context = PassContext {
         previous: Some(previous),
         judgements: Some(judgements),
+        files: Some(env.file_source(disk)),
+        reported: match &report {
+            Some(ReportRead::Read(results)) => Some(results),
+            _ => None,
+        },
         ..PassContext::of(entities)
     };
     run_extension_passes(

@@ -21,6 +21,7 @@ fn a_read_only_commands_input_is_unchanged() {
         cwd: golden["cwd"].as_str().unwrap().to_string(),
         format: serde_json::from_value(golden["format"].clone()).unwrap(),
         today: golden["today"].as_str().unwrap().to_string(),
+        now: golden["now"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
         ..Default::default()
     };
@@ -40,6 +41,7 @@ fn a_command_without_state_has_a_byte_equal_input() {
         cwd: golden["cwd"].as_str().unwrap().to_string(),
         format: serde_json::from_value(golden["format"].clone()).unwrap(),
         today: golden["today"].as_str().unwrap().to_string(),
+        now: golden["now"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
         ..Default::default()
     };

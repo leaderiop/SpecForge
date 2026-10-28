@@ -42,6 +42,11 @@ fn fake() -> InProcessRuntime {
     )
 }
 
+/// The instant noon UTC of `date`, to the second: what `run_on` is pinned to.
+fn at(date: &str) -> chrono::DateTime<chrono::Utc> {
+    format!("{date}T12:34:56Z").parse().expect("an instant")
+}
+
 /// The input the last call received, as JSON.
 fn last_input(runtime: &InProcessRuntime) -> Value {
     runtime.calls().last().expect("a call").input.clone()
@@ -189,4 +194,7 @@ fn canonical_root(fixture: &specforge_project::testing::Assembled) -> String {
 }
 
 mod derive;
+mod input_bytes;
+mod now;
+mod reads;
 mod run;

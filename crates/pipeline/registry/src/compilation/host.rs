@@ -56,6 +56,22 @@ impl RegistryBuild {
         self.hooks().find(|h| h.route() == route)
     }
 
+    /// The judged rules of `extension` whose judge is its prompt `prompt` (ADR 0295).
+    pub fn judged_rules_of_prompt(&self, extension: &str, prompt: &str) -> Vec<&JudgedRule> {
+        let judge = format!("{}{prompt}", crate::judged::PROMPT_JUDGE);
+        let registered = self
+            .declarations()
+            .iter()
+            .any(|d| d.name() == extension && d.surfaces.prompts.iter().any(|p| p.id == prompt));
+        if !registered {
+            return Vec::new();
+        }
+        self.rules()
+            .judged()
+            .filter(|r| r.extension == extension && r.judge == judge)
+            .collect()
+    }
+
     /// The judged rules whose judge is the agent `agent` of the extension that declares the rule.
     pub fn judged_rules_of(&self, agent: &str) -> Vec<&JudgedRule> {
         self.rules()

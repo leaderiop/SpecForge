@@ -57,7 +57,7 @@ partner could satisfy `critical < warning`; the pair itself is not checked, as G
 
 Known deviation: the SDK has one numeric setting type, a whole number, while GSD's capability `number` settings and its
 `hooks.context_*_threshold` accept decimals (`99.5`, `7.5`, `1.5` seconds). `specforge check` refuses those with E086
-"whole number" until the kernel adds a `number` setting type (a follow-up for the kernel round, r35); until then write the whole
+"whole number" until a later kernel round adds a `number` setting type (r35 does not); until then write the whole
 number. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
 (`docs/CONFIGURATION.md`), so `specforge gsd import` reads it from there.
 Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the

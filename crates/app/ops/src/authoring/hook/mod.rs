@@ -87,11 +87,13 @@ pub fn run(
 
     let spec = spec_root(view);
     let tool = event.tool.as_ref();
+    let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
         event: declared.event,
         host: event.host.clone(),
         cwd: cwd.display().to_string(),
-        today: crate::extension::command::today(),
+        today: crate::extension::command::today_of(at),
+        now: crate::extension::command::now_of(at),
         session: event.session.clone(),
         tool: tool.map(|t| HookTool {
             class: t.class.clone(),

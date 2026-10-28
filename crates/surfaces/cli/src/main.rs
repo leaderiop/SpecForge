@@ -47,6 +47,8 @@ mod review;
 mod scaffold;
 mod search;
 mod settings;
+#[cfg(test)]
+mod settings_tests;
 mod stats;
 mod terminal;
 mod trace;
@@ -135,6 +137,8 @@ enum Commands {
     /// List configured providers
     Providers(providers::Args),
     /// List each extension's settings: the value, where it came from, what it gates and each secret's status
+    ///
+    /// `settings set` and `settings unset` write one setting of specforge.json (ADR 0296).
     Settings(settings::Args),
     /// Run the project's test runners and record which entities their tests prove
     Collect(collect::Args),
@@ -381,8 +385,9 @@ mod tests {
                 );
                 continue;
             }
-            // A command with subcommands only dispatches; its leaves read.
-            if command.has_subcommands() {
+            // A command with subcommands only dispatches; its leaves read. `settings` also lists, and takes --path
+            // for the listing (its subcommands conflict with the listing's flags).
+            if command.has_subcommands() && name != "settings" {
                 assert!(
                     paths.is_empty(),
                     "`specforge {name}` dispatches but takes --path"

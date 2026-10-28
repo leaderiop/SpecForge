@@ -9,7 +9,6 @@ mod describe;
 mod digest;
 mod inputs;
 mod memo;
-mod report;
 mod select;
 mod state;
 

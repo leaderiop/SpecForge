@@ -10,6 +10,7 @@ mod contributions;
 mod declarations;
 mod plain_disk;
 mod prompt_checks;
+mod prompt_judges;
 mod prompts;
 mod registry_build;
 mod rules;

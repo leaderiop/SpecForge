@@ -42,7 +42,22 @@ pub(super) fn build(
                         "another judged rule of the extension has this code: it is the verdict's name",
                     ));
                 }
-                if let Some(judged) = &descriptor.judged {
+                if let Some(judged) = &descriptor.judged
+                    && let Some(prompt) = judged.judge.strip_prefix(crate::judged::PROMPT_JUDGE)
+                {
+                    // A prompt judge is a prompt the extension registered (the surfaces check has dropped the others), and its
+                    // own: no peer is read, so the list is always complete.
+                    if !declaration.surfaces.prompts.iter().any(|p| p.id == prompt) {
+                        return Err(cannot_fire(
+                            extension,
+                            &rule.code,
+                            &format!(
+                                "its judge '{}' is no prompt of the extension",
+                                judged.judge
+                            ),
+                        ));
+                    }
+                } else if let Some(judged) = &descriptor.judged {
                     let (agents, complete) = crate::surface::visible_agents(declarations, declaration);
                     if !agents.contains(&judged.judge) && complete {
                         return Err(cannot_fire(

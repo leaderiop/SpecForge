@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "diagnostics": [
+    {
+      "code": "I015",
+      "title": "Formal analysis available",
+      "severity": "Info",
+      "message": "3 behavior(s) declare requires/ensures; `specforge analyze` checks them",
+      "span": null,
+      "suggestion": "run `specforge analyze` for the formal passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking)",
+      "file": null,
+      "line": null,
+      "column": null,
+      "origin": "@specforge/formal"
+    }
+  ]
+}

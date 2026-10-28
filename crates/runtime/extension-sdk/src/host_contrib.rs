@@ -178,6 +178,12 @@ impl<'a> HookCall<'a> {
         self.0
     }
 
+    /// The host's clock when the hook fired: `YYYY-MM-DDTHH:MM:SSZ`, RFC 3339 UTC with seconds (protocol 1.11.0,
+    /// ADR 0294); empty when the host passed none.
+    pub fn now(&self) -> &'a str {
+        &self.0.now
+    }
+
     /// A builder for the plan a hook that declares `writes` answers.
     pub fn plan(&self) -> PlanBuilder {
         PlanBuilder::for_hook(self.0)
