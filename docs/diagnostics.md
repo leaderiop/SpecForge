@@ -3049,8 +3049,9 @@ project, holds a glob or is a `.spec` source, or of a field that is not a file
 field), an `unless_set` field the kind does not declare, a `values` or
 `outcome_fields` entry that is not a `verdict`-written field of a target kind of
 the extension, its judge is no agent of its extension or of a declared peer (ADR
-0292), or the code is another judged rule's. Fix or remove the rule in the
-extension's manifest.
+0292), is `prompt:<id>` of a prompt its extension does not declare (a peer's
+prompt is not a judge, ADR 0295), or the code is another judged rule's. Fix or
+remove the rule in the extension's manifest.
 
 Owner: core
 Level: warning

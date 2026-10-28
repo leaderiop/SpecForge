@@ -54,6 +54,14 @@ impl JudgedRule {
     }
 }
 
+/// The prefix of a judge that is a prompt of the rule's own extension (ADR 0295).
+pub const PROMPT_JUDGE: &str = "prompt:";
+
+/// A judge: an agent id (a word) or `prompt:<id>`, `<id>` a word.
+fn is_judge(text: &str) -> bool {
+    is_word(text.strip_prefix(PROMPT_JUDGE).unwrap_or(text))
+}
+
 fn is_word(text: &str) -> bool {
     !text.is_empty()
         && text
@@ -71,8 +79,11 @@ pub(crate) fn shape(
     descriptor: &JudgedDescriptor,
 ) -> Result<(Vec<JudgedTargetRule>, JudgedDescriptor), String> {
     let d = descriptor;
-    if !is_word(&d.judge) {
-        return Err(format!("judge '{}' is not an agent id (a word)", d.judge));
+    if !is_judge(&d.judge) {
+        return Err(format!(
+            "judge '{}' is neither an agent id (a word) nor prompt:<id>",
+            d.judge
+        ));
     }
     if d.outcomes.is_empty() || !d.outcomes.iter().all(|o| is_word(o)) || !unique(&d.outcomes) {
         return Err("outcomes must be words, each once, and at least one".into());

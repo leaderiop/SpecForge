@@ -91,6 +91,7 @@ mod plans;
 mod previews;
 mod project_file_reads;
 mod project_files;
+mod prompt_judges;
 mod prompts;
 mod publish;
 mod query;
