@@ -12,6 +12,7 @@ mod codes;
 mod declaration;
 mod edge_types;
 mod graph_inputs;
+mod host;
 mod peers;
 mod populate;
 mod sides;

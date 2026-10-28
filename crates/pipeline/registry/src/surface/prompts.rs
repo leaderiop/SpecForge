@@ -26,7 +26,7 @@ fn reserved(name: &str) -> bool {
         || ["host", "argv"].contains(&name)
 }
 
-fn snake_case(id: &str) -> bool {
+pub(super) fn snake_case(id: &str) -> bool {
     let mut chars = id.chars();
     chars.next().is_some_and(|c| c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
@@ -45,6 +45,7 @@ struct Loaded {
     short: String,
     commands: BTreeSet<String>,
     prompts: BTreeSet<String>,
+    agents: BTreeSet<String>,
 }
 
 /// Drop each prompt and gated command of `declarations` the registry refuses, with the W021 that says why.
@@ -63,6 +64,7 @@ pub fn refuse_prompts(
                 short: d.short().into_owned(),
                 commands: d.surfaces.commands.iter().map(|c| c.id.clone()).collect(),
                 prompts: d.surfaces.prompts.iter().map(|p| p.id.clone()).collect(),
+                agents: d.surfaces.agents.iter().map(|a| a.id.clone()).collect(),
             })
             .collect();
         for declaration in declarations.iter_mut() {
@@ -213,10 +215,14 @@ impl Ctx<'_> {
             return Err(format!("it declares the step '{}' twice", step.id));
         }
         for step in &mut prompt.steps {
-            if step.agent.take().is_some() {
+            let Some(agent) = step.agent.clone() else {
+                continue;
+            };
+            if let Err(reason) = self.reachable(&step.id, &agent, |l| &l.agents, "agent") {
+                step.agent = None;
                 diagnostics.push(warn(format!(
-                    "step '{}' of prompt '{}' of '{}' names an agent, which the host does not know yet: the agent is ignored",
-                    step.id, prompt.id, self.extension
+                    "prompt '{}' of '{}': {reason}: the agent is ignored",
+                    prompt.id, self.extension
                 )));
             }
         }

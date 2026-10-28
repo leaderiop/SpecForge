@@ -504,14 +504,20 @@ Two contributions claim one name. Two commands route under one name, `specforge
 `-` alike), whether from two extensions or declared twice by one; a prompt is
 routed under the same names after the commands (ADR 0291), so a prompt whose
 name a command or an earlier prompt has is the one not routed; the first in load
-order is routed and the later runs on no surface. Or two extensions register one
-MCP tool name, or one MCP resource name. Or two loaded extensions share one code
-namespace (the namespace is the package name's scope and name: `@gsd/core` and a
-local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both `a.b.c`): the first
-in load order owns the namespace and the later extension's codes are described
-by nobody. One command id under two short names is two names, not a collision.
-Rename the later contribution, or give its extension another short name
-(`ext_short`; the SDK's `short`).
+order is routed and the later runs on no surface. Or two agents, skills and
+slash commands claim one host name (ADR 0292): they are host file names
+(`.claude/agents/<name>.md`, `.claude/skills/<name>/SKILL.md`,
+`.claude/commands/<name>.md`, and the same in `.codex` and `.cursor`), one
+namespace per project across kinds and extensions, and a slash command is named
+`<short>-<route>`; the first in load order is rendered and the later is not. Or
+two hooks route as one `<short>.<id>`; the later is not wired. Or two extensions
+register one MCP tool name, or one MCP resource name. Or two loaded extensions
+share one code namespace (the namespace is the package name's scope and name:
+`@gsd/core` and a local `gsd` are both `gsd`, `@a/b.c` and `@a.b/c` are both
+`a.b.c`): the first in load order owns the namespace and the later extension's
+codes are described by nobody. One command id under two short names is two
+names, not a collision. Rename the later contribution, or give its extension
+another short name (`ext_short`; the SDK's `short`).
 
 Owner: core
 Level: error
@@ -2609,7 +2615,20 @@ that names a command or prompt neither the extension nor a declared peer
 declares; the prompt or command is dropped whole, since a gate or an argument
 the host cannot read must not be ignored, and a step's `agent` (until the host
 knows agents) or an attribution with an empty field is dropped alone. The item
-is dropped, the rest of the category is kept.
+is dropped, the rest of the category is kept. The host contributions are checked
+too (ADR 0292): an agent, skill, slash command or hook the registry refuses and
+drops, alone — an agent or skill id that is not kebab-case or is declared
+twice, a hook id that is not snake_case, a tool class outside the host-neutral
+vocabulary (`read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
+`web_search`, `ask_user`, `agent`, `skill`, `todo`, `mcp:<server>/<glob>`), a
+`model` or `effort` outside its tiers that is not a `setting:` naming a string
+or enum setting of the extension, variants without a `variant_setting` (or the
+reverse), a `when` that is not a bool setting of the extension, a slash command
+that names no single prompt or command the extension declares, `tools` or
+`paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above the
+ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook export
+that is not `hook__<id>`, an attribution with an empty field, and a prompt step
+whose `agent` is no agent of the extension or of a declared peer.
 
 Owner: core
 Level: warning
@@ -3023,8 +3042,9 @@ reference, a computed or verdict field, a `file(...)` of a path that leaves the
 project, holds a glob or is a `.spec` source, or of a field that is not a file
 field), an `unless_set` field the kind does not declare, a `values` or
 `outcome_fields` entry that is not a `verdict`-written field of a target kind of
-the extension, or the code is another judged rule's. Fix or remove the rule in
-the extension's manifest.
+the extension, its judge is no agent of its extension or of a declared peer (ADR
+0292), or the code is another judged rule's. Fix or remove the rule in the
+extension's manifest.
 
 Owner: core
 Level: warning

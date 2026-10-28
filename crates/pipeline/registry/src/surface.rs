@@ -2,6 +2,7 @@
 //! resource whose name an earlier extension registered (first registration
 //! wins). What MCP serves is its own surface table's (ADR 0017 D7).
 
+mod contributions;
 mod prompt_routes;
 mod prompts;
 mod routes;
@@ -10,6 +11,10 @@ use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::{ExtensionDeclaration, SurfaceDescriptor};
 use std::collections::HashMap;
 
+pub(crate) use contributions::visible_agents;
+pub use contributions::{
+    Contributed, claim_host_names, refuse_host_contributions, refuse_slash_commands, slash_name,
+};
 pub use prompt_routes::PromptRoute;
 pub use prompts::{Judge, refuse_prompts};
 pub use routes::{CommandRoute, CommandRoutes, ShadowedRoute};

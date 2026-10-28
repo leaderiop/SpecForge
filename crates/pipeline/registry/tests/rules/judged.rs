@@ -34,6 +34,9 @@ fn plan_check() -> Value {
 /// `@test` declaring phase, plan and task, and `rule`.
 fn built(rule: ValidationRuleDescriptor) -> Built {
     let mut declaration = declare("@test", |c| {
+        c.agent("checker", |a| {
+            a.description("Judges");
+        });
         c.kind("phase", |k| {
             k.keyword("phase");
         });
@@ -129,6 +132,9 @@ fn with_result_field(
     rule: ValidationRuleDescriptor,
 ) -> specforge_registry::compilation::RegistryBuild {
     let mut declaration = declare("@test", |c| {
+        c.agent("checker", |a| {
+            a.description("Judges");
+        });
         c.kind("plan", |k| {
             k.keyword("plan");
             k.field("result", |f| {

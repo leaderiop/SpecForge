@@ -432,6 +432,14 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     // extension whose code namespace an earlier one owns; E006 rules for
     // required fields come after the declared rules.
     let (codes, namespace_diagnostics) = codes::build(&declarations);
+    // The settings, presets and secrets: W019 and W021 (they read the code book). Built before the rules, which
+    // read the agents the host contributions leave; their diagnostics are reported after the rules'.
+    let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
+    // An agent, skill or hook the registry refuses is dropped before a rule or a prompt names it (W021).
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_host_contributions(&mut declarations, &settings),
+    ));
     let (rules, rule_diagnostics) = Rules::build(
         &declarations,
         Registries {
@@ -443,8 +451,6 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
     );
     registry_diagnostics.extend(about(BuildPart::Rules, rule_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
-    // The settings, presets and secrets: W019 and W021, after the rules (they read the code book).
-    let (settings, settings_diagnostics) = crate::registries::build_settings(&declarations, &codes);
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
 
     // A prompt or a gate the registry refuses is dropped before anything routes it (W021).
@@ -458,7 +464,13 @@ pub fn build_registries(declarations: Vec<ExtensionDeclaration>) -> RegistryBuil
         crate::refuse_prompts(&mut declarations, &judge),
     ));
 
-    let (commands, duplicates) = register_surface_contributions(&declarations);
+    // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
+    surface_diagnostics.extend(about(
+        BuildPart::Surfaces,
+        crate::refuse_slash_commands(&mut declarations, &settings),
+    ));
+    let (commands, mut duplicates) = register_surface_contributions(&declarations);
+    duplicates.extend(crate::claim_host_names(&mut declarations));
     surface_diagnostics.extend(about(BuildPart::Collision, duplicates));
 
     let field_forms = graph_inputs::field_forms(&kinds, &fields);

@@ -51,28 +51,25 @@ fn w021(build: &RegistryBuild) -> Vec<String> {
         .collect()
 }
 
-/// The registry's answers T4 adds; until then each is unimplemented and the pins that use it stay ignored.
+/// The registry's answers, as the pins read them.
 mod asked {
-    #![allow(
-        clippy::unimplemented,
-        reason = "a K9 pin's helper stands unimplemented until the ticket that adds what it calls"
-    )]
-
     use super::RegistryBuild;
 
-    pub fn agents(_: &RegistryBuild) -> Vec<String> {
-        unimplemented!("K9 T4: RegistryBuild::agents")
+    pub fn agents(build: &RegistryBuild) -> Vec<String> {
+        build.agents().map(|a| a.item.id.clone()).collect()
     }
-    pub fn hooks(_: &RegistryBuild) -> Vec<String> {
-        unimplemented!("K9 T4: RegistryBuild::hooks")
+    pub fn hooks(build: &RegistryBuild) -> Vec<String> {
+        build.hooks().map(|h| h.item.id.clone()).collect()
     }
     /// The host names kept across skills and slash commands.
-    pub fn skills_and_slashes(_: &RegistryBuild) -> usize {
-        unimplemented!("K9 T4: RegistryBuild::skills and slash_commands")
+    pub fn skills_and_slashes(build: &RegistryBuild) -> usize {
+        build.skills().count() + build.slash_commands().count()
     }
     /// The extension and description of the agent `id`.
-    pub fn agent(_: &RegistryBuild, _id: &str) -> Option<(String, String)> {
-        unimplemented!("K9 T4: RegistryBuild::agent")
+    pub fn agent(build: &RegistryBuild, id: &str) -> Option<(String, String)> {
+        build
+            .agent(id)
+            .map(|(extension, a)| (extension.to_string(), a.description.clone()))
     }
 }
 
@@ -89,7 +86,6 @@ fn hook(id: &str, event: &str, extra: Value) -> Value {
     behavior = "install_into_a_host",
     verify = "a host name claimed twice is E039 and the later claimant is not rendered"
 )]
-#[ignore = "K9 T4"]
 fn a_host_name_claimed_twice_is_e039() {
     // The slash command of the prompt `plan_phase` is named `t-plan-phase`, as is this skill.
     let build = build_registries(vec![core(json!({
@@ -112,7 +108,6 @@ fn a_host_name_claimed_twice_is_e039() {
     behavior = "install_into_a_host",
     verify = "a contribution the registry refuses is W021 and dropped, and the rest is kept"
 )]
-#[ignore = "K9 T4"]
 fn a_contribution_the_registry_refuses_is_w021() {
     let refused = [
         (
@@ -178,7 +173,6 @@ fn a_contribution_the_registry_refuses_is_w021() {
     behavior = "install_into_a_host",
     verify = "the registry answers an agent by its id, with the extension that declares it"
 )]
-#[ignore = "K9 T4"]
 fn the_registry_answers_an_agent_by_id() {
     let build = build_registries(vec![core(json!({
         "agents": [{"id": "t-plan-checker", "description": "Checks"}],
@@ -194,7 +188,6 @@ fn the_registry_answers_an_agent_by_id() {
     behavior = "install_into_a_host",
     verify = "a judged rule whose judge is no agent of its extension or a declared peer is W112"
 )]
-#[ignore = "K9 T4"]
 fn a_judge_naming_no_agent_of_its_extension_is_w112() {
     let rule = |code: &str, judge: &str| {
         json!({"code": code, "severity": "warning", "check": "judged", "message_template": "{id} does not hold",
