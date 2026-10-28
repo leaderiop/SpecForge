@@ -1,0 +1,14 @@
+{
+  "status": "healthy",
+  "errors": [],
+  "warnings": [],
+  "info": [
+    {
+      "code": "I001",
+      "message": "Phase 02-persistence has 1 plan(s) without a matching summary",
+      "fix": "May be in progress",
+      "repairable": false
+    }
+  ],
+  "repairable_count": 0
+}

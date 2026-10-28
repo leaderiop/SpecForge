@@ -1,0 +1,469 @@
+{
+  "claude_orchestration.enabled": {
+    "capability": "claude-orchestration",
+    "type": "boolean",
+    "default": false
+  },
+  "claude_orchestration.execution_backend": {
+    "capability": "claude-orchestration",
+    "type": "enum",
+    "default": "auto",
+    "values": [
+      "auto",
+      "workflow",
+      "inline"
+    ]
+  },
+  "claude_orchestration.min_agent_sdk_version": {
+    "capability": "claude-orchestration",
+    "type": "string",
+    "default": "0.3.149"
+  },
+  "external_job.artifact_dir": {
+    "capability": "external-job",
+    "type": "string",
+    "default": "Artifacts/jobs"
+  },
+  "external_job.backend": {
+    "capability": "external-job",
+    "type": "enum",
+    "default": "slurm",
+    "values": [
+      "slurm"
+    ]
+  },
+  "external_job.enabled": {
+    "capability": "external-job",
+    "type": "boolean",
+    "default": false
+  },
+  "external_job.poll_timeout_ms": {
+    "capability": "external-job",
+    "type": "number",
+    "default": 15000
+  },
+  "external_job.submit_timeout_ms": {
+    "capability": "external-job",
+    "type": "number",
+    "default": 30000
+  },
+  "graphify.enabled": {
+    "capability": "graphify",
+    "type": "boolean",
+    "default": false
+  },
+  "intel.enabled": {
+    "capability": "intel",
+    "type": "boolean",
+    "default": false
+  },
+  "mempalace.auto_capture_hooks": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": false
+  },
+  "mempalace.capture_artifacts": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": true
+  },
+  "mempalace.cross_project_tunnels": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": false
+  },
+  "mempalace.diary_journal": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": true
+  },
+  "mempalace.enabled": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": false
+  },
+  "mempalace.memory_mode": {
+    "capability": "mempalace",
+    "type": "enum",
+    "default": "augment",
+    "values": [
+      "augment",
+      "kg_backend",
+      "replace"
+    ]
+  },
+  "mempalace.mirror_kg": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": true
+  },
+  "mempalace.recall_on_discuss": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": true
+  },
+  "mempalace.recall_on_plan": {
+    "capability": "mempalace",
+    "type": "boolean",
+    "default": true
+  },
+  "mempalace.wing": {
+    "capability": "mempalace",
+    "type": "string",
+    "default": ""
+  },
+  "profile-pipeline.enabled": {
+    "capability": "profile-pipeline",
+    "type": "boolean",
+    "default": false
+  },
+  "refactor.complexity_jump_delta": {
+    "capability": "refactor-trigger",
+    "type": "number",
+    "default": 5
+  },
+  "refactor.complexity_threshold": {
+    "capability": "refactor-trigger",
+    "type": "number",
+    "default": 15
+  },
+  "refactor.trigger_enabled": {
+    "capability": "refactor-trigger",
+    "type": "boolean",
+    "default": false
+  },
+  "refactor.trigger_strict": {
+    "capability": "refactor-trigger",
+    "type": "boolean",
+    "default": false
+  },
+  "review.effort.claude": {
+    "capability": "claude",
+    "type": "string",
+    "default": ""
+  },
+  "review.effort.codex": {
+    "capability": "codex",
+    "type": "string",
+    "default": ""
+  },
+  "review.effort.opencode": {
+    "capability": "opencode",
+    "type": "string",
+    "default": ""
+  },
+  "review.llama_cpp_host": {
+    "capability": "llama-cpp",
+    "type": "string",
+    "default": ""
+  },
+  "review.lm_studio_host": {
+    "capability": "lm-studio",
+    "type": "string",
+    "default": ""
+  },
+  "review.max_prompt_tokens_per_reviewer.antigravity": {
+    "capability": "antigravity",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.claude": {
+    "capability": "claude",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.coderabbit": {
+    "capability": "coderabbit",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.codex": {
+    "capability": "codex",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.cursor": {
+    "capability": "cursor",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.kimi-code": {
+    "capability": "kimi-code",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.llama_cpp": {
+    "capability": "llama-cpp",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.lm_studio": {
+    "capability": "lm-studio",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.ollama": {
+    "capability": "ollama",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.opencode": {
+    "capability": "opencode",
+    "type": "number",
+    "default": -1
+  },
+  "review.max_prompt_tokens_per_reviewer.qwen": {
+    "capability": "qwen",
+    "type": "number",
+    "default": -1
+  },
+  "review.models.agy": {
+    "capability": "antigravity",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.claude": {
+    "capability": "claude",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.codex": {
+    "capability": "codex",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.cursor": {
+    "capability": "cursor",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.kimi-code": {
+    "capability": "kimi-code",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.llama_cpp": {
+    "capability": "llama-cpp",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.lm_studio": {
+    "capability": "lm-studio",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.ollama": {
+    "capability": "ollama",
+    "type": "string",
+    "default": ""
+  },
+  "review.models.opencode": {
+    "capability": "opencode",
+    "type": "string",
+    "default": ""
+  },
+  "review.ollama_host": {
+    "capability": "ollama",
+    "type": "string",
+    "default": ""
+  },
+  "review.timeouts.antigravity": {
+    "capability": "antigravity",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.claude": {
+    "capability": "claude",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.codex": {
+    "capability": "codex",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.kimi-code": {
+    "capability": "kimi-code",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.llama_cpp": {
+    "capability": "llama-cpp",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.lm_studio": {
+    "capability": "lm-studio",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.ollama": {
+    "capability": "ollama",
+    "type": "number",
+    "default": -1
+  },
+  "review.timeouts.opencode": {
+    "capability": "opencode",
+    "type": "number",
+    "default": -1
+  },
+  "workflow.ai_integration_phase": {
+    "capability": "ai-integration",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.api_coverage_gate": {
+    "capability": "ai-integration",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.assumption_delta": {
+    "capability": "assumption-delta",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.code_review": {
+    "capability": "code-review",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.code_review_depth": {
+    "capability": "code-review",
+    "type": "enum",
+    "default": "standard",
+    "values": [
+      "quick",
+      "standard",
+      "deep"
+    ]
+  },
+  "workflow.code_review_point": {
+    "capability": "code-review",
+    "type": "enum",
+    "default": "execute:post",
+    "values": [
+      "execute:post",
+      "execute:wave:post"
+    ]
+  },
+  "workflow.context_drift_action": {
+    "capability": "drift",
+    "type": "enum",
+    "default": "warn",
+    "values": [
+      "warn",
+      "block"
+    ]
+  },
+  "workflow.context_drift_precheck": {
+    "capability": "drift",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.drift_action": {
+    "capability": "drift",
+    "type": "enum",
+    "default": "warn",
+    "values": [
+      "warn",
+      "auto-remap"
+    ]
+  },
+  "workflow.drift_threshold": {
+    "capability": "drift",
+    "type": "number",
+    "default": 3
+  },
+  "workflow.live_dom_uat": {
+    "capability": "live-dom-uat",
+    "type": "boolean",
+    "default": false
+  },
+  "workflow.nyquist_validation": {
+    "capability": "nyquist",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.pattern_mapper": {
+    "capability": "pattern-mapper",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.plan_drift_precheck": {
+    "capability": "drift",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.post_planning_gaps": {
+    "capability": "gap-analysis",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.research": {
+    "capability": "research",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.schema_drift_gate": {
+    "capability": "drift",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.schema_push_detection": {
+    "capability": "schema-gate",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.security_asvs_level": {
+    "capability": "security",
+    "type": "number",
+    "default": 1
+  },
+  "workflow.security_block_on": {
+    "capability": "security",
+    "type": "enum",
+    "default": "high",
+    "values": [
+      "critical",
+      "high",
+      "medium",
+      "low",
+      "none"
+    ]
+  },
+  "workflow.security_enforcement": {
+    "capability": "security",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.tdd_mode": {
+    "capability": "tdd",
+    "type": "boolean",
+    "default": false
+  },
+  "workflow.ui_interaction_capture": {
+    "capability": "ui",
+    "type": "boolean",
+    "default": false
+  },
+  "workflow.ui_phase": {
+    "capability": "ui",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.ui_review": {
+    "capability": "ui",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.ui_safety_gate": {
+    "capability": "ui",
+    "type": "boolean",
+    "default": true
+  },
+  "workflow.windows_enforce": {
+    "capability": "broken-windows",
+    "type": "boolean",
+    "default": false
+  }
+}

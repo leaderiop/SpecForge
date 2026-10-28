@@ -1,0 +1,28 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Core",
+      "status": "complete"
+    },
+    {
+      "number": "2",
+      "name": "Persistence",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Listing",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd-progress --next",
+    "label": "Advance to the next step (plan phase 02)",
+    "reason": "Phase 2 of 4 — needs a plan"
+  },
+  "updated_at": "2026-10-28T12:51:04.210Z"
+}

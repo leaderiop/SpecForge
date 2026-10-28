@@ -29,7 +29,7 @@ one `@gsd/*` extension or listed below as not applicable, with its reason.
 
 | Owner | Key families |
 |---|---|
-| `@gsd/core` | `mode`, `granularity`, `granularities.*`, `model_profile`, `model_profile_overrides.*`, `model_policy.*`, `models.*`, `dynamic_routing.*`, `runtime`, `phase_id_convention`, `project_code`, `phase_naming`, `response_language`, `context_window`, `context_profile`, `context`, `workflow.*` (but the ones below), `executor.*`, `planner.*`, `parallelization.*`, `gates.*`, `git.*`, `worktree.*`, `ship.*`, `review.*`, `agent_skills`, `agent_tools.*`, `hooks.*`, `statusline.*`, `refactor.*`, `model_overrides.*`, `effort.*`, `fast_mode.*`, `manager.*`, `plan_review.*`, `audit.*`, `features.*`, `learnings.*`, `claude_orchestration.*`, `external_job.*`, `agent_skills_security.*`, `planning.chunked_parallel`, `parallelization` (the shorthand for `parallelization.enabled`), the search availability flags (`brave_search` … `jina`) |
+| `@gsd/core` | `mode`, `granularity`, `granularities.*`, `model_profile`, `model_profile_overrides.*`, `model_policy.*`, `models.*`, `dynamic_routing.*`, `runtime`, `phase_id_convention`, `project_code`, `phase_naming`, `response_language`, `context_window`, `context`, `workflow.*` (but the ones below), `executor.*`, `planner.*`, `parallelization.*`, `gates.*`, `git.*`, `worktree.*`, `ship.*`, `review.*`, `agent_skills`, `agent_tools.*`, `hooks.*`, `statusline.*`, `refactor.*`, `model_overrides.*`, `resolve_model_ids`, `effort.*`, `fast_mode.*`, `manager.*`, `plan_review.*`, `audit.*`, `features.*`, `learnings.*`, `claude_orchestration.*`, `external_job.*`, `agent_skills_security.*`, `planning.chunked_parallel`, `parallelization` (the shorthand for `parallelization.enabled`), the search availability flags (`brave_search` … `jina`) |
 | `@gsd/security` | `workflow.security_enforcement`, `workflow.security_asvs_level`, `workflow.security_block_on`, `security.*` |
 | `@gsd/ui` | `workflow.ui_phase`, `workflow.ui_safety_gate`, `workflow.ui_review`, `workflow.live_dom_uat`, `workflow.ui_interaction_capture` |
 | `@gsd/ai` | `workflow.ai_integration_phase`, `workflow.api_coverage_gate` |
@@ -40,9 +40,29 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Declared as |
 |---|---|
-| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off (unset: detected from the key's presence), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`; `specforge gsd import` moves a string value out to the environment and reports it |
+| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off, with no default under any of the seven (unset: detected from the key's presence, as GSD does at `config-new-project`; GSD also detects from `~/.gsd/<name>_api_key` files, which the environment-only secrets do not read), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` moves a string value out to the environment and reports it |
 | `model_profile_overrides.<runtime>.<tier>` (`string \| object`) | the block `{model str R, reasoning_effort enum}`; the import rewrites a bare string to `{model}` |
-| a key GSD leaves unset (`(none)`, `null`, _unset_) | no default; `null` is unset |
+| a key GSD leaves unset (`(none)`, `null`, _unset_, or a capability's empty string or `-1`) | no default; `null` is unset |
+| `resolve_model_ids` (`false \| true \| "omit"`) | an enum `aliases \| ids \| omit`, default `aliases`; the import maps `false`, `true` and `"omit"` |
+| `agent_tools.*` with the key `*` (every agent) | the family `agent_tools.*`, whose key is a segment (`[A-Za-z0-9_-]+`): the all-agents grant is `agent_tools.all`, and the import maps `*` to `all` |
+| `effort.routing_tier_defaults.<tier>`, `fast_mode.routing_tier_defaults.<tier>` | three static keys each, not a family: a family has no default, and each tier has GSD's |
+| a key with a closed set of values GSD validates (`workflow.human_verify_mode`, `statusline.state_format`, …) | an enum of that set; `context` is the enum `dev`, `research`, `review` (GSD's `config-set context` refuses any other value), default unset. `context_profile`, which `docs/CONFIGURATION.md` lists, is read nowhere in GSD's source and is not declared |
+
+An integer is declared with the bounds GSD enforces (`context_window` and `workflow.smart_zone_tokens` at least 1) or, where GSD
+states none, the least that makes sense (0 for a count, 1 for a timeout). `hooks.context_warning_threshold` is 1..100 and
+`hooks.context_critical_threshold` 0..99 (percent of the window left; GSD refuses a warning of 0 and a critical of 100, as no
+partner could satisfy `critical < warning`; the pair itself is not checked, as GSD does not at write time). The reviewer-lane
+`review.timeouts.<lane>` and `review.max_prompt_tokens_per_reviewer.<lane>` take `-1`, the capability default GSD reads as unset
+(the model leaves them unset; GSD treats any non-positive value as unset too, and only `-1` is accepted here).
+
+Known deviation: the SDK has one numeric setting type, a whole number, while GSD's capability `number` settings and its
+`hooks.context_*_threshold` accept decimals (`99.5`, `7.5`, `1.5` seconds). `specforge check` refuses those with E086
+"whole number" until the kernel adds a `number` setting type (a follow-up for the kernel round, r35); until then write the whole
+number. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
+(`docs/CONFIGURATION.md`), so `specforge gsd import` reads it from there.
+Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the
+docs say 3). A host URL whose capability default is empty and whose documented default is a URL (`review.ollama_host`) takes the
+documented one.
 
 `workflow.security_asvs_level` is an integer 1..3, default 1.
 
@@ -50,7 +70,7 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Why |
 |---|---|
-| `planning.commit_docs`, `planning.search_gitignored`, `planning.pr_strict`, `search_gitignored` | there is no `.planning/`; `spec/gsd/` is source and is committed like code |
+| `planning.commit_docs`, `commit_docs`, `phase_commit_docs.<phase-id>`, `planning.search_gitignored`, `planning.pr_strict`, `search_gitignored` | there is no `.planning/`; `spec/gsd/` is source and is committed like code (and `phase_commit_docs.<phase-id>` has a `.` in its segment, which a setting family key cannot hold) |
 | `planning.sub_repos` | a sub-repository is another SpecForge project |
 | `claude_md_path`, `claude_md_assembly.*` | host files are rendered by `specforge install`, which owns their paths |
 | `workflow.auto_prune_state` | `STATE.md` is derived, nothing to prune |
@@ -81,6 +101,15 @@ A profile presets these settings:
 | `specforge.traceability_gate` | false | false | true |
 | `specforge.stale_verdict_gate` | false | false | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
+
+## Other presets
+
+A setting has one preset source, and these two are independent of `profile`:
+
+| Source | Presets |
+|---|---|
+| `model_profile` (four values) | `model_overrides.<agent>` from GSD's model-profile table (round r40, with the agents) |
+| `workflow.context_drift_action` | `block` raises gsd/W406 to an error (raise only); the other values set nothing |
 
 ## SpecForge-only settings
 

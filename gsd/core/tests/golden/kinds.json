@@ -1,0 +1,1339 @@
+{
+  "edges": {
+    "category": "edges",
+    "items": [
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ProjectValidated",
+        "source_kind": "project",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ProjectActive",
+        "source_kind": "project",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MilestoneWorkstream",
+        "source_kind": "milestone",
+        "target_kind": "workstream"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PhaseMilestone",
+        "source_kind": "phase",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PhaseDependsOn",
+        "source_kind": "phase",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PhaseRequirements",
+        "source_kind": "phase",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RetrospectiveMilestone",
+        "source_kind": "retrospective",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "LessonRetrospective",
+        "source_kind": "lesson",
+        "target_kind": "retrospective"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "LessonMilestone",
+        "source_kind": "lesson",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "MethodologySupersededBy",
+        "source_kind": "methodology",
+        "target_kind": "methodology"
+      }
+    ]
+  },
+  "entities": {
+    "category": "entities",
+    "items": [
+      {
+        "description": "The project: what it is, its core value, context and constraints (GSD PROJECT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "# [Project Name]",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "What This Is",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "what",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Core Value",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "core_value",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "customer",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "revenue_model",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Business Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "success_metric",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Context",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Constraints",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "tech_stack",
+                  "timeline",
+                  "budget",
+                  "dependencies",
+                  "compatibility",
+                  "performance",
+                  "security",
+                  "other"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "kind",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "what",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "constraints",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Out of Scope",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "item",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "why",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "out_of_scope",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "config project_code: ^[A-Z][A-Z0-9_]*$",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "project_code",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Validated: from requirement status",
+            "edge": "ProjectValidated",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "validated",
+            "required": false,
+            "target_kind": "requirement",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Active: from requirement status",
+            "edge": "ProjectActive",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "active",
+            "required": false,
+            "target_kind": "requirement",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Last updated: the latest recorded commit or summary completion",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "updated",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows still open",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_open",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows waived",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_waived",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows fixed",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_fixed",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "broken windows recorded",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "windows_total",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "project",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": true,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the description after the ID",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "### [Category]",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "category",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "v1, v2 or Out of Scope",
+            "edge": null,
+            "enum_values": [
+              "v1",
+              "v2",
+              "out_of_scope"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "tier",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Out of Scope reason: required when out_of_scope (gsd/E105)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Defined",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "defined",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Traceability status, from plans, summaries and verifications",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "in_progress",
+              "complete",
+              "blocked",
+              "gaps_found"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "requirement",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A milestone: a shippable version of the project (GSD ROADMAP.md, MILESTONES.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "MVP",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Delivered",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "delivered",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Key accomplishments",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "accomplishments",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "What's next",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "whats_next",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "gsd-path's abandon ruling",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "ruled_by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "abandoned",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the workstream that scopes it; absent outside one",
+            "edge": "MilestoneWorkstream",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "workstream",
+            "required": false,
+            "target_kind": "workstream"
+          },
+          {
+            "default_value": null,
+            "description": "written by /gsd-complete-milestone once its audit passes",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "date",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "completion",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "planned, in progress or shipped, from its phases and its completion",
+            "edge": null,
+            "enum_values": [
+              "planned",
+              "in_progress",
+              "shipped",
+              "abandoned"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Shipped: the completion's date",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "shipped",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Stats: from the graph and the recorded commits",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "files",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "loc",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "phases",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "plans",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "tasks",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "days",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "stats",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Git range: from the recorded commits",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "git_range",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "milestone",
+        "open_fields": false,
+        "scoped_by": "workstream",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A phase of a milestone, named 03, 03.1 (inserted) or 999.1 (backlog) (GSD ROADMAP.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the section it sits in",
+            "edge": "PhaseMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": true,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": "heading text",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "directory NN-slug",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "slug",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Goal",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "goal",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Depends on",
+            "edge": "PhaseDependsOn",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "depends_on",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "Requirements; the requirement reads its phase back as `phase`",
+            "edge": "PhaseRequirements",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": "phase",
+            "name": "requirements",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "Success Criteria (2 to 5, gsd/W103)",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "success_criteria",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "Mode (/gsd-mvp-phase)",
+            "edge": null,
+            "enum_values": [
+              "standard",
+              "mvp"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "mode",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the parenthetical, (Cluster B)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "tag",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "(INSERTED): a decimal name",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "inserted",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "a 999.x name",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "backlog",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the ui gate's frontend detection",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "frontend",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the GSD phase-status ladder",
+            "edge": null,
+            "enum_values": [
+              "not_started",
+              "planned",
+              "in_progress",
+              "executed",
+              "needs_review",
+              "complete",
+              "deferred"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Progress: Plans Complete, N/M",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "plans_complete",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "Progress: Completed",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "completed",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "phase",
+        "open_fields": false,
+        "scoped_by": "milestone",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A workstream: a scope with its own milestones and phases (GSD workstreams)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the workstream's description",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "purpose",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "complete when all its milestones shipped",
+            "edge": null,
+            "enum_values": [
+              "active",
+              "complete"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "workstream",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A milestone's retrospective (GSD RETROSPECTIVE.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "RetrospectiveMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": true,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "built",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "worked",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "inefficient",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "patterns",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "model_mix",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "sessions",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "notable",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "cost",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "phases",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "plans",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "sessions",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "retrospective",
+        "open_fields": false,
+        "scoped_by": "milestone",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A lesson learned (GSD RETROSPECTIVE.md, LEARNINGS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "the retrospective that scopes it",
+            "edge": "LessonRetrospective",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": "lessons",
+            "name": "retrospective",
+            "required": false,
+            "target_kind": "retrospective"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "LessonMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": false,
+            "target_kind": "milestone"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "top",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what /gsd-extract-learnings classified it as",
+            "edge": null,
+            "enum_values": [
+              "decision",
+              "lesson",
+              "pattern",
+              "surprise"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "lesson",
+        "open_fields": false,
+        "scoped_by": "retrospective",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A recorded methodology (GSD METHODOLOGY.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "diagnoses",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "recommends",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "apply_when",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "active",
+              "superseded"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "MethodologySupersededBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "superseded_by",
+            "required": false,
+            "target_kind": "methodology"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "methodology",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      }
+    ]
+  }
+}

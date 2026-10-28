@@ -7,7 +7,7 @@ Every GSD check as a SpecForge rule. Codes are namespaced (K10): `gsd/` is `@gsd
 | decl | a declarative rule descriptor (`missing_required_field`, `field_value_constraint`, `cycle_detection` …) |
 | pass | a check pass over the graph, run on every compile |
 | judged | a judged rule (K7): holds while a fresh verdict from the named agent says so |
-| guard | enforced by the host when it applies an edit plan or runs a command, not on compile |
+| guard | enforced by the host when it applies an edit plan or runs a command, not on compile; a guard pass that declares `reports` also answers at a gate |
 
 **compat** is the severity under `gsd-compat` (as GSD has it), **strict** under `gsd-strict` and `gsd-plus`.
 `—` means the rule is off: a profile switches a rule off only through a gate setting it presets to false (K6), and
@@ -22,20 +22,22 @@ every profile, while that setting is false; its letter is still the severity it 
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
-| gsd/E101 | every v1 requirement maps to exactly one phase | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
+| gsd/E101 | every v1 requirement maps to exactly one phase (waits for the first phase: requirements written before the roadmap are not unmapped yet) | pass | E | E | roadmapper coverage, `REQUIREMENT_UNMAPPED` |
 | gsd/E102 | phase and plan `depends_on` are acyclic and point at earlier ones only | decl + pass | E | E | D3 |
-| gsd/W103 | a phase has 2–5 success criteria | decl | W | E | roadmap template |
-| gsd/W104 | phase numbers are continuous; an inserted phase sits between its neighbours | pass | W | W | roadmap |
+| gsd/W103 | a phase has 2–5 success criteria (reads the list's items, K13) | pass | W | E | roadmap template |
+| gsd/W104 | phase numbers (GSD's `\d+[A-Z]?(\.\d+)*`: `12A`, `3.2.1`) are continuous, one warning per run of missing integers; two ids do not share a number; an inserted phase follows the phase it is numbered from. A name outside the grammar and a `999.x` backlog phase are exempt | pass | W | W | roadmap |
 | gsd/E105 | an `out_of_scope` requirement has a reason | decl | E | E | requirements template |
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit | guard | E | E | complete-milestone |
+| gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field is a `str` that `matches`; generated per field, and no r34 kind has one: `project.updated` is computed) | decl | E | E | (new: SpecForge has no timestamp type) |
+| gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
 
 ## Discuss, spec, research
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
-| gsd/E201 | a context has canonical refs | decl | E | E | `gate-phase-context`, context template |
-| gsd/E202 | a phase spec meets its ambiguity gates | judged (spec agent) | E | E | spec-phase |
-| gsd/W203 | a locked requirement has a falsifiable acceptance | judged (spec agent) | W | E | spec template |
+| gsd/E201 | a context has canonical refs (`missing_required_field` and `non_empty` under one code) | decl | E | E | `gate-phase-context`, context template |
+| gsd/E202 | a phase spec meets its ambiguity gates | judged (prompt `spec_phase`, K15) | E | E | spec-phase |
+| gsd/W203 | a locked requirement has a falsifiable acceptance | judged (prompt `spec_phase`, K15) | W | E | spec template |
 | gsd/W204 | a research open question is resolved by a decision before planning | pass | W | E | plan checker (research resolution) |
 | gsd/W205 | a package in research has a legitimacy verdict | judged (phase researcher) | W | E | package-legitimacy audit |
 
@@ -46,7 +48,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E301 | every requirement of a phase is in at least one of its plans | pass | E | E | D1 |
-| gsd/E302 | a plan names at least one requirement | decl | E | E | plan template (`requirements` non-empty) |
+| gsd/E302 | a plan names at least one requirement (`missing_required_field` and `non_empty` under one code) | decl | E | E | plan template (`requirements` non-empty) |
 | gsd/E303 | an `auto` or `tdd` task has files, action, automated verify and done | decl | E | E | D2 |
 | gsd/W304 | a plan has at most 3 tasks (4 warns) | pass | W | E | D5 |
 | gsd/W305 | plans of one wave share no path in `files_modified ∪ files_deleted`; under compat that wave runs sequentially | pass | W | E | wave guard (#3003), execute-phase overlap check |
@@ -67,6 +69,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E320 | a task's verify command names paths that exist | pass | E | E | `gate-verify-command-paths` |
 | gsd/I321 | same-wave non-file coupling is declared by `depends_on` or `coupling_justified` naming the peer | pass | I | I | D3b |
 | gsd/E322 | a plan has fewer than 5 tasks | pass | E | E | D5 (5 or more is a blocker) |
+| gsd/E507 | each task's verify commands name their failing direction (`fails_when`), one statement per `automated` | pass | E | E | `gate-verify-failure-directions`, plan checker 8f |
 
 ## Execute
 
@@ -77,7 +80,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E403 | a `tdd` task's GREEN commit follows a recorded RED failure | pass | E | E | `gate-tdd-red-evidence` |
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
 | gsd/E405 | the schema has not drifted from the plan's declared migrations | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
-| gsd/W406 | the context the plan was written against has not drifted | pass | W | E | `gate-context-drift` |
+| gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest) | pass | W | E | `gate-context-drift` |
 | gsd/W407 | every task has a commit | pass | — | W | (new: the git collector) |
 | gsd/W408 | a summary's deliverable checks pass or are human-judged with a rationale | pass | W | E | summary coverage |
 
@@ -87,23 +90,31 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
 | gsd/E502 | an explicit truth is verified only with a named passing test | pass | E | E | honest-verifier |
-| gsd/E503 | an override has its human author and date | guard | E | E | verifier overrides |
+| gsd/E503 | an override has its human author and date (`missing_required_field` on `by` and `at`) | decl | E | E | verifier overrides |
 | gsd/W504 | more than three overrides in a phase | pass | W | W | verifier |
 | gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue | pass | E | E | verifier |
 | gsd/W506 | every settled decision maps to something shipped | pass | W | W | `gate-decision-coverage-verify` |
-| gsd/E507 | a verification failure names its failing direction | pass | E | E | `gate-verify-failure-directions` |
-| gsd/E508 | what a verdict cites (files, collector evidence) exists when it is recorded; a cited input that changes stales the verdict (K7) | guard | E | E | `gate-evidence` |
 | gsd/E509 | a UAT passes only with no pending, blocked, unresolved or undeferred skipped test | pass | E | E | UAT predicate |
 | gsd/W510 | a planned phase has a validation, validated before verify | pass | W | E | Nyquist 8a–8f |
-| gsd/E511 | a phase is complete only when verification passed and UAT is complete | guard | E | E | phase-status ladder |
+| gsd/E511 | a phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of `complete_milestone` and `/gsd-ship`) | guard | E | E | phase-status ladder |
 | gsd/E512 | no broken window is open at ship | guard (ship:pre) | E | E | broken-windows gate |
-| gsd/E513 | a resolved window cannot be waived or fixed again | guard | E | E | `src/broken-windows.cts` |
+| gsd/E513 | a resolved window cannot be waived or fixed again (`waiver` and `fixed_at` are never both set) | pass | E | E | `src/broken-windows.cts` |
 | gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass) | guard | — | E (plus) | (new: gsd-plus) |
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
-
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
+
+## Retired and kernel-dependent
+
+- `gsd/E508` (what a verdict cites exists when it is recorded) is retired: the host already refuses it. `set_verdict`
+  is refused `verdict_refused` with reason `cite` (ADR 0289 D6), and a changed cited input stales the verdict (ADR 0290
+  D3). The roster maps `gate-evidence` to that refusal.
+- Rules that read project files wait for kernel follow-up K11 (r35): `gsd/E320`, `gsd/E505`, and the file facts under
+  `gsd/E501` (artifact `missing`, `min_lines`, `contains`, `exports`; a key link's `pattern`).
+- Rules that read the test report in a compile pass wait for K12: `gsd/E403`, `gsd/E502`, `gsd/W408`, `gsd/E515`.
+- Rules that count list items wait for K13: `gsd/W103`, `gsd/W305`, `gsd/W306`, `gsd/E517`.
+- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`) waits for K15.
 
 ## Setting-gated rules
 
@@ -135,7 +146,7 @@ is neither fresh nor stale.
 
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
-| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `decisions` self.phase<decision.phase · `project_decisions` decision · `context` self.phase<context\|deferred_idea.phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md") | — |
+| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `decisions` self.phase<decision.phase · `all_decisions` decision (a superset of `decisions`: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side) · `context` self.phase<context\|deferred_idea.phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md") | — |
 | gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `code` file(self.plan.files_modified) · `tests` test(self) | — |
 | gsd/E501 | artifact | `artifact` self · `plan` self.plan · `code` file(self.path) | — |
 | gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it) | — |

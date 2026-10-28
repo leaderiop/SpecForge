@@ -19,7 +19,7 @@ verdicts, and later its summary
 
 ## plan
 
-GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase.
+GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a quick plan: its quick id, no phase).
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -29,7 +29,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase.
 | files_modified | files | R | `files_modified:` |
 | files_deleted | strs | | `files_deleted:` |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
-| requirements | →* requirement | R | `requirements:` (non-empty, a rule) |
+| requirements | →* requirement | | `requirements:` (non-empty: not `R`, so gsd/E302 is the one diagnostic of its absence) |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` |
 | agent_hint | str | | `agent_hint:` |
@@ -56,7 +56,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | precondition | str | | `<precondition>` |
 | reversibility | {rating enum{reversible, costly, one_way} R, why str} | | `<reversibility>` |
 | action | text | R | `<action>` |
-| verify_automated | str | | `<verify><automated>` (required for `auto`) |
+| verify | {automated str R, fails_when str} | | `<verify><automated>` and its `<fails_when>`: a block list, N commands with N failing-direction statements (required for `auto`; gsd/E303, gsd/E507) |
 | verify_human | str | | `<verify><human-check>`: harvested into UAT |
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
@@ -79,7 +79,7 @@ GSD: `<task type="checkpoint:*">`. Name `C1`, scoped by its plan.
 | auto_select | str | | `auto_select=`: must name one of `options` |
 | instructions | str | | required for `human_action` |
 | resume_signal | str | R | `<resume-signal>` |
-| answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes |
+| answer | {option str, text str, by str, at ts} | H | the human's reply, written by the command that resumes, with the host's clock (K14, r35) |
 
 An option is a block, not an entity: nothing outside its checkpoint names it, so it needs no identity (K3 D2).
 
@@ -92,18 +92,18 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 | truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}`, `criterion int` (the phase success criterion it proves). Name `TR1`. |
 | artifact | `plan R I`, `path file R`, `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from file R`, `to file R`, `via str R`, `pattern str`. Name `KL1`. |
-| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`. Name `PR1`. |
+| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
 
 ## disposition
 
-GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only.
+GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only. Name `DSP1`.
 `plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`.
 
 ## user_setup
 
-GSD: `user_setup:` and `NN-USER-SETUP.md`. `plan → plan R`, `service str R`, `why str R`,
+GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R`, `service str R`, `why str R`,
 `env_vars {name str R, source str}`, `dashboard {task str, location str, details str}`, `local_dev strs`;
-`done {at ts, by str}` is `H`, written when the human confirms.
+`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`).
 
 ## The plan check
 
@@ -123,7 +123,7 @@ with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose pla
     cited       [AUTH-07, "src/http/middleware.ts"]
     cited_tests []
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
-                  decisions "sha256:c3d0…" project_decisions "sha256:e0b9…" context "sha256:7a4f…"
+                  decisions "sha256:c3d0…" all_decisions "sha256:e0b9…" context "sha256:7a4f…"
                   research "sha256:19cd…" research_items "sha256:b6a2…" siblings "sha256:2f80…"
                   instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []

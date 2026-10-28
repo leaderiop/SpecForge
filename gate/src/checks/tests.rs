@@ -131,8 +131,8 @@ fn an_unformatted_guest_is_judged_by_the_hook() {
         .flat_map(|pattern| crate::repo::expand(&this_repo().root, pattern))
         .count();
     assert_eq!(
-        manifests, 14,
-        "nine guests, four fixtures and the marketing example's extension"
+        manifests, 15,
+        "nine guests, four fixtures, the marketing example's extension and the @gsd workspace"
     );
 }
 
@@ -196,6 +196,15 @@ fn a_staged_starter_template_is_not_format_checked() {
         ),
         Selection::Everything
     );
+}
+
+#[test]
+fn the_gsd_fixture_specs_are_formatted_too() {
+    let paths = [
+        "gsd/core/tests/projects/roadmap/spec/v1.0.spec",
+        "gsd/parity/fixtures/taskboard/spec/project.spec",
+    ];
+    assert_eq!(selection("spec-format", Mode::Hook, &paths), only(&paths));
 }
 
 #[test]

@@ -7,6 +7,7 @@ mod change_set;
 mod checks;
 pub mod crate_map;
 mod doc_links;
+mod gsd;
 pub mod judge;
 pub mod layers;
 mod repo;

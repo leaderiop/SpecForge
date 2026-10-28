@@ -63,12 +63,7 @@ pub fn spec_format(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
     let specforge = ctx.specforge()?;
     let targets: Vec<String> = match selection {
         Selection::Only(files) => files.clone(),
-        _ => ctx
-            .repo
-            .projects()?
-            .into_iter()
-            .map(|p| p.spec_dir)
-            .collect(),
+        _ => ctx.repo.spec_dirs()?,
     };
     ctx.sh(ctx
         .cmd(specforge)

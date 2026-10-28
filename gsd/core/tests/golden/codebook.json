@@ -1,0 +1,365 @@
+{
+  "category": "codes",
+  "items": [
+    {
+      "code": "E101",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "Every v1 requirement maps to exactly one phase. It is an error.",
+      "title": "Requirement not mapped to a phase"
+    },
+    {
+      "code": "E102",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "Phase and plan depends_on are acyclic and point at earlier ones only. It is an error.",
+      "title": "Dependency cycle or forward dependency"
+    },
+    {
+      "code": "W103",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A phase has 2–5 success criteria. It is a warning, and an error under gsd-strict.",
+      "title": "Phase success criteria out of range"
+    },
+    {
+      "code": "W104",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "Phase numbers are continuous; an inserted phase sits between its neighbours. It is a warning.",
+      "title": "Phase numbers not continuous"
+    },
+    {
+      "code": "E105",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "An out_of_scope requirement has a reason. It is an error.",
+      "title": "Out-of-scope requirement has no reason"
+    },
+    {
+      "code": "E106",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A milestone completes only with a passing (or accepted) audit. It is an error.",
+      "title": "Milestone completes without a passing audit"
+    },
+    {
+      "code": "E107",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A timestamp field holds an RFC 3339 UTC time (every authored ts field is a str that matches). It is an error.",
+      "title": "Timestamp is not RFC 3339 UTC"
+    },
+    {
+      "code": "E108",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A repository has one project (the kernel keeps `singleton` as metadata only). It is an error.",
+      "title": "More than one project"
+    },
+    {
+      "code": "E201",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A context has canonical refs (missing_required_field and non_empty under one code). It is an error.",
+      "title": "Context has no canonical refs"
+    },
+    {
+      "code": "E202",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A phase spec meets its ambiguity gates. It is an error.",
+      "title": "Phase spec exceeds its ambiguity gates"
+    },
+    {
+      "code": "W203",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A locked requirement has a falsifiable acceptance. It is a warning, and an error under gsd-strict.",
+      "title": "Locked requirement is not falsifiable"
+    },
+    {
+      "code": "W204",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A research open question is resolved by a decision before planning. It is a warning, and an error under gsd-strict.",
+      "title": "Open research question unresolved"
+    },
+    {
+      "code": "W205",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
+      "explanation": "A package in research has a legitimacy verdict. It is a warning, and an error under gsd-strict.",
+      "title": "Package without a legitimacy verdict"
+    },
+    {
+      "code": "E301",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Every requirement of a phase is in at least one of its plans. It is an error.",
+      "title": "Phase requirement in no plan"
+    },
+    {
+      "code": "E302",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan names at least one requirement (missing_required_field and non_empty under one code). It is an error.",
+      "title": "Plan names no requirement"
+    },
+    {
+      "code": "E303",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "An auto or tdd task has files, action, automated verify and done. It is an error.",
+      "title": "Task is missing a required field"
+    },
+    {
+      "code": "W304",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan has at most 3 tasks (4 warns). It is a warning, and an error under gsd-strict.",
+      "title": "Plan has too many tasks"
+    },
+    {
+      "code": "W305",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Plans of one wave share no path in files_modified ∪ files_deleted; under compat that wave runs sequentially. It is a warning, and an error under gsd-strict.",
+      "title": "Same-wave plans overlap on files"
+    },
+    {
+      "code": "W306",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A task's files are among its plan's files_modified. It is a warning, and an error under gsd-strict.",
+      "title": "Task file outside the plan's files"
+    },
+    {
+      "code": "E307",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Auto_select and answer.option name one of the checkpoint's options; each checkpoint kind has its fields. It is an error.",
+      "title": "Checkpoint option or fields invalid"
+    },
+    {
+      "code": "E308",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A one_way task follows a decision checkpoint or a settled decision. It is an error.",
+      "title": "One-way task without a decision"
+    },
+    {
+      "code": "W309",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan has a truth and an artifact. It is a warning, and an error under gsd-strict.",
+      "title": "Plan lacks a truth or an artifact"
+    },
+    {
+      "code": "E310",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Every settled decision of the phase is honoured by some plan. It is an error.",
+      "title": "Settled decision not honoured by a plan"
+    },
+    {
+      "code": "W311",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "The plan achieves its phase goal, keeps to scope and contradicts no settled decision. It is a warning, and an error under gsd-strict.",
+      "title": "Plan does not achieve its phase goal"
+    },
+    {
+      "code": "E312",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "No task action reduces scope (\"for now\", \"simplified\", \"v1\"). It is an error.",
+      "title": "Task action reduces scope"
+    },
+    {
+      "code": "W313",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Key links are wired between artifacts the plan names. It is a warning, and an error under gsd-strict.",
+      "title": "Key links not wired"
+    },
+    {
+      "code": "E314",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Each task has an automated verify or a wave-0 item (Nyquist). It is an error.",
+      "title": "Task without an automated verify or a wave-0 item"
+    },
+    {
+      "code": "W315",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Data contracts between plans match (requires / provides). It is a warning, and an error under gsd-strict.",
+      "title": "Data contracts between plans mismatch"
+    },
+    {
+      "code": "W316",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "The plan follows the project's agent instructions and the mapped patterns. It is a warning.",
+      "title": "Plan ignores agent instructions or mapped patterns"
+    },
+    {
+      "code": "W317",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "The post-planning gap report finds nothing open. It is a warning.",
+      "title": "Post-planning gaps open"
+    },
+    {
+      "code": "W318",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "The plan-check verdict is fresh before execution. It is a warning, and an error under gsd-strict.",
+      "title": "Plan-check verdict is stale"
+    },
+    {
+      "code": "E319",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A prohibition with verification test names a test. It is an error.",
+      "title": "Prohibition names no test"
+    },
+    {
+      "code": "E320",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A task's verify command names paths that exist. It is an error.",
+      "title": "Verify command names a missing path"
+    },
+    {
+      "code": "I321",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Same-wave non-file coupling is declared by depends_on or coupling_justified naming the peer. It is information.",
+      "title": "Same-wave coupling undeclared"
+    },
+    {
+      "code": "E322",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "A plan has fewer than 5 tasks. It is an error.",
+      "title": "Plan has five or more tasks"
+    },
+    {
+      "code": "E507",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
+      "explanation": "Each task's verify commands name their failing direction (fails_when), one statement per automated. It is an error.",
+      "title": "Verify command names no failing direction"
+    },
+    {
+      "code": "E401",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "A summary's requirements_completed equals its plan's requirements. It is an error.",
+      "title": "Summary requirements differ from the plan's"
+    },
+    {
+      "code": "E402",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "A halted summary says why. It is an error.",
+      "title": "Halted summary says nothing why"
+    },
+    {
+      "code": "E403",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "A tdd task's GREEN commit follows a recorded RED failure. It is an error.",
+      "title": "GREEN commit without a recorded RED failure"
+    },
+    {
+      "code": "W404",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "The TDD review checkpoint ran after execution. It is a warning, and an error under gsd-strict.",
+      "title": "TDD review checkpoint did not run"
+    },
+    {
+      "code": "E405",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "The schema has not drifted from the plan's declared migrations. It is an error.",
+      "title": "Schema drifted from the planned migrations"
+    },
+    {
+      "code": "W406",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "The context the plan was written against has not drifted (the context_digest a research, spec or validation recorded differs from the context's current digest). It is a warning, and an error under gsd-strict.",
+      "title": "Context drifted since the plan was written"
+    },
+    {
+      "code": "W407",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "Every task has a commit. It is a warning.",
+      "title": "Task has no commit"
+    },
+    {
+      "code": "W408",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "A summary's deliverable checks pass or are human-judged with a rationale. It is a warning, and an error under gsd-strict.",
+      "title": "Deliverable checks neither pass nor are human-judged"
+    },
+    {
+      "code": "E501",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "The verifier's verdict on each truth, artifact and key link is fresh. It is an error.",
+      "title": "Verifier verdict is stale"
+    },
+    {
+      "code": "E502",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "An explicit truth is verified only with a named passing test. It is an error.",
+      "title": "Explicit truth verified without a passing test"
+    },
+    {
+      "code": "E503",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "An override has its human author and date (missing_required_field on by and at). It is an error.",
+      "title": "Override lacks its author or date"
+    },
+    {
+      "code": "W504",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "More than three overrides in a phase. It is a warning.",
+      "title": "More than three overrides in a phase"
+    },
+    {
+      "code": "E505",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "Debt markers (TBD, FIXME, XXX) in the phase's files link to an issue. It is an error.",
+      "title": "Debt marker without an issue"
+    },
+    {
+      "code": "W506",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "Every settled decision maps to something shipped. It is a warning.",
+      "title": "Settled decision maps to nothing shipped"
+    },
+    {
+      "code": "E509",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A UAT passes only with no pending, blocked, unresolved or undeferred skipped test. It is an error.",
+      "title": "UAT passed with open tests"
+    },
+    {
+      "code": "W510",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A planned phase has a validation, validated before verify. It is a warning, and an error under gsd-strict.",
+      "title": "Planned phase has no validated validation"
+    },
+    {
+      "code": "E511",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of complete_milestone and /gsd-ship). It is an error.",
+      "title": "Phase completed before verification and UAT"
+    },
+    {
+      "code": "E512",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "No broken window is open at ship. It is an error.",
+      "title": "Broken window open at ship"
+    },
+    {
+      "code": "E513",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A resolved window cannot be waived or fixed again (waiver and fixed_at are never both set). It is an error.",
+      "title": "Resolved window changed again"
+    },
+    {
+      "code": "W514",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "No refactor deviation window is recorded while workflow.windows_enforce is off. It is a warning.",
+      "title": "Refactor window recorded while enforcement is off"
+    },
+    {
+      "code": "E515",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A complete requirement traces to a task, a commit and a passing test. It is an error.",
+      "title": "Complete requirement without a traced passing test"
+    },
+    {
+      "code": "E516",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A stale verdict blocks every workflow step. It is an error.",
+      "title": "Stale verdict blocks the workflow"
+    },
+    {
+      "code": "E517",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "Active plans of different workstreams share no path in files_modified ∪ files_deleted. It is an error.",
+      "title": "Active plans of different workstreams overlap"
+    },
+    {
+      "code": "E518",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "The integration checker's verdict on a milestone audit is fresh. It is an error.",
+      "title": "Integration verdict is stale"
+    }
+  ]
+}

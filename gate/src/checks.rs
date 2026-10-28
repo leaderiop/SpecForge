@@ -107,20 +107,20 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "rustfmt",
-        proves: "the workspace, the nine guests, the four fixtures (the bridge component included) and each example's extension are rustfmt-clean",
+        proves: "the workspace, the nine guests, the four fixtures (the bridge component included), each example's extension and the @gsd workspace are rustfmt-clean",
         reach: Reach::Hook,
         trigger: Trigger::Paths(&["**/*.rs"]),
         compiles: false,
         after: &[],
-        fix: "cargo fmt --all; a guest, fixture or example extension: cargo fmt --manifest-path <its Cargo.toml>",
+        fix: "cargo fmt --all; a guest, fixture, example extension or gsd/: cargo fmt --manifest-path <its Cargo.toml>",
         run: steps::rustfmt,
     },
     Check {
         name: "spec-format",
-        proves: "the .spec files of every project are formatted",
+        proves: "the .spec files of every project and of the @gsd fixtures are formatted",
         reach: Reach::Hook,
         trigger: Trigger::Computed(
-            "a .spec file in a project's spec dir; the formatter, parser or grammar",
+            "a .spec file in a project's spec dir or an @gsd fixture; the formatter, parser or grammar",
             spec_files,
         ),
         compiles: false,
@@ -242,6 +242,16 @@ pub static CHECKS: &[Check] = &[
         after: &[],
         fix: "read <target>/gate/guests.log",
         run: steps::guests,
+    },
+    Check {
+        name: "gsd",
+        proves: "the @gsd workspace is clippy-clean for native and wasm, @gsd/core builds to wasm32-wasip2, and its unit, declaration and black-box tests pass against the specforge binary",
+        reach: Reach::Quick,
+        trigger: Trigger::Paths(crate::gsd::TRIGGER),
+        compiles: true,
+        after: &["rustfmt"],
+        fix: "read <target>/gate/gsd.log; the last `$` line is the failing command, run it in gsd/",
+        run: crate::gsd::run,
     },
     Check {
         name: "audit",
@@ -458,7 +468,7 @@ fn spec_files(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     if !changes.matching(FORMATTING_CODE).is_empty() {
         return Ok(Selection::Everything);
     }
-    let dirs: Vec<String> = repo.projects()?.into_iter().map(|p| p.spec_dir).collect();
+    let dirs = repo.spec_dirs()?;
     let inside = |path: &str| {
         dirs.iter()
             .any(|dir| Pattern(&format!("{dir}/**/*.spec")).matches(path))

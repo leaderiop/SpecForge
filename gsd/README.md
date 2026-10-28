@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.10.0); the `@gsd/*` extensions are not.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.10.0); `@gsd/core` has its foundation (kinds, code book, settings, roadmap checks) and the other `@gsd/*` extensions are not built.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -24,7 +24,10 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 ```
 
 The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
-`testing`, `cargo-test` or `vitest`. Loading both is refused (E013), so `milestone` and `decision` never clash.
+`testing`, `cargo-test` or `vitest`. That is policy, not kernel-enforced: `@specforge/product` (`milestone`,
+`deliverable`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also declares, and loading both is
+E026 (the first registration wins), so `specforge check` fails on a real clash. `@specforge/testing` declares no kind,
+so `@gsd/core` ships its own JUnit test collector instead of relying on a test-runner extension.
 
 ## Decisions
 
@@ -44,6 +47,12 @@ the rest of this folder keeps their K names.
 | K9 | [0292](../docs/adr/0292-an-extension-contributes-agents-skills-commands-and-hooks.md) | an extension contributes agents, skills, commands and hooks |
 | K10 | [0286](../docs/adr/0286-a-diagnostic-code-is-namespaced-by-its-extension.md) | a diagnostic code is namespaced by its extension |
 
+Building `@gsd/core` against them found six more gaps no model fix closes. They are a second kernel round (r35,
+protocol 1.11.0), and the model cites them where it relies on them: **K11** a pass or command reads the project files
+it declares (file facts), **K12** compile, check and guard passes receive the recorded test report, **K13** a pass gets
+list fields as items, **K14** a writing call knows the time (`now`), **K15** a judged rule's judge may be a prompt,
+**K16** `specforge settings set|unset` writes settings through SpecForge.
+
 ### Parity contract
 
 | Decision | |
@@ -51,7 +60,7 @@ the rest of this folder keeps their K names.
 | Scope | The whole GSD ecosystem. `gsd-core` is the unified meta-model; `gsd-path` and `gsd-loop` are profile extensions over it. `gsd-pi`, `gsd-pi-config`, `gsd-cloud-daemon` and the marketplace are dropped: SpecForge's surfaces replace them. |
 | Parity means | The same **concepts**, the same **commands** (`/gsd-*`, by exact name) and the same **agent behaviour**. Not the same files: no `.planning/`, no export. |
 | Parity and more | Parity is the floor. The default profile `gsd-compat` behaves as GSD does; `gsd-strict` and `gsd-plus` switch on what SpecForge can do beyond GSD. |
-| Versions | Our extensions keep their own semver and declare `tracks: gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
+| Versions | Our extensions keep their own semver and declare what they track: the crate's `[package.metadata.gsd] tracks = "gsd-core@1.18.0"` and the handshake keyword `tracks:gsd-core@1.18.0`. Only the latest tracked GSD is supported; projects move forward by migration. |
 | Upgrades | Per upstream release a diff tool (inventory manifest, `capability.json`, templates, prompts, gates) writes a parity backlog; `tracks` moves only when the [parity suite](parity/) passes. |
 | Adoption | `specforge gsd import` reads an existing `.planning/` once and writes `.spec` (edit plans). The parity suite uses it too. |
 
@@ -137,10 +146,14 @@ Each extension builds to `wasm32-wasip2` on its own; the Cargo workspace exclude
 
 ## Build order
 
+The packaging (one Cargo workspace, built on demand, tested through the `specforge` binary) is
+[ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md).
+
 1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
    K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
    agents, skills, commands and hooks.
-2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project.
+2. All of `@gsd/core`, with the git and test collectors and the parity suite on one fixture project. The foundation (the
+   roadmap kinds, the code book, the settings and the roadmap checks) is built; see [core/](core/).
 3. The capability extensions, then `@gsd/path` and `@gsd/loop`, then more host renderers.
 
 ## Credit

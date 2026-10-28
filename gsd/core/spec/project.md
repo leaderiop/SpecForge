@@ -14,7 +14,7 @@ Files: `spec/gsd/project.spec`, `spec/gsd/requirements/<category>.spec`, `spec/g
 
 ## project
 
-Singleton. GSD: `PROJECT.md`.
+Singleton: one per repository. The kernel keeps `singleton` as metadata (it reaches the LSP hover only), so `gsd/E108` reports the second and later `project` entities. GSD: `PROJECT.md`. Name: any word, by convention the slug of its `name`.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -28,12 +28,12 @@ Singleton. GSD: `PROJECT.md`.
 | key_decisions | →* decision | | `## Key Decisions` |
 | project_code | str `^[A-Z][A-Z0-9_]*$` | | config `project_code` |
 | validated, active | →* requirement | C | `### Validated` / `### Active`: from requirement status |
-| updated | ts | C | `*Last updated*`: the time of the last commit that changed the file (the git collector); uncommitted edits do not move it |
+| updated | ts | C | `*Last updated*`: the latest `at` among the recorded commits and the `completed` of the summaries (the git collector records commits as entities; a pass sees no git history); uncommitted edits do not move it |
 | windows_open, windows_waived, windows_fixed, windows_total | int | C | the broken-windows ledger counts ([verify.md](verify.md#broken_window)) |
 
 ## requirement
 
-GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`.
+GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is unique across the whole project, workstreams included: GSD gives each workstream its own `REQUIREMENTS.md`, but SpecForge scopes only milestones and phases by workstream, and `gsd/E101` maps requirements project-wide. Two workstreams that both need `AUTH-01` name them apart (`AUTH-01`, `AUTH-R01`).
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -41,9 +41,11 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`.
 | category | str | R | `### [Category]` |
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
-| phase | → phase | | Traceability `Phase` |
 | defined | date | I | `**Defined:**` |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when every plan carrying it has a complete summary listing it; `gaps_found` when a verification of its phase does |
+
+The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
+is written from one side, never both (W162).
 
 ## milestone
 
@@ -56,11 +58,12 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | accomplishments | strs | | `**Key accomplishments:**` |
 | whats_next | str | | `**What's next:**` |
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
+| workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `/gsd-complete-milestone` once its audit passes |
 | state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: from its phases and `/gsd-complete-milestone`'s record |
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
-| stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the git collector |
-| git_range | str | C | `**Git range:**`: from the git collector |
+| stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`) |
+| git_range | str | C | `**Git range:**`: from the recorded commits (first and last hash) |
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
@@ -77,7 +80,7 @@ Scoped by milestone.
 | slug | str | R | directory `NN-slug` |
 | goal | str | R | `**Goal**:` |
 | depends_on | →* phase | | `**Depends on**:` |
-| requirements | →* requirement | | `**Requirements**:` |
+| requirements | →* requirement | | `**Requirements**:`; a requirement reads its phase back as `phase` |
 | success_criteria | strs | R | `**Success Criteria**` (2–5) |
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
 | tag | str | | the parenthetical, `(Cluster B)` |
@@ -101,16 +104,18 @@ Which workstream is active is session state, not a field ([execute.md](execute.m
 
 ## retrospective and lesson
 
-**retrospective**: one `## Milestone:` section of `RETROSPECTIVE.md`.
-`milestone → milestone R I`, `built strs`, `worked strs`, `inefficient strs`, `patterns strs`, `lessons →* lesson`,
-`cost {model_mix str, sessions int, notable str}`; `phases`, `plans`, `sessions` are `C`.
+**retrospective**: one `## Milestone:` section of `RETROSPECTIVE.md`. Name `v1.0-RETROSPECTIVE`.
+`milestone → milestone R I`, `built strs`, `worked strs`, `inefficient strs`, `patterns strs`,
+`cost {model_mix str, sessions int, notable str}`; `phases`, `plans`, `sessions` are `C`. Its lessons are read from
+`lesson.retrospective` (the relation's inverse is named `lessons`).
 
-**lesson**: `text str R`, `milestone → milestone`, `top bool`. Also holds what `/gsd-extract-learnings` writes
-(`LEARNINGS.md`), with `kind enum{decision, lesson, pattern, surprise}`.
+**lesson**: name `L1`, scoped by its retrospective. `retrospective → retrospective` (absent for what
+`/gsd-extract-learnings` writes, which is in the project scope), `text str R`, `milestone → milestone`, `top bool`.
+Also holds what `/gsd-extract-learnings` writes (`LEARNINGS.md`), with `kind enum{decision, lesson, pattern, surprise}`.
 
 ## methodology
 
-GSD: `METHODOLOGY.md`. `name str R`, `diagnoses str`, `recommends str`, `apply_when str`,
+GSD: `METHODOLOGY.md`. Name `M1`. `name str R`, `diagnoses str`, `recommends str`, `apply_when str`,
 `status enum{active, superseded}`, `superseded_by → methodology`.
 
 ## Computed, project-wide

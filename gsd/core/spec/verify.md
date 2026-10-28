@@ -5,7 +5,7 @@
                      ├─*─ override ─→ truth          (human-only)
                      └─*─ human_item ─→ uat_test
         truth | artifact | key_link ◀── verdicts (judged, K7) + collector evidence;  requirement: computed from them
- phase ─1──0..1─ uat_session ─*─ uat_test ─0..1─ uat_gap ─→ plan (resolved_by), debug_session
+ phase ─1──0..1─ uat_session ─*─ uat_test ─0..1─ uat_gap ─→ plan (resolved_by), debug_session (@gsd/ops)
  phase ─1──0..1─ validation ─*─ validation_row ─→ task, requirement
                      ├─*─ wave0_item
                      └─*─ manual_check
@@ -29,13 +29,20 @@ the item and its plan, the code the item or its plan names, and every file the v
 |---|---|
 | truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a named passing test in the evidence for an `explicit` truth (honest verifier) |
 | truth `passed_override` | an `override` entity, written by a human |
-| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing` is a pass (the file is absent); the rest are the verdict |
+| artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short, lacks the text); the rest are the verdict |
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
+
+The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
+`wave0_item.done`, the refactor trigger's complexity) wait for kernel follow-up K11 (r35): a pass declares the paths it
+reads and receives a `PathFact` per file (`exists`, `bytes`, `lines`, `sha256`) and, for declared text reads, the text.
+Every status computed from test evidence waits for K12: compute, check and guard passes receive the recorded test report.
+The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
+kernel follow-up K14 (`now` beside `today`, r35).
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 ## verification
 
-GSD: `NN-VERIFICATION.md`. One per phase.
+GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -48,28 +55,28 @@ GSD: `NN-VERIFICATION.md`. One per phase.
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
 | anti_patterns | {file file, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass |
 
-**verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by the phase.
+**verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
 `verification R`, `truth → truth R`, `reason str R`, `artifacts {path file, issue str}`, `missing strs`;
 `status enum{open, closed}` and `closed_by → plan` are `C` (closed when a `gap_closure` plan naming it completes).
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
 
-**override** (kind `U`): `verification R`, `truth → truth R`, `reason str R`, `by str R`, `at date R`. The host refuses
+**override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
 an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or from an interactive
 `specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
 a phase warns.
 
-**human_item**: `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
+**human_item** (name `HI1`): `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
 
 ## UAT
 
 GSD: `NN-UAT.md`, written by `/gsd-verify-work`.
 
-**uat_session**: `phase → phase R I`, `source →* summary R I`, `started ts I`;
+**uat_session** (name `03-UAT`): `phase → phase R I`, `source →* summary R I`, `started ts I`;
 `status enum{testing, partial, complete, diagnosed}` and `totals {total int, passed int, issues int, pending int, skipped int, blocked int}` are `C`.
 The test being asked now is session state.
 
-**uat_test**: `### N. [Test Name]`. Name `U1`, scoped by the phase.
+**uat_test**: `### N. [Test Name]`. Name `U1`, scoped by its session.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
@@ -84,27 +91,29 @@ The test being asked now is session state.
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
 
-**uat_gap**: GSD `## Gaps`. Name `G-03-1`, scoped by the phase.
+**uat_gap**: GSD `## Gaps`. Name `G-03-1`, scoped by its test.
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
-`artifacts {path file, issue str}`, `missing strs`, `debug → debug_session`;
-`status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`.
+`artifacts {path file, issue str}`, `missing strs`;
+`status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`. `debug → debug_session` is an
+enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/*` extension.
 
 ## validation (Nyquist)
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation**: `phase → phase R I`, `framework str`, `config_file file`, `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file file`, `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
-**validation_row**: the Per-Task Verification Map. `validation R`, `task → task R`, `requirement → requirement`,
-`threat → threat` (when `@gsd/security` is loaded), `test_type enum{unit, integration, smoke, e2e, manual} R`,
-`command str`; `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`.
+**validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
+`test_type enum{unit, integration, smoke, e2e, manual} R`,
+`command str`; `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
+enhancement declared by `@gsd/security` on this kind.
 
-**wave0_item**: `validation R`, `path file R`, `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
+**wave0_item** (name `W0-1`): `validation R`, `path file R`, `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).
 
-**manual_check**: `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
+**manual_check** (name `MC1`): `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
 
 ## milestone_audit
 
@@ -115,7 +124,7 @@ GSD: `v<version>-MILESTONE-AUDIT.md`, written by `/gsd-audit-milestone`. Name `A
 | milestone | → milestone | R I | the version |
 | tech_debt | {phase → phase, item str R} | | `tech_debt:` |
 | integration | enum{passed, issues} | V | the integration checker's cross-phase verdict |
-| debt_accepted | {by str R, at date R} | | a human accepts the `tech_debt` status |
+| debt_accepted | {by str R, at date R} | U | a human accepts the `tech_debt` status: refused in every plan and MCP write, written by hand or from an interactive `specforge` command |
 | gaps | {requirement → requirement, status enum{unsatisfied, partial, orphaned}} | C | `gaps:`: requirements of the milestone not complete |
 | nyquist | {compliant int, partial int, not_validated int, missing int} | C | `nyquist:` |
 | status | enum{passed, gaps_found, tech_debt} | C | `status:` |
@@ -134,15 +143,15 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 | file | file | | `file` |
 | line | int | | `line` |
 | description | str | R | `description` |
-| waiver | {reason str R, by str R, at ts R} | | `waive` (a reason is required) |
-| fixed_at | ts | | `fix` |
+| waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
+| fixed_at | ts | H I | `fix`: written by `fix_window` |
 | refactor | → refactor_proposal | | a strict-mode refactor proposal recorded as a `deviation` |
 | status | enum{open, waived, fixed} | C | waived when `waiver` is set; fixed when `fixed_at` is set or the linked proposal is accepted or declined |
 | milestone | → milestone | C | from the phase |
 | recorded_at | ts | H I | when the window was recorded: set by the plan that creates it |
 
 The project computes the window counts ([project.md](project.md)). Writers: the executor, the
-verifier and the refactor trigger. A resolved window is never waived or fixed again (gsd/E513); none is open at ship
+verifier and the refactor trigger. A resolved window is never waived or fixed again (gsd/E513, a pass: `waiver` and `fixed_at` are never both set, and each is `I`); none is open at ship
 when `workflow.windows_enforce` is on (gsd/E512; off under `gsd-compat`, on under `gsd-strict` and `gsd-plus`).
 
 ## refactor_proposal

@@ -1,0 +1,11 @@
+{
+  "name": "taskboard",
+  "version": "1.0.0",
+  "description": "A small board for tracking tasks",
+  "type": "module",
+  "bin": { "taskboard": "src/cli.js" },
+  "scripts": {
+    "test": "node --test --test-reporter=junit --test-reporter-destination=junit.xml"
+  },
+  "license": "MIT"
+}
