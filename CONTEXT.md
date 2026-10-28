@@ -1644,3 +1644,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Call containment**: the one **Containment** an MCP call reads and writes its project through, built when the call is
   resolved; its views carry it (`ProjectView::bounded_by`) and its caller lends it (ADR 0183). The CLI's and the LSP's is
   every path.
+- **Judged rule**: a rule of `check: "judged"` that holds while a fresh verdict of a passing outcome says so; it names
+  its judge, outcomes and per-kind inputs (ADR 0290).
+- **Verdict**: a `verdict <rule> <outcome> { … }` statement, an entity's own member written by `set_verdict`; not the
+  registry's custom-rule pass or fail, and not a coverage verdict.
+- **Judgement**: where one judged rule stands on one entity: `fresh`, `stale`, `missing`, `unrecorded` or `unreadable`,
+  with `passed`, the outcome and the inputs that changed; passes, graph nodes and baseline entities carry them.
+- **Basis**: the digest of each input (and of `cited`) a `set_verdict` was judged over; a digest that differs is
+  `stale_revision`. `specforge query --inputs` reads it.

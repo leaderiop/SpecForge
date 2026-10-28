@@ -1,6 +1,6 @@
 # A recorded test is one protocol type
 
-**Status:** accepted (2026-10-13, architecture round 8, plan 08). Amends ADR 0013 D1 and D5, and ADR 0019's Decision.
+**Status:** accepted (2026-10-13, architecture round 8, plan 08). Amends ADR 0013 D1 and D5, and ADR 0019's Decision. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (test inputs compare name and status of a recorded test).
 
 A recorded test (its name, its status, the obligation it names, its duration) went from a runner's report to the
 coverage rule through five shapes: the collect wire's `CollectTestResult`, the report's `ReportedTest`, the pass

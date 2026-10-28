@@ -6,7 +6,7 @@ C (the build cache and `lifecycle_field`). Extends [ADR 0014](0014-the-session-k
 [ADR 0047](0047-the-compiled-project-is-the-sessions-core.md), [ADR 0128](0128-one-project-change-over-held-files.md),
 [ADR 0133](0133-recorded-inputs-are-one-table.md), [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md),
 [ADR 0184](0184-a-typed-edit-and-a-rename-write-one-planned-change.md) and
-[ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0.
+[ADR 0282](0282-an-unknown-type-name-is-the-hosts-e004-and-a-project-has-one-spec-block.md). Takes extension protocol 1.8.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (a `verdict` writer, the `verdict:<rule>` ledger key, baseline judgements).
 
 ## Context
 
