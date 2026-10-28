@@ -133,7 +133,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 |---|---|---|---|
 | `workflow.windows_enforce` | false | true | gsd/E512 |
 | `workflow.tdd_mode` | false | false | gsd/E403, gsd/W404 |
-| `workflow.nyquist_validation` | true | true | gsd/E314 (r39), gsd/W510 |
+| `workflow.nyquist_validation` | true | true | gsd/E314, gsd/W510 |
 | `workflow.plan_check` | true | true | gsd/W311, gsd/W313, gsd/W315, gsd/W316, gsd/W318 |
 | `workflow.post_planning_gaps` | true | true | gsd/W317 |
 | `workflow.context_coverage_gate` | true | true | gsd/E310, gsd/W506 |
