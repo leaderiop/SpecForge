@@ -125,3 +125,76 @@ fn project_key_decisions_name_project_decisions() {
         "{own:?}"
     );
 }
+
+fn codes(p: &Project) -> Vec<String> {
+    let run = p.run(&["check", "--format", "json"]);
+    let found: serde_json::Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    found
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter_map(|d| d["code"].as_str().map(String::from))
+        .filter(|c| c != "I204")
+        .collect()
+}
+
+/// The project with its baseline committed and `edit` applied to `spec/discuss.spec`.
+fn edited(from: &str, to: &str) -> Project {
+    let p = project("discuss");
+    p.commit();
+    let spec = fixture("discuss.spec");
+    assert!(spec.contains(from), "the fixture holds `{from}`");
+    p.write("spec/discuss.spec", &spec.replace(from, to));
+    p
+}
+
+#[test]
+fn a_rewritten_interview_answer_is_e084() {
+    let p = edited("In one JSON file", "In SQLite");
+    assert_eq!(codes(&p), ["E084"]);
+}
+
+#[test]
+fn a_removed_interview_is_e085() {
+    let p = edited(
+        "interview IV1 \"Where are tasks kept?\" {\n  spec        v1.0/02/02-SPEC\n  round       1\n  perspective researcher\n  question    \"Where are tasks kept?\"\n  answer      \"In one JSON file\"\n}\n",
+        "",
+    );
+    assert_eq!(codes(&p), ["E085"]);
+}
+
+#[test]
+fn an_interview_answer_may_be_set_once() {
+    let p = edited(
+        "question    \"What if the file is corrupt?\"\n",
+        "question    \"What if the file is corrupt?\"\n  answer      \"Start empty and say so\"\n",
+    );
+    assert_eq!(codes(&p), Vec::<String>::new());
+    p.commit();
+    let spec = fixture("discuss.spec");
+    p.write(
+        "spec/discuss.spec",
+        &spec.replace(
+            "question    \"What if the file is corrupt?\"\n",
+            "question    \"What if the file is corrupt?\"\n  answer      \"Refuse to start\"\n",
+        ),
+    );
+    assert_eq!(codes(&p), ["E084"]);
+}
+
+#[test]
+fn a_score_above_100_is_refused() {
+    let p = project("discuss");
+    let spec = fixture("discuss.spec");
+    let scored = |ambiguity: &str| {
+        spec.replace(
+            "goal    \"Tasks go from memory-only to saved on disk\"\n",
+            &format!("goal    \"Tasks go from memory-only to saved on disk\"\n  scores  {{ goal 90 boundary 80 constraint 70 acceptance 80 ambiguity {ambiguity} }}\n"),
+        )
+    };
+    p.write("spec/discuss.spec", &scored("10"));
+    assert_eq!(codes(&p), Vec::<String>::new());
+    p.write("spec/discuss.spec", &scored("101"));
+    assert_eq!(codes(&p).len(), 1, "{:?}", codes(&p));
+}

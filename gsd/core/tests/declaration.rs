@@ -348,3 +348,64 @@ fn a_decision_origin_is_required_and_immutable_and_its_phase_is_not_required() {
     assert_ne!(field_of("decision", "phase")["required"], true);
     assert_eq!(field_of("context", "status")["writer"], "computed");
 }
+
+#[test]
+fn the_spec_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("phase_spec"),
+        [
+            "phase",
+            "created",
+            "goal",
+            "background",
+            "in_scope",
+            "out_of_scope",
+            "constraints",
+            "acceptance",
+            "scores"
+        ]
+    );
+    assert_eq!(
+        fields_of("locked_req"),
+        ["spec", "title", "current", "target", "acceptance", "traces"]
+    );
+    let scores = field_of("phase_spec", "scores");
+    let members: Vec<(&str, i64, i64)> = scores["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| {
+            (
+                m["name"].as_str().expect("a name"),
+                m["minimum"].as_i64().expect("a minimum"),
+                m["maximum"].as_i64().expect("a maximum"),
+            )
+        })
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("goal", 0, 100),
+            ("boundary", 0, 100),
+            ("constraint", 0, 100),
+            ("acceptance", 0, 100),
+            ("ambiguity", 0, 100)
+        ]
+    );
+}
+
+/// That the kind is append-only (E085 on a removed interview) is proven black-box: the description does not list it.
+#[test]
+fn every_field_of_an_interview_is_immutable() {
+    let entities = describe("entities");
+    let interview = entities["items"]
+        .as_array()
+        .and_then(|k| k.iter().find(|k| k["name"] == "interview"))
+        .expect("interview");
+    assert_eq!(interview["scoped_by"], "spec");
+    let fields = interview["fields"].as_array().expect("fields");
+    assert_eq!(fields.len(), 6);
+    for field in fields {
+        assert_eq!(field["immutable"], true, "{}", field["name"]);
+    }
+}

@@ -107,6 +107,26 @@ impl Project {
         }
     }
 
+    /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
+    /// Git runs with its identity on the command line, never the global configuration.
+    pub fn commit(&self) {
+        let git = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+                .args(["-c", "commit.gpgsign=false"])
+                .args(args)
+                .current_dir(self.dir.path())
+                .status()
+                .expect("run git");
+            assert!(status.success(), "git {args:?}");
+        };
+        if !self.dir.path().join(".git").exists() {
+            git(&["init", "-q", "-b", "main"]);
+        }
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "baseline"]);
+    }
+
     /// Writes (or replaces) a file of the project, creating its folders.
     pub fn write(&self, relative: &str, text: &str) {
         let path = self.dir.path().join(relative);

@@ -5,6 +5,7 @@ mod dsl;
 mod learning;
 mod project;
 mod roadmap;
+mod spec;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
@@ -22,6 +23,9 @@ const KINDS: &[&Kind] = &[
     &discuss::CONTEXT,
     &discuss::DECISION,
     &discuss::DEFERRED_IDEA,
+    &spec::PHASE_SPEC,
+    &spec::LOCKED_REQ,
+    &spec::INTERVIEW,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

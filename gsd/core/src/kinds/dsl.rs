@@ -41,6 +41,8 @@ pub struct Field {
     pub required: bool,
     pub writer: Writer,
     pub immutable: bool,
+    /// The inclusive bounds of an `int`.
+    pub range: Option<(i64, i64)>,
     /// The name the target kind reads this reference by (`lessons` for `lesson.retrospective`).
     pub inverse: &'static str,
     pub doc: &'static str,
@@ -54,6 +56,7 @@ impl Field {
             required: false,
             writer: Writer::Author,
             immutable: false,
+            range: None,
             inverse: "",
             doc: "",
         }
@@ -76,6 +79,11 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `int{lo..hi}`
+    pub const fn range(mut self, lo: i64, hi: i64) -> Self {
+        self.range = Some((lo, hi));
         self
     }
     /// The name the target kind reads this relation by.
@@ -132,6 +140,8 @@ pub struct Kind {
     pub name: &'static str,
     pub doc: &'static str,
     pub singleton: bool,
+    /// A log: an entity the baseline holds stays, with every authored value (K4).
+    pub append_only: bool,
     /// The reference field that scopes the kind's names (K2).
     pub scoped_by: Option<&'static str>,
     pub fields: &'static [Field],
@@ -143,12 +153,17 @@ impl Kind {
             name,
             doc,
             singleton: false,
+            append_only: false,
             scoped_by: None,
             fields,
         }
     }
     pub const fn singleton(mut self) -> Self {
         self.singleton = true;
+        self
+    }
+    pub const fn append_only(mut self) -> Self {
+        self.append_only = true;
         self
     }
     pub const fn scoped_by(mut self, field: &'static str) -> Self {
@@ -179,6 +194,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Ty::Int => {
             f.field_type(FieldType::Integer);
+            if let Some((lo, hi)) = field.range {
+                f.minimum(lo).maximum(hi);
+            }
         }
         Ty::Bool => {
             f.field_type(FieldType::Bool);
@@ -256,6 +274,9 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
             k.description(kind.doc)
                 .testable(false)
                 .singleton(kind.singleton);
+            if kind.append_only {
+                k.append_only();
+            }
             if let Some(scope) = kind.scoped_by {
                 k.scoped_by(scope);
             }
