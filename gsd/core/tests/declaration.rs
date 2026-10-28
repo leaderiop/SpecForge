@@ -424,3 +424,52 @@ fn the_discussion_entries_are_append_only() {
         .collect();
     assert_eq!(members, ["area", "question", "options", "chosen", "mode"]);
 }
+
+/// `discuss.md` lists 95 fields over its 16 kinds. The model fixes: the research's and the spec's `context_digest`
+/// (2) wait for the round that writes them (r41's `record_*` commands), the decision's `from_summary` for `summary`
+/// (r38), and `source` gains `research` (the model says every item has one): 95 - 2 - 1 + 1 = 93.
+#[test]
+fn the_discuss_kinds_declare_every_field_of_discuss_md() {
+    let kinds = [
+        "context",
+        "decision",
+        "deferred_idea",
+        "phase_spec",
+        "locked_req",
+        "interview",
+        "discussion",
+        "research",
+        "finding",
+        "stack_choice",
+        "pattern",
+        "pitfall",
+        "dont_hand_roll",
+        "open_question",
+        "source",
+        "package_audit",
+    ];
+    let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
+    assert_eq!(total, 95 - 2 - 1 + 1, "the kinds' fields");
+}
+
+#[test]
+fn every_research_item_is_scoped_by_its_research() {
+    let entities = describe("entities");
+    for kind in [
+        "finding",
+        "stack_choice",
+        "pattern",
+        "pitfall",
+        "dont_hand_roll",
+        "open_question",
+        "source",
+        "package_audit",
+    ] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect("the kind");
+        assert_eq!(entity["scoped_by"], "research", "{kind}");
+        assert_eq!(fields_of(kind)[0], "research", "{kind}");
+    }
+}

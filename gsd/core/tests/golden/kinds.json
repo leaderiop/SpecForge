@@ -181,6 +181,114 @@
         "label": "DiscussionPhase",
         "source_kind": "discussion",
         "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ResearchPhase",
+        "source_kind": "research",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ResearchUserConstraints",
+        "source_kind": "research",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "FindingResearch",
+        "source_kind": "finding",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "FindingSources",
+        "source_kind": "finding",
+        "target_kind": "source"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "StackChoiceResearch",
+        "source_kind": "stack_choice",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PatternResearch",
+        "source_kind": "pattern",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PitfallResearch",
+        "source_kind": "pitfall",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "DontHandRollResearch",
+        "source_kind": "dont_hand_roll",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OpenQuestionResearch",
+        "source_kind": "open_question",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OpenQuestionResolvedBy",
+        "source_kind": "open_question",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "SourceResearch",
+        "source_kind": "source",
+        "target_kind": "research"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "PackageAuditResearch",
+        "source_kind": "package_audit",
+        "target_kind": "research"
       }
     ]
   },
@@ -2267,6 +2375,781 @@
         "name": "discussion",
         "open_fields": false,
         "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "Research for a phase, or for the project (GSD NN-RESEARCH.md, research/*.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "absent for the project's research",
+            "edge": "ResearchPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": false,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "domain",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "researched",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "confidence",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "summary",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "ResearchUserConstraints",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "user_constraints",
+            "required": false,
+            "target_kind": "decision"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "capability",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "tier",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "responsibility_map",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "research",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A finding of a research (GSD ## Summary, project research files)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "FindingResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "stack",
+              "features",
+              "architecture",
+              "pitfalls",
+              "other"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "topic",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "text",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "confidence",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "FindingSources",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "sources",
+            "required": false,
+            "target_kind": "source"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "finding",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A technology a research recommends (GSD ## Standard Stack)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "StackChoiceResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "version",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "purpose",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "core",
+              "supporting",
+              "alternative"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "tier",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "rejected_because",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "stack_choice",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "An architecture pattern, or an anti-pattern, of a research (GSD ## Architecture Patterns)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "PatternResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "what",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "when",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "example",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "### Anti-Patterns",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "anti",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "pattern",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A common pitfall of a research (GSD ## Common Pitfalls)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "PitfallResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "name",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "goes_wrong",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "avoid",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "warning_signs",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "pitfall",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A problem a research says to solve with an existing library (GSD ## Don't Hand-Roll)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "DontHandRollResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "problem",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "instead",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why",
+            "required": true,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "dont_hand_roll",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "An open question of a research (GSD ## Open Questions)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "OpenQuestionResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "question",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "known",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "unclear",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "recommendation",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "OpenQuestionResolvedBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resolved_by",
+            "required": false,
+            "target_kind": "decision"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "open_question",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A source a research cites (GSD ## Sources)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "SourceResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "url",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "primary",
+              "secondary",
+              "tertiary"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "tier",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "checked",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "source",
+        "open_fields": false,
+        "scoped_by": "research",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A package a research audited for legitimacy (GSD package-legitimacy table)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "PackageAuditResearch",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "research",
+            "required": true,
+            "target_kind": "research"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "package",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "registry",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "legitimate",
+              "suspicious",
+              "unknown"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "legitimacy",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "package_audit",
+        "open_fields": false,
+        "scoped_by": "research",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

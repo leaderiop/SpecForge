@@ -230,3 +230,62 @@ fn an_appended_log_entry_is_clean() {
     );
     assert_eq!(codes(&p), Vec::<String>::new());
 }
+
+fn queried(p: &Project, name: &str) -> String {
+    let query = p.run(&["query", name, "--depth", "0", "--format", "brief"]);
+    assert_eq!(query.code, 0, "query {name}: {}", query.all());
+    query.all()
+}
+
+#[test]
+fn research_items_are_named_within_their_research() {
+    let p = project("discuss");
+    checks_clean(&p);
+    // The phase research's `F1` and the project research's `F1` coexist.
+    assert!(queried(&p, "v1.0/02/02-RESEARCH/F1").contains("v1.0/02/02-RESEARCH/F1"));
+    assert!(queried(&p, "RESEARCH/F1").contains("RESEARCH/F1"));
+    for item in ["SRC1", "SC1", "P1", "PF1", "DH1", "OQ1", "PA1"] {
+        let name = format!("v1.0/02/02-RESEARCH/{item}");
+        assert!(queried(&p, &name).contains(&name), "{name}");
+    }
+}
+
+#[test]
+fn a_project_research_is_named_research_in_the_project_scope() {
+    let p = project("discuss");
+    assert!(queried(&p, "RESEARCH").contains("RESEARCH"));
+    let own = edges(&p, "RESEARCH/F1");
+    assert!(
+        has_edge(&own, "RESEARCH/F1", "RESEARCH", "research"),
+        "{own:?}"
+    );
+}
+
+#[test]
+fn an_open_question_names_the_decision_that_resolves_it() {
+    let own = edges(&project("discuss"), "v1.0/02/02-RESEARCH/OQ1");
+    assert!(
+        has_edge(
+            &own,
+            "v1.0/02/02-RESEARCH/OQ1",
+            "v1.0/02/D-02",
+            "resolved_by"
+        ),
+        "{own:?}"
+    );
+}
+
+#[test]
+fn an_unknown_legitimacy_is_refused() {
+    let p = project("discuss");
+    let spec = std::fs::read_to_string(format!(
+        "{}/tests/projects/discuss/spec/research.spec",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("the fixture");
+    p.write(
+        "spec/research.spec",
+        &spec.replace("legitimate\n", "trusted\n"),
+    );
+    assert_eq!(codes(&p), ["E061"]);
+}

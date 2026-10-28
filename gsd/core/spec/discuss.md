@@ -89,7 +89,7 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | pitfall | `research R`, `name str R`, `goes_wrong str R`, `why str R`, `avoid str R`, `warning_signs str` | `## Common Pitfalls` |
 | dont_hand_roll | `research R`, `problem str R`, `instead str R`, `why str R` | `## Don't Hand-Roll` |
 | open_question | `research R`, `question str R`, `known str`, `unclear str R`, `recommendation str`, `resolved_by → decision` | `## Open Questions` |
-| source | `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
+| source | `research R`, `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a

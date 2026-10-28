@@ -4,6 +4,7 @@ mod discuss;
 mod dsl;
 mod learning;
 mod project;
+mod research;
 mod roadmap;
 mod spec;
 
@@ -27,6 +28,15 @@ const KINDS: &[&Kind] = &[
     &spec::LOCKED_REQ,
     &spec::INTERVIEW,
     &discuss::DISCUSSION,
+    &research::RESEARCH,
+    &research::FINDING,
+    &research::STACK_CHOICE,
+    &research::PATTERN,
+    &research::PITFALL,
+    &research::DONT_HAND_ROLL,
+    &research::OPEN_QUESTION,
+    &research::SOURCE,
+    &research::PACKAGE_AUDIT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
