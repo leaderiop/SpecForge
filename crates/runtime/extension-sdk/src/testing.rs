@@ -3,9 +3,10 @@
 //! wasm or loading a host.
 
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 
 use crate::{CommandFormat, CommandGraph, CommandInput, CommandOutput, ContributionsBuilder};
-use specforge_protocol_types::CommandArgType;
+use specforge_protocol_types::{CommandArgType, FileFacts};
 
 /// Wraps a [`ContributionsBuilder`] and asserts on its wire output.
 pub struct MockHost(pub ContributionsBuilder);
@@ -51,6 +52,16 @@ impl MockHost {
     }
 }
 
+/// What the harness feeds every command besides its args: the host's instant and the facts of the reads it declared
+/// (`files`, by read name). The default is what [`call_every_command`] sends: midnight of `today` and no file.
+#[derive(Debug, Clone, Default)]
+pub struct CommandFeed {
+    /// `now`, `YYYY-MM-DDTHH:MM:SSZ`; none sends midnight of `today`.
+    pub now: Option<String>,
+    /// What the host would have read for the command's `reads`.
+    pub files: BTreeMap<String, FileFacts>,
+}
+
 /// Run every command `b` declares once over `graph`, as the host would
 /// under `--format json`, with every arg it declares set to a value of its
 /// declared type: an enum's first value, `1` for an integer or a count (its
@@ -65,6 +76,18 @@ pub fn call_every_command(
     b: &ContributionsBuilder,
     graph: &CommandGraph,
     today: &str,
+    text: impl Fn(&str, &str) -> String,
+) -> Vec<(String, CommandOutput)> {
+    call_every_command_with(b, graph, today, &CommandFeed::default(), text)
+}
+
+/// [`call_every_command`] with the `now` and `files` of `feed`, so a command that declares `reads` or reads the clock
+/// is testable.
+pub fn call_every_command_with(
+    b: &ContributionsBuilder,
+    graph: &CommandGraph,
+    today: &str,
+    feed: &CommandFeed,
     text: impl Fn(&str, &str) -> String,
 ) -> Vec<(String, CommandOutput)> {
     b.surfaces
@@ -93,11 +116,11 @@ pub fn call_every_command(
                 graph: graph.clone(),
                 format: CommandFormat::Json,
                 today: today.to_string(),
-                // Midnight of that date: the harness has a date, not an instant.
-                now: if today.is_empty() {
-                    String::new()
-                } else {
-                    format!("{today}T00:00:00Z")
+                // Midnight of that date unless the feed has an instant: the harness has a date.
+                now: match (&feed.now, today.is_empty()) {
+                    (Some(now), _) => now.clone(),
+                    (None, true) => String::new(),
+                    (None, false) => format!("{today}T00:00:00Z"),
                 },
                 evidence: Default::default(),
                 // A writing command receives the revision of every source its graph names.
@@ -112,7 +135,7 @@ pub fn call_every_command(
                     Default::default()
                 },
                 state: None,
-                files: Default::default(),
+                files: feed.files.clone(),
             };
             let output = b
                 .call_command(&command.export, &input)

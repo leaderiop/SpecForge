@@ -72,6 +72,13 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
 - **D6. Hooks keep `PathFact`.** A hook is handed the facts of the paths its tool names, which is another question
   (what is about to be written); it is unchanged.
 
+## Limits
+
+The test report a `reads_tests` pass receives is the one recorded now. The baseline view (`previous`) is computed from
+the commit's files without it (`tests: None`), so a computed field derived from tests is unknown in `previous` and known
+in the current view; a compute pass that compares the two must not derive from tests. Reading the commit's own
+`specforge-report.json` is the upgrade when a pass needs it. Nothing in r35 declares such a pass.
+
 ## Rejected
 
 A host function the guest calls (ADR 0037: no capability crosses the sandbox, and a call per file is a round trip the

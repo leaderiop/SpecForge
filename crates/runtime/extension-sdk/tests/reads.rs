@@ -5,7 +5,8 @@
 )]
 
 use specforge_extension_sdk::prelude::*;
-use specforge_extension_sdk::testing::call_every_command;
+use specforge_extension_sdk::testing::{CommandFeed, call_every_command, call_every_command_with};
+use specforge_protocol_types::{FileFact, FileFacts};
 
 #[test]
 fn the_sdk_declares_reads_and_reads_tests() {
@@ -60,4 +61,52 @@ fn a_command_reads_the_hosts_clock_as_now() {
         String::new()
     });
     assert_eq!(out[0].1.stdout, "2026-10-28 2026-10-28T00:00:00Z");
+}
+
+#[test]
+fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/feed", "1.0.0"));
+    c.command("count", |cmd| {
+        cmd.title("Count")
+            .description("Count")
+            .reads("src", FileReadSpec::glob("src/*.rs").text())
+            .handler(|call: &CommandCall| {
+                let facts = call
+                    .files("src")
+                    .map(|f| f.facts.as_slice())
+                    .unwrap_or_default();
+                let text = facts
+                    .iter()
+                    .filter_map(|f| f.text.as_deref())
+                    .collect::<String>();
+                CommandOutput::ok(format!("{} {text} {}", facts.len(), call.now()))
+            });
+    });
+    let feed = CommandFeed {
+        now: Some("2026-10-28T23:59:59Z".into()),
+        files: [(
+            "src".to_string(),
+            FileFacts {
+                facts: vec![FileFact {
+                    path: "src/a.rs".into(),
+                    exists: true,
+                    text: Some("fn a() {}".into()),
+                    ..FileFact::default()
+                }],
+                truncated: false,
+            },
+        )]
+        .into(),
+    };
+
+    let out = call_every_command_with(&c, &CommandGraph::default(), "2026-10-28", &feed, |_, _| {
+        String::new()
+    });
+    assert_eq!(out[0].1.stdout, "1 fn a() {} 2026-10-28T23:59:59Z");
+
+    // Without a feed the command sees no file, as before.
+    let bare = call_every_command(&c, &CommandGraph::default(), "2026-10-28", |_, _| {
+        String::new()
+    });
+    assert_eq!(bare[0].1.stdout, "0  2026-10-28T00:00:00Z");
 }

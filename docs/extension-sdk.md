@@ -603,6 +603,9 @@ under `input.files[name]` (protocol 1.11.0, ADR 0293): `{path, entity?, exists, 
 and `truncated` on a glob that matched over 2000 files. A file the host reads is a check input, so the pass runs again
 when it changes. `p.reads_tests()` makes a check, compute or guard pass receive the recorded test report as `test_results`
 (an analyze pass always does); with no report recorded the host reports I205 once, and E045 for one it cannot use.
+Limit: the git baseline (`previous`) a compute pass is given is computed without the test report, so a value a `reads_tests`
+compute pass derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
+fields the pass does not derive from tests.
 
 A pass receives `PassInput`: `entities` (each with its field texts by name
 ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
@@ -720,7 +723,8 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
 - **Its declaration**: `specforge_extension_sdk::testing::MockHost` pins the handshake and describe
   wire JSON (`assert_handshake`, `assert_describe`), and `testing::call_every_command` runs every
   declared command with every arg set, which catches a handler reading an arg its command does not
-  declare (a panic here, E028 in the host).
+  declare (a panic here, E028 in the host); `testing::call_every_command_with` also feeds every command
+  an explicit `now` and the `files` of the reads it declares (`CommandFeed`).
 - **Its commands, as the host calls them**: `specforge_wasm::testing::InProcessRuntime` (feature
   `testing`) serves the extension's `ContributionsBuilder` through the guest's own routing
   (`Served`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
