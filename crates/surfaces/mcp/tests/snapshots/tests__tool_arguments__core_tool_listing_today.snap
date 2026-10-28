@@ -6966,7 +6966,7 @@ expression: listing
           "type": "boolean"
         },
         "value": {
-          "description": "The value, by the setting's declared type (a number, a string, a list, an object); exactly one of value and unset"
+          "description": "The value, by the setting's declared type (a number, a boolean, a string, a list, an object); exactly one of value and unset"
         }
       },
       "required": [
@@ -7298,7 +7298,7 @@ expression: listing
     "source": "core",
     "annotations": {
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": true,
       "openWorldHint": false
     }

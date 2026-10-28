@@ -225,6 +225,7 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     };
     assert_eq!(hint("specforge.query", "readOnlyHint"), true);
     assert_eq!(hint("specforge.format", "destructiveHint"), true);
+    assert_eq!(hint("specforge.settings_set", "destructiveHint"), true);
     assert_eq!(hint("specforge.add_extension", "openWorldHint"), true);
     assert_eq!(hint("specforge.add_extension", "destructiveHint"), true);
     assert_eq!(hint("specforge.rename", "idempotentHint"), true);

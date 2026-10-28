@@ -413,7 +413,6 @@ impl Arg for EntityIds {
     }
 }
 
-/// An optional argument: absent is none, a value is read as `T`.
 /// A setting's value: any JSON value, checked by the setting's declared type when the call is made, so the listing
 /// states no type (`null` is an absent argument, as for every option).
 #[derive(Debug, Clone)]
@@ -434,6 +433,7 @@ impl Arg for SettingValue {
     }
 }
 
+/// An optional argument: absent is none, a value is read as `T`.
 impl<T: Arg> Arg for Option<T> {
     fn schema() -> Value {
         T::schema()

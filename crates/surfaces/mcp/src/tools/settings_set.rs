@@ -17,7 +17,7 @@ pub struct Args {
     extension: String,
     /// The setting's name, or a family's key as written (`models.planning`)
     name: String,
-    /// The value, by the setting's declared type (a number, a string, a list, an object); exactly one of value and unset
+    /// The value, by the setting's declared type (a number, a boolean, a string, a list, an object); exactly one of value and unset
     value: Option<SettingValue>,
     /// Remove the setting from specforge.json: it reverts to its preset or default
     unset: bool,
@@ -56,7 +56,8 @@ impl CoreTool for Tool {
     const DESCRIPTION: &'static str = "Write or remove one setting of specforge.json, admitted by its declared type; a secret is never written";
     const EFFECT: Effect = Effect::Mutates {
         hints: WriteHints {
-            destructive: false,
+            // It overwrites or removes a written setting.
+            destructive: true,
             idempotent: true,
             open_world: false,
         },
