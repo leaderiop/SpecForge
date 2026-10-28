@@ -64,6 +64,7 @@ mod scoped_names;
 mod served;
 mod served_project;
 mod settings;
+mod settings_set;
 mod source_links;
 mod source_path_spelling;
 mod stateless;

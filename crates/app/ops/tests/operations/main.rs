@@ -8,6 +8,7 @@
 mod anchors;
 mod captures;
 mod collect;
+mod command_now;
 mod compiled_support;
 mod computed;
 mod config_gate;
