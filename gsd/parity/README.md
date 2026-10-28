@@ -17,12 +17,12 @@ the version matrix live here.
 | Path | What |
 |---|---|
 | `upstream/v1.18.0/` | the tracked release's configuration roster, frozen so the roster check runs offline ([SOURCE.md](upstream/v1.18.0/SOURCE.md)); `core/tests/settings_roster.rs` reads it |
-| `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 planned |
-| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health` |
+| `fixtures/taskboard/` | a small Node CLI with a GSD 1.18.0 `.planning/`: three phases and an inserted `02.1`, phase 1 executed, verified and run through UAT, phase 2 discussed, researched and planned |
+| `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2 |
 | `record.sh` | re-records the goldens |
 
 The goldens are data: nothing runs gsd-tools in CI. `core/tests/cli/parity_roadmap.rs` compares the SpecForge twin in
-`fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`.
+`fixtures/taskboard/spec/` with `goldens/taskboard/roadmap-analyze.json`, `REQUIREMENTS.md` and `ROADMAP.md`. `core/tests/cli/parity_discuss.rs` compares the twin's contexts, decisions, discussion log and research with phase 2's `CONTEXT.md`, `DISCUSSION-LOG.md`, `RESEARCH.md`, PROJECT.md's Key Decisions and the two context goldens.
 
 What `parity_roadmap.rs` compares: the phases `roadmap analyze` lists (number, name, goal, `depends_on`, requirements), every v1
 and v2 requirement with its tier, and the `Out of Scope` rows with their reasons. What it does not: computed values (a
@@ -51,3 +51,5 @@ Every verb that writes a `.planning/` file was run for real (`config-new-project
 (`PROJECT.md`, `REQUIREMENTS.md`, the plans, summaries, verification report and UAT) follow gsd-core's templates but were
 written by hand: the workflows need a model session, which a recording script cannot run. The goldens are therefore
 `gsd-tools` over a faithful `.planning/`, not a transcript of `/gsd-new-project`.
+
+Phase 2's `02-CONTEXT.md`, `02-DISCUSSION-LOG.md` and `02-RESEARCH.md` (round r36) follow the v1.18.0 templates and were also written by hand: `workflow.research` is false in the fixture's config, so the research stands for a run of `/gsd-plan-phase 2 --research`. The decision-coverage golden records 0 of 3 decisions covered, because `02-01-PLAN.md` cites none of `D-01`..`D-03`; the plan-coverage rule `gsd/E310` (r37) needs the plan to cite them.

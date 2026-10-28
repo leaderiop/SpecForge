@@ -5,7 +5,9 @@ parity suite a GSD 1.18.0 project to read; see [gsd/parity/README.md](../../READ
 and how the goldens are recorded.
 
 - `.planning/` is the GSD project: milestone-less, phases 1, 2, 2.1 (inserted) and 3. Phase 1 is executed, verified and
-  has a UAT session; phase 2 is planned; 2.1 and 3 are empty.
+  has a UAT session; phase 2 has a context, a discussion log and a research and is planned; 2.1 and 3 are empty.
 - `src/`, `test/`: what phase 1 built. `npm test` runs `node --test` and writes `junit.xml` (ignored).
-- `spec/`: the SpecForge twin of the roadmap (project, requirements, milestone and phases), compared with the goldens by
-  `gsd/core/tests/cli/parity_roadmap.rs`.
+- `spec/`: the SpecForge twin of the roadmap (project, requirements, milestone and phases) and of phase 2's discussion
+  (`discuss.spec`), compared with the goldens and `.planning/` by `gsd/core/tests/cli/parity_roadmap.rs` and
+  `parity_discuss.rs`.
+- `specforge-harness`: the ledger line of the twin research's `context_digest`.

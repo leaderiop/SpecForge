@@ -71,6 +71,8 @@ record phase-plan-index-2 phase-plan-index 2
 record state-json state json
 record progress-json progress json
 record validate-health validate health
+record verify-context-drift-2 query check.verify-context-drift 2
+record decision-coverage-plan-2 query check.decision-coverage-plan .planning/phases/02-persistence .planning/phases/02-persistence/02-CONTEXT.md
 mkdir -p "$out"
 cp "$staged"/*.json "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"

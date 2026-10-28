@@ -1,0 +1,24 @@
+{
+  "passed": false,
+  "skipped": false,
+  "total": 3,
+  "covered": 0,
+  "uncovered": [
+    {
+      "id": "D-01",
+      "text": "Tasks are kept in a single JSON file, `tasks.json`, in the working directory",
+      "category": "Storage format"
+    },
+    {
+      "id": "D-02",
+      "text": "The file is written to a temporary name and renamed over `tasks.json`, so a crash never leaves half a file",
+      "category": "Storage format"
+    },
+    {
+      "id": "D-03",
+      "text": "A title is stored exactly as typed, with no trimming",
+      "category": "Titles"
+    }
+  ],
+  "message": "## Decision Coverage Gap\n\n3 CONTEXT.md decision(s) are not covered by any plan:\n\n- **D-01** (Storage format): Tasks are kept in a single JSON file, `tasks.json`, in the working directory\n- **D-02** (Storage format): The file is written to a temporary name and renamed over `tasks.json`, so a crash never leaves half a file\n- **D-03** (Titles): A title is stored exactly as typed, with no trimming\n\nResolve by citing `D-NN:` in any of the scanned plan surfaces: front-matter\n`must_haves`/`truths`/`objective`, a `## must_haves`/`truths`/`tasks`/`objective`\nheading, or an `<objective>`/`<tasks>`/`<task>`/`<action>`/`<read_first>`/`<behavior>`/`<verify>`/`<acceptance_criteria>`/`<done>`\ntag body. Other locations (prose outside those headings, comments, other XML tags) are not scanned.\nOR move the decision to `### Claude's Discretion` / tag it `[informational]` if it should not be tracked."
+}
