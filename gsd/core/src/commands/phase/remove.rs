@@ -116,6 +116,14 @@ pub(super) fn remove(
         .filter(|p| !p.number.backlog())
         .filter_map(|p| renumbered(gone.number, p.number).map(|n| (p, n)))
         .collect();
+    if !call.flag("force")
+        && let Some((phase, _)) = moves.iter().find(|(p, _)| started(call, p))
+    {
+        return Err(format!(
+            "phase {} has started and would be renamed (its plans, summaries and commits carry its number): --force renames it anyway",
+            phase.number.name()
+        ));
+    }
     let mut affected = vec![gone];
     affected.extend(moves.iter().map(|(p, _)| *p));
     if let Some((field, entity)) = human_blocker(call, &affected) {
@@ -139,23 +147,73 @@ pub(super) fn remove(
     }
     plan.delete(&gone.node.id, true);
     let mut renamed = Vec::new();
+    let milestone = format!("{}/", ms.id);
+    let new_of = |id: &str| {
+        moves.iter().find(|(p, _)| p.node.id == id).map_or_else(
+            || id.to_string(),
+            |(_, n)| format!("{milestone}{}", n.name()),
+        )
+    };
     for (phase, number) in &moves {
         let (old, new) = (prefix(phase.number), prefix(*number));
         plan.rename(&phase.node.id, &number.name());
-        let new_id = format!("{}/{}", ms.id, number.name());
+        let new_id = format!("{milestone}{}", number.name());
         let children = format!("{}/", phase.node.id);
-        for child in call
+        let mut below: Vec<&str> = call
             .graph()
             .nodes()
             .iter()
-            .filter(|n| n.id.starts_with(&children))
-        {
-            let short = &child.id[children.len()..];
-            if let Some(rest) = short.strip_prefix(&old).filter(|_| !short.contains('/')) {
-                plan.rename(&format!("{new_id}/{short}"), &format!("{new}{rest}"));
+            .filter_map(|n| n.id.strip_prefix(&children))
+            .collect();
+        // Shallow first: a child is renamed before what it holds, whose path then carries the new name.
+        below.sort_by_key(|short| short.matches('/').count());
+        for short in below {
+            let swap = |seg: &str| match seg.strip_prefix(&old) {
+                Some(rest) => format!("{new}{rest}"),
+                None => seg.to_string(),
+            };
+            let (parent, last) = short.rsplit_once('/').unwrap_or(("", short));
+            if last.starts_with(&old) {
+                let parent: Vec<String> = parent
+                    .split('/')
+                    .filter(|s| !s.is_empty())
+                    .map(swap)
+                    .collect();
+                let at = [new_id.as_str()]
+                    .into_iter()
+                    .chain(parent.iter().map(String::as_str))
+                    .chain([last])
+                    .collect::<Vec<_>>()
+                    .join("/");
+                plan.rename(&at, &swap(last));
             }
         }
         renamed.push(json!({ "from": phase.number.name(), "to": number.name() }));
+    }
+    // A phase that depended on the removed one inherits its dependencies, so the chain stays linear.
+    let edges = call.graph().edges();
+    let deps = |id: &str| -> Vec<&str> {
+        edges
+            .iter()
+            .filter(|e| e.label == "depends_on" && e.source == id)
+            .map(|e| e.target.as_str())
+            .collect()
+    };
+    let inherited = deps(&gone.node.id);
+    if !inherited.is_empty() {
+        for p in all.iter().filter(|p| p.node.id != gone.node.id) {
+            let own = deps(&p.node.id);
+            if own.contains(&gone.node.id.as_str()) {
+                let mut now: Vec<String> = Vec::new();
+                for d in own.iter().filter(|d| **d != gone.node.id).chain(&inherited) {
+                    let d = new_of(d);
+                    if !now.contains(&d) {
+                        now.push(d);
+                    }
+                }
+                plan.set(&new_of(&p.node.id), "depends_on", json!(now));
+            }
+        }
     }
     Ok(answer(
         call,

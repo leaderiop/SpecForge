@@ -81,13 +81,81 @@ fn remove_renumbers_twelve_phases() {
         ids(&p, "context").first().map(String::as_str),
         Some("v1.0/04/04-CONTEXT")
     );
-    // The removed phase's dependents lose that dependency; the others follow their phase's new name.
-    assert!(p.fields_of("v1.0/04")["depends_on"].is_null());
+    // The removed phase's dependent inherits its dependency (the chain stays linear); the others follow their rename.
+    assert_eq!(p.fields_of("v1.0/04")["depends_on"], json!(["03"]));
     assert_eq!(p.fields_of("v1.0/05")["depends_on"], json!(["04"]));
     assert_eq!(p.fields_of("v1.0/11")["depends_on"], json!(["10"]));
     assert_eq!(p.fields_of("v1.0/04.1")["depends_on"], json!(["04"]));
     assert_eq!(p.fields_of("v1.0/999.1")["goal"], "Goal 999.1");
     assert_eq!(p.fields_of("v1.0/04/04-01")["phase"], "v1.0/04");
+}
+
+/// Phases 05 and 05.1 have run: a plan, a summary, a deliverable-free UAT session and a requirement they trace.
+fn started_twelve() -> Project {
+    let p = twelve();
+    p.edit(
+        "spec/m.spec",
+        "phase 05 \"P05\" {\n  milestone v1.0\n",
+        "phase 05 \"P05\" {\n  milestone v1.0\n  requirements [R1]\n",
+    );
+    plant(
+        &p,
+        "spec/m.spec",
+        "requirement R1 \"One\" {\n  text \"t\"\n  category \"c\"\n  tier v1\n}\n\nplan 05.1-01 \"Plan 5.1\" {\n  phase v1.0/05.1\n  type execute\n  files_modified [\"a\"]\n  objective \"o\"\n}\n",
+    );
+    for (phase, plan) in [("05", "05-01"), ("05.1", "05.1-01")] {
+        plant(
+            &p,
+            "spec/m.spec",
+            &format!(
+                "summary {plan}-SUMMARY \"S\" {{\n  plan v1.0/{phase}/{plan}\n  status complete\n  one_liner \"o\"\n  subsystem \"s\"\n  requirements_completed [R1]\n}}\n\nuat_session {phase}-UAT \"U\" {{\n  phase v1.0/{phase}\n  source [v1.0/{phase}/{plan}/{plan}-SUMMARY]\n}}\n"
+            ),
+        );
+    }
+    p
+}
+
+#[test]
+fn remove_renames_every_nested_child_and_leaves_nothing_dangling() {
+    let p = started_twelve();
+    let before = p.codes();
+    let run = gsd(&p, "phase", &["--remove", "04", "--force"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        ids(&p, "summary"),
+        [
+            "v1.0/04.1/04.1-01/04.1-01-SUMMARY",
+            "v1.0/04/04-01/04-01-SUMMARY"
+        ]
+    );
+    assert_eq!(
+        ids(&p, "uat_session"),
+        ["v1.0/04.1/04.1-UAT", "v1.0/04/04-UAT"]
+    );
+    assert_eq!(
+        p.fields_of("v1.0/04/04-01/04-01-SUMMARY")["plan"],
+        "v1.0/04/04-01"
+    );
+    assert_eq!(
+        p.fields_of("v1.0/04.1/04.1-UAT")["source"],
+        json!(["v1.0/04.1/04.1-01/04.1-01-SUMMARY"])
+    );
+    assert_eq!(p.fields_of("v1.0/04")["requirements"], json!(["R1"]));
+    // Nothing dangles: the check adds no code.
+    let after = p.codes();
+    assert!(
+        after.iter().all(|c| before.contains(c)),
+        "{before:?} -> {after:?}"
+    );
+}
+
+#[test]
+fn remove_refuses_a_later_phase_that_has_started_without_force() {
+    let p = started_twelve();
+    let before = bytes(&p);
+    let run = gsd(&p, "phase", &["--remove", "04"]);
+    refused(&run, "invalid_input", &["phase 05 has started", "--force"]);
+    unchanged(&p, &before);
 }
 
 #[test]
