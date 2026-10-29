@@ -16,6 +16,7 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/references/agent-skills-bootstrap.md", 9),
     ("gsd-core/references/loop-hook-dispatch.md", 133),
     ("gsd-core/references/loop-hook-dispatch.md", 142),
+    ("gsd-core/references/mvp-concepts.md", 4),
 ];
 
 fn root() -> PathBuf {

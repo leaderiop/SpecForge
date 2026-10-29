@@ -6,6 +6,7 @@ mod args;
 pub(crate) mod assets;
 mod discuss;
 mod host;
+mod plan;
 mod preamble;
 mod project;
 pub(crate) mod render;
@@ -22,4 +23,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     spec::declare(c);
     project::declare(c);
     discuss::declare(c);
+    plan::declare(c);
 }

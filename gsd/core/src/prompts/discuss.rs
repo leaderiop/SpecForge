@@ -29,6 +29,11 @@ const STEPS: &[Step] = &[
         title: "Research a gray area for the advisor table (gsd-advisor-researcher), in advisor mode",
         does: Do::Agent("gsd-advisor-researcher"),
     },
+    Step {
+        id: "plan",
+        title: "Plan the phase next (plan_phase)",
+        does: Do::Prompt("plan_phase"),
+    },
 ];
 
 static DISCUSS_PHASE: Spec = Spec {

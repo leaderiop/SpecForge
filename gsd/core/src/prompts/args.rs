@@ -6,10 +6,6 @@ use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
 /// What one argument holds.
-#[allow(
-    dead_code,
-    reason = "the prompts of the tickets that follow use every kind"
-)]
 pub enum Kind {
     /// An entity of the kind (several as `a|b`): positional, and the prompt's subject.
     Reference(&'static str),
@@ -18,6 +14,7 @@ pub enum Kind {
     /// `--name "text"`.
     Text,
     /// `--name 3`.
+    #[allow(dead_code, reason = "execute_phase takes --wave")]
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
@@ -52,7 +49,7 @@ impl Arg {
             required: false,
         }
     }
-    #[allow(dead_code, reason = "plan_phase takes integers")]
+    #[allow(dead_code, reason = "execute_phase takes --wave")]
     pub const fn integer(name: &'static str) -> Arg {
         Arg {
             name,
@@ -60,7 +57,6 @@ impl Arg {
             required: false,
         }
     }
-    #[allow(dead_code, reason = "plan_phase takes enumerations")]
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,

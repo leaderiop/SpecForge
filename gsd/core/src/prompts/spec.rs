@@ -86,6 +86,12 @@ static SPEC_PHASE: Spec = Spec {
 
 const MVP_ARGS: &[Arg] = &[Arg::reference("phase", "phase")];
 
+const MVP_STEPS: &[Step] = &[Step {
+    id: "plan",
+    title: "Plan the phase, in MVP mode (plan_phase --mvp)",
+    does: Do::Prompt("plan_phase"),
+}];
+
 static MVP_PHASE: Spec = Spec {
     id: "mvp_phase",
     title: "Plan a phase as an MVP slice",
@@ -94,7 +100,7 @@ static MVP_PHASE: Spec = Spec {
     args: MVP_ARGS,
     subject: Some("phase"),
     gates: &["E516"],
-    steps: &[],
+    steps: MVP_STEPS,
     slash: Some(Slash {
         hint: "<phase-number>",
         tools: &["read", "write", "shell", "search", "agent", "ask_user"],

@@ -97,7 +97,8 @@ fn discuss_phase_steps_spawn_core_agents_only() {
     let p = twin();
     let rendered = payload(&prompt(&p, "discuss_phase", &["v1.0/02"], "claude-code"));
     let steps = rendered["payload"]["steps"].as_array().expect("steps");
-    assert_eq!(steps.len(), 2);
+    // Two agent steps and the step into plan_phase.
+    assert_eq!(steps.len(), 3);
     let text = steps
         .iter()
         .map(|s| s["title"].as_str().unwrap_or_default())
