@@ -10,6 +10,7 @@ mod gates;
 mod harness;
 mod install_agents;
 mod judged;
+mod judged_flow;
 mod ladder;
 mod parity_discuss;
 mod parity_plans;
