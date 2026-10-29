@@ -13,19 +13,15 @@ env:
 
 jobs:
   ci:
-    # `cargo gate ci` split over runners: `build` compiles the tests once into a nextest archive, which four
-    # `tests` partitions run without compiling; lint and specs. `dogfood` judges every partition's reports.
+    # `cargo gate ci`'s lint and specs shards; the `build` and `tests` jobs below hold the tests. `dogfood` judges every partition's reports.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    env:
-      GATE_TEST_ARCHIVE: target/tests.tar.zst
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { shard: build, cache: tests, checks: build }
           - shard: lint
             checks: rustfmt,clippy,gsd,doctests,audit
           - shard: specs
@@ -72,17 +68,6 @@ jobs:
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
 
-      # A PR whose diff reaches no Rust builds no archive; its `tests` jobs then have nothing to run.
-      - name: Hand the archive to the tests jobs
-        if: matrix.shard == 'build'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tests-archive
-          path: target/tests.tar.zst
-          if-no-files-found: ignore
-          compression-level: 0
-          retention-days: 1
-
       # dogfood reaches only full runs (main), so only main keeps the reports for it.
       - name: Keep the test reports for dogfood
         if: github.event_name == 'push' && matrix.shard == 'specs'
@@ -92,11 +77,40 @@ jobs:
           path: target/specforge
           retention-days: 1
 
+  build:
+    # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling.
+    name: Check list (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GATE_TEST_ARCHIVE: target/tests.tar.zst
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: tests
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - run: cargo gate ci --only build ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+      # A PR whose diff reaches no Rust builds no archive; its `tests` jobs then have nothing to run.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tests-archive
+          path: target/tests.tar.zst
+          if-no-files-found: ignore
+          compression-level: 0
+          retention-days: 1
+
   tests:
     name: Check list (tests-${{ matrix.part }})
-    needs: ci
-    # `ci` holds every shard; only `build` matters here, so a red lint does not stop the tests.
-    if: ${{ !cancelled() }}
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
