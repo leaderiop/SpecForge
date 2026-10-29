@@ -108,7 +108,7 @@ A setting has one preset source, and these are independent of `profile`:
 
 | Source | Presets |
 |---|---|
-| `model_profile` (four values) | `model_overrides.<agent>` from GSD's model-profile table (round r40, with the agents) |
+| `model_profile` (five values: `quality`, `balanced`, `budget`, `adaptive`, `inherit`) | `model_overrides.<agent>` of the 15 core agents, from GSD's model catalog (`src/settings/models.rs`, pinned against the vendored `model-catalog.json`): `quality`, `balanced` and `budget` give the agent's alias for that profile, `adaptive` its routing tier, as a host tier (opus is `heavy`, sonnet `standard`, haiku `light`); `inherit` sets nothing, so an agent file has no model line. An explicit `model_overrides.<agent>` wins, as in GSD. GSD's second step, `models.<phase type>`, is not wired: a preset cannot read another setting |
 | `workflow.compact_content` | `true` sets `specforge.agent_variant` to `compact`; `false` sets nothing |
 | `workflow.context_drift_action` | `block` raises gsd/W406 to an error (raise only); the other values set nothing |
 

@@ -24,6 +24,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
             a.description(agent.description)
                 .tools(agent.tools)
                 .color(agent.color)
+                .model(&format!(
+                    "setting:{}",
+                    crate::settings::models::setting(agent.id)
+                ))
                 .attribution(attribution(&format!("{}.md", agent.id)));
             if agent.compact.is_some() {
                 a.variant("compact").variant_setting(VARIANT_SETTING);

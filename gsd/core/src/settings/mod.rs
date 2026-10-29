@@ -2,6 +2,7 @@
 
 mod gates;
 mod keys;
+pub mod models;
 mod profiles;
 
 use specforge_extension_sdk::prelude::*;
@@ -20,4 +21,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     }
     gates::declare(c);
     profiles::declare(c);
+    models::declare(c);
 }

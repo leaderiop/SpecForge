@@ -175,3 +175,68 @@ fn exactly_ten_agents_have_a_compact_variant() {
         ]
     );
 }
+
+fn model_of(p: &Project, id: &str) -> Option<String> {
+    let (front, _) = split(&claude_agent(p, id));
+    value(&front, "model").map(String::from)
+}
+
+#[test]
+fn budget_profile_picks_haiku_for_light_agents() {
+    let p = project("empty");
+    p.settings(serde_json::json!({ "model_profile": "budget" }));
+    installed(&p, "claude-code");
+    assert_eq!(model_of(&p, "gsd-plan-checker").as_deref(), Some("haiku"));
+    assert_eq!(model_of(&p, "gsd-planner").as_deref(), Some("sonnet"));
+}
+
+#[test]
+fn the_default_profile_is_balanced() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    // balanced: planner opus, executor sonnet, doc-classifier haiku
+    assert_eq!(model_of(&p, "gsd-planner").as_deref(), Some("opus"));
+    assert_eq!(model_of(&p, "gsd-executor").as_deref(), Some("sonnet"));
+    assert_eq!(model_of(&p, "gsd-doc-classifier").as_deref(), Some("haiku"));
+}
+
+#[test]
+fn an_override_beats_the_profile() {
+    let p = project("empty");
+    p.settings(serde_json::json!({
+        "model_profile": "budget",
+        "model_overrides.gsd-planner": "opus"
+    }));
+    installed(&p, "claude-code");
+    assert_eq!(model_of(&p, "gsd-planner").as_deref(), Some("opus"));
+    assert_eq!(model_of(&p, "gsd-plan-checker").as_deref(), Some("haiku"));
+}
+
+#[test]
+fn inherit_writes_no_model_line() {
+    let p = project("empty");
+    p.settings(serde_json::json!({ "model_profile": "inherit" }));
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        assert_eq!(model_of(&p, agent.id), None, "{}", agent.id);
+        // the file exists, so a missing line is the profile's doing
+        assert!(claude_agent(&p, agent.id).contains("name:"));
+    }
+}
+
+#[test]
+fn adaptive_follows_the_routing_tier() {
+    use gsd_core::settings::models::{MODELS, tier};
+    let p = project("empty");
+    p.settings(serde_json::json!({ "model_profile": "adaptive" }));
+    installed(&p, "claude-code");
+    for (agent, _, routing) in MODELS {
+        let want = match *routing {
+            "heavy" => "opus",
+            "light" => "haiku",
+            _ => "sonnet",
+        };
+        assert_eq!(model_of(&p, agent).as_deref(), Some(want), "{agent}");
+    }
+    assert_eq!(tier("opus"), "heavy");
+}

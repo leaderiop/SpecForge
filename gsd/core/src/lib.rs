@@ -7,7 +7,7 @@ mod digest;
 mod kinds;
 mod passes;
 mod rules;
-mod settings;
+pub mod settings;
 mod time;
 
 use specforge_extension_sdk::prelude::*;
