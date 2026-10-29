@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "phase": "01",
+      "phase_dir": "01-core",
+      "file": "01-UAT.md",
+      "file_path": ".planning/phases/01-core/01-UAT.md",
+      "type": "uat",
+      "status": "complete",
+      "items": [
+        {
+          "test": 2,
+          "name": "Complete a task that does not exist",
+          "result": "issue",
+          "category": "issue",
+          "expected": "`node src/cli.js done 7` fails and names the id 7"
+        },
+        {
+          "name": "Completing an unknown id fails with a one-line message",
+          "result": "failed",
+          "category": "unknown",
+          "test": 2,
+          "reason": "User reported: it prints a stack trace before the message, which is noisy"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_files": 1,
+    "total_items": 2,
+    "parse_gap_files": 0,
+    "by_category": {
+      "issue": 1,
+      "unknown": 1
+    },
+    "by_phase": {
+      "01": 2
+    },
+    "current_milestone": {
+      "files": 1,
+      "items": 2
+    },
+    "archived": {
+      "files": 0,
+      "items": 0,
+      "by_milestone": {}
+    }
+  },
+  "acknowledged_files": 0
+}
