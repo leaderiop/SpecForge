@@ -113,6 +113,34 @@ fn strict_records_a_deviation_window() {
 }
 
 #[test]
+fn a_second_run_does_not_duplicate_an_untriaged_proposal() {
+    let p = with_source(&busy("add", 16));
+    p.settings(serde_json::json!({ "refactor.trigger_strict": true }));
+    assert_eq!(gsd(&p, "propose-refactor", &[PHASE]).code, 0);
+    let before = bytes(&p);
+    let run = gsd(&p, "propose-refactor", &[PHASE]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("untriaged") && run.all().contains("RP1"),
+        "{}",
+        run.all()
+    );
+    unchanged(&p, &before);
+    // Disposed, the function is no longer frozen.
+    assert_eq!(
+        gsd(
+            &p,
+            "dispose-refactor",
+            &["v1.0/01/RP1", "declined", "ada", "--reason", "later"]
+        )
+        .code,
+        0
+    );
+    assert_eq!(gsd(&p, "propose-refactor", &[PHASE]).code, 0);
+    assert_eq!(p.fields_of("v1.0/01/RP2")["target_function"], "add");
+}
+
+#[test]
 fn dispose_is_refused_twice() {
     let p = project("verify");
     let run = gsd(&p, "dispose-refactor", &["RP1", "declined", "ada"]);

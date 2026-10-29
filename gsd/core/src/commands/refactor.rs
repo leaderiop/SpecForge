@@ -110,16 +110,46 @@ fn propose(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .filter(|(_, a)| a.functions.is_err())
         .map(|((path, _), _)| *path)
         .collect();
-    let candidates = complexity::evaluate(&analyzed, &baselines(call), threshold, jump);
+    // One open proposal per function: while one is untriaged the function is frozen (upstream's anchor freeze), so a
+    // second run, or the hook of r44, records neither another proposal nor, under strict, another window.
+    let untriaged: BTreeMap<String, &str> = call
+        .graph()
+        .nodes()
+        .iter()
+        .filter(|n| n.kind == "refactor_proposal" && !n.has_field("disposition"))
+        .filter_map(|n| {
+            Some((
+                format!("{}::{}", n.text("target_file")?, n.text("target_function")?),
+                n.id.as_str(),
+            ))
+        })
+        .collect();
+    let mut candidates = complexity::evaluate(&analyzed, &baselines(call), threshold, jump);
+    let frozen: Vec<String> = candidates
+        .iter()
+        .filter_map(|c| {
+            untriaged
+                .get(&format!("{}::{}", c.file, c.name))
+                .map(|id| format!("{id} ({} in {})", c.name, c.file))
+        })
+        .collect();
+    candidates.retain(|c| !untriaged.contains_key(&format!("{}::{}", c.file, c.name)));
     let Some(target) = candidates.first() else {
         return Ok(answer(
             call,
-            json!({ "wrote": [], "files": files.len(), "skipped": skipped, "candidates": [] }),
-            format!(
-                "nothing crosses: {} file(s) scored in phase {}, threshold {threshold}, jump {jump}\n",
-                files.len(),
-                phase.id
-            ),
+            json!({ "wrote": [], "files": files.len(), "skipped": skipped, "candidates": [], "untriaged": frozen }),
+            if frozen.is_empty() {
+                format!(
+                    "nothing crosses: {} file(s) scored in phase {}, threshold {threshold}, jump {jump}\n",
+                    files.len(),
+                    phase.id
+                )
+            } else {
+                format!(
+                    "nothing new: untriaged proposal(s) {}: dispose them first\n",
+                    frozen.join(", ")
+                )
+            },
             None,
         ));
     };
