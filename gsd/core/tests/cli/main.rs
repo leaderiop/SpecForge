@@ -2,6 +2,7 @@
 
 mod agents;
 mod cmd_attest;
+mod cmd_digest;
 mod cmd_execute;
 mod cmd_milestone;
 mod cmd_phase;

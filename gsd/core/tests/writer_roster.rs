@@ -3,7 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use gsd_core::commands::{UNWRITTEN, WRITERS};
+use gsd_core::commands::WRITERS;
 
 fn harness_fields() -> BTreeSet<(String, String)> {
     let text = std::fs::read_to_string(concat!(
@@ -41,24 +41,10 @@ fn every_h_field_has_one_writer() {
         .iter()
         .map(|(k, f, _)| (k.to_string(), f.to_string()))
         .collect();
-    let unwritten: Vec<(String, String)> = UNWRITTEN
-        .iter()
-        .map(|(k, f)| (k.to_string(), f.to_string()))
-        .collect();
-    let mut listed: BTreeSet<(String, String)> = rows.iter().cloned().collect();
+    let listed: BTreeSet<(String, String)> = rows.iter().cloned().collect();
     assert_eq!(listed.len(), rows.len(), "a field has two writer rows");
-    for field in &unwritten {
-        assert!(
-            listed.insert(field.clone()),
-            "{field:?} is both written and unwritten"
-        );
-    }
     assert_eq!(listed, declared, "the rows and the H fields differ");
-    assert_eq!(
-        (WRITERS.len(), UNWRITTEN.len()),
-        (30, 3),
-        "30 fields have a writer, 3 wait for a kernel answer"
-    );
+    assert_eq!(WRITERS.len(), 33, "every H field has a writer");
 }
 
 #[test]
