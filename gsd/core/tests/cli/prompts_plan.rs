@@ -30,7 +30,6 @@ fn plan_phase_steps_and_gates() {
         .iter()
         .map(|s| s["id"].as_str().expect("an id"))
         .collect();
-    // The `execute` step (the prompt execute_phase) comes with that prompt.
     assert_eq!(
         steps,
         [
@@ -39,7 +38,8 @@ fn plan_phase_steps_and_gates() {
             "patterns",
             "plan",
             "check",
-            "record_verdict"
+            "record_verdict",
+            "execute"
         ]
     );
     assert_eq!(

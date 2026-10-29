@@ -94,8 +94,20 @@ fn substitute_arguments(text: &str, arguments: &str) -> String {
 /// The text of the prompt, or why it cannot be built.
 pub fn render(input: &Input<'_>) -> Result<String, String> {
     let path = format!("commands/gsd/{}.md", input.command);
-    let command = assets::get(&path).ok_or_else(|| format!("no command file '{path}'"))?;
-    Ok(assemble(without_notice(command), input))
+    if let Some(command) = assets::get(&path) {
+        return Ok(assemble(without_notice(command), input));
+    }
+    // A workflow upstream runs only as a sub-workflow (`execute-plan`) has no command file: the prompt wraps it.
+    let workflow = format!("gsd-core/workflows/{}.md", input.command);
+    assets::get(&workflow).ok_or_else(|| format!("no command file '{path}'"))?;
+    Ok(assemble(&wrapper(&workflow), input))
+}
+
+/// The command body of a prompt that is only a workflow.
+fn wrapper(workflow: &str) -> String {
+    format!(
+        "<objective>\nRun the workflow below end-to-end.\n</objective>\n\n<execution_context>\n@~/.claude/{workflow}\n</execution_context>\n\n<context>\nArguments: $ARGUMENTS\n</context>\n\n<process>\nExecute the workflow end-to-end. Preserve all its gates.\n</process>\n"
+    )
 }
 
 /// [`render`] over the text of the command file.

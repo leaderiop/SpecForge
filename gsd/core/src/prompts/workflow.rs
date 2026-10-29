@@ -15,10 +15,6 @@ pub enum Do {
     /// Run the command `id` of this extension.
     Command(&'static str),
     /// Continue with the prompt `id`.
-    #[allow(
-        dead_code,
-        reason = "discuss_phase and the later prompts continue into one another"
-    )]
     Prompt(&'static str),
 }
 
@@ -85,12 +81,22 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
     Ok(PromptOutput::user(text))
 }
 
+/// The upstream file the prompt is ported from: its command, or the workflow when upstream has no command for it.
+fn source_path(spec: &Spec) -> String {
+    let command = format!("commands/gsd/{}.md", spec.command);
+    if super::assets::get(&command).is_some() {
+        command
+    } else {
+        format!("gsd-core/workflows/{}.md", spec.command)
+    }
+}
+
 /// Declares the prompt of `spec` and, when it has one, its slash command.
 pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
     c.prompt(spec.id, |p| {
         p.title(spec.title)
             .description(spec.description)
-            .attribution(attribution(&format!("commands/gsd/{}.md", spec.command)));
+            .attribution(attribution(&source_path(spec)));
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {
             p.subject(subject);

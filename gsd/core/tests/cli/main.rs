@@ -38,6 +38,7 @@ mod plan;
 mod plan_rules;
 mod progress;
 mod prompts_discuss;
+mod prompts_execute;
 mod prompts_plan;
 mod prompts_project;
 mod prompts_spec;

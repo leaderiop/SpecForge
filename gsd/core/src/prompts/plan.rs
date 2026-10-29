@@ -62,6 +62,11 @@ const STEPS: &[Step] = &[
         title: "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
         does: Do::Command("record_verdict"),
     },
+    Step {
+        id: "execute",
+        title: "Continue with the execution of the phase (the prompt execute_phase)",
+        does: Do::Prompt("execute_phase"),
+    },
 ];
 
 /// Upstream's hint, with the phase required (the subject scopes the gates).
@@ -148,6 +153,19 @@ static PLAN_REVIEW_CONVERGENCE: Spec = Spec {
     tail: None,
 };
 
+const ULTRAPLAN_STEPS: &[Step] = &[
+    Step {
+        id: "check",
+        title: "Check the imported plans against the phase goal (gsd-plan-checker)",
+        does: Do::Agent("gsd-plan-checker"),
+    },
+    Step {
+        id: "record_verdict",
+        title: "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')",
+        does: Do::Command("record_verdict"),
+    },
+];
+
 static ULTRAPLAN_PHASE: Spec = Spec {
     id: "ultraplan_phase",
     title: "Offload planning to Claude Code's ultraplan cloud",
@@ -156,7 +174,7 @@ static ULTRAPLAN_PHASE: Spec = Spec {
     args: &[Arg::reference("phase", "phase")],
     subject: Some("phase"),
     gates: &["E201", "W204", "E206", "W406", "E516"],
-    steps: &[],
+    steps: ULTRAPLAN_STEPS,
     slash: Some(Slash {
         hint: "<phase>",
         tools: &["read", "shell", "search"],
