@@ -1,7 +1,9 @@
 //! The commands of `@gsd/core` (K5): the writing commands the workflows call. r40 builds `record_verdict`; r41
 //! builds the others, each file the commands of one family (D-r41-2).
 
+mod complexity;
 mod execute;
+mod refactor;
 mod state;
 mod support;
 mod verdict;
@@ -16,4 +18,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify::declare(c);
     state::declare(c);
     windows::declare(c);
+    refactor::declare(c);
 }
