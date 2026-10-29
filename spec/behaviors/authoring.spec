@@ -327,6 +327,8 @@ behavior apply_edit_plan "Apply an Edit Plan" {
   verify unit "a plan is all or nothing, the ledger included"
   verify unit "two plans on disjoint files both land with their ledger lines"
   verify unit "a plan may not write a computed value"
+  verify unit "a plan echoing a computed value its graph carries is refused"
+  verify unit "a plan echoing a verdict-given value its graph carries is refused"
   verify unit "a harness value is set only by a plan of its extension or of a peer"
   verify unit "a plan from a command that does not declare writes, or that failed, is not applied"
   verify unit "a plan renames in order and re-keys the ledger once"

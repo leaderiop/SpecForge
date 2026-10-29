@@ -114,7 +114,12 @@ fn core() -> ContributionsBuilder {
         ..ExtensionMeta::new(CORE, "0.4.0")
     });
     c.raw_category(DeclaredCategory::Entities, super::gsd_writes_wire());
-    c.raw_category(DeclaredCategory::Passes, super::gsd::gsd_history_passes());
+    let mut passes = super::gsd::gsd_history_passes();
+    passes
+        .as_array_mut()
+        .expect("an array")
+        .push(json!({"name": "seen", "phase": "compute", "computes": ["override.seen"]}));
+    c.raw_category(DeclaredCategory::Passes, passes);
     c.raw_category(DeclaredCategory::Settings, settings());
     c.raw_category(DeclaredCategory::Surfaces, surfaces());
     c
@@ -152,6 +157,16 @@ fn handle(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
             )})
         }
         "__pass_verify_status" => json!({"diagnostics": [], "summary": {}, "values": []}),
+        // The human-only `override` O1 gets a computed value only once another entity says `EDITED`: a derived value
+        // a person did not write, which changes with an edit of someone else's entity.
+        "__pass_seen" => {
+            let values = if input.to_string().contains("EDITED") {
+                json!([{"entity": "O1", "field": "seen", "value": "yes"}])
+            } else {
+                json!([])
+            };
+            json!({"diagnostics": [], "summary": {}, "values": values})
+        }
         "hook__write_guard" => write_guard(&input),
         "hook__injection_scan" => {
             if input["response"].to_string().contains("IGNORE PREVIOUS") {

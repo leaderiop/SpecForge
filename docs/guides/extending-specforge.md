@@ -396,7 +396,11 @@ agents as the MCP tool `specforge.greet.greetings`.
   over MCP) and your own layout otherwise. `call.fail` writes an error in
   the same format.
 - **The graph is all a command reads.** The export gets no file system, no
-  environment and no network; `call.today()` is the host's date.
+  environment and no network; `call.today()` is the host's date. The graph
+  carries each entity's computed values (as fields) and its judgements (ADR
+  0299), so a command reads a `status` a pass derived. It never writes one: a
+  plan that sets a computed field is refused `computed_field`, even with the
+  value it read.
 
 `c.mcp_tool` and `c.mcp_resource` declare an explicit MCP tool or resource
 the same way, with a handler taking the tool's arguments or the resource's

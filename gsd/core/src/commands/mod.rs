@@ -2,11 +2,13 @@
 //! builds the others, each file the commands of one family (D-r41-2).
 
 mod complexity;
+mod digest;
 mod execute;
 mod help;
 mod milestone;
 mod phase;
 mod refactor;
+mod reports;
 mod state;
 mod support;
 pub(crate) use support::natural;
@@ -43,6 +45,9 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("refactor_proposal", "reasons", "propose_refactor"),
     ("refactor_proposal", "candidates", "propose_refactor"),
     ("refactor_proposal", "disposition", "dispose_refactor"),
+    ("phase_spec", "context_digest", "record_spec"),
+    ("research", "context_digest", "record_research"),
+    ("validation", "context_digest", "record_validation"),
     ("commit", "hash", "gsd-git"),
     ("commit", "task", "gsd-git"),
     ("commit", "plan", "gsd-git"),
@@ -55,19 +60,9 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("commit", "deletions", "gsd-git"),
 ];
 
-/// The harness fields no command writes yet: a command cannot read the computed `digest` of a phase's context (the
-/// graph a command receives carries no computed field), so `record_research`, `record_spec` and `record_validation`
-/// wait for a kernel answer (K18). Until then NOBODY can write a `context_digest`: a harness field is refused for
-/// every origin but a command of its extension (E083 for a hand edit), and no command writes it. So a new research,
-/// phase spec or validation carries no digest, the drift pass skips it, and W406 is inert for it.
-pub const UNWRITTEN: &[(&str, &str)] = &[
-    ("phase_spec", "context_digest"),
-    ("research", "context_digest"),
-    ("validation", "context_digest"),
-];
-
 pub fn declare(c: &mut ContributionsBuilder) {
     verdict::declare(c);
+    digest::declare(c);
     execute::declare(c);
     verify::declare(c);
     state::declare(c);
@@ -77,5 +72,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     phase::declare(c);
     workstreams::declare(c);
     help::declare(c);
+    reports::declare(c);
     surface::declare(c);
 }

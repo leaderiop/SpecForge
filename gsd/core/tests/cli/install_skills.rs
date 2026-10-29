@@ -4,11 +4,13 @@ use std::path::Path;
 
 use super::harness::project;
 
-const SKILLS: [&str; 5] = [
+const SKILLS: [&str; 7] = [
     "gsd-phase",
     "gsd-workstreams",
     "gsd-cleanup",
     "gsd-help",
+    "gsd-health",
+    "gsd-stats",
     "gsd-surface",
 ];
 

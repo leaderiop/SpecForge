@@ -276,13 +276,17 @@ behavior compute_field_values "Compute Field Values" {
   contract   """
     A pass declared with `phase: "compute"` names the fields it `computes` and answers `values` (ADR 0287). The
     compiled project holds them beside the graph; rules, checks, query, MCP, the language server and exports read
-    them as fields, marked computed. A computed field is never required and never scaffolded.
+    them as fields, marked computed, and so does the graph a command, a prompt, a hook or a writing collector
+    receives (ADR 0299). A computed field is never required and never scaffolded.
   """
   produces   []
   verify unit "a compute pass's value joins the snapshot beside the graph, which keeps the authored values"
   verify unit "a value the pass may not give is W165 and dropped"
   verify unit "a computed field or member is never required and never scaffolded"
   verify unit "every surface shows a computed value as a field and marks it computed"
+  verify unit "the graph a command and a writing collector receive carries the computed values"
+  verify unit "the graph a reads_graph hook receives carries the computed values"
+  verify unit "a call over a checked project runs no compute pass"
   verify unit "hover marks a computed field and completion offers none"
   verify unit "MCP inspect shows a computed value"
 }

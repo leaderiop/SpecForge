@@ -35,6 +35,8 @@ pub fn gsd_writes_wire() -> Value {
             {"name": "by", "field_type": "string"},
             {"name": "at", "field_type": "string"},
             {"name": "phase", "field_type": "reference", "target_kind": "phase"},
+            // A value the `seen` pass derives (the hosts fixture answers it once a spec says `EDITED`).
+            {"name": "seen", "field_type": "string", "writer": "computed"},
         ]}),
         // A block list one of whose members is written by a person.
         json!({"name": "reviewed", "keyword": "reviewed", "fields": [
@@ -143,7 +145,12 @@ impl GsdWrites {
         } else {
             runtime.with(move || core(guard))
         };
-        let mut runtime = runtime.with(ui).with(other).answer_raw(
+        let mut runtime = runtime.with(ui).with(other);
+        // The first answer to an export wins: a test's own comes before the empty default.
+        for (extension, export, result) in self.answers {
+            runtime = runtime.answer_raw(&extension, &export, result);
+        }
+        runtime = runtime.answer_raw(
             CORE,
             "__pass_verify_status",
             WasmCallResult::Ok(
@@ -152,9 +159,6 @@ impl GsdWrites {
                     .into_bytes(),
             ),
         );
-        for (extension, export, result) in self.answers {
-            runtime = runtime.answer_raw(&extension, &export, result);
-        }
         runtime
     }
 }

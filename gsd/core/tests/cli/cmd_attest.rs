@@ -3,7 +3,7 @@
 //!
 //! The model: the caller RECORDS what the person said, as upstream's agent does. `--by` is the caller's attestation,
 //! never a proof of a person, so any non-empty name records. These tests pin that (live), and carry the desired
-//! behaviour as ignored twins until the kernel has a human-attested command kind (K18).
+//! behaviour as ignored twins until the kernel has a human-attested command kind (K19).
 
 use super::cmd_execute::{CHECKPOINT, SETUP};
 use super::commands_support::*;
@@ -107,9 +107,9 @@ fn an_empty_by_is_refused() {
     }
 }
 
-/// The desired behaviour (K18): a command of a human-attested kind refuses an agent-facing call, whatever `--by`.
+/// The desired behaviour (K19): a command of a human-attested kind refuses an agent-facing call, whatever `--by`.
 #[test]
-#[ignore = "K18: human-attested"]
+#[ignore = "K19: human-attested"]
 fn a_human_attested_command_refuses_an_agent_call() {
     for case in cases() {
         let p = (case.project)();
@@ -126,10 +126,10 @@ fn a_human_attested_command_refuses_an_agent_call() {
     }
 }
 
-/// The desired behaviour (K18): a gate that a person's answer satisfies (W404's `tdd_review`) is not opened by an
+/// The desired behaviour (K19): a gate that a person's answer satisfies (W404's `tdd_review`) is not opened by an
 /// agent's call.
 #[test]
-#[ignore = "K18: human-attested"]
+#[ignore = "K19: human-attested"]
 fn an_agents_answer_does_not_satisfy_the_tdd_review_gate() {
     let p = project("execute");
     p.settings(serde_json::json!({ "profile": "gsd-strict", "workflow.tdd_mode": true }));

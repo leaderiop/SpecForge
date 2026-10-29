@@ -136,3 +136,23 @@ fn the_spec_guard_waits_for_a_text_that_parses() {
         "{run:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "run_a_hook",
+    verify = "the spec guard compares a person's entity as written, not with the values a pass derived"
+)]
+fn the_spec_guard_ignores_a_derived_value_on_a_persons_entity() {
+    let project = hosts_project(json!({}), json!({}));
+    project.write(
+        "o.spec",
+        "override O1 \"Waive\" {\n  by \"a person\"\n  phase 03\n}\n",
+    );
+    let hosted = hosted(project, GsdHosts::new());
+    // The edit of another entity makes the `seen` pass give O1 a value: O1 is not a person's change.
+    let run = run_core_hook(
+        &hosted,
+        "spec_guard",
+        &edit(&hosted, "m.spec", "\"Ship\"", "\"EDITED\""),
+    );
+    assert!(run.answer["decision"].is_null(), "{run:?}");
+}

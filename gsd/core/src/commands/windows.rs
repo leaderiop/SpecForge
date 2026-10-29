@@ -64,8 +64,8 @@ fn open_window<'a>(
     doing: &str,
 ) -> Result<&'a GraphNode, String> {
     let window = node(call, "broken_window", required(call, arg)?)?;
-    // The computed `status` is not in a command's graph (P7): it is read from the authored fields, as the derive pass
-    // does. A window whose refactor proposal is disposed is resolved: accepted fixes it, declined waives it.
+    // The status is read from the authored fields, as the derive pass does, so the command and the pass agree. A
+    // window whose refactor proposal is disposed is resolved: accepted fixes it, declined waives it.
     let outcome = window
         .text("refactor")
         .and_then(|r| call.graph().node(r))

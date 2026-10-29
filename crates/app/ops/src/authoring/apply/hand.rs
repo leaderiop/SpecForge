@@ -7,14 +7,15 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 use specforge_protocol_types::FieldWriter;
 
-use crate::extension::command::graph_export;
+use crate::extension::command::authored_export;
 use crate::view::ProjectView;
 
-/// The graph export's entities by id, without what a move of the text changes (`file`, `line`) or a compile derives
-/// from other entities (`coverage_status`, `judgements`, and every field a compute pass, the harness or a verdict
-/// gives: those change when another entity does, never by a person's hand).
+/// The authored export's entities by id (what a person wrote, never what a pass derived), without what a move of the
+/// text changes (`file`, `line`) or a compile derives from other entities (`coverage_status`, `judgements`, and every
+/// field a compute pass, the harness or a verdict gives: those change when another entity does, never by a person's
+/// hand).
 fn entities(view: &ProjectView<'_>) -> BTreeMap<String, Value> {
-    let export: Value = serde_json::from_str(&graph_export(view)).unwrap_or(Value::Null);
+    let export: Value = serde_json::from_str(&authored_export(view)).unwrap_or(Value::Null);
     let mut out = BTreeMap::new();
     for mut node in export["nodes"].as_array().cloned().unwrap_or_default() {
         if let Some(map) = node.as_object_mut() {

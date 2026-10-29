@@ -183,7 +183,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     command_declared "The command is one an extension the project enables declares in its surfaces, read when the project's environment loaded"
   }
   ensures {
-    args_serialized                    "Command arguments, the project root (absolute and canonical, the same on both surfaces) and the graph are serialized as JSON and passed to the cmd__ export"
+    args_serialized                    "Command arguments, the project root (absolute and canonical, the same on both surfaces) and the graph (with its computed values and each entity's judgements) are serialized as JSON and passed to the cmd__ export"
     sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, arguments, stdin or network), whatever sandbox override its declaration asks for"
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the caller"

@@ -28,6 +28,8 @@ fn help_lists_the_slash_commands_and_the_prompt() {
         "/gsd-workstreams",
         "/gsd-cleanup",
         "/gsd-help",
+        "/gsd-health",
+        "/gsd-stats",
         "/gsd-surface",
     ] {
         assert!(slashes.contains(&want), "{want} in {slashes:?}");

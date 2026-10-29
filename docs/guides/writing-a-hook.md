@@ -49,7 +49,7 @@ A sandboxed guest cannot read files or run commands, so the host computes what a
 - `shell`: a shell tool's command as words (POSIX quoting; a command the host cannot split gives none);
 - `commit`: the message (absent when it is not given with `-m`) and whether it amends;
 - `prompt`, `response`, `status`: what the host sent for those events;
-- `graph` (`reads_graph`), `revisions` (`writes`) and `state` (`reads_state`), only when declared.
+- `graph` (`reads_graph`; with computed values and judgements, ADR 0299), `revisions` (`writes`) and `state` (`reads_state`), only when declared.
 
 ## Answers
 

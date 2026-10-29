@@ -557,7 +557,7 @@ a command, commands first; a prompt whose name is taken is E039 and runs on no s
   tool and CLI line with the state of its gate now. A prompt is not a contract: an agent may skip a step, and only a
   command's own gate refuses.
 - **`when`** names a bool setting of the extension; while it is false the prompt is neither listed nor served.
-- **`reads_graph`** sends the export the graph, as a command's. Absent, a workflow reads through tools.
+- **`reads_graph`** sends the export the graph, as a command's, with its computed values and judgements (ADR 0299). Absent, a workflow reads through tools.
 - **Rendering.** The `prompt__` export receives `PromptInput` and answers at least one message. The host appends one
   message of its own: the prompt as `@ext@version:id`, a `sha256:` digest of the export's message texts, the
   attribution, the subject's full path and each step with its tool, command line and gate. `specforge.prompt` returns
@@ -639,7 +639,7 @@ neither). An entity's `id`, and an edge's `source` and `target`, are entity path
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
-A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface; a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
+A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 
 **File reads (1.11.0, ADR 0293).** A pass or a command may declare `reads`, a list of `{"name", "field"?, "glob"?,
 "base"?, "text"?}`: the project files it wants the host to read, because a guest has no file system. Exactly one of
@@ -769,12 +769,12 @@ Every call but the handshake and describe also carries the extension's own `sett
 |---|---|---|---|
 | Handshake | `__handshake` | `HandshakeRequest` `{"host_version"}` | `HandshakeResponse` |
 | Describe | `__describe` | `DescribeRequest` `{"category"}` | `DescribeResponse` `{"category", "items"}` |
-| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "graph", "revisions"?, "files"?}`; `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293) | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
-| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?}`; `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}]}`, at least one |
+| Command | the command's `export` (`cmd__<id>`) | `CommandInput` `{"args", "cwd", "format", "today", "now"?, "graph", "revisions"?, "files"?}`; `graph` carries computed values and judgements (ADR 0299); `cwd` is the project root, absolute and canonical; `now` is `YYYY-MM-DDTHH:MM:SSZ` (1.11.0, ADR 0294) and `files` holds the command's declared reads (1.11.0, ADR 0293) | `CommandOutput` `{"exit_code", "stdout"?, "stderr"?, "plan"?}` |
+| Prompt | the prompt's `export` (`prompt__<id>`) | `PromptInput` `{"args", "cwd", "today", "graph"?, "host"?}`; `graph` carries computed values and judgements (ADR 0299); `args` are typed, a reference its full path; `host` is `claude-code`, `codex` or `cursor` when known | `PromptOutput` `{"messages": [{"role": "user" or "assistant", "text"}]}`, at least one |
 | MCP tool | the tool's `export` (`mcp__<name>`) | the JSON its `input_schema` describes | the JSON its `output_schema` describes |
 | MCP resource | the resource's `export` (`mcp__<name>`) | `McpResourceRequest` `{"uri"}` | `McpResourceContent` `{"content", "mime_type"}` |
 | Compiler pass | `__pass_<name>` | `PassInput` | `PassAnswer`: `[PassDiagnostic]` or `{"diagnostics", "summary"?}` |
-| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "now"?, "graph", "revisions"}`) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
+| Collector | the collector's `export` (`collect__<name>`) | `CollectInput` (a writing collector: `{"reports", "stdout"?, "cwd", "today", "now"?, "graph", "revisions"}`; `graph` carries computed values and judgements, ADR 0299) | `CollectOutput` (`{"entity_results", "unlinked"?, "plan"?}`) |
 | Custom validator | the rule's `wasm_function` (`validate__<code>`) | `ValidatorContext` `{"entity", "referenced", "declared_types", "primitives"}` | `ValidatorVerdict` `{"verdict": "pass"}` or `{"verdict": "fail", "field"?, "value"?}` |
 | Scanner | the analyzer's `scan_export` (`scan__<language>`) | `ScanRequest` `{"file_path", "content"}` | `ScanResponse` `{"items": [{"name", "item_kind", "line", "visibility"?, "signature"?}], "language"?}` |
 | Migration hook | the handshake's `migration_hook` | `MigrationInput` `{"from", "to", "files"}` | not read |

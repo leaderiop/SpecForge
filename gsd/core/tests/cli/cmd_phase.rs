@@ -7,7 +7,7 @@ use super::harness::{Project, project};
 
 /// A milestone of phases 01 to 12, `05.1` inserted and `999.1` in the backlog; phases 05 to 12 have a plan `NN-01` and
 /// a context `NN-CONTEXT`, each depending on the one before.
-fn twelve() -> Project {
+pub(super) fn twelve() -> Project {
     let p = project("empty");
     let mut text = String::from("milestone v1.0 \"M\" {\n  name \"M\"\n}\n\n");
     let phase = |name: &str, depends: &str| {
