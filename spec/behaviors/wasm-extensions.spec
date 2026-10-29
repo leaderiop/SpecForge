@@ -1006,6 +1006,7 @@ behavior answer_edit_plan "Answer an Edit Plan" {
     it answers after the report. An extension holds no file system and no lock.
   """
   verify unit "a writing collector receives the graph and its plan is applied after the report"
+  verify unit "a writing collectors plan is judged against the report its collect wrote"
 }
 
 behavior run_guard_passes "Run Guard Passes" {

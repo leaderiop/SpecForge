@@ -277,6 +277,7 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "every verb's graph change is what it declares"
   verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
+  verify unit "a judged rules finding is no error a write adds"
   verify unit "a value holding a control character is refused not_editable and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"
@@ -397,4 +398,6 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "the command line writes a human-only value from a terminal and refuses it without one"
   verify unit "a human-only or computed member is refused in the value of a set, append or create"
   verify unit "a delete that unlinks references and a rename do not change a human-only entity"
+  verify unit "an agents set, unset or link of an existing human-only entity is refused"
+  verify unit "an agents delete of an entity holding a persons value is refused"
 }

@@ -105,6 +105,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a hand-written verdict counts as missing"
   verify unit "a verdict is a value of the ledger: set records it, a respelling keeps it, a move re-keys it"
   verify unit "a judged rule reports missing, stale and failed verdicts"
+  verify unit "a failing verdict on an error rule is recorded"
   verify unit "a stale verdict names the inputs that changed"
   verify unit "test inputs are not judged without a report"
   verify unit "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"

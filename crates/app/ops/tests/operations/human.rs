@@ -53,12 +53,24 @@ fn typed(
     p: &specforge_project::testing::TestProject,
     edits: &[specforge_ops::authoring::edit::Edit],
 ) -> Option<String> {
+    typed_as(
+        p,
+        edits,
+        &specforge_ops::authoring::apply::testing::origin(),
+    )
+}
+
+fn typed_as(
+    p: &specforge_project::testing::TestProject,
+    edits: &[specforge_ops::authoring::edit::Edit],
+    origin: &specforge_ops::authoring::apply::Origin,
+) -> Option<String> {
     let compile = p.compile_in(Arc::new(GsdWrites::new().runtime()));
     specforge_ops::authoring::edit::run(
         &ProjectView::of(&compile),
         edits,
         true,
-        &specforge_ops::authoring::apply::testing::origin(),
+        origin,
         specforge_ops::testing::caller(),
     )
     .err()
@@ -149,4 +161,55 @@ fn a_delete_that_unlinks_and_a_rename_do_not_change_a_human_only_entity() {
     .unwrap_err();
     assert_eq!(error.error.code, "human_only");
     assert!(p.read("o.spec").contains("phase v1.0/04"));
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "an agents set, unset or link of an existing human-only entity is refused"
+)]
+#[ignore = "pins K17; T6 un-ignores"]
+fn an_agents_edit_of_an_existing_human_only_entity_is_refused() {
+    use crate::edit::{link, one, set, unset};
+    use specforge_ops::authoring::apply::Origin;
+    let p = project().file(
+        "o.spec",
+        "override O1 \"O\" {\n  by \"me\"\n  phase 03\n}\n",
+    );
+    let human = |code: Option<String>, what: &str| {
+        assert_eq!(code.as_deref(), Some("human_only"), "{what}")
+    };
+    human(typed(&p, &[set("O1", "at", one("now"))]), "set");
+    human(typed(&p, &[unset("O1", "by")]), "unset");
+    human(typed(&p, &[link("O1", "phase", "03")]), "link");
+    // A person at a terminal edits it.
+    let terminal = Origin::cli(true);
+    assert_eq!(
+        typed_as(&p, &[set("O1", "at", one("now"))], &terminal),
+        None
+    );
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "an agents delete of an entity holding a persons value is refused"
+)]
+#[ignore = "pins K17; T6 un-ignores"]
+fn an_agents_delete_of_an_entity_holding_a_persons_value_is_refused() {
+    use specforge_ops::authoring::apply::Origin;
+    use specforge_ops::authoring::edit::Edit;
+    let delete = |id: &str| Edit::Delete {
+        entity_id: id.into(),
+        unlink_references: false,
+    };
+    let p = project()
+        .file(
+            "r.spec",
+            "reviewed R \"R\" {\n  approvals [\n    {\n      by \"me\"\n    }\n  ]\n}\n",
+        )
+        .file("r2.spec", "reviewed R2 \"R2\" {}\n");
+    let before = p.read("r.spec");
+    assert_eq!(typed(&p, &[delete("R")]).as_deref(), Some("human_only"));
+    assert_eq!(p.read("r.spec"), before);
+    assert_eq!(typed(&p, &[delete("R2")]), None);
+    assert_eq!(typed_as(&p, &[delete("R")], &Origin::cli(true)), None);
 }
