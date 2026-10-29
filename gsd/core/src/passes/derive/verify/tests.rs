@@ -273,3 +273,12 @@ fn a_truth_with_no_verdict_is_never_passed() {
     let out = run(&input(vec![truth(1, vec![])], vec![]));
     assert_ne!(of(&out, "status"), Some(json!("passed")));
 }
+
+#[test]
+fn the_scan_verifies_only_a_wired_key_link() {
+    let state = |kind, scan| item_state(kind, scan, Item::Unknown, false);
+    assert_eq!(state("key_link", Some("wired")), Item::Verified);
+    assert_eq!(state("key_link", Some("unchecked")), Item::Unknown);
+    assert_eq!(state("key_link", Some("not_wired")), Item::Failed);
+    assert_eq!(state("artifact", Some("present")), Item::Unknown);
+}

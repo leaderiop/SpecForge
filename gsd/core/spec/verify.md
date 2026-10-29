@@ -49,7 +49,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
 | deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:` |
-| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
+| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, except that a key link whose literal `pattern` it found is verified; a regular-expression pattern is `unchecked` and keeps the phase `pending`), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |

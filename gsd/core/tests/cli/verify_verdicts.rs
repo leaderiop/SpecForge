@@ -77,7 +77,7 @@ fn a_key_link_with_a_pattern_is_not_judged() {
     p.edit(
         "spec/plans.spec",
         "  from \"test/tasks.test.js\"\n  to   \"src/tasks.js\"\n  via  \"require\"\n",
-        "  from \"test/tasks.test.js\"\n  to   \"src/tasks.js\"\n  via  \"require\"\n  pattern \"require\"\n",
+        "  from \"test/tasks.test.js\"\n  to   \"src/tasks.js\"\n  via  \"require\"\n  pattern \"node:test\"\n",
     );
     let judged_ids = e501(&p);
     assert!(
@@ -100,6 +100,30 @@ fn a_key_link_with_a_pattern_is_not_judged() {
         p.inputs("v1.0/01/01-02/KL1", "E501")["verdict"]["state"],
         "missing"
     );
+    // M1 (r40 review): the pattern the scan finds is the link's pass, so the five judged items make the phase `passed`.
+    assert_eq!(p.fields_of("v1.0/01/01-01/KL1")["state"], "wired");
+    assert_eq!(verification(&p)["status"], "pending");
+    for item in ITEMS.iter().filter(|i| **i != "v1.0/01/01-01/KL1") {
+        verified(&p, item);
+    }
+    assert_eq!(verification(&p)["status"], "passed", "{}", verification(&p));
+}
+
+#[test]
+fn a_key_link_with_a_regex_pattern_stays_pending() {
+    // The scan cannot read a regular expression (`unchecked`), and E501 does not judge a patterned link, so such a
+    // link is neither a pass nor a failure: the phase waits (a literal pattern is the way out).
+    let p = bare();
+    p.edit(
+        "spec/plans.spec",
+        "  via  \"require\"\n}",
+        "  via  \"require\"\n  pattern \"import.*tasks\"\n}",
+    );
+    assert_eq!(p.fields_of("v1.0/01/01-01/KL1")["state"], "unchecked");
+    for item in ITEMS.iter().filter(|i| **i != "v1.0/01/01-01/KL1") {
+        verified(&p, item);
+    }
+    assert_eq!(verification(&p)["status"], "pending");
 }
 
 #[test]

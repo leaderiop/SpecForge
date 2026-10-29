@@ -1,9 +1,11 @@
 //! The computed values of verification (`spec/verify.md`, D-r39-7): a verification's status, score, time, covered files
 //! and re-verification, and a verify gap's status.
 //!
-//! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), `Failed` by a failing verdict
-//! or a scan finding (a file that is missing, short or lacks the text). The scan never verifies: that a file is there
-//! does not show it is substantive and wired. Verdicts are recorded by `record_verdict` (r40); an item with no fresh
+//! An item is `Verified` by a fresh passing `gsd/E501` verdict, an override (a truth) or, for a key link, a `pattern`
+//! the scan found (`wired`: the pass is the judgement, so E501 does not judge a patterned link). It is `Failed` by a
+//! failing verdict or a scan finding (a file that is missing, short or lacks the text). The scan verifies nothing
+//! else: that an artifact is there does not show it is substantive and wired. A regular-expression `pattern` the scan
+//! cannot read is `unchecked`, so the link stays `Unknown`. Verdicts are recorded by `record_verdict` (r40); an item with no fresh
 //! verdict is `Unknown` and keeps the verification from `passed`. A stale verdict is not a pass and not a failure.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -46,7 +48,7 @@ fn judged<'a>(mut rows: impl Iterator<Item = Row<'a>>) -> Item {
 }
 
 /// An item's state from what is known of it: its kind, the scan's `state`, its verdicts and whether a human overrode
-/// it. The scan can fail an item, never verify one.
+/// it. The scan can fail an item; it verifies only a key link whose `pattern` it found.
 pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: bool) -> Item {
     if overridden {
         return Item::Verified;
@@ -58,7 +60,13 @@ pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: boo
             Some("missing" | "too_short" | "lacks_contains" | "lacks_export")
         ) | ("key_link", Some("not_wired"))
     );
-    if failed { Item::Failed } else { verdict }
+    if failed {
+        Item::Failed
+    } else if (kind, scan) == ("key_link", Some("wired")) {
+        Item::Verified
+    } else {
+        verdict
+    }
 }
 
 fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {

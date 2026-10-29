@@ -560,8 +560,8 @@ fn an_issue_with_one_gap_resolved_and_one_open_is_not_complete() {
 
 #[test]
 fn present_files_alone_never_pass_a_verification() {
-    // Both truths overridden, the human item gone, the key links literal: the scan finds every file in order, yet
-    // that is no verdict (a file that is there is not shown substantive and wired).
+    // Both truths overridden, the human item gone, the key links literal and wired: the artifacts are present, yet
+    // that is no verdict (a file that is there is not shown substantive and wired), so the phase is not `passed`.
     let p = verify();
     p.edit("spec/verify.spec", "human_item HI1", "human_item HI1");
     let text = p.read("spec/verify.spec");
