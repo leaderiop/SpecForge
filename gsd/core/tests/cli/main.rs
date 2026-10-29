@@ -16,6 +16,7 @@ mod progress;
 mod roadmap;
 mod settings;
 mod verify_paths;
+mod verify_rules;
 mod verify_status;
 
 use harness::project;

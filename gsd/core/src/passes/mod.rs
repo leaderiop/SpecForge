@@ -7,6 +7,7 @@ mod drift;
 mod execute;
 mod fails_when;
 mod file_scope;
+mod nyquist;
 mod plan_shape;
 mod plans;
 mod research;
@@ -36,4 +37,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     scope::declare(c);
     verify_paths::declare(c);
     waves::declare(c);
+    nyquist::declare(c);
 }

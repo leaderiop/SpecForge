@@ -328,8 +328,8 @@
     {
       "code": "W510",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A planned phase has a validation, validated before verify. It is a warning, and an error under gsd-strict.",
-      "title": "Planned phase has no validated validation"
+      "explanation": "A planned phase whose research asks for a validation has one, approved before its verification. It is a warning, and an error under gsd-strict.",
+      "title": "Phase lacks a validation it needs"
     },
     {
       "code": "E511",

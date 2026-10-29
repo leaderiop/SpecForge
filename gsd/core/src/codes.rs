@@ -518,8 +518,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "W510",
-        "Planned phase has no validated validation",
-        "A planned phase has a validation, validated before verify",
+        "Phase lacks a validation it needs",
+        "A planned phase whose research asks for a validation has one, approved before its verification",
         "verify",
         Severity::Warning,
         Severity::Error,

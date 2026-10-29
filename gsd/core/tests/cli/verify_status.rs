@@ -141,13 +141,12 @@ fn a_validation_row_names_its_task() {
 #[test]
 fn approval_is_harness_written() {
     let p = verify();
-    let run = p.run(&["set", VALIDATION, "approval.by", "ada"]);
+    // The fixture's approval is blessed in the ledger.
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    let run = p.run(&["set", VALIDATION, "approval.by", "eve"]);
     assert_ne!(run.code, 0, "{}", run.all());
-    p.edit(
-        "spec/validation.spec",
-        "  max_latency_s 30\n",
-        "  max_latency_s 30\n  approval {\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n",
-    );
+    // A hand edit of the value no ledger line covers.
+    p.edit("spec/validation.spec", "by \"ada\"", "by \"eve\"");
     assert!(p.codes().contains(&"E083".to_string()), "{:?}", p.report());
 }
 

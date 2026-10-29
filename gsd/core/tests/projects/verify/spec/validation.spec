@@ -4,6 +4,10 @@ validation 01-VALIDATION "Phase 01 validation" {
   quick_cmd     "node --test"
   full_cmd      "node --test test/"
   max_latency_s 30
+  approval {
+    by "ada"
+    at "2026-10-29T11:00:00Z"
+  }
 }
 
 validation_row VR1 "The store is tested" {
