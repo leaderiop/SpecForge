@@ -1,6 +1,6 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/E202`, `gsd/W203` and `gsd/W205` over them wait for r40) and the nine kinds of [plan.md](plan.md) with their non-judged rules (r37); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/E202`, `gsd/W203` and `gsd/W205` over them wait for r40) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405`, `gsd/W407` and `gsd/W408` and the two collectors (r38); the rest is being designed. Tracks gsd-core 1.18.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 
@@ -166,7 +166,7 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
-| git history (no GSD file) | commit (written by the git collector, never by an agent) | core |
+| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities | core |
 | `WINDOWS.md` | broken_window | core |
 | `NN-REFACTOR.md` | refactor_proposal | core |
 | `quick/*` | plan, summary (a quick plan has no phase) | core |

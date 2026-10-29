@@ -95,7 +95,7 @@ GSD's `hooks/` become typed hook contributions (K9). `specforge install <host>` 
 | gsd-workflow-guard | `pre_tool` shell, write and edit outside a running workflow (`hooks.workflow_guard`); the running-workflow marker is session state set by a `user_prompt` hook that sees a `/gsd-…` prompt and cleared at `stop` |
 | gsd-context-monitor | `post_tool`, `stop`, `subagent_stop`, `pre_compact`: context warnings (`hooks.context_*`), its metrics kept in the extension's session state |
 | gsd-statusline | `statusline`, from the graph and the session state |
-| gsd-validate-commit | `pre_commit`: the commit subject convention the git collector reads |
+| gsd-validate-commit | `pre_commit`: the commit subject grammar the git collector reads, `{type}({phase}-{plan}): {task title}` (a fixup, squash or revert prefix is read through) |
 | gsd-phase-boundary | `post_tool` write on spec files: the session cursor follows the phase written |
 | gsd-session-state | `session_start`: the session cursor |
 | (core) `core.spec_guard` | wired by every install: `pre_tool` write on `.spec` refuses a raw write of a computed, harness or human-only value and names the command that writes it |

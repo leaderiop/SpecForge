@@ -169,7 +169,7 @@ are not evidence).
 ## Derivations, not rules
 
 These are computed fields, not checks; they are listed so the parity suite can compare them with GSD's own values:
-phase status, plan wave, `autonomous`, plan status (blocked by halt propagation), requirement status, milestone state,
+phase status (up to `executed`), plan wave, `autonomous`, plan and task status (blocked by halt propagation), a summary's duration, actuals and key files, a deliverable check's status, requirement status, milestone state,
 verification status, score and re-verification, UAT totals and status, validation status, audit status, broken-window status and the
 project's window counts, refactor proposal status, `STATE.md` progress.
 

@@ -1,5 +1,7 @@
 # Execution, results and state
 
+**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405`, `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
+
 ```
  plan ─1──0..1─ summary ─1──*─ deliverable
                    ├──*─ deviation
@@ -60,7 +62,7 @@ Written by the git collector, not by an agent: every field is `H` (a command's o
 refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
 explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
 own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
-task by its title. **There is no `GSD-Task:` trailer**: GSD has none, so a commit names its task by the subject alone,
+task by its title. A commit names its task by the subject alone (GSD has no trailer),
 and a commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
 only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
 write the same file), in the project scope, named by the first 12 hex digits of its hash.
