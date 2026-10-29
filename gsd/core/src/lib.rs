@@ -7,6 +7,7 @@ mod kinds;
 mod passes;
 mod rules;
 mod settings;
+mod time;
 
 use specforge_extension_sdk::prelude::*;
 

@@ -3,6 +3,7 @@
 mod collect;
 mod discuss;
 mod execute;
+mod execute_status;
 mod harness;
 mod parity_discuss;
 mod parity_plans;

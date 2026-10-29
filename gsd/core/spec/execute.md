@@ -32,9 +32,9 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | next_readiness | str | | `## Next Phase Readiness` |
 | halted_because | str | | required when `status halted` |
 | started, completed | ts | H | `completed:`; written by the command that opens and closes the plan, with the host's clock (`now`, protocol 1.11.0, K14) |
-| duration | str | C | `duration:`: `completed` − `started` |
-| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits. GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
-| files_created, files_modified | strs | C | `key-files:`: from the plan's commits. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |
+| duration | str | C | `duration:`: `completed` − `started`, as `45 min` under an hour and `1h 5m` from there; absent until both are recorded |
+| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits (0 with none). GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
+| files_created, files_modified | strs | C | `key-files:`: from the plan's commits: `created` is the sorted union of their `created`, `modified` the other paths they touch; both absent with no commit. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |
 
 ## deliverable
 
@@ -43,7 +43,9 @@ GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R, status enum{pass, fail, unknown} C}`.
 Each check's `status` is a **computed member** of an authored block: the derive pass lists it as `deliverable.checks.status`
 (`dsl::computed`), and a status written inside `checks` is E082. It is computed from the test report (K12: a compute pass
-that declares `reads_tests` receives it). A check's `ref` is GSD's own coverage reference, `path#test name`
+that declares `reads_tests` receives it): `fail` when a test named exactly its `ref` failed, `pass` when one passed, `unknown`
+when none was recorded, and no status without a report. Because the derive pass reads the report, a compile without
+`specforge-report.json` says I205 once. A check's `ref` is GSD's own coverage reference, `path#test name`
 (`test/tasks.test.js#adds a task`), or a test tagged with its entity (the test link, under commit below).
 
 ## deviation

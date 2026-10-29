@@ -157,8 +157,9 @@ impl Project {
         found
     }
 
-    /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`, the `I204` note
-    /// left out), in report order.
+    /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
+    /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
+    /// project that has none says I205 once, and the tests of the rules are not about that.
     pub fn report(&self) -> Vec<(String, String)> {
         let run = self.run(&["check", "--format", "json"]);
         let found: serde_json::Value = serde_json::from_str(&run.stdout)
@@ -171,11 +172,11 @@ impl Project {
                 let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
                 Some((d["code"].as_str()?.to_string(), text("message")))
             })
-            .filter(|(code, _)| code != "I204")
+            .filter(|(code, _)| code != "I204" && code != "I205")
             .collect()
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204` and `I205` left out), in report order.
     pub fn codes(&self) -> Vec<String> {
         self.report().into_iter().map(|(code, _)| code).collect()
     }

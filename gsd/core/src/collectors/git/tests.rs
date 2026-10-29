@@ -106,19 +106,6 @@ fn a_quoted_path_is_unquoted() {
 }
 
 #[test]
-fn unix_seconds_become_utc_rfc3339() {
-    assert_eq!(utc(0), "1970-01-01T00:00:00Z");
-    assert_eq!(utc(951_782_400), "2000-02-29T00:00:00Z");
-    assert_eq!(utc(1_709_164_799), "2024-02-28T23:59:59Z");
-    assert_eq!(utc(1_709_164_800), "2024-02-29T00:00:00Z");
-    assert_eq!(utc(1_709_251_200), "2024-03-01T00:00:00Z");
-    assert_eq!(utc(1_761_732_000), "2025-10-29T10:00:00Z");
-    assert_eq!(utc(2_147_483_648), "2038-01-19T03:14:08Z");
-    assert_eq!(utc(4_107_542_400), "2100-03-01T00:00:00Z");
-    assert_eq!(utc(-1), "1969-12-31T23:59:59Z");
-}
-
-#[test]
 fn a_binary_numstat_counts_zero() {
     let log = "\u{1e}aaaa\u{1f}0\u{1f}feat(01-01): x\n\n3\t1\tsrc/a.js\n-\t-\timg/logo.png\n create mode 100644 src/a.js\n create mode 100644 img/logo.png\n";
     let [commit] = &parse(log)[..] else {
