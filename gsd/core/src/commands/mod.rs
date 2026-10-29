@@ -6,6 +6,7 @@ mod state;
 mod support;
 mod verdict;
 mod verify;
+mod windows;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -14,4 +15,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     execute::declare(c);
     verify::declare(c);
     state::declare(c);
+    windows::declare(c);
 }
