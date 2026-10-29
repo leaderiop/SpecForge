@@ -1093,7 +1093,10 @@ refusal lists each new error (an unresolved reference, a missing required field,
 a value its field does not take, …). Fix what they name first: create the
 referenced entity, give the required field, or make both changes in one
 `specforge.edit` call. `delete --unlink-references` removes the references a
-delete would leave dangling.
+delete would leave dangling. A judged rule's finding (no verdict, a stale or a
+failing verdict) is never one of them: its judge settles it, not the edit (ADR
+0297). A writing collector's plan is compared with the project as its collect
+left it.
 
 Owner: core
 Level: error

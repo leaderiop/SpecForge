@@ -185,37 +185,11 @@ Six things r39 and r40 could not build, or could not guarantee, wait for kernel 
   built only that.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
-- **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys
-  a diagnostic by its code, severity, file and message shape (`crates/app/ops/src/authoring/edit/validate.rs`). A
-  judged rule's message changes with its verdict (`...: no verdict`, `...: the verdict of <date> is '<outcome>' (<n>
-  findings)`, `...: is stale: ...`), and a **recorded `passed` emits no diagnostic at all**. Everything below follows,
-  and each case is pinned by a live test with an `#[ignore = "K17"]` twin (`tests/cli/judged_refusals.rs`,
-  `judged.rs`, `verify_verdicts.rs`, `discuss.rs`):
-  - **A failing verdict is refused whole** when the rule's effective severity is an Error: gsd/E501 `failed`,
-    `uncertain` and `present_behavior_unverified`, gsd/E518 `issues`, gsd/E202 `failed`, and under `gsd-strict` gsd/W311,
-    W313, W315 `issues`, gsd/W203 `failed` and gsd/W205 `suspicious` or `unknown`:
-    `error[E080]: the edit would leave the project with 1 error it does not have; nothing was written`.
-  - **A passing verdict cannot be withdrawn through `record_verdict`.** A `failed` (or `issues`) that would replace a
-    fresh `verified` (or `passed`) is the same refusal, so a judge that finds a regression cannot say so: the old pass
-    stays fresh, the verification stays `passed` and the phase `complete`, and a `checked` plan stays `checked`. This is
-    **fail-open on revocation**. Code files are not E501 inputs, so a pass stops counting only when something it read
-    changed: its truth, its plan, a file it **cited**, or a test result. Cite the files you judged. Today only a person
-    editing the `.spec` by hand removes a pass.
-  - **Creating a judged target is refused** through any typed agent-facing write (MCP `specforge.new`, a piped CLI, an
-    extension command): a new truth, artifact, key link, `phase_spec` or `milestone_audit` adds a `no verdict` Error of
-    a shape already present, and under `gsd-strict` so does a new plan (W311, W313, W315). A gap-closure plan's truths
-    cannot be created by an agent at all. An agent that writes `.spec` files directly bypasses E080.
-  - **An edit that stales a passing Error verdict is refused** (a truth's text, its plan's fields, a checked plan
-    under strict). The worst case is gsd/E518: its `requirements` input is every requirement, so once a milestone
-    audit's integration verdict passes, every requirement edit and creation is refused.
-  - `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file never goes stale on a code
-    change (`record_verdict` does not require a citation: a truth verified by tests alone has no file to cite).
-  - `check` is red from planning on: gsd/E501 is an Error from the first planned truth until it is verified.
-  - The kernel also reports `(0 findings)` in every judged message (it counts a list of values, not of blocks).
-  `@gsd/core` therefore ships fail-closed only when no verdict exists yet; once a pass exists it cannot be revoked. The
-  smallest kernel change (K17): in `validate.rs::check`, a diagnostic whose code is a judged rule's goes to the
-  reported-not-refused remainder, because it records a verdict that is owed, not a defect of the edit. Status
-  derivations stay fail-closed, since they read `Judgement.passed`, never the diagnostic.
+- **A verdict's own state counts as a new error (E080).** Closed by K17 (ADR 0297): a judged rule's finding is never an
+  error a write adds, so a failing verdict, a new judged entity and an edit that stales a pass are written, the finding is
+  reported and every gate still fails on it (`tests/cli/judged_refusals.rs`). Two consequences stay: `cited` defaults to
+  `[]` and code files are not E501 inputs, so a verdict that cites no file never goes stale on a code change; and `check`
+  is red from planning on, since gsd/E501 is an Error from the first planned truth until it is verified.
 - **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
   because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
   field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change

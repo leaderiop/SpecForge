@@ -238,7 +238,7 @@ fn then_state(input: &PassInput, id: &str) -> Option<Item> {
 /// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
 /// side is not compared. Items are the phase's truths, artifacts and key links (by verdict) and its verify gaps (by
 /// status: open there, closed now). `previous_status` and `previous_score` are not built, for the reason above: they
-/// wait for the kernel to serve a commit's source files to the baseline compile (K17), not for r40.
+/// wait for the kernel to serve a commit's source files to the baseline compile (K18), not for r40.
 fn re_verification(
     input: &PassInput,
     v: &PassEntity,

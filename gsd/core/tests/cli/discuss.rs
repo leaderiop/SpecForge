@@ -400,12 +400,16 @@ fn a_suspicious_package_fails_w205() {
     let w205: Vec<_> = found.iter().filter(|(c, _)| c == "gsd/W205").collect();
     assert_eq!(w205.len(), 1, "{found:#?}");
     assert!(w205[0].1.contains("suspicious"), "{found:#?}");
-    // Under strict W205 is an Error: the failing verdict would leave a new error, which the host refuses whole.
+    // Under strict W205 is an Error: the failing verdict still records (ADR 0297), and the finding is reported as an Error.
     let strict = project("discuss");
     strict.settings(serde_json::json!({ "profile": "gsd-strict" }));
     let run = strict.record(AUDIT, "W205", "suspicious", &[]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("E080"), "{}", run.all());
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        strict.report_all().iter().any(|(c, _)| c == "gsd/W205"),
+        "{:#?}",
+        strict.report_all()
+    );
 }
 
 fn with_canonical_refs(refs: Option<&str>) -> Project {

@@ -80,7 +80,6 @@ fn findings(p: &TestProject, code: &str, entity: &str) -> Vec<Diagnostic> {
     behavior = "judge_rule_by_fresh_verdict",
     verify = "a failing verdict on an error rule is recorded"
 )]
-#[ignore = "pins K17; T3 un-ignores"]
 fn a_failing_verdict_on_an_error_rule_records() {
     let p = gsd_judged_project("");
     let ops = verdict_on(&p, TRUTH, "gsd/E501", "failed", "gsd-verifier");
@@ -101,7 +100,6 @@ fn a_failing_verdict_on_an_error_rule_records() {
     behavior = "validate_typed_edit",
     verify = "a judged rules finding is no error a write adds"
 )]
-#[ignore = "pins K17; T3 un-ignores"]
 fn a_typed_edit_creating_a_judged_target_is_written() {
     let p = gsd_judged_project("");
     let truth = create("truth", "TR2", &[("plan", "03-02")]);
@@ -123,7 +121,6 @@ fn a_typed_edit_creating_a_judged_target_is_written() {
     behavior = "validate_typed_edit",
     verify = "a judged rules finding is no error a write adds"
 )]
-#[ignore = "pins K17; T3 un-ignores"]
 fn a_command_plan_creating_a_judged_target_is_applied() {
     let p = gsd_judged_project("");
     let ops = json!([{"op": "create", "kind": "truth", "id": "TR2", "title": "New", "file": "a.spec",
@@ -140,7 +137,6 @@ fn a_command_plan_creating_a_judged_target_is_applied() {
     behavior = "validate_typed_edit",
     verify = "a judged rules finding is no error a write adds"
 )]
-#[ignore = "pins K17; T3 un-ignores"]
 fn an_edit_that_stales_a_passing_verdict_is_written() {
     let p = gsd_judged_project("").file("src/auth/other.ts", "export const other = 1;\n");
     let ops = verdict_on(&p, TRUTH, "gsd/E501", "passed", "gsd-verifier");
@@ -157,4 +153,70 @@ fn an_edit_that_stales_a_passing_verdict_is_written() {
         reported.iter().any(|d| d.message.contains("stale")),
         "{reported:?}"
     );
+}
+
+#[specforge_test(
+    behavior = "validate_typed_edit",
+    verify = "a judged rules finding is no error a write adds"
+)]
+fn a_non_judged_error_beside_a_judged_one_is_still_e080() {
+    // A truth (judged: no verdict) and a plan naming no file: only the second refuses, and the message names it alone.
+    let p = gsd_judged_project("");
+    let truth = create("truth", "TR2", &[("plan", "03-02")]);
+    let dangling = create("truth", "TR3", &[("plan", "03-99")]);
+    let (code, message) = typed(&p, &[truth, dangling]).unwrap_err();
+    assert_eq!(code, "E080");
+    assert!(message.contains("E003"), "{message}");
+    assert!(!message.contains("gsd/E501"), "{message}");
+    assert!(!message.contains("no verdict"), "{message}");
+}
+
+#[specforge_test(
+    behavior = "validate_typed_edit",
+    verify = "a judged rules finding is no error a write adds"
+)]
+fn a_judged_finding_already_reported_is_not_reported_again() {
+    let p = gsd_judged_project("");
+    let compiled = compile(&p);
+    let view = ProjectView::of(&compiled);
+    let edit = Edit::Retitle {
+        entity_id: "v1.0/03/03-03".into(),
+        title: "Other".into(),
+    };
+    let edited = typed_edit::run(
+        &view,
+        &[edit],
+        true,
+        &specforge_ops::authoring::apply::testing::origin(),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    let added = serde_json::to_string(&edited.report.added).unwrap();
+    assert!(!added.contains("no verdict"), "{added}");
+}
+
+#[specforge_test(
+    behavior = "validate_post_migration_integrity",
+    verify = "a migration counts no judged finding"
+)]
+fn a_migration_counts_no_judged_finding() {
+    use specforge_ops::authoring::migrate::{MigrationInput, judge};
+    let p = gsd_judged_project("");
+    let pre = specforge_project::testing::compile_at(
+        p.root(),
+        Some(Arc::new(gsd_judged_runtime()) as SharedRuntime),
+    );
+    let text = format!(
+        "{}truth TR2 \"New\" {{\n  plan 03-02\n}}\n",
+        std::fs::read_to_string(p.root().join("a.spec")).unwrap()
+    );
+    let planned = std::collections::BTreeMap::from([("a.spec".to_string(), text)]);
+    let input = MigrationInput {
+        from: "0.9".into(),
+        to: "1.0".into(),
+        files: vec![],
+    };
+    let verdict = judge(&pre, &planned, &input);
+    assert!(verdict.compared);
+    assert_eq!(verdict.added_errors, 0, "{:?}", verdict.post_diagnostics);
 }

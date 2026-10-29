@@ -257,7 +257,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
     diagnostic the project did not have, with every check run (after an
     editor update that skipped the checks they are run for the comparison),
     is refused with E080 and writes nothing (an error is the same error after
-    an edit moves it, even when its message names a position). Each edit declares what it may
+    an edit moves it, even when its message names a position); a judged rule's
+    finding is never such an error (ADR 0297). Each edit declares what it may
     change in the graph: set and unset their field (a field.entry path's
     field), link and unlink their field, retitle the title, add-verify and
     remove-verify the obligations, create and delete their entity, a delete

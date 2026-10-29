@@ -263,10 +263,9 @@ fn an_override_still_verifies() {
     assert_eq!(found["score"], "2/2", "{found}");
 }
 
-/// A failing verdict on E501 (an Error) is refused whole by the host (E080, D-r40-1), so these two wait for the
-/// kernel. The derivation itself is tested on synthetic judgements (`passes::derive::verify`).
+/// A failing verdict on E501 (an Error) records (ADR 0297). The derivation itself is also tested on synthetic
+/// judgements (`passes::derive::verify`).
 #[test]
-#[ignore = "kernel: a verdict's own judged state is not a new error (K17)"]
 fn a_failed_truth_makes_gaps_found() {
     let p = bare();
     let run = p.record("v1.0/01/01-01/TR1", "E501", "failed", &[]);
@@ -275,7 +274,6 @@ fn a_failed_truth_makes_gaps_found() {
 }
 
 #[test]
-#[ignore = "kernel: a verdict's own judged state is not a new error (K17)"]
 fn a_backstop_truth_is_human_needed() {
     let p = bare();
     for item in &ITEMS[1..] {
@@ -292,16 +290,22 @@ fn a_backstop_truth_is_human_needed() {
 }
 
 #[test]
-fn a_failed_truth_is_refused_whole_for_now() {
-    let p = bare();
-    let spec = p.read("spec/plans.spec");
-    for outcome in ["failed", "uncertain", "present_behavior_unverified"] {
+fn every_non_passing_truth_outcome_records() {
+    // `failed` makes gaps_found, `present_behavior_unverified` human_needed (verify.md); `uncertain` records and
+    // leaves the truth unverified, so the phase stays pending.
+    for (outcome, status) in [
+        ("failed", "gaps_found"),
+        ("uncertain", "pending"),
+        ("present_behavior_unverified", "human_needed"),
+    ] {
+        let p = bare();
+        for item in &ITEMS[1..] {
+            verified(&p, item);
+        }
         let run = p.record("v1.0/01/01-01/TR1", "E501", outcome, &[]);
-        assert_ne!(run.code, 0, "{outcome}: {}", run.all());
-        assert!(run.all().contains("E080"), "{outcome}: {}", run.all());
+        assert_eq!(run.code, 0, "{outcome}: {}", run.all());
+        assert_eq!(verification(&p)["status"], status, "{outcome}");
     }
-    assert_eq!(p.read("spec/plans.spec"), spec);
-    assert_eq!(verification(&p)["status"], "pending");
 }
 
 #[test]

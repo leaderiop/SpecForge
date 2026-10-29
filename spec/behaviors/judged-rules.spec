@@ -95,7 +95,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   contract   """
     A judged rule holds while a fresh verdict from its judge says so (ADR 0290). It fires at its severity for a
     missing, unrecorded, stale or failing verdict, and is silent for a fresh passing one. A verdict written by hand
-    is E083 and counts as missing; one that cannot be read is W168. Test inputs are compared when the report is
+    is E083 and counts as missing; one that cannot be read is W168. A failing verdict on an Error rule is recorded, and a write that creates a judged target or stales a passing verdict is written, the finding reported (ADR 0297). Test inputs are compared when the report is
     there, and said not judged (I205) when it is not. A gated rule is neither evaluated nor reported. A field whose
     writer is the verdict holds the fresh verdict's outcome or value, and is E082 when written by hand. A project
     that declares no judged rule reads no report and stamps no file.

@@ -131,10 +131,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
   `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
   `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
-  black-box). `gsd/W514` (above). The host's E080 treats a judged rule's own state as a new error: a failing verdict, the
-  replacement of a pass, the creation of a judged target and an edit that stales a passing Error verdict are all refused
-  whole, so a passing verdict cannot be withdrawn through `record_verdict` (see the "Waiting on the kernel" list of
-  [../README.md](../README.md), and `tests/cli/judged_refusals.rs`). The human-only guarantee of `override` holds
+  black-box). `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee of `override` holds
   for its own fields (r40 T16); an agent can still delete a `milestone_audit`.
 
 ## Setting-gated rules
