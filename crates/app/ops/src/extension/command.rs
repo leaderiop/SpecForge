@@ -9,8 +9,8 @@
 //! and why the host refuses it. [`ExtensionCommands`] is the project's
 //! commands as the registry build routes them (ADR 0097). The CLI and MCP both read them and run the command here:
 //! the export receives the protocol's `CommandInput` (the args, the project
-//! root, the compiled graph in the graph export's shape, computed values and judgements included (ADR 0299), the format the
-//! caller asked for and the host's date) and answers with a
+//! root, the compiled graph in the graph export's shape, computed values and judgements included (ADR 0299), the
+//! format the caller asked for and the host's date) and answers with a
 //! `CommandOutput` (`specforge_protocol_types`, through
 //! `specforge_wasm::ExtensionCalls`). The host knows no command: which
 //! exist, their args and what they print are the extension's (ADR 0008).
