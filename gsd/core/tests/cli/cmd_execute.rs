@@ -170,3 +170,150 @@ fn complete_plan_refuses() {
     refused(&again, "invalid_input", &["already completed"]);
     assert_eq!(bytes(&p), done);
 }
+
+// -- answer_checkpoint and confirm_setup (D-r41-4, D-r41-5, D-r41-6) -----------------------------------------------
+
+const CHECKPOINT: &str = "v1.0/01/01-02/C1";
+const SECOND_PLAN: &str = "v1.0/01/01-02";
+const SETUP: &str = "v1.0/02/02-01/US1";
+
+/// Plays the plan checker on the second plan of the `execute` project: its four plan-check verdicts are fresh.
+fn checked(p: &crate::harness::Project) {
+    for code in ["W311", "W313", "W315", "W316"] {
+        let run = p.record(SECOND_PLAN, code, "passed", &[]);
+        assert_eq!(run.code, 0, "{code}: {}", run.all());
+    }
+}
+
+#[test]
+fn answer_checkpoint_writes_option_text_by_and_at() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(p.inputs(SECOND_PLAN, "W311")["verdict"]["state"], "fresh");
+    let ledger_before = p.read("specforge-harness");
+    let run = gsd(
+        &p,
+        "answer-checkpoint",
+        &[
+            CHECKPOINT,
+            "--option",
+            "timestamp",
+            "--text",
+            "keep the time",
+            "--by",
+            "ada",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    let answer = &p.fields_of(CHECKPOINT)["answer"];
+    assert_eq!(answer["option"], "timestamp");
+    assert_eq!(answer["text"], "keep the time");
+    assert_eq!(answer["by"], "ada");
+    let at = answer["at"].as_str().expect("at");
+    assert!(at.len() == 20 && at.ends_with('Z'), "{at}");
+    // The ledger holds the value (no E083), and the check adds no error of its own.
+    assert_ne!(p.read("specforge-harness"), ledger_before);
+    assert!(!p.codes().contains(&"E083".to_string()), "{:?}", p.codes());
+    // Named staleness (D-r41-6): the answer is a plan-check input, so the plan's verdicts are stale.
+    assert_eq!(p.inputs(SECOND_PLAN, "W311")["verdict"]["state"], "stale");
+}
+
+#[test]
+fn an_option_outside_the_checkpoints_options_is_refused() {
+    let p = super::harness::project("execute");
+    let before = bytes(&p);
+    let run = gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "maybe"]);
+    refused(&run, "invalid_input", &["maybe", "flag, timestamp"]);
+    let run = gsd(&p, "answer-checkpoint", &[CHECKPOINT]);
+    refused(&run, "invalid_input", &["--option or --text"]);
+    assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn an_answered_checkpoint_is_refused() {
+    let p = super::harness::project("execute");
+    assert_eq!(
+        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        0
+    );
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "answer-checkpoint",
+        &[CHECKPOINT, "--option", "timestamp"],
+    );
+    refused(&run, "invalid_input", &["already answered"]);
+    assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn a_control_character_in_text_is_refused() {
+    let p = super::harness::project("execute");
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "answer-checkpoint",
+        &[CHECKPOINT, "--text", "a\u{1b}[31mred"],
+    );
+    refused(
+        &run,
+        "invalid_input",
+        &["'text' holds a control character (U+001B)"],
+    );
+    assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn confirm_setup_writes_done() {
+    let p = super::harness::project("execute");
+    let run = gsd(&p, "confirm-setup", &[SETUP, "--by", "ada"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let done = &p.fields_of(SETUP)["done"];
+    assert_eq!(done["by"], "ada");
+    assert!(
+        done["at"].as_str().is_some_and(|at| at.ends_with('Z')),
+        "{done}"
+    );
+    assert!(!p.codes().contains(&"E083".to_string()), "{:?}", p.codes());
+    let again = gsd(&p, "confirm-setup", &[SETUP]);
+    refused(&again, "invalid_input", &["already confirmed"]);
+}
+
+/// An answered checkpoint stales the plan check; once the plan has a summary that is history, and a gate lets it by.
+#[test]
+fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(
+        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        0
+    );
+    plus(&p);
+    let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
+    refused(&run, "gate_failed", &["E516", SECOND_PLAN]);
+    plant(
+        &p,
+        "spec/plans.spec",
+        "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n",
+    );
+    assert_eq!(
+        p.inputs(SECOND_PLAN, "W311")["verdict"]["state"],
+        "stale",
+        "still stale in check"
+    );
+    let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+#[test]
+fn an_unexecuted_plans_stale_plan_check_still_refuses() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(
+        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        0
+    );
+    strict(&p);
+    let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
+    refused(&run, "gate_failed", &["W318", SECOND_PLAN]);
+}

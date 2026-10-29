@@ -191,6 +191,22 @@ fn plans_in<'a>(input: &'a PassInput, subject: Option<&str>) -> Vec<&'a PassEnti
         .collect()
 }
 
+/// Whether `entity` has a stale judgement that counts at a gate. A plan-check verdict (W311, W313, W315, W316) of a
+/// plan that has a summary is history: the plan check judges a plan before it runs, and answering a checkpoint or
+/// confirming a setup mid-execution changes the digest it was recorded over (U33). The judgement itself stays stale.
+fn stale(input: &PassInput, entity: &PassEntity) -> bool {
+    let executed =
+        entity.kind == "plan" && of_kind(input, "summary").any(|s| scope_of(&s.id) == entity.id);
+    entity.judgements.iter().any(|j| {
+        let plan_check = j
+            .rule
+            .strip_prefix("gsd/")
+            .and_then(crate::judged::get)
+            .is_some_and(|r| r.judge == "gsd-plan-checker");
+        j.state == "stale" && !(executed && plan_check)
+    })
+}
+
 /// W318: a plan's plan-check verdict is stale.
 fn w318(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
@@ -198,7 +214,7 @@ fn w318(input: &PassInput) -> Vec<PassDiagnostic> {
     };
     plans_in(input, subject)
         .into_iter()
-        .filter(|p| p.judgements.iter().any(|j| j.state == "stale"))
+        .filter(|p| stale(input, p))
         .map(|p| {
             refuse(
                 "W318",
@@ -255,7 +271,7 @@ fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
     input
         .entities
         .iter()
-        .filter(|e| e.judgements.iter().any(|j| j.state == "stale"))
+        .filter(|e| stale(input, e))
         .map(|e| {
             refuse(
                 "E516",

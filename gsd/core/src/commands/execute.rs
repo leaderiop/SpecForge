@@ -2,10 +2,10 @@
 //! writes its summary's two times. Upstream keeps `PLAN_START_TIME` in the executor's shell; here the executor keeps
 //! the time `start_plan` answered and hands it to `complete_plan --started`.
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, node, now, required, run};
+use super::support::{answer, node, now, required, run, text};
 use crate::time;
 
 /// `start_plan <plan>`: gated, writes nothing, answers the host's `now`. No summary exists yet, and one made without
@@ -58,7 +58,114 @@ fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
+/// `answer_checkpoint <checkpoint> [--option] [--text] [--by]`: the human's reply, with the host's clock.
+fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let checkpoint = node(call, "checkpoint", required(call, "checkpoint")?)?;
+    let (option, reply, by) = (
+        text(call, "option")?,
+        text(call, "text")?,
+        text(call, "by")?,
+    );
+    if checkpoint.has_field("answer") {
+        return Err(format!(
+            "checkpoint '{}' is already answered",
+            checkpoint.id
+        ));
+    }
+    if option.is_none() && reply.is_none() {
+        return Err("an answer needs --option or --text".to_string());
+    }
+    if let Some(option) = option {
+        let names: Vec<&str> = checkpoint
+            .fields
+            .get("options")
+            .and_then(Value::as_array)
+            .map(|rows| rows.iter().filter_map(|r| r["name"].as_str()).collect())
+            .unwrap_or_default();
+        if !names.contains(&option) {
+            return Err(format!(
+                "--option '{option}' is no option of checkpoint '{}' ({})",
+                checkpoint.id,
+                if names.is_empty() {
+                    "it has none".to_string()
+                } else {
+                    names.join(", ")
+                }
+            ));
+        }
+    }
+    let at = now(call)?;
+    let mut value = serde_json::Map::new();
+    for (name, member) in [("option", option), ("text", reply), ("by", by)] {
+        if let Some(member) = member {
+            value.insert(name.to_string(), json!(member));
+        }
+    }
+    value.insert("at".to_string(), json!(at));
+    let mut plan = call.plan();
+    plan.set(&checkpoint.id, "answer", Value::Object(value.clone()));
+    Ok(answer(
+        call,
+        json!({ "wrote": [checkpoint.id], "answer": value }),
+        format!("checkpoint {} answered at {at}\n", checkpoint.id),
+        Some(&plan),
+    ))
+}
+
+/// `confirm_setup <user_setup> [--by]`: the human did the setup.
+fn confirm_setup(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let setup = node(call, "user_setup", required(call, "user_setup")?)?;
+    let by = text(call, "by")?;
+    if setup.has_field("done") {
+        return Err(format!("user setup '{}' is already confirmed", setup.id));
+    }
+    let at = now(call)?;
+    let mut value = serde_json::Map::new();
+    value.insert("at".to_string(), json!(at));
+    if let Some(by) = by {
+        value.insert("by".to_string(), json!(by));
+    }
+    let mut plan = call.plan();
+    plan.set(&setup.id, "done", Value::Object(value.clone()));
+    Ok(answer(
+        call,
+        json!({ "wrote": [setup.id], "done": value }),
+        format!("user setup {} done at {at}\n", setup.id),
+        Some(&plan),
+    ))
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
+    c.command("answer_checkpoint", |cmd| {
+        cmd.description("Record a human's answer to a checkpoint of a plan, with the host's clock: a decision's option, or free text")
+            .writes()
+            .arg("checkpoint", |a| {
+                a.required().description("the checkpoint (its path, or a short form that is not ambiguous)");
+            })
+            .arg("option", |a| {
+                a.description("the name of one of a decision checkpoint's options");
+            })
+            .arg("text", |a| {
+                a.description("the reply in the person's words, kept verbatim");
+            })
+            .arg("by", |a| {
+                a.description("who answered");
+            })
+            .handler(|call| run(call, answer_checkpoint));
+    });
+    c.command("confirm_setup", |cmd| {
+        cmd.description("Record that a human did a plan's user setup step, with the host's clock")
+            .writes()
+            .arg("user_setup", |a| {
+                a.required().description(
+                    "the user setup (its path, or a short form that is not ambiguous)",
+                );
+            })
+            .arg("by", |a| {
+                a.description("who did it");
+            })
+            .handler(|call| run(call, confirm_setup));
+    });
     c.command("start_plan", |cmd| {
         cmd.description("Open a plan: runs the plan's entry gates (W318, E516), writes nothing and answers the host's clock, which the executor passes to `complete-plan --started`")
             .gate("W318")

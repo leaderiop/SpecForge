@@ -108,7 +108,7 @@ GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-co
 
 GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
-`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`).
+`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts; once the plan has a summary that is history and the gates W318 and E516 skip it.
 
 ## The plan check
 
