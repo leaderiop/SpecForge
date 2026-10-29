@@ -6,6 +6,10 @@ use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
 /// What one argument holds.
+#[allow(
+    dead_code,
+    reason = "the prompts of the tickets that follow use every kind"
+)]
 pub enum Kind {
     /// An entity of the kind (several as `a|b`): positional, and the prompt's subject.
     Reference(&'static str),
@@ -27,6 +31,7 @@ pub struct Arg {
 
 impl Arg {
     /// A required reference: the phase, plan or milestone the prompt is about.
+    #[allow(dead_code, reason = "the phase prompts that follow take a reference")]
     pub const fn reference(name: &'static str, kind: &'static str) -> Arg {
         Arg {
             name,
@@ -48,6 +53,7 @@ impl Arg {
             required: false,
         }
     }
+    #[allow(dead_code, reason = "plan_phase takes integers")]
     pub const fn integer(name: &'static str) -> Arg {
         Arg {
             name,
@@ -55,6 +61,7 @@ impl Arg {
             required: false,
         }
     }
+    #[allow(dead_code, reason = "plan_phase takes enumerations")]
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,

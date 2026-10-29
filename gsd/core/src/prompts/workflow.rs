@@ -15,6 +15,10 @@ pub enum Do {
     /// Run the command `id` of this extension.
     Command(&'static str),
     /// Continue with the prompt `id`.
+    #[allow(
+        dead_code,
+        reason = "discuss_phase and the later prompts continue into one another"
+    )]
     Prompt(&'static str),
 }
 

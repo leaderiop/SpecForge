@@ -173,9 +173,8 @@ pub fn codex_skill_mentions(content: &str) -> String {
 
 /// Where the name starts when `/gsd:` or `/gsd-` (any case) opens at `i`.
 fn mention_at(content: &str, i: usize) -> Option<usize> {
-    let head = content.get(i..i + 5)?;
-    let (slash, rest) = head.split_at(1);
-    (slash == "/" && rest[..3].eq_ignore_ascii_case("gsd") && matches!(&rest[3..], ":" | "-"))
+    let head = content.as_bytes().get(i..i + 5)?;
+    (head[0] == b'/' && head[1..4].eq_ignore_ascii_case(b"gsd") && matches!(head[4], b':' | b'-'))
         .then_some(i + 5)
 }
 

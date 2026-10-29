@@ -5,7 +5,10 @@
 use std::path::Path;
 
 /// `(command stem, our hint)`: upstream's hint says `[phase]` or takes free text where the prompt has typed arguments.
-const ADAPTED: &[(&str, &str)] = &[];
+const ADAPTED: &[(&str, &str)] = &[(
+    "new-milestone",
+    "[--name \"...\"] [--ws <name>] [--reset-phase-numbers]",
+)];
 
 fn vendored(stem: &str) -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -204,3 +204,13 @@ fn adapter_header_lines_are_upstreams() {
         assert!(headers::CODEX.contains(line), "{line}");
     }
 }
+
+#[test]
+fn codex_conversion_survives_multibyte_text_before_a_mention() {
+    // `—ab` is five bytes, so a five-byte window at the dash is a valid slice that does not start with `/`.
+    let text = "—ab then — run /gsd-help, “quoted” /gsd:next";
+    assert_eq!(
+        codex_skill_mentions(text),
+        "—ab then — run $gsd-help, “quoted” $gsd-next"
+    );
+}
