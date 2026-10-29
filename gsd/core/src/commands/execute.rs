@@ -8,6 +8,9 @@ use specforge_extension_sdk::prelude::*;
 use super::support::{answer, node, now, required, run, text};
 use crate::time;
 
+/// The longest a plan may have run, in seconds: a `--started` older than this is not the time `start-plan` answered.
+const WEEK: i64 = 7 * 24 * 3600;
+
 /// `start_plan <plan>`: gated, writes nothing, answers the host's `now`. No summary exists yet, and one made without
 /// its required fields would be refused, so the start time is written by `complete_plan`.
 fn start(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
@@ -44,6 +47,11 @@ fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     if time::seconds(completed).is_some_and(|end| began > end) {
         return Err(format!("--started '{started}' is after now ({completed})"));
     }
+    if time::seconds(completed).is_some_and(|end| end - began > WEEK) {
+        return Err(format!(
+            "--started '{started}' is over a week before now ({completed}): pass the time `start-plan` answered"
+        ));
+    }
     let mut plan = call.plan();
     plan.set(&summary.id, "started", started)
         .set(&summary.id, "completed", completed);
@@ -58,14 +66,12 @@ fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
-/// `answer_checkpoint <checkpoint> [--option] [--text] [--by]`: the human's reply, with the host's clock.
+/// `answer_checkpoint <checkpoint> --by <who> [--option] [--text]`: the reply the caller records for the person, with
+/// the host's clock. `--by` is the caller's attestation (K18 item), never refused when it names someone else.
 fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let checkpoint = node(call, "checkpoint", required(call, "checkpoint")?)?;
-    let (option, reply, by) = (
-        text(call, "option")?,
-        text(call, "text")?,
-        text(call, "by")?,
-    );
+    let (option, reply) = (text(call, "option")?, text(call, "text")?);
+    let by = required(call, "by")?;
     if checkpoint.has_field("answer") {
         return Err(format!(
             "checkpoint '{}' is already answered",
@@ -96,7 +102,7 @@ fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     }
     let at = now(call)?;
     let mut value = serde_json::Map::new();
-    for (name, member) in [("option", option), ("text", reply), ("by", by)] {
+    for (name, member) in [("option", option), ("text", reply), ("by", Some(by))] {
         if let Some(member) = member {
             value.insert(name.to_string(), json!(member));
         }
@@ -112,19 +118,17 @@ fn answer_checkpoint(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
-/// `confirm_setup <user_setup> [--by]`: the human did the setup.
+/// `confirm_setup <user_setup> --by <who>`: the caller records that the person did the setup.
 fn confirm_setup(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let setup = node(call, "user_setup", required(call, "user_setup")?)?;
-    let by = text(call, "by")?;
+    let by = required(call, "by")?;
     if setup.has_field("done") {
         return Err(format!("user setup '{}' is already confirmed", setup.id));
     }
     let at = now(call)?;
     let mut value = serde_json::Map::new();
     value.insert("at".to_string(), json!(at));
-    if let Some(by) = by {
-        value.insert("by".to_string(), json!(by));
-    }
+    value.insert("by".to_string(), json!(by));
     let mut plan = call.plan();
     plan.set(&setup.id, "done", Value::Object(value.clone()));
     Ok(answer(
@@ -149,7 +153,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the reply in the person's words, kept verbatim");
             })
             .arg("by", |a| {
-                a.description("who answered");
+                a.description("required; who answered: the caller's attestation of what the person said, not a proof of the person (K18)");
             })
             .handler(|call| run(call, answer_checkpoint));
     });
@@ -162,7 +166,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 );
             })
             .arg("by", |a| {
-                a.description("who did it");
+                a.description(
+                    "required; who did it: the caller's attestation, not a proof of the person (K18)",
+                );
             })
             .handler(|call| run(call, confirm_setup));
     });

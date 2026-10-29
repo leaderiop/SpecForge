@@ -222,9 +222,13 @@ fn answer_checkpoint_writes_option_text_by_and_at() {
 fn an_option_outside_the_checkpoints_options_is_refused() {
     let p = super::harness::project("execute");
     let before = bytes(&p);
-    let run = gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "maybe"]);
+    let run = gsd(
+        &p,
+        "answer-checkpoint",
+        &[CHECKPOINT, "--option", "maybe", "--by", "ada"],
+    );
     refused(&run, "invalid_input", &["maybe", "flag, timestamp"]);
-    let run = gsd(&p, "answer-checkpoint", &[CHECKPOINT]);
+    let run = gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--by", "ada"]);
     refused(&run, "invalid_input", &["--option or --text"]);
     assert_eq!(bytes(&p), before);
 }
@@ -233,14 +237,19 @@ fn an_option_outside_the_checkpoints_options_is_refused() {
 fn an_answered_checkpoint_is_refused() {
     let p = super::harness::project("execute");
     assert_eq!(
-        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
         0
     );
     let before = bytes(&p);
     let run = gsd(
         &p,
         "answer-checkpoint",
-        &[CHECKPOINT, "--option", "timestamp"],
+        &[CHECKPOINT, "--option", "timestamp", "--by", "ada"],
     );
     refused(&run, "invalid_input", &["already answered"]);
     assert_eq!(bytes(&p), before);
@@ -253,7 +262,7 @@ fn a_control_character_in_text_is_refused() {
     let run = gsd(
         &p,
         "answer-checkpoint",
-        &[CHECKPOINT, "--text", "a\u{1b}[31mred"],
+        &[CHECKPOINT, "--text", "a\u{1b}[31mred", "--by", "ada"],
     );
     refused(
         &run,
@@ -275,7 +284,7 @@ fn confirm_setup_writes_done() {
         "{done}"
     );
     assert!(!p.codes().contains(&"E083".to_string()), "{:?}", p.codes());
-    let again = gsd(&p, "confirm-setup", &[SETUP]);
+    let again = gsd(&p, "confirm-setup", &[SETUP, "--by", "ada"]);
     refused(&again, "invalid_input", &["already confirmed"]);
 }
 
@@ -288,7 +297,12 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let p = super::harness::project("execute");
     checked(&p);
     assert_eq!(
-        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
         0
     );
     plus(&p);
@@ -313,7 +327,12 @@ fn starting_a_plan_with_an_uncompleted_summary_is_still_refused() {
     let p = super::harness::project("execute");
     checked(&p);
     assert_eq!(
-        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
         0
     );
     plant(&p, "spec/plans.spec", SECOND_SUMMARY);
@@ -335,10 +354,116 @@ fn an_unexecuted_plans_stale_plan_check_still_refuses() {
     let p = super::harness::project("execute");
     checked(&p);
     assert_eq!(
-        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
         0
     );
     strict(&p);
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
     refused(&run, "gate_failed", &["W318", SECOND_PLAN]);
+}
+
+/// The executor body's `specforge new` examples are accepted by the host (the body test checks their words).
+#[test]
+fn the_executors_new_examples_run() {
+    let p = super::harness::project("execute");
+    let summary = p.run(&[
+        "new",
+        "summary",
+        "01-02-SUMMARY",
+        "Completion",
+        "--in",
+        "spec/plans.spec",
+        "--plan",
+        "v1.0/01/01-02",
+        "--status",
+        "complete",
+        "--one_liner",
+        "Done",
+        "--subsystem",
+        "tasks",
+        "--requirements_completed",
+        "TASK-02",
+        "--dry-run",
+    ]);
+    assert_eq!(summary.code, 0, "{}", summary.all());
+    let decision = p.run(&[
+        "new",
+        "decision",
+        "D-09",
+        "Keep it small",
+        "--in",
+        "spec/plans.spec",
+        "--phase",
+        "v1.0/01",
+        "--text",
+        "Keep it small",
+        "--origin",
+        "summary",
+        "--dry-run",
+    ]);
+    assert_eq!(decision.code, 0, "{}", decision.all());
+}
+
+#[test]
+fn a_started_time_older_than_a_week_is_refused() {
+    let p = twin();
+    plant(&p, "spec/plans.spec", PLANTED);
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "complete-plan",
+        &[SUMMARY, "--started", "1970-01-01T00:00:00Z"],
+    );
+    refused(&run, "invalid_input", &["over a week before now"]);
+    unchanged(&p, &before);
+}
+
+/// Pins today (M2 of the r41 review): at a command gate the host keeps only the diagnostics about entities within
+/// the subject's scope, so E516 is subject-scoped there, not project-wide as `rules.md` reads. A stale verdict of
+/// another plan does not refuse `start-plan`.
+#[test]
+fn a_stale_verdict_outside_the_subject_does_not_refuse_start_plan_yet() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
+        0
+    );
+    assert_eq!(p.inputs(SECOND_PLAN, "W311")["verdict"]["state"], "stale");
+    plus(&p);
+    let run = gsd(&p, "start-plan", &["v1.0/01/01-01"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+/// The desired behaviour (K18): E516 names the gate's subject, so a stale verdict anywhere refuses the step.
+#[test]
+#[ignore = "K18: project-wide E516 at a command gate"]
+fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(
+        gsd(
+            &p,
+            "answer-checkpoint",
+            &[CHECKPOINT, "--option", "flag", "--by", "ada"]
+        )
+        .code,
+        0
+    );
+    plus(&p);
+    refused(
+        &gsd(&p, "start-plan", &["v1.0/01/01-01"]),
+        "gate_failed",
+        &["E516"],
+    );
 }

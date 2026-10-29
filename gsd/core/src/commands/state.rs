@@ -4,12 +4,12 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, next_id, node, now, ops_file, required, run, text, title};
+use super::support::{answer, fields, next_id, node, now, ops_file, required, run, title};
 
 /// `pause <reason> [--phase] [--plan] [--handoff] [--by]`: a pause, `PSn` in its phase (or the project).
 fn pause(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let reason = required(call, "reason")?;
-    let by = text(call, "by")?;
+    let by = required(call, "by")?;
     let phase = call
         .str("phase")
         .map(|p| node(call, "phase", p))
@@ -38,7 +38,7 @@ fn pause(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             ("plan", plan.map_or(Value::Null, |p| json!(p.id))),
             ("handoff", handoff.map_or(Value::Null, |h| json!(h.id))),
             ("reason", json!(reason)),
-            ("by", by.map_or(Value::Null, |b| json!(b))),
+            ("by", json!(by)),
             ("at", json!(at)),
         ]),
         Vec::new(),
@@ -146,7 +146,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the handoff entity that carries what the next session needs");
             })
             .arg("by", |a| {
-                a.description("who paused");
+                a.description("required; who paused: the caller's attestation, not a proof of the person (K18)");
             })
             .handler(|call| run(call, pause));
     });

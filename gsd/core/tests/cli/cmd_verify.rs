@@ -42,6 +42,7 @@ fn set_uat_result_reproduces_the_twins_ledger() {
         let id = format!("{SESSION}/{test}");
         let mut all = vec![id.as_str()];
         all.extend(&args);
+        all.extend(["--by", "ada"]);
         let run = gsd(&p, "set-uat-result", &all);
         assert_eq!(run.code, 0, "{test}: {}", run.all());
     }
@@ -66,11 +67,23 @@ fn an_issue_without_reported_is_refused() {
     let p = unanswered();
     let before = bytes(&p);
     // U1 has no `reported` of its own.
-    let run = gsd(&p, "set-uat-result", &["v1.0/01/01-UAT/U1", "issue"]);
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &["v1.0/01/01-UAT/U1", "issue", "--by", "ada"],
+    );
     refused(&run, "invalid_input", &["--reported"]);
-    let run = gsd(&p, "set-uat-result", &["v1.0/01/01-UAT/U1", "skipped"]);
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &["v1.0/01/01-UAT/U1", "skipped", "--by", "ada"],
+    );
     refused(&run, "invalid_input", &["--reason"]);
-    let run = gsd(&p, "set-uat-result", &["v1.0/01/01-UAT/U1", "blocked"]);
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &["v1.0/01/01-UAT/U1", "blocked", "--by", "ada"],
+    );
     refused(&run, "invalid_input", &["--blocked-by"]);
     let run = gsd(
         &p,
@@ -82,6 +95,8 @@ fn an_issue_without_reported_is_refused() {
             "later",
             "--source",
             "automated",
+            "--by",
+            "ada",
         ],
     );
     refused(&run, "invalid_input", &["--source automated"]);
@@ -95,7 +110,14 @@ fn a_control_character_in_reported_is_refused() {
     let run = gsd(
         &p,
         "set-uat-result",
-        &["v1.0/01/01-UAT/U1", "issue", "--reported", "bad\u{7}bell"],
+        &[
+            "v1.0/01/01-UAT/U1",
+            "issue",
+            "--reported",
+            "bad\u{7}bell",
+            "--by",
+            "ada",
+        ],
     );
     refused(
         &run,
@@ -111,7 +133,12 @@ fn the_sessions_totals_follow() {
     let totals = || p.fields_of(SESSION)["totals"].clone();
     assert_eq!(totals()["pending"], 3, "{}", totals());
     assert_eq!(
-        gsd(&p, "set-uat-result", &["v1.0/01/01-UAT/U1", "pass"]).code,
+        gsd(
+            &p,
+            "set-uat-result",
+            &["v1.0/01/01-UAT/U1", "pass", "--by", "ada"]
+        )
+        .code,
         0
     );
     assert_eq!(totals()["pending"], 2);
@@ -124,6 +151,8 @@ fn the_sessions_totals_follow() {
             "skipped",
             "--reason",
             "Deferred follow-up to phase 02",
+            "--by",
+            "ada",
         ],
     );
     assert_eq!(run.code, 0, "{}", run.all());
@@ -159,4 +188,49 @@ fn approve_validation_writes_by_and_at() {
     let again = gsd(&p, "approve-validation", &["v1.0/01/01-VALIDATION", "ada"]);
     refused(&again, "invalid_input", &["already approved"]);
     assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn a_re_answer_leaves_no_member_of_the_earlier_one() {
+    let p = unanswered();
+    let u2 = "v1.0/01/01-UAT/U2";
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &[
+            u2,
+            "issue",
+            "--reported",
+            "slow",
+            "--severity",
+            "minor",
+            "--source",
+            "automated",
+            "--by",
+            "ci",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(u2)["source"], "automated");
+    let run = gsd(&p, "set-uat-result", &[u2, "pass", "--by", "ada"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(u2);
+    assert_eq!(fields["result"], "pass");
+    assert_eq!(fields["source"], "human", "{fields}");
+    for member in ["reported", "severity", "reason", "blocked_by"] {
+        assert!(fields[member].is_null(), "{member} stayed: {fields}");
+    }
+    // A member that belongs to another result is refused, not written.
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "set-uat-result",
+        &[u2, "pass", "--reason", "x", "--by", "ada"],
+    );
+    refused(
+        &run,
+        "invalid_input",
+        &["--reason belongs to a 'skipped' result"],
+    );
+    unchanged(&p, &before);
 }

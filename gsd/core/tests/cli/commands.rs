@@ -24,7 +24,10 @@ fn strs(args: &[&str]) -> Vec<String> {
 
 fn with_pause() -> Project {
     let p = twin();
-    assert_eq!(gsd(&p, "pause", &["wait", "--phase", "02"]).code, 0);
+    assert_eq!(
+        gsd(&p, "pause", &["wait", "--phase", "02", "--by", "ada"]).code,
+        0
+    );
     p
 }
 
@@ -46,7 +49,7 @@ fn planted() -> Project {
     p
 }
 
-fn unapproved() -> Project {
+pub(super) fn unapproved() -> Project {
     let p = project("verify");
     p.edit(
         "spec/validation.spec",
@@ -68,7 +71,7 @@ fn cases() -> Vec<Case> {
         Case {
             command: "answer-checkpoint",
             project: || project("execute"),
-            args: |_| strs(&[CHECKPOINT, "--option", "flag"]),
+            args: |_| strs(&[CHECKPOINT, "--option", "flag", "--by", "ada"]),
             shows: "answer",
         },
         Case {
@@ -110,7 +113,7 @@ fn cases() -> Vec<Case> {
         Case {
             command: "pause",
             project: twin,
-            args: |_| strs(&["wait", "--phase", "02"]),
+            args: |_| strs(&["wait", "--phase", "02", "--by", "ada"]),
             shows: "pause PS1",
         },
         Case {
@@ -146,7 +149,7 @@ fn cases() -> Vec<Case> {
         Case {
             command: "set-uat-result",
             project: unanswered,
-            args: |_| strs(&["v1.0/01/01-UAT/U1", "pass"]),
+            args: |_| strs(&["v1.0/01/01-UAT/U1", "pass", "--by", "ada"]),
             shows: "result",
         },
         Case {
@@ -188,6 +191,29 @@ fn dry_run_and_gates() {
             case.command,
             case.shows
         );
+        // The harness values a command records (the ledger lines its plan adds) are rows of its own in `WRITERS`.
+        let id = case.command.replace('-', "_");
+        for line in shown
+            .lines()
+            .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+        {
+            let words: Vec<&str> = line[1..].split(' ').collect();
+            let [_, field, digest] = words[..] else {
+                continue;
+            };
+            if digest.len() != 64 {
+                continue;
+            }
+            // `propose_refactor` stamps `recorded_at` on the window it creates under strict (see `WRITERS`).
+            let also = id == "propose_refactor" && field == "recorded_at";
+            assert!(
+                also || gsd_core::commands::WRITERS
+                    .iter()
+                    .any(|(_, f, w)| *f == field && *w == id),
+                "{}: records '{field}', which is not one of its WRITERS rows",
+                case.command
+            );
+        }
         unchanged(&p, &before);
     }
     // record-verdict is a writing command too: its dry run shows the verdict.
@@ -256,8 +282,11 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
     let unknown: [(&str, Vec<&str>); 15] = [
         ("start-plan", vec!["NOPE"]),
         ("complete-plan", vec!["NOPE", "--started", STARTED]),
-        ("answer-checkpoint", vec!["NOPE", "--option", "x"]),
-        ("confirm-setup", vec!["NOPE"]),
+        (
+            "answer-checkpoint",
+            vec!["NOPE", "--option", "x", "--by", "ada"],
+        ),
+        ("confirm-setup", vec!["NOPE", "--by", "ada"]),
         ("propose-refactor", vec!["NOPE"]),
         ("dispose-refactor", vec!["NOPE", "accepted", "ada"]),
         ("waive-window", vec!["NOPE", "why", "ada"]),
@@ -265,7 +294,7 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
         ("resume", vec!["NOPE"]),
         ("resolve-blocker", vec!["NOPE", "done"]),
         ("close-milestone", vec!["NOPE"]),
-        ("set-uat-result", vec!["NOPE", "pass"]),
+        ("set-uat-result", vec!["NOPE", "pass", "--by", "ada"]),
         ("approve-validation", vec!["NOPE", "ada"]),
         ("workstreams", vec!["switch", "--name", "NOPE"]),
         ("phase", vec!["--edit", "NOPE", "--goal", "x"]),
@@ -274,7 +303,7 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
         let p = twin();
         let before = bytes(&p);
         let run = gsd(&p, command, &args);
-        assert_ne!(run.code, 0, "{command}: {}", run.all());
+        assert_eq!(run.code, 1, "{command}: {}", run.all());
         assert!(
             run.all().contains("NOPE"),
             "{command} does not name the entity: {}",

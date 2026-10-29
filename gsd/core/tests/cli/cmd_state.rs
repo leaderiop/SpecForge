@@ -37,7 +37,10 @@ fn pause_then_resume_round_trips_the_twin() {
 fn a_second_pause_is_numbered_after_the_first() {
     let p = twin();
     for _ in 0..2 {
-        assert_eq!(gsd(&p, "pause", &["again", "--phase", "02"]).code, 0);
+        assert_eq!(
+            gsd(&p, "pause", &["again", "--phase", "02", "--by", "ada"]).code,
+            0
+        );
     }
     assert_eq!(p.fields_of("v1.0/02/PS2")["reason"], "again");
 }

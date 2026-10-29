@@ -16,10 +16,13 @@ const BLOCKED_BY: &[&str] = &[
     "prior_phase",
 ];
 
-/// `set_uat_result <uat_test> <result> [--source] [--reported] [--severity] [--reason] [--blocked-by]`.
+/// `set_uat_result <uat_test> <result> --by <who> [--source] [--reported] [--severity] [--reason] [--blocked-by]`.
 fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let test = node(call, "uat_test", required(call, "uat_test")?)?;
     let result = required(call, "result")?;
+    // The caller's attestation of whose answer this is. No field holds it (a uat_test has no `by`): it is refused
+    // empty and echoed, never stored (K18: a human-attested command kind).
+    let by = required(call, "by")?;
     let source = call.str("source");
     // What the predicate (gsd/E509) asks of a result: the words, the reason, the blocker, here or already there.
     let given = |arg: &str| text(call, arg);
@@ -61,23 +64,37 @@ fn set_uat_result(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let id = &test.id;
     let mut plan = call.plan();
     plan.set(id, "result", result);
-    if let Some(source) = source {
+    // A re-answer by a person does not keep an earlier automated `source`.
+    if let Some(source) = source.or(test.has_field("source").then_some("human")) {
         plan.set(id, "source", source);
     }
-    for (name, value) in [
-        ("reported", reported),
-        ("severity", severity),
-        ("reason", reason),
-        ("blocked_by", blocked_by),
+    // A re-answer takes only the members its result has; the others of an earlier answer are unset.
+    for (name, value, results) in [
+        ("reported", reported, "issue"),
+        ("severity", severity, "issue"),
+        ("reason", reason, "skipped"),
+        ("blocked_by", blocked_by, "blocked"),
     ] {
-        if let Some(value) = value {
-            plan.set(id, name, value);
+        match value {
+            Some(_) if result != results => {
+                return Err(format!(
+                    "--{} belongs to a '{results}' result, not '{result}'",
+                    name.replace('_', "-")
+                ));
+            }
+            Some(value) => {
+                plan.set(id, name, value);
+            }
+            None if result != results && test.has_field(name) => {
+                plan.unset(id, name);
+            }
+            None => {}
         }
     }
     Ok(answer(
         call,
         json!({ "wrote": [id], "result": result }),
-        format!("uat test {id}: {result}\n"),
+        format!("uat test {id}: {result} (told by {by})\n"),
         Some(&plan),
     ))
 }
@@ -112,6 +129,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             })
             .arg("result", |a| {
                 a.required().one_of(RESULTS).description("the answer");
+            })
+            .arg("by", |a| {
+                a.description("required; whose answer it is: the caller's attestation, echoed and not stored (K18)");
             })
             .arg("source", |a| {
                 a.one_of(&["human", "automated"]).description("who produced the result; only given for an automated pass or issue");
