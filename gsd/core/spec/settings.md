@@ -127,4 +127,11 @@ because the host takes a variant setting only as a string or enum; `workflow.com
 | `specforge.stale_verdict_gate` | a stale verdict blocks every workflow step, not only execution (gsd/E516) |
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
 
+Ten more are bool, default **true**, and show or hide skills: `specforge.surface.<cluster>` for each of GSD's skill
+clusters (`core_loop`, `audit_review`, `milestone`, `research_ideate`, `workspace_state`, `docs`, `ui`, `ai_eval`,
+`ns_meta`, `utility`; the table is ported from `src/clusters.cts`, `src/settings/surface.rs`). A slash command is shown
+while the setting of the first cluster that lists it is on (`when`): upstream hides a skill in *any* disabled cluster,
+and `when` takes one setting, so disabling `utility` leaves `/gsd-help` (core_loop) shown. `/gsd-surface` prints the
+`specforge settings set` line and the reinstall; it changes nothing itself.
+
 Which rule changes with the profile, and which a setting switches off, is in [rules.md](rules.md).

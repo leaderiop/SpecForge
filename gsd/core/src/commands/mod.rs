@@ -3,11 +3,13 @@
 
 mod complexity;
 mod execute;
+mod help;
 mod milestone;
 mod phase;
 mod refactor;
 mod state;
 mod support;
+mod surface;
 mod verdict;
 mod verify;
 mod windows;
@@ -25,4 +27,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     milestone::declare(c);
     phase::declare(c);
     workstreams::declare(c);
+    help::declare(c);
+    surface::declare(c);
 }
