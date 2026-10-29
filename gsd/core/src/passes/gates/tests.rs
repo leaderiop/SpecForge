@@ -243,16 +243,30 @@ fn a_summary_subject_scopes_its_plan_and_w404_names_the_summary() {
 #[test]
 fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_does() {
     let entities = |summary: bool, rule: &str| {
+        let completed = json!({ "completed": "2026-10-29T10:00:00Z" });
         let mut all = vec![
             json!({ "id": "v1.0/01", "kind": "phase" }),
             json!({ "id": "v1.0/01/01-01", "kind": "plan",
                     "judgements": [{ "rule": rule, "state": "stale", "passed": false }] }),
         ];
         if summary {
-            all.push(json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }));
+            all.push(json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary", "fields": completed }));
         }
         input(ship(None), all, phase_edge())
     };
+    // A summary that is only created (no `completed`) is not an execution: the entry gate still refuses.
+    let created = input(
+        ship(None),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan",
+                    "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
+            json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+        ],
+        phase_edge(),
+    );
+    assert_eq!(codes(w318(&created)), ["W318"]);
+    assert_eq!(codes(e516(&created)), ["E516"]);
     assert_eq!(codes(w318(&entities(false, "gsd/W313"))), ["W318"]);
     assert_eq!(codes(e516(&entities(false, "gsd/W313"))), ["E516"]);
     // A plan that has run: its plan-check verdict is history.

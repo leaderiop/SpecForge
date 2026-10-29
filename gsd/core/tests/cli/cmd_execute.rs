@@ -279,7 +279,10 @@ fn confirm_setup_writes_done() {
     refused(&again, "invalid_input", &["already confirmed"]);
 }
 
-/// An answered checkpoint stales the plan check; once the plan has a summary that is history, and a gate lets it by.
+const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n";
+
+/// An answered checkpoint stales the plan check; once the plan is executed (its summary is `completed`) that is
+/// history, and a gate lets it by.
 #[test]
 fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let p = super::harness::project("execute");
@@ -291,11 +294,10 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     plus(&p);
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
     refused(&run, "gate_failed", &["E516", SECOND_PLAN]);
-    plant(
-        &p,
-        "spec/plans.spec",
-        "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n",
-    );
+    plant(&p, "spec/plans.spec", SECOND_SUMMARY);
+    let summary = format!("{SECOND_PLAN}/01-02-SUMMARY");
+    let run = gsd(&p, "complete-plan", &[&summary, "--started", STARTED]);
+    assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(
         p.inputs(SECOND_PLAN, "W311")["verdict"]["state"],
         "stale",
@@ -303,6 +305,29 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     );
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
     assert_eq!(run.code, 0, "{}", run.all());
+}
+
+/// A summary created before the run is not an execution: the entry gate still refuses (U33).
+#[test]
+fn starting_a_plan_with_an_uncompleted_summary_is_still_refused() {
+    let p = super::harness::project("execute");
+    checked(&p);
+    assert_eq!(
+        gsd(&p, "answer-checkpoint", &[CHECKPOINT, "--option", "flag"]).code,
+        0
+    );
+    plant(&p, "spec/plans.spec", SECOND_SUMMARY);
+    plus(&p);
+    let before = bytes(&p);
+    let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
+    refused(&run, "gate_failed", &["E516", SECOND_PLAN]);
+    assert_eq!(bytes(&p), before);
+    strict(&p);
+    refused(
+        &gsd(&p, "start-plan", &[SECOND_PLAN]),
+        "gate_failed",
+        &["W318"],
+    );
 }
 
 #[test]

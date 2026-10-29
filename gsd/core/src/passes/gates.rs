@@ -192,11 +192,13 @@ fn plans_in<'a>(input: &'a PassInput, subject: Option<&str>) -> Vec<&'a PassEnti
 }
 
 /// Whether `entity` has a stale judgement that counts at a gate. A plan-check verdict (W311, W313, W315, W316) of a
-/// plan that has a summary is history: the plan check judges a plan before it runs, and answering a checkpoint or
+/// plan whose summary is `completed` is history: the plan check judges a plan before it runs, and answering a checkpoint or
 /// confirming a setup mid-execution changes the digest it was recorded over (U33). The judgement itself stays stale.
 fn stale(input: &PassInput, entity: &PassEntity) -> bool {
-    let executed =
-        entity.kind == "plan" && of_kind(input, "summary").any(|s| scope_of(&s.id) == entity.id);
+    // Executed means a summary with `completed` (as E517): a summary merely created before the run is not one.
+    let executed = entity.kind == "plan"
+        && of_kind(input, "summary")
+            .any(|s| scope_of(&s.id) == entity.id && s.fields.contains_key("completed"));
     entity.judgements.iter().any(|j| {
         let plan_check = j
             .rule
