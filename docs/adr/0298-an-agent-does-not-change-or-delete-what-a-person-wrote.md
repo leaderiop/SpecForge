@@ -18,7 +18,9 @@ milestone audit's `debt_accepted`, an approval's `by`) as long as it unlinked no
 - **D2. A person's value is not deleted.** An agent's `delete` of an entity that holds a value whose writer is human is
   refused `human_only` ("'{field}' of {kind} '{id}' was written by a person"): a written field whose own writer is human,
   or a written block or block-list item holding a member whose writer is human. Computed and harness values are not
-  checked: an extension deletes its own records.
+  checked: an extension deletes its own records. The same check runs over what an agent's `unset`, `remove` or
+  replacing `set` takes away, so a person's value is not dropped first; and a plan's delete of an id a rename of the
+  same plan took is checked against the entity's id before the plan.
 - **D3. Who stays free.** The editor, a person at a terminal and hand edits write and delete as before.
 
 ## Rejected

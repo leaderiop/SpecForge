@@ -211,3 +211,91 @@ fn an_agents_delete_of_an_entity_holding_a_persons_value_is_refused() {
     assert_eq!(typed(&p, &[delete("R2")]), None);
     assert_eq!(typed_as(&p, &[delete("R")], &Origin::cli(true)), None);
 }
+
+const HELD: &str = "reviewed R \"R\" {\n  approvals [\n    {\n      by \"me\"\n    }\n  ]\n}\n";
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "a plan that renames an entity and deletes it under the new id is refused as the delete would be"
+)]
+fn a_rename_then_a_delete_in_one_plan_is_checked_against_the_original() {
+    let p = project()
+        .file("r.spec", HELD)
+        .file("a.spec", "reviewed A \"A\" {}\n")
+        .file("r2.spec", "reviewed R2 \"R2\" {}\n");
+    let plan = |ops: serde_json::Value| refused(&p, CORE, "core", "record", ops);
+    let rename = |from: &str, to: &str, file: &str| json!({"op": "rename", "entity": from, "to": to, "revision": crate::plans::revision(&p, file)});
+    let delete = |id: &str| json!({"op": "delete", "entity": id, "revision": "absent"});
+    assert_eq!(
+        plan(json!([rename("R", "R9", "r.spec"), delete("R9")])).as_deref(),
+        Some("human_only")
+    );
+    // Delete a harmless A, take its id with R, delete again: the second delete is R's.
+    assert_eq!(
+        plan(json!([
+            delete("A"),
+            rename("R", "A", "r.spec"),
+            delete("A")
+        ]))
+        .as_deref(),
+        Some("human_only")
+    );
+    // An entity holding nothing of a person's is renamed and deleted freely.
+    assert_eq!(
+        plan(json!([rename("R2", "R3", "r2.spec"), delete("R3")])),
+        None
+    );
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "an agents unset, remove or replacing set of a persons member value is refused"
+)]
+fn an_agents_write_that_drops_a_persons_member_value_is_refused() {
+    use crate::edit::{set, unset};
+    use specforge_ops::authoring::apply::Origin;
+    use specforge_ops::authoring::edit::{Edit, Input};
+    use std::collections::BTreeMap;
+    let p = project().file("r.spec", HELD).file(
+        "n.spec",
+        "reviewed N \"N\" {\n  approvals [\n    {\n      note \"x\"\n    }\n  ]\n}\n",
+    );
+    let note = Input::Blocks(vec![BTreeMap::from([(
+        "note".to_string(),
+        Input::One("x".into()),
+    )])]);
+    let remove = Edit::Remove {
+        entity_id: "R".into(),
+        field: "approvals".into(),
+        index: 0,
+    };
+    for (what, edit) in [
+        ("unset", unset("R", "approvals")),
+        ("remove", remove.clone()),
+        ("replacing set", set("R", "approvals", note.clone())),
+    ] {
+        assert_eq!(typed(&p, &[edit]).as_deref(), Some("human_only"), "{what}");
+    }
+    // A person at a terminal edits it, and a value no person wrote is dropped freely.
+    let terminal = Origin::cli(true);
+    assert_eq!(typed_as(&p, &[unset("R", "approvals")], &terminal), None);
+    assert_eq!(typed_as(&p, &[remove], &terminal), None);
+    assert_eq!(typed(&p, &[unset("N", "approvals")]), None);
+}
+
+#[specforge_test(
+    behavior = "refuse_human_only_write",
+    verify = "an agent deletes an entity holding only computed or harness values"
+)]
+fn an_entity_holding_only_computed_or_harness_values_is_deletable() {
+    use specforge_ops::authoring::edit::Edit;
+    let p = project().file(
+        "u.spec",
+        "uat_test U9 \"U\" {\n  phase 03\n  result pass\n}\n",
+    );
+    let delete = Edit::Delete {
+        entity_id: "v1.0/03/U9".into(),
+        unlink_references: false,
+    };
+    assert_eq!(typed(&p, &[delete]), None);
+}

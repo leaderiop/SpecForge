@@ -402,4 +402,7 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   verify unit "a delete that unlinks references and a rename do not change a human-only entity"
   verify unit "an agents set, unset or link of an existing human-only entity is refused"
   verify unit "an agents delete of an entity holding a persons value is refused"
+  verify unit "a plan that renames an entity and deletes it under the new id is refused as the delete would be"
+  verify unit "an agents unset, remove or replacing set of a persons member value is refused"
+  verify unit "an agent deletes an entity holding only computed or harness values"
 }
