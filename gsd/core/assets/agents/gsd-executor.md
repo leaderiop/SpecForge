@@ -68,18 +68,18 @@ Load execution context:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-INIT=$(specforge gsd query init.execute-phase "${PHASE}")
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+INIT=$(specforge query "${PHASE}" --depth 2 --format json)
+# the phase, its plans, and which of them have a summary
 ```
 
-Extract from init JSON: `executor_model`, `commit_docs`, `sub_repos`, `phase_dir`, `plans`, `incomplete_plans`.
+Read from the query: the phase directory entity, its `plan` entities and which of them have a `summary` (a plan with none is incomplete). `commit_docs` and the sub-repos are settings: `specforge settings --format json --extension @gsd/core`.
 
-Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
+Also load the project state (pauses, blockers, handoffs) with a query:
 ```bash
-specforge gsd query state.load 2>/dev/null
+specforge query --kinds pause,blocker,handoff --format json 2>/dev/null
 ```
-If STATE.md missing but spec/gsd/ exists: offer to reconstruct or continue without.
-If spec/gsd/ missing: Error — project not initialized.
+If a pause names a handoff, read the handoff first and continue from it.
+If the query finds no such phase: Error — project not initialized.
 </step>
 
 <step name="load_plan">
@@ -295,9 +295,9 @@ Do NOT continue reading. Analysis without action is a stuck signal.
 Check if auto mode is active at executor start (chain flag or user preference):
 
 ```bash
-AUTO_CHAIN=$(specforge gsd query config-get workflow._auto_chain_active --raw 2>/dev/null || echo "false")
-AUTO_CFG=$(specforge gsd query config-get workflow.auto_advance --raw 2>/dev/null || echo "false")
-HUMAN_VERIFY_MODE=$(specforge gsd query config-get workflow.human_verify_mode --default end-of-phase --raw 2>/dev/null || echo "end-of-phase")
+AUTO_CHAIN="false"  # the orchestrator tells you in your prompt when it chained you; no setting records it
+AUTO_CFG=$(specforge settings --format json --extension @gsd/core | jq -r '.. | objects | select(.name? == "workflow.auto_advance") | .value' 2>/dev/null || echo "false")
+HUMAN_VERIFY_MODE=$(specforge settings --format json --extension @gsd/core | jq -r '.. | objects | select(.name? == "workflow.human_verify_mode") | .value' 2>/dev/null || echo "end-of-phase")
 ```
 
 Auto mode is active if either `AUTO_CHAIN` or `AUTO_CFG` is `"true"`. Store the result for checkpoint handling below.
@@ -398,7 +398,7 @@ The reference is the single source; do not improvise a variant.
 ## Plan-Level TDD Gate Enforcement (type: tdd plans, #4269: stated ONCE)
 
 When the plan frontmatter has `type: tdd`, the mandatory RED/GREEN/REFACTOR gate sequence,
-its format-based RED evidence rules (#3770 INVALID_RED: `specforge gsd check tdd-red-evidence`
+its format-based RED evidence rules (#3770 INVALID_RED: `specforge check`
 plus semantic inspection), and the `## TDD Gate Compliance` SUMMARY.md contract are
 specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules" section
 (embedded when TDD applies). The reference is the single source; do not improvise a variant.
@@ -415,13 +415,13 @@ specified in the canonical `gsd-core/references/tdd.md` "Gate Enforcement Rules"
 3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
 4. Exit the current execution wave cleanly. Prior commits in the same wave stay — do not roll back.
 
-**Behavior-Adding Task detection** (the gate only fires when this predicate returns true): apply via the centralized verb instead of inlining the three checks:
+**Behavior-Adding Task detection** (the gate only fires when this predicate returns true): read the task's `type` instead of inlining the three checks:
 
 ```bash
-IS_BEHAVIOR_ADDING=$(specforge gsd query task.is-behavior-adding "$TASK_FILE" --pick is_behavior_adding)
+specforge query "$TASK_ID" --depth 0 --format json   # type: tdd means the task adds behavior
 ```
 
-The verb owns the canonical predicate (tdd="true" frontmatter AND `<behavior>` block AND non-test source files in `<files>`). Pure doc-only / config-only / test-only tasks return `false` and are exempt. Full result also exposes per-check breakdown (`checks.tdd_true`, `checks.has_behavior_block`, `checks.has_source_files`) and a human-readable `reason` — use these in the halt-and-report payload when the gate trips. See `gsd-core/references/execute-mvp-tdd.md` for halt protocol.
+The predicate is the task's `type`: `tdd` adds behavior; any other type (doc-only, config-only, test-only) is exempt. Name the task and its `<behavior>` block in the halt-and-report payload when the gate trips. See `gsd-core/references/execute-mvp-tdd.md` for halt protocol.
 
 **Mode is all-or-nothing per phase** (PRD decision Q1, inherited from Phase 1). The gate is either active for the whole phase or inactive for the whole phase — it cannot apply selectively to a subset of tasks within a phase.
 
@@ -479,7 +479,7 @@ if [ "$HEAD_REF" = "DETACHED" ]; then
   exit 1
 fi
 # #3819: real default branch; override git.allow_default_branch_commits; else five-name fallback.
-IS_PROTECTED=$(specforge gsd query git.base-branch --is-protected "$ACTUAL_BRANCH" 2>/dev/null) || IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"
+IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"  # the real default branch is not queried here; the five-name fallback below decides
 if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; then
   if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
     IS_PROTECTED="true"
@@ -489,7 +489,7 @@ if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; th
 fi
 if [ "$IS_PROTECTED" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
-  echo "Re-home onto a phase/agent branch (#2924, #3819); override: git.allow_default_branch_commits:true in spec/gsd/config.json." >&2
+  echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set git.allow_default_branch_commits true)." >&2
   exit 1
 fi
 # #4799: set SEQUENTIAL=true ONLY if your prompt has a `<sequential_execution>` block (the
@@ -533,7 +533,7 @@ git add src/types/user.ts
 
 **If `sub_repos` is configured (non-empty array from init context):** Use `commit-to-subrepo` to route files to their correct sub-repo:
 ```bash
-specforge gsd query commit-to-subrepo "{type}({phase}-{plan}): {concise task description}" --files file1 file2 ...
+git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
 ```
 **0c. Plan commit ledger (#3968, single-repo — before the first commit):**
 Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 sentinel above
@@ -632,13 +632,13 @@ file individually. If a file appears untracked but is not part of your task, lea
 </destructive_git_prohibition>
 
 <summary_creation>
-After all tasks complete, create `{phase}-{plan}-SUMMARY.md` at `spec/gsd/phases/XX-name/`.
+After all tasks complete, create the plan's `summary` entity: `specforge new summary {plan-id}-SUMMARY "<title>" key=value ...` (the template lists its fields).
 
-Use the Write tool to create files — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+Use `specforge new` and `specforge set` — never write the entity's `.spec` text by hand or with a heredoc.
 
 **Write contract (hard rules — must follow):**
 
-This file is the canonical output of this step. The orchestrator reads `spec/gsd/phases/XX-name/{phase}-{plan}-SUMMARY.md` from disk after you return; it does NOT read your return message for the file content.
+This file is the canonical output of this step. The orchestrator queries the `summary` entity after you return; it does NOT read your return message for the file content.
 
 1. **Default: write the whole file in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
 2. **Do NOT return the SUMMARY.md content in your response.** Your return message is a brief confirmation; the content lives on disk.
@@ -708,20 +708,20 @@ Or: "None - plan executed exactly as written."
 
 If any stubs exist, add a `## Known Stubs` section to the SUMMARY listing each stub with its file, line, and reason. These are tracked for the verifier to catch. Do NOT mark a plan as complete if stubs exist that prevent the plan's goal from being achieved — either wire the data or document in the plan why the stub is intentional and which future plan will resolve it.
 
-**Broken-windows ledger (issue #1950).** For each stub, skipped test, or unrun `<verify>` recorded above, ALSO append it to the cross-phase defect register at `spec/gsd/WINDOWS.md`. The ledger accumulates across phases and blocks `/gsd:ship` while any entry is `open`, so a stub written here is visible at ship time even after the per-phase SUMMARY scrolls out of context. Append one entry per defect:
+**Broken-windows ledger (issue #1950).** For each stub, skipped test, or unrun `<verify>` recorded above, ALSO append it to the cross-phase defect register as `broken_window` entities. The ledger accumulates across phases and blocks `/gsd:ship` while any entry is `open`, so a stub written here is visible at ship time even after the per-phase SUMMARY scrolls out of context. Append one entry per defect:
 
 ```bash
-specforge gsd windows append \
-  --kind stub \
-  --phase "${PHASE_NUMBER}" \
+specforge gsd record-window stub "${PHASE_NUMBER}" \
+  "<one-line description, same wording as the Known Stubs row>" \
   --file "<path-relative-to-repo-root>" \
-  --line "<line-number-or-omit>" \
-  --description "<one-line description, same wording as the Known Stubs row>"
+  --line "<line-number-or-omit>"
+
+
 ```
 
-Use `--kind skipped-test` for a `t.skip(...)` / `test.todo(...)` you left behind, `--kind unrun-verify` for a `<verify>` you could not run, or `--kind deviation` for a documented plan deviation. The full kind vocabulary: `stub | todo | fixme | skipped-test | lint-warning | unmet-truth | unrun-verify | deviation`.
+Use `skipped_test` as the kind for a `t.skip(...)` / `test.todo(...)` you left behind, `unrun_verify` for a `<verify>` you could not run, or `deviation` for a documented plan deviation. The full kind vocabulary: `stub | todo | fixme | skipped_test | lint_warning | unmet_truth | unrun_verify | deviation`.
 
-The ledger is **optional**: if `specforge gsd windows append` returns `windows_ledger_missing` or `windows_ok` without writing, continue without error — population is best-effort and never blocks execution. Recording here is what makes the defect visible to the ship gate later; forgetting to record is the failure mode this ledger exists to prevent.
+The ledger is **optional**: if `specforge gsd record-window` is refused, continue without error — population is best-effort and never blocks execution. Recording here is what makes the defect visible to the ship gate later; forgetting to record is the failure mode this ledger exists to prevent.
 
 **Threat surface scan:** Before writing the SUMMARY, check if any files created/modified introduce security-relevant surface NOT in the plan's `<threat_model>` — new network endpoints, auth paths, file access patterns, or schema changes at trust boundaries. If found, add:
 
@@ -755,100 +755,100 @@ Do NOT skip. Do NOT proceed to state updates if self-check fails.
 </self_check>
 
 <state_updates>
-After SUMMARY.md, update STATE.md using `specforge query` state handlers (named flags):
+After the summary entity exists, record the plan's close and what the project must remember:
 
 ```bash
-# Advance plan counter (handles edge cases automatically)
-specforge gsd query state.advance-plan
+# Close the plan: writes the summary's started and completed times (the host's clock).
+# STARTED is the time `specforge gsd start-plan` answered when you began.
+specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY" --started "${STARTED}"
 
-# Recalculate progress bar from disk state
-specforge gsd query state.update-progress
-
-# Record execution metrics (phase, plan, duration, tasks, files)
-specforge gsd query state.record-metric \
-  --phase "${PHASE}" --plan "${PLAN}" --duration "${DURATION}" \
-  --tasks "${TASK_COUNT}" --files "${FILE_COUNT}"
-
-# Add decisions (extract from SUMMARY.md key-decisions)
-# --phase is required here: without it the verb falls back to STATE.md's global
-# pointer, which misattributes decisions when plans execute out of pointer order (#4763).
+# Decisions (from the summary's key-decisions): one `decision` entity each
 for decision in "${DECISIONS[@]}"; do
-  specforge gsd query state.add-decision --phase "${PHASE}" --summary "${decision}"
+  specforge new decision "<id>" "${decision}" phase="${PHASE}"
 done
 
-# Update session info (stopped-at, resume-file; timestamp set automatically)
-specforge gsd query state.record-session \
-  --stopped-at "Completed ${PHASE}-${PLAN}-PLAN.md" --resume-file "None"
+# Blockers found during execution
+specforge gsd raise-blocker "Blocker description" --phase "${PHASE}" --plan "${PLAN}"
+
+# Only when you stop before the plan is done: pause, with the reason
+specforge gsd pause "Stopped before ${PHASE}-${PLAN}" --phase "${PHASE}" --plan "${PLAN}"
 ```
 
-```bash
-# Update ROADMAP.md progress for this phase (plan counts, status)
-specforge gsd query roadmap.update-plan-progress "${PHASE_NUMBER}"
+Progress, the roadmap's plan counts and the requirements' completion are computed from the plans, summaries and verdicts:
+there is nothing to write for them.
 
-# Mark completed requirements from PLAN.md frontmatter
-# Extract the `requirements` array from the plan's frontmatter, then mark each complete
-specforge gsd query requirements.mark-complete ${REQ_IDS}
-```
+**Requirement IDs:** the plan's `requirements` reference the requirement entities; they count as covered when the phase
+verifies. If the plan has no requirements, skip this.
 
-**Requirement IDs:** Extract from the PLAN.md frontmatter `requirements:` field (e.g., `requirements: [AUTH-01, AUTH-02]`). Pass all IDs to `requirements mark-complete`. If the plan has no requirements field, skip this step.
+**What each step does:**
+- `complete-plan`: sets the summary's `started` and `completed`; refused when the summary lacks a required field
+- `new decision`: adds a decision the project keeps
+- `raise-blocker`: records a blocker with the host's clock
+- `pause`: records why the work stopped, and who, for the next session
+- progress, plan counts, requirement completion: computed, never written
 
-**State command behaviors:**
-- `state advance-plan`: Increments Current Plan, detects last-plan edge case, sets status
-- `state update-progress`: Recalculates progress bar from SUMMARY.md counts on disk
-- `state record-metric`: Appends to Performance Metrics table
-- `state add-decision`: Adds to Decisions section, removes placeholders
-- `state record-session`: Updates Last session timestamp and Stopped At fields
-- `roadmap update-plan-progress`: Updates ROADMAP.md progress table row with PLAN vs SUMMARY counts
-- `requirements mark-complete`: Checks off requirement checkboxes and updates traceability table in REQUIREMENTS.md
+**Extract decisions from the summary:** parse key-decisions from its fields or its "Decisions Made" section and add each
+with `specforge new decision`.
 
-**Extract decisions from SUMMARY.md:** Parse key-decisions from frontmatter or "Decisions Made" section → add each via `state add-decision`.
-
-**For blockers found during execution:**
-```bash
-specforge gsd query state.add-blocker --text "Blocker description"
-```
+**For blockers found during execution:** `specforge gsd raise-blocker` as above.
 </state_updates>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <final_commit>
 This commit must re-run the Step 0 assertion above (#3819).
 ```bash
-specforge gsd query commit "docs({phase}-{plan}): complete [plan-name] plan" --files \
-  spec/gsd/phases/XX-name/{phase}-{plan}-SUMMARY.md spec/gsd/STATE.md spec/gsd/ROADMAP.md spec/gsd/REQUIREMENTS.md
+git add <the files this plan changed, and its .spec files>
+git commit -m "docs({phase}-{plan}): complete [plan-name] plan"
+specforge collect --runner gsd-git --yes   # records the commit in the plan's file
 ```
 
 Separate from per-task commits — captures execution results only.
 
-**Handling the SDK return envelope (#3678):** `specforge query commit` returns
-one of these shapes:
+**Handling the git outcome (#3678):**
 
-- `{committed: true, hash, reason: 'committed'}` — commit succeeded; record
-  the hash in the completion format.
-- `{committed: false, skipped: true, reason: 'skipped_commit_docs_false'}` —
-  the user has `commit_docs: false` in `spec/gsd/config.json`. **This is an
-  intentional success path.** Record "skipped (commit_docs disabled)" in the
-  completion format and move on.
-- `{committed: false, skipped: true, reason: 'skipped_gitignored'}` —
-  `spec/gsd/` is gitignored in the user's project. **Also an intentional
-  success path.** Record "skipped (.planning gitignored)" and move on.
-- `{committed: false, reason: 'nothing_to_commit' | 'commit_failed', ...}` —
-  no-op / genuine failure; surface in the completion notes.
-- `{committed: false, reason: 'commit_timeout', timed_out: true, error}` —
-  `git commit` itself was timeout-killed mid-hook (#3886). Nothing committed.
-  Unlike `staging_timeout`, a retry CAN succeed after removing the stale lock
-  the error names (`…/index.lock`): verify no git process is running, remove
-  it, address why the pre-commit hook exceeded the band (or stage fewer
-  changes), then retry once.
-- `{committed: false, reason: 'staging_failed' | 'staging_timeout', file, error}` —
-  `git add` itself failed (#2608), e.g. an unwritable index. Nothing committed,
-  index rolled back. Surface `file` + `error` (git's stderr); do not retry — a
-  retry hits the same cause.
+- The commit succeeded — record the hash in the completion format.
+- The user has `commit_docs` off (`specforge settings`): this is an intentional success path. Do not commit the
+  documents; record "skipped (commit_docs disabled)" in the completion format and move on.
+- The project's `.spec` files are gitignored: also an intentional success path. Record "skipped (.spec gitignored)"
+  and move on.
+- Nothing to commit, or the commit failed — surface it in the completion notes.
+- `git commit` was timeout-killed mid-hook (#3886): nothing is committed. A retry CAN succeed after removing the stale
+  lock git names (`…/index.lock`): verify no git process is running, remove it, address why the pre-commit hook
+  exceeded the band (or stage fewer changes), then retry once.
+- `git add` itself failed (#2608), e.g. an unwritable index: nothing is committed. Surface git's stderr; do not
+  retry — a retry hits the same cause.
 
-**Do not fall back to raw `git add` / `git commit` / `git add -f`** when the
-SDK returns `skipped: true`. The SDK's skip is the user's deliberate choice
-to keep `spec/gsd/` files out of git history. Force-staging gitignored
-content via `git add -f spec/gsd/...` is forbidden — that bug is exactly
-the regression #3678 reported, where the agent leaks `spec/gsd/` artifacts
-into the user's project history.
+**Do not fall back to `git add -f`** when the files are gitignored. The ignore is the user's deliberate choice to keep
+the `.spec` files out of git history; force-staging them is forbidden — that bug is exactly the regression #3678
+reported, where the agent leaks planning artifacts into the user's project history.
+</final_commit>
+
+
+
+
+
+
+
+
+
+
+
+
 </final_commit>
 
 <completion_format>

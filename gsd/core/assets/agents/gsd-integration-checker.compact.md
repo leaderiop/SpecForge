@@ -74,9 +74,9 @@ Requirements with no cross-phase wiring MUST be flagged in the Requirements Inte
 <verification_process>
 
 ## Step 1: Build Export/Import Map
-For each phase, extract what it provides and consumes from SUMMARYs (grep `Key Files|Exports|
-Provides` sections across `spec/gsd/phases/*/*-SUMMARY.md`; use `nullglob`/`NULL_GLOB` so an
-unmatched glob doesn't abort the loop). Build a provides/consumes map, e.g.:
+For each phase, extract what it provides and consumes from its summaries (`specforge query --kinds summary
+--format json`: each summary's `key_files` and what it provides). Build a provides/consumes map, e.g.:
+
 ```
 Phase 1 (Auth): provides getCurrentUser, AuthProvider, useAuth, /api/auth/*; consumes nothing
 Phase 2 (API): provides /api/users/*, /api/data/*, UserType, DataType; consumes getCurrentUser
