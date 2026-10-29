@@ -399,3 +399,16 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-review` and `/gsd-review-
 | `gsd-core/workflows/review.md` | `7e56b410953ac635513b6790ad8c4e410a37399d81ccc6b6da1efb80bb50bd00` |
 | `gsd-core/workflows/review/steps/reviewer-instances-note-1.md` | `8e99eab70c786614de4cee08bea6ab3522361dcacb11a54cf3561caee52b524f` |
 | `gsd-core/workflows/review/steps/reviewer-instances-note-2.md` | `25672f5511d739d9a7396f85313b899b9e9de53c43797bfae4d3f017424f1cbc` |
+
+## r43 T6: settings and config
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-settings` and `/gsd-config`. `planning-config.md` is kept as `.md.txt`: its link to a doc leaves the tree.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/config.md` | `cbb67008f8701f4611d1452f4e9be4ad7427bf21ccd09b101a0ed6679a642cec` |
+| `commands/gsd/settings.md` | `ad4cd4b4a5a3bab5f5fe2df1db1932d7629a0445fe42e1fbf571c135f79597f1` |
+| `gsd-core/references/planning-config.md.txt` | `575068703ae7efb703832405d1fb26cc509e69ec9fb5db129a367cbb68a57ac3` |
+| `gsd-core/workflows/settings-advanced.md` | `c9cc02bf5f7c7c1c1155a839e7408aa54eb3749d441a435cbb0360773e54fcac` |
+| `gsd-core/workflows/settings-integrations.md` | `eb4634671256c7e567bb278ba96e8fcb41cb541c0f9c7c3f23e9ad8b586b6fb1` |
+| `gsd-core/workflows/settings.md` | `fa67c5d22142d81ec0ffdd05ec81bebf50ff9b85ee2ed2960635c87ed9c458dc` |

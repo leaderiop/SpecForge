@@ -38,6 +38,7 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    ("commands/gsd/config.md", 46, 46),
     ("commands/gsd/pause-work.md", 11, 11),
     ("commands/gsd/pause-work.md", 31, 31),
     ("commands/gsd/pause-work.md", 33, 33),
@@ -50,6 +51,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("commands/gsd/review-backlog.md", 36, 37),
     ("commands/gsd/review.md", 10, 10),
     ("commands/gsd/review.md", 7, 7),
+    ("gsd-core/references/planning-config.md", 372, 372),
     ("gsd-core/references/reviewer-instances.md", 5, 5),
     ("gsd-core/references/reviewer-instances.md", 76, 79),
     ("gsd-core/references/reviewer-instances.md", 82, 82),
@@ -146,6 +148,10 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 874, 874),
     ("gsd-core/workflows/review.md", 938, 938),
     ("gsd-core/workflows/session-report.md", 57, 57),
+    ("gsd-core/workflows/settings-integrations.md", 13, 13),
+    ("gsd-core/workflows/settings-integrations.md", 15, 15),
+    ("gsd-core/workflows/settings-integrations.md", 24, 24),
+    ("gsd-core/workflows/settings.md", 38, 38),
 ];
 
 fn root() -> PathBuf {

@@ -7,6 +7,7 @@ pub(crate) mod assets;
 mod audit;
 mod autonomous;
 pub(crate) mod compose;
+mod configure;
 mod discuss;
 mod execute;
 mod host;
@@ -66,4 +67,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     autonomous::declare(c);
     session::declare(c);
     review::declare(c);
+    configure::declare(c);
 }
