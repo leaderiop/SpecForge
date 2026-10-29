@@ -8,7 +8,7 @@ mod digest;
 pub mod judged;
 mod kinds;
 mod passes;
-mod prompts;
+pub mod prompts;
 mod rules;
 pub mod settings;
 mod slash;

@@ -22,7 +22,7 @@ pub struct Input<'a> {
 }
 
 /// The attribution line of an asset is a notice about the file, not text a model reads.
-pub(crate) fn without_notice(text: &str) -> &str {
+pub fn without_notice(text: &str) -> &str {
     match text.strip_prefix("<!-- Ported from") {
         Some(rest) => rest.split_once('\n').map_or("", |(_, body)| body),
         None => text,

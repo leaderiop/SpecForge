@@ -23,6 +23,27 @@ use specforge_extension_sdk::prelude::*;
 
 pub use spec::GATES;
 
+/// The text of the prompt of upstream command `command` for `host`, as the handler builds it without a tail: the
+/// native tests render every flag combination through it.
+pub fn render_text(command: &str, host: &str, arguments: &str) -> Result<String, String> {
+    render::render(&render::Input {
+        command,
+        host,
+        arguments,
+        settings: &crate::settings::block(),
+        tail: "",
+    })
+}
+
+/// The text of an embedded asset, attribution line included.
+pub use assets::get as asset;
+/// The paths of every embedded asset.
+pub use assets::paths as asset_paths;
+/// The attribution line of an asset is a notice, not text a model reads.
+pub use render::without_notice;
+/// `text` with its install paths re-pointed at `specforge gsd reference`.
+pub use repoint::repoint;
+
 pub fn declare(c: &mut ContributionsBuilder) {
     spec::declare(c);
     project::declare(c);
