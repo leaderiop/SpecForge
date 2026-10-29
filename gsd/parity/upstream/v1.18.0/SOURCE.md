@@ -386,3 +386,16 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-pause-work` and `/gsd-res
 | `gsd-core/workflows/pause-work.md` | `47195b230b0915f7629578a500795026e06079a232c5239dad2378e8290c68e6` |
 | `gsd-core/workflows/resume-project.md` | `bfaa76506389f8b10efdde14b08c27eff0d98cf7433b6a4fd2de822555aafcda` |
 | `gsd-core/workflows/session-report.md` | `0a8ed74c950a4d5b34b4d1847f059f5a7d95a5bf9584f86289a3c3995f39067e` |
+
+## r43 T5: review and review-backlog
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-review` and `/gsd-review-backlog`. `reviewer-instances.md` is kept as `.md.txt`: its link to an ADR leaves the tree.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/review-backlog.md` | `ec0cdae53b5edf72d6f8ed55de2ad0291707a7d9b2bf7ae4ba61ea1079b1df34` |
+| `commands/gsd/review.md` | `cea64f93eb906b4ea7f33223da0049f288de287006d36d37e75c14989de75ff9` |
+| `gsd-core/references/reviewer-instances.md.txt` | `c2cac14d435400215398feeace69fdc95d6c4a81bd792f67887bd444219c0f35` |
+| `gsd-core/workflows/review.md` | `7e56b410953ac635513b6790ad8c4e410a37399d81ccc6b6da1efb80bb50bd00` |
+| `gsd-core/workflows/review/steps/reviewer-instances-note-1.md` | `8e99eab70c786614de4cee08bea6ab3522361dcacb11a54cf3561caee52b524f` |
+| `gsd-core/workflows/review/steps/reviewer-instances-note-2.md` | `25672f5511d739d9a7396f85313b899b9e9de53c43797bfae4d3f017424f1cbc` |

@@ -17,6 +17,7 @@ mod project;
 mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
+mod review;
 pub mod roster;
 mod session;
 pub(crate) mod setting;
@@ -64,4 +65,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     quick::declare(c);
     autonomous::declare(c);
     session::declare(c);
+    review::declare(c);
 }

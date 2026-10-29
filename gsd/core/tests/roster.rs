@@ -21,8 +21,6 @@ const NOT_YET_SERVED: &[&str] = &[
     "ns-workflow",
     "onboard",
     "pr-branch",
-    "review",
-    "review-backlog",
     "settings",
     "undo",
     "update",

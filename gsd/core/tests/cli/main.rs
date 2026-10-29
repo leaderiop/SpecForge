@@ -48,6 +48,7 @@ mod prompts_navigate;
 mod prompts_plan;
 mod prompts_project;
 mod prompts_quick;
+mod prompts_review;
 mod prompts_session;
 mod prompts_ship;
 mod prompts_spec;
