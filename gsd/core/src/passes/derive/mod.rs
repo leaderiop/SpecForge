@@ -4,12 +4,15 @@
 //! declares `reads_tests`, to read the report for the checks only, so a compile without `specforge-report.json` says
 //! I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and retrospective values.
 //!
-//! Not answered, by design: `phase.completed`, `phase.complete`/`needs_review` and requirement `gaps_found` (the
-//! verification kinds, r39), `phase.frontend` (`@gsd/ui`'s detection), `project.windows_*` (broken windows, r39),
-//! `retrospective.sessions` (no harness), and plan `draft`/`checked` (the plan-check verdicts, r40).
+//! `verify` answers a verification's status, score and re-verification, and `ladder` the phase's `complete` and
+//! `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`.
+//!
+//! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection), `retrospective.sessions` (no harness), and
+//! plan `draft`/`checked` (the plan-check verdicts, r40).
 
 mod execute;
 mod halt;
+mod ladder;
 mod progress;
 mod verify;
 
@@ -53,7 +56,12 @@ fn derive(input: &PassInput) -> PassOutput {
     let statuses = execute::plan_statuses(input, &commits);
     values.extend(execute::values(input, &commits, &statuses));
     values.extend(verify::values(input, &statuses));
-    values.extend(progress::values(input, &commits, &statuses));
+    values.extend(progress::values(
+        input,
+        &commits,
+        &statuses,
+        &verify::by_phase(input),
+    ));
     PassOutput {
         values,
         ..Default::default()

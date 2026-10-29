@@ -27,14 +27,6 @@ fn a_requirement_whose_plans_all_halted_is_blocked() {
 }
 
 #[test]
-fn the_phase_ladder_up_to_executed() {
-    assert_eq!(ladder(0, 0), "not_started");
-    assert_eq!(ladder(2, 0), "planned");
-    assert_eq!(ladder(2, 1), "in_progress");
-    assert_eq!(ladder(2, 2), "executed");
-}
-
-#[test]
 fn milestone_progress_percent_is_the_smaller_fraction() {
     // 2 of 3 plans, 1 of 4 phases: the phases are the smaller side.
     assert_eq!(percent(2, 3, 1, 4), Some(25));

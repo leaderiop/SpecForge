@@ -247,7 +247,15 @@ fn re_verification(
     (!block.is_empty()).then_some(Value::Object(block))
 }
 
-pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
+/// What is known of one verification.
+struct Assessment<'a> {
+    verification: &'a PassEntity,
+    group: Group<'a>,
+    now: Vec<Item>,
+    status: &'static str,
+}
+
+fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
     let mut found = Vec::new();
     for v in of_kind(input, "verification") {
         let Some(phase) = v.fields.get("phase").map(String::as_str) else {
@@ -273,20 +281,62 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         let human_open = of_kind(input, "human_item")
             .filter(|h| h.fields.get("verification") == Some(&v.id))
             .any(|h| !passed_in_uat(input, h));
-        found.push(value(
-            &v.id,
-            "status",
-            status(&now, &truths, blocker(v), human_open),
-        ));
+        let status = status(&now, &truths, blocker(v), human_open);
+        found.push(Assessment {
+            verification: v,
+            group,
+            now,
+            status,
+        });
+    }
+    found
+}
+
+/// A phase's verification: its status and the time of the latest verdict.
+pub struct Verified {
+    pub status: &'static str,
+    pub at: Option<String>,
+}
+
+/// The verification of each phase, by phase id.
+pub fn by_phase(input: &PassInput) -> BTreeMap<String, Verified> {
+    assess(input)
+        .into_iter()
+        .filter_map(|a| {
+            let phase = a.verification.fields.get("phase")?.clone();
+            Some((
+                phase,
+                Verified {
+                    status: a.status,
+                    at: latest(&a.group),
+                },
+            ))
+        })
+        .collect()
+}
+
+pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
+    let mut found = Vec::new();
+    for a in assess(input) {
+        let v = a.verification;
+        let truths: Vec<Item> = a
+            .group
+            .entities
+            .iter()
+            .zip(&a.now)
+            .filter(|(e, _)| e.kind == "truth")
+            .map(|(_, i)| *i)
+            .collect();
+        found.push(value(&v.id, "status", a.status));
         found.push(value(&v.id, "score", score(&truths)));
-        if let Some(at) = latest(&group) {
+        if let Some(at) = latest(&a.group) {
             found.push(value(&v.id, "verified", at));
         }
-        let files = covered(&group);
+        let files = covered(&a.group);
         if !files.is_empty() {
             found.push(value(&v.id, "covered_files", json!(files)));
         }
-        if let Some(block) = re_verification(input, v, &group, &now, statuses) {
+        if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
             found.push(value(&v.id, "re_verification", block));
         }
     }

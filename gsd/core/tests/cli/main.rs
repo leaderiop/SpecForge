@@ -6,6 +6,7 @@ mod execute;
 mod execute_rules;
 mod execute_status;
 mod harness;
+mod ladder;
 mod parity_discuss;
 mod parity_plans;
 mod parity_roadmap;

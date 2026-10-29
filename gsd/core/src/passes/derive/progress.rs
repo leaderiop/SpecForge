@@ -2,9 +2,8 @@
 //! ladder, a milestone's state, stats, git range and progress, the project's lists and update time, a workstream's and
 //! a context's status, and a retrospective's counts.
 //!
-//! The phase ladder is `phase-status.cts:160-196` without verification: `not_started` (no plan), `planned` (no
-//! summary), `in_progress` (fewer summaries than plans), `executed`. `complete` and `needs_review` come with the
-//! verification kinds (r39), so a milestone's `progress.phases_complete` is 0 until then.
+//! The phase ladder (`ladder`) reads each phase's verification, so a milestone's `progress.phases_complete` counts the
+//! phases whose verification passed.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -12,6 +11,8 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::{summaries, value};
+use super::ladder;
+use super::verify::Verified;
 use crate::passes::commits::{Commit, target};
 use crate::passes::plans::{name_of, of_kind, phase_of, rows, text};
 use crate::time::seconds;
@@ -30,15 +31,6 @@ fn requirement_status(plans: &[&str], statuses: &Statuses) -> &'static str {
         "in_progress"
     } else {
         "pending"
-    }
-}
-
-fn ladder(plans: usize, summarised: usize) -> &'static str {
-    match (plans, summarised) {
-        (0, _) => "not_started",
-        (_, 0) => "planned",
-        (p, s) if s < p => "in_progress",
-        _ => "executed",
     }
 }
 
@@ -67,7 +59,11 @@ struct Phase<'a> {
     status: &'static str,
 }
 
-fn phases<'a>(input: &'a PassInput, summarised: &BTreeSet<&str>) -> Vec<Phase<'a>> {
+fn phases<'a>(
+    input: &'a PassInput,
+    summarised: &BTreeSet<&str>,
+    verified: &BTreeMap<String, Verified>,
+) -> Vec<Phase<'a>> {
     of_kind(input, "phase")
         .map(|phase| {
             let plans: Vec<&str> = of_kind(input, "plan")
@@ -77,7 +73,7 @@ fn phases<'a>(input: &'a PassInput, summarised: &BTreeSet<&str>) -> Vec<Phase<'a
             let done = plans.iter().filter(|p| summarised.contains(*p)).count();
             Phase {
                 id: &phase.id,
-                status: ladder(plans.len(), done),
+                status: ladder::status(plans.len(), done, verified.get(phase.id.as_str())),
                 summarised: done,
                 plans,
             }
@@ -145,8 +141,18 @@ fn git_range(commits: &[&Commit]) -> Option<String> {
     Some(format!("{first} → {last}"))
 }
 
-pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec<PassValue> {
+pub fn values(
+    input: &PassInput,
+    commits: &[Commit],
+    statuses: &Statuses,
+    verified: &BTreeMap<String, Verified>,
+) -> Vec<PassValue> {
     let mut out = Vec::new();
+    let failing: BTreeSet<&str> = verified
+        .iter()
+        .filter(|(_, v)| v.status == "gaps_found")
+        .map(|(phase, _)| phase.as_str())
+        .collect();
     let summarised: BTreeSet<&str> = summaries(input).keys().copied().collect();
     // Requirements.
     let mut requirement_states: BTreeMap<&str, &'static str> = BTreeMap::new();
@@ -158,12 +164,15 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
             .filter(|e| statuses.contains_key(e.source.as_str()))
             .map(|e| e.source.as_str())
             .collect();
-        let status = requirement_status(&plans, statuses);
+        let mut status = requirement_status(&plans, statuses);
+        if status == "complete" && ladder::gaps_found(input, &requirement.id, &failing) {
+            status = "gaps_found";
+        }
         requirement_states.insert(&requirement.id, status);
         out.push(value(&requirement.id, "status", status));
     }
     // Phases.
-    let phases = phases(input, &summarised);
+    let phases = phases(input, &summarised, verified);
     for phase in &phases {
         let name = name_of(phase.id);
         let backlog = name.starts_with("999.");
@@ -175,6 +184,9 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
             format!("{}/{}", phase.summarised, phase.plans.len()),
         ));
         out.push(value(phase.id, "status", phase.status));
+        if let Some(date) = ladder::completed(phase.status, verified.get(phase.id)) {
+            out.push(value(phase.id, "completed", date));
+        }
     }
     // Milestones.
     let mut milestone_state: BTreeMap<&str, &'static str> = BTreeMap::new();
@@ -262,6 +274,7 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
         out.push(value(&context.id, "status", status));
     }
     // The project.
+    out.extend(ladder::windows(input));
     for project in of_kind(input, "project") {
         let ids = |keep: &dyn Fn(&PassEntity, &str) -> bool| -> Vec<String> {
             let mut found: Vec<String> = of_kind(input, "requirement")
