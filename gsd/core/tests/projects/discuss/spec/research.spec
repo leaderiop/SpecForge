@@ -62,10 +62,9 @@ open_question OQ1 "Is one file enough?" {
 }
 
 package_audit PA1 "node:fs" {
-  research   v1.0/02/02-RESEARCH
-  package    "node:fs"
-  registry   "builtin"
-  legitimacy legitimate
+  research v1.0/02/02-RESEARCH
+  package  "node:fs"
+  registry "builtin"
 }
 
 research RESEARCH "Project research" {

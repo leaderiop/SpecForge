@@ -30,13 +30,7 @@ fn fixture(file: &str) -> String {
 }
 
 fn checks_clean(p: &Project) {
-    let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "check: {}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "check: {}",
-        check.all()
-    );
+    p.check_exact(&[]);
 }
 
 #[test]
@@ -174,21 +168,97 @@ fn an_interview_answer_may_be_set_once() {
     assert_eq!(codes(&p), ["E084"]);
 }
 
+const SPEC: &str = "v1.0/02/02-SPEC";
+const SCORES: &str =
+    r#"{"scores":{"goal":90,"boundary":80,"constraint":70,"acceptance":80,"ambiguity":10}}"#;
+
 #[test]
-fn a_score_above_100_is_refused() {
+fn a_prompt_judged_spec_verdict_records() {
+    let p = project("discuss");
+    let run = p.record(SPEC, "E202", "passed", &["--values", SCORES]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let found = p.fields_of(SPEC);
+    assert_eq!(found["scores"]["goal"], 90, "{found}");
+    assert_eq!(found["scores"]["ambiguity"], 10, "{found}");
+    let report = p.report_all();
+    assert!(!report.iter().any(|(c, _)| c == "gsd/E202"), "{report:#?}");
+}
+
+/// M4 of the r40 review: a `passed` on gsd/E202 must show scores within the gates the spec_phase prompt states.
+#[test]
+fn a_passed_spec_verdict_needs_scores_within_the_gates() {
+    let p = project("discuss");
+    let spec = p.read("spec/discuss.spec");
+    let low = r#"{"scores":{"goal":10,"boundary":5,"constraint":0,"acceptance":0,"ambiguity":95}}"#;
+    let edge =
+        r#"{"scores":{"goal":75,"boundary":70,"constraint":65,"acceptance":70,"ambiguity":21}}"#;
+    let short = r#"{"scores":{"goal":90}}"#;
+    for (extra, why) in [
+        (vec![], "values.scores.goal"),
+        (vec!["--values", short], "values.scores.boundary"),
+        (vec!["--values", low], "goal 10"),
+        (vec!["--values", edge], "ambiguity 21"),
+    ] {
+        let run = p.record(SPEC, "E202", "passed", &extra);
+        assert_ne!(run.code, 0, "{extra:?}: {}", run.all());
+        assert!(run.all().contains(why), "{extra:?}: {}", run.all());
+    }
+    assert_eq!(p.read("spec/discuss.spec"), spec);
+    // The edge values of every gate are a fine `passed`.
+    let on_gate =
+        r#"{"scores":{"goal":75,"boundary":70,"constraint":65,"acceptance":70,"ambiguity":20}}"#;
+    let run = p.record(SPEC, "E202", "passed", &["--values", on_gate]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+#[test]
+fn a_hand_written_score_is_e082() {
     let p = project("discuss");
     let spec = fixture("discuss.spec");
-    let scored = |ambiguity: &str| {
-        spec.replace(
+    p.write(
+        "spec/discuss.spec",
+        &spec.replace(
             "goal    \"Tasks go from memory-only to saved on disk\"\n",
-            &format!("goal    \"Tasks go from memory-only to saved on disk\"\n  scores  {{ goal 90 boundary 80 constraint 70 acceptance 80 ambiguity {ambiguity} }}\n"),
-        )
-    };
-    p.write("spec/discuss.spec", &scored("10"));
-    assert_eq!(codes(&p), Vec::<String>::new());
-    p.write("spec/discuss.spec", &scored("101"));
-    // The kernel's E061 on the scores block: declared integer, given 101.
-    assert_eq!(codes(&p), ["E061"]);
+            "goal    \"Tasks go from memory-only to saved on disk\"\n  scores  { goal 90 boundary 80 constraint 70 acceptance 80 ambiguity 10 }\n",
+        ),
+    );
+    assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
+}
+
+#[test]
+fn w203_inputs() {
+    let p = project("discuss");
+    let reqs = p.nodes_of("locked_req");
+    assert!(!reqs.is_empty());
+    let id = reqs[0]["id"].as_str().expect("an id");
+    let inputs = p.inputs(id, "W203");
+    let names: Vec<&str> = inputs["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| i["name"].as_str())
+        .collect();
+    assert_eq!(names, ["req", "traces"], "{inputs}");
+    let run = p.record(id, "W203", "passed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+#[test]
+fn the_spec_phase_prompt_names_its_rules() {
+    let p = project("discuss");
+    let run = p.run(&["prompt", "gsd.spec_phase", SPEC]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let text = run.all();
+    for needle in [
+        "gsd/E202",
+        "gsd/W203",
+        "--inputs gsd/<code>",
+        "record-verdict",
+        "scores",
+        SPEC,
+    ] {
+        assert!(text.contains(needle), "{needle}: {text}");
+    }
 }
 
 const FIRST_ENTRY: &str = "    {\n      area     \"Storage\"\n      question \"Where are tasks kept?\"\n      options  [\"One JSON file\", \"SQLite\"]\n      chosen   \"One JSON file\"\n      mode     interactive\n    }\n";
@@ -267,19 +337,75 @@ fn an_open_question_names_the_decision_that_resolves_it() {
     );
 }
 
+const AUDIT: &str = "v1.0/02/02-RESEARCH/PA1";
+
 #[test]
-fn an_unknown_legitimacy_is_refused() {
+fn w205_inputs() {
     let p = project("discuss");
-    let spec = std::fs::read_to_string(format!(
-        "{}/tests/projects/discuss/spec/research.spec",
-        env!("CARGO_MANIFEST_DIR")
-    ))
-    .expect("the fixture");
+    let inputs = p.inputs(AUDIT, "W205");
+    assert_eq!(inputs["verdict"]["state"], "missing", "{inputs}");
+    let names: Vec<&str> = inputs["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| i["name"].as_str())
+        .collect();
+    assert_eq!(names, ["audit"], "{inputs}");
+    // The package has no verdict, so exactly one W205 says so.
+    let found = p.report_all();
+    assert_eq!(
+        found.iter().filter(|(c, _)| c == "gsd/W205").count(),
+        1,
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn a_hand_written_legitimacy_is_e082() {
+    let p = project("discuss");
+    let spec = fixture("research.spec");
+    let hand = spec.replace(
+        "  registry \"builtin\"\n",
+        "  registry \"builtin\"\n  legitimacy legitimate\n",
+    );
+    assert_ne!(spec, hand);
+    p.write("spec/research.spec", &hand);
+    assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
+    // An unknown value is still the kernel's, on top.
     p.write(
         "spec/research.spec",
-        &spec.replace("legitimate\n", "trusted\n"),
+        &hand.replace("legitimate\n", "trusted\n"),
     );
-    assert_eq!(codes(&p), ["E061"]);
+    assert!(p.codes().contains(&"E061".to_string()), "{:?}", p.codes());
+}
+
+#[test]
+fn a_legitimate_verdict_sets_legitimacy() {
+    let p = project("discuss");
+    assert_eq!(p.fields_of(AUDIT).get("legitimacy"), None);
+    let run = p.record(AUDIT, "W205", "legitimate", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(AUDIT)["legitimacy"], "legitimate");
+    let found = p.report_all();
+    assert!(!found.iter().any(|(c, _)| c == "gsd/W205"), "{found:#?}");
+}
+
+#[test]
+fn a_suspicious_package_fails_w205() {
+    let p = project("discuss");
+    let run = p.record(AUDIT, "W205", "suspicious", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(AUDIT)["legitimacy"], "suspicious");
+    let found = p.report_all();
+    let w205: Vec<_> = found.iter().filter(|(c, _)| c == "gsd/W205").collect();
+    assert_eq!(w205.len(), 1, "{found:#?}");
+    assert!(w205[0].1.contains("suspicious"), "{found:#?}");
+    // Under strict W205 is an Error: the failing verdict would leave a new error, which the host refuses whole.
+    let strict = project("discuss");
+    strict.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let run = strict.record(AUDIT, "W205", "suspicious", &[]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E080"), "{}", run.all());
 }
 
 fn with_canonical_refs(refs: Option<&str>) -> Project {
@@ -500,7 +626,8 @@ fn stale_research() -> Project {
     p
 }
 
-/// `(severity, exit code)` of the W406 `specforge check` reports, `None` when it reports none.
+/// `(severity, errors)` of the W406 `specforge check` reports, `None` when it reports none; `errors` is 1 when an
+/// Error other than the spec's `no verdict` (`gsd/E202`, which every fixture with a spec has) is reported.
 fn w406(p: &Project) -> Option<(String, i32)> {
     let run = p.run(&["check", "--format", "json"]);
     let found: serde_json::Value = serde_json::from_str(&run.stdout)
@@ -511,7 +638,11 @@ fn w406(p: &Project) -> Option<(String, i32)> {
         .iter()
         .find(|d| d["code"] == "gsd/W406")
         .map(|d| d["severity"].as_str().unwrap_or_default().to_lowercase())?;
-    Some((severity, run.code))
+    let errors = found.as_array().expect("a list").iter().any(|d| {
+        d["severity"].as_str().unwrap_or_default().to_lowercase() == "error"
+            && d["code"] != "gsd/E202"
+    });
+    Some((severity, i32::from(errors)))
 }
 
 #[test]

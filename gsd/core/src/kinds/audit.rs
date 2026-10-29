@@ -1,11 +1,12 @@
 //! The milestone audit (`spec/verify.md`): what `/gsd-audit-milestone` found. Its gaps, counts and status are
-//! computed; only a person accepts its tech debt. `integration` (gsd/E518) is declared in r40, with its judged rule.
+//! computed; only a person accepts its tech debt. `integration` is the integration checker's verdict (gsd/E518).
 
 use super::dsl::*;
 
 const GAP_STATUS: &[&str] = &["unsatisfied", "partial", "orphaned"];
 const AUDIT_STATUS: &[&str] = &["passed", "gaps_found", "tech_debt"];
 
+const INTEGRATION: &[&str] = &["passed", "issues"];
 const TECH_DEBT: &[Field] = &[rf("phase", "phase"), str("item").r()];
 const DEBT_ACCEPTED: &[Field] = &[str("by").r(), date("at").r()];
 const GAPS: &[Field] = &[rf("requirement", "requirement"), en("status", GAP_STATUS)];
@@ -23,6 +24,9 @@ pub const MILESTONE_AUDIT: Kind = Kind::new(
     &[
         rf("milestone", "milestone").r().i().doc("the version"),
         blocks("tech_debt", TECH_DEBT).doc("`tech_debt:`"),
+        en("integration", INTEGRATION)
+            .v()
+            .doc("the integration checker's cross-phase verdict (gsd/E518)"),
         block("debt_accepted", DEBT_ACCEPTED)
             .u()
             .doc("a person accepts the `tech_debt` status; refused in every plan and MCP write"),

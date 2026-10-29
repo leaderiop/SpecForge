@@ -44,6 +44,7 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
             "score",
             "verified",
             "covered_files",
+            "covered_digest",
             "re_verification",
             "anti_patterns",
             "scan_partial"
@@ -63,9 +64,11 @@ fn the_verification_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("override"),
-        ["verification", "truth", "reason", "by", "at"]
+        ["verification", "truth", "accepts", "reason", "by", "at"]
     );
     assert_eq!(field_of("override", "by")["required"], false);
+    assert_eq!(field_of("override", "accepts")["required"], false);
+    assert_eq!(field_of("override", "accepts")["writer"], "human");
 }
 
 #[test]

@@ -35,7 +35,7 @@ fn roadmap_errors_report_each_code_once() {
 
 #[test]
 fn a_clean_roadmap_reports_no_gsd_code() {
-    assert_eq!(project("roadmap").findings(), []);
+    assert_eq!(project("roadmap").findings_all(), []);
 }
 
 #[test]

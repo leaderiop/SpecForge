@@ -1,6 +1,6 @@
 //! The taskboard's SpecForge twin of phase 1's execution against what gsd-tools 1.18.0 says (parity suite, "state"):
 //! `progress json`, the two `SUMMARY.md` files, and the tests `npm test` recorded. What verification decides (a
-//! phase `Complete`, state json's `completed_phases` and `percent`) waits for plan 07 (r40, once E501 verdicts are recorded); the tests name those gaps.
+//! phase `Complete`, state json's `completed_phases` and `percent`) holds once the twin's phase 01 has its E501 verdicts, which the tests record.
 
 use std::path::Path;
 
@@ -33,9 +33,17 @@ fn label(status: &str) -> &'static str {
     }
 }
 
+/// The twin with the verifier's `verified` verdict on every item of phase 01 (its verification then passes).
+fn verified_taskboard() -> Project {
+    let p = taskboard();
+    // Every truth, artifact and key link of phase 01 (the exact count, so a dropped item is noticed).
+    assert_eq!(p.verify_phase("v1.0/01"), 7);
+    p
+}
+
 #[test]
 fn taskboard_progress_matches_gsd_tools() {
-    let p = taskboard();
+    let p = verified_taskboard();
     let progress = golden("progress-json");
     let phases = progress["phases"].as_array().expect("phases");
     for phase in phases {
@@ -47,14 +55,7 @@ fn taskboard_progress_matches_gsd_tools() {
             "phase {number}: summaries/plans"
         );
         let status = fields["status"].as_str().unwrap_or_default();
-        if number == "01" {
-            // The named divergence: gsd-tools says Complete because `01-VERIFICATION.md` passed; a passed verification
-            // needs plan 07 (r40, once E501 verdicts are recorded), so the twin stops at Executed.
-            assert_eq!(phase["status"], "Complete");
-            assert_eq!(label(status), "Executed", "phase 01");
-        } else {
-            assert_eq!(label(status), phase["status"], "phase {number}");
-        }
+        assert_eq!(label(status), phase["status"], "phase {number}");
     }
     // The totals, and the plan-based percent, from `milestone.progress`.
     let milestone = p.fields_of("v1.0")["progress"].clone();
@@ -68,15 +69,48 @@ fn taskboard_progress_matches_gsd_tools() {
         (done / plans * 100.0).round(),
         progress["percent"].as_f64().expect("percent")
     );
-    // `state json`: three counts equal, two wait for verification (plan 07, r40, turns both into equalities).
+    // `state json`: the counts equal.
     let state = golden("state-json")["progress"].clone();
     assert_eq!(milestone["phases"], state["total_phases"]);
     assert_eq!(milestone["plans"], state["total_plans"]);
     assert_eq!(milestone["plans_complete"], state["completed_plans"]);
+    assert_eq!(milestone["phases_complete"], state["completed_phases"]);
+    assert_eq!(milestone["percent"], state["percent"]);
+}
+
+#[test]
+fn phase_01_is_complete_as_upstream_says() {
+    let progress = golden("progress-json");
+    assert_eq!(progress["phases"][0]["status"], "Complete");
+    let p = taskboard();
+    // Without the verifier's verdicts the phase stops at Executed.
+    assert_eq!(
+        label(
+            p.fields_of("v1.0/01")["status"]
+                .as_str()
+                .unwrap_or_default()
+        ),
+        "Executed"
+    );
+    let p = verified_taskboard();
+    assert_eq!(
+        label(
+            p.fields_of("v1.0/01")["status"]
+                .as_str()
+                .unwrap_or_default()
+        ),
+        "Complete"
+    );
+}
+
+#[test]
+fn completed_phases_and_percent_match_upstream() {
+    let p = verified_taskboard();
+    let state = golden("state-json")["progress"].clone();
+    let milestone = p.fields_of("v1.0")["progress"].clone();
     assert_eq!(
         (&milestone["phases_complete"], &milestone["percent"]),
-        (&json!(0), &json!(0)),
-        "no phase is complete before r40's verdicts"
+        (&json!(1), &json!(25))
     );
     assert_eq!(
         (&state["completed_phases"], &state["percent"]),
@@ -311,20 +345,15 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
+    p.check_exact(&[]);
     let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "{}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "{}",
-        check.all()
-    );
     assert!(!check.all().contains("I205"), "{}", check.all());
 }
 
 #[test]
-fn the_twin_is_silent_under_compat_with_and_without_a_report() {
+fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
     let p = taskboard();
-    assert_eq!(p.codes(), Vec::<String>::new());
+    p.check_exact(&[]);
     let report =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
     let run = p.collect(&[
@@ -334,7 +363,7 @@ fn the_twin_is_silent_under_compat_with_and_without_a_report() {
         &report.display().to_string(),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert_eq!(p.codes(), Vec::<String>::new());
+    p.check_exact(&[]);
     // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());

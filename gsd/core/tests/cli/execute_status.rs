@@ -32,8 +32,9 @@ fn plan_status_follows_commits_and_halts() {
     let p = repository();
     // 01-01 has a complete summary, 01-02 depends on it and nothing names it, 02-01 is in another phase.
     assert_eq!(status_of(&p, PLAN_1), "complete");
-    assert_eq!(status_of(&p, PLAN_2), "ready");
-    assert_eq!(status_of(&p, "v1.0/02/02-01"), "ready");
+    // (No plan-check verdict is recorded, so the plans that are not executed yet are drafts.)
+    assert_eq!(status_of(&p, PLAN_2), "draft");
+    assert_eq!(status_of(&p, "v1.0/02/02-01"), "draft");
     // A commit naming 01-02 makes it executing, and its task T1 (matched by title) done.
     p.git_commit(
         "feat(01-02): Complete a task",
@@ -54,7 +55,19 @@ fn plan_status_follows_commits_and_halts() {
     );
     assert_eq!(status_of(&p, PLAN_1), "halted");
     assert_eq!(status_of(&p, PLAN_2), "blocked");
+    assert_eq!(status_of(&p, "v1.0/02/02-01"), "draft");
+}
+
+#[test]
+fn plan_check_off_is_ready() {
+    let p = repository();
+    p.settings(serde_json::json!({ "workflow.plan_check": false }));
+    assert_eq!(status_of(&p, PLAN_1), "complete");
+    assert_eq!(status_of(&p, PLAN_2), "ready");
     assert_eq!(status_of(&p, "v1.0/02/02-01"), "ready");
+    // On again: the same plans are drafts.
+    p.settings(serde_json::json!({}));
+    assert_eq!(status_of(&p, PLAN_2), "draft");
 }
 
 /// Writes a harness time into the summary and blesses it in the ledger, as the command that opens or closes a plan does.
@@ -171,4 +184,21 @@ fn without_a_report_the_compile_says_i205_once_and_collect_silences_it() {
     assert_eq!(noted(&p), 1);
     junit(&p, "<testcase name=\"unrelated\" classname=\"test\"/>");
     assert_eq!(noted(&p), 0);
+}
+
+#[test]
+fn executing_beats_checked() {
+    let p = repository();
+    for code in ["W311", "W313", "W315", "W316"] {
+        let run = p.record(PLAN_2, code, "passed", &[]);
+        assert_eq!(run.code, 0, "{code}: {}", run.all());
+    }
+    assert_eq!(status_of(&p, PLAN_2), "checked");
+    p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/complete.js", "x\n")],
+        T0,
+    );
+    collect_commits(&p);
+    assert_eq!(status_of(&p, PLAN_2), "executing");
 }

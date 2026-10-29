@@ -31,24 +31,47 @@ fn an_agent_written_override_is_refused() {
     assert!(!p.read("spec/verify.spec").contains("OV2"), "{}", run.all());
 }
 
-/// C1 of the r39 review: the host's `edit_flags` checks the kind's writer on create, delete and retitle, not on `set`,
-/// `unset` or `link` of an existing entity, so an agent can re-point or forge an override today. (An override has no
-/// list field, so `link` has nothing to add to.) Un-ignore with the kernel fix.
+/// C1 of the r39 review, closed for `override` by marking its fields human (`.u()`): the host checks a field's writer on
+/// `set`, `unset` and `link` of an existing entity. (An override has no list field, so `link` has nothing to add to.)
 #[test]
-#[ignore = "kernel: human-only on existing entities (K17)"]
 fn an_agent_cannot_edit_an_existing_override() {
     let p = verify();
     let before = p.read("spec/verify.spec");
     for args in [
         &["set", "v1.0/01/01-VERIFICATION/OV1", "by", "eve"][..],
         &["set", "v1.0/01/01-VERIFICATION/OV1", "reason", "forged"][..],
+        &["set", "v1.0/01/01-VERIFICATION/OV1", "at", "2026-01-01"][..],
+        &[
+            "set",
+            "v1.0/01/01-VERIFICATION/OV1",
+            "truth",
+            "v1.0/01/01-02/TR1",
+        ][..],
         &["unset", "v1.0/01/01-VERIFICATION/OV1", "by"][..],
+        &["set", "v1.0/01/01-VERIFICATION/OV1", "accepts", "anything"][..],
     ] {
         let run = p.run(args);
         assert_ne!(run.code, 0, "{args:?}: {}", run.all());
         assert!(run.all().contains("human_only"), "{args:?}: {}", run.all());
     }
     assert_eq!(p.read("spec/verify.spec"), before);
+}
+
+/// A person edits the file by hand (or from an interactive command, which a test without a terminal cannot be): the
+/// change is read back and the project still checks clean.
+#[test]
+fn a_person_edits_an_override() {
+    let p = verify();
+    p.edit(
+        "spec/verify.spec",
+        "Checked by hand against the running app",
+        "Checked again by hand",
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(
+        p.fields_of("v1.0/01/01-VERIFICATION/OV1")["reason"],
+        "Checked again by hand"
+    );
 }
 
 #[test]
@@ -60,7 +83,7 @@ fn a_hand_written_override_checks_clean() {
 
 #[test]
 fn the_verify_project_checks_clean() {
-    assert_eq!(verify().findings(), Vec::new());
+    verify().check_exact(&[]);
 }
 
 #[test]
@@ -538,8 +561,8 @@ fn an_issue_with_one_gap_resolved_and_one_open_is_not_complete() {
 
 #[test]
 fn present_files_alone_never_pass_a_verification() {
-    // Both truths overridden, the human item gone, the key links literal: the scan finds every file in order, yet
-    // that is no verdict (a file that is there is not shown substantive and wired).
+    // Both truths overridden, the human item gone, the key links literal and wired: the artifacts are present, yet
+    // that is no verdict (a file that is there is not shown substantive and wired), so the phase is not `passed`.
     let p = verify();
     p.edit("spec/verify.spec", "human_item HI1", "human_item HI1");
     let text = p.read("spec/verify.spec");

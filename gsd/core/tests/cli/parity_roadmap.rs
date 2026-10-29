@@ -122,13 +122,8 @@ fn strings(value: &Value) -> Vec<String> {
 #[test]
 fn taskboard_roadmap_matches_gsd_tools() {
     let p = taskboard();
-    let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "check: {}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "check: {}",
-        check.all()
-    );
+    // The twin checks clean (no E201, W204, W406 or E083): only the judged rules report, on every plan.
+    p.check_exact(&[]);
 
     let golden: Value =
         serde_json::from_str(&parity("goldens/taskboard/roadmap-analyze.json")).expect("golden");

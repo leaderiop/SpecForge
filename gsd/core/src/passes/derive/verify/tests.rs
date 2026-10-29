@@ -74,6 +74,27 @@ fn an_override_counts_as_verified() {
 }
 
 #[test]
+fn an_override_counts_only_while_the_truth_says_what_it_accepted() {
+    let status = |accepts: Option<&str>, now: &str| {
+        let mut fields = json!({ "verification": V, "truth": "v1.0/01/01-01/TR1" });
+        if let Some(a) = accepts {
+            fields["accepts"] = json!(a);
+        }
+        let o = json!({ "id": format!("{V}/OV1"), "kind": "override", "fields": fields });
+        let mut t = truth(1, vec![]);
+        t["fields"] = json!({ "text": now });
+        of(&run(&input(vec![t], vec![o])), "status")
+    };
+    assert_eq!(status(Some("It lists"), "It lists"), Some(json!("passed")));
+    assert_eq!(
+        status(Some("It lists"), "It deletes"),
+        Some(json!("pending"))
+    );
+    // An override that wrote no `accepts` is bound by id alone.
+    assert_eq!(status(None, "It deletes"), Some(json!("passed")));
+}
+
+#[test]
 fn behavior_unverified_is_human_needed_and_not_counted_as_verified() {
     let out = run(&input(
         vec![
@@ -89,22 +110,40 @@ fn behavior_unverified_is_human_needed_and_not_counted_as_verified() {
     assert_eq!(of(&out, "score"), Some(json!("1/2")));
 }
 
-#[test]
-fn a_deferred_truth_does_not_count() {
+/// Phase 01's verification with TR1 verified, TR2 failing and deferred to `to`, among phases 01, 02 and 03.
+fn deferring_to(to: &str) -> Vec<PassValue> {
+    let phases = ["v1.0/01", "v1.0/02", "v1.0/03"]
+        .map(|id| json!({ "id": id, "kind": "phase" }))
+        .to_vec();
     let mut input = input(
         vec![
             truth(1, vec![judgement("verified", "fresh", true)]),
             truth(2, vec![judgement("failed", "fresh", false)]),
         ],
-        vec![],
+        phases,
     );
     input.entities[0].values.insert(
         "deferred".into(),
-        json!([{ "truth": "v1.0/01/01-01/TR2", "addressed_in": "v1.0/02", "evidence": "phase 2" }]),
+        json!([{ "truth": "v1.0/01/01-01/TR2", "addressed_in": to, "evidence": "later" }]),
     );
-    let out = run(&input);
+    run(&input)
+}
+
+#[test]
+fn a_truth_deferred_to_a_later_phase_does_not_count() {
+    let out = deferring_to("v1.0/02");
     assert_eq!(of(&out, "status"), Some(json!("passed")));
     assert_eq!(of(&out, "score"), Some(json!("1/1")));
+}
+
+#[test]
+fn a_deferral_to_the_same_an_earlier_or_a_missing_phase_does_not_count() {
+    // M2 of the r40 review: TR2 failed and stays counted, so the verification has gaps.
+    for to in ["v1.0/01", "v1.0/00", "v1.0/09", "v1.0/02/x"] {
+        let out = deferring_to(to);
+        assert_eq!(of(&out, "status"), Some(json!("gaps_found")), "{to}");
+        assert_eq!(of(&out, "score"), Some(json!("1/2")), "{to}");
+    }
 }
 
 #[test]
@@ -247,4 +286,38 @@ fn re_verification_closes_and_reopens_verify_gaps() {
         block,
         json!({ "gaps_closed": [gap(1)], "regressions": [gap(2)] })
     );
+}
+
+#[test]
+fn e501_outcomes_are_the_derivations() {
+    let status = |outcome: &str, passed: bool| {
+        let out = run(&input(
+            vec![truth(1, vec![judgement(outcome, "fresh", passed)])],
+            vec![],
+        ));
+        of(&out, "status")
+    };
+    assert_eq!(status("verified", true), Some(json!("passed")));
+    assert_eq!(status("verified_coincidental", true), Some(json!("passed")));
+    assert_eq!(status("failed", false), Some(json!("gaps_found")));
+    assert_eq!(status("uncertain", false), Some(json!("pending")));
+    assert_eq!(
+        status("present_behavior_unverified", false),
+        Some(json!("human_needed"))
+    );
+}
+
+#[test]
+fn a_truth_with_no_verdict_is_never_passed() {
+    let out = run(&input(vec![truth(1, vec![])], vec![]));
+    assert_ne!(of(&out, "status"), Some(json!("passed")));
+}
+
+#[test]
+fn the_scan_verifies_only_a_wired_key_link() {
+    let state = |kind, scan| item_state(kind, scan, Item::Unknown, false);
+    assert_eq!(state("key_link", Some("wired")), Item::Verified);
+    assert_eq!(state("key_link", Some("unchecked")), Item::Unknown);
+    assert_eq!(state("key_link", Some("not_wired")), Item::Failed);
+    assert_eq!(state("artifact", Some("present")), Item::Unknown);
 }

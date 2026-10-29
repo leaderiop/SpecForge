@@ -48,11 +48,12 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase:` |
-| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:` |
-| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
+| deferred | {truth → truth R, addressed_in → phase R, evidence str R} | | `deferred:`; a deferral takes the truth out of the status and the score only when `addressed_in` names a phase that exists and comes later than the verification's own (by phase number); otherwise it is ignored and the truth needs its verdict. It is the third path to `passed` besides a verdict and an override, and an agent can write it |
+| status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, except that a key link whose literal `pattern` it found is verified; a regular-expression pattern is `unchecked` and keeps the phase `pending`), and a complete scan |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
-| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. `covered_digest` (one digest over their current digests, the judgements' `files`) is not declared yet: r40 |
+| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |
+| covered_digest | str | C | one digest (`fnv1a64:` and 16 hex digits) over the `(path, digest)` of every file the phase's E501 judgements cover, sorted and de-duplicated: it changes when a covered file does. Absent while no verdict cites a file |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
@@ -63,10 +64,10 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
 
-**override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
-to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or
-from an interactive `specforge` command. Until the kernel checks the writer on existing entities too (K17), an agent's
-`set`, `unset` or `link` on an existing override is not refused. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
+**override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `accepts str` (the truth's text as the person accepted it: the override counts only while the truth still says exactly this, so an agent that rewrites the truth ends the acceptance, as upstream's match by text does; an override without `accepts` is bound by the truth's id alone, and a person should write it), `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
+to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7), and to `set`, `unset` or
+`link` any of its fields (`truth`, `reason`, `by`, `at` are human fields, K5 D7); a human writes it by hand or from an
+interactive `specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
 a phase warns.
 
 **human_item** (name `HI1`): `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
@@ -184,10 +185,10 @@ reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`
 
 ## Known differences from GSD
 
-Kept on purpose, or waiting for r40, listed so none is silent:
+Kept on purpose, listed so none is silent:
 
 - A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
-  backstop truth with no explicit evidence is not yet `human_needed` (r40's verdicts). A verification with no truth,
+  backstop truth with no explicit evidence is not `human_needed`: only a fresh verdict makes it verified. A verification with no truth,
   whose artifacts and key links all pass, is `passed 0/0`.
 - A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
   verification, not per phase. The same holds for a phase's validation (the first by id).

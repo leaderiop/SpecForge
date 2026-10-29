@@ -1,11 +1,12 @@
 //! The computed values of verification (`spec/verify.md`, D-r39-7): a verification's status, score, time, covered files
 //! and re-verification, and a verify gap's status.
 //!
-//! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), `Failed` by a failing verdict
-//! or a scan finding (a file that is missing, short or lacks the text). The scan never verifies: that a file is there
-//! does not show it is substantive and wired. Verdicts are recorded by r40's commands, so until then an artifact and
-//! a key link are `Unknown` and a verification is `pending`, `gaps_found` or `human_needed`, never `passed`. A stale
-//! verdict is not a pass and not a failure.
+//! An item is `Verified` by a fresh passing `gsd/E501` verdict, an override (a truth) or, for a key link, a `pattern`
+//! the scan found (`wired`: the pass is the judgement, so E501 does not judge a patterned link). It is `Failed` by a
+//! failing verdict or a scan finding (a file that is missing, short or lacks the text). The scan verifies nothing
+//! else: that an artifact is there does not show it is substantive and wired. A regular-expression `pattern` the scan
+//! cannot read is `unchecked`, so the link stays `Unknown`. Verdicts are recorded by `record_verdict` (r40); an item with no fresh
+//! verdict is `Unknown` and keeps the verification from `passed`. A stale verdict is not a pass and not a failure.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,7 +14,8 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::passes::plans::{children, link, links, of_kind, phase_of};
+use crate::passes::plans::{children, link, links, of_kind, phase_of, text};
+use crate::passes::roadmap::numbering::Number;
 
 type Statuses<'a> = BTreeMap<&'a str, &'static str>;
 
@@ -47,7 +49,7 @@ fn judged<'a>(mut rows: impl Iterator<Item = Row<'a>>) -> Item {
 }
 
 /// An item's state from what is known of it: its kind, the scan's `state`, its verdicts and whether a human overrode
-/// it. The scan can fail an item, never verify one.
+/// it. The scan can fail an item; it verifies only a key link whose `pattern` it found.
 pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: bool) -> Item {
     if overridden {
         return Item::Verified;
@@ -59,7 +61,13 @@ pub fn item_state(kind: &str, scan: Option<&str>, verdict: Item, overridden: boo
             Some("missing" | "too_short" | "lacks_contains" | "lacks_export")
         ) | ("key_link", Some("not_wired"))
     );
-    if failed { Item::Failed } else { verdict }
+    if failed {
+        Item::Failed
+    } else if (kind, scan) == ("key_link", Some("wired")) {
+        Item::Verified
+    } else {
+        verdict
+    }
 }
 
 fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
@@ -128,12 +136,37 @@ fn group<'a>(input: &'a PassInput, phase: &str, deferred: &BTreeSet<String>) -> 
     Group { entities }
 }
 
-fn deferred(v: &PassEntity) -> BTreeSet<String> {
+/// An override that wrote `accepts` (the truth's text as the person accepted it) counts only while the truth still says
+/// that: rewriting the truth ends the acceptance (upstream matches an override to its must-have by text). One without
+/// `accepts` is bound by the truth's id alone.
+fn still_accepts(input: &PassInput, o: &PassEntity) -> bool {
+    let Some(accepted) = text(o, "accepts") else {
+        return true;
+    };
+    link(input, o, "truth")
+        .and_then(|id| of_kind(input, "truth").find(|t| t.id == id))
+        .and_then(|t| text(t, "text"))
+        == Some(accepted)
+}
+
+/// The truths a verification defers: only to a phase that exists and comes later in the roadmap than its own (upstream
+/// defers to a later phase). A deferral to the same, an earlier or an unknown phase, or to one outside the numbering,
+/// is ignored, so the truth still needs its verdict: an agent-written `deferred` cannot reach `passed` by itself.
+fn deferred(input: &PassInput, v: &PassEntity, phase: &str) -> BTreeSet<String> {
+    let own = Number::of(phase);
     v.values
         .get("deferred")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
+        .filter(|row| {
+            let to = row.get("addressed_in").and_then(Value::as_str);
+            to.is_some_and(|to| of_kind(input, "phase").any(|p| p.id == to))
+                && to
+                    .and_then(Number::of)
+                    .zip(own.clone())
+                    .is_some_and(|(to, own)| to > own)
+        })
         .filter_map(|row| row.get("truth")?.as_str().map(String::from))
         .collect()
 }
@@ -160,6 +193,18 @@ fn latest(group: &Group) -> Option<String> {
         .filter(|j| j.rule.ends_with("E501"))
         .filter_map(|j| j.at.clone())
         .max()
+}
+
+/// One digest over the `(path, digest)` of every file the phase's verdicts covered.
+fn covered_digest(group: &Group) -> Option<String> {
+    let pairs: Vec<(&str, &str)> = group
+        .entities
+        .iter()
+        .flat_map(|e| &e.judgements)
+        .filter(|j| j.rule.ends_with("E501"))
+        .flat_map(|j| j.files.iter().map(|f| (f.path.as_str(), f.digest.as_str())))
+        .collect();
+    (!pairs.is_empty()).then(|| crate::digest::files(pairs))
 }
 
 fn covered(group: &Group) -> Vec<String> {
@@ -260,9 +305,10 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
         let Some(phase) = link(input, v, "phase") else {
             continue;
         };
-        let group = group(input, phase, &deferred(v));
+        let group = group(input, phase, &deferred(input, v, phase));
         let overridden: BTreeSet<&str> = of_kind(input, "override")
             .filter(|o| link(input, o, "verification") == Some(v.id.as_str()))
+            .filter(|o| still_accepts(input, o))
             .filter_map(|o| link(input, o, "truth"))
             .collect();
         let now: Vec<Item> = group
@@ -334,6 +380,9 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         let files = covered(&a.group);
         if !files.is_empty() {
             found.push(value(&v.id, "covered_files", json!(files)));
+        }
+        if let Some(digest) = covered_digest(&a.group) {
+            found.push(value(&v.id, "covered_digest", digest));
         }
         if let Some(block) = re_verification(input, v, &a.group, &a.now, statuses) {
             found.push(value(&v.id, "re_verification", block));

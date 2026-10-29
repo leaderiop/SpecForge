@@ -1,12 +1,16 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
 
+pub mod agents;
 pub mod codes;
 mod collectors;
+mod commands;
 mod digest;
+pub mod judged;
 mod kinds;
 mod passes;
+mod prompts;
 mod rules;
-mod settings;
+pub mod settings;
 mod time;
 
 use specforge_extension_sdk::prelude::*;
@@ -24,8 +28,12 @@ struct GsdCore;
 impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
+        agents::declare(c);
         kinds::declare(c);
         rules::declare(c);
+        judged::declare(c);
+        commands::declare(c);
+        prompts::declare(c);
         passes::declare(c);
         collectors::declare(c);
         settings::declare(c);

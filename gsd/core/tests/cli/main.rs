@@ -1,12 +1,18 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
+mod agents;
 mod collect;
 mod discuss;
+mod e502_probe;
 mod execute;
 mod execute_rules;
 mod execute_status;
 mod gates;
 mod harness;
+mod install_agents;
+mod judged;
+mod judged_flow;
+mod judged_refusals;
 mod ladder;
 mod parity_discuss;
 mod parity_plans;
@@ -22,6 +28,7 @@ mod settings;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;
+mod verify_verdicts;
 
 use harness::project;
 

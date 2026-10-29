@@ -2,9 +2,7 @@
 
 use super::dsl::*;
 
-/// The `spec_phase` prompt's verdict, in percent. Round r40 makes `scores` a verdict field (`V`) when it declares the
-/// judged rule `gsd/E202` that binds it: a verdict field no judged rule lists is the kernel's W021 on every check, so
-/// until then it is authored.
+/// The `spec_phase` prompt's verdict, in percent: `scores` is a verdict field (`V`) bound by the judged rule `gsd/E202`.
 const SCORES: &[Field] = &[
     int("goal").range(0, 100),
     int("boundary").range(0, 100),
@@ -29,7 +27,7 @@ pub const PHASE_SPEC: Kind = Kind::new(
         strs("out_of_scope"),
         strs("constraints"),
         strs("acceptance"),
-        block("scores", SCORES).doc("the spec_phase prompt's verdict, in percent (goal >= 75, boundary >= 70, constraint >= 65, acceptance >= 70, ambiguity <= 20)"),
+        block("scores", SCORES).v().doc("the spec_phase prompt's verdict, in percent (goal >= 75, boundary >= 70, constraint >= 65, acceptance >= 70, ambiguity <= 20)"),
     ],
 )
 .scoped_by("phase");

@@ -133,3 +133,17 @@ fn a_structured_value_of_a_scalar_field_is_ignored() {
         .insert("boundary".into(), serde_json::json!(["Tasks are saved"]));
     assert_eq!(digest_of(sent), plain);
 }
+
+#[test]
+fn a_files_digest_ignores_order_and_repeats_and_follows_a_digest() {
+    let a = files([("a.js", "sha256:1"), ("b.js", "sha256:2")]);
+    assert_eq!(
+        a,
+        files([
+            ("b.js", "sha256:2"),
+            ("a.js", "sha256:1"),
+            ("a.js", "sha256:1")
+        ])
+    );
+    assert_ne!(a, files([("a.js", "sha256:1"), ("b.js", "sha256:3")]));
+}

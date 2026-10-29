@@ -2,7 +2,7 @@
 //!
 //! E312: no task action reduces scope. GSD has no code matcher: the planner is told never to write these phrases in a
 //! task action (`agents/gsd-planner.md:81-85`, `references/planner-antipatterns.md:90-93`, MIT, `LICENSE-GSD`), and
-//! the rule is that prohibition. The checker's wider list (stub, hours, too complex) is judgment: `gsd/W311` (r40).
+//! the rule is that prohibition. The checker's wider list (stub, hours, too complex) is judgment: `gsd/W311`.
 //! Upstream's checker (`agents/gsd-plan-checker.md:430-446`) cross-references each hit with the context decision the
 //! plan claims to implement before it blocks, so a hit is exempt when the action cites a decision of the plan's phase
 //! (`\bD-NN\b`, as E310 matches). A dotted version is no hit: `v1.0` is a release, not a scope cut.

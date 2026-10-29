@@ -127,8 +127,7 @@ pub const SOURCE: Kind = Kind::new(
 
 const LEGITIMACY: &[&str] = &["legitimate", "suspicious", "unknown"];
 
-/// `legitimacy` is a verdict (`V`) from round r40, with the judged rule `gsd/W205` that binds it (see
-/// `spec.rs` SCORES for why it is authored until then).
+/// `legitimacy` is a verdict (`V`): the phase researcher's outcome for `gsd/W205`, never written by hand (E082).
 pub const PACKAGE_AUDIT: Kind = Kind::new(
     "package_audit",
     "A package a research audited for legitimacy (GSD package-legitimacy table)",
@@ -136,7 +135,9 @@ pub const PACKAGE_AUDIT: Kind = Kind::new(
         rf("research", "research").r(),
         str("package").r(),
         str("registry").r(),
-        en("legitimacy", LEGITIMACY),
+        en("legitimacy", LEGITIMACY)
+            .v()
+            .doc("the phase researcher's verdict (gsd/W205)"),
     ],
 )
 .scoped_by("research");

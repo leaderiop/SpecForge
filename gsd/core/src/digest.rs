@@ -85,7 +85,26 @@ pub fn context(input: &PassInput, context_id: &str) -> Option<String> {
             bytes.push(0x1E);
         }
     }
-    Some(format!("fnv1a64:{:016x}", fnv1a64(&bytes)))
+    Some(hex(&bytes))
+}
+
+fn hex(bytes: &[u8]) -> String {
+    format!("fnv1a64:{:016x}", fnv1a64(bytes))
+}
+
+/// One digest over `(path, digest)` pairs: the files a verdict covered, as the host digested them.
+pub fn files<'a>(covered: impl IntoIterator<Item = (&'a str, &'a str)>) -> String {
+    let mut pairs: Vec<_> = covered.into_iter().collect();
+    pairs.sort_unstable();
+    pairs.dedup();
+    let mut bytes = Vec::new();
+    for (path, digest) in pairs {
+        bytes.extend_from_slice(path.as_bytes());
+        bytes.push(0x1F);
+        bytes.extend_from_slice(digest.as_bytes());
+        bytes.push(0x1E);
+    }
+    hex(&bytes)
 }
 
 #[cfg(test)]

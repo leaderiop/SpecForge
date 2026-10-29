@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; only the collectors `gsd-git` and `gsd-junit` are built (r38).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), and the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -57,7 +57,7 @@ collector. The workflows call these; none is a slash command. Round r41 builds a
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
-| `record_verdict` | a verdict (`V` fields), through `set_verdict` (round r40) |
+| `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
 | the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
 
@@ -78,6 +78,24 @@ rule's `judge` names one of these agents (K7), and its rendered file lists the r
 | @gsd/security | `gsd-security-auditor` | 1 |
 | @gsd/ui | `gsd-dom-verifier`, `gsd-ui-auditor`, `gsd-ui-checker`, `gsd-ui-researcher` | 4 |
 | **total** | | **35** |
+
+### Which agent judges which rule
+
+The judged rules (K7) a `@gsd/core` agent judges; `specforge install` appends the list to the agent's file under
+"## Judged rules" (`tests/cli/agents.rs` reads the rows from the judged table, `src/judged.rs`). `record_verdict` is
+how the judge records its verdict; its body also ends with a section that names the command (the host's own list names only
+`specforge.verdict_inputs`). The judge is the rule's own, but that is not an identity check: any agent can call
+`record_verdict` and `--model` is free text, as any agent can write VERIFICATION.md upstream.
+
+| Agent | Judges |
+|---|---|
+| `gsd-plan-checker` | `gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316` (a plan) |
+| `gsd-phase-researcher` | `gsd/W205` (a package audit) |
+| `gsd-integration-checker` | `gsd/E518` (a milestone audit) |
+| prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
+| `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
+
+Every other core agent judges nothing.
 
 ## Hooks
 

@@ -42,7 +42,7 @@ GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisi
 | rationale | str | | Key Decisions `Rationale` |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
-| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311 (r40), not by gsd/E310, which counts every trackable decision as GSD does |
+| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
 | superseded_by | → decision | | a later decision that reverses it |
 
@@ -58,7 +58,7 @@ GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
 is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` judge, K15), in percent (GSD's 0–1 score × 100), gated at
-goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. Declared authored (bounds 0..100 enforced) until r40: a verdict field no judged rule lists is the kernel's W021 on every check, so r40 flips it to `V` together with `gsd/E202`.
+goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. It is `V`: the `values` of the `spec_phase` prompt's verdict on `gsd/E202` (bounds 0..100 enforced), so a hand-written `scores` is E082. `record_verdict` refuses a `passed` on `gsd/E202` whose `scores` are missing, outside 0..100 or outside the gates above.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
 `acceptance str R` (falsifiable), `traces →* requirement`.
@@ -94,7 +94,7 @@ Markdown sections become typed items, so a pitfall or an open question can be re
 | source | `research R`, `url str R`, `tier enum{primary, secondary, tertiary} R`, `checked str` | `## Sources` |
 | package_audit | `research R`, `package str R`, `registry str R`, `legitimacy enum{legitimate, suspicious, unknown}` `V` | the package-legitimacy table |
 
-`package_audit.legitimacy` is `V` like `phase_spec.scores`, and is declared authored until r40 binds `gsd/W205` (a verdict field no judged rule lists is the kernel's W021). `context.status` is declared `C` and answered by the derive pass (r38): `ready_for_planning` when `boundary` is written and `canonical_refs` has an item, else `gathering`.
+`package_audit.legitimacy` is `V`: the outcome of the phase researcher's verdict on `gsd/W205`, so a hand-written value is E082 (`specforge query <audit> --inputs gsd/W205`, then `specforge gsd record-verdict`). `context.status` is declared `C` and answered by the derive pass (r38): `ready_for_planning` when `boundary` is written and `canonical_refs` has an item, else `gathering`.
 
 An `open_question` with no `resolved_by` is what the plan checker's research-resolution dimension flags; here it is a
 rule over the graph, `gsd/W204` ([rules](rules.md)), for a phase's research only: the plan checker reads the phase's `RESEARCH.md`, so the project's research (the one named `RESEARCH`) is exempt; a phaseless research with another name is E206 and is judged as a phase's.
