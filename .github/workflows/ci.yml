@@ -13,22 +13,19 @@ env:
 
 jobs:
   ci:
-    # `cargo gate ci` split over six runners: the tests in four nextest partitions (each builds from the same
-    # cache), lint, and specs. `dogfood` judges every partition's reports, so it is the job after these.
+    # `cargo gate ci` split over runners: `build` compiles the tests once into a nextest archive, which four
+    # `tests` partitions run without compiling; lint and specs. `dogfood` judges every partition's reports.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      GATE_TEST_PARTITION: ${{ matrix.partition }}
+      GATE_TEST_ARCHIVE: target/tests.tar.zst
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { shard: tests-1, cache: tests, partition: 1/4, checks: "build,tests" }
-          - { shard: tests-2, cache: tests, partition: 2/4, checks: "build,tests" }
-          - { shard: tests-3, cache: tests, partition: 3/4, checks: "build,tests" }
-          - { shard: tests-4, cache: tests, partition: 4/4, checks: "build,tests" }
+          - { shard: build, cache: tests, checks: build }
           - shard: lint
             checks: rustfmt,clippy,gsd,doctests,audit
           - shard: specs
@@ -75,19 +72,76 @@ jobs:
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
 
+      # A PR whose diff reaches no Rust builds no archive; its `tests` jobs then have nothing to run.
+      - name: Hand the archive to the tests jobs
+        if: matrix.shard == 'build'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-archive
+          path: target/tests.tar.zst
+          if-no-files-found: ignore
+          compression-level: 0
+          retention-days: 1
+
       # dogfood reaches only full runs (main), so only main keeps the reports for it.
       - name: Keep the test reports for dogfood
-        if: github.event_name == 'push' && (startsWith(matrix.shard, 'tests') || matrix.shard == 'specs')
+        if: github.event_name == 'push' && matrix.shard == 'specs'
         uses: actions/upload-artifact@v4
         with:
           name: reports-${{ matrix.shard }}
           path: target/specforge
           retention-days: 1
 
+  tests:
+    name: Check list (tests-${{ matrix.part }})
+    needs: ci
+    # `ci` holds every shard; only `build` matters here, so a red lint does not stop the tests.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GATE_TEST_ARCHIVE: target/tests.tar.zst
+      GATE_TEST_PARTITION: ${{ matrix.part }}/4
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      # Only `cargo gate` itself compiles here; the tests come from the archive.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: specs
+          save-if: false
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - name: Install z3 (SMT solver for prove tests)
+        run: sudo apt-get update && sudo apt-get install -y z3
+      - uses: actions/download-artifact@v4
+        id: archive
+        continue-on-error: true
+        with:
+          name: tests-archive
+          path: target
+      - name: Run the partition
+        if: steps.archive.outcome == 'success'
+        run: cargo gate ci --only tests ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+      - name: Keep the test reports for dogfood
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-tests-${{ matrix.part }}
+          path: target/specforge
+          retention-days: 1
+
   dogfood:
     # Every test of every partition and guest reported into target/specforge; dogfood judges them together.
     name: Check list (dogfood)
-    needs: ci
+    needs: [ci, tests]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
