@@ -17,7 +17,7 @@ use crate::passes::commits::{Commit, target};
 use crate::passes::plans::{name_of, of_kind, phase_of, rows, text};
 use crate::time::seconds;
 
-type Statuses<'a> = BTreeMap<&'a str, &'static str>;
+pub type Statuses<'a> = BTreeMap<&'a str, &'static str>;
 
 /// A requirement is `complete` once a plan naming it is (GSD's `requirements mark-complete`), `blocked` when every
 /// plan naming it is halted or blocked, `in_progress` when one is executing, else `pending`.
@@ -49,6 +49,31 @@ fn percent(plans_done: usize, plans: usize, phases_done: usize, phases: usize) -
     };
     let smaller = fraction(plans_done, plans).min(fraction(phases_done, phases));
     Some((smaller * 100.0).round() as i64)
+}
+
+/// Each requirement's status: the plans that name it decide, and a complete one is `gaps_found` while a phase it
+/// traces to has a `gaps_found` verification.
+pub fn requirement_states<'a>(
+    input: &'a PassInput,
+    statuses: &Statuses,
+    failing: &BTreeSet<&str>,
+) -> BTreeMap<&'a str, &'static str> {
+    of_kind(input, "requirement")
+        .map(|requirement| {
+            let plans: Vec<&str> = input
+                .edges
+                .iter()
+                .filter(|e| e.label == "requirements" && e.target == requirement.id)
+                .filter(|e| statuses.contains_key(e.source.as_str()))
+                .map(|e| e.source.as_str())
+                .collect();
+            let status = match requirement_status(&plans, statuses) {
+                "complete" if ladder::gaps_found(input, &requirement.id, failing) => "gaps_found",
+                status => status,
+            };
+            (requirement.id.as_str(), status)
+        })
+        .collect()
 }
 
 /// A phase and what is known of it.
@@ -155,21 +180,9 @@ pub fn values(
         .collect();
     let summarised: BTreeSet<&str> = summaries(input).keys().copied().collect();
     // Requirements.
-    let mut requirement_states: BTreeMap<&str, &'static str> = BTreeMap::new();
-    for requirement in of_kind(input, "requirement") {
-        let plans: Vec<&str> = input
-            .edges
-            .iter()
-            .filter(|e| e.label == "requirements" && e.target == requirement.id)
-            .filter(|e| statuses.contains_key(e.source.as_str()))
-            .map(|e| e.source.as_str())
-            .collect();
-        let mut status = requirement_status(&plans, statuses);
-        if status == "complete" && ladder::gaps_found(input, &requirement.id, &failing) {
-            status = "gaps_found";
-        }
-        requirement_states.insert(&requirement.id, status);
-        out.push(value(&requirement.id, "status", status));
+    let requirement_states = requirement_states(input, statuses, &failing);
+    for (requirement, status) in &requirement_states {
+        out.push(value(requirement, "status", *status));
     }
     // Phases.
     let phases = phases(input, &summarised, verified);

@@ -304,3 +304,109 @@ fn re_verification_is_absent_without_a_baseline_verification() {
     let p = verify();
     assert!(verification(&p)["re_verification"].is_null());
 }
+
+const SESSION: &str = "v1.0/01/01-UAT";
+
+/// Records a person's answer to UAT test `name` (criterion `criterion`): the value in the file, blessed in the ledger.
+fn answer(p: &Project, name: &str, criterion: u8, result: &str) {
+    p.edit(
+        "spec/uat.spec",
+        &format!("  criterion {criterion}\n}}"),
+        &format!("  criterion {criterion}\n  result {result}\n}}"),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    p.record_harness(
+        &format!("{SESSION}/{name}"),
+        "result",
+        &format!("\"{result}\""),
+    );
+}
+
+#[test]
+fn uat_totals_match_audit_uat_golden() {
+    let p = verify();
+    let totals = |p: &Project| p.fields_of(SESSION)["totals"].clone();
+    // The Summary of `templates/UAT.md`: total, passed, issues, pending, skipped, blocked.
+    assert_eq!(
+        totals(&p),
+        serde_json::json!({ "total": 2, "passed": 0, "issues": 0, "pending": 2, "skipped": 0, "blocked": 0 })
+    );
+    assert_eq!(p.fields_of(SESSION)["status"], "testing");
+    answer(&p, "U1", 1, "pass");
+    answer(&p, "U2", 2, "issue");
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(
+        totals(&p),
+        serde_json::json!({ "total": 2, "passed": 1, "issues": 1, "pending": 0, "skipped": 0, "blocked": 0 })
+    );
+    // The issue has an open gap with a root cause.
+    assert_eq!(p.fields_of(SESSION)["status"], "diagnosed");
+}
+
+#[test]
+fn a_completed_gap_closure_plan_resolves_its_gap() {
+    let p = verify();
+    answer(&p, "U1", 1, "pass");
+    answer(&p, "U2", 2, "issue");
+    let gap = format!("{SESSION}/U2/G1");
+    assert_eq!(p.fields_of(&gap)["status"], "open");
+    p.edit(
+        "spec/plans.spec",
+        "  depends_on     [01-01]\n  files_modified [\"src/complete.js\"]\n",
+        &format!("  depends_on     [01-01]\n  gap_closure    [{gap}]\n  files_modified [\"src/complete.js\"]\n"),
+    );
+    let text = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{text}\nsummary 01-02-SUMMARY \"Completion summary\" {{\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Tasks can be completed\"\n  subsystem              \"store\"\n  requirements_completed [TASK-02]\n}}\n"),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    let resolved = p.fields_of(&gap);
+    assert_eq!(resolved["status"], "resolved", "{resolved}");
+    assert_eq!(resolved["resolved_by"], "v1.0/01/01-02");
+    // The issue's gap is resolved, so the session is complete.
+    assert_eq!(p.fields_of(SESSION)["status"], "complete");
+}
+
+#[test]
+fn a_waived_window_is_waived() {
+    let p = verify();
+    assert_eq!(p.fields_of(WINDOW)["status"], "open");
+    waive(&p, "Tracked as issue 42");
+    let window = p.fields_of(WINDOW);
+    assert_eq!(window["status"], "waived", "{window}");
+    assert_eq!(window["milestone"], "v1.0");
+}
+
+#[test]
+fn a_disposed_proposal_fixes_its_window() {
+    let p = verify();
+    p.edit(
+        "spec/ops/windows.spec",
+        "  description \"A TODO remains in the store\"\n",
+        "  description \"A TODO remains in the store\"\n  refactor    v1.0/01/RP1\n",
+    );
+    assert_eq!(p.fields_of("RP1")["status"], "proposed");
+    assert_eq!(p.fields_of(WINDOW)["status"], "open");
+    p.edit(
+        "spec/ops/windows.spec",
+        "  target_function \"add\"\n",
+        "  target_function \"add\"\n  disposition {\n    outcome accepted\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n",
+    );
+    p.record_harness(
+        "v1.0/01/RP1",
+        "disposition",
+        r#"{"at":"2026-10-29T11:00:00Z","by":"ada","outcome":"accepted"}"#,
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(p.fields_of("v1.0/01/RP1")["status"], "accepted");
+    assert_eq!(p.fields_of(WINDOW)["status"], "fixed");
+}
+
+#[test]
+fn an_unverified_phase_makes_the_audit_gaps_found() {
+    let p = verify();
+    let audit = p.fields_of(AUDIT);
+    assert_eq!(audit["status"], "gaps_found", "{audit}");
+    assert_eq!(audit["nyquist"]["missing"], 1, "{audit}");
+}

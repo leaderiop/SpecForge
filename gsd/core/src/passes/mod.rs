@@ -35,6 +35,8 @@ pub const CLAIMED: &[&str] = &[
 
 pub fn declare(c: &mut ContributionsBuilder) {
     // The scan is declared before `derive`: compute passes run in declaration order and derive reads its values.
+    // `waves` computes `plan.wave`, which derive reads for a validation row.
+    waves::declare(c);
     scan::declare(c);
     derive::declare(c);
     roadmap::declare(c);
@@ -48,6 +50,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     file_scope::declare(c);
     scope::declare(c);
     verify_paths::declare(c);
-    waves::declare(c);
     nyquist::declare(c);
 }

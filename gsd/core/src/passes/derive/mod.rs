@@ -10,10 +10,12 @@
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection), `retrospective.sessions` (no harness), and
 //! plan `draft`/`checked` (the plan-check verdicts, r40).
 
+mod audit;
 mod execute;
 mod halt;
 mod ladder;
 mod progress;
+mod uat;
 mod verify;
 
 use specforge_extension_sdk::prelude::*;
@@ -56,12 +58,16 @@ fn derive(input: &PassInput) -> PassOutput {
     let statuses = execute::plan_statuses(input, &commits);
     values.extend(execute::values(input, &commits, &statuses));
     values.extend(verify::values(input, &statuses));
-    values.extend(progress::values(
-        input,
-        &commits,
-        &statuses,
-        &verify::by_phase(input),
-    ));
+    let verified = verify::by_phase(input);
+    values.extend(progress::values(input, &commits, &statuses, &verified));
+    values.extend(uat::values(input, &statuses));
+    let failing = verified
+        .iter()
+        .filter(|(_, v)| v.status == "gaps_found")
+        .map(|(phase, _)| phase.as_str())
+        .collect();
+    let requirements = progress::requirement_states(input, &statuses, &failing);
+    values.extend(audit::values(input, &requirements, &verified));
     PassOutput {
         values,
         ..Default::default()
