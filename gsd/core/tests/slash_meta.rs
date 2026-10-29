@@ -20,6 +20,12 @@ const ADAPTED: &[(&str, &str)] = &[
         "[--dir <path>] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
     ),
     ("milestone-summary", "[--milestone <version>]"),
+    ("ns-context", "[--intent \"what you want\"]"),
+    ("ns-ideate", "[--intent \"what you want\"]"),
+    ("ns-manage", "[--intent \"what you want\"]"),
+    ("ns-project", "[--intent \"what you want\"]"),
+    ("ns-review", "[--intent \"what you want\"]"),
+    ("ns-workflow", "[--intent \"what you want\"]"),
     ("pr-branch", "[--target <branch>]"),
     ("workspace", "[--new | --list | --remove] [--name <name>]"),
     (

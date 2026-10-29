@@ -8,14 +8,7 @@ use gsd_core::prompts::roster::{Owner, ROSTER};
 use regex::Regex;
 
 /// The core rows no prompt serves yet: each r43 ticket deletes its rows, and the last one deletes this list.
-const NOT_YET_SERVED: &[&str] = &[
-    "ns-context",
-    "ns-ideate",
-    "ns-manage",
-    "ns-project",
-    "ns-review",
-    "ns-workflow",
-];
+const NOT_YET_SERVED: &[&str] = &[];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()

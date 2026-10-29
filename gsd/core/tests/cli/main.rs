@@ -48,6 +48,7 @@ mod prompts_gates;
 mod prompts_git;
 mod prompts_learning;
 mod prompts_navigate;
+mod prompts_ns;
 mod prompts_onboard;
 mod prompts_plan;
 mod prompts_project;

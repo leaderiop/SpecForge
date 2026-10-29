@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-const ROWS: [Row; 38] = [
+const ROWS: [Row; 44] = [
     Row {
         id: "new_project",
         args: &["--auto"],
@@ -216,6 +216,36 @@ const ROWS: [Row; 38] = [
     Row {
         id: "update",
         args: &["--sync"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_context",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_ideate",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_manage",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_project",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_review",
+        args: &["--intent", "plan the next phase"],
+        setup: twin,
+    },
+    Row {
+        id: "ns_workflow",
+        args: &["--intent", "plan the next phase"],
         setup: twin,
     },
     Row {

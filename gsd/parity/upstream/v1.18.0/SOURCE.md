@@ -457,3 +457,16 @@ Vendored byte for byte from gsd-core v1.18.0: the three workspace workflows and 
 | `gsd-core/workflows/list-workspaces.md` | `da446be2980632cc3b765f430a41cfbe00a8bbfcedc7656c0cf82646178680ba` |
 | `gsd-core/workflows/new-workspace.md` | `55ccc4ee96b522eea2932d8ee977cd9617e32127650f77820e6c9e7fdd206e54` |
 | `gsd-core/workflows/remove-workspace.md` | `d9cc19a118a68c81d436a698d9f803fed4152b439afc7c2aa27024d4db7da109` |
+
+## r43 T11: the six namespace routers
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ns-context`, `/gsd-ns-ideate`, `/gsd-ns-manage`, `/gsd-ns-project`, `/gsd-ns-review` and `/gsd-ns-workflow`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/ns-context.md` | `9671e855bdb8339a40f6ab73735254977470072d1eb4080154b55568913ef78f` |
+| `commands/gsd/ns-ideate.md` | `53a446e2c39be49c863f7c9253fd4328201ce68e2becd24db95a18f79db5f3d5` |
+| `commands/gsd/ns-manage.md` | `83dd7c64de6618bd1f7ba6c43877a9eda0e4ffaade47e9455cd3757239d724dc` |
+| `commands/gsd/ns-project.md` | `2965014b60f6951e8b10526dd16c2dfa7e1e737c414384efff6f5bb495fa718f` |
+| `commands/gsd/ns-review.md` | `5af65e411b1cc5baa6a2fbf3cfdf9452f671c11a72c21d5b88e89ee78dfbcfd5` |
+| `commands/gsd/ns-workflow.md` | `9492a9cdcb4ea148f598688a252b45ee9b695e83b997bfe56834d701ec369c2d` |
