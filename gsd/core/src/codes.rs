@@ -479,7 +479,7 @@ pub static CODES: &[Code] = &[
     code(
         "E503",
         "Override lacks its author or date",
-        "An override has its human author and date (missing_required_field on by and at)",
+        "An override names who accepted the truth and when (by and at)",
         "verify",
         Severity::Error,
         Severity::Error,
@@ -510,8 +510,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E509",
-        "UAT passed with open tests",
-        "A UAT passes only with no pending, blocked, unresolved or undeferred skipped test",
+        "UAT evidence that cannot pass",
+        "A skipped UAT test has a reason and an issue has the person's report",
         "verify",
         Severity::Error,
         Severity::Error,

@@ -298,7 +298,7 @@
     {
       "code": "E503",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "An override has its human author and date (missing_required_field on by and at). It is an error.",
+      "explanation": "An override names who accepted the truth and when (by and at). It is an error.",
       "title": "Override lacks its author or date"
     },
     {
@@ -322,8 +322,8 @@
     {
       "code": "E509",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A UAT passes only with no pending, blocked, unresolved or undeferred skipped test. It is an error.",
-      "title": "UAT passed with open tests"
+      "explanation": "A skipped UAT test has a reason and an issue has the person's report. It is an error.",
+      "title": "UAT evidence that cannot pass"
     },
     {
       "code": "W510",

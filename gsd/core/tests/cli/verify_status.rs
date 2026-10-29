@@ -312,7 +312,14 @@ fn answer(p: &Project, name: &str, criterion: u8, result: &str) {
     p.edit(
         "spec/uat.spec",
         &format!("  criterion {criterion}\n}}"),
-        &format!("  criterion {criterion}\n  result {result}\n}}"),
+        &format!(
+            "  criterion {criterion}\n  result {result}\n{}}}",
+            if result == "issue" {
+                "  reported \"The list ignores it\"\n"
+            } else {
+                ""
+            }
+        ),
     );
     assert_eq!(p.run(&["format", "spec"]).code, 0);
     p.record_harness(

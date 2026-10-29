@@ -111,3 +111,97 @@ fn nyquist_validation_off_silences_e314_and_w510() {
     p.settings(serde_json::json!({ "workflow.nyquist_validation": false }));
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
+
+fn override_block(p: &Project) -> String {
+    let text = p.read("spec/verify.spec");
+    let at = text.find("override OV1").expect("the override");
+    let end = text[at..].find("\n}\n").expect("its end") + at + 3;
+    text[at..end].to_string()
+}
+
+#[test]
+fn an_override_without_by_is_e503() {
+    let p = verify();
+    assert_eq!(p.codes(), Vec::<String>::new());
+    p.edit("spec/verify.spec", "  by           \"ada\"\n", "");
+    assert_eq!(p.codes(), ["gsd/E503"], "{:?}", p.report());
+    assert!(p.report()[0].1.contains("no by:"), "{:?}", p.report());
+    p.edit("spec/verify.spec", "  at           2026-10-29\n", "");
+    assert!(p.report()[0].1.contains("no by and at"), "{:?}", p.report());
+    assert_eq!(p.codes(), ["gsd/E503"]);
+}
+
+#[test]
+fn four_overrides_is_w504() {
+    let p = verify();
+    let one = override_block(&p);
+    let mut text = p.read("spec/verify.spec");
+    for n in 2..=3 {
+        text.push_str(&format!("\n{}", one.replace("OV1", &format!("OV{n}"))));
+    }
+    p.write("spec/verify.spec", &text);
+    assert_eq!(
+        p.codes(),
+        Vec::<String>::new(),
+        "three overrides are allowed: {:?}",
+        p.report()
+    );
+    text.push_str(&format!("\n{}", one.replace("OV1", "OV4")));
+    p.write("spec/verify.spec", &text);
+    assert_eq!(p.codes(), ["gsd/W504"], "{:?}", p.report());
+}
+
+/// Records the answer to UAT test `name`, with `extra` lines (a reason, a report) beside it.
+fn answer(p: &Project, name: &str, criterion: u8, result: &str, extra: &str) {
+    p.edit(
+        "spec/uat.spec",
+        &format!("  criterion {criterion}\n}}"),
+        &format!("  criterion {criterion}\n  result {result}\n{extra}}}"),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    p.record_harness(
+        &format!("v1.0/01/01-UAT/{name}"),
+        "result",
+        &format!("\"{result}\""),
+    );
+}
+
+#[test]
+fn a_skip_without_reason_is_e509() {
+    let p = verify();
+    answer(&p, "U1", 1, "skipped", "");
+    assert_eq!(p.codes(), ["gsd/E509"], "{:?}", p.report());
+    let p = verify();
+    answer(
+        &p,
+        "U1",
+        1,
+        "skipped",
+        "  reason \"Deferred follow-up: needs a device\"\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+#[test]
+fn an_issue_without_a_report_is_e509() {
+    let p = verify();
+    answer(&p, "U2", 2, "issue", "");
+    assert_eq!(p.codes(), ["gsd/E509"], "{:?}", p.report());
+    let p = verify();
+    answer(&p, "U2", 2, "issue", "  reported \"The list ignores it\"\n");
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+#[test]
+fn each_verify_code_fires_on_its_fixture() {
+    // E503, W504 and E509 are the tests above; E505 is in `scan`, E314 and W510 in this file.
+    let p = verify();
+    p.edit("spec/verify.spec", "  by           \"ada\"\n", "");
+    assert_eq!(p.codes(), ["gsd/E503"]);
+}
+
+#[test]
+fn each_verify_code_is_silent_on_its_counterpart() {
+    let p = verify();
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}

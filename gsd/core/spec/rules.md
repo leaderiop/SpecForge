@@ -93,16 +93,16 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
 | gsd/E502 | an explicit truth is verified only with a named passing test | pass | E | E | honest-verifier |
-| gsd/E503 | an override has its human author and date (`missing_required_field` on `by` and `at`) | decl | E | E | verifier overrides |
-| gsd/W504 | more than three overrides in a phase | pass | W | W | verifier |
+| gsd/E503 | an override names who accepted the truth and when: `by` and `at` are not required fields, so this is their one diagnostic, naming which is missing | pass | E | E | verifier overrides |
+| gsd/W504 | more than three overrides in a phase: one warning on the verification | pass | W | W | verifier |
 | gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
 | gsd/W506 | every settled decision maps to something shipped | pass | W | W | `gate-decision-coverage-verify` |
-| gsd/E509 | a UAT passes only with no pending, blocked, unresolved or undeferred skipped test | pass | E | E | UAT predicate |
+| gsd/E509 | authored UAT evidence that makes a session unpassable: a `skipped` test with no `reason`, an `issue` test with no `reported` (a test a collector reported, `source automated`, is not judged). The session's own status is computed from the predicate (pending, blocked, unresolved or undeferred skipped), so it cannot be contradicted | pass | E | E | UAT predicate |
 | gsd/W510 | a planned phase whose research has a Validation Architecture section has a validation, and a verification exists only once the validation has an `approval`. A plain planned phase is not warned: `validate-phase` is opt-in (`validate-phase.md:38-43`) | pass | W | E | Nyquist 8a–8f |
 | gsd/E511 | a phase is complete only when verification passed and UAT is complete (part of the phase-status derivation; a gate code of `complete_milestone` and `/gsd-ship`) | guard | E | E | phase-status ladder |
 | gsd/E512 | no broken window is open at ship | guard (ship:pre) | E | E | broken-windows gate |
 | gsd/E513 | a resolved window cannot be waived or fixed again (`waiver` and `fixed_at` are never both set) | pass | E | E | `src/broken-windows.cts` |
-| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off | pass | W | W | `refactor_strict_not_enforcing` |
+| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. Not built: a pass is not sent the project's settings, and a setting gates a code only while it is on | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass) | guard | — | E (plus) | (new: gsd-plus) |
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
