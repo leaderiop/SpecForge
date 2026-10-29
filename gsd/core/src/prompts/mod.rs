@@ -18,6 +18,7 @@ mod quick;
 pub(crate) mod render;
 pub(crate) mod repoint;
 pub mod roster;
+mod session;
 pub(crate) mod setting;
 mod ship;
 mod slash;
@@ -62,4 +63,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     navigate::declare(c);
     quick::declare(c);
     autonomous::declare(c);
+    session::declare(c);
 }

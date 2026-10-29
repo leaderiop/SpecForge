@@ -373,3 +373,16 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-autonomous`.
 | `gsd-core/workflows/autonomous/steps/converge-fail-fast.md` | `724b870339135c19f53b9a8e32e552c8659755ebfb9c2631f2e71162b0670908` |
 | `gsd-core/workflows/autonomous/steps/converge-loop.md` | `2e7236809b8323b00432aed14c6efc2eb4be0f418cd81f309e0fcef9d8d42cfc` |
 | `gsd-core/workflows/autonomous/templates/minimal-context.md` | `5b5a283dbfca92f4f36859f869bfa103442baa107eaa9198f6d42fcb6a5cf891` |
+
+## r43 T4: pause-work and resume-work
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-pause-work` and `/gsd-resume-work`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/pause-work.md` | `4d9b31eb7d8657d2c770d9db28daa4d10a8da463c580ca77215dd7163d2f7aae` |
+| `commands/gsd/resume-work.md` | `b7d2324a5c96462a725fcc8ce67ef87b1d28a8ac623e2cd801adb8681b725538` |
+| `gsd-core/references/continuation-format.md` | `ce73e57d053ab8a7949ebeadbf5d0d56563603375e23c9d59a7787746fa0e3f4` |
+| `gsd-core/workflows/pause-work.md` | `47195b230b0915f7629578a500795026e06079a232c5239dad2378e8290c68e6` |
+| `gsd-core/workflows/resume-project.md` | `bfaa76506389f8b10efdde14b08c27eff0d98cf7433b6a4fd2de822555aafcda` |
+| `gsd-core/workflows/session-report.md` | `0a8ed74c950a4d5b34b4d1847f059f5a7d95a5bf9584f86289a3c3995f39067e` |

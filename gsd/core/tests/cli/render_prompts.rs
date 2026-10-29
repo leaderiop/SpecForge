@@ -32,7 +32,7 @@ fn shipped() -> Project {
     p
 }
 
-const ROWS: [Row; 24] = [
+const ROWS: [Row; 26] = [
     Row {
         id: "new_project",
         args: &["--auto"],
@@ -151,6 +151,16 @@ const ROWS: [Row; 24] = [
     Row {
         id: "autonomous",
         args: &["--from", "01", "--to", "02", "--converge"],
+        setup: twin,
+    },
+    Row {
+        id: "pause_work",
+        args: &["--report"],
+        setup: twin,
+    },
+    Row {
+        id: "resume_work",
+        args: &[],
         setup: twin,
     },
 ];

@@ -131,6 +131,45 @@ pub fn render_three_hosts(
     out
 }
 
+/// The words of a shell line, double quotes honoured.
+pub fn words(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut word = String::new();
+    let (mut quoted, mut any) = (false, false);
+    for c in line.chars() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                any = true;
+            }
+            c if c.is_whitespace() && !quoted => {
+                if any || !word.is_empty() {
+                    out.push(std::mem::take(&mut word));
+                    any = false;
+                }
+            }
+            c => word.push(c),
+        }
+    }
+    if any || !word.is_empty() {
+        out.push(word);
+    }
+    out
+}
+
+/// The `specforge ...` lines of the text that start with `prefix`, with the quick id and the placeholders filled.
+pub fn command(text: &str, prefix: &str, id: &str, fill: &[(&str, &str)]) -> Vec<String> {
+    let line = text
+        .lines()
+        .find(|l| l.starts_with(prefix))
+        .unwrap_or_else(|| panic!("no line starts with {prefix}"));
+    let mut line = line.replace("$quick_id", id);
+    for (from, to) in fill {
+        line = line.replace(from, to);
+    }
+    words(&line).into_iter().skip(1).collect()
+}
+
 #[test]
 fn the_existing_judge_prompt_renders_through_the_helpers() {
     let p = super::harness::project("discuss");

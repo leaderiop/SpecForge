@@ -2,7 +2,7 @@
 //! the typed tools the prompt names.
 
 use super::commands_support::{gsd, twin};
-use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
+use super::prompts_support::{command, payload, prompt, render_three_hosts, text_of};
 
 /// Today's quick id, `<yymmdd>-<3 base-36>`.
 fn quick_id() -> String {
@@ -11,45 +11,6 @@ fn quick_id() -> String {
         .output()
         .expect("date");
     format!("{}-a1b", String::from_utf8_lossy(&day.stdout).trim())
-}
-
-/// The words of a shell line, double quotes honoured.
-fn words(line: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut word = String::new();
-    let (mut quoted, mut any) = (false, false);
-    for c in line.chars() {
-        match c {
-            '"' => {
-                quoted = !quoted;
-                any = true;
-            }
-            c if c.is_whitespace() && !quoted => {
-                if any || !word.is_empty() {
-                    out.push(std::mem::take(&mut word));
-                    any = false;
-                }
-            }
-            c => word.push(c),
-        }
-    }
-    if any || !word.is_empty() {
-        out.push(word);
-    }
-    out
-}
-
-/// The `specforge ...` lines of the text that start with `prefix`, with the quick id and the placeholders filled.
-fn command(text: &str, prefix: &str, id: &str, fill: &[(&str, &str)]) -> Vec<String> {
-    let line = text
-        .lines()
-        .find(|l| l.starts_with(prefix))
-        .unwrap_or_else(|| panic!("no line starts with {prefix}"));
-    let mut line = line.replace("$quick_id", id);
-    for (from, to) in fill {
-        line = line.replace(from, to);
-    }
-    words(&line).into_iter().skip(1).collect()
 }
 
 fn run(p: &super::harness::Project, args: &[String]) -> super::harness::Run {
