@@ -36,9 +36,15 @@ fn key(d: &Diagnostic) -> Key {
     )
 }
 
-/// Whether a diagnostic is a judged rule's finding (ADR 0297): no verdict, a stale one or a failing one.
+/// Whether a diagnostic is a judged rule's finding (ADR 0297): no verdict, a stale one or a failing one. It carries
+/// the rule's code and names the extension that owns the rule as its origin (the host's own and another extension's
+/// diagnostics with that text are not).
 pub(crate) fn judged_finding(registries: &RegistryBuild) -> impl Fn(&Diagnostic) -> bool + '_ {
-    |d| registries.judged_rule(&d.code).is_some()
+    |d| {
+        registries
+            .judged_rule(&d.code)
+            .is_some_and(|rule| d.origin() == Some(rule.extension.as_str()))
+    }
 }
 
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
@@ -207,5 +213,33 @@ mod tests {
         // Already reported, it is paired and reported once, as an error of the project's own.
         let (errors, rest) = added(&[error("gsd/E501")], vec![error("gsd/E501")], judged);
         assert!(errors.is_empty() && rest.is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "validate_typed_edit",
+        verify = "a diagnostic with a judged rules code from another origin is no judged finding"
+    )]
+    fn only_the_owning_extensions_diagnostic_is_a_judged_finding() {
+        use specforge_project::testing::{gsd_judged_project, gsd_judged_runtime};
+        use std::sync::Arc;
+        let compiled = gsd_judged_project("").compile_in(Arc::new(gsd_judged_runtime()));
+        let registries = crate::view::ProjectView::of(&compiled).registries();
+        let owner = registries
+            .judged_rule("gsd/E501")
+            .unwrap()
+            .extension
+            .clone();
+        let from = |origin: Option<&str>| {
+            let mut d = Diagnostic::new(codes::E080, "x");
+            d.code = "gsd/E501".to_string();
+            if let Some(origin) = origin {
+                d = Diagnostic::from_extension(origin, "gsd/E501", Severity::Error, "x");
+            }
+            d
+        };
+        let judged = judged_finding(registries);
+        assert!(judged(&from(Some(&owner))));
+        assert!(!judged(&from(Some("@other/x"))));
+        assert!(!judged(&from(None)));
     }
 }

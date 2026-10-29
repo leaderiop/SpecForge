@@ -32,6 +32,14 @@ pub(super) fn build(
         let mut misused = HashSet::new();
         // The codes of the judged rules already registered: a code is the verdict's name, so it is one rule's.
         let mut judged_codes = HashSet::new();
+        // The codes the extension's judged rules declare: no other rule of it reports one (E080 does not hold a
+        // judged rule's finding against a write, so a rule sharing the code would escape it).
+        let judged_declared: HashSet<&str> = declaration
+            .validation_rules
+            .iter()
+            .filter(|d| d.judged.is_some())
+            .map(|d| d.code.as_str())
+            .collect();
         for descriptor in &declaration.validation_rules {
             diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
@@ -40,6 +48,13 @@ pub(super) fn build(
                         extension,
                         &rule.code,
                         "another judged rule of the extension has this code: it is the verdict's name",
+                    ));
+                }
+                if rule.declared.judged.is_none() && judged_declared.contains(descriptor.code.as_str()) {
+                    return Err(cannot_fire(
+                        extension,
+                        &rule.code,
+                        "a judged rule of the extension has this code: it is the verdict's name",
                     ));
                 }
                 if let Some(judged) = &descriptor.judged

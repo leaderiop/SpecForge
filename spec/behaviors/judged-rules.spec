@@ -38,6 +38,7 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   """
   verify unit "a judged rule is declared with its judge, outcomes and per-target selectors"
   verify unit "a malformed judged rule is W112 and is not registered"
+  verify unit "no other rule of the extension reports a judged rules code"
   verify unit "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
   verify unit "every input of the model's judged rules parses and resolves"
   verify unit "a selector prints back to its canonical text"
