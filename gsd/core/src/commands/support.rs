@@ -58,11 +58,22 @@ pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     }
 }
 
-/// A control character of `text` (C0 but tab and line feed, DEL, C1) as `U+00XX`.
+/// A control character of `text` (C0 but tab and line feed, DEL, C1, the line and paragraph separators and the bidi
+/// overrides, which reorder what a reader sees) as `U+00XX`.
 fn control(text: &str) -> Option<String> {
     text.chars()
-        .find(|c| c.is_control() && *c != '\t' && *c != '\n')
+        .find(|c| {
+            (c.is_control() && *c != '\t' && *c != '\n')
+                || matches!(c, '\u{2028}' | '\u{2029}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+        })
         .map(|c| format!("U+{:04X}", c as u32))
+}
+
+/// An id ordered as a person reads it: `A9` before `A10`.
+pub fn natural(id: &str) -> (String, u64) {
+    let digits = id.chars().rev().take_while(char::is_ascii_digit).count();
+    let (head, number) = id.split_at(id.len() - digits);
+    (head.to_string(), number.parse().unwrap_or(0))
 }
 
 /// The arg `arg` as a person wrote it (D-r41-4): refused when it holds a control character, never stripped.
@@ -72,6 +83,29 @@ pub fn text<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<Option<&'a str>,
         return Err(format!("'{arg}' holds a control character ({code})"));
     }
     Ok(value)
+}
+
+/// [`text`] for an arg that, when given, is not blank (`--name ""` sets nothing).
+pub fn given<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<Option<&'a str>, String> {
+    match text(call, arg)? {
+        Some(value) if value.trim().is_empty() => Err(format!("'{arg}' is empty")),
+        other => Ok(other),
+    }
+}
+
+/// The optional JSON list of strings `name`, each item as a person wrote it ([`text`]'s rule).
+pub fn texts(call: &CommandCall<'_>, name: &str) -> Result<Option<Vec<String>>, String> {
+    let Some(raw) = call.str(name) else {
+        return Ok(None);
+    };
+    let items: Vec<String> =
+        serde_json::from_str(raw).map_err(|e| format!("{name}: not the JSON it takes: {e}"))?;
+    for item in &items {
+        if let Some(code) = control(item) {
+            return Err(format!("'{name}' holds a control character ({code})"));
+        }
+    }
+    Ok(Some(items))
 }
 
 /// [`text`] for an arg that must be given and not empty.
@@ -174,5 +208,7 @@ mod tests {
         assert_eq!(control("a\u{85}").as_deref(), Some("U+0085"));
         assert_eq!(control("a\u{7f}").as_deref(), Some("U+007F"));
         assert_eq!(control("two\nlines\tand tab"), None);
+        assert_eq!(control("a\u{202e}b").as_deref(), Some("U+202E"));
+        assert_eq!(control("a\u{2028}b").as_deref(), Some("U+2028"));
     }
 }

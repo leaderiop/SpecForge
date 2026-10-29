@@ -93,3 +93,36 @@ fn an_existing_retrospective_is_kept() {
         serde_json::json!(["mine"])
     );
 }
+
+#[test]
+fn the_audit_it_records_is_the_one_the_gate_judged() {
+    let p = ready();
+    // E106 orders `A9`, `B1` by head, then number: `B1` is the latest. The command used the trailing digits only.
+    for audit in ["A9", "B1"] {
+        let text = p.read("spec/m.spec");
+        p.write(
+            "spec/m.spec",
+            &format!("{text}\nmilestone_audit {audit} \"A\" {{\n  milestone v1.0\n}}\n"),
+        );
+    }
+    let run = gsd(&p, "close-milestone", &["v1.0"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of("v1.0")["completion"]["audit"], "B1");
+}
+
+#[test]
+fn a_retrospective_item_with_a_control_character_is_refused() {
+    let p = ready();
+    let before = bytes(&p);
+    let run = gsd(
+        &p,
+        "close-milestone",
+        &["v1.0", "--built", "[\"a\\u001bb\"]"],
+    );
+    refused(
+        &run,
+        "invalid_input",
+        &["'built' holds a control character"],
+    );
+    unchanged(&p, &before);
+}

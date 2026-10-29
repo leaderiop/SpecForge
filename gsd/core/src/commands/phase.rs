@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, json as json_arg, required, run, text, title};
+use super::support::{answer, fields, given, required, run, text, texts, title};
 
 const TO_BE_PLANNED: &str = "[To be planned]";
 const URGENT: &str = "[Urgent work - to be planned]";
@@ -139,13 +139,6 @@ fn slug(name: &str) -> String {
     slug.trim_end_matches('-').to_string()
 }
 
-fn list(call: &CommandCall<'_>, arg: &str) -> Result<Option<Vec<String>>, String> {
-    match call.str(arg) {
-        None => Ok(None),
-        Some(_) => json_arg(call, arg, Vec::new(), |t| serde_json::from_str(t)).map(Some),
-    }
-}
-
 /// Creates the phase `number` after `previous`, in the milestone's own file.
 fn create(
     call: &CommandCall<'_>,
@@ -155,8 +148,8 @@ fn create(
     goal_default: &str,
 ) -> Result<CommandOutput, String> {
     let name = required(call, "name")?;
-    let goal = text(call, "goal")?.unwrap_or(goal_default);
-    let criteria = list(call, "criteria")?.unwrap_or_else(|| vec![TO_BE_PLANNED.to_string()]);
+    let goal = given(call, "goal")?.unwrap_or(goal_default);
+    let criteria = texts(call, "criteria")?.unwrap_or_else(|| vec![TO_BE_PLANNED.to_string()]);
     let id = format!("{}/{}", ms.id, number.name());
     let mut plan = call.plan();
     plan.create(
@@ -229,19 +222,19 @@ fn edit(
     let phase = target(all, name)?;
     let mut plan = call.plan();
     let mut set = Vec::new();
-    if let Some(v) = text(call, "name")? {
+    if let Some(v) = given(call, "name")? {
         plan.set(&phase.node.id, "name", v);
         set.push("name");
     }
-    if let Some(v) = text(call, "goal")? {
+    if let Some(v) = given(call, "goal")? {
         plan.set(&phase.node.id, "goal", v);
         set.push("goal");
     }
-    if let Some(v) = list(call, "criteria")? {
+    if let Some(v) = texts(call, "criteria")? {
         plan.set(&phase.node.id, "success_criteria", json!(v));
         set.push("success_criteria");
     }
-    if let Some(names) = list(call, "depends_on")? {
+    if let Some(names) = texts(call, "depends_on")? {
         let ids = names
             .iter()
             .map(|n| target(all, n).map(|p| p.node.id.clone()))

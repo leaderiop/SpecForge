@@ -330,3 +330,30 @@ fn gsd_phase_skill_renders() {
         "{skill}"
     );
 }
+
+#[test]
+fn a_criterion_with_a_control_character_or_an_empty_name_is_refused() {
+    let p = twin();
+    let before = bytes(&p);
+    for (args, words) in [
+        (
+            vec![
+                "--edit",
+                "02",
+                "--criteria",
+                "[\"ok\", \"a\\u001b[31mred\"]",
+            ],
+            "'criteria' holds a control character (U+001B)",
+        ),
+        (
+            vec!["--edit", "02", "--criteria", "[\"a\\u202eb\"]"],
+            "(U+202E)",
+        ),
+        (vec!["--edit", "02", "--name", ""], "'name' is empty"),
+        (vec!["--edit", "02", "--goal", "  "], "'goal' is empty"),
+    ] {
+        let run = gsd(&p, "phase", &args);
+        refused(&run, "invalid_input", &[words]);
+        unchanged(&p, &before);
+    }
+}

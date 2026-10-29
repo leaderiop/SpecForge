@@ -71,13 +71,6 @@ fn refuse(
         .with_entity(entity)
 }
 
-/// An id ordered as a person reads it: `A9` before `A10`.
-fn natural(id: &str) -> (String, u64) {
-    let digits = id.chars().rev().take_while(char::is_ascii_digit).count();
-    let (head, number) = id.split_at(id.len() - digits);
-    (head.to_string(), number.parse().unwrap_or(0))
-}
-
 /// E106: the latest audit of the subject milestone is `passed`, or `tech_debt` a person accepted.
 fn e106(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input).flatten() else {
@@ -90,7 +83,7 @@ fn e106(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut audits: Vec<&PassEntity> = of_kind(input, "milestone_audit")
         .filter(|a| link(input, a, "milestone") == Some(subject))
         .collect();
-    audits.sort_by_key(|a| natural(&a.id));
+    audits.sort_by_key(|a| crate::commands::natural(&a.id));
     let Some(latest) = audits.last() else {
         return vec![refuse(
             "E106",

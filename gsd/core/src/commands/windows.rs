@@ -64,14 +64,18 @@ fn open_window<'a>(
     doing: &str,
 ) -> Result<&'a GraphNode, String> {
     let window = node(call, "broken_window", required(call, arg)?)?;
-    let status = window.text("status").unwrap_or("open");
-    if status != "open" || window.has_field("waiver") || window.has_field("fixed_at") {
-        let now = if window.has_field("waiver") {
+    // The computed `status` is not in a command's graph (P7): it is read from the authored fields, as the derive pass
+    // does. A window whose refactor proposal is disposed is resolved: accepted fixes it, declined waives it.
+    let outcome = window
+        .text("refactor")
+        .and_then(|r| call.graph().node(r))
+        .and_then(|p| p.fields.get("disposition"))
+        .and_then(|d| d["outcome"].as_str());
+    if window.has_field("waiver") || window.has_field("fixed_at") || outcome.is_some() {
+        let now = if window.has_field("waiver") || outcome == Some("declined") {
             "waived"
-        } else if window.has_field("fixed_at") {
-            "fixed"
         } else {
-            status
+            "fixed"
         };
         return Err(format!(
             "broken window '{}' is already {now}: it cannot be {doing}",

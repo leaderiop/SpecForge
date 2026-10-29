@@ -5,22 +5,9 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, json as json_arg, node, required, run};
+use super::support::{answer, natural, node, required, run, texts};
 
 const LISTS: [&str; 4] = ["built", "worked", "inefficient", "patterns"];
-
-/// The number a name ends in: `A10` is after `A9`.
-fn number(id: &str) -> u64 {
-    let digits: String = id
-        .chars()
-        .rev()
-        .take_while(char::is_ascii_digit)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    digits.parse().unwrap_or(0)
-}
 
 fn close(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let milestone = node(call, "milestone", required(call, "milestone")?)?;
@@ -32,7 +19,7 @@ fn close(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .nodes()
         .iter()
         .filter(|n| n.kind == "milestone_audit" && n.text("milestone") == Some(&milestone.id))
-        .max_by_key(|n| number(&n.id))
+        .max_by_key(|n| natural(&n.id))
         .ok_or_else(|| format!("milestone '{}' has no audit", milestone.id))?;
     let today = call.today();
     let mut plan = call.plan();
@@ -50,9 +37,7 @@ fn close(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     if creates {
         let mut members = Vec::new();
         for list in LISTS {
-            let items = json_arg(call, list, Vec::<String>::new(), |t| {
-                serde_json::from_str(t)
-            })?;
+            let items = texts(call, list)?.unwrap_or_default();
             members.push((list, json!(items)));
         }
         let mut all = vec![("milestone", json!(milestone.id))];

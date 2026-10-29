@@ -83,3 +83,36 @@ fn each_writer_is_a_writing_command_or_the_git_collector() {
         );
     }
 }
+
+/// A row is a claim: the command it names declares itself and mentions the field it writes. A row for a command that
+/// does not write the field (a typo, a moved write) fails here.
+#[test]
+fn each_row_names_a_command_that_writes_its_field() {
+    fn sources(dir: &std::path::Path, out: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("read dir").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                sources(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") && !path.ends_with("tests.rs") {
+                out.push(std::fs::read_to_string(&path).expect("read"));
+            }
+        }
+    }
+    let mut files = Vec::new();
+    sources(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands"),
+        &mut files,
+    );
+    for (kind, field, writer) in WRITERS {
+        if *writer == "gsd-git" {
+            continue;
+        }
+        let declares = format!("c.command(\"{writer}\"");
+        assert!(
+            files
+                .iter()
+                .any(|f| f.contains(&declares) && f.contains(&format!("\"{field}\""))),
+            "{kind}.{field}: no file declaring `{writer}` mentions \"{field}\""
+        );
+    }
+}

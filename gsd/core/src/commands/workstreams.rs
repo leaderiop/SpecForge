@@ -216,7 +216,11 @@ fn cleanup(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         human.push_str(&format!(
             "{}: shipped {}; {} phases, {} plans\n",
             m.node.id,
-            m.node.text("shipped").unwrap_or_default(),
+            m.node
+                .fields
+                .get("completion")
+                .and_then(|c| c["at"].as_str())
+                .unwrap_or_default(),
             m.phases,
             m.plans
         ));

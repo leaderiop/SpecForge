@@ -9,6 +9,7 @@ mod phase;
 mod refactor;
 mod state;
 mod support;
+pub(crate) use support::natural;
 mod surface;
 mod verdict;
 mod verify;
@@ -56,7 +57,9 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
 
 /// The harness fields no command writes yet: a command cannot read the computed `digest` of a phase's context (the
 /// graph a command receives carries no computed field), so `record_research`, `record_spec` and `record_validation`
-/// wait for a kernel answer. Until then a person records the digest of `specforge query <context> digest`.
+/// wait for a kernel answer (K18). Until then NOBODY can write a `context_digest`: a harness field is refused for
+/// every origin but a command of its extension (E083 for a hand edit), and no command writes it. So a new research,
+/// phase spec or validation carries no digest, the drift pass skips it, and W406 is inert for it.
 pub const UNWRITTEN: &[(&str, &str)] = &[
     ("phase_spec", "context_digest"),
     ("research", "context_digest"),

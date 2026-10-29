@@ -7176,7 +7176,7 @@
           },
           {
             "default_value": null,
-            "description": "an automated result comes from a collector",
+            "description": "an automated result is marked by the caller (a collector, or `--source automated`)",
             "edge": null,
             "enum_values": [
               "human",
