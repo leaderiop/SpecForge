@@ -10,10 +10,21 @@ env:
 
 jobs:
   ci:
-    # Every check a full run reaches (`cargo gate list`), with the ci nextest profile.
-    name: Check list
+    # `cargo gate ci` split over three runners, so the build -> tests path has its cores to itself.
+    # The lint shard fails when `cargo gate list` holds a check no shard names.
+    name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: tests
+            checks: build,tests,guests,dogfood
+          - shard: lint
+            checks: rustfmt,clippy,gsd,doctests,audit
+          - shard: specs
+            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,6 +37,8 @@ jobs:
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.shard }}
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -33,9 +46,17 @@ jobs:
       - name: Install z3 (SMT solver for prove tests)
         run: sudo apt-get update && sudo apt-get install -y z3
 
+      - name: Every check of the list is in a shard
+        if: matrix.shard == 'lint'
+        run: |
+          sharded="build,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
+          listed=$(cargo gate list | awk '/^[a-z]/ && $2 != "bootstrap" {print $1}' | sort)
+          missing=$(comm -23 <(echo "$listed") <(tr , '\n' <<<"$sharded" | sort))
+          if [ -n "$missing" ]; then echo "checks in no shard: $missing"; exit 1; fi
+
       # tree-sitter-cli and cargo-audit are installed by the checks that need them, at the versions the list pins.
-      - name: Run the check list
-        run: cargo gate ci
+      - name: Run the shard's checks
+        run: cargo gate ci --only ${{ matrix.checks }}
 
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)
@@ -53,7 +74,7 @@ jobs:
       # can rebuild every builtin component blob from source via the xtask
       # escape hatch (wayfinder map #1, ticket #4).
       # Each blob is built in a staged workspace, so its bytes do not depend on the
-      # checkout path: --verify rebuilds every committed blob (the builtins, the fixtures and the example extensions) and fails if one differs from the
+      # checkout path: --verify rebuilds every committed blob (the builtins and the fixtures) and fails if one differs from the
       # vendored bytes (a blob vendored by another rustc is built, not compared).
       - name: Build all builtin component blobs from source and compare them with the vendored ones
         run: cargo gate bootstrap

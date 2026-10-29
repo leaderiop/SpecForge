@@ -140,6 +140,11 @@ debug = "line-tables-only"
 opt-level = 1
 debug = "line-tables-only"
 
+# Dependencies optimised: the component tests spend their time in wasmtime/cranelift compiling the blobs.
+# Deps rebuild only when the lockfile changes, so CI pays this once per cache key.
+[profile.test.package."*"]
+opt-level = 3
+
 [profile.release]
 lto = true
 strip = true
