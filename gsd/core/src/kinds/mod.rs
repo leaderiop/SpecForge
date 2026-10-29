@@ -15,6 +15,7 @@ mod spec;
 mod uat;
 mod validation;
 mod verify;
+mod windows;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
@@ -73,6 +74,8 @@ const KINDS: &[&Kind] = &[
     &validation::WAVE0_ITEM,
     &validation::MANUAL_CHECK,
     &audit::MILESTONE_AUDIT,
+    &windows::BROKEN_WINDOW,
+    &windows::REFACTOR_PROPOSAL,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

@@ -184,3 +184,38 @@ fn audit_status_is_computed() {
     );
     assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.report());
 }
+
+const WINDOW: &str = "BW1";
+
+fn waiver_json(reason: &str) -> String {
+    format!(r#"{{"at":"2026-10-29T11:00:00Z","by":"ada","reason":"{reason}"}}"#)
+}
+
+/// Writes the waiver into `ops/windows.spec` and blesses it in the ledger, as the command that waives a window does.
+fn waive(p: &Project, reason: &str) {
+    p.edit(
+        "spec/ops/windows.spec",
+        "  description \"A TODO remains in the store\"\n",
+        &format!(
+            "  description \"A TODO remains in the store\"\n  waiver {{\n    reason \"{reason}\"\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }}\n"
+        ),
+    );
+    p.record_harness(WINDOW, "waiver", &waiver_json(reason));
+}
+
+#[test]
+fn a_waiver_is_immutable_once_recorded() {
+    let p = verify();
+    waive(&p, "Tracked as issue 42");
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    p.commit();
+    // A different waiver, blessed in the ledger as well: the history rule is what refuses it.
+    p.edit(
+        "spec/ops/windows.spec",
+        "reason \"Tracked as issue 42\"",
+        "reason \"Waived without a ticket\"",
+    );
+    p.record_harness(WINDOW, "waiver", &waiver_json("Waived without a ticket"));
+    let codes = p.codes();
+    assert!(codes.contains(&"E084".to_string()), "{:?}", p.report());
+}

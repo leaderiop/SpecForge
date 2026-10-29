@@ -141,7 +141,7 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 |---|---|---|---|
 | kind | enum{stub, todo, fixme, skipped_test, lint_warning, unmet_truth, unrun_verify, deviation} | R | `kind` |
 | phase | → phase | R | the phase that found it |
-| file | file | | `file` |
+| file | str | | `file` (a `str`: the file may since have been deleted) |
 | line | int | | `line` |
 | description | str | R | `description` |
 | waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
@@ -164,15 +164,17 @@ the phase.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase` |
-| target_file | file | R I | `target_file` |
+| target_file | str | R I | `target_file` |
 | target_function | str | R I | `target_function` |
-| score | int | R H I | `score` (decision points) |
+| score | int | H I | `score` (decision points) |
 | baseline | int | H I | `baseline`: the function's anchor score |
 | delta | int | H I | `delta` |
-| reasons | enums{threshold, jump} | R H I | `reason` |
-| candidates | {file file, function str, line int, score int, baseline int, delta int} | H I | `candidates` |
+| reasons | enums{threshold, jump} | H I | `reason` |
+| candidates | {file str, function str, line int, score int, baseline int, delta int} | H I | `candidates` |
 | disposition | {outcome enum{accepted, declined} R, reason str, by str R, at ts R} | H | `refactor accept\|decline` |
 | status | enum{proposed, accepted, declined} | C | `status`: from `disposition` |
+
+A harness field is never `R` (the DSL refuses it); the trigger that writes `score` and `reasons` also writes them together.
 
 Under `refactor.trigger_strict` the proposal also records a `deviation` window, cleared when the proposal is
 dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship

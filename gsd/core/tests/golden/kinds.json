@@ -838,6 +838,42 @@
         "label": "MilestoneAuditGapsRequirement",
         "source_kind": "milestone_audit",
         "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowPhase",
+        "source_kind": "broken_window",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowRefactor",
+        "source_kind": "broken_window",
+        "target_kind": "refactor_proposal"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "BrokenWindowMilestone",
+        "source_kind": "broken_window",
+        "target_kind": "milestone"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "RefactorProposalPhase",
+        "source_kind": "refactor_proposal",
+        "target_kind": "phase"
       }
     ]
   },
@@ -7972,6 +8008,478 @@
         "name": "milestone_audit",
         "open_fields": false,
         "scoped_by": "milestone",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A defect left in the code, open until it is fixed or waived (GSD WINDOWS.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`kind`",
+            "edge": null,
+            "enum_values": [
+              "stub",
+              "todo",
+              "fixme",
+              "skipped_test",
+              "lint_warning",
+              "unmet_truth",
+              "unrun_verify",
+              "deviation"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase that found it",
+            "edge": "BrokenWindowPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`line`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "line",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`description`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "description",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`waive` (a reason is required); written by the command that waives it",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "waiver",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`fix`; written by the command that fixes it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "fixed_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "a strict-mode refactor proposal recorded as a `deviation`",
+            "edge": "BrokenWindowRefactor",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "refactor",
+            "required": false,
+            "target_kind": "refactor_proposal"
+          },
+          {
+            "default_value": null,
+            "description": "waived when `waiver` is set; fixed when `fixed_at` is set or its proposal is disposed",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "waived",
+              "fixed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "from the phase",
+            "edge": "BrokenWindowMilestone",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "milestone",
+            "required": false,
+            "target_kind": "milestone",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "when the window was recorded",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "recorded_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "broken_window",
+        "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase`",
+            "edge": "RefactorProposalPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`target_file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "target_file",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`target_function`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "target_function",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`score` (decision points)",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "score",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`baseline`: the function's anchor score",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "baseline",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`delta`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "delta",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`reason`",
+            "edge": null,
+            "enum_values": [
+              "threshold",
+              "jump"
+            ],
+            "field_type": "enum_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "reasons",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`candidates`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "file",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "function",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "line",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "score",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "baseline",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "delta",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "candidates",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`refactor accept|decline`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "accepted",
+                  "declined"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "outcome",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "reason",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "disposition",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "from `disposition`",
+            "edge": null,
+            "enum_values": [
+              "proposed",
+              "accepted",
+              "declined"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "refactor_proposal",
+        "open_fields": false,
+        "scoped_by": "phase",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

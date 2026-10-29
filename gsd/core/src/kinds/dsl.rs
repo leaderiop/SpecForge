@@ -14,6 +14,8 @@ pub enum Ty {
     /// An RFC 3339 UTC time: a string that `gsd/E107` checks when it is authored.
     Ts,
     Enum(&'static [&'static str]),
+    /// A list of values of a vocabulary, each once (ADR 0285).
+    Enums(&'static [&'static str]),
     Strs,
     /// Paths of project files, from the project root: the host's `E016` checks that each exists.
     Files,
@@ -134,6 +136,9 @@ pub const fn ts(name: &'static str) -> Field {
 pub const fn en(name: &'static str, values: &'static [&'static str]) -> Field {
     Field::new(name, Ty::Enum(values))
 }
+pub const fn ens(name: &'static str, values: &'static [&'static str]) -> Field {
+    Field::new(name, Ty::Enums(values))
+}
 pub const fn strs(name: &'static str) -> Field {
     Field::new(name, Ty::Strs)
 }
@@ -234,6 +239,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         }
         Ty::Enum(values) => {
             f.vocabulary(&Vocabulary::new(values));
+        }
+        Ty::Enums(values) => {
+            f.enum_list(&Vocabulary::new(values));
         }
         Ty::Strs => {
             f.field_type(FieldType::StringList);
