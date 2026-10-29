@@ -39,3 +39,13 @@ fn only_a_plain_pattern_is_literal() {
     assert!(is_literal("require"));
     assert!(!is_literal("import.*store"));
 }
+
+#[test]
+fn a_colour_is_not_a_follow_up() {
+    assert_eq!(
+        severities("color: #1a2b; // FIXME"),
+        [(1, Severity::Blocker)]
+    );
+    assert_eq!(severities("// FIXME #42 later"), []);
+    assert_eq!(severities("// FIXME see PR #7."), []);
+}

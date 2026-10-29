@@ -314,3 +314,15 @@ fn overrides_written_with_either_spelling_are_counted_together_by_w504() {
     p.write("spec/verify.spec", &text);
     assert_eq!(p.codes(), ["gsd/W504"], "{:?}", p.report());
 }
+
+#[test]
+fn a_research_that_mentions_validation_architecture_without_a_heading_is_not_w510() {
+    let p = verify();
+    p.write("spec/validation.spec", "");
+    assert_eq!(p.run(&["harness", "gc"]).code, 0);
+    p.write(
+        "spec/research.spec",
+        "research 01-RESEARCH \"Core research\" {\n  phase      v1.0/01\n  researched 2026-10-28\n  confidence high\n  summary    \"No validation architecture needed: the phase is a script\"\n}\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}

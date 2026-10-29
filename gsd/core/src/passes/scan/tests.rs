@@ -228,3 +228,12 @@ fn a_file_the_host_did_not_serve_makes_the_scan_partial() {
     assert!(partial(vec![fact("src/a.js", true, None, None)]));
     assert!(!partial(vec![fact("src/a.js", true, Some("ok"), None)]));
 }
+
+#[test]
+fn a_path_is_looked_up_normalised() {
+    for spelled in ["./src/a.js", "src//a.js", "src/../src/a.js"] {
+        let e = entity("a/AR1", "artifact", &[("path", spelled)]);
+        let facts = vec![fact("src/a.js", true, Some("x"), None)];
+        assert_eq!(state_for("artifacts", facts, e), "present", "{spelled}");
+    }
+}

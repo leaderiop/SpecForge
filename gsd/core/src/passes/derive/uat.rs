@@ -23,12 +23,14 @@ fn closer<'a>(input: &'a PassInput, gap: &str, statuses: &Statuses) -> Option<&'
         .find(|p| statuses.get(p.id.as_str()) == Some(&"complete"))
 }
 
-/// `Deferred follow-up…`, case-insensitive, at the start of the reason.
+/// `Deferred follow-up…`, case-insensitive, at the start of the reason, optionally in quotes and ending at a word
+/// boundary (upstream's `/^["']?deferred follow-up\b/i`): "Deferred follow-ups" is not one.
 pub fn is_deferred(reason: Option<&str>) -> bool {
+    const PREFIX: &str = "deferred follow-up";
     reason.is_some_and(|r| {
-        r.trim_start()
-            .to_lowercase()
-            .starts_with("deferred follow-up")
+        let r = r.strip_prefix(['"', '\'']).unwrap_or(r).to_lowercase();
+        r.strip_prefix(PREFIX)
+            .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
     })
 }
 

@@ -52,13 +52,13 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, it never verifies), and a complete scan; a backstop truth with no explicit evidence is human_needed, never passed |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
-| covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
+| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. `covered_digest` (one digest over their current digests, the judgements' `files`) is not declared yet: r40 |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
-`verification R`, `truth → truth R`, `reason str R`, `artifacts {path file, issue str}`, `missing strs`;
+`verification R`, `truth → truth R`, `reason str R`, `artifacts {path str, issue str}`, `missing strs`;
 `status enum{open, closed}` and `closed_by → plan` are `C` (closed when a `gap_closure` plan naming it completes).
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
@@ -94,9 +94,9 @@ The test being asked now is session state.
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
 
-**uat_gap**: GSD `## Gaps`. Name `G-03-1`, scoped by its test.
+**uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
-`artifacts {path file, issue str}`, `missing strs`;
+`artifacts {path str, issue str}`, `missing strs`;
 `status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`. `debug → debug_session` is an
 enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/*` extension.
 
@@ -181,3 +181,23 @@ A harness field is never `R` (the DSL refuses it); the trigger that writes `scor
 Under `refactor.trigger_strict` the proposal also records a `deviation` window, cleared when the proposal is
 dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship;
 reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`).
+
+## Known differences from GSD
+
+Kept on purpose, or waiting for r40, listed so none is silent:
+
+- A truth the verifier is `uncertain` about stays `pending`; upstream makes it a human item (`human_needed`). A
+  backstop truth with no explicit evidence is not yet `human_needed` (r40's verdicts). A verification with no truth,
+  whose artifacts and key links all pass, is `passed 0/0`.
+- A verification is judged one per phase, but nothing refuses a second: the last by id wins, and W504 counts per
+  verification, not per phase. The same holds for a phase's validation (the first by id).
+- A milestone audit lists a requirement of a `gaps_found` phase as `partial`, where upstream lists it `unsatisfied`, and
+  does not list the complete requirements of phases that have not passed. The audit's status is `gaps_found` either way.
+- A UAT session with a blocked test or an unexcused skip and open gaps that all have root causes is `diagnosed`;
+  upstream says `partial`. A session with no test is `complete`. A UAT status is computed, so it differs from the
+  `status:` a writer sets when a run ends (the twin: [parity](../../parity/README.md)).
+- The scan marks a directory or an unreadable file `unchecked` where upstream fails it; `unchecked` never fails an item.
+  Debt-marker matching is by whole word (`FIXMEs`, `FIXME_LATER` are not blockers; upstream greps the substring).
+- `gsd/W318` flags any stale judgement on a plan, not only the plan-check's. Harmless while no other rule judges a plan.
+- The host charges the 1 MiB text budget per entity and path and in plan order: an older phase can spend it, and a
+  file named by several fields is read several times. A phase left with an unread file is `scan_partial`.

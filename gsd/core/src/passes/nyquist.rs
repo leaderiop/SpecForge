@@ -89,10 +89,11 @@ fn missing_validations(
         let Some(phase) = link(input, research, "phase").filter(|p| planned.contains(p)) else {
             continue;
         };
-        let asks = research
-            .fields
-            .values()
-            .any(|text| text.to_lowercase().contains(SECTION));
+        // A heading (`## Validation Architecture`), not any mention: "no validation architecture needed" asks nothing.
+        let asks = research.fields.values().any(|text| {
+            text.lines()
+                .any(|l| l.trim_start().starts_with('#') && l.to_lowercase().contains(SECTION))
+        });
         if asks && !validated.contains(phase) {
             found.push(
                 PassDiagnostic::new(

@@ -29,7 +29,10 @@ fn a_session_with_nothing_blocking_is_complete() {
 #[test]
 fn a_deferred_follow_up_skip_passes() {
     assert!(is_deferred(Some("Deferred follow-up: needs a device")));
-    assert!(is_deferred(Some("  deferred FOLLOW-UP")));
+    assert!(is_deferred(Some("deferred FOLLOW-UP")));
+    assert!(is_deferred(Some("\"Deferred follow-up: a device\"")));
+    assert!(!is_deferred(Some("  deferred follow-up")));
+    assert!(!is_deferred(Some("Deferred follow-ups to come")));
     assert!(!is_deferred(Some("Not today")));
     assert!(!is_deferred(None));
     assert_eq!(

@@ -24,15 +24,26 @@ pub struct File<'a> {
 
 /// The facts of one read, by path.
 pub struct Reads<'a> {
-    facts: BTreeMap<&'a str, File<'a>>,
-    absent: BTreeSet<&'a str>,
-    unserved: BTreeSet<&'a str>,
+    facts: BTreeMap<String, File<'a>>,
+    absent: BTreeSet<String>,
+    unserved: BTreeSet<String>,
     truncated: bool,
 }
 
-/// A path as the host keys it: project-relative, without a leading `./`.
-pub fn key(path: &str) -> &str {
-    path.trim().trim_start_matches("./")
+/// A path as the host keys it: project-relative and lexically normalised (`./`, `//` and `a/../` removed). A `..` that
+/// leaves the project is kept, so it stays a path the host will not serve.
+pub fn key(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.trim().split('/') {
+        match part {
+            "" | "." => {}
+            ".." if parts.last().is_some_and(|p| *p != "..") => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    parts.join("/")
 }
 
 pub fn reads<'a>(input: &'a PassInput, name: &str) -> Reads<'a> {
@@ -47,7 +58,7 @@ pub fn reads<'a>(input: &'a PassInput, name: &str) -> Reads<'a> {
     };
     reads.truncated = files.truncated;
     for fact in &files.facts {
-        let path = fact.path.as_str();
+        let path = key(&fact.path);
         if fact.error.is_some() {
             reads.unserved.insert(path);
         } else if !fact.exists {
@@ -66,9 +77,9 @@ pub fn reads<'a>(input: &'a PassInput, name: &str) -> Reads<'a> {
 impl<'a> Reads<'a> {
     pub fn get(&self, path: &str) -> Served<'a> {
         let path = key(path);
-        if let Some(file) = self.facts.get(path) {
+        if let Some(file) = self.facts.get(&path) {
             Served::File(*file)
-        } else if self.absent.contains(path) && !self.truncated {
+        } else if self.absent.contains(&path) && !self.truncated {
             Served::Absent
         } else {
             Served::Unserved

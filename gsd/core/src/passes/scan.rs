@@ -18,7 +18,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{link, of_kind, phase_of, strings};
+use super::plans::{link, of_kind, strings};
 use facts::{Reads, Served, key, reads};
 use patterns::{Severity, anti_patterns, is_literal};
 
@@ -217,7 +217,7 @@ fn scanned(plans: &[&PassEntity], modified: &Reads) -> Scan {
     let mut hits = Vec::new();
     for plan in plans {
         for path in strings(plan, "files_modified") {
-            let path = key(&path).to_string();
+            let path = key(&path);
             if !seen.insert(path.clone()) {
                 continue;
             }
@@ -251,6 +251,7 @@ fn plans_sorted(input: &PassInput) -> Vec<&PassEntity> {
 fn verification_patterns(input: &PassInput) -> Vec<PassValue> {
     let modified = reads(input, "modified");
     let plans = plans_sorted(input);
+    let phases = phases_of(input);
     of_kind(input, "verification")
         .flat_map(|verification| {
             let Some(phase) = link(input, verification, "phase") else {
@@ -259,7 +260,7 @@ fn verification_patterns(input: &PassInput) -> Vec<PassValue> {
             let mine: Vec<&PassEntity> = plans
                 .iter()
                 .copied()
-                .filter(|p| phase_of(input, &p.id) == Some(phase))
+                .filter(|p| phases.get(p.id.as_str()) == Some(&phase))
                 .collect();
             let scan = scanned(&mine, &modified);
             let rows: Vec<serde_json::Value> = scan
@@ -290,11 +291,22 @@ fn verification_patterns(input: &PassInput) -> Vec<PassValue> {
 /// The plans a summary says were executed. E505 judges those only (upstream judges debt markers when it verifies an
 /// executed phase): a plan being written is never refused for a file it names (C2).
 fn executed<'a>(input: &'a PassInput, plans: Vec<&'a PassEntity>) -> Vec<&'a PassEntity> {
+    let summarised: BTreeSet<&str> = of_kind(input, "summary")
+        .filter_map(|s| link(input, s, "plan"))
+        .collect();
     plans
         .into_iter()
-        .filter(|plan| {
-            of_kind(input, "summary").any(|s| link(input, s, "plan") == Some(plan.id.as_str()))
-        })
+        .filter(|plan| summarised.contains(plan.id.as_str()))
+        .collect()
+}
+
+/// The phase of each plan, once (a scan of the edges per plan is quadratic).
+fn phases_of(input: &PassInput) -> std::collections::BTreeMap<&str, &str> {
+    input
+        .edges
+        .iter()
+        .filter(|e| e.label == "phase")
+        .map(|e| (e.source.as_str(), e.target.as_str()))
         .collect()
 }
 

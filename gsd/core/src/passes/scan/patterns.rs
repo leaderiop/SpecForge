@@ -49,11 +49,16 @@ fn words(line: &str) -> impl Iterator<Item = &str> {
     line.split(|c: char| !is_word(c)).filter(|w| !w.is_empty())
 }
 
-/// `#N`, `issue #N`, `PR #N` (all contain `#` and a digit) or `DEF-N`: the line names formal follow-up work.
+/// `#N`, `issue #N`, `PR #N` (all contain `#` and a number) or `DEF-N`: the line names formal follow-up work. The
+/// number ends at a non-letter: a colour like `#1a2b` names nothing.
 fn names_follow_up(line: &str) -> bool {
+    let number = |rest: &str| {
+        let digits = rest.chars().take_while(char::is_ascii_digit).count();
+        digits > 0 && !rest[digits..].starts_with(|c: char| c.is_alphanumeric())
+    };
     let after = |needle: &str| {
         line.match_indices(needle)
-            .any(|(at, _)| line[at + needle.len()..].starts_with(|c: char| c.is_ascii_digit()))
+            .any(|(at, _)| number(&line[at + needle.len()..]))
     };
     after("#") || after("DEF-")
 }
