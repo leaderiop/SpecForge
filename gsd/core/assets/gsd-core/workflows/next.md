@@ -284,7 +284,7 @@ fi
 CONVERGENCE_ARGS=""
 # Lane flags derived from the declared roster (#2800/#2272); --all and --text are convergence
 # controls, not reviewer lanes, so they stay literal.
-for REVIEW_FLAG in $(specforge settings --format json | jq -r '.reviewers // {} | keys[] | "--" + .') --all --text; do   # lane flags from the reviewer settings
+for REVIEW_FLAG in --claude --codex --coderabbit --opencode --qwen --cursor --antigravity --agy --ollama --lm-studio --llama-cpp --kimi-code --all --text; do   # the reviewer lanes
   if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
     CONVERGENCE_ARGS="${CONVERGENCE_ARGS} ${REVIEW_FLAG}"
   fi

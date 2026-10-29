@@ -356,3 +356,20 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-quick`, `/gsd-quick-batch
 | `gsd-core/workflows/quick/steps/quick-verification.md` | `84cd6b07a1378f3d27a1d5dc2a168c8260339d2062e433b6a4dd5e48906f6f04` |
 | `gsd-core/workflows/quick/steps/research-phase.md` | `9dbacbf97906704f30b3cedba24a2bd655d189e05274e870ba1c60ab4459dc80` |
 | `gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md` | `a0c8774cffba8ab38c8ea9deb6ec92d0851af477b6cde353b82c35ce49276ecb` |
+
+## r43 T3: autonomous
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-autonomous`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/autonomous.md` | `92de7711b8f9aa52bf3e7f0004023429fe483c1a4f3aa0fa65c8eb71c6f2d539` |
+| `gsd-core/references/autonomous-smart-discuss.md` | `b7e449daf980339418e523689465c32b10bfe315b20ddf8af8a99ff8c6caccce` |
+| `gsd-core/references/autonomous-ui-design-contract.md` | `be49254b96992c7ef72c34ccc9c85cd6e65fac5773065ec28259638843c174a3` |
+| `gsd-core/workflows/autonomous.md` | `60404df809dc593868c053e622c7d508c43c7ff78fcf445c2b416b7fbf31c91a` |
+| `gsd-core/workflows/autonomous/steps/converge-banner.md` | `623a3dc7f4ee79b03550dd6c7e5ee6e2e2d53322465e030dff31fd3304cf119d` |
+| `gsd-core/workflows/autonomous/steps/converge-dispatch-bg.md` | `a9e80df7f1629639890d87b6227ddeacf2dd7973adb10cce471e2e009ed68691` |
+| `gsd-core/workflows/autonomous/steps/converge-dispatch-inline.md` | `9c28a7ff77bdd61ba17fcbf951c69d376a6679018e02e01345ab9502c7dabc4e` |
+| `gsd-core/workflows/autonomous/steps/converge-fail-fast.md` | `724b870339135c19f53b9a8e32e552c8659755ebfb9c2631f2e71162b0670908` |
+| `gsd-core/workflows/autonomous/steps/converge-loop.md` | `2e7236809b8323b00432aed14c6efc2eb4be0f418cd81f309e0fcef9d8d42cfc` |
+| `gsd-core/workflows/autonomous/templates/minimal-context.md` | `5b5a283dbfca92f4f36859f869bfa103442baa107eaa9198f6d42fcb6a5cf891` |

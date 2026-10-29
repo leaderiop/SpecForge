@@ -5,6 +5,7 @@
 mod args;
 pub(crate) mod assets;
 mod audit;
+mod autonomous;
 pub(crate) mod compose;
 mod discuss;
 mod execute;
@@ -60,4 +61,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     ship::declare(c);
     navigate::declare(c);
     quick::declare(c);
+    autonomous::declare(c);
 }

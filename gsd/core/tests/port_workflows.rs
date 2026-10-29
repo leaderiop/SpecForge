@@ -38,6 +38,10 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/workflows/autonomous.md", 166, 167),
+    ("gsd-core/workflows/autonomous.md", 292, 292),
+    ("gsd-core/workflows/autonomous.md", 613, 615),
+    ("gsd-core/workflows/autonomous.md", 676, 676),
     ("gsd-core/workflows/fast.md", 78, 82),
     ("gsd-core/workflows/fast.md", 85, 85),
     ("gsd-core/workflows/fast.md", 87, 89),

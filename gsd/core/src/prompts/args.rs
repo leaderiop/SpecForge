@@ -34,6 +34,14 @@ impl Arg {
             required: true,
         }
     }
+    /// An optional reference, written `--name <value>`: a bound the person may name (`--from 02`).
+    pub const fn optional_reference(name: &'static str, kind: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Reference(kind),
+            required: false,
+        }
+    }
     pub const fn flag(name: &'static str) -> Arg {
         Arg {
             name,
@@ -106,7 +114,12 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
         };
         let option = format!("--{}", option_name(arg.name));
         match (&arg.kind, &value) {
-            (Kind::Reference(_), Value::String(path)) => words.push(written(path).to_string()),
+            (Kind::Reference(_), Value::String(path)) if arg.required => {
+                words.push(written(path).to_string());
+            }
+            (Kind::Reference(_), Value::String(path)) => {
+                words.push(format!("{option} {}", written(path)));
+            }
             (Kind::Flag, Value::Bool(true)) => words.push(option),
             (Kind::Text, Value::String(text)) if !text.is_empty() => {
                 words.push(format!("{option} {}", quoted(text)));
