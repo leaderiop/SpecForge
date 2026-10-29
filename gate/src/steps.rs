@@ -250,6 +250,17 @@ pub fn audit(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 }
 
 pub fn build(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    // CI builds once and hands the test runners a nextest archive (`GATE_TEST_ARCHIVE`) instead of a rebuild each.
+    if let Ok(archive) = std::env::var("GATE_TEST_ARCHIVE") {
+        return ctx.sh(ctx.cmd("cargo").args([
+            "nextest",
+            "archive",
+            "--workspace",
+            "--cargo-quiet",
+            "--archive-file",
+            &archive,
+        ]));
+    }
     ctx.sh(ctx
         .cmd("cargo")
         .args(["nextest", "run", "--workspace", "--no-run", "--cargo-quiet"]))
@@ -257,14 +268,23 @@ pub fn build(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 
 pub fn tests(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
     let mut cmd = ctx.cmd("cargo");
-    cmd.args([
-        "nextest",
-        "run",
-        "--workspace",
-        "--profile",
-        ctx.mode.nextest_profile(),
-    ])
-    .env("SPECFORGE_REPORT", ctx.reports());
+    cmd.args(["nextest", "run", "--profile", ctx.mode.nextest_profile()])
+        .env("SPECFORGE_REPORT", ctx.reports());
+    // The archive `build` made, when there is one: its binaries run without compiling. It unpacks over the
+    // repository, so the `env!("CARGO_BIN_EXE_…")` paths the tests were compiled with point at its binaries.
+    match std::env::var("GATE_TEST_ARCHIVE") {
+        Ok(archive) if ctx.repo.root.join(&archive).is_file() => {
+            cmd.args(["--archive-file", &archive])
+                .arg("--workspace-remap")
+                .arg(&ctx.repo.root)
+                .arg("--extract-to")
+                .arg(&ctx.repo.root)
+                .arg("--extract-overwrite");
+        }
+        _ => {
+            cmd.arg("--workspace");
+        }
+    }
     // CI spreads the tests over several runners: `GATE_TEST_PARTITION=2/4` runs nextest's second quarter.
     if let Ok(part) = std::env::var("GATE_TEST_PARTITION") {
         cmd.args(["--partition", &format!("count:{part}")]);
