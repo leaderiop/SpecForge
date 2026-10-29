@@ -41,6 +41,7 @@ mod progress;
 mod prompts_audit;
 mod prompts_discuss;
 mod prompts_execute;
+mod prompts_gates;
 mod prompts_plan;
 mod prompts_project;
 mod prompts_ship;

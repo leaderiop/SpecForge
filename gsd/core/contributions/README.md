@@ -52,7 +52,7 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `spec_phase` | none | `record_spec`; `discuss_phase` |
 | `mvp_phase` | E516 | `plan_phase` |
 | `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`; `execute_phase` |
-| `plan_review_convergence` | E516 | `plan_phase`; plan checker |
+| `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
 | `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; verifier; `record_verdict`, `record_window`; `verify_work` |
 | `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
