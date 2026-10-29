@@ -30,8 +30,8 @@ const NOT_COMMANDS: &[&str] = &[
     "transition",
 ];
 
-/// Files of upstream's tree that r43 ports: a rendered text may name them as "not installed yet".
-const R43_PATHS: &[&str] = &[
+/// Files of upstream's tree that no ticket of r34-r44 ports: a rendered text names them as "not part of @gsd/core".
+const NOT_PORTED: &[&str] = &[
     "gsd-core/templates/research-project/",
     "gsd-core/workflows/node-repair.md",
 ];
@@ -106,6 +106,11 @@ fn assert_clean(label: &str, text: &str) {
 }
 
 #[test]
+fn forty_four_prompts_are_swept() {
+    assert_eq!(prompts().len(), 44);
+}
+
+#[test]
 fn no_planning_paths_in_rendered_text() {
     let all = sweep();
     assert!(prompts().len() >= 17, "r42's 17 prompts and every r43 one");
@@ -168,9 +173,11 @@ fn every_slash_command_a_prompt_names_is_known() {
 }
 
 #[test]
-fn every_referenced_path_is_embedded_or_listed_for_r43() {
-    let rx = Regex::new(r"specforge gsd reference (gsd-core/[A-Za-z0-9_./-]+)`( \(not installed by @gsd/core yet\))?")
-        .expect("a regex");
+fn every_referenced_path_is_embedded() {
+    let rx = Regex::new(
+        r"specforge gsd reference (gsd-core/[A-Za-z0-9_./-]+)`( \(not part of @gsd/core\))?",
+    )
+    .expect("a regex");
     let mut later = BTreeSet::new();
     let mut seen = 0;
     for (command, _, _, text) in sweep().iter().filter(|(_, h, _, _)| *h == "claude-code") {
@@ -189,8 +196,8 @@ fn every_referenced_path_is_embedded_or_listed_for_r43() {
         }
     }
     assert!(seen > 20, "{seen} references");
-    let listed: BTreeSet<String> = R43_PATHS.iter().map(|s| s.to_string()).collect();
-    assert_eq!(later, listed, "files not installed yet");
+    let listed: BTreeSet<String> = NOT_PORTED.iter().map(|s| s.to_string()).collect();
+    assert_eq!(later, listed, "files no workflow embeds");
 }
 
 /// close-milestone keeps the requirements (REVIEW-r42 C1): upstream deletes REQUIREMENTS.md after archiving it, but the

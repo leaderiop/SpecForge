@@ -186,3 +186,11 @@ fn clusters_match_upstream() {
     assert_eq!(upstream.len(), 10);
     assert_eq!(ported, upstream);
 }
+
+#[test]
+fn help_lists_fifty_slash_commands() {
+    let p = project("empty");
+    let found = json(&gsd(&p, "help", &["--format", "json"]));
+    let slashes = found["slash_commands"].as_array().expect("a list");
+    assert_eq!(slashes.len(), 50, "{slashes:?}");
+}

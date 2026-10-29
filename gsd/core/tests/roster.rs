@@ -1,14 +1,11 @@
 //! The roster of upstream's 72 commands (D-r43-14): it equals the vendored `commands.json` and the README's Commands
-//! table, and every command `@gsd/core` owns is served or listed in `NOT_YET_SERVED` until its ticket lands.
+//! table, and every command `@gsd/core` owns is served.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use gsd_core::prompts::roster::{Owner, ROSTER};
 use regex::Regex;
-
-/// The core rows no prompt serves yet: each r43 ticket deletes its rows, and the last one deletes this list.
-const NOT_YET_SERVED: &[&str] = &[];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -126,22 +123,10 @@ fn served() -> BTreeSet<String> {
 }
 
 #[test]
-fn every_core_row_is_served_or_not_yet() {
+fn every_core_row_is_served() {
     let served = served();
     for (name, owner) in ROSTER.iter().filter(|(_, o)| o.is_core()) {
-        let listed = NOT_YET_SERVED.contains(name);
-        assert_eq!(
-            served.contains(*name),
-            !listed,
-            "{name} ({owner:?}): served {}, listed as not yet {listed}",
-            served.contains(*name)
-        );
-    }
-    for name in NOT_YET_SERVED {
-        assert!(
-            ROSTER.iter().any(|(n, o)| n == name && o.is_core()),
-            "{name} is no core row"
-        );
+        assert!(served.contains(*name), "{name} ({owner:?}) is not served");
     }
     for name in &served {
         assert!(

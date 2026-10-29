@@ -35,9 +35,7 @@ fn a_path_no_workflow_embeds_says_so() {
     let line = format!("@~/.claude/gsd-core/{LATER_WORKFLOW}");
     assert_eq!(
         repoint(&line),
-        format!(
-            "`specforge gsd reference gsd-core/{LATER_WORKFLOW}` (not installed by @gsd/core yet)"
-        )
+        format!("`specforge gsd reference gsd-core/{LATER_WORKFLOW}` (not part of @gsd/core)")
     );
 }
 

@@ -8,8 +8,8 @@ use super::assets;
 const MARKER: &str = ".claude/gsd-core/";
 /// What can stand before `.claude/`, longest first.
 const PREFIXES: [&str; 4] = ["${HOME}/", "$HOME/", "~/", "./"];
-/// Said after a path that no ported workflow embeds yet.
-const LATER: &str = " (not installed by @gsd/core yet)";
+/// Said after a path that no ported workflow embeds: upstream has it, `@gsd/core` does not.
+const LATER: &str = " (not part of @gsd/core)";
 
 /// A file the user's own profile run writes there: not an asset, so its path stays what it says.
 const USER_FILES: [&str; 1] = ["USER-PROFILE.md"];
