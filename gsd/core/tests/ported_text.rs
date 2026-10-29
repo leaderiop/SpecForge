@@ -3,6 +3,7 @@
 
 use std::collections::BTreeSet;
 
+use gsd_core::prompts::roster::ROSTER;
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
 use regex::Regex;
 
@@ -18,31 +19,8 @@ const FORBIDDEN: [&str; 7] = [
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
-/// Workflows of the next round (r43): the text may point at them, and the preamble says to skip them.
-const R43_COMMANDS: &[&str] = &[
-    "ai-integration-phase",
-    "autonomous",
-    "debug",
-    "extract-learnings",
-    "import",
-    "ingest-docs",
-    "manager",
-    "map-codebase",
-    "next",
-    "onboard",
-    "progress",
-    "quick",
-    "review",
-    "secure-phase",
-    "settings",
-    "sketch",
-    "spike",
-    "ui-phase",
-    "ui-review",
-];
-
-/// Commands of GSD that `@gsd/core` does not carry, or that name a thing that is not a command.
-const NON_CORE_COMMANDS: &[&str] = &[
+/// Names GSD's own text writes after `/gsd-` that are no command of v1.18.0 (its stale mentions and placeholders).
+const NOT_COMMANDS: &[&str] = &[
     "alternative-1",
     "alternative-2",
     "discuss-milestone",
@@ -164,27 +142,12 @@ fn colon_names(text: &str) -> BTreeSet<String> {
 
 #[test]
 fn every_slash_command_a_prompt_names_is_known() {
-    let declaration = gsd_core::build().declaration();
-    let mut known: BTreeSet<String> = declaration
-        .surfaces
-        .slash_commands
+    // a name is a row of upstream's 72-command roster (D-r43-14), served here or by a named extension
+    let known: BTreeSet<String> = ROSTER
         .iter()
-        .filter_map(|s| s.prompt.as_deref())
-        .map(|p| p.replace('_', "-"))
+        .map(|(n, _)| n.to_string())
+        .chain(NOT_COMMANDS.iter().map(|s| s.to_string()))
         .collect();
-    known.extend(
-        declaration
-            .surfaces
-            .commands
-            .iter()
-            .map(|c| c.id.replace('_', "-")),
-    );
-    known.extend(
-        R43_COMMANDS
-            .iter()
-            .chain(NON_CORE_COMMANDS)
-            .map(|s| s.to_string()),
-    );
     let mut unknown = BTreeSet::new();
     for (command, host, _, text) in sweep().iter().filter(|(_, h, _, _)| *h == "claude-code") {
         for name in slash_names(text) {
@@ -194,7 +157,7 @@ fn every_slash_command_a_prompt_names_is_known() {
         }
         // claude-code gets upstream's install: `/gsd:x` is `/gsd-x`, and a colon name left is not a command at all
         for name in colon_names(text) {
-            if !NON_CORE_COMMANDS.contains(&name.as_str()) {
+            if !NOT_COMMANDS.contains(&name.as_str()) {
                 unknown.insert(format!("/gsd:{name} (in {command} on {host})"));
             }
         }

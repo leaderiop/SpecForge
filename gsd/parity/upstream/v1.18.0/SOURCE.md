@@ -285,3 +285,14 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
 | `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |
 <!-- r42 workflows end -->
+
+## `commands.json`: the 72 commands (r43)
+
+The roster of upstream's commands: for each file of `commands/gsd/` (sorted by stem), its `name` (the stem), its
+`description` and its `argument_hint` (`argument-hint`, or null), read from the first YAML block of the file at the tag
+`v1.18.0` (a quoted value loses its quotes). It is a snapshot, not a copy: `gsd/core/src/prompts/roster.rs` is checked
+against it (`gsd/core/tests/roster.rs`), and so is the README's Commands table.
+
+| File | sha256 |
+|---|---|
+| `commands.json` | `e203d386a5df1f6f747d210c819dc62b115852fd3c6f5de5732bfb3b05b70ec4` |

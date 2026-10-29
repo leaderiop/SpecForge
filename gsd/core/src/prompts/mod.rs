@@ -14,6 +14,7 @@ mod preamble;
 mod project;
 pub(crate) mod render;
 pub(crate) mod repoint;
+pub mod roster;
 pub(crate) mod setting;
 mod ship;
 mod slash;
