@@ -76,6 +76,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 
 | File | sha256 |
 |---|---|
+| `commands/gsd/add-tests.md` | `d62d2e34817c899a92998903b26f427005d93138806f3a98d8112c671fe3edcb` |
 | `commands/gsd/discuss-phase.md` | `6302cf0b4afa6d8df67f5322a1d80b56eadb28f9f3d55e3e25b3ae89b83bdf22` |
 | `commands/gsd/execute-phase.md` | `ce00d2d18ce57594855bd1b15f9c7854d33e047e2782952cd05bd11354300d4d` |
 | `commands/gsd/mvp-phase.md` | `f4403d0841bfa0046ffe311bb70827c97b6b208db4f1583d659558b70f600f2c` |
@@ -85,6 +86,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `commands/gsd/plan-review-convergence.md` | `4ca4073a5d2574d1ca155334136760ea109f0945dff5104f8938ee5c072227c4` |
 | `commands/gsd/spec-phase.md` | `99120491c57e274edb56027c5a9573cc6fd6da9fa37304816fda69bbaabebeb1` |
 | `commands/gsd/ultraplan-phase.md` | `6ce468cd97f99a3d81a7db17baba2ae20858972e1f0090b621e56d58d9a76cb8` |
+| `commands/gsd/validate-phase.md` | `47da3f45f5fb517864921413d06e824dda19ba9272e34192d5c7d5ca1eea73d1` |
+| `commands/gsd/verify-work.md` | `9c39dbeceff668986060da04e49ca63a66a8b89b1b3276963814b657e887a084` |
 | `gsd-core/references/agent-contracts.md` | `b07ecbfe64411229ec0760e1f6cb5b05ad0f2493ca688f87d258c4b0cd7d6597` |
 | `gsd-core/references/agent-skills-bootstrap.md.txt` | `0ad5db82dd8bda51bdb367c3abba2a360846a3f1bcfc3efbc8d546b7b38a879b` |
 | `gsd-core/references/checkpoints.md` | `dc5f1f03e9fc812538dd257f620c74fadc7213b6fcd871323d797137bf6c5eb2` |
@@ -172,6 +175,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/references/workstream-flag.md` | `8823e5ba7d2f612b42bfc56b22ab7aea095e73b2fa0323f9dde06e410a9e6e72` |
 | `gsd-core/references/worktree-branch-check.md` | `4ee765889967c7a144d7871201f9de6e1dd745ebe98876e082699e13880a39d7` |
 | `gsd-core/references/worktree-path-safety.md` | `3c96dae01422cbd13a830ea3ab222266802901713b12428c324ca2d902e75971` |
+| `gsd-core/templates/UAT.md` | `19823ed0f9499ad5fca73832abdc71c07753eadb770409395175565333ed2597` |
 | `gsd-core/templates/VALIDATION.md` | `e2281534271f86b7d3c62e833b3c3533b1251bb062596f859c1c4cb3050e550e` |
 | `gsd-core/templates/context.md` | `69b01e7909ea3f661d5b0fcec5470314f74176aa5bd998939d80d74c03fd07d9` |
 | `gsd-core/templates/project.md` | `4f311fb1b05b823bd00c655f737b546b98bb1123e0b20ca673ff5a0a3b6e5cc1` |
@@ -188,6 +192,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/templates/user-setup.compact.md` | `b60869ee028f4c96651fe27baf6fc85167b4f4dafabcad8cd568e52b89099c79` |
 | `gsd-core/templates/user-setup.md` | `07c227403d62a9e0cae43a7ee0f9db7d667383e42fefb799067da6b39db145c0` |
 | `gsd-core/templates/verification-report.md` | `930e2f288db2429375e97e14334545a85ec9bf2fc493147c817da11abc4b2488` |
+| `gsd-core/workflows/add-tests.md` | `7b4e1f2ec34c7c25158870ca7508344ac6ceb70b7221b089cb8c2e598fa33e45` |
+| `gsd-core/workflows/diagnose-issues.md` | `ccf520c63dda7f743ea83411da1f82141e10f4325e587b04e8237601d4f835f4` |
 | `gsd-core/workflows/discuss-phase-assumptions.md` | `1ccc3c8d295c89542a94751215faa71eaffab34b03d20ab85051eb5e712191d4` |
 | `gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md` | `b29510c8bb53cbb7ce057f2b2fc44a04b332026610d385a1a4104d4246da01f8` |
 | `gsd-core/workflows/discuss-phase-power.md` | `f26697a5c55c39033f27738f7f500e2789a7d3023e7360ceddc22e9fbf35ed5c` |
@@ -257,6 +263,11 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/transition.md` | `9b8a135f54ddbc9de3e48a69686e2e46ed5a8e49517b33251dcdb00c90119041` |
 | `gsd-core/workflows/transition/steps/workstream-collision-check.md` | `ddf53acd9512bd2b6caab2c45bff4da585f8a2976bba3d4fe7e6092265e7824c` |
 | `gsd-core/workflows/ultraplan-phase.md` | `58512036c7dc6a70f1612854e5a9929cfa22c33039d5242133147daf744c2521` |
+| `gsd-core/workflows/validate-phase.md` | `113db27abc3a6b8db0026a35429da15982092280b838a1bc602a08e1c69751a7` |
+| `gsd-core/workflows/verify-work.md` | `8d93cbf259516fd7aa00cfea76e67c97057f14805e82696933b5cecc33cae204` |
+| `gsd-core/workflows/verify-work/detail/elaboration.md` | `43cf5c123ca24a4394e5c3624d96ccf093438aba8dc4cb090d8bfc7206baa267` |
+| `gsd-core/workflows/verify-work/steps/automated-ui-verification.md` | `6a2313603645606042261bbfc2af597eebb79ae6c638c10978e806e0e5921045` |
+| `gsd-core/workflows/verify-work/steps/mvp-uat-framing.md` | `e540ff57945535fa64b5267ab32f09c1fda59442752514b18476a66da7a34558` |
 | `src/runtime-artifact-conversion.cts` | `9b84125146270c5ecfc6f8f530f2ca01883b0239497990e91834a4b4939cad6c` |
 | `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
 | `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |

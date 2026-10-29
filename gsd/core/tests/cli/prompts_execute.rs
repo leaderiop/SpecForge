@@ -44,7 +44,13 @@ fn execute_phase_renders_under_default() {
     let rendered = payload(&prompt(&p, "execute_phase", &[PHASE], "claude-code"));
     assert_eq!(
         step_ids(&rendered),
-        ["execute", "verify", "record_verdict", "record_window"]
+        [
+            "execute",
+            "verify",
+            "record_verdict",
+            "record_window",
+            "next"
+        ]
     );
     assert_eq!(
         rendered["payload"]["steps"][0]["prompt"],

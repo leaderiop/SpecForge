@@ -14,6 +14,7 @@ pub(crate) mod render;
 pub(crate) mod repoint;
 mod slash;
 mod spec;
+mod verify;
 mod workflow;
 
 use specforge_extension_sdk::prelude::*;
@@ -26,4 +27,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     discuss::declare(c);
     plan::declare(c);
     execute::declare(c);
+    verify::declare(c);
 }

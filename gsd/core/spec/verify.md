@@ -41,6 +41,11 @@ The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `dispo
 `CommandInput.now` (K14).
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
+**Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
+phase whose verification is `passed` has each decision of its context (`origin context`) mentioned by one of its summaries
+or by the subject of one of its commits, with E310's matcher ([rules.md](rules.md)). The shipped files themselves are not
+read.
+
 ## verification
 
 GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.

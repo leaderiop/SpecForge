@@ -14,6 +14,7 @@ macro_rules! asset {
 
 /// `(path, text)`, sorted by path.
 pub static ASSETS: &[(&str, &str)] = &[
+    asset!("commands/gsd/add-tests.md"),
     asset!("commands/gsd/discuss-phase.md"),
     asset!("commands/gsd/execute-phase.md"),
     asset!("commands/gsd/mvp-phase.md"),
@@ -23,6 +24,8 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("commands/gsd/plan-review-convergence.md"),
     asset!("commands/gsd/spec-phase.md"),
     asset!("commands/gsd/ultraplan-phase.md"),
+    asset!("commands/gsd/validate-phase.md"),
+    asset!("commands/gsd/verify-work.md"),
     asset!("gsd-core/references/agent-contracts.md"),
     asset!("gsd-core/references/agent-skills-bootstrap.md"),
     asset!("gsd-core/references/checkpoints.md"),
@@ -110,6 +113,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/references/workstream-flag.md"),
     asset!("gsd-core/references/worktree-branch-check.md"),
     asset!("gsd-core/references/worktree-path-safety.md"),
+    asset!("gsd-core/templates/UAT.md"),
     asset!("gsd-core/templates/VALIDATION.md"),
     asset!("gsd-core/templates/context.md"),
     asset!("gsd-core/templates/project.md"),
@@ -126,6 +130,8 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/templates/user-setup.compact.md"),
     asset!("gsd-core/templates/user-setup.md"),
     asset!("gsd-core/templates/verification-report.md"),
+    asset!("gsd-core/workflows/add-tests.md"),
+    asset!("gsd-core/workflows/diagnose-issues.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions/steps/auto-advance-dispatch.md"),
     asset!("gsd-core/workflows/discuss-phase-power.md"),
@@ -195,6 +201,11 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/transition.md"),
     asset!("gsd-core/workflows/transition/steps/workstream-collision-check.md"),
     asset!("gsd-core/workflows/ultraplan-phase.md"),
+    asset!("gsd-core/workflows/validate-phase.md"),
+    asset!("gsd-core/workflows/verify-work.md"),
+    asset!("gsd-core/workflows/verify-work/detail/elaboration.md"),
+    asset!("gsd-core/workflows/verify-work/steps/automated-ui-verification.md"),
+    asset!("gsd-core/workflows/verify-work/steps/mvp-uat-framing.md"),
 ];
 
 /// The text of the asset at `path` (its attribution line included).

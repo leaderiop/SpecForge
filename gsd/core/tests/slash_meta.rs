@@ -15,6 +15,9 @@ const ADAPTED: &[(&str, &str)] = &[
         "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
     ),
     ("ultraplan-phase", "<phase>"),
+    ("verify-work", "<phase> [--ws <name>]"),
+    ("validate-phase", "<phase>"),
+    ("add-tests", "<phase> [--instructions \"...\"]"),
     (
         "execute-phase",
         "<phase> [--wave N] [--gaps-only] [--interactive] [--tdd]",

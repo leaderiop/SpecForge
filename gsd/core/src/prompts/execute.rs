@@ -38,6 +38,11 @@ const PHASE_STEPS: &[Step] = &[
         title: "Record a window of the phase (specforge gsd record-window <phase> <kind> ...)",
         does: Do::Command("record_window"),
     },
+    Step {
+        id: "next",
+        title: "Continue with the verification of the built work (the prompt verify_work)",
+        does: Do::Prompt("verify_work"),
+    },
 ];
 
 const PLAN_STEPS: &[Step] = &[
