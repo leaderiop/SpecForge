@@ -78,7 +78,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
-| gsd/E401 | a summary's `requirements_completed` equals its plan's `requirements`, as sets of resolved ids; one error on the summary names the missing and the extra ids, and a quick plan with none on either side is clean | pass | E | E | execute-plan |
+| gsd/E401 | a summary's `requirements_completed` equals its plan's `requirements`, as sets of resolved ids; one error on the summary names the missing and the extra ids, and a quick plan with none on either side is clean. Faithful to the executor ("MUST copy verbatim"), so a `halted` summary lists every requirement of its plan, although its derived requirement status is `blocked` (r38 divergence, `project.md`) | pass | E | E | execute-plan |
 | gsd/E402 | a halted summary says why (`halted_because`) | decl | E | E | summary template |
 | gsd/W403 | a `tdd` task (its own `type`, or its plan's) with a recorded `feat` or `fix` commit has a `test` commit that names it before. A commit that names only the plan counts when the task is the plan's only task: GSD's executor words a commit `{type}({phase}-{plan}): {description}` and so names the plan, not the task. The RED run's failure is not checked: upstream reads a run record, and a commit is all there is here. A warning, not an error (REVIEW-r38 M1): a commit already made cannot be repaired, and an error would make the host refuse the collector's write, and with it every other commit | pass | W | W | `gate-tdd-red-evidence` |
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |

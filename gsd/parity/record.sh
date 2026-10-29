@@ -5,7 +5,9 @@
 #
 # GSD_CORE_DIR is the root of a gsd-core checkout at the tracked tag (`npm ci && npm run build:lib` there). The verbs run
 # on a copy of the fixture that is its own git repository, so what they say about git (stale worktrees, commit hashes)
-# does not depend on the machine, and timestamps and hashes are normalised: a second run changes nothing.
+# does not depend on the machine, and timestamps and hashes are normalised: a second run changes nothing. The JUnit
+# golden is `node --test`'s reporter output (paths, times and hostname are normalised); another Node major may word it
+# differently, and then the diff is the Node release, not the port.
 set -eu
 
 : "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.18.0 checkout whose lib is built}"
@@ -86,7 +88,7 @@ record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/pha
 # second run changes nothing. `gsd-junit` links its tests to the twin's deliverables by name and project-relative file.
 (cd "$work" && npm test >/dev/null)
 real=$(cd "$work" && pwd -P)
-sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' "$work/junit.xml" >"$staged/junit.xml"
+sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' -e 's/ hostname="[^"]*"//g' "$work/junit.xml" >"$staged/junit.xml"
 mkdir -p "$out"
 cp "$staged"/*.json "$staged/junit.xml" "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"
