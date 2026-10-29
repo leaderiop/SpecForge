@@ -2,9 +2,10 @@
 //! runs the guard passes that report its codes; a gate fails only on an Error.
 //!
 //! A guard also runs on every judged write, with no trigger. Every guard here answers nothing unless its trigger is a
-//! gate (a gate names its command), so a write is never refused by one: an agent's plan, and `gsd-git`'s, stay free
+//! gate (its trigger kind), so a write is never refused by one: an agent's plan, and `gsd-git`'s, stay free
 //! of E512 on a project with an open window. Black-box, a gate can be evaluated only at a command's or prompt's entry,
-//! and gsd has none until r41/r42: the guards are proven through the SDK's MockHost.
+//! and gsd has none until r41/r42: the guards are tested on pass inputs (`gates/tests.rs`), and `declaration_verify`
+//! runs them through the SDK's MockHost.
 //!
 //! The scope of a gate is its subject (a phase, or a milestone and so its phases) or, with none, the whole project.
 
@@ -37,7 +38,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
 
 /// The subject of a gate; `None` outside a gate, where every guard answers nothing.
 fn gate(input: &PassInput) -> Option<Option<&str>> {
-    let trigger = input.trigger.as_ref().filter(|t| t.command.is_some())?;
+    // The protocol's discriminator is `kind`. The SDK does not export `TriggerKind`, so it is read by name.
+    let trigger = input
+        .trigger
+        .as_ref()
+        .filter(|t| format!("{:?}", t.kind) == "Gate")?;
     Some(trigger.subject.as_deref())
 }
 
@@ -66,15 +71,26 @@ fn refuse(
         .with_entity(entity)
 }
 
+/// An id ordered as a person reads it: `A9` before `A10`.
+fn natural(id: &str) -> (String, u64) {
+    let digits = id.chars().rev().take_while(char::is_ascii_digit).count();
+    let (head, number) = id.split_at(id.len() - digits);
+    (head.to_string(), number.parse().unwrap_or(0))
+}
+
 /// E106: the latest audit of the subject milestone is `passed`, or `tech_debt` a person accepted.
 fn e106(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input).flatten() else {
         return Vec::new();
     };
+    // Only a milestone is audited: at a phase-scoped gate there is nothing to ask.
+    if !of_kind(input, "milestone").any(|m| m.id == subject) {
+        return Vec::new();
+    }
     let mut audits: Vec<&PassEntity> = of_kind(input, "milestone_audit")
         .filter(|a| link(input, a, "milestone") == Some(subject))
         .collect();
-    audits.sort_by(|a, b| a.id.cmp(&b.id));
+    audits.sort_by_key(|a| natural(&a.id));
     let Some(latest) = audits.last() else {
         return vec![refuse(
             "E106",
@@ -130,18 +146,20 @@ fn e511(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// E512: no window in the project is open (the `windows_enforce` gate).
+/// E512: no window in the project is open (the `windows_enforce` gate). A window is project-scoped, and the host
+/// keeps only the errors of a subject-scoped gate that name an entity within the subject, so at such a gate the
+/// diagnostic names the subject: an open window anywhere refuses the gate, as upstream's project-wide `ship:pre`.
 fn e512(input: &PassInput) -> Vec<PassDiagnostic> {
-    if gate(input).is_none() {
+    let Some(subject) = gate(input) else {
         return Vec::new();
-    }
+    };
     of_kind(input, "broken_window")
         .filter(|w| window_status(input, w) == "open")
         .map(|w| {
             refuse(
                 "E512",
                 PassSeverity::Error,
-                &w.id,
+                subject.unwrap_or(&w.id),
                 format!("broken window '{}' is open", w.id),
                 "fix the window, or waive it with a reason",
             )

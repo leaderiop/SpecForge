@@ -32,6 +32,31 @@ fn ship_with_an_open_window_is_refused_e512() {
 }
 
 #[test]
+fn e512_names_the_subject_of_a_scoped_gate() {
+    // A window is project-scoped, so the host would drop a diagnostic that names only it from a gate on a phase.
+    let found = input(
+        ship(Some("v1.0/01")),
+        vec![window("BW1", json!({}))],
+        vec![],
+    );
+    let refused = e512(&found);
+    assert_eq!(codes(refused.clone()), ["E512"]);
+    assert_eq!(refused[0].entity.as_deref(), Some("v1.0/01"));
+    let project = input(ship(None), vec![window("BW1", json!({}))], vec![]);
+    assert_eq!(e512(&project)[0].entity.as_deref(), Some("BW1"));
+}
+
+#[test]
+fn a_gate_is_told_by_its_kind_not_by_a_command() {
+    let no_command = json!({ "kind": "gate", "subject": null });
+    let found = input(no_command, vec![window("BW1", json!({}))], vec![]);
+    assert_eq!(codes(e512(&found)), ["E512"]);
+    let write_with_a_command = json!({ "kind": "write", "command": "gsd-ship" });
+    let found = input(write_with_a_command, vec![window("BW1", json!({}))], vec![]);
+    assert!(e512(&found).is_empty());
+}
+
+#[test]
 fn e512_is_silent_on_a_resolved_window_and_without_a_gate() {
     let waived = window("BW1", json!({ "waiver": "x" }));
     let fixed = window("BW2", json!({ "fixed_at": "2026-10-29T10:00:00Z" }));
@@ -56,7 +81,10 @@ fn audited(status: &str, accepted: bool) -> PassInput {
     }
     input(
         ship(Some("v1.0")),
-        vec![json!({ "id": "v1.0/A1", "kind": "milestone_audit", "fields": fields })],
+        vec![
+            json!({ "id": "v1.0", "kind": "milestone" }),
+            json!({ "id": "v1.0/A1", "kind": "milestone_audit", "fields": fields }),
+        ],
         vec![],
     )
 }
@@ -67,8 +95,37 @@ fn an_unaccepted_tech_debt_audit_is_e106() {
     assert_eq!(codes(e106(&audited("gaps_found", true))), ["E106"]);
     assert!(e106(&audited("tech_debt", true)).is_empty());
     assert!(e106(&audited("passed", false)).is_empty());
-    let none = input(ship(Some("v1.0")), vec![], vec![]);
+    let none = input(
+        ship(Some("v1.0")),
+        vec![json!({ "id": "v1.0", "kind": "milestone" })],
+        vec![],
+    );
     assert_eq!(codes(e106(&none)), ["E106"]);
+}
+
+#[test]
+fn e106_reads_the_latest_audit_by_number_and_only_at_a_milestone() {
+    let audit = |n: u32, status: &str| {
+        json!({ "id": format!("v1.0/A{n}"), "kind": "milestone_audit",
+                "fields": { "milestone": "v1.0", "status": status } })
+    };
+    let found = input(
+        ship(Some("v1.0")),
+        vec![
+            json!({ "id": "v1.0", "kind": "milestone" }),
+            audit(9, "gaps_found"),
+            audit(10, "passed"),
+        ],
+        vec![],
+    );
+    assert!(e106(&found).is_empty());
+    // A phase is not audited: a gate on one asks nothing.
+    let phase = input(
+        ship(Some("v1.0/01")),
+        vec![json!({ "id": "v1.0/01", "kind": "phase" })],
+        vec![],
+    );
+    assert!(e106(&phase).is_empty());
 }
 
 fn phase_gate(verification: Option<Value>, truth_outcome: Option<&str>) -> PassInput {
@@ -150,25 +207,47 @@ fn a_stale_verdict_is_e516_under_plus() {
     assert!(e516(&stale("fresh")).is_empty());
 }
 
-#[test]
-fn every_guard_is_silent_on_a_write() {
+/// A project every guard has something to say about at a gate on milestone v1.0: no audit (E106), an unverified
+/// phase (E511), an open window (E512), a stale plan-check (W318), a tdd plan with a summary and no review (W404) and
+/// a stale verdict (E516).
+fn everything_wrong() -> (Vec<Value>, Vec<Value>) {
     let entities = vec![
-        window("BW1", json!({})),
+        json!({ "id": "v1.0", "kind": "milestone" }),
         json!({ "id": "v1.0/01", "kind": "phase" }),
+        window("BW1", json!({})),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "type": "tdd" },
+                "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
+        json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
         json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth",
                 "judgements": [{ "rule": "gsd/E501", "state": "stale", "passed": false }] }),
     ];
-    let untriggered: PassInput =
-        serde_json::from_value(json!({ "entities": entities.clone() })).expect("input");
-    let write = input(json!({ "kind": "write" }), entities.clone(), vec![]);
-    for found in [&untriggered, &write] {
-        for (name, code, check) in GUARDS {
+    let mut edges = phase_edge();
+    edges.push(json!({ "source": "v1.0/01", "target": "v1.0", "label": "milestone" }));
+    (entities, edges)
+}
+
+#[test]
+fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
+    let (entities, edges) = everything_wrong();
+    let gate = input(ship(Some("v1.0")), entities.clone(), edges.clone());
+    // The same project and subject, but the host is applying an edit plan: not a gate.
+    let write = input(
+        json!({ "kind": "write", "subject": "v1.0" }),
+        entities.clone(),
+        edges.clone(),
+    );
+    let untriggered: PassInput = serde_json::from_value(crate::passes::plans::with_field_edges(
+        json!({ "entities": entities, "edges": edges }),
+    ))
+    .expect("input");
+    for (name, code, check) in GUARDS {
+        let answered = codes(check(&gate));
+        assert!(
+            !answered.is_empty() && answered.iter().all(|c| c == code),
+            "{name} ({code}) is silent at a gate over a project it should refuse: {answered:?}"
+        );
+        for found in [&write, &untriggered] {
             assert!(check(found).is_empty(), "{name} ({code}) answered a write");
         }
     }
-    // The same project under a gate: E512, E516 and E511 answer.
-    let gated = input(ship(None), entities, vec![]);
-    assert_eq!(codes(e512(&gated)), ["E512"]);
-    assert_eq!(codes(e516(&gated)), ["E516"]);
-    assert_eq!(codes(e511(&gated)), ["E511"]);
 }
