@@ -41,6 +41,8 @@ pub struct Field {
     pub required: bool,
     pub writer: Writer,
     pub immutable: bool,
+    /// `U`: only a person writes it (ADR 0289).
+    pub human: bool,
     /// `+`: the baseline's list is a prefix of the current one.
     pub append: bool,
     /// The inclusive bounds of an `int`.
@@ -58,6 +60,7 @@ impl Field {
             required: false,
             writer: Writer::Author,
             immutable: false,
+            human: false,
             append: false,
             range: None,
             inverse: "",
@@ -82,6 +85,15 @@ impl Field {
     /// `H`
     pub const fn h(mut self) -> Self {
         self.writer = Writer::Harness;
+        self
+    }
+    /// `U`
+    #[expect(
+        dead_code,
+        reason = "the first `.u()` field is milestone_audit.debt_accepted"
+    )]
+    pub const fn u(mut self) -> Self {
+        self.human = true;
         self
     }
     /// `+`
@@ -150,6 +162,8 @@ pub struct Kind {
     pub singleton: bool,
     /// A log: an entity the baseline holds stays, with every authored value (K4).
     pub append_only: bool,
+    /// `U`: only a person writes the kind's entities (ADR 0289).
+    pub human: bool,
     /// The reference field that scopes the kind's names (K2).
     pub scoped_by: Option<&'static str>,
     pub fields: &'static [Field],
@@ -162,6 +176,7 @@ impl Kind {
             doc,
             singleton: false,
             append_only: false,
+            human: false,
             scoped_by: None,
             fields,
         }
@@ -172,6 +187,10 @@ impl Kind {
     }
     pub const fn append_only(mut self) -> Self {
         self.append_only = true;
+        self
+    }
+    pub const fn human(mut self) -> Self {
+        self.human = true;
         self
     }
     pub const fn scoped_by(mut self, field: &'static str) -> Self {
@@ -270,6 +289,9 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     if field.immutable {
         f.immutable();
     }
+    if field.human {
+        f.human();
+    }
     if field.append {
         f.append_only();
     }
@@ -289,10 +311,20 @@ pub fn declare(c: &mut ContributionsBuilder, kinds: &[&Kind]) {
             if kind.append_only {
                 k.append_only();
             }
+            if kind.human {
+                k.human();
+            }
             if let Some(scope) = kind.scoped_by {
                 k.scoped_by(scope);
             }
             for field in kind.fields {
+                // A required human field of a kind an agent may write could never be created (W021).
+                assert!(
+                    !(field.human && field.required && !kind.human),
+                    "{}.{}: a required human field needs a human kind",
+                    kind.name,
+                    field.name
+                );
                 k.field(field.name, |f| apply(kind.name, f, field));
             }
         });

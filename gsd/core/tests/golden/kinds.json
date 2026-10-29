@@ -586,6 +586,87 @@
         "label": "BlockerPlan",
         "source_kind": "blocker",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationPhase",
+        "source_kind": "verification",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationDeferredTruth",
+        "source_kind": "verification",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerificationDeferredAddressedIn",
+        "source_kind": "verification",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapVerification",
+        "source_kind": "verify_gap",
+        "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapTruth",
+        "source_kind": "verify_gap",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "VerifyGapClosedBy",
+        "source_kind": "verify_gap",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OverrideVerification",
+        "source_kind": "override",
+        "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "OverrideTruth",
+        "source_kind": "override",
+        "target_kind": "truth"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HumanItemVerification",
+        "source_kind": "human_item",
+        "target_kind": "verification"
       }
     ]
   },
@@ -5985,6 +6066,551 @@
         "lsp_icon": null,
         "name": "blocker",
         "open_fields": false,
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What a phase's verifier found (GSD NN-VERIFICATION.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "VerificationPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`deferred:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "VerificationDeferredTruth",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "truth",
+                "required": true,
+                "target_kind": "truth"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "VerificationDeferredAddressedIn",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "addressed_in",
+                "required": true,
+                "target_kind": "phase"
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "evidence",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "deferred",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`status:`; `passed` needs a fresh gsd/E501 verdict on every truth",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "passed",
+              "gaps_found",
+              "human_needed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`score:` as `N/M`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "score",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`verified:`; the latest verdict's time",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "verified",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the files the phase's verdicts name",
+            "edge": null,
+            "field_type": "string_list",
+            "file_base": "project",
+            "file_reference": true,
+            "inverse_of": null,
+            "name": "covered_files",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`re_verification:` against the git baseline",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "pending",
+                  "passed",
+                  "gaps_found",
+                  "human_needed"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "previous_status",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "previous_score",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "gaps_closed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "gaps_remaining",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string_list",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "regressions",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "re_verification",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the lexical anti-pattern scan",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "file",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "line",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "text",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "enum_values": [
+                  "blocker",
+                  "warning",
+                  "info"
+                ],
+                "field_type": "enum",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "severity",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "anti_patterns",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "verification",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A failed or partial truth a gap-closure plan can name (GSD verification gaps)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "VerifyGapVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "the truth that failed",
+            "edge": "VerifyGapTruth",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": "truth"
+          },
+          {
+            "default_value": null,
+            "description": "why it failed",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the files at fault",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "path",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issue",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "artifacts",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what is missing",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "missing",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "closed when a `gap_closure` plan naming it is complete",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "closed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan",
+            "edge": "VerifyGapClosedBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "closed_by",
+            "required": false,
+            "target_kind": "plan",
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "verify_gap",
+        "open_fields": false,
+        "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A human accepts a truth the verifier could not verify (GSD verification override)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "OverrideVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "the truth accepted",
+            "edge": "OverrideTruth",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": "truth"
+          },
+          {
+            "default_value": null,
+            "description": "why",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "who accepted it (gsd/E503)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "by",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when (gsd/E503)",
+            "edge": null,
+            "field_type": "date",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "at",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "override",
+        "open_fields": false,
+        "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": [],
+        "writer": "human"
+      },
+      {
+        "description": "A check only a human can make (GSD human_verification)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "HumanItemVerification",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "verification",
+            "required": true,
+            "target_kind": "verification"
+          },
+          {
+            "default_value": null,
+            "description": "what to check",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "test",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what should happen",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "expected",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why a program cannot check it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why_human",
+            "required": true,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "human_item",
+        "open_fields": false,
+        "scoped_by": "verification",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

@@ -11,6 +11,7 @@ mod project;
 mod research;
 mod roadmap;
 mod spec;
+mod verify;
 
 use dsl::Kind;
 use specforge_extension_sdk::prelude::*;
@@ -57,6 +58,10 @@ const KINDS: &[&Kind] = &[
     &execute::PAUSE,
     &execute::HANDOFF,
     &execute::BLOCKER,
+    &verify::VERIFICATION,
+    &verify::VERIFY_GAP,
+    &verify::OVERRIDE,
+    &verify::HUMAN_ITEM,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
