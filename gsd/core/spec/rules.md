@@ -95,7 +95,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E502 | an explicit truth is verified only with a named passing test | pass | E | E | honest-verifier |
 | gsd/E503 | an override has its human author and date (`missing_required_field` on `by` and `at`) | decl | E | E | verifier overrides |
 | gsd/W504 | more than three overrides in a phase | pass | W | W | verifier |
-| gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue | pass | E | E | verifier |
+| gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
 | gsd/W506 | every settled decision maps to something shipped | pass | W | W | `gate-decision-coverage-verify` |
 | gsd/E509 | a UAT passes only with no pending, blocked, unresolved or undeferred skipped test | pass | E | E | UAT predicate |
 | gsd/W510 | a planned phase whose research has a Validation Architecture section has a validation, and a verification exists only once the validation has an `approval`. A plain planned phase is not warned: `validate-phase` is opt-in (`validate-phase.md:38-43`) | pass | W | E | Nyquist 8a–8f |
@@ -115,8 +115,10 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   D3). The roster maps `gate-evidence` to that refusal.
 - Rules that read project files are *buildable* since protocol 1.11.0 (K11): they declare `reads` and are sent the facts and
   capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
-  reads). Not yet built (r39): `gsd/E505` and the file facts under `gsd/E501` (artifact `missing`, `min_lines`,
-  `contains`, `exports`; a key link's `pattern`).
+  reads). `gsd/E505` is built (r39), with the scan pass that computes the file facts under `gsd/E501`: `artifact.state`
+  (`missing`, `min_lines`, `contains`, `exports`, a deterministic subset: `export … name`, `module.exports.name`,
+  `exports.name`) and `key_link.state` (a plain-text `pattern`; one with a regular-expression metacharacter is
+  `unchecked`).
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
   (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` and `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.

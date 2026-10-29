@@ -49,6 +49,8 @@ pub const VALIDATION_ROW: Kind = Kind::new(
         rf("requirement", "requirement").doc("the requirement it serves"),
         en("test_type", TEST_TYPE).r().doc("`Test Type`"),
         str("command").doc("`Automated Command`"),
+        // A `str`: the test file may be one wave 0 creates.
+        str("file").doc("the row's test file"),
         int("wave").c().doc("the task's wave"),
         bool("file_exists").c().doc("the test file exists"),
         en("status", ROW_STATUS)

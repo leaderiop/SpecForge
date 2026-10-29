@@ -310,7 +310,7 @@
     {
       "code": "E505",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "Debt markers (TBD, FIXME, XXX) in the phase's files link to an issue. It is an error.",
+      "explanation": "Debt markers (TBD, FIXME, XXX) in the files a plan modifies name an issue on the same line. It is an error.",
       "title": "Debt marker without an issue"
     },
     {

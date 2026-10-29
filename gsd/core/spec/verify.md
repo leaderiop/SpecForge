@@ -33,7 +33,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched) when `pattern` is set, else the verdict |
 
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
-`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and not yet built (r39; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
+`wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
 reads (`reads`) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
 Every status computed from test evidence declares `reads_tests` (K12): compute, check and guard passes then receive the
 recorded test report, and I205 says once when none is recorded.
@@ -54,7 +54,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
-| anti_patterns | {file file, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass |
+| anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
 `verification R`, `truth → truth R`, `reason str R`, `artifacts {path file, issue str}`, `missing strs`;
@@ -108,7 +108,7 @@ GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-val
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
 `test_type enum{unit, integration, smoke, e2e, manual} R`,
-`command str`; `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
+`command str`, `file str` (the row's test file; a `str`, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
 enhancement declared by `@gsd/security` on this kind.
 
 **wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;

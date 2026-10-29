@@ -14,6 +14,7 @@ mod plan;
 mod plan_rules;
 mod progress;
 mod roadmap;
+mod scan;
 mod settings;
 mod verify_paths;
 mod verify_rules;

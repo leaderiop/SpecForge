@@ -495,7 +495,7 @@ pub static CODES: &[Code] = &[
     code(
         "E505",
         "Debt marker without an issue",
-        "Debt markers (TBD, FIXME, XXX) in the phase's files link to an issue",
+        "Debt markers (TBD, FIXME, XXX) in the files a plan modifies name an issue on the same line",
         "verify",
         Severity::Error,
         Severity::Error,

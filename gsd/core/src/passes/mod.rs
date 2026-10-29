@@ -12,6 +12,7 @@ mod plan_shape;
 mod plans;
 mod research;
 mod roadmap;
+mod scan;
 mod schema_drift;
 mod scope;
 mod verify_paths;
@@ -21,9 +22,20 @@ use specforge_extension_sdk::prelude::*;
 
 /// The computed fields a compute pass other than `derive` answers: `derive` lists every other `C` field of the model,
 /// and the host refuses a field two compute passes claim (W021). Keep this in step with the passes' `computes`.
-pub const CLAIMED: &[&str] = &["plan.wave", "plan.autonomous", "task.verify_paths"];
+pub const CLAIMED: &[&str] = &[
+    "plan.wave",
+    "plan.autonomous",
+    "task.verify_paths",
+    "artifact.state",
+    "key_link.state",
+    "verification.anti_patterns",
+    "validation_row.file_exists",
+    "wave0_item.done",
+];
 
 pub fn declare(c: &mut ContributionsBuilder) {
+    // The scan is declared before `derive`: compute passes run in declaration order and derive reads its values.
+    scan::declare(c);
     derive::declare(c);
     roadmap::declare(c);
     research::declare(c);

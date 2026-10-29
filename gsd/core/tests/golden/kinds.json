@@ -4808,6 +4808,26 @@
             "name": "contains",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "what the scan found in the file: `exports` matches `export … name`, `module.exports.name` or `exports.name`",
+            "edge": null,
+            "enum_values": [
+              "present",
+              "missing",
+              "too_short",
+              "lacks_contains",
+              "lacks_export",
+              "unchecked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -4877,7 +4897,7 @@
           },
           {
             "default_value": null,
-            "description": "`pattern:`",
+            "description": "`pattern:`; a plain text, searched in the `from` file",
             "edge": null,
             "field_type": "string",
             "file_reference": false,
@@ -4885,6 +4905,23 @@
             "name": "pattern",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "wired when `pattern` is in the `from` file; unchecked for a pattern with a regular-expression metacharacter",
+            "edge": null,
+            "enum_values": [
+              "wired",
+              "not_wired",
+              "unchecked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "state",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -7574,6 +7611,17 @@
             "file_reference": false,
             "inverse_of": null,
             "name": "command",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the row's test file",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file",
             "required": false,
             "target_kind": null
           },
