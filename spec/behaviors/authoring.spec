@@ -393,7 +393,8 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   contract   """
     A kind, a field or a member an extension declares human-only is written by a person: a plan of a command or a
     collector, an MCP edit and a command line without a terminal are refused `human_only` and write nothing, and the
-    command line at a terminal writes it (ADR 0289).
+    command line at a terminal writes it (ADR 0289). A set, unset or link of an existing human-only entity, and the
+    delete of an entity holding a person's value, are refused too (ADR 0298).
   """
   verify unit "a human-only value is refused in an agents write"
   verify unit "the command line writes a human-only value from a terminal and refuses it without one"

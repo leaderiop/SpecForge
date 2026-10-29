@@ -167,7 +167,6 @@ fn a_delete_that_unlinks_and_a_rename_do_not_change_a_human_only_entity() {
     behavior = "refuse_human_only_write",
     verify = "an agents set, unset or link of an existing human-only entity is refused"
 )]
-#[ignore = "pins K17; T6 un-ignores"]
 fn an_agents_edit_of_an_existing_human_only_entity_is_refused() {
     use crate::edit::{link, one, set, unset};
     use specforge_ops::authoring::apply::Origin;
@@ -193,7 +192,6 @@ fn an_agents_edit_of_an_existing_human_only_entity_is_refused() {
     behavior = "refuse_human_only_write",
     verify = "an agents delete of an entity holding a persons value is refused"
 )]
-#[ignore = "pins K17; T6 un-ignores"]
 fn an_agents_delete_of_an_entity_holding_a_persons_value_is_refused() {
     use specforge_ops::authoring::apply::Origin;
     use specforge_ops::authoring::edit::Edit;

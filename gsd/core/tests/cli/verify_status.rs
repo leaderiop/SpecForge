@@ -216,6 +216,26 @@ fn a_human_accepts_debt() {
     assert_eq!(p.fields_of(AUDIT)["debt_accepted"]["by"], "ada");
 }
 
+/// ADR 0298: an agent's delete of an entity holding a person's value is refused; the same entity without it is deleted.
+#[test]
+fn an_agent_cannot_delete_an_audit_carrying_debt_accepted() {
+    let p = verify();
+    p.edit(
+        "spec/audit.spec",
+        "  milestone v1.0\n",
+        "  milestone v1.0\n  debt_accepted {\n    by \"ada\"\n    at 2026-10-29\n  }\n",
+    );
+    let before = p.read("spec/audit.spec");
+    let run = p.run(&["delete", AUDIT]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("human_only"), "{}", run.all());
+    assert_eq!(p.read("spec/audit.spec"), before);
+    let without = verify();
+    let run = without.run(&["delete", AUDIT]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(!without.read("spec/audit.spec").contains("milestone_audit"));
+}
+
 #[test]
 fn audit_status_is_computed() {
     let p = verify();
