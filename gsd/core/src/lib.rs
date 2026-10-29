@@ -3,7 +3,7 @@
 pub mod agents;
 pub mod codes;
 mod collectors;
-mod commands;
+pub mod commands;
 mod digest;
 pub mod judged;
 mod kinds;

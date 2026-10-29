@@ -17,6 +17,52 @@ mod workstreams;
 
 use specforge_extension_sdk::prelude::*;
 
+/// The harness fields and the one thing that writes each: `(kind, field, writer)`. A writer is a writing command, or
+/// the collector `gsd-git` for a commit's fields. `tests/writer_roster.rs` pins the table against the `H` fields the
+/// kinds declare. `record_window` is the writer of a window's `recorded_at`; `propose_refactor` also stamps it on the
+/// deviation window it creates under `refactor.trigger_strict`.
+pub const WRITERS: &[(&str, &str, &str)] = &[
+    ("milestone", "completion", "close_milestone"),
+    ("checkpoint", "answer", "answer_checkpoint"),
+    ("user_setup", "done", "confirm_setup"),
+    ("summary", "started", "complete_plan"),
+    ("summary", "completed", "complete_plan"),
+    ("pause", "at", "pause"),
+    ("pause", "by", "pause"),
+    ("blocker", "raised", "raise_blocker"),
+    ("uat_test", "result", "set_uat_result"),
+    ("uat_test", "source", "set_uat_result"),
+    ("validation", "approval", "approve_validation"),
+    ("broken_window", "waiver", "waive_window"),
+    ("broken_window", "fixed_at", "fix_window"),
+    ("broken_window", "recorded_at", "record_window"),
+    ("refactor_proposal", "score", "propose_refactor"),
+    ("refactor_proposal", "baseline", "propose_refactor"),
+    ("refactor_proposal", "delta", "propose_refactor"),
+    ("refactor_proposal", "reasons", "propose_refactor"),
+    ("refactor_proposal", "candidates", "propose_refactor"),
+    ("refactor_proposal", "disposition", "dispose_refactor"),
+    ("commit", "hash", "gsd-git"),
+    ("commit", "task", "gsd-git"),
+    ("commit", "plan", "gsd-git"),
+    ("commit", "type", "gsd-git"),
+    ("commit", "subject", "gsd-git"),
+    ("commit", "at", "gsd-git"),
+    ("commit", "files", "gsd-git"),
+    ("commit", "created", "gsd-git"),
+    ("commit", "insertions", "gsd-git"),
+    ("commit", "deletions", "gsd-git"),
+];
+
+/// The harness fields no command writes yet: a command cannot read the computed `digest` of a phase's context (the
+/// graph a command receives carries no computed field), so `record_research`, `record_spec` and `record_validation`
+/// wait for a kernel answer. Until then a person records the digest of `specforge query <context> digest`.
+pub const UNWRITTEN: &[(&str, &str)] = &[
+    ("phase_spec", "context_digest"),
+    ("research", "context_digest"),
+    ("validation", "context_digest"),
+];
+
 pub fn declare(c: &mut ContributionsBuilder) {
     verdict::declare(c);
     execute::declare(c);
