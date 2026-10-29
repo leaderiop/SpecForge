@@ -3,8 +3,10 @@
 //!
 //! Plan status follows GSD's executor (`spec/plan.md`): `complete` or `halted` from its summary; `blocked` when a halted
 //! plan it depends on (at any depth, in its own phase) or a dependency cycle stops it (`halt`); `executing` when a
-//! recorded commit names it and it has no summary; `ready` otherwise. `draft` and `checked` need the plan-check
-//! verdicts (r40). A value is absent where its inputs are: a summary with only `started` has no `duration`.
+//! recorded commit names it and it has no summary. Before any of that the plan-check verdicts decide (`plan_check`):
+//! `checked` while the four plan-check rules (gsd/W311, W313, W315, W316) each hold a fresh passing verdict, `draft`
+//! otherwise, and `ready` when none is judged (`workflow.plan_check` is off: GSD's no-check path). A value is absent
+//! where its inputs are: a summary with only `started` has no `duration`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -39,6 +41,27 @@ pub fn summaries(input: &PassInput) -> BTreeMap<&str, &PassEntity> {
 /// A summary's `status`, case-folded: GSD reads it that way (`plan-dependency-graph.cts:47-60`).
 fn status_of(summary: &PassEntity) -> String {
     text(summary, "status").unwrap_or_default().to_lowercase()
+}
+
+/// The rules that check a plan.
+const PLAN_CHECK: [&str; 4] = ["gsd/W311", "gsd/W313", "gsd/W315", "gsd/W316"];
+
+/// A plan before execution: `checked` while all four plan-check verdicts are fresh and passing, `draft` while any is
+/// missing, stale, unrecorded or failing, `ready` when the rules judge it not at all (a gated rule has no
+/// judgement, and a pass is sent no settings, so the absence of all four is the signal).
+fn plan_check(plan: &PassEntity) -> &'static str {
+    let judged: Vec<_> = plan
+        .judgements
+        .iter()
+        .filter(|j| PLAN_CHECK.contains(&j.rule.as_str()))
+        .collect();
+    if judged.is_empty() {
+        "ready"
+    } else if judged.len() == PLAN_CHECK.len() && judged.iter().all(|j| j.passed) {
+        "checked"
+    } else {
+        "draft"
+    }
 }
 
 /// The status of every plan, by plan id.
@@ -81,7 +104,7 @@ pub fn plan_statuses<'a>(
                 Some("complete") => "complete",
                 _ if blocked.contains(id) => "blocked",
                 _ if named.contains(id) => "executing",
-                _ => "ready",
+                _ => plan_check(plan),
             };
             (id, status)
         })

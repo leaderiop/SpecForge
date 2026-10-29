@@ -237,3 +237,78 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
         ]
     );
 }
+
+fn judgement(rule: &str, state: &str, passed: bool) -> Value {
+    json!({ "rule": format!("gsd/{rule}"), "state": state, "passed": passed })
+}
+
+/// A plan with these plan-check judgements, over a project of one plan.
+fn judged_plan(judgements: Vec<Value>) -> PassInput {
+    let mut input = input(&["a"], &[], vec![]);
+    input.entities[0] = serde_json::from_value(
+        json!({ "id": plan("a"), "kind": "plan", "judgements": judgements }),
+    )
+    .expect("a plan entity");
+    input
+}
+
+fn checks(states: [(&str, bool); 4]) -> Vec<Value> {
+    ["W311", "W313", "W315", "W316"]
+        .into_iter()
+        .zip(states)
+        .map(|(rule, (state, passed))| judgement(rule, state, passed))
+        .collect()
+}
+
+#[test]
+fn a_plan_is_checked_only_with_four_fresh_passing_verdicts() {
+    let fresh = ("fresh", true);
+    // All four fresh and passing: checked.
+    assert_eq!(
+        status(&judged_plan(checks([fresh; 4])), &[], "a"),
+        "checked"
+    );
+    // Any one missing, stale, unrecorded or failing: draft.
+    for odd in [
+        ("missing", false),
+        ("stale", false),
+        ("unrecorded", false),
+        ("fresh", false),
+    ] {
+        for at in 0..4 {
+            let mut states = [fresh; 4];
+            states[at] = odd;
+            assert_eq!(
+                status(&judged_plan(checks(states)), &[], "a"),
+                "draft",
+                "{odd:?} at {at}"
+            );
+        }
+    }
+    // Fewer than four judgements is no check either.
+    let mut three = checks([fresh; 4]);
+    three.pop();
+    assert_eq!(status(&judged_plan(three), &[], "a"), "draft");
+    // Another rule's judgement is not a plan check.
+    let other = vec![judgement("E501", "fresh", true)];
+    assert_eq!(status(&judged_plan(other), &[], "a"), "ready");
+    // No judgement at all (the rules are gated off): GSD's no-check path.
+    assert_eq!(status(&judged_plan(vec![]), &[], "a"), "ready");
+}
+
+#[test]
+fn execution_beats_the_check() {
+    let fresh = ("fresh", true);
+    let mut input = judged_plan(checks([fresh; 4]));
+    assert_eq!(status(&input, &[], "a"), "checked");
+    assert_eq!(
+        status(&input, &[commit("a", None, &[], &[])], "a"),
+        "executing"
+    );
+    input.entities.push(summary("a", "complete"));
+    assert_eq!(status(&input, &[], "a"), "complete");
+    // A failing check does not hide a halt either.
+    let mut halted = judged_plan(checks([("missing", false); 4]));
+    halted.entities.push(summary("a", "halted"));
+    assert_eq!(status(&halted, &[], "a"), "halted");
+}

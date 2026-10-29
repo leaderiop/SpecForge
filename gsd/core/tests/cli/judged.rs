@@ -306,3 +306,76 @@ fn the_judge_is_the_rules_not_the_callers() {
             .contains("judge \"gsd-plan-checker@")
     );
 }
+
+const PLAN_CHECK_RULES: [&str; 4] = ["W311", "W313", "W315", "W316"];
+
+fn status_of(p: &Project, id: &str) -> serde_json::Value {
+    p.fields_of(id)["status"].clone()
+}
+
+fn record_all(p: &Project, entity: &str) {
+    for code in PLAN_CHECK_RULES {
+        let run = p.record(entity, code, "passed", &[]);
+        assert_eq!(run.code, 0, "{code}: {}", run.all());
+    }
+}
+
+#[test]
+fn four_passing_verdicts_make_checked() {
+    let p = project("plan");
+    assert_eq!(status_of(&p, PLAN), "draft");
+    // Three of four is not enough.
+    for code in &PLAN_CHECK_RULES[..3] {
+        let run = p.record(PLAN, code, "passed", &[]);
+        assert_eq!(run.code, 0, "{code}: {}", run.all());
+        assert_eq!(status_of(&p, PLAN), "draft", "after {code}");
+    }
+    let run = p.record(PLAN, "W316", "passed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status_of(&p, PLAN), "checked");
+    // The other plans are untouched.
+    assert_eq!(status_of(&p, "v1.0/01/01-01"), "draft");
+}
+
+#[test]
+fn a_failing_check_leaves_the_plan_a_draft() {
+    let p = project("plan");
+    record_all(&p, PLAN);
+    assert_eq!(status_of(&p, PLAN), "checked");
+    // A failing verdict replaces a passing one (under gsd-compat W313 is a warning, so the host takes it).
+    let run = p.record(PLAN, "W313", "issues", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(status_of(&p, PLAN), "draft");
+}
+
+#[test]
+fn an_edited_input_stales_checked() {
+    let p = project("plan");
+    record_all(&p, PLAN);
+    assert_eq!(status_of(&p, PLAN), "checked");
+    p.edit(
+        "spec/plans.spec",
+        "A task can be marked complete",
+        "A task can be marked done",
+    );
+    assert_eq!(status_of(&p, PLAN), "draft");
+    let stale: Vec<_> = p
+        .report_all()
+        .into_iter()
+        .filter(|(c, m)| c == "gsd/W311" && m.contains(PLAN))
+        .collect();
+    assert_eq!(stale.len(), 1, "{stale:?}");
+    assert!(stale[0].1.contains("is stale: "), "{stale:?}");
+    assert_eq!(state(&p, PLAN, "W311").0, "stale");
+    // Judging it again makes it checked again.
+    record_all(&p, PLAN);
+    assert_eq!(status_of(&p, PLAN), "checked");
+}
+
+#[test]
+fn plan_check_off_is_ready() {
+    let p = project("plan");
+    p.settings(json!({ "workflow.plan_check": false }));
+    assert_eq!(status_of(&p, PLAN), "ready");
+    assert_eq!(status_of(&p, "v1.0/01/01-01"), "ready");
+}

@@ -1,6 +1,6 @@
 //! The compute pass: every `C` field of the model is listed in `computes`, as the kernel needs a compute pass for
 //! each computed field it declares (W021 otherwise). It answers `context.digest` and the values of execution
-//! (`execute`: plan and task status, a summary's duration, actuals and key files, a deliverable check's status). It
+//! (`execute`: plan (`draft`, `checked`, `ready` from the plan-check verdicts, then execution) and task status, a summary's duration, actuals and key files, a deliverable check's status). It
 //! declares `reads_tests`, to read the report for the checks only, so a compile without `specforge-report.json` says
 //! I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and retrospective values.
 //!
@@ -8,8 +8,8 @@
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`.
 //!
-//! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection), `retrospective.sessions` (no harness), and
-//! plan `draft`/`checked` (the plan-check verdicts, r40). Not answered, for want of the kernel:
+//! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
+//! Not answered, for want of the kernel:
 //! `re_verification.previous_status` and `previous_score` (the baseline sees no source file, see `verify`).
 
 mod audit;
