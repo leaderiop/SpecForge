@@ -1,6 +1,8 @@
 //! The execution kinds, end to end (`spec/execute.md`): how `specforge` names, resolves and checks a summary, its
 //! deliverables and its deviations on the `execute` project.
 
+use serde_json::json;
+
 use crate::harness::{Run, project};
 
 const SUMMARY: &str = "v1.0/01/01-01/01-01-SUMMARY";
@@ -456,5 +458,24 @@ fn a_handoff_names_its_blockers_and_decisions() {
             ("phase".into(), "v1.0/01".into()),
             ("task".into(), "v1.0/01/01-02/T1".into()),
         ]
+    );
+}
+
+#[test]
+fn a_decision_of_a_summary_is_linked_by_its_key_decisions() {
+    let p = project("execute");
+    p.write(
+        "spec/decisions.spec",
+        "decision D-77 \"Keep a store\" {\n  phase  v1.0/01\n  text   \"Tasks live in a store\"\n  origin summary\n}\n",
+    );
+    p.edit(
+        "spec/plans.spec",
+        "requirements_completed [TASK-01]",
+        "requirements_completed [TASK-01]\n  key_decisions          [v1.0/01/D-77]",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+    assert_eq!(
+        p.fields_of("v1.0/01/01-01/01-01-SUMMARY")["key_decisions"],
+        json!(["v1.0/01/D-77"])
     );
 }

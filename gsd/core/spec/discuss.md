@@ -31,7 +31,7 @@ GSD: `NN-CONTEXT.md`, written by `/gsd-discuss-phase`. One per phase; scoped by 
 
 ## decision
 
-GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisions`. Name `D-01`, scoped by its phase
+GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisions`. A decision of `origin summary` has no `from_summary` field: the summary names it by `summary.key_decisions`, and a relation is written from one side (W162); the graph derives the way back. Name `D-01`, scoped by its phase
 (or by the project for project decisions).
 
 | Field | Type | Flags | GSD |
@@ -44,7 +44,6 @@ GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisi
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
 | settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311 (r40), not by gsd/E310, which counts every trackable decision as GSD does |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
-| from_summary | → summary | | when `origin summary`; declared with `summary` (r38): a reference to a kind no extension declares is W021 |
 | superseded_by | → decision | | a later decision that reverses it |
 
 ## deferred_idea
