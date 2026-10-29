@@ -23,7 +23,10 @@ pub fn decode(text: &str) -> String {
     while let Some(at) = rest.find('&') {
         out.push_str(&rest[..at]);
         rest = &rest[at..];
-        let decoded = rest.find(';').and_then(|end| {
+        // An entity is short: a `;` further than 12 characters away is not its end (and a search to the end of a
+        // long value for every `&` would be quadratic).
+        let end = rest.char_indices().take(12).find(|(_, c)| *c == ';');
+        let decoded = end.map(|(end, _)| end).and_then(|end| {
             let name = &rest[1..end];
             let value = match name {
                 "amp" => Some('&'),

@@ -188,19 +188,87 @@ fn the_relative_path_is_the_reports_or_the_roots() {
     assert_eq!(relative("test/a.js", "/p"), "test/a.js");
     assert_eq!(relative("./test/a.js", "/p"), "test/a.js");
     assert_eq!(relative("/q/test/a.js", "/p"), "/q/test/a.js");
+    // A sibling directory that starts with the root's name is not under it.
+    assert_eq!(relative("/pp/test/a.js", "/p"), "/pp/test/a.js");
 }
 
 #[test]
 fn an_unlinked_test_keeps_its_classname_segments() {
-    let output = run(r#"<testcase name="t" classname="acme.Add" />"#, vec![]);
+    let output = run(
+        r#"<testsuite><testcase name="t" classname="acme.Add" /></testsuite>"#,
+        vec![],
+    );
     assert_eq!(output.unlinked[0].path, ["acme", "Add", "t"]);
 }
 
 #[test]
 fn the_collector_never_answers_a_plan() {
-    for report in ["", "<testcase name=\"[gsd:x] a\"/>", "<testsuite/>"] {
+    for report in [
+        "",
+        "<testsuite><testcase name=\"[gsd:x] a\"/></testsuite>",
+        "<testsuite/>",
+    ] {
         for nodes in [vec![], vec![node("x", "truth")]] {
             assert!(run(report, nodes).plan.is_none(), "{report:?}");
         }
     }
+}
+
+fn collected(report: &str) -> Result<CollectOutput, String> {
+    collect(&CollectInput {
+        reports: vec![CollectReportFile {
+            path: "junit.xml".into(),
+            content: report.into(),
+        }],
+        cwd: Some("/p".into()),
+        graph: Some(GraphWire {
+            nodes: vec![node("v1.0/01/01-01/TR1", "truth")],
+            edges: vec![],
+        }),
+        ..Default::default()
+    })
+}
+
+#[test]
+fn a_report_cut_inside_a_test_or_no_xml_is_refused() {
+    // The last test failed and the report stopped: it must not read as an empty report.
+    let cut = "<testsuite><testcase name=\"[gsd:01-01/TR1] a\"><failure/>";
+    assert!(collected(cut).is_err());
+    assert!(collected("hello world").is_err());
+    assert!(collected("<testsuite/>").is_ok());
+}
+
+#[test]
+fn two_tags_of_one_entity_are_one_result_and_a_bad_tag_is_listed() {
+    let output = collected(
+        "<testsuite><testcase name=\"[gsd:01-01/TR1] [gsd:v1.0/01/01-01/TR1] [gsd:nobody] a\"/></testsuite>",
+    )
+    .expect("an answer");
+    assert_eq!(output.entity_results.len(), 1);
+    assert_eq!(output.entity_results[0].test_results.len(), 1);
+    assert_eq!(output.unlinked.len(), 1, "the unresolved tag is reported");
+}
+
+#[test]
+fn a_time_is_a_finite_non_negative_number() {
+    for (time, seconds) in [
+        ("1.5", Some(1.5)),
+        ("-5", None),
+        ("NaN", None),
+        ("inf", None),
+    ] {
+        let found = cases(&format!(
+            "<testsuite><testcase name=\"a\" time=\"{time}\"/></testsuite>"
+        ))
+        .expect("a report");
+        assert_eq!(found[0].seconds, seconds, "{time}");
+    }
+}
+
+#[test]
+fn a_malformed_entity_costs_no_more_than_its_length() {
+    let value = "&amp".repeat(100_000);
+    let started = std::time::Instant::now();
+    assert_eq!(decode(&value).len(), value.len());
+    assert!(started.elapsed().as_secs() < 2);
 }

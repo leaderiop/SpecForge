@@ -46,8 +46,12 @@ struct Case {
 fn cases(text: &str) -> Result<Vec<Case>, String> {
     let mut found = Vec::new();
     let mut open: Option<Case> = None;
+    let mut rooted = false;
     for event in events(text)? {
         match event {
+            Event::Open { name, .. } if name == "testsuite" || name == "testsuites" => {
+                rooted = true
+            }
             Event::Open { name, attrs, empty } if name == "testcase" => {
                 let attr = |key: &str| {
                     attrs
@@ -60,7 +64,11 @@ fn cases(text: &str) -> Result<Vec<Case>, String> {
                     name: attr("name"),
                     classname: attr("classname"),
                     file: attr("file"),
-                    seconds: attr("time").trim().parse().ok(),
+                    seconds: attr("time")
+                        .trim()
+                        .parse()
+                        .ok()
+                        .filter(|s: &f64| s.is_finite() && *s >= 0.0),
                     status: TestStatus::Passed,
                 };
                 if empty {
@@ -83,6 +91,15 @@ fn cases(text: &str) -> Result<Vec<Case>, String> {
             Event::Close(name) if name == "testcase" => found.extend(open.take()),
             Event::Close(_) => {}
         }
+    }
+    // A report that stops inside a test, or is no JUnit at all, is no report: a failing last test must not vanish.
+    if open.is_some() {
+        return Err("the report stops inside a <testcase>".to_string());
+    }
+    if !rooted && !text.trim().is_empty() {
+        return Err(
+            "no <testsuite> or <testsuites> element: this is not a JUnit report".to_string(),
+        );
     }
     Ok(found)
 }
@@ -107,6 +124,7 @@ fn tags(name: &str) -> Vec<&str> {
 fn relative<'a>(path: &'a str, cwd: &str) -> &'a str {
     let path = path
         .strip_prefix(cwd)
+        .filter(|rest| rest.starts_with('/'))
         .map_or(path, |rest| rest.trim_start_matches('/'));
     path.strip_prefix("./").unwrap_or(path)
 }
@@ -143,13 +161,21 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 duration_ms: case.seconds.map(|s| s * 1000.0),
             };
             let mut hit = false;
+            let mut unresolved = false;
+            let mut seen: Vec<&str> = Vec::new();
             for id in tags(&case.name) {
-                if let Found::One(node) = find(nodes, id) {
-                    linked
-                        .entry(node.id.clone())
-                        .or_default()
-                        .push(result(&case.name));
-                    hit = true;
+                match find(nodes, id) {
+                    // Two tags of one test that name one entity are one result.
+                    Found::One(node) if seen.contains(&node.id.as_str()) => {}
+                    Found::One(node) => {
+                        seen.push(&node.id);
+                        linked
+                            .entry(node.id.clone())
+                            .or_default()
+                            .push(result(&case.name));
+                        hit = true;
+                    }
+                    _ => unresolved = true,
                 }
             }
             let file = relative(&case.file, cwd);
@@ -163,7 +189,8 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                     hit = true;
                 }
             }
-            if !hit {
+            // A tag that names no entity (or several) is listed, whatever else the test linked to.
+            if !hit || unresolved {
                 let mut path: Vec<String> = case
                     .classname
                     .split('.')

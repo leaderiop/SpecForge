@@ -107,6 +107,17 @@ phase from here instead of a manifest file.
   (`#name`) matches on the name alone. The file part ends at the first `#`, so a test name may hold one (`fixes #42`). The result is recorded under the deliverable and named by the `ref` exactly, which
   is what the derive pass looks a check's status up by.
 
+  Limits of the link, by design: a reporter that writes no `file` attribute (jest-junit and pytest by default) matches
+  only a `ref` with an empty file part; the root is stripped as the collector is given it, so a report written under a
+  symlinked root (`/tmp` and `/private/tmp`) does not link by file; a `time` that is negative, not a number or spelled
+  with a thousands separator gives no duration. A report cut inside a `<testcase>`, or that holds no `<testsuite>`, is
+  refused; a tag that names no entity, or several, lists the test as unlinked even when another tag linked it.
+
+`gsd-git` reads the whole `git log` on every run (no `--since`): a repository of ten thousand commits costs seconds and
+the host's 512 MB / 30 s guest limit is the bound. Its records start at a NUL, control characters in a subject or path
+become U+FFFD, and a commit with a bad hash or time is skipped and named in the plan's title. It does not clear
+`GIT_DIR` and the like (the host runs the command).
+
 A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
 after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
 report the project's own test run wrote: `specforge collect --runner gsd-junit --no-run` (the declared report is
