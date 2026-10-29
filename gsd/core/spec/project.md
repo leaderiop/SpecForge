@@ -71,7 +71,7 @@ they are, and `specforge query` answers what an archive answered.
 
 ## phase
 
-GSD: `### Phase N: Name` in `ROADMAP.md` and its directory. Name: `03`, `03.1` (inserted), `999.1` (backlog).
+GSD: `### Phase N: Name` in `ROADMAP.md` and its directory. Name: `03`, `03.1` (inserted), `999.1` (backlog; `/gsd-phase --promote 999.1` renames it, and its children, to the next integer of the milestone, and `--remove 999.1` deletes it without renumbering).
 Scoped by milestone.
 
 | Field | Type | Flags | GSD |
@@ -86,7 +86,7 @@ Scoped by milestone.
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
 | tag | str | | the parenthetical, `(Cluster B)` |
 | inserted | bool | C | `(INSERTED)`: a name that holds a `.`, but not a `999.x` one |
-| backlog | bool | C | a `999.x` name |
+| backlog | bool | C | a `999.x` name; only `--promote` and `--remove` of `phase` act on it |
 | frontend | bool | C | the ui gate's `frontend` detection (`@gsd/ui`'s; core never answers it) |
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
