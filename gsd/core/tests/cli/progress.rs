@@ -30,47 +30,6 @@ fn collect(p: &Project) {
 }
 
 #[test]
-fn progress_matches_progress_json_golden() {
-    // The twin has no summary yet: the plan counts are the golden's, the summaries are 0 and the labels follow. The
-    // full comparison, with summaries, is `parity_state`'s.
-    let p = taskboard();
-    let golden: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../parity/goldens/taskboard/progress-json.json"
-        ))
-        .expect("the golden"),
-    )
-    .expect("JSON");
-    let counts: Vec<String> = golden["phases"]
-        .as_array()
-        .expect("phases")
-        .iter()
-        .map(|ph| format!("0/{}", ph["plans"]))
-        .collect();
-    let ladder: Vec<(String, String)> = ["01", "02", "02.1", "03"]
-        .iter()
-        .map(|n| {
-            let fields = p.fields_of(&format!("v1.0/{n}"));
-            (
-                fields["plans_complete"].as_str().unwrap_or("-").to_string(),
-                fields["status"].as_str().unwrap_or("-").to_string(),
-            )
-        })
-        .collect();
-    let expected: Vec<(String, String)> = counts
-        .into_iter()
-        .zip(["planned", "planned", "not_started", "not_started"])
-        .map(|(c, s)| (c, s.to_string()))
-        .collect();
-    assert_eq!(ladder, expected);
-    assert_eq!(
-        field(&p, "v1.0", "progress"),
-        json!({"phases": 4, "phases_complete": 0, "plans": 3, "plans_complete": 0, "percent": 0})
-    );
-}
-
-#[test]
 fn a_requirement_is_complete_once_a_plan_naming_it_completes() {
     let p = repository();
     assert_eq!(field(&p, "TASK-01", "status"), "complete");

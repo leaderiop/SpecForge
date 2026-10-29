@@ -171,3 +171,55 @@ key_link KL1 "The command line imports the store" {
   to   "src/store.js"
   via  "import { loadBoard, saveBoard }"
 }
+
+summary 01-01-SUMMARY "The task model and add: summary" {
+  plan                   v1.0/01/01-01
+  status                 complete
+  one_liner              "A board of plain data with `addTask`, ids counting up from 1 and never reused."
+  subsystem              "tasks"
+  tags                   ["node", "esm"]
+  provides               ["createBoard and addTask"]
+  affects                ["01-02", "persistence"]
+  tech_patterns          ["a board is plain data: { tasks, nextId }"]
+  requirements_completed [TASK-01]
+}
+
+deliverable D1 "A task is added with the next integer id" {
+  summary        v1.0/01/01-01/01-01-SUMMARY
+  description    "A task is added with the next integer id and keeps its title"
+  requirement    TASK-01
+  human_judgment false
+  checks         [
+    { kind unit ref "test/tasks.test.js#a task is added with the next id" }
+  ]
+}
+
+summary 01-02-SUMMARY "complete and the command line: summary" {
+  plan                   v1.0/01/01-02
+  status                 complete
+  one_liner              "`taskboard add` and `taskboard done` over a board whose tasks complete by id."
+  subsystem              "tasks"
+  tags                   ["node", "cli"]
+  provides               ["completeTask", "taskboard add and taskboard done"]
+  affects                ["persistence", "listing"]
+  tech_patterns          ["the command line is a thin switch over src/tasks.js"]
+  requirements_completed [TASK-02]
+}
+
+deliverable D1 "A task is completed by its id" {
+  summary        v1.0/01/01-02/01-02-SUMMARY
+  description    "A task is completed by its id, and an unknown id is refused by name"
+  requirement    TASK-02
+  human_judgment false
+  checks         [
+    { kind unit ref "test/tasks.test.js#a task is completed by its id" }
+    { kind unit ref "test/tasks.test.js#completing an unknown id throws" }
+  ]
+}
+
+deliverable D2 "The command line adds and completes tasks" {
+  summary        v1.0/01/01-02/01-02-SUMMARY
+  description    "The command line adds and completes tasks"
+  human_judgment true
+  rationale      "The output wording is a judgement a person makes at the terminal"
+}

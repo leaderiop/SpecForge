@@ -1,5 +1,5 @@
 #!/bin/sh
-# Records what gsd-tools answers over the taskboard fixture into goldens/taskboard/.
+# Records what gsd-tools answers over the taskboard fixture, and what its own tests report, into goldens/taskboard/.
 #
 #   GSD_CORE_DIR=<a v1.18.0 checkout with its lib built> gsd/parity/record.sh
 #
@@ -82,6 +82,11 @@ record verify-failure-directions-1 query check.verify-failure-directions 1
 record verify-failure-directions-2 query check.verify-failure-directions 2
 record gap-analysis-plan-post-1 query check.gap-analysis-plan-post .planning/phases/01-core TASK-01,TASK-02
 record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/phases/02-persistence STORE-01,STORE-02
+# The recorded tests: what `npm test` writes (node's JUnit reporter), with the machine's paths and timings out, so a
+# second run changes nothing. `gsd-junit` links its tests to the twin's deliverables by name and project-relative file.
+(cd "$work" && npm test >/dev/null)
+real=$(cd "$work" && pwd -P)
+sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' "$work/junit.xml" >"$staged/junit.xml"
 mkdir -p "$out"
-cp "$staged"/*.json "$out"/
+cp "$staged"/*.json "$staged/junit.xml" "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"

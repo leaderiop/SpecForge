@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="a task is added with the next id" time="0" classname="test" file="test/tasks.test.js"/>
+	<testcase name="a task is completed by its id" time="0" classname="test" file="test/tasks.test.js"/>
+	<testcase name="completing an unknown id throws" time="0" classname="test" file="test/tasks.test.js"/>
+	<!-- tests 3 -->
+	<!-- suites 0 -->
+	<!-- pass 3 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+</testsuites>

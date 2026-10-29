@@ -9,6 +9,7 @@ mod harness;
 mod parity_discuss;
 mod parity_plans;
 mod parity_roadmap;
+mod parity_state;
 mod plan;
 mod plan_rules;
 mod progress;
