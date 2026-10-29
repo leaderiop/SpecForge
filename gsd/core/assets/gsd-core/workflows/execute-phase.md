@@ -959,7 +959,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      done
 
      # Only commit tracking files if they actually changed
-     if ! git diff --quiet the `milestone` and `phase` entities the computed project state 2>/dev/null; then
+     if ! git diff --quiet spec/ 2>/dev/null; then
        git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
      fi
    elif [ "${TEST_EXIT}" -eq 124 ]; then
@@ -1348,8 +1348,8 @@ Copy failure must NOT block phase completion.
 
 ```bash
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-PENDING_DIR="the pending todos"
-COMPLETED_DIR="the pending todos"
+PENDING_DIR=$(mktemp -d)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
+COMPLETED_DIR=$(mktemp -d)
 mkdir -p "$COMPLETED_DIR"
 PHASE_NUM="${PHASE_NUMBER}"
 #2576

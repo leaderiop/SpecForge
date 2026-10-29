@@ -150,7 +150,7 @@ If user selects "Proceed anyway": set `closeout_type=override_closeout`; note in
 <config-check>
 
 ```bash
-cat the settings (`specforge settings`) 2>/dev/null || true
+specforge settings --format json 2>/dev/null || true
 ```
 
 </config-check>
@@ -218,8 +218,8 @@ Extract one-liners from SUMMARY.md files using summary-extract:
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 # For each phase in milestone, extract one-liner
-for summary in the `summary` entity of phase *-*; do
-  [ -e "$summary" ] || continue
+for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id'); do
+  [ -n "$summary" ] || continue
   specforge query "$summary" --depth 0 --format json | jq -r '.nodes[0].fields.one_liner'
 done
 ```
@@ -252,8 +252,8 @@ Full PROJECT.md evolution review at milestone completion.
 Read all phase summaries:
 
 ```bash
-_SUMMARIES=( the `summary` entity of phase *-* )
-if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
+_SUMMARIES=( $(specforge query "$MILESTONE" --depth 3 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id') )
+if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge query "$s" --depth 0 --format context; done; fi
 ```
 
 **Full review checklist:**
@@ -566,7 +566,7 @@ _gsd_field() { node -e "const o=JSON.parse(process.argv[1]); const v=o[process.a
 
 Check for existing retrospective:
 ```bash
-ls the `retrospective` entities 2>/dev/null || true
+specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
 ```
 
 **If exists:** Read the file, append new milestone section before the "## Cross-Milestone Trends" section.

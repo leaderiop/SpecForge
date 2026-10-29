@@ -208,9 +208,9 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # one iteration there.
   for branch in $(printf '%s' "$PHASE_BRANCHES"); do
     git merge --squash "$branch"
-    # Strip the spec from staging if commit_docs is false
+    # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
-      git reset HEAD the spec 2>/dev/null || true
+      git reset HEAD spec/ 2>/dev/null || true
     fi
     git commit -m "feat: $branch for v[X.Y]"
   done
@@ -218,9 +218,9 @@ fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   git merge --squash "$MILESTONE_BRANCH"
-  # Strip the spec from staging if commit_docs is false
+  # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
-    git reset HEAD the spec 2>/dev/null || true
+    git reset HEAD spec/ 2>/dev/null || true
   fi
   git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
 fi
@@ -240,9 +240,9 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # one iteration there.
   for branch in $(printf '%s' "$PHASE_BRANCHES"); do
     git merge --no-ff --no-commit "$branch"
-    # Strip the spec from staging if commit_docs is false
+    # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
-      git reset HEAD the spec 2>/dev/null || true
+      git reset HEAD spec/ 2>/dev/null || true
     fi
     git commit -m "Merge branch '$branch' for v[X.Y]"
   done
@@ -250,9 +250,9 @@ fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   git merge --no-ff --no-commit "$MILESTONE_BRANCH"
-  # Strip the spec from staging if commit_docs is false
+  # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
-    git reset HEAD the spec 2>/dev/null || true
+    git reset HEAD spec/ 2>/dev/null || true
   fi
   git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
 fi

@@ -147,7 +147,7 @@ specforge new finding "<id>" "<short title>" --in <file> \
   --research "$RESEARCH_ID" \
   --text "<one-paragraph digest>" \
   --topic <topic> \
-  --confidence <high|medium|low>
+  --confidence "<high|medium|low>"
 ```
 
 
@@ -795,7 +795,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 7: Commit Research (optional)
 
 ```bash
-git add <the phase's .spec files> && git commit -m "docs($PHASE): research phase domain"
+git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
 ```
 
 ## Step 8: Return Structured Result

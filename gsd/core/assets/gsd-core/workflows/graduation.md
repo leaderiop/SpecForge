@@ -44,7 +44,7 @@ GRADUATION_THRESHOLD="3"   # features.graduation_threshold: read it from the set
 Find LEARNINGS.md files from the last N completed phases (excluding the phase currently completing):
 
 ```bash
-find the `phase` entities -name "*-LEARNINGS.md" | sort | tail -n "$GRADUATION_WINDOW"
+specforge query "$MILESTONE" --depth 2 --kinds lesson --format brief | jq -r '.nodes[]|select(.kind=="lesson")|.id' | sort | tail -n "$GRADUATION_WINDOW"
 ```
 
 For each file found:

@@ -256,9 +256,9 @@ shell:
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 OUTGOING_MILESTONE="<the outgoing milestone noted in Step 3>"
 if [ -n "$OUTGOING_MILESTONE" ]; then
-  # no bulk clear: remove each phase with `specforge gsd phase --remove`, archiving under "$OUTGOING_MILESTONE"
+  : # no bulk clear: remove each phase with `specforge gsd phase --remove`, archiving under "$OUTGOING_MILESTONE"
 else
-  # no bulk clear: remove each phase with `specforge gsd phase --remove`
+  : # no bulk clear: remove each phase with `specforge gsd phase --remove`
 fi
 # nothing to clean up: no scratch file was written
 ```

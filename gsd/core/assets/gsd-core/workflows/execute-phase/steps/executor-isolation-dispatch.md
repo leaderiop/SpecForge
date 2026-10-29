@@ -227,8 +227,8 @@ Read these files at execution start using the Read tool.
 First resolve repo root so every path is anchored:
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 - ${PROJECT_ROOT}/{phase_dir}/{plan_file} (Plan — THE plan you are executing)
-- ${PROJECT_ROOT}/the `project` entity (Project context — core value, requirements, evolution rules)
-- ${PROJECT_ROOT}/the computed project state (State)
+- ${PROJECT_ROOT}/spec/ (the project, requirement and decision entities: Project context — core value, requirements, evolution rules)
+- (State is computed: run specforge gsd progress-report)
 - ${PROJECT_ROOT}/the settings (`specforge settings`) (Config, if exists)
 - ${PROJECT_ROOT}/CLAUDE.md (Project instructions, if exists — follow project-specific guidelines and coding conventions)
 - ${PROJECT_ROOT}/.claude/skills/ or ${PROJECT_ROOT}/.agents/skills/ (Project skills, if either exists — list skills, read SKILL.md for each, follow relevant rules during implementation)
@@ -249,10 +249,10 @@ ${AGENT_SKILLS}
 - [ ] All tasks executed
 - [ ] Each task committed individually
 - [ ] SUMMARY.md created in the plan directory and committed — OR an
-      intentional skip recorded (skipped_gitignored when the spec is
+      intentional skip recorded (skipped_gitignored when spec/ is
       gitignored, skipped_commit_docs_false when commit_docs is disabled).
       Never force-stage gitignored planning artifacts: git add -f on
-      the spec paths is forbidden. An intentional skip is a success path.
+      spec/ paths is forbidden. An intentional skip is a success path.
 - [ ] No modifications to shared orchestrator artifacts (the orchestrator handles all post-wave shared-file writes)
 </success_criteria>'
 [ -n "$EXECUTOR_PROMPT" ] || { echo "FATAL: executor prompt is empty for plan {plan_number}." >&2; exit 1; }

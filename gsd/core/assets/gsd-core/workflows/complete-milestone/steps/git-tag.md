@@ -15,7 +15,7 @@ Key accomplishments:
 - [Item 2]
 - [Item 3]
 
-See the `milestone` entities for full details."
+See the milestone entity in spec/ for full details."
 ```
 
 Confirm: "Tagged: v[X.Y]"

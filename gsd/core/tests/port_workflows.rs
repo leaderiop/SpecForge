@@ -29,6 +29,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 669),
     ("gsd-core/workflows/complete-milestone.md", 743),
     ("gsd-core/workflows/complete-milestone.md", 744),
+    // REVIEW-r42 M4: a shell line whose path had been swapped for prose.
+    ("gsd-core/workflows/complete-milestone.md", 220),
+    ("gsd-core/workflows/complete-milestone.md", 254),
+    ("gsd-core/workflows/transition.md", 222),
 ];
 
 fn root() -> PathBuf {

@@ -65,8 +65,8 @@ If the spec missing: error.
 <step name="identify_plan">
 ```bash
 # Use plans/summaries from INIT JSON, or list files
-(ls the `plan` entity of phase XX-name 2>/dev/null || true) | sort
-(ls the `summary` entity of phase XX-name 2>/dev/null || true) | sort
+(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
+(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
 ```
 
 Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix/`).
@@ -97,12 +97,12 @@ PLAN_START_EPOCH=$(date +%s)
 <step name="parse_segments">
 ```bash
 # Count tasks — match <task tag at any indentation level
-TASK_COUNT=$(grep -cE '^\s*<task[[:space:]>]' the `plan` entity of phase XX-name 2>/dev/null || echo "0")
+TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --format json 2>/dev/null | jq '[.nodes[]|select(.kind=="task")]|length' || echo "0")
 INLINE_THRESHOLD="2"   # workflow.inline_plan_threshold: read it from the settings block; this is its default
 USE_WORKTREES="true"   # workflow.use_worktrees: read it from the settings block; this is its default
 RUNTIME="claude"   # runtime: read it from the settings block; this is its default
 HUMAN_VERIFY_MODE="end-of-phase"   # workflow.human_verify_mode: read it from the settings block; this is its default
-grep -n "type=\"checkpoint" the `plan` entity of phase XX-name
+specforge query "$PLAN_ID" --kinds checkpoint --format context
 ```
 
 **Primary routing: task count threshold (#1979)**
@@ -159,17 +159,17 @@ Fresh context per subagent preserves peak quality. Main context stays lean.
 
 <step name="init_agent_tracking">
 ```bash
-if [ ! -f the spec ]; then
-  echo '{"version":"1.0","max_entries":50,"entries":[]}' > the spec
+if false; then   # no agent-history.json: the host tracks the agents it spawns
+  :
 fi
 # #3795: read a SURVIVING id before clearing it — the clear used to run
 # first, so the check below was always false and the resume prompt at this
 # step's tail was never offered.
-if [ -f the spec ]; then
-  INTERRUPTED_ID=$(cat the spec)
+if false; then   # no current-agent-id.txt: an interrupted agent is the host's to resume
+  INTERRUPTED_ID=""
   echo "Found interrupted agent: $INTERRUPTED_ID"
 fi
-rm -f the spec
+: # no file to clear
 ```
 
 If interrupted: ask user to resume (Task `resume` parameter) or start fresh.
@@ -205,7 +205,7 @@ Pattern B only (verify-only checkpoints). Skip for A/C.
 
 <step name="load_prompt">
 ```bash
-cat the `plan` entity of phase XX-name
+specforge query "$PLAN_ID" --depth 1 --format context
 ```
 This IS the execution instructions. Follow exactly. If plan references CONTEXT.md: honor user's vision throughout.
 
@@ -404,7 +404,7 @@ fi
 
 <step name="generate_user_setup">
 ```bash
-grep -A 50 "^user_setup:" the `plan` entity of phase XX-name | head -50
+specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
 ```
 
 If user_setup exists: create `{phase}-USER-SETUP.md` using the template at `~/.claude/gsd-core/templates/user-setup.md` (or its `~/.claude/gsd-core/templates/user-setup.compact.md` variant — resolve per `~/.claude/gsd-core/references/compact-content-gate.md` §"Streams 1b and 4"). Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
@@ -479,7 +479,7 @@ specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 The session is not tracked in the spec; the plan's summary is the record:
 
 ```bash
-: "state.record-session: the session is not tracked in the spec" \
+: "no session record: the plan's summary is the record" \
   --stopped-at "Completed ${PHASE}-${PLAN}-PLAN.md" \
   --resume-file "None"
 ```

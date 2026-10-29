@@ -122,7 +122,7 @@ point the user at producing COVERAGE.md before re-running verification.
 **First: Check for active UAT sessions**
 
 ```bash
-(find the `phase` entities -name "*-UAT.md" -type f 2>/dev/null || true)
+(specforge query "$MILESTONE" --depth 2 --kinds uat_session --format brief 2>/dev/null || true)
 ```
 
 **If active sessions exist AND no $ARGUMENTS provided:**

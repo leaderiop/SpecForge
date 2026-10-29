@@ -43,7 +43,7 @@ For each gap that has a `debug_session:` field:
 - Move to resolved directory:
 ```bash
 # no folder to create: the entities live in the spec
-mv the spec the spec
+: # no file to move: debug sessions are not entities of @gsd/core
 ```
 
 **6. Commit updated artifacts:**

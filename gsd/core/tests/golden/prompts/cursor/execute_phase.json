@@ -1,5 +1,5 @@
 {
-  "bytes": 108758,
+  "bytes": 108764,
   "head": [
     "<cursor_skill_adapter>",
     "## B. User Prompting",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:c4af53240fa57dc22830e36b8114453eea5af337912e58887977cba841030791",
+    "digest": "sha256:9cc1547c9b06460b1e7f225445c851e5419b2bc1ebdde7e5c2a096cfff7aca3c",
     "prompt": "@gsd/core@0.1.0:execute_phase",
     "steps": [
       {
@@ -125,5 +125,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "c4af53240fa57dc22830e36b8114453eea5af337912e58887977cba841030791"
+  "sha256": "9cc1547c9b06460b1e7f225445c851e5419b2bc1ebdde7e5c2a096cfff7aca3c"
 }

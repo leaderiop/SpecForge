@@ -83,8 +83,8 @@ Note accumulated context that may need updating after transition.
 Check current phase has all plan summaries:
 
 ```bash
-(ls the `plan` entity of phase XX-current 2>/dev/null || true) | sort
-(ls the `summary` entity of phase XX-current 2>/dev/null || true) | sort
+(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
+(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
 ```
 
 **Verification logic:**
@@ -97,7 +97,7 @@ Check current phase has all plan summaries:
 <config-check>
 
 ```bash
-cat the settings (`specforge settings`) 2>/dev/null || true
+specforge settings --format json 2>/dev/null || true
 ```
 
 </config-check>
@@ -180,7 +180,7 @@ Wait for user decision.
 Check for lingering handoffs:
 
 ```bash
-ls the phase `XX-current` (.continue-here*.md) 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds handoff --format brief 2>/dev/null || true
 ```
 
 If found, delete them — phase is complete, handoffs are stale.
@@ -220,8 +220,8 @@ Evolve PROJECT.md to reflect learnings from completed phase.
 **Read phase summaries:**
 
 ```bash
-_SUMMARIES=( the `summary` entity of phase XX-current )
-if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
+_SUMMARIES=( $(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief | jq -r '.nodes[]|select(.kind=="summary")|.id') )
+if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge query "$s" --depth 0 --format context; done; fi
 ```
 
 **Assess requirement changes:**
