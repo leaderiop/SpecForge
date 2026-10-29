@@ -240,3 +240,73 @@ fn adaptive_follows_the_routing_tier() {
     }
     assert_eq!(tier("opus"), "heavy");
 }
+
+/// The codes a rendered agent file lists in its "## Judged rules" section, in order; `None` without the section.
+fn judged_section(file: &str) -> Option<Vec<String>> {
+    let section = file.split("\n## Judged rules\n").nth(1)?;
+    Some(
+        section
+            .lines()
+            .filter_map(|l| l.strip_prefix("- `"))
+            .filter_map(|l| l.split('`').next())
+            .map(String::from)
+            .collect(),
+    )
+}
+
+#[test]
+fn plan_checker_file_lists_its_rules() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let file = claude_agent(&p, "gsd-plan-checker");
+    assert_eq!(
+        judged_section(&file),
+        Some(
+            ["gsd/W311", "gsd/W313", "gsd/W315", "gsd/W316"]
+                .map(String::from)
+                .to_vec()
+        ),
+        "{}",
+        &file[file.len().saturating_sub(1200)..]
+    );
+    assert!(file.contains("specforge.verdict_inputs"));
+}
+
+#[test]
+fn the_planner_judges_nothing() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    assert_eq!(judged_section(&claude_agent(&p, "gsd-planner")), None);
+}
+
+/// Every judge's file lists exactly the rules the judged table gives it, and every other agent's lists none. The rows
+/// are data, so a rule added later is covered without a new test.
+#[test]
+fn every_judges_file_lists_exactly_its_rules() {
+    use gsd_core::judged::JUDGED;
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let mut judges = 0;
+    for agent in AGENTS {
+        let expected: Vec<String> = JUDGED
+            .iter()
+            .filter(|j| j.judge == agent.id)
+            .map(|j| format!("gsd/{}", j.code))
+            .collect();
+        let listed = judged_section(&claude_agent(&p, agent.id));
+        if expected.is_empty() {
+            assert_eq!(listed, None, "{}", agent.id);
+        } else {
+            judges += 1;
+            assert_eq!(listed, Some(expected), "{}", agent.id);
+        }
+    }
+    assert!(judges >= 1);
+    // A prompt judge is no agent: its rules are listed by no file.
+    for j in JUDGED.iter().filter(|j| j.judge.starts_with("prompt:")) {
+        for agent in AGENTS {
+            let listed = judged_section(&claude_agent(&p, agent.id)).unwrap_or_default();
+            assert!(!listed.contains(&format!("gsd/{}", j.code)), "{}", agent.id);
+        }
+    }
+}

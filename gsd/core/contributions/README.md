@@ -79,6 +79,18 @@ rule's `judge` names one of these agents (K7), and its rendered file lists the r
 | @gsd/ui | `gsd-dom-verifier`, `gsd-ui-auditor`, `gsd-ui-checker`, `gsd-ui-researcher` | 4 |
 | **total** | | **35** |
 
+### Which agent judges which rule
+
+The judged rules (K7) a `@gsd/core` agent judges; `specforge install` appends the list to the agent's file under
+"## Judged rules" (`tests/cli/agents.rs` reads the rows from the judged table, `src/judged.rs`). `record_verdict` is
+how the judge records its verdict.
+
+| Agent | Judges |
+|---|---|
+| `gsd-plan-checker` | `gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316` (a plan) |
+
+Every other core agent judges nothing.
+
 ## Hooks
 
 GSD's `hooks/` become typed hook contributions (K9). `specforge install <host>` wires each into the host as
