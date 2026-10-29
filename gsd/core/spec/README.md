@@ -178,8 +178,9 @@ the plan's summary, written by the executor at the end, lands in the same file.
 | `debug/*`, `NN-REVIEW.md`, `todos/*`, `seeds/*`, `threads/*`, `BACKLOG.md`, `USER-PROFILE.md` | ops kinds | ops |
 
 Not modelled, on purpose: GSD's `references/*` and `workflows/*` are GSD's own rules and procedures, so they become
-[rules](rules.md) and ported prompts ([contributions](../contributions/)), not data. Sketch and spike HTML stays
-throwaway output outside the spec tree.
+[rules](rules.md) and ported prompts ([contributions](../contributions/)), not data; the text a prompt does not inline
+is embedded in the extension and served by `specforge gsd reference <path>`. Sketch and spike HTML stays throwaway
+output outside the spec tree.
 
 ## Waiting on the kernel
 

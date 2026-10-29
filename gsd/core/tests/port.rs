@@ -6,6 +6,10 @@ use std::path::{Path, PathBuf};
 use gsd_core::agents::roster::AGENTS;
 use regex::Regex;
 
+#[path = "common/port.rs"]
+mod rule;
+use rule::check_lines;
+
 pub fn upstream_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/upstream/v1.18.0/agents")
 }
@@ -266,40 +270,14 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// Checks one asset against its upstream file: the header, then every line.
 fn check_body(file: &str) -> usize {
     let (_, body) = upstream(file);
-    let asset = read(&assets_dir().join(file));
-    let lines: Vec<&str> = asset.split('\n').collect();
-    assert!(
-        lines[0].starts_with(&format!(
-            "<!-- Ported from gsd-core v1.18.0 agents/{file}, MIT"
-        )),
-        "{file}: header {}",
-        lines[0]
-    );
-    assert_eq!(lines.len() - 1, body.len(), "{file}: line count");
-    let rx = ported();
-    let mut changed = 0;
-    for (n, (mine, theirs)) in lines[1..].iter().zip(&body).enumerate() {
-        if rx.is_match(theirs) {
-            assert_ne!(
-                mine, theirs,
-                "{file}:{n}: a ported line is left as upstream's"
-            );
-            assert!(
-                !rx.is_match(mine),
-                "{file}:{n}: still names upstream's tools: {mine}"
-            );
-            changed += 1;
-        } else if REWRITTEN.contains(&(file, n)) {
-            assert_ne!(
-                mine, theirs,
-                "{file}:{n}: listed as rewritten, but is upstream's"
-            );
-            changed += 1;
-        } else {
-            assert_eq!(mine, theirs, "{file}:{n}: differs outside a ported line");
-        }
-    }
-    changed
+    check_lines(
+        file,
+        &format!("agents/{file}"),
+        &read(&assets_dir().join(file)),
+        &body,
+        &ported(),
+        &|n| REWRITTEN.contains(&(file, n)),
+    )
 }
 
 #[test]

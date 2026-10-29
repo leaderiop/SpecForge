@@ -51,6 +51,11 @@ pub fn recording(agent: &str) -> String {
     )
 }
 
+/// `text` as an installed agent reads it: its references point at `specforge gsd reference` (D-r42-5).
+pub fn repointed(text: &str) -> String {
+    crate::prompts::repoint::repoint(text)
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
     for agent in roster::AGENTS {
         c.agent(agent.id, |a| {
@@ -77,6 +82,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
             ("claude-code", _, _) | (_, None, _) | (_, _, None) => agent.full,
             (_, Some(_), Some(compact)) => compact,
         };
-        Ok(format!("{body}{}", recording(agent.id)))
+        Ok(repointed(&format!("{body}{}", recording(agent.id))))
     });
 }
