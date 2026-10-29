@@ -108,6 +108,8 @@ Check the spec with `specforge check`. Create and edit with `specforge new <kind
   `gsd-security-auditor`, `gsd-code-reviewer`, `gsd-codebase-mapper`, ...) is skipped, and the skip is said.
 - **Spawning an agent** on this host: {spawn}. The model is the installed agent's own: skip any model resolution.
 - **References** the workflow names are read with `specforge gsd reference <path>`.
+- **Ids in the shell blocks.** `$PHASE_ID` and `$PLAN_ID` are the entity the run is about (the end of this text names
+  it), `$MILESTONE` is the current milestone and `$PROJECT` the project: `specforge query` finds either by its kind.
 
 ## Settings
 

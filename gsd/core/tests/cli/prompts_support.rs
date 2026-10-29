@@ -134,11 +134,14 @@ pub fn render_three_hosts(
 #[test]
 fn the_existing_judge_prompt_renders_through_the_helpers() {
     let p = super::harness::project("discuss");
-    let rendered = payload(&prompt(&p, "spec_phase", &["v1.0/02/02-SPEC"], "codex"));
+    let rendered = payload(&prompt(&p, "spec_phase", &["v1.0/02"], "codex"));
     let text = text_of(&rendered);
-    assert!(text.starts_with("Judge the phase spec"), "{text}");
+    assert!(
+        text.contains("Judge the phase spec `v1.0/02/02-SPEC`"),
+        "{text}"
+    );
     assert_clean(&text);
-    assert_eq!(rendered["payload"]["subject"], "v1.0/02/02-SPEC");
+    assert_eq!(rendered["payload"]["subject"], "v1.0/02");
 }
 
 #[test]

@@ -77,8 +77,10 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | File | sha256 |
 |---|---|
 | `commands/gsd/discuss-phase.md` | `6302cf0b4afa6d8df67f5322a1d80b56eadb28f9f3d55e3e25b3ae89b83bdf22` |
+| `commands/gsd/mvp-phase.md` | `f4403d0841bfa0046ffe311bb70827c97b6b208db4f1583d659558b70f600f2c` |
 | `commands/gsd/new-milestone.md` | `5bd5d02468791c6b50c70e0b50a37807e8d362634e480d26920cb1986dbcb0fd` |
 | `commands/gsd/new-project.md` | `3ccfcba83d400d996db7f73a045e9138a7322ee372e516ccbc96ec33971407fd` |
+| `commands/gsd/spec-phase.md` | `99120491c57e274edb56027c5a9573cc6fd6da9fa37304816fda69bbaabebeb1` |
 | `gsd-core/references/agent-skills-bootstrap.md.txt` | `0ad5db82dd8bda51bdb367c3abba2a360846a3f1bcfc3efbc8d546b7b38a879b` |
 | `gsd-core/references/checkpoints.md` | `dc5f1f03e9fc812538dd257f620c74fadc7213b6fcd871323d797137bf6c5eb2` |
 | `gsd-core/references/compact-content-gate.md` | `30b27c97f5aa9d650a3302c484a3c800934a8b32aa9c57a087199d4f5c4a26e0` |
@@ -97,6 +99,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/references/model-profile-resolution.md` | `d503cd3575b8a5becc6799ea7f351af732ff4b196bdacfab2a11a105b7355521` |
 | `gsd-core/references/model-profiles.md` | `c34795b6dab1f3290db60f50886a989a85ef450a4e1eb8cbf015141af817ac08` |
 | `gsd-core/references/nyquist-compliance.md` | `513417f4095b4e75d1c0b903e6fab20704faa103ca095b32c3f3d4d7b81612c4` |
+| `gsd-core/references/phase-argument-parsing.md` | `7b36cc7b4458634e46ffbf5e0484c03237fbb101b0ce9d3b6fa5f8cf4bdd4bfb` |
 | `gsd-core/references/plan-checker-examples.md` | `6e20d4d2c7fe88a85825769a597176b2b8ab156361657a0da5acf368e5045fc7` |
 | `gsd-core/references/planner-antipatterns.md` | `23495282315d14a99d849ddbe87744e4a8b1be8d5fe68515b626c2312635fbef` |
 | `gsd-core/references/planner-chunked.md` | `5c0a6371048cede46a475ee444f7a47117cd8b7f9209ffdc43a17e702130681f` |
@@ -104,6 +107,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/references/planner-guidance.md` | `4d307cecacab29af4ace14708680472a47514fa283e465bff6dabfc67f8290cf` |
 | `gsd-core/references/planner-interface-context.md` | `b28fa3da6ae739a81de4287e3fe893133e46ec406a8ee73355ec46145a9d9b15` |
 | `gsd-core/references/planner-load-graph-context.md` | `716edc9ed70118856f0280a3b78727e6f8a810ace5f0abd42d3497cfe2bb4ae9` |
+| `gsd-core/references/planner-mvp-mode.md` | `969e533bdf7942ea04573340139d00bdd8e03f4ee1fc09e53d348c452688c5a3` |
 | `gsd-core/references/planner-preconditions.md` | `54f15f89c7046c9ef96931083343ad62bc00e02be0b85a572bb7dec939104d89` |
 | `gsd-core/references/planner-quick-batch.md` | `517d562bdc4aa2fbabd831ae363c67a6e58097d302acf2cbb02b198a591a577c` |
 | `gsd-core/references/planner-reversibility.md` | `24b426adf49848135f469e10527cdc9565912a66c5c50d0e6271b2043d8e4042` |
@@ -122,6 +126,8 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/references/runtime-aware-dispatch.md` | `125ff8314dc243a59bcae1d95c13939874bd7057d09a956e9aad54944473362c` |
 | `gsd-core/references/scout-codebase.md` | `ba266ecc18fbf1720ba7f0caa410c9517c720686b01164149fc64104eeddf62c` |
 | `gsd-core/references/security-asvs-levels.md` | `4774fac3b94b6ca85dace3995fc6942cd81fd9a4918cfb487c6f3d78b5870434` |
+| `gsd-core/references/skeleton-template.md` | `f11e9cd2948bd33c26b709751ba0fe18ac0892b4f3e1fe209920c5ab1e22e42a` |
+| `gsd-core/references/spidr-splitting.md` | `6c495fbfebdb42e75db9805bc97350b7e885ca8e822739c3a72a0075690c11e2` |
 | `gsd-core/references/thinking-models-execution.md` | `dcc650a8b5f3e0495085a2935d2a6420d8c70a6ad8586e1539058316540e2978` |
 | `gsd-core/references/thinking-models-planning.md` | `7cc8aeaa693497d751fe52a20a045382edcd07a23efd296887c378754a42925b` |
 | `gsd-core/references/thinking-models-research.md` | `5f6bf3f3b889c6e485c88b25cf91494172b9f1f66222372663db2a2c06a505cd` |
@@ -130,6 +136,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/references/ui-brand.md` | `189bb64babb007a09d1610f0ee8013cdfd4c04b82428a334b68f3dddbc015c83` |
 | `gsd-core/references/universal-anti-patterns.md` | `bacdc27e0718d0e26a6a1fffec10013dffbccd3f34501d456f6b5b1f2a04b8e0` |
 | `gsd-core/references/untrusted-input-boundary.md` | `d33b80d4d348599a3e34074c295c091886509f6afa594926feeaad415cdfa606` |
+| `gsd-core/references/user-story-template.md` | `0cc50e06a144ff8ac09b4fca7252cf2c42b53fe277058f230328aa020d5f71ce` |
 | `gsd-core/references/verification-overrides.md` | `8213de9bd62283b60065db2e7b715f537d8304e7053dd4a7701f4abfa00f4f55` |
 | `gsd-core/references/verification-patterns.md` | `085d3a07d7382a8e94d66ff112276e3adb30d8ee17bb568dc1d9f0a27a56efa7` |
 | `gsd-core/references/verifier-evidence-gate.md` | `dcfb6700cdbd667631c1d5c4a480442a0655120cfb5260c5360950136354f27b` |
@@ -146,6 +153,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/templates/research-project/STACK.md` | `82c85799ac4dd344441370e791f09563119f62843034b3a094876a476c2bd4e5` |
 | `gsd-core/templates/research-project/SUMMARY.md` | `dceb2f346388839d9fce7c8de9ffff2354b8539880e5dadfd10fccfce0062997` |
 | `gsd-core/templates/roadmap.md` | `e4e35a9eb5dd4d4f2b4aed28ca6896c5bf4d652ad565f698325a56a7e840694f` |
+| `gsd-core/templates/spec.md` | `26d55bce940f0288cf1b9796b7b99374bc88f53491d445bfe8f8c88d8551900b` |
 | `gsd-core/templates/state.md` | `03d21c7d9e571d2684beaf00198d4f371832a4770255d52dab578973cbb4a0a9` |
 | `gsd-core/templates/verification-report.md` | `930e2f288db2429375e97e14334545a85ec9bf2fc493147c817da11abc4b2488` |
 | `gsd-core/workflows/discuss-phase-assumptions.md` | `1ccc3c8d295c89542a94751215faa71eaffab34b03d20ab85051eb5e712191d4` |
@@ -165,6 +173,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/discuss-phase/templates/context.md` | `323884311c94fbc280d0ebbfec7b906bc792e0d50926c4021a24c156eef0378d` |
 | `gsd-core/workflows/discuss-phase/templates/discussion-log.md` | `e829d02ec03db8bbc4157845e52283074ef57b9491c04f73833f2cb0876456df` |
 | `gsd-core/workflows/list-phase-assumptions.md` | `db6946da4d25256a4bfb016b1465101f553aa0a8f7918f9078d76492e6ee20ee` |
+| `gsd-core/workflows/mvp-phase.md` | `b2d7e923b9ede748efb3a36e06603aa780557819e4ffa8f8dfa97dfa68526442` |
 | `gsd-core/workflows/new-milestone.md` | `d2300de5139fe176a4a7172cab5d1f65384caa267e46de1afb7a0a8009bbca68` |
 | `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md` | `7fbacae20957818a907edffb07f7552de2a9a023add2463f237a9173e3db4414` |
 | `gsd-core/workflows/new-milestone/steps/reset-phase-safety.md` | `0a8e18540587a14cb9981d35f62a9f4df6c726538bd2d3786a1f5cd3f2ef2f28` |
@@ -173,6 +182,7 @@ are the tests whose vectors `host/tests.rs` runs through the port.
 | `gsd-core/workflows/new-project/steps/auto-mode-config.md` | `a4d8ed52fd6a1d5ebfaedc41030e98443efc58367d97eb9ea4577dc155527bad` |
 | `gsd-core/workflows/new-project/steps/auto-mode-detection.md` | `55a6deec1f4e30433e27d976db5dca04c7d5e771c6a960a73148f1f86db1b862` |
 | `gsd-core/workflows/new-project/steps/codebase-map-offer.md` | `21b0e14926c29422891eb996c69d81d9bfa28291e6f5b3a59cbf991e25b74442` |
+| `gsd-core/workflows/spec-phase.md` | `9a05d48ae07f40f373c2bf02321094b9d64e66329d63310851accebc7e16dd00` |
 | `src/runtime-artifact-conversion.cts` | `9b84125146270c5ecfc6f8f530f2ca01883b0239497990e91834a4b4939cad6c` |
 | `tests/cursor-conversion.test.cjs` | `c787bcff4ff452f17459caed63706a11ecc3d8cbc2eb728d20dfcdc448da0e6b` |
 | `tests/runtime-converters.test.cjs` | `9b481753590f9a0a48d3a76136ae03d27cb16029d4576c7f2711342f2f6f2263` |

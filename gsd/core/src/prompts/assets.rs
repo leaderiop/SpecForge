@@ -15,8 +15,10 @@ macro_rules! asset {
 /// `(path, text)`, sorted by path.
 pub static ASSETS: &[(&str, &str)] = &[
     asset!("commands/gsd/discuss-phase.md"),
+    asset!("commands/gsd/mvp-phase.md"),
     asset!("commands/gsd/new-milestone.md"),
     asset!("commands/gsd/new-project.md"),
+    asset!("commands/gsd/spec-phase.md"),
     asset!("gsd-core/references/agent-skills-bootstrap.md"),
     asset!("gsd-core/references/checkpoints.md"),
     asset!("gsd-core/references/compact-content-gate.md"),
@@ -35,6 +37,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/references/model-profile-resolution.md"),
     asset!("gsd-core/references/model-profiles.md"),
     asset!("gsd-core/references/nyquist-compliance.md"),
+    asset!("gsd-core/references/phase-argument-parsing.md"),
     asset!("gsd-core/references/plan-checker-examples.md"),
     asset!("gsd-core/references/planner-antipatterns.md"),
     asset!("gsd-core/references/planner-chunked.md"),
@@ -42,6 +45,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/references/planner-guidance.md"),
     asset!("gsd-core/references/planner-interface-context.md"),
     asset!("gsd-core/references/planner-load-graph-context.md"),
+    asset!("gsd-core/references/planner-mvp-mode.md"),
     asset!("gsd-core/references/planner-preconditions.md"),
     asset!("gsd-core/references/planner-quick-batch.md"),
     asset!("gsd-core/references/planner-reversibility.md"),
@@ -60,6 +64,8 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/references/runtime-aware-dispatch.md"),
     asset!("gsd-core/references/scout-codebase.md"),
     asset!("gsd-core/references/security-asvs-levels.md"),
+    asset!("gsd-core/references/skeleton-template.md"),
+    asset!("gsd-core/references/spidr-splitting.md"),
     asset!("gsd-core/references/thinking-models-execution.md"),
     asset!("gsd-core/references/thinking-models-planning.md"),
     asset!("gsd-core/references/thinking-models-research.md"),
@@ -68,6 +74,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/references/ui-brand.md"),
     asset!("gsd-core/references/universal-anti-patterns.md"),
     asset!("gsd-core/references/untrusted-input-boundary.md"),
+    asset!("gsd-core/references/user-story-template.md"),
     asset!("gsd-core/references/verification-overrides.md"),
     asset!("gsd-core/references/verification-patterns.md"),
     asset!("gsd-core/references/verifier-evidence-gate.md"),
@@ -84,6 +91,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/templates/research-project/STACK.md"),
     asset!("gsd-core/templates/research-project/SUMMARY.md"),
     asset!("gsd-core/templates/roadmap.md"),
+    asset!("gsd-core/templates/spec.md"),
     asset!("gsd-core/templates/state.md"),
     asset!("gsd-core/templates/verification-report.md"),
     asset!("gsd-core/workflows/discuss-phase-assumptions.md"),
@@ -103,6 +111,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/discuss-phase/templates/context.md"),
     asset!("gsd-core/workflows/discuss-phase/templates/discussion-log.md"),
     asset!("gsd-core/workflows/list-phase-assumptions.md"),
+    asset!("gsd-core/workflows/mvp-phase.md"),
     asset!("gsd-core/workflows/new-milestone.md"),
     asset!("gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md"),
     asset!("gsd-core/workflows/new-milestone/steps/reset-phase-safety.md"),
@@ -111,6 +120,7 @@ pub static ASSETS: &[(&str, &str)] = &[
     asset!("gsd-core/workflows/new-project/steps/auto-mode-config.md"),
     asset!("gsd-core/workflows/new-project/steps/auto-mode-detection.md"),
     asset!("gsd-core/workflows/new-project/steps/codebase-map-offer.md"),
+    asset!("gsd-core/workflows/spec-phase.md"),
 ];
 
 /// The text of the asset at `path` (its attribution line included).

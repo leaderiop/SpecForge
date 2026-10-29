@@ -66,7 +66,15 @@ pub fn attribution(path: &str) -> Attribution {
 
 fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, String> {
     let arguments = args::text(call, spec.args);
-    let tail = spec.tail.map(|f| f(call)).unwrap_or_default();
+    let mut tail = spec.tail.map(|f| f(call)).unwrap_or_default();
+    if let Some((name, id)) = spec.subject.and_then(|n| call.str(n).map(|id| (n, id))) {
+        let var = match name {
+            "phase" => "PHASE_ID",
+            "plan" => "PLAN_ID",
+            _ => "SUBJECT_ID",
+        };
+        tail = format!("\n\nIn the shell blocks above, `${var}` is `{id}`.{tail}");
+    }
     let text = render::render(&Input {
         command: spec.command,
         host: call.host().unwrap_or("claude-code"),
