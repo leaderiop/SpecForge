@@ -104,7 +104,7 @@ phase from here instead of a manifest file.
 - A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the check's
   `ref` is `test/tasks.test.js#a task is added`, and a test named `a task is added` whose `file` attribute (made
   project-relative by stripping the project root) is `test/tasks.test.js` proves it. A `ref` with an empty file part
-  (`#name`) matches on the name alone. The result is recorded under the deliverable and named by the `ref` exactly, which
+  (`#name`) matches on the name alone. The file part ends at the first `#`, so a test name may hold one (`fixes #42`). The result is recorded under the deliverable and named by the `ref` exactly, which
   is what the derive pass looks a check's status up by.
 
 A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named

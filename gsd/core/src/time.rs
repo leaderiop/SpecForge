@@ -51,7 +51,7 @@ pub fn seconds(time: &str) -> Option<i64> {
     if d.next().is_some()
         || c.next().is_some()
         || !(1..=12).contains(&month)
-        || !(1..=31).contains(&day)
+        || !(1..=days_in(year, month)).contains(&day)
         || !(0..24).contains(&hour)
         || !(0..60).contains(&minute)
         || !(0..=60).contains(&second)
@@ -61,9 +61,26 @@ pub fn seconds(time: &str) -> Option<i64> {
     Some(days(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second)
 }
 
+fn days_in(year: i64, month: i64) -> i64 {
+    match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_impossible_date_is_no_time() {
+        assert_eq!(seconds("2026-02-31T00:00:00Z"), None);
+        assert_eq!(seconds("2026-04-31T00:00:00Z"), None);
+        assert_eq!(seconds("2100-02-29T00:00:00Z"), None);
+        assert!(seconds("2024-02-29T00:00:00Z").is_some());
+    }
 
     #[test]
     fn unix_seconds_become_utc_rfc3339() {

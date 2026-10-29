@@ -358,6 +358,34 @@ fn a_coverage_ref_links_to_its_deliverable() {
 }
 
 #[test]
+fn a_test_name_may_hold_a_hash() {
+    // The reference is `path#test name`: the first `#` ends the path, whatever the name holds (an issue number).
+    let p = project("execute");
+    p.edit(
+        "spec/plans.spec",
+        "ref \"test/tasks.test.js#adds a task\"",
+        "ref \"test/tasks.test.js#fixes #42\"",
+    );
+    let file = format!("{}/test/tasks.test.js", root_of(&p));
+    let run = junit(
+        &p,
+        &format!("<testcase name=\"fixes #42\" classname=\"test\" file=\"{file}\"/>"),
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        report(&p),
+        [(
+            DELIVERABLE.to_string(),
+            vec![(
+                "test/tasks.test.js#fixes #42".to_string(),
+                "passed".to_string()
+            )]
+        )]
+        .into()
+    );
+}
+
+#[test]
 fn an_ambiguous_tag_is_unlinked() {
     // `TR1` is the truth of both plans of phase 01.
     let p = project("execute");

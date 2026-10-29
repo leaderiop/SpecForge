@@ -166,8 +166,9 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
     let phases = phases(input, &summarised);
     for phase in &phases {
         let name = name_of(phase.id);
-        out.push(value(phase.id, "inserted", name.contains('.')));
-        out.push(value(phase.id, "backlog", name.starts_with("999.")));
+        let backlog = name.starts_with("999.");
+        out.push(value(phase.id, "inserted", name.contains('.') && !backlog));
+        out.push(value(phase.id, "backlog", backlog));
         out.push(value(
             phase.id,
             "plans_complete",
@@ -181,6 +182,8 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
         let mine: Vec<&Phase> = phases
             .iter()
             .filter(|p| target(input, p.id, "milestone") == Some(milestone.id.as_str()))
+            // GSD leaves the sentinel 999 (backlog) phases out of a milestone's counts (#3167).
+            .filter(|p| !name_of(p.id).starts_with("999."))
             .collect();
         let plans: Vec<&str> = mine.iter().flat_map(|p| p.plans.iter().copied()).collect();
         let recorded: Vec<&Commit> = commits
@@ -212,7 +215,8 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
         }
         let done = plans
             .iter()
-            .filter(|p| statuses.get(*p) == Some(&"complete"))
+            // A halted plan stays counted, as the phase rows and gsd-tools count it (#2830).
+            .filter(|p| matches!(statuses.get(*p), Some(&"complete" | &"halted")))
             .count();
         let complete_phases = mine.iter().filter(|p| p.status == "complete").count();
         let mut progress = json!({
@@ -291,7 +295,7 @@ pub fn values(input: &PassInput, commits: &[Commit], statuses: &Statuses) -> Vec
             .map(|c| c.at.as_str())
             .chain(of_kind(input, "summary").filter_map(|s| text(s, "completed")))
             .filter(|t| seconds(t).is_some())
-            .max();
+            .max_by_key(|t| seconds(t));
         if let Some(at) = latest {
             out.push(value(&project.id, "updated", at));
         }

@@ -154,7 +154,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             }
             let file = relative(&case.file, cwd);
             for (deliverable, reference) in &checks {
-                let (want_file, want_name) = reference.rsplit_once('#').unwrap_or(("", reference));
+                let (want_file, want_name) = reference.split_once('#').unwrap_or(("", reference));
                 if want_name == case.name && (want_file.is_empty() || want_file == file) {
                     linked
                         .entry((*deliverable).to_string())

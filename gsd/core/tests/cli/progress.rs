@@ -66,6 +66,19 @@ fn a_requirement_whose_plans_all_halted_is_blocked() {
 }
 
 #[test]
+fn a_halted_plan_stays_counted_in_the_milestone() {
+    let p = repository();
+    p.edit(
+        "spec/plans.spec",
+        "status                 complete",
+        "status                 halted",
+    );
+    // As the phase rows and gsd-tools count it (#2830): one summary, halted or not.
+    assert_eq!(field(&p, "v1.0/01", "plans_complete"), "1/2");
+    assert_eq!(p.fields_of("v1.0")["progress"]["plans_complete"], 1);
+}
+
+#[test]
 fn the_phase_ladder_up_to_executed() {
     let p = repository();
     let phase = |id: &str| (field(&p, id, "plans_complete"), field(&p, id, "status"));
@@ -83,6 +96,7 @@ fn the_phase_ladder_up_to_executed() {
 #[test]
 fn an_inserted_and_a_backlog_phase_are_flagged() {
     let p = taskboard();
+    let phases = p.fields_of("v1.0")["progress"]["phases"].clone();
     append(
         &p,
         "spec/v1.0.spec",
@@ -91,7 +105,9 @@ fn an_inserted_and_a_backlog_phase_are_flagged() {
     let flags = |id: &str| (field(&p, id, "inserted"), field(&p, id, "backlog"));
     assert_eq!(flags("v1.0/02"), (json!(false), json!(false)));
     assert_eq!(flags("v1.0/02.1"), (json!(true), json!(false)));
-    assert_eq!(flags("v1.0/999.1"), (json!(true), json!(true)));
+    // A backlog phase is not an inserted one, and a milestone does not count it.
+    assert_eq!(flags("v1.0/999.1"), (json!(false), json!(true)));
+    assert_eq!(p.fields_of("v1.0")["progress"]["phases"], phases);
 }
 
 #[test]
@@ -149,6 +165,25 @@ fn project_updated_is_the_latest_commit_or_completion() {
         &format!("\"{T1}\""),
     );
     assert_eq!(field(&p, "taskboard", "updated"), T1);
+    // The latest is compared as a time, not as text: a fraction of a second is later than none.
+    let fraction = "2026-10-29T10:00:00.250Z";
+    p.edit(
+        "spec/plans.spec",
+        &format!("completed              \"{T1}\""),
+        &format!("completed              \"{fraction}\""),
+    );
+    p.record_harness(
+        "v1.0/01/01-01/01-01-SUMMARY",
+        "completed",
+        &format!("\"{fraction}\""),
+    );
+    p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/z.js", "z\n")],
+        "2026-10-29T10:00:00Z",
+    );
+    collect(&p);
+    assert_eq!(field(&p, "taskboard", "updated"), fraction);
 }
 
 #[test]

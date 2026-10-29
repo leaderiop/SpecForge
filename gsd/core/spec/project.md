@@ -64,7 +64,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
 | stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
-| progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` is 0 until phases can be `complete` (r39) |
+| progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` is 0 until phases can be `complete` (r39). `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
@@ -85,7 +85,7 @@ Scoped by milestone.
 | success_criteria | strs | R | `**Success Criteria**` (2–5) |
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
 | tag | str | | the parenthetical, `(Cluster B)` |
-| inserted | bool | C | `(INSERTED)`: a name that holds a `.` |
+| inserted | bool | C | `(INSERTED)`: a name that holds a `.`, but not a `999.x` one |
 | backlog | bool | C | a `999.x` name |
 | frontend | bool | C | the ui gate's `frontend` detection (`@gsd/ui`'s; core never answers it) |
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, else `executed`. `needs_review` and `complete` wait for the verification kinds (r39); `deferred` is never derived |
