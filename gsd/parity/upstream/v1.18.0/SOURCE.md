@@ -423,3 +423,14 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-undo` and `/gsd-pr-branch
 | `commands/gsd/undo.md` | `d0fbc584d2d21ad565d4d4be4ede33feff5d631324927e9abecf64dd8cae5b73` |
 | `gsd-core/workflows/pr-branch.md` | `63c1482ecea847da620e8310ca2a7854a229f31a74caa8b4709a22b46bb1193e` |
 | `gsd-core/workflows/undo.md` | `0812391ee95fb221d360dd22c7b97721200be536dc5b8c6a9c4740970be7ac73` |
+
+## r43 T8: milestone-summary and extract-learnings
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-milestone-summary` and `/gsd-extract-learnings`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/extract-learnings.md` | `16e09bc1cee90e60c0cae14e273c1ed1e569b66f10f81d4c72cdbbfd01bbfb94` |
+| `commands/gsd/milestone-summary.md` | `60710830b35b2a1c00be093e696e520b6936e1d2a9f1927d82e59e38c306d0b5` |
+| `gsd-core/workflows/extract-learnings.md` | `a9281400d064bab6e3e4013c02f9d5e26cb509bb83ed6e9d7429f5fb7faa057d` |
+| `gsd-core/workflows/milestone-summary.md` | `3feb033825b2f3df58c61e6962da15470e1d5abfd5ce77a83b7d83d7710bcd2a` |

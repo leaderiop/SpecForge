@@ -12,6 +12,7 @@ mod discuss;
 mod execute;
 mod git;
 mod host;
+mod learning;
 mod navigate;
 mod plan;
 mod preamble;
@@ -70,4 +71,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     review::declare(c);
     configure::declare(c);
     git::declare(c);
+    learning::declare(c);
 }
