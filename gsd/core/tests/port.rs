@@ -391,7 +391,7 @@ fn tools_are_upstreams() {
 }
 
 /// The bodies that name only commands that exist (REVIEW-r40 M6): r41's, and r42's as each workflow rewrites its own.
-const RUNNABLE: [&str; 17] = [
+const RUNNABLE: [&str; 21] = [
     "gsd-executor.md",
     "gsd-verifier.md",
     "gsd-plan-checker.md",
@@ -409,6 +409,10 @@ const RUNNABLE: [&str; 17] = [
     "gsd-pattern-mapper.compact.md",
     "gsd-assumptions-analyzer.md",
     "gsd-assumptions-analyzer.compact.md",
+    "gsd-doc-synthesizer.md",
+    "gsd-doc-synthesizer.compact.md",
+    "gsd-doc-classifier.md",
+    "gsd-doc-classifier.compact.md",
 ];
 
 /// The other ported lines are a mechanical rename (REVIEW-r40 M6): they name commands and files that do not exist
@@ -418,7 +422,7 @@ const RUNNABLE: [&str; 17] = [
 const BLIND: [(&str, usize); 3] = [
     (r"specforge gsd query", 0),
     (r"specforge gsd\.cjs", 0),
-    (r"spec/gsd/", 10),
+    (r"spec/gsd/", 0),
 ];
 
 #[test]
