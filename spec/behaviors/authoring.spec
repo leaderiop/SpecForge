@@ -257,7 +257,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
     diagnostic the project did not have, with every check run (after an
     editor update that skipped the checks they are run for the comparison),
     is refused with E080 and writes nothing (an error is the same error after
-    an edit moves it, even when its message names a position). Each edit declares what it may
+    an edit moves it, even when its message names a position); a judged rule's
+    finding is never such an error (ADR 0297). Each edit declares what it may
     change in the graph: set and unset their field (a field.entry path's
     field), link and unlink their field, retitle the title, add-verify and
     remove-verify the obligations, create and delete their entity, a delete
@@ -277,6 +278,8 @@ behavior validate_typed_edit "Validate a Typed Edit" {
   verify unit "every verb's graph change is what it declares"
   verify unit "a block holding a padded value takes a typed edit"
   verify unit "an edit that adds an error is E080 and writes nothing"
+  verify unit "a judged rules finding is no error a write adds"
+  verify unit "a diagnostic with a judged rules code from another origin is no judged finding"
   verify unit "a value holding a control character is refused not_editable and writes nothing"
   verify unit "an error whose message names a position is the same error after an edit moves it"
   verify unit "an edit that adds a warning is written and reports it"
@@ -391,10 +394,18 @@ behavior refuse_human_only_write "Refuse a Human-Only Write" {
   contract   """
     A kind, a field or a member an extension declares human-only is written by a person: a plan of a command or a
     collector, an MCP edit and a command line without a terminal are refused `human_only` and write nothing, and the
-    command line at a terminal writes it (ADR 0289).
+    command line at a terminal writes it (ADR 0289). A set, unset or link of an existing human-only entity, and the
+    delete of an entity holding a person's value, are refused too (ADR 0298).
   """
   verify unit "a human-only value is refused in an agents write"
   verify unit "the command line writes a human-only value from a terminal and refuses it without one"
   verify unit "a human-only or computed member is refused in the value of a set, append or create"
   verify unit "a delete that unlinks references and a rename do not change a human-only entity"
+  verify unit "an agents set, unset or link of an existing human-only entity is refused"
+  verify unit "an agents delete of an entity holding a persons value is refused"
+  verify unit "a plan that renames an entity and deletes it under the new id is refused as the delete would be"
+  verify unit "an agents unset, remove or replacing set of a persons member value is refused"
+  verify unit "an agent deletes an entity holding only computed or harness values"
+  verify unit "an agent still writes a non-human field of a non-human kind"
+  verify unit "a set_verdict on a human-only entity is still refused"
 }

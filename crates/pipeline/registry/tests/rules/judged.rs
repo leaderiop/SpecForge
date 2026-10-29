@@ -33,6 +33,11 @@ fn plan_check() -> Value {
 
 /// `@test` declaring phase, plan and task, and `rule`.
 fn built(rule: ValidationRuleDescriptor) -> Built {
+    built_all(vec![rule])
+}
+
+/// [`built`] declaring each of `rules`, in order.
+fn built_all(rules: Vec<ValidationRuleDescriptor>) -> Built {
     let mut declaration = declare("@test", |c| {
         c.agent("checker", |a| {
             a.description("Judges");
@@ -56,7 +61,7 @@ fn built(rule: ValidationRuleDescriptor) -> Built {
             });
         });
     });
-    declaration.validation_rules = vec![rule];
+    declaration.validation_rules = rules;
     rules_of(vec![declaration])
 }
 
@@ -125,6 +130,30 @@ fn a_malformed_judged_rule_is_w112() {
     }))
     .unwrap();
     assert_eq!(built(bare).coded("W112").len(), 1);
+}
+
+#[spec(
+    behavior = "declare_judged_rule",
+    verify = "no other rule of the extension reports a judged rules code"
+)]
+fn a_declarative_rule_cannot_share_a_judged_rules_code() {
+    let declarative: ValidationRuleDescriptor = serde_json::from_value(json!({
+        "code": "W311", "severity": "warning", "check": "no_edges", "message_template": "x",
+    }))
+    .unwrap();
+    // Before or after the judged rule, the declarative one is not registered.
+    for rules in [
+        vec![declarative.clone(), descriptor(plan_check())],
+        vec![descriptor(plan_check()), declarative],
+    ] {
+        let built = built_all(rules);
+        assert_eq!(built.coded("W112").len(), 1, "{:?}", built.diagnostics);
+        assert_eq!(built.rules.iter().count(), 1);
+        assert_eq!(
+            built.rules.iter().next().unwrap().describe()["check"],
+            "judged"
+        );
+    }
 }
 
 /// The build of `@test` declaring a plan with verdict-written `result` and `owner` fields, and `rule`.

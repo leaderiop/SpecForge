@@ -471,7 +471,7 @@ pub static CODES: &[Code] = &[
     code(
         "E502",
         "Explicit truth verified without a passing test",
-        "An explicit truth is verified only with a named passing test",
+        "An explicit truth is verified only with a passing test recorded for it",
         "verify",
         Severity::Error,
         Severity::Error,

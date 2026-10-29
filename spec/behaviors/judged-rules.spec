@@ -38,6 +38,7 @@ behavior declare_judged_rule "Declare a Judged Rule" {
   """
   verify unit "a judged rule is declared with its judge, outcomes and per-target selectors"
   verify unit "a malformed judged rule is W112 and is not registered"
+  verify unit "no other rule of the extension reports a judged rules code"
   verify unit "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
   verify unit "every input of the model's judged rules parses and resolves"
   verify unit "a selector prints back to its canonical text"
@@ -95,7 +96,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   contract   """
     A judged rule holds while a fresh verdict from its judge says so (ADR 0290). It fires at its severity for a
     missing, unrecorded, stale or failing verdict, and is silent for a fresh passing one. A verdict written by hand
-    is E083 and counts as missing; one that cannot be read is W168. Test inputs are compared when the report is
+    is E083 and counts as missing; one that cannot be read is W168. A failing verdict on an Error rule is recorded, and a write that creates a judged target or stales a passing verdict is written, the finding reported (ADR 0297). Test inputs are compared when the report is
     there, and said not judged (I205) when it is not. A gated rule is neither evaluated nor reported. A field whose
     writer is the verdict holds the fresh verdict's outcome or value, and is E082 when written by hand. A project
     that declares no judged rule reads no report and stamps no file.
@@ -105,6 +106,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a hand-written verdict counts as missing"
   verify unit "a verdict is a value of the ledger: set records it, a respelling keeps it, a move re-keys it"
   verify unit "a judged rule reports missing, stale and failed verdicts"
+  verify unit "a failing verdict on an error rule is recorded"
   verify unit "a stale verdict names the inputs that changed"
   verify unit "test inputs are not judged without a report"
   verify unit "a prompt-judged verdict is recorded and goes stale like an agent's, and its rendered prompt lists the rules it judges"

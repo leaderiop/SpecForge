@@ -386,6 +386,7 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
   verify unit "a planned text that changes an existing title or a kind is reported and refused"
   verify unit "each change the graph delta names is one W054 warning, and an empty delta none"
   verify unit "a refused migration's cause counts only the errors it would add"
+  verify unit "a migration counts no judged finding"
   verify unit "a planned text that adds an error is refused even when the graph is unchanged"
   verify unit "a migration that only moves lines is kept in a file that already reports a duplicate ID"
   verify unit "a refused migration writes nothing, not even a backup"

@@ -1,6 +1,7 @@
 //! What a plan may not write (ADR 0289): checked per operation before anything is planned, so the refusal names the
 //! operation and not a later E080. A computed value is never written; a harness value only by the extension that
-//! declares the field or one that names it a peer; `verdict` is no field.
+//! declares the field or one that names it a peer; `verdict` is no field. An existing human-only entity is not edited,
+//! and an entity holding a person's value is not deleted (ADR 0298).
 
 use super::{COMPUTED_FIELD, HARNESS_FIELD, HUMAN_ONLY, Op, Origin, Surface, invalid};
 use crate::OpError;
@@ -8,6 +9,7 @@ use crate::OpErrorKind;
 use crate::authoring::edit::{Edit, Input, Step};
 use crate::view::ProjectView;
 use specforge_graph::{FieldForm, Found};
+use specforge_parser::{FieldMap, FieldValue};
 use specforge_protocol_types::FieldWriter;
 use std::collections::BTreeMap;
 
@@ -20,9 +22,24 @@ fn top(path: &str) -> &str {
 struct Kinds<'v> {
     view: &'v ProjectView<'v>,
     made: BTreeMap<String, String>,
+    /// Each id a rename of the plan took, to the id it had before.
+    renamed: BTreeMap<String, String>,
 }
 
 impl Kinds<'_> {
+    /// `id` as the project before the plan names it: the id a rename of the plan took is the entity's earlier one.
+    fn original(&self, id: &str) -> String {
+        let mut id = id;
+        // A chain of renames ends: each step took an id from an earlier one (bounded for safety).
+        for _ in 0..=self.renamed.len() {
+            match self.renamed.get(id) {
+                Some(from) => id = from,
+                None => break,
+            }
+        }
+        id.to_string()
+    }
+
     fn of(&self, id: &str) -> Option<String> {
         if let Some(kind) = self.made.get(id) {
             return Some(kind.clone());
@@ -46,6 +63,7 @@ pub(crate) fn check(
     let mut kinds = Kinds {
         view,
         made: BTreeMap::new(),
+        renamed: BTreeMap::new(),
     };
     for op in ops {
         match &op.step {
@@ -55,7 +73,9 @@ pub(crate) fn check(
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
                     human_kind(view, origin, op.number, plan, &kind)?;
-                    human_referrers(view, origin, op.number, plan, entity)?;
+                    human_referrers(view, origin, op.number, plan, &kinds.original(entity))?;
+                    let from = kinds.original(entity);
+                    kinds.renamed.insert(to.clone(), from);
                     kinds.made.insert(to.clone(), kind);
                 }
             }
@@ -73,6 +93,7 @@ pub(crate) fn verdict(
     let kinds = Kinds {
         view,
         made: BTreeMap::new(),
+        renamed: BTreeMap::new(),
     };
     let Some(kind) = kinds.of(&step.entity) else {
         return Ok(());
@@ -100,6 +121,7 @@ fn edit_flags(
             for (field, value) in fields {
                 write(view, origin, number, plan, kind, field, Some(value))?;
             }
+            kinds.renamed.remove(id);
             kinds.made.insert(id.clone(), kind.clone());
             Ok(())
         }
@@ -108,28 +130,57 @@ fn edit_flags(
             field,
             value,
             ..
-        }
-        | Edit::Append {
+        } => match kinds.of(entity_id) {
+            Some(kind) => human_kind(view, origin, number, plan, &kind)
+                .and_then(|()| write(view, origin, number, plan, &kind, field, Some(value)))
+                .and_then(|()| {
+                    dropped(
+                        view,
+                        origin,
+                        number,
+                        plan,
+                        &kind,
+                        kinds.original(entity_id),
+                        field,
+                        None,
+                    )
+                }),
+            None => Ok(()),
+        },
+        Edit::Append {
             entity_id,
             field,
             value,
         } => match kinds.of(entity_id) {
-            Some(kind) => write(view, origin, number, plan, &kind, field, Some(value)),
+            Some(kind) => human_kind(view, origin, number, plan, &kind)
+                .and_then(|()| write(view, origin, number, plan, &kind, field, Some(value))),
             None => Ok(()),
         },
         Edit::Unset {
             entity_id, field, ..
-        }
-        | Edit::Remove {
-            entity_id, field, ..
-        }
-        | Edit::Link {
+        } => drop_edit(view, origin, kinds, number, plan, entity_id, field, None),
+        Edit::Remove {
+            entity_id,
+            field,
+            index,
+        } => drop_edit(
+            view,
+            origin,
+            kinds,
+            number,
+            plan,
+            entity_id,
+            field,
+            Some(*index),
+        ),
+        Edit::Link {
             entity_id, field, ..
         }
         | Edit::Unlink {
             entity_id, field, ..
         } => match kinds.of(entity_id) {
-            Some(kind) => write(view, origin, number, plan, &kind, field, None),
+            Some(kind) => human_kind(view, origin, number, plan, &kind)
+                .and_then(|()| write(view, origin, number, plan, &kind, field, None)),
             None => Ok(()),
         },
         Edit::Retitle { entity_id, .. }
@@ -140,14 +191,53 @@ fn edit_flags(
             None => Ok(()),
         }
         .and_then(|()| match edit {
-            // The references it removes are writes to the entities that hold them.
             Edit::Delete {
                 entity_id,
-                unlink_references: true,
-            } => human_referrers(view, origin, number, plan, entity_id),
+                unlink_references,
+            } => {
+                let original = kinds.original(entity_id);
+                human_held(view, origin, number, plan, kinds.of(entity_id), &original)?;
+                // The references it removes are writes to the entities that hold them.
+                if *unlink_references {
+                    human_referrers(view, origin, number, plan, &original)?;
+                }
+                Ok(())
+            }
             _ => Ok(()),
         }),
     }
+}
+
+/// An unset or remove of `field`: a write like any other, and a drop of what the entity holds there.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the check carries the write's whole context"
+)]
+fn drop_edit(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    kinds: &Kinds<'_>,
+    number: usize,
+    plan: bool,
+    entity_id: &str,
+    field: &str,
+    index: Option<usize>,
+) -> Result<(), OpError> {
+    let Some(kind) = kinds.of(entity_id) else {
+        return Ok(());
+    };
+    human_kind(view, origin, number, plan, &kind)?;
+    write(view, origin, number, plan, &kind, field, None)?;
+    dropped(
+        view,
+        origin,
+        number,
+        plan,
+        &kind,
+        kinds.original(entity_id),
+        field,
+        index,
+    )
 }
 
 /// Whether `origin` is an agent's: an extension, MCP, or the command line with nobody at a terminal. The editor's own
@@ -340,6 +430,152 @@ fn enforce(
         )),
         _ => Ok(()),
     }
+}
+
+/// A delete of the entity `id` of `kind`, refused when it holds a value whose writer is human and `origin` is an
+/// agent's: a written field whose writer is human, or a written block or block-list item with such a member. Computed
+/// and harness values are not checked (an extension deletes its own records).
+fn human_held(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    kind: Option<String>,
+    id: &str,
+) -> Result<(), OpError> {
+    let Some(kind) = kind.filter(|_| agent_facing(origin)) else {
+        return Ok(());
+    };
+    let Found::One(path) = view.graph().scopes().resolve(None, id, &|_| true) else {
+        return Ok(());
+    };
+    let Some(node) = view.graph().node(path.as_str()) else {
+        return Ok(());
+    };
+    let fields = view.registries().fields();
+    let held = node.fields.entries().iter().find_map(|entry| {
+        let form = fields.get(&kind, entry.key.as_str())?.form();
+        held_in(form, form.writer(), &entry.value)
+            .map(|inside| format!("{}{inside}", entry.key.as_str()))
+    });
+    match held {
+        Some(at) => Err(human_only(
+            number,
+            plan,
+            format!("'{at}' of {kind} '{id}' was written by a person"),
+        )),
+        None => Ok(()),
+    }
+}
+
+/// A write that takes away what the entity `id` holds at `field` (an unset, a remove of the item at `index`, a set
+/// that replaces it), refused when that is a person's value: dropping it first would let a delete through.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the check carries the write's whole context"
+)]
+fn dropped(
+    view: &ProjectView<'_>,
+    origin: &Origin,
+    number: usize,
+    plan: bool,
+    kind: &str,
+    id: String,
+    field: &str,
+    index: Option<usize>,
+) -> Result<(), OpError> {
+    if !agent_facing(origin) {
+        return Ok(());
+    }
+    let Found::One(path) = view.graph().scopes().resolve(None, &id, &|_| true) else {
+        return Ok(());
+    };
+    let Some(node) = view.graph().node(path.as_str()) else {
+        return Ok(());
+    };
+    let name = top(field);
+    let (Some(entry), Some(declared)) = (
+        node.fields.entry(name),
+        view.registries().fields().get(kind, name),
+    ) else {
+        return Ok(());
+    };
+    let held = at_path(
+        declared.form(),
+        declared.form().writer(),
+        &entry.value,
+        &field[name.len()..],
+        index,
+    );
+    match held {
+        Some(inside) => Err(human_only(
+            number,
+            plan,
+            format!("'{field}{inside}' of {kind} '{id}' was written by a person"),
+        )),
+        None => Ok(()),
+    }
+}
+
+/// [`held_in`] over what `value` holds at `rest` (the `.member` and `[i]` steps after its field), or over its item
+/// `index` when given.
+fn at_path(
+    form: &FieldForm,
+    writer: Option<FieldWriter>,
+    value: &FieldValue,
+    rest: &str,
+    index: Option<usize>,
+) -> Option<String> {
+    if rest.is_empty() {
+        return match (index, value) {
+            (Some(i), FieldValue::Blocks(items)) => {
+                let item = FieldValue::Block(items.get(i)?.fields.clone());
+                held_in(form, writer, &item)
+            }
+            (Some(_), _) => None,
+            (None, _) => held_in(form, writer, value),
+        };
+    }
+    if let Some(after) = rest.strip_prefix('.') {
+        let key = after.split(['.', '[']).next()?;
+        let FieldValue::Block(map) = value else {
+            return None;
+        };
+        let member = form.members()?.get(key)?;
+        return at_path(
+            member,
+            writer.or(member.writer()),
+            map.get(key)?,
+            &after[key.len()..],
+            index,
+        );
+    }
+    let (digits, tail) = rest.strip_prefix('[')?.split_once(']')?;
+    let FieldValue::Blocks(items) = value else {
+        return None;
+    };
+    let item = FieldValue::Block(items.get(digits.parse::<usize>().ok()?)?.fields.clone());
+    at_path(form, writer, &item, tail, index)
+}
+
+/// The path inside `value` (empty for `value` itself) of a written member whose effective `writer` is human.
+fn held_in(form: &FieldForm, writer: Option<FieldWriter>, value: &FieldValue) -> Option<String> {
+    if writer == Some(FieldWriter::Human) {
+        return Some(String::new());
+    }
+    let members = form.members()?;
+    let maps: Vec<&FieldMap> = match value {
+        FieldValue::Block(map) => vec![map],
+        FieldValue::Blocks(items) => items.iter().map(|item| &item.fields).collect(),
+        _ => return None,
+    };
+    maps.into_iter()
+        .flat_map(FieldMap::entries)
+        .find_map(|entry| {
+            let member = members.get(entry.key.as_str())?;
+            held_in(member, writer.or(member.writer()), &entry.value)
+                .map(|inside| format!(".{}{inside}", entry.key.as_str()))
+        })
 }
 
 /// A delete that unlinks references, or a rename, rewrites the fields of the entities that name `id`: refused when one

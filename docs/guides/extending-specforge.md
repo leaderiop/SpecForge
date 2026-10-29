@@ -427,7 +427,7 @@ phase: it marks the phase done and notes the check that passed.
 3. **Preview.** The host adds `--dry-run` to a writing command: `specforge gsd record 03-02 --dry-run` prints the
    diff and writes nothing.
 4. **Apply.** Without the flag the host writes the files, or none: a plan that would leave an error the project does
-   not have now is E080, a human-only value is `human_only`, and nothing is half written. The ledger line of a
+   not have now is E080 (a judged rule's finding is not one, ADR 0297), a human-only value is `human_only` (an existing human-only entity is not edited, nor a person's value deleted, ADR 0298), and nothing is half written. The ledger line of a
    `harness` field is written in the same step.
 5. **Re-plan on `stale_revision`.** If someone edited `03-02.spec` after the command read it, the host refuses the
    plan `stale_revision` and writes nothing. Run the command again: it reads the new file and plans over it.

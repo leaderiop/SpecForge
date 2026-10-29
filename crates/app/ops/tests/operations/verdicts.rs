@@ -199,7 +199,7 @@ fn set_verdict_compares_its_inputs_with_the_disk_under_the_lock() {
 
 /// Apply `ops`, a plan of a command of `@gsd/core`, over the GSD-shaped project through the host's judged rules
 /// (K7 T9): the refusal reason, or `applied`/`previewed`.
-fn gsd(project: &TestProject, ops: Value, dry_run: bool) -> String {
+pub(crate) fn gsd(project: &TestProject, ops: Value, dry_run: bool) -> String {
     let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
     let view = ProjectView::of(&compiled);
     let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(&view));

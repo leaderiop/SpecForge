@@ -49,6 +49,16 @@ A stale or missing verdict never counts as a pass. A rule gated off by its setti
 not asked for. **I205** says once per run that test inputs were not judged because no test report exists; **E045** is an
 unusable report.
 
+## Writing around a judged rule
+
+A judged rule's finding is never an error a write adds (ADR 0297): E080 does not count it. Creating an entity a rule
+targets (a new truth, a phase spec), editing an input of a passing verdict (it becomes `stale`) and recording a failing
+verdict are all written, and the finding is reported by the write and by `check`, which still fails on it. Recording
+`failed` is the honest record when the judge disagrees. A rule that guards a contradiction between a pass and other
+evidence (gsd/E502: a `verified` verdict over tests that failed) is a pass, not a judged rule: it refuses the write.
+A writing collector's plan is judged with the report its collect wrote, so a failing test does not refuse its commits. The same applies to its `set_verdict`: a `basis` that the report changed
+(the entity's tests, say) is refused as stale, not accepted and stale on the next compile.
+
 ## Inputs
 
 An input is a name and a selector over the project:

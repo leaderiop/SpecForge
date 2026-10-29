@@ -1003,9 +1003,11 @@ behavior answer_edit_plan "Answer an Edit Plan" {
   contract   """
     A command or a collector that declares `writes` answers typed operations, an edit plan, instead of writing
     (ADR 0289): the host sends it the revision of every source and, to a collector, the graph, and applies the plan
-    it answers after the report. An extension holds no file system and no lock.
+    it answers after the report, judged against the project with that report (ADR 0297). An extension holds no file system and no lock.
   """
   verify unit "a writing collector receives the graph and its plan is applied after the report"
+  verify unit "a writing collectors plan is judged against the report its collect wrote"
+  verify unit "a writing collectors plan is applied within its calls containment"
 }
 
 behavior run_guard_passes "Run Guard Passes" {

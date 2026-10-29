@@ -30,7 +30,7 @@ use specforge_wasm::WasmRuntime;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-use crate::authoring::edit::validate::added;
+use crate::authoring::edit::validate::{added, judged_finding};
 use crate::authoring::format::{Configs, Forms, Place};
 use crate::change::{ProjectChange, unreadable, unwritable};
 use crate::{Caller, Held, OpError, OpErrorKind, ReadFailure, Refusal, Writes, Wrote};
@@ -367,9 +367,14 @@ pub fn judge(
     verdict.compared = true;
     verdict.graph_delta = beyond_steps(compute_graph_delta(pre.graph(), post.graph()), pre.graph());
     verdict.post_diagnostics = post.diagnostics();
-    verdict.added_errors = added(&pre.checked_diagnostics(), verdict.post_diagnostics.clone())
-        .0
-        .len();
+    let judged = judged_finding(pre.environment().registries());
+    verdict.added_errors = added(
+        &pre.checked_diagnostics(),
+        verdict.post_diagnostics.clone(),
+        judged,
+    )
+    .0
+    .len();
     verdict
 }
 

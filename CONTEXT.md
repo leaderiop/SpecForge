@@ -130,7 +130,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   for, or whose lines differ from that block's: what a migration lays out (`specforge_migrate`'s `layout::lay_out`,
   ADR 0235). A file with none is skipped as it is.
 - **Added error**: an error the edited compile reports that the checked report has no diagnostic left to pair, by code,
-  severity, file and message with its digits collapsed (ADR 0211); the one rule behind E080 and a migration's refusal.
+  severity, file and message with its digits collapsed (ADR 0211), less a judged rule's finding (ADR 0297); the one rule behind E080 and a migration's refusal.
 - **Migration verdict**: whether a planned migration is kept, decided before anything is written: its hooks pass, and
   the edited compile of its planned texts adds no **added error** and has the graph the project has, less the steps' declared changes
   (`specforge_ops::authoring::migrate::{judge, Verdict}`, ADR 0186). A dry run reports it; a refused migration writes
@@ -1627,7 +1627,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
   takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
-  non-interactive CLI are refused `human_only` (ADR 0289).
+  non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
+  delete an entity holding a person's value (ADR 0298).
 - **Guard pass**: a pass of phase `guard`; it runs only when a write is judged, reads the project before the write as
   `previous`, and its errors refuse the write (ADR 0289).
 - **Write lock**: `.specforge/write.lock`, held by every host write of a project that has a `.specforge/`.

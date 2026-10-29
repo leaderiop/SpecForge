@@ -45,7 +45,7 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 | **E024** | `unknown entity kind 'K' for entity 'X'` | No enabled extension declares that keyword (the grammar itself knows only `spec`, `ref`, `use`, `defaults`). | `specforge add` the extension that declares it (`specforge extensions` lists what each enabled one declares), or fix the keyword. |
 | **E061** | `field 'status' of feature 'X' is declared enum (…), but was given …` | A value outside the field's vocabulary (status, priority, effort, technical_level, FMEA ratings, property_type, …). | Use one of the values the message lists; the suggestion names the closest. |
 | **E061** (date) | a date field that is no calendar day | A decision `date`, milestone `target_date` / `start_date` or release `release_date` that is not one calendar day. | Write one calendar day, `YYYY-MM-DD`, bare. |
-| **E080** | `the edit would leave the project with N error(s) it does not have; nothing was written` | A typed edit (`specforge new`/`set`/`link`/…, or MCP `specforge.edit`) would add an error. | Fix what it lists first (create the target, give the required field), or make both changes in one `specforge.edit` call. |
+| **E080** | `the edit would leave the project with N error(s) it does not have; nothing was written` | A typed edit (`specforge new`/`set`/`link`/…, or MCP `specforge.edit`) would add an error. | Fix what it lists first (create the target, give the required field), or make both changes in one `specforge.edit` call. A judged rule's finding (no verdict, stale, failing) is never one of them: the write is made and the finding reported (ADR 0297). |
 
 ---
 

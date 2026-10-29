@@ -92,7 +92,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | Code | Rule | Kind | compat | strict | GSD source |
 |---|---|---|---|---|---|
 | gsd/E501 | the verifier's verdict on each truth, artifact and key link is fresh | judged (verifier) | E | E | verifier, honest-verifier |
-| gsd/E502 | an explicit truth is verified only with a named passing test. NOT BUILT (deferred, not blocked: REVIEW-r40 M7). Until it is, a `verified` records on an explicit truth whose recorded tests include a failing one. A failing report collected after a pass stales the pass, so E502 (which needs a fresh passing judgement) is not raised by it, and refusing a `verified` over a failing test is the rule's purpose (`tests/cli/e502_probe.rs`) | pass | E | E | honest-verifier |
+| gsd/E502 | an explicit truth is verified only with a passing test recorded for it (its `[gsd:<id>]` link): a fresh passing `gsd/E501` verdict over recorded tests that hold no passed result, or a failed one, is E502. Silent without a report (I205 says there is none); a `backstop` truth is never E502. Every input of E502 is an input of E501 (`truth self`, `tests test(self)`), so a recorded result stales the verdict first and never makes E502 appear: it appears when a verifier records `verified` over results that contradict it, and that record is refused (E080 names `gsd/E502`; the verifier records `failed` instead, `tests/cli/e502_probe.rs`). A verdict's `cited_tests` are not sent to a pass, so a cited test that is not linked does not count. Not guaranteed (K18): E502 is enforced only through E080, whose pairing is by message shape, so two `set_verdict` ops of one plan that clear one E502 and add another cancel out; `derive` reads a fresh `verified` as passing whether or not E502 stands; and `verification` is agent-writable, so the guard can be turned off for a truth first | pass | E | E | honest-verifier |
 | gsd/E503 | an override names who accepted the truth and when: `by` and `at` are not required fields, so this is their one diagnostic, naming which is missing | pass | E | E | verifier overrides |
 | gsd/W504 | more than three overrides in a phase: one warning on the verification | pass | W | W | verifier |
 | gsd/E505 | debt markers (TBD, FIXME, XXX) in the phase's files link to an issue: a whole-word marker in a file a plan names in `files_modified`, on a line with no `#N`, `issue #N`, `PR #N` or `DEF-N`; one error per file and line, naming `file:line`. Judged over the authored `files_modified`, never a commit's file list. A file the host did not serve (a budget, a cap) is not checked, never a finding. `TODO`, `HACK` and `PLACEHOLDER` are warnings in `verification.anti_patterns`, not diagnostics | pass | E | E | verifier |
@@ -122,20 +122,16 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
   verification `scan_partial`, which keeps it from `passed`.
 - Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
-  (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` (above) and `gsd/E515`.
+  (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
-- **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
+- **Not built, waiting on the kernel (K18).** Baseline re-verification (T13): the baseline compile sees only a commit's
   `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
   `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
-  black-box). `gsd/W514` (above). The host's E080 treats a judged rule's own state as a new error: a failing verdict, the
-  replacement of a pass, the creation of a judged target and an edit that stales a passing Error verdict are all refused
-  whole, so a passing verdict cannot be withdrawn through `record_verdict` (see the "Waiting on the kernel" list of
-  [../README.md](../README.md), and `tests/cli/judged_refusals.rs`). The human-only guarantee of `override` holds
-  for its own fields (r40 T16); an agent can still delete a `milestone_audit`.
+  black-box). `gsd/W514` (above). The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297): a failing verdict, the replacement of a pass, the creation of a judged target and an edit that stales a pass are written (`tests/cli/judged_refusals.rs`). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`. T13 and W514 wait for K18.
 
 ## Setting-gated rules
 
@@ -174,13 +170,13 @@ is neither fresh nor stale.
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
-| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` every requirement (a selector cannot go on past a reference, and a requirement has no milestone: K17) | `integration` (its outcome: passed \| issues, passing passed) |
+| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` every requirement (a selector cannot go on past a reference, and a requirement has no milestone: K18) | `integration` (its outcome: passed \| issues, passing passed) |
 
 gsd/E501 reads no `file()` input, though the verifier judges code: a `file()` input must name a file-reference field, the
 host checks every such field for existence (E016), and a plan, an artifact and a key link name files that do not exist
 yet (`plan.files_modified`, `artifact.path`, `key_link.from` and `to` stay plain strings). The verifier cites the files
 it read, and the verdict digests `cited` (and `covered_files` lists them). A file it did not cite can change without
-staling the verdict. The kernel would need a file-reference field the existence rule skips (K17).
+staling the verdict. The kernel would need a file-reference field the existence rule skips (K18).
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).

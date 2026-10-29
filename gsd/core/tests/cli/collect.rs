@@ -461,3 +461,35 @@ fn the_junit_collector_is_never_run_by_a_plain_collect() {
         run.all()
     );
 }
+
+/// K17 (ADR 0297): a failing test never refuses the commits `gsd-git` records. Under `gsd-strict` a failing result is an
+/// Error (gsd/W408) the report alone causes. `collect` runs one runner per call and `gsd-junit` answers no plan, so the
+/// report and the commits are two calls here; the same-call case (the plan judged with the report its collect wrote) is
+/// proved in the kernel (`collect/report_first.rs` of `specforge-ops`).
+#[test]
+fn a_failing_test_never_refuses_the_commits_of_a_collect() {
+    let p = repository();
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let truth = "v1.0/01/01-01/TR1";
+    assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
+    let file = p
+        .root()
+        .canonicalize()
+        .expect("root")
+        .join("test/tasks.test.js");
+    p.write(
+        "junit.xml",
+        &format!(
+            "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"adds a task\" classname=\"test\" file=\"{}\"><failure message=\"no\"/></testcase>\n<testcase name=\"[gsd:01-01/TR1] fails\"><failure message=\"no\"/></testcase>\n</testsuite>\n</testsuites>\n",
+            file.display()
+        ),
+    );
+    assert_eq!(p.collect(&["--runner", "gsd-junit", "--no-run"]).code, 0);
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    // The failing result stales the verdict and the strict deliverable check is an Error: reported, not a refusal.
+    assert_eq!(p.inputs(truth, "E501")["verdict"]["state"], "stale");
+    assert!(p.codes().iter().all(|c| c != "gsd/E502"), "{:?}", p.codes());
+}

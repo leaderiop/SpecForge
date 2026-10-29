@@ -6,6 +6,7 @@ mod modes;
 mod order;
 mod plans;
 mod refusals;
+mod report_first;
 mod report_paths;
 mod runs;
 

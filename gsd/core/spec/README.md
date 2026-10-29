@@ -38,7 +38,7 @@ nothing is kept as Markdown.
 | `C` | **computed**: derived by a compute pass (a collector files a report the pass reads), held in the compiled graph only, never in `.spec`; writing it is an error. A value that compares with the past (`re_verification`) compares with the git baseline | K4 |
 | `H` | set only by a command's or a collector's plan; its digest goes in `specforge-harness`; any other value is an error | K4 |
 | `V` | its value comes from the fresh, recorded verdict of the judged rule that binds it (its outcome or a value it records); absent otherwise; written by hand it is an error (K4 E082) | K7 |
-| `U` | human-only: refused in every extension's plan and every MCP write when it is created, deleted or retitled (editing an existing one is not yet checked, K17); the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
+| `U` | human-only: refused in every extension's plan and every MCP write when it is created, deleted or retitled (an agent also cannot set, unset or link an existing one, nor delete an entity holding a person's value: ADR 0298); the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
 
 The rule this table carries: an agent may author a plan, but it may not author `status passed`.
 
@@ -183,7 +183,9 @@ throwaway output outside the spec tree.
 
 ## Waiting on the kernel
 
-Six things r39 and r40 could not build, or could not guarantee, wait for kernel work (K17):
+K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
+human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them. What
+still waits for kernel work (K18):
 
 - **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
   baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
@@ -192,56 +194,35 @@ Six things r39 and r40 could not build, or could not guarantee, wait for kernel 
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
-- **`gsd/E502`** is not built (deferred, not blocked). Its first reason, "recording a `verified` while a failing test is
-  on record would be refused by E080", is wrong: that refusal is what E502 is for. The probe the plan asked for
-  (`tests/cli/e502_probe.rs`) shows the other order cannot trip it either: a failing report collected after a pass
-  changes the truth's `tests` input, the verdict goes stale, and E502 needs a *fresh* passing judgement. So E502 can be
-  built as a `reads_tests` check. Until it is, `record_verdict` takes a `verified` on an explicit truth whose recorded
-  tests include a failing one, and the verification can pass: the fail-open E502 exists to close
-  (`a_verified_truth_with_a_failing_test_records_because_e502_is_not_built`, and the ignored
-  `e502_refuses_a_verified_truth_with_a_failing_test`). `covered_digest` is built, and the commit titled for E502
-  (`gsd/E502 an explicit truth is verified only with a named passing test, and the verification digests what it covered`)
-  built only that.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
-- **A verdict's own state counts as a new error (E080).** The host re-checks the project an edit would leave and keys
-  a diagnostic by its code, severity, file and message shape (`crates/app/ops/src/authoring/edit/validate.rs`). A
-  judged rule's message changes with its verdict (`...: no verdict`, `...: the verdict of <date> is '<outcome>' (<n>
-  findings)`, `...: is stale: ...`), and a **recorded `passed` emits no diagnostic at all**. Everything below follows,
-  and each case is pinned by a live test with an `#[ignore = "K17"]` twin (`tests/cli/judged_refusals.rs`,
-  `judged.rs`, `verify_verdicts.rs`, `discuss.rs`):
-  - **A failing verdict is refused whole** when the rule's effective severity is an Error: gsd/E501 `failed`,
-    `uncertain` and `present_behavior_unverified`, gsd/E518 `issues`, gsd/E202 `failed`, and under `gsd-strict` gsd/W311,
-    W313, W315 `issues`, gsd/W203 `failed` and gsd/W205 `suspicious` or `unknown`:
-    `error[E080]: the edit would leave the project with 1 error it does not have; nothing was written`.
-  - **A passing verdict cannot be withdrawn through `record_verdict`.** A `failed` (or `issues`) that would replace a
-    fresh `verified` (or `passed`) is the same refusal, so a judge that finds a regression cannot say so: the old pass
-    stays fresh, the verification stays `passed` and the phase `complete`, and a `checked` plan stays `checked`. This is
-    **fail-open on revocation**. Code files are not E501 inputs, so a pass stops counting only when something it read
-    changed: its truth, its plan, a file it **cited**, or a test result. Cite the files you judged. Today only a person
-    editing the `.spec` by hand removes a pass.
-  - **Creating a judged target is refused** through any typed agent-facing write (MCP `specforge.new`, a piped CLI, an
-    extension command): a new truth, artifact, key link, `phase_spec` or `milestone_audit` adds a `no verdict` Error of
-    a shape already present, and under `gsd-strict` so does a new plan (W311, W313, W315). A gap-closure plan's truths
-    cannot be created by an agent at all. An agent that writes `.spec` files directly bypasses E080.
-  - **An edit that stales a passing Error verdict is refused** (a truth's text, its plan's fields, a checked plan
-    under strict). The worst case is gsd/E518: its `requirements` input is every requirement, so once a milestone
-    audit's integration verdict passes, every requirement edit and creation is refused.
-  - `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file never goes stale on a code
-    change (`record_verdict` does not require a citation: a truth verified by tests alone has no file to cite).
-  - `check` is red from planning on: gsd/E501 is an Error from the first planned truth until it is verified.
-  - The kernel also reports `(0 findings)` in every judged message (it counts a list of values, not of blocks).
-  `@gsd/core` therefore ships fail-closed only when no verdict exists yet; once a pass exists it cannot be revoked. The
-  smallest kernel change (K17): in `validate.rs::check`, a diagnostic whose code is a judged rule's goes to the
-  reported-not-refused remainder, because it records a verdict that is owed, not a defect of the edit. Status
-  derivations stay fail-closed, since they read `Judgement.passed`, never the diagnostic.
 - **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
   because a plan, an artifact and a key link name files that do not exist yet and the host checks every file-reference
   field for existence (E016). The verifier cites the files it read (`cited`); a file it did not cite can change
   without staling its verdict. Likewise `gsd/E518`'s `requirements` input is every requirement: a selector cannot go
   on past a reference (`phase.milestone.requirements`).
-- **Human-only on existing entities.** Closed for `override` in r40: the host's `edit_flags` checks the kind's writer
-  on create, delete and retitle, and a *field's* writer on `set`, `unset` and `link`, so every field of `override` is
-  marked human and an agent can no longer change or re-point one
-  (`an_agent_cannot_edit_an_existing_override`). What stays: an agent can delete a milestone audit that carries a
-  person's `debt_accepted` (gsd/E106 then refuses the gate), because the kind is not human; the general fix is K17.
+- **A `number` setting type**, so the settings that accept decimals (`hooks.context_*_threshold`) are whole numbers.
+- **A JSON number for a top-level integer plan op**: gsd writes the decimal text (`collectors/git.rs`).
+- **`collect` re-keys short ids**: `gsd-junit` resolves `[gsd:<id>]` itself.
+- **The SDK exports `TriggerKind`**: `gates.rs` reads the kind by name.
+- **A collector's plan judged for host errors only** (REVIEW-r38 M1), for `gsd/E515` (`gsd-plus` only).
+- **What stays after K17.** `cited` defaults to `[]` and code files are not E501 inputs, so a verdict that cites no file
+  never goes stale on a code change; `check` is red from planning on, since gsd/E501 is an Error from the first planned
+  truth until it is verified; an agent cannot create an artifact through the CLI (`--path` is the CLI's own option); and
+  the kernel reports `(0 findings)` in every judged message (it counts a list of values, not of blocks). `gsd/E502`
+  counts the tests recorded for a truth (its `[gsd:<id>]` link), not the tests a verdict cites: a pass is not sent
+  `cited_tests`.
+- **What E502 guarantees today, and what it does not.** `gsd/E502` is enforced only through E080: a plan that records
+  `verified` over tests that fail the truth is refused, and the verifier records `failed`. It does not hold when (a) one
+  plan holds two `set_verdict` ops that swap an E502 (one clears an existing one, the other adds one on another truth:
+  E080 matches diagnostics by message shape with the digits collapsed, so the multiset is unchanged), which a verdict
+  recorded before K17 or a hand edit can make reachable; (b) `derive` reads a fresh `verified` as `Verified` whether or
+  not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
+  anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
+  turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
+  field flips). K18: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
+  with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
+  harness-only.
+- **A judged code reused by a pass (K18).** The registry refuses a declarative rule that shares a judged rule's code, not
+  a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
+  pass reports a judged code.

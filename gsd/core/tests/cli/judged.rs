@@ -97,10 +97,10 @@ fn strict_raises_w311_to_error() {
     assert_ne!(p.run(&["check"]).code, 0);
 }
 
-const PLAN: &str = "v1.0/01/01-02";
+pub(super) const PLAN: &str = "v1.0/01/01-02";
 
 /// The state the kernel reports for a verdict: `(state, passed)`.
-fn state(p: &Project, entity: &str, code: &str) -> (String, bool) {
+pub(super) fn state(p: &Project, entity: &str, code: &str) -> (String, bool) {
     let inputs = p.inputs(entity, code);
     (
         inputs["verdict"]["state"]
@@ -145,11 +145,9 @@ fn record_verdict_records_a_plan_check_verdict() {
     assert_eq!(state(&p, PLAN, "W311"), ("fresh".to_string(), true));
 }
 
-/// D-r40-1: recording a non-passing verdict on a rule whose effective severity is an Error. The host re-checks the
-/// project the edit would leave, and a judged rule's message changes with the verdict (E080 keys a diagnostic by its
-/// message shape).
+/// D-r40-1: recording a non-passing verdict on a rule whose effective severity is an Error. A judged rule's message
+/// changes with the verdict, and the host no longer counts a judged finding as an error the write adds (ADR 0297).
 #[test]
-#[ignore = "kernel: a verdict's own judged state is not a new error (K17)"]
 fn a_failing_verdict_on_an_error_rule_records() {
     let p = project("plan");
     p.settings(json!({ "profile": "gsd-strict" }));
@@ -165,21 +163,11 @@ fn a_failing_verdict_on_an_error_rule_records() {
     assert!(w311[0].1.ends_with("is 'issues' (0 findings)"), "{w311:?}");
 }
 
-/// What the probe above found (E080): the refusal itself, so the day the kernel stops refusing this test fails and the
-/// ignored one above is un-ignored. Fail-closed: nothing is written, and the rule keeps saying `no verdict`.
+/// A passing verdict on the same Error rule records too, and the rule says nothing of the plan after it.
 #[test]
-fn a_failing_verdict_on_an_error_rule_is_refused_whole() {
+fn a_passing_verdict_on_an_error_rule_records() {
     let p = project("plan");
     p.settings(json!({ "profile": "gsd-strict" }));
-    let spec = p.read("spec/plans.spec");
-    let run = p.record(PLAN, "W311", "issues", &[]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("E080"), "{}", run.all());
-    assert!(run.all().contains("nothing was written"), "{}", run.all());
-    assert_eq!(p.read("spec/plans.spec"), spec);
-    assert!(!p.exists("specforge-harness"));
-    assert_eq!(state(&p, PLAN, "W311"), ("missing".to_string(), false));
-    // A passing verdict on the same Error rule is fine: it adds no error.
     let run = p.record(PLAN, "W311", "passed", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(state(&p, PLAN, "W311"), ("fresh".to_string(), true));
@@ -330,11 +318,11 @@ fn the_judge_is_the_rules_not_the_callers() {
 
 const PLAN_CHECK_RULES: [&str; 4] = ["W311", "W313", "W315", "W316"];
 
-fn status_of(p: &Project, id: &str) -> serde_json::Value {
+pub(super) fn status_of(p: &Project, id: &str) -> serde_json::Value {
     p.fields_of(id)["status"].clone()
 }
 
-fn record_all(p: &Project, entity: &str) {
+pub(super) fn record_all(p: &Project, entity: &str) {
     for code in PLAN_CHECK_RULES {
         let run = p.record(entity, code, "passed", &[]);
         assert_eq!(run.code, 0, "{code}: {}", run.all());

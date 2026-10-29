@@ -62,6 +62,7 @@ mod input_bytes;
 mod inspect;
 mod journal;
 mod judged_inputs;
+mod judged_writes;
 mod kinds;
 mod local_component;
 mod lock_records;

@@ -1,6 +1,6 @@
 # A migration is judged by the errors it adds, whatever its graph
 
-**Status:** accepted (2026-10-22, architecture round 23, plan 01). Amends [ADR 0186](0186-a-migration-is-judged-before-it-is-written.md) D6 and closes its "Left open (04-D3)"; amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (a moved diagnostic is the same diagnostic).
+**Status:** accepted (2026-10-22, architecture round 23, plan 01). Amends [ADR 0186](0186-a-migration-is-judged-before-it-is-written.md) D6 and closes its "Left open (04-D3)"; amends [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) D3 (a moved diagnostic is the same diagnostic). Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an added error).
 
 ## Context
 
