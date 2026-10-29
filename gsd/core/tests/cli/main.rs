@@ -8,6 +8,7 @@ mod execute_rules;
 mod execute_status;
 mod gates;
 mod harness;
+mod judged;
 mod ladder;
 mod parity_discuss;
 mod parity_plans;

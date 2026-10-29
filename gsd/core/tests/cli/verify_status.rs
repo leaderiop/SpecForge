@@ -82,7 +82,7 @@ fn a_hand_written_override_checks_clean() {
 
 #[test]
 fn the_verify_project_checks_clean() {
-    assert_eq!(verify().findings(), Vec::new());
+    verify().check_exact(&[]);
 }
 
 #[test]

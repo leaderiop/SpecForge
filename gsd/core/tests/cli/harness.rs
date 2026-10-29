@@ -49,6 +49,39 @@ impl Run {
     }
 }
 
+/// Whether a diagnostic code (`gsd/W311`) is one of the judged rules'.
+fn is_judged(code: &str) -> bool {
+    let local = code.strip_prefix("gsd/").unwrap_or(code);
+    gsd_core::judged::JUDGED.iter().any(|j| j.code == local)
+}
+
+/// The `(code, entity)` pairs of the judged rules' diagnostics in a report from [`Project::report_all`], sorted. The
+/// entity is the quoted id every judged message carries.
+pub fn judged(report: &[(String, String)]) -> Vec<(String, String)> {
+    let mut found: Vec<(String, String)> = report
+        .iter()
+        .filter(|(code, _)| is_judged(code))
+        .map(|(code, message)| {
+            let id = message
+                .split('\'')
+                .nth(1)
+                .unwrap_or_else(|| panic!("a judged message names its entity: {message}"));
+            (code.clone(), id.to_string())
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+/// What a report holds besides the judged rules' diagnostics.
+pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
+    report
+        .iter()
+        .filter(|(code, _)| !is_judged(code))
+        .cloned()
+        .collect()
+}
+
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
     dir: tempfile::TempDir,
@@ -146,8 +179,17 @@ impl Project {
         self.dir.path()
     }
 
-    /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted.
+    /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted, the judged rules'
+    /// left out (see [`Project::report`]).
     pub fn findings(&self) -> Vec<(String, String)> {
+        self.findings_all()
+            .into_iter()
+            .filter(|(code, _)| !is_judged(code))
+            .collect()
+    }
+
+    /// [`Project::findings`] with the judged rules' diagnostics.
+    pub fn findings_all(&self) -> Vec<(String, String)> {
         let run = self.run(&["check", "--format", "json"]);
         let diagnostics: serde_json::Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
@@ -169,8 +211,64 @@ impl Project {
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
     /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
-    /// project that has none says I205 once, and the tests of the rules are not about that.
+    /// project that has none says I205 once, and the tests of the rules are not about that. The judged rules'
+    /// diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so on of every
+    /// fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has them, and
+    /// the clean-report invariants and the judged tests use it.
     pub fn report(&self) -> Vec<(String, String)> {
+        self.report_all()
+            .into_iter()
+            .filter(|(code, _)| !is_judged(code))
+            .collect()
+    }
+
+    /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
+    /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
+    /// `off` (a gate that is off) and an entity that writes a field the target says to skip.
+    pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        for rule in gsd_core::judged::JUDGED
+            .iter()
+            .filter(|r| !off.contains(&r.code))
+        {
+            for target in rule.targets {
+                for node in self.nodes_of(target.kind) {
+                    let skipped = target
+                        .unless_set
+                        .iter()
+                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
+                    if !skipped {
+                        let id = node["id"].as_str().expect("an id").to_string();
+                        out.push((format!("gsd/{}", rule.code), id));
+                    }
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
+    /// The clean-report invariant: `specforge check` finds nothing but the judged rules' `no verdict` on exactly the
+    /// entities they target (see [`Project::expected_judged`]). Failable both ways: a missing judged diagnostic, an
+    /// extra one, and any other diagnostic fail it.
+    pub fn check_exact(&self, off: &[&str]) {
+        let run = self.run(&["check"]);
+        assert_eq!(run.code, 0, "check: {}", run.all());
+        let report = self.report_all();
+        assert_eq!(unjudged(&report), Vec::new(), "{report:#?}");
+        let found = judged(&report);
+        assert_eq!(found, self.expected_judged(off), "{report:#?}");
+        assert!(
+            report
+                .iter()
+                .filter(|(code, _)| is_judged(code))
+                .all(|(_, message)| message.ends_with(": no verdict")),
+            "{report:#?}"
+        );
+    }
+
+    /// [`Project::report`] with the judged rules' diagnostics.
+    pub fn report_all(&self) -> Vec<(String, String)> {
         let run = self.run(&["check", "--format", "json"]);
         let found: serde_json::Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));

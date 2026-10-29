@@ -311,20 +311,15 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
+    p.check_exact(&[]);
     let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "{}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "{}",
-        check.all()
-    );
     assert!(!check.all().contains("I205"), "{}", check.all());
 }
 
 #[test]
 fn the_twin_is_silent_under_compat_with_and_without_a_report() {
     let p = taskboard();
-    assert_eq!(p.codes(), Vec::<String>::new());
+    p.check_exact(&[]);
     let report =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
     let run = p.collect(&[
@@ -334,7 +329,7 @@ fn the_twin_is_silent_under_compat_with_and_without_a_report() {
         &report.display().to_string(),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert_eq!(p.codes(), Vec::<String>::new());
+    p.check_exact(&[]);
     // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());

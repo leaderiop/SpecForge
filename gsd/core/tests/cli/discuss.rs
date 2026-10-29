@@ -30,13 +30,7 @@ fn fixture(file: &str) -> String {
 }
 
 fn checks_clean(p: &Project) {
-    let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "check: {}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "check: {}",
-        check.all()
-    );
+    p.check_exact(&[]);
 }
 
 #[test]

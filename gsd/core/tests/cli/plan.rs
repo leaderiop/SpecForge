@@ -15,7 +15,7 @@ fn node_ids(query: &Run) -> Vec<String> {
 
 #[test]
 fn the_plan_project_checks_clean() {
-    assert_eq!(project("plan").codes(), Vec::<String>::new());
+    project("plan").check_exact(&[]);
 }
 
 #[test]
@@ -243,7 +243,7 @@ fn the_readme_example_checks_clean() {
         "requirement AUTH-02 \"Sessions\" {\n  text \"A user has a session\"\n  category \"Auth\"\n  tier v1\n}\n\nrequirement AUTH-03 \"Rotation\" {\n  text \"A session token rotates\"\n  category \"Auth\"\n  tier v1\n}\n\nphase 03 \"Auth\" {\n  milestone v1.0\n  name \"Auth\"\n  slug \"auth\"\n  goal \"Users sign in\"\n  depends_on [02]\n  requirements [AUTH-02, AUTH-03]\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 03-01 \"Sign-in\" {\n  phase 03\n  type execute\n  files_modified [\"src/auth/signin.ts\"]\n  requirements [AUTH-02]\n  objective \"Users sign in\"\n}\n\ntruth TR1 \"A user signs in\" {\n  plan 03-01\n  text \"A user signs in\"\n}\n\nartifact AR1 \"Sign-in\" {\n  plan 03-01\n  path \"src/auth/signin.ts\"\n  provides \"sign-in\"\n}\n",
     );
     p.write("spec/readme.spec", &format!("{block}\n"));
-    assert_eq!(p.codes(), Vec::<String>::new());
+    p.check_exact(&[]);
 }
 
 const DISPOSITION: &str = "disposition DSP1 \"Name the file format\" {\n  plan     v1.0/02/02-01\n  round    1\n  reviewer \"codex\"\n  feedback \"The plan does not say which file format the store writes\"\n  outcome  addressed\n}\n";

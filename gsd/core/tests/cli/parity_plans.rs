@@ -90,13 +90,8 @@ fn names(value: &Value) -> Vec<String> {
 #[test]
 fn taskboard_waves_match() {
     let p = taskboard();
-    let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "check: {}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "{}",
-        check.all()
-    );
+    // The twin checks clean (no E201, W204, W406 or E083): only the judged rules report, on every plan.
+    p.check_exact(&[]);
     for (index, phase) in [
         ("phase-plan-index-1", "v1.0/01"),
         ("phase-plan-index-2", "v1.0/02"),

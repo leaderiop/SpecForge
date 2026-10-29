@@ -47,7 +47,7 @@ fn a_deliverable_check_status_is_a_computed_member() {
 
 #[test]
 fn the_execute_project_checks_clean() {
-    assert_eq!(project("execute").codes(), Vec::<String>::new());
+    project("execute").check_exact(&[]);
 }
 
 #[test]

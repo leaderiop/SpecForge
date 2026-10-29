@@ -42,7 +42,7 @@ GSD: `- **D-NN:**` in CONTEXT, PROJECT `Key Decisions` rows, SUMMARY `key-decisi
 | rationale | str | | Key Decisions `Rationale` |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
-| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311 (r40), not by gsd/E310, which counts every trackable decision as GSD does |
+| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
 | superseded_by | → decision | | a later decision that reverses it |
 

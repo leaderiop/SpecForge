@@ -63,13 +63,9 @@ fn context_decisions() -> Vec<(String, String)> {
 #[test]
 fn taskboard_discuss_matches_planning() {
     let p = taskboard();
+    // The twin checks clean (no E201, W204, W406 or E083): only the judged rules report, on every plan.
+    p.check_exact(&[]);
     let check = p.run(&["check"]);
-    assert_eq!(check.code, 0, "check: {}", check.all());
-    assert!(
-        check.all().contains("0 errors, 0 warnings"),
-        "the twin checks clean (no E201, W204, W406 or E083): {}",
-        check.all()
-    );
 
     // `roadmap analyze` says where a context and a research exist: phase 2 only.
     let analyzed = golden("roadmap-analyze.json");

@@ -15,7 +15,7 @@ pub struct RuleRow {
 const NOT_CODE_TABLES: &[&str] = &[
     "Judged rules' inputs",
     "Setting-gated rules",
-    "Retired and kernel-dependent",
+    "Retired and kernel-provided",
 ];
 
 /// The rows of the tables that list the codes (six cells, the first `gsd/` and a letter and three digits).
@@ -124,4 +124,136 @@ pub fn field_of(kind: &str, field: &str) -> serde_json::Value {
         .and_then(|fields| fields.iter().find(|f| f["name"] == field))
         .unwrap_or_else(|| panic!("no field {kind}.{field}"))
         .clone()
+}
+
+/// One row of `spec/rules.md`'s "Judged rules' inputs" table.
+#[derive(Debug)]
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub struct JudgedRow {
+    /// The local codes: `["W311", "W313", ...]`.
+    pub codes: Vec<String>,
+    pub target: String,
+    /// `(name, selector)`, in the order the row lists them.
+    pub inputs: Vec<(String, String)>,
+    /// The field a row's `unless_set` names, when the row says it.
+    pub unless_set: Option<String>,
+    pub binds: String,
+}
+
+/// The selector a cell piece (`` `name` selector (note) ``) names, cut at its note.
+fn input_of(piece: &str) -> (String, String) {
+    let rest = piece.trim().strip_prefix('`').expect("a quoted input name");
+    let (name, rest) = rest.split_once('`').expect("a closing quote");
+    let rest = rest.trim().replace("\\|", "|");
+    let end = [" (", ";"]
+        .iter()
+        .filter_map(|cut| rest.find(cut))
+        .min()
+        .unwrap_or(rest.len());
+    (name.to_string(), rest[..end].trim().to_string())
+}
+
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn judged_rows() -> Vec<JudgedRow> {
+    let text = include_str!("../../spec/rules.md");
+    let section = text
+        .split("## Judged rules' inputs")
+        .nth(1)
+        .and_then(|rest| rest.split("\n## ").next())
+        .expect("the judged inputs section");
+    let mut rows = Vec::new();
+    for line in section.lines().filter(|l| l.starts_with("| gsd/")) {
+        let cells: Vec<&str> = line.trim().trim_matches('|').split(" | ").collect();
+        let [rules, target, inputs, binds] = cells[..] else {
+            panic!("a judged row has four cells: {line}");
+        };
+        let head = rules.split(" (").next().unwrap_or(rules);
+        let codes = head
+            .split(',')
+            .map(|c| c.trim().trim_start_matches("gsd/").to_string())
+            .collect();
+        let unless_set = inputs
+            .split("`unless_set ")
+            .nth(1)
+            .and_then(|r| r.split(|c: char| !c.is_alphanumeric() && c != '_').next())
+            .map(String::from);
+        rows.push(JudgedRow {
+            codes,
+            target: target.trim_matches('`').to_string(),
+            inputs: inputs.split(" · ").map(input_of).collect(),
+            unless_set,
+            binds: binds.to_string(),
+        });
+    }
+    rows
+}
+
+/// The judged descriptor `describe` prints for a local code.
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn judged_descriptor(code: &str) -> Option<serde_json::Value> {
+    describe("validation_rules")["items"]
+        .as_array()
+        .expect("rules")
+        .iter()
+        .find(|r| r["code"] == code && r["check"] == "judged")
+        .map(|r| r["judged"].clone())
+}
+
+/// Asserts that the descriptor of `code` reads exactly what `rules.md` lists for it: each target with its inputs in
+/// order, and its `unless_set`.
+#[allow(
+    dead_code,
+    reason = "each test crate that includes this module uses some of it"
+)]
+pub fn assert_inputs_match_rules_md(code: &str) {
+    let rows: Vec<JudgedRow> = judged_rows()
+        .into_iter()
+        .filter(|r| r.codes.iter().any(|c| c == code))
+        .collect();
+    assert!(!rows.is_empty(), "rules.md lists no judged row for {code}");
+    let descriptor = judged_descriptor(code).unwrap_or_else(|| panic!("{code} is not judged"));
+    let targets = descriptor["targets"].as_array().expect("targets");
+    assert_eq!(targets.len(), rows.len(), "{code}: targets");
+    for row in rows {
+        let target = targets
+            .iter()
+            .find(|t| t["kind"] == row.target.as_str())
+            .unwrap_or_else(|| panic!("{code}: no target {}", row.target));
+        let inputs: Vec<(String, String)> = target["inputs"]
+            .as_array()
+            .expect("inputs")
+            .iter()
+            .map(|i| {
+                (
+                    i["name"].as_str().expect("name").to_string(),
+                    i["selector"].as_str().expect("selector").to_string(),
+                )
+            })
+            .collect();
+        assert!(!inputs.is_empty(), "{code} {}: no inputs", row.target);
+        assert_eq!(inputs, row.inputs, "{code} {}", row.target);
+        let unless: Vec<String> = target["unless_set"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert_eq!(
+            unless,
+            row.unless_set.iter().cloned().collect::<Vec<_>>(),
+            "{code} {}",
+            row.target
+        );
+    }
 }
