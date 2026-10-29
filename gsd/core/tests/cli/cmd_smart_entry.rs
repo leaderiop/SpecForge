@@ -145,8 +145,13 @@ fn smart_entry_names_commands_for_the_runtime() {
             .as_str()
             .is_some_and(|c| c.starts_with("/gsd-"))
     );
-    let refused = gsd(&p, "smart-entry", &["--runtime", "vim"]);
-    assert_ne!(refused.code, 0, "{}", refused.all());
+    // a runtime the setting can hold but upstream has no slash form for falls through to `/gsd-x`
+    let other = entry(&p, &["--runtime", "vim"]);
+    assert!(
+        other["actions"][0]["command"]
+            .as_str()
+            .is_some_and(|c| c.starts_with("/gsd-"))
+    );
 }
 
 #[test]

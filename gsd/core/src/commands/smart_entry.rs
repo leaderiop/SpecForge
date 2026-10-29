@@ -495,8 +495,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("smart_entry", |cmd| {
         cmd.description("Classify the project's situation and name the next actions, as gsd-tools smart-entry does (idle-stranded is never derived: a command runs no git)")
             .arg("runtime", |a| {
-                a.one_of(&["claude", "claude-code", "codex", "cursor"])
-                    .description("the host the commands are named for: codex writes $gsd-x, the others /gsd-x (default claude)");
+                a.description("the runtime the commands are named for: codex writes $gsd-x, the others /gsd-x (default claude)");
             })
             .handler(|call| run(call, smart_entry));
     });

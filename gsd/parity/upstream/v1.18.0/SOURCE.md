@@ -311,3 +311,21 @@ leaves out. All three are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GS
 | `src/smart-entry.cts` | `fde78e6d2fecf8b682fb109fa82be065a09c4107d15265ba3c61ade65eb9d9d6` |
 | `src/runtime-slash.cts` | `0ba8838ff084a5182b12ca0e9c346b9c964bf18cdeb57a18591035523cb0ab4a` |
 | `tests/smart-entry.unit.test.cjs` | `bd8c7a27c5317110236221c073b6f77e2ac3628877a10f3f0f1533576efdfd80` |
+
+## r43 T1: next, progress and manager
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-next`, `/gsd-progress` and `/gsd-manager`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/manager.md` | `02734b44af8e771e62aec6d2e690ed94c399798260a1b7512726825ef4ee7623` |
+| `commands/gsd/next.md` | `784d99db8f903ff0d67582711300ef1421d6f8b9518e536260325ee46c3bf952` |
+| `commands/gsd/progress.md` | `0bd26bb1608c9d17e3e471f6e9ca4e144900eff14613414321729a49d6828fad` |
+| `gsd-core/workflows/analyze-dependencies.md` | `26af3b5ebdd423206db01491ef09fee429ce24fb96ad7b209a8062d3ab6ae2f9` |
+| `gsd-core/workflows/do.md` | `62af2738082a58d336022e3775fbf6b9e5dc6f099bd9e18fd0adb3cea8ac21da` |
+| `gsd-core/workflows/manager.md` | `a615e6c5b7eb2e395bc21a3fb427864d4a59b256b0b842d1ec229bb394c0e26e` |
+| `gsd-core/workflows/next.md` | `a7194150cb75d0a85e458c2412b85b1b24e595dd2e604cd341a70f3c2964662e` |
+| `gsd-core/workflows/progress.md` | `cc444c146336dd9eb2512710258f4b0b173069576207a83aee9db682a3919d5a` |
+| `gsd-core/workflows/progress/steps/forensic-audit.md` | `18a8259b34cf9ac88d11915af7163bff3a5ee3ac7eb50bde7bc5ea13668dcfb1` |
+| `gsd-core/workflows/progress/steps/mvp-display.md` | `5a8cfbca688a9021e05a8c011a4427c59f50ca151332063b7bb43d62f1a25f7c` |
+| `gsd-core/workflows/smart-entry.md` | `7450c3fdd945c5b4a3c0fcf5fbccf0e681913b66c8bee636386f6c51f8682243` |

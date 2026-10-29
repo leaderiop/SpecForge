@@ -9,6 +9,7 @@ pub(crate) mod compose;
 mod discuss;
 mod execute;
 mod host;
+mod navigate;
 mod plan;
 mod preamble;
 mod project;
@@ -56,4 +57,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify::declare(c);
     audit::declare(c);
     ship::declare(c);
+    navigate::declare(c);
 }

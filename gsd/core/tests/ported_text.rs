@@ -106,7 +106,7 @@ fn assert_clean(label: &str, text: &str) {
 #[test]
 fn no_planning_paths_in_rendered_text() {
     let all = sweep();
-    assert_eq!(prompts().len(), 17);
+    assert!(prompts().len() >= 17, "r42's 17 prompts and every r43 one");
     assert!(all.len() >= 17 * 3 * 2, "{} renders", all.len());
     for (command, host, arguments, text) in &all {
         assert_clean(&format!("{command} on {host} with '{arguments}'"), text);

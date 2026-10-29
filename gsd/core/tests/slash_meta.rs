@@ -54,9 +54,15 @@ fn scalar(front: &[String], key: &str) -> Option<String> {
     let unquoted = value
         .strip_prefix('"')
         .and_then(|v| v.strip_suffix('"'))
-        .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
-        .unwrap_or(value);
-    Some(unquoted.to_string())
+        .map(|v| v.replace("\\\"", "\""))
+        .or_else(|| {
+            value
+                .strip_prefix('\'')
+                .and_then(|v| v.strip_suffix('\''))
+                .map(String::from)
+        })
+        .unwrap_or_else(|| value.to_string());
+    Some(unquoted)
 }
 
 fn class(tool: &str) -> String {
@@ -68,7 +74,7 @@ fn class(tool: &str) -> String {
         "Glob" | "Grep" => "search".to_string(),
         "WebFetch" => "web_fetch".to_string(),
         "WebSearch" => "web_search".to_string(),
-        "Skill" => "skill".to_string(),
+        "Skill" | "SlashCommand" => "skill".to_string(),
         "AskUserQuestion" => "ask_user".to_string(),
         "Agent" => "agent".to_string(),
         "TodoWrite" => "todo".to_string(),
