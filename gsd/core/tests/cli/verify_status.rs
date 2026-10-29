@@ -417,3 +417,51 @@ fn an_unverified_phase_makes_the_audit_gaps_found() {
     assert_eq!(audit["status"], "gaps_found", "{audit}");
     assert_eq!(audit["nyquist"]["missing"], 1, "{audit}");
 }
+
+#[test]
+fn an_override_written_with_relative_references_still_counts() {
+    let p = verify();
+    p.edit(
+        "spec/verify.spec",
+        "  verification v1.0/01/01-VERIFICATION\n  truth        v1.0/01/01-01/TR1\n  reason       \"Checked",
+        "  verification 01-VERIFICATION\n  truth        01-01/TR1\n  reason       \"Checked",
+    );
+    p.edit("spec/verify.spec", "  phase v1.0/01\n}", "  phase 01\n}");
+    let text = p.read("spec/verify.spec");
+    let at = text.find("human_item HI1").expect("the human item");
+    p.write("spec/verify.spec", &format!("{}\n", text[..at].trim_end()));
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(verification(&p)["score"], "1/2", "{}", verification(&p));
+}
+
+#[test]
+fn uat_tests_and_gaps_written_with_relative_references_still_count() {
+    let p = verify();
+    p.edit(
+        "spec/uat.spec",
+        "  session   v1.0/01/01-UAT\n  expected  \"A completed",
+        "  session   01-UAT\n  expected  \"A completed",
+    );
+    p.edit(
+        "spec/uat.spec",
+        "  test       v1.0/01/01-UAT/U2\n",
+        "  test       01-UAT/U2\n",
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    let session = p.fields_of(SESSION);
+    assert_eq!(session["totals"]["total"], 2, "{session}");
+    assert_eq!(session["totals"]["pending"], 2, "{session}");
+}
+
+#[test]
+fn validation_rows_written_with_relative_references_still_count() {
+    let p = verify();
+    p.edit(
+        "spec/validation.spec",
+        "  validation  v1.0/01/01-VALIDATION\n  task        v1.0/01/01-01/T2\n",
+        "  validation  01-VALIDATION\n  task        01-01/T2\n",
+    );
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    let row = p.fields_of("v1.0/01/01-VALIDATION/VR1");
+    assert!(row.get("wave").is_some(), "{row}");
+}

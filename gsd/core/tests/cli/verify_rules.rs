@@ -252,3 +252,65 @@ fn fixed_only_is_silent() {
     resolve(&p, false, true);
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
+
+// A reference is compared as the id it resolves to, not as written (the host's own writer emits relative ones).
+
+#[test]
+fn a_wave0_item_written_with_a_relative_validation_still_satisfies_e314() {
+    let p = verify();
+    drop_verify(&p);
+    p.edit(
+        "spec/validation.spec",
+        "  validation v1.0/01/01-VALIDATION\n  path",
+        "  validation 01-VALIDATION\n  path",
+    );
+    p.edit(
+        "spec/validation.spec",
+        "  for        TASK-01\n",
+        "  for        TASK-02\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+#[test]
+fn a_validation_written_with_a_relative_phase_still_validates_the_phase() {
+    let p = verify();
+    drop_verify(&p);
+    p.edit(
+        "spec/validation.spec",
+        "  phase         v1.0/01\n",
+        "  phase         01\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E314"], "{:?}", p.report());
+}
+
+#[test]
+fn a_validation_written_with_a_relative_phase_is_not_w510() {
+    let p = verify();
+    p.write(
+        "spec/research.spec",
+        "research 01-RESEARCH \"Core research\" {\n  phase      v1.0/01\n  researched 2026-10-28\n  confidence high\n  summary    \"## Validation Architecture: node:test, one file per module\"\n}\n",
+    );
+    p.edit(
+        "spec/validation.spec",
+        "  phase         v1.0/01\n",
+        "  phase         01\n",
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+#[test]
+fn overrides_written_with_either_spelling_are_counted_together_by_w504() {
+    let p = verify();
+    let override_ = |id: &str, verification: &str| {
+        format!(
+            "\noverride {id} \"Accepted\" {{\n  verification {verification}\n  truth        v1.0/01/01-01/TR1\n  reason       \"by hand\"\n  by           \"ada\"\n  at           2026-10-29\n}}\n"
+        )
+    };
+    let text = p.read("spec/verify.spec")
+        + &override_("OV2", "v1.0/01/01-VERIFICATION")
+        + &override_("OV3", "01-VERIFICATION")
+        + &override_("OV4", "01-VERIFICATION");
+    p.write("spec/verify.spec", &text);
+    assert_eq!(p.codes(), ["gsd/W504"], "{:?}", p.report());
+}

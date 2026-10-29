@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{of_kind, text};
+use super::plans::{link, of_kind, text};
 
 /// More overrides than this in one verification is W504.
 const MAX_OVERRIDES: usize = 3;
@@ -47,7 +47,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                 .with_entity(&o.id),
             );
         }
-        if let Some(v) = text(o, "verification") {
+        if let Some(v) = link(input, o, "verification") {
             *per_verification.entry(v).or_default() += 1;
         }
     }

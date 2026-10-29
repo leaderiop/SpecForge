@@ -12,7 +12,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
 use super::verify::Verified;
-use crate::passes::plans::of_kind;
+use crate::passes::plans::{link, of_kind};
 
 pub fn status(plans: usize, summarised: usize, verification: Option<&Verified>) -> &'static str {
     let verified = verification.map(|v| v.status);
@@ -47,9 +47,9 @@ pub fn window_status(input: &PassInput, window: &PassEntity) -> &'static str {
             .get(field)
             .is_some_and(|v| !v.trim().is_empty())
     };
-    let disposed = window.fields.get("refactor").is_some_and(|proposal| {
+    let disposed = link(input, window, "refactor").is_some_and(|proposal| {
         of_kind(input, "refactor_proposal")
-            .any(|p| &p.id == proposal && p.fields.contains_key("disposition"))
+            .any(|p| p.id == proposal && p.fields.contains_key("disposition"))
     });
     if set("waiver") {
         "waived"

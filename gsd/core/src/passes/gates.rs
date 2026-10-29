@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::derive::{ladder::window_status, verify::by_phase};
-use super::plans::{of_kind, phase_of, text};
+use super::plans::{link, of_kind, phase_of, text};
 use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
@@ -72,7 +72,7 @@ fn e106(input: &PassInput) -> Vec<PassDiagnostic> {
         return Vec::new();
     };
     let mut audits: Vec<&PassEntity> = of_kind(input, "milestone_audit")
-        .filter(|a| text(a, "milestone") == Some(subject))
+        .filter(|a| link(input, a, "milestone") == Some(subject))
         .collect();
     audits.sort_by(|a, b| a.id.cmp(&b.id));
     let Some(latest) = audits.last() else {

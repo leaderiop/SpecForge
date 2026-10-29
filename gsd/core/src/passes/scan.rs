@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{of_kind, phase_of, strings};
+use super::plans::{link, of_kind, phase_of, strings};
 use facts::{Reads, Served, key, reads};
 use patterns::{Severity, anti_patterns, exports, is_literal};
 
@@ -224,7 +224,7 @@ fn verification_patterns(input: &PassInput) -> Vec<PassValue> {
     let plans = plans_sorted(input);
     of_kind(input, "verification")
         .filter_map(|verification| {
-            let phase = text_of(verification, "phase")?;
+            let phase = link(input, verification, "phase")?;
             let mine: Vec<&PassEntity> = plans
                 .iter()
                 .copied()

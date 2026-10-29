@@ -20,7 +20,7 @@ fn value_of(out: &PassOutput, entity: &str, field: &str) -> Option<serde_json::V
 /// A milestone with one phase of one plan with a summary, the phase tracing to requirement R1, and a verification of
 /// the phase whose single truth has this judgement.
 fn input(outcome: &str, passed: bool) -> PassInput {
-    serde_json::from_value(json!({
+    serde_json::from_value(crate::passes::plans::with_field_edges(json!({
         "entities": [
             { "id": "v1.0", "kind": "milestone" },
             { "id": "v1.0/01", "kind": "phase" },
@@ -39,7 +39,7 @@ fn input(outcome: &str, passed: bool) -> PassInput {
             { "source": "v1.0/01", "target": "R1", "label": "requirements" },
             { "source": "v1.0/01/01-01", "target": "R1", "label": "requirements" },
         ],
-    }))
+    })))
     .expect("a pass input")
 }
 

@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::passes::plans::{children, of_kind, phase_of, strings};
+use crate::passes::plans::{children, link, links, of_kind, phase_of};
 
 type Statuses<'a> = BTreeMap<&'a str, &'static str>;
 
@@ -220,7 +220,8 @@ fn re_verification(
             _ => {}
         }
     }
-    for gap in of_kind(input, "verify_gap").filter(|g| g.fields.get("verification") == Some(&v.id))
+    for gap in of_kind(input, "verify_gap")
+        .filter(|g| link(input, g, "verification") == Some(v.id.as_str()))
     {
         let Some(was) = previous.entities.get(&gap.id) else {
             continue;
@@ -258,13 +259,13 @@ struct Assessment<'a> {
 fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
     let mut found = Vec::new();
     for v in of_kind(input, "verification") {
-        let Some(phase) = v.fields.get("phase").map(String::as_str) else {
+        let Some(phase) = link(input, v, "phase") else {
             continue;
         };
         let group = group(input, phase, &deferred(v));
         let overridden: BTreeSet<&str> = of_kind(input, "override")
-            .filter(|o| o.fields.get("verification") == Some(&v.id))
-            .filter_map(|o| o.fields.get("truth").map(String::as_str))
+            .filter(|o| link(input, o, "verification") == Some(v.id.as_str()))
+            .filter_map(|o| link(input, o, "truth"))
             .collect();
         let now: Vec<Item> = group
             .entities
@@ -279,7 +280,7 @@ fn assess(input: &PassInput) -> Vec<Assessment<'_>> {
             .map(|(_, i)| *i)
             .collect();
         let human_open = of_kind(input, "human_item")
-            .filter(|h| h.fields.get("verification") == Some(&v.id))
+            .filter(|h| link(input, h, "verification") == Some(v.id.as_str()))
             .any(|h| !passed_in_uat(input, h));
         let status = status(&now, &truths, blocker(v), human_open);
         found.push(Assessment {
@@ -303,7 +304,7 @@ pub fn by_phase(input: &PassInput) -> BTreeMap<String, Verified> {
     assess(input)
         .into_iter()
         .filter_map(|a| {
-            let phase = a.verification.fields.get("phase")?.clone();
+            let phase = link(input, a.verification, "phase")?.to_string();
             Some((
                 phase,
                 Verified {
@@ -346,9 +347,9 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
 
 /// A human item is done once the UAT test it names passed.
 fn passed_in_uat(input: &PassInput, item: &PassEntity) -> bool {
-    item.fields.get("uat").is_some_and(|test| {
+    link(input, item, "uat").is_some_and(|test| {
         of_kind(input, "uat_test")
-            .any(|t| &t.id == test && t.fields.get("result").map(String::as_str) == Some("pass"))
+            .any(|t| t.id == test && t.fields.get("result").map(String::as_str) == Some("pass"))
     })
 }
 
@@ -359,7 +360,7 @@ fn gap_closer<'a>(
     statuses: &Statuses,
 ) -> Option<&'a PassEntity> {
     of_kind(input, "plan")
-        .filter(|p| strings(p, "gap_closure").contains(&gap.id))
+        .filter(|p| links(input, p, "gap_closure").contains(&gap.id.as_str()))
         .find(|p| statuses.get(p.id.as_str()) == Some(&"complete"))
 }
 

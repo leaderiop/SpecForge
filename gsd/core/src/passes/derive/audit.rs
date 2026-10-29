@@ -16,7 +16,7 @@ use super::execute::value;
 use super::ladder::window_status;
 use super::verify::Verified;
 use crate::passes::commits::target;
-use crate::passes::plans::{children, of_kind, phase_of, strings, text};
+use crate::passes::plans::{children, link, links, of_kind, phase_of, text};
 
 /// A task's recorded tests: `red` when one failed, `green` when some passed and none failed, else `pending`.
 fn row_status(input: &PassInput, task: &str) -> &'static str {
@@ -41,33 +41,33 @@ struct Coverage {
 
 fn rows_of<'a>(input: &'a PassInput, validation: &PassEntity) -> Vec<&'a PassEntity> {
     of_kind(input, "validation_row")
-        .filter(|r| text(r, "validation") == Some(validation.id.as_str()))
+        .filter(|r| link(input, r, "validation") == Some(validation.id.as_str()))
         .collect()
 }
 
 fn coverage(input: &PassInput, validation: &PassEntity) -> Coverage {
     let rows = rows_of(input, validation);
-    let phase = text(validation, "phase").unwrap_or_default();
+    let phase = link(input, validation, "phase").unwrap_or_default();
     let manual: BTreeSet<&str> = of_kind(input, "manual_check")
-        .filter(|m| text(m, "validation") == Some(validation.id.as_str()))
-        .filter_map(|m| text(m, "requirement"))
+        .filter(|m| link(input, m, "validation") == Some(validation.id.as_str()))
+        .filter_map(|m| link(input, m, "requirement"))
         .collect();
-    let named: BTreeSet<&str> = rows.iter().filter_map(|r| text(r, "task")).collect();
+    let named: BTreeSet<&str> = rows.iter().filter_map(|r| link(input, r, "task")).collect();
     let covered = of_kind(input, "plan")
         .filter(|p| phase_of(input, &p.id) == Some(phase))
         .all(|plan| {
-            let by_manual = strings(plan, "requirements")
+            let by_manual = links(input, plan, "requirements")
                 .iter()
-                .any(|r| manual.contains(r.as_str()));
+                .any(|r| manual.contains(r));
             children(input, &plan.id, "task")
                 .iter()
                 .all(|t| named.contains(t.id.as_str()) || by_manual)
         });
     let green = rows
         .iter()
-        .all(|r| text(r, "task").is_some_and(|t| row_status(input, t) == "green"));
+        .all(|r| link(input, r, "task").is_some_and(|t| row_status(input, t) == "green"));
     let wave0 = of_kind(input, "wave0_item")
-        .filter(|w| text(w, "validation") == Some(validation.id.as_str()))
+        .filter(|w| link(input, w, "validation") == Some(validation.id.as_str()))
         .all(|w| text(w, "done") == Some("true"));
     Coverage {
         compliant: green && covered && !(rows.is_empty() && manual.is_empty()),
@@ -92,7 +92,7 @@ fn validation_values(input: &PassInput) -> Vec<PassValue> {
         ));
         out.push(value(&validation.id, "wave_0_complete", covered.wave0));
         for row in rows_of(input, validation) {
-            let Some(task) = text(row, "task") else {
+            let Some(task) = link(input, row, "task") else {
                 continue;
             };
             out.push(value(&row.id, "status", row_status(input, task)));
@@ -111,7 +111,8 @@ fn validation_values(input: &PassInput) -> Vec<PassValue> {
 /// The Nyquist state of a phase: `compliant`, `partial` (validated, not compliant), `not_validated` (a draft) or
 /// `missing` (`audit-milestone.md:176-185`).
 fn nyquist_state(input: &PassInput, phase: &str) -> &'static str {
-    let Some(validation) = of_kind(input, "validation").find(|v| text(v, "phase") == Some(phase))
+    let Some(validation) =
+        of_kind(input, "validation").find(|v| link(input, v, "phase") == Some(phase))
     else {
         return "missing";
     };
@@ -147,7 +148,7 @@ fn audit_values(
 ) -> Vec<PassValue> {
     let mut out = Vec::new();
     for audit in of_kind(input, "milestone_audit") {
-        let Some(milestone) = text(audit, "milestone") else {
+        let Some(milestone) = link(input, audit, "milestone") else {
             continue;
         };
         let phases: Vec<&PassEntity> = of_kind(input, "phase")
@@ -156,13 +157,8 @@ fn audit_values(
             .collect();
         let requirements: BTreeSet<&str> = phases
             .iter()
-            .flat_map(|p| strings(p, "requirements"))
-            .filter_map(|r| {
-                requirement_states
-                    .keys()
-                    .find(|k| **k == r.as_str())
-                    .copied()
-            })
+            .flat_map(|p| links(input, p, "requirements"))
+            .filter_map(|r| requirement_states.keys().find(|k| **k == r).copied())
             .collect();
         let gaps: Vec<(&str, &str)> = requirements
             .iter()
@@ -212,7 +208,9 @@ fn window_values(input: &PassInput) -> Vec<PassValue> {
     let mut out = Vec::new();
     for window in of_kind(input, "broken_window") {
         out.push(value(&window.id, "status", window_status(input, window)));
-        if let Some(milestone) = text(window, "phase").and_then(|p| target(input, p, "milestone")) {
+        if let Some(milestone) =
+            link(input, window, "phase").and_then(|p| target(input, p, "milestone"))
+        {
             out.push(value(&window.id, "milestone", milestone));
         }
     }

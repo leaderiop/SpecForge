@@ -27,7 +27,10 @@ fn input(extra: Vec<Value>, orphan: bool) -> PassInput {
     if !orphan {
         edges.push(json!({ "source": "v1.0/01/01-01", "target": "R2", "label": "requirements" }));
     }
-    serde_json::from_value(json!({ "entities": entities, "edges": edges })).expect("a pass input")
+    serde_json::from_value(crate::passes::plans::with_field_edges(
+        json!({ "entities": entities, "edges": edges }),
+    ))
+    .expect("a pass input")
 }
 
 fn audit(

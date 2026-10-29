@@ -3,8 +3,10 @@ use serde_json::{Value, json};
 use super::*;
 
 fn input(trigger: Value, entities: Vec<Value>, edges: Vec<Value>) -> PassInput {
-    serde_json::from_value(json!({ "entities": entities, "edges": edges, "trigger": trigger }))
-        .expect("a pass input")
+    serde_json::from_value(crate::passes::plans::with_field_edges(
+        json!({ "entities": entities, "edges": edges, "trigger": trigger }),
+    ))
+    .expect("a pass input")
 }
 
 fn ship(subject: Option<&str>) -> Value {

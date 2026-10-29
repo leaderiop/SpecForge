@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, of_kind, phase_of, rows, strings};
+use super::plans::{children, link, links, of_kind, phase_of, rows};
 
 /// The words a research uses for the section that asks for a validation.
 const SECTION: &str = "validation architecture";
@@ -18,15 +18,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-fn field<'a>(entity: &'a PassEntity, name: &str) -> Option<&'a str> {
-    entity.fields.get(name).map(String::as_str)
-}
-
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let validations: Vec<&PassEntity> = of_kind(input, "validation").collect();
     let validated_phases: BTreeSet<&str> = validations
         .iter()
-        .filter_map(|v| field(v, "phase"))
+        .filter_map(|v| link(input, v, "phase"))
         .collect();
     let mut found = tasks_without_a_check(input, &validated_phases);
     found.extend(missing_validations(input, &validations, &validated_phases));
@@ -37,10 +33,9 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
 fn tasks_without_a_check(input: &PassInput, validated: &BTreeSet<&str>) -> Vec<PassDiagnostic> {
     let wave0: BTreeSet<(&str, &str)> = of_kind(input, "wave0_item")
         .filter_map(|w| {
-            let validation = input.entities.iter().find(|v| {
-                v.kind == "validation" && Some(v.id.as_str()) == field(w, "validation")
-            })?;
-            Some((field(validation, "phase")?, field(w, "for")?))
+            let validation = link(input, w, "validation")?;
+            let validation = of_kind(input, "validation").find(|v| v.id == validation)?;
+            Some((link(input, validation, "phase")?, link(input, w, "for")?))
         })
         .collect();
     let mut found = Vec::new();
@@ -48,14 +43,17 @@ fn tasks_without_a_check(input: &PassInput, validated: &BTreeSet<&str>) -> Vec<P
         let Some(phase) = phase_of(input, &plan.id).filter(|p| validated.contains(p)) else {
             continue;
         };
-        let covered = strings(plan, "requirements")
+        let covered = links(input, plan, "requirements")
             .iter()
-            .any(|r| wave0.contains(&(phase, r.as_str())));
+            .any(|r| wave0.contains(&(phase, *r)));
         for task in children(input, &plan.id, "task") {
             let automated = rows(task, "verify")
                 .iter()
                 .any(|row| row.get("automated").is_some_and(|c| !c.trim().is_empty()));
-            if !automated && !covered && field(task, "type") != Some("manual") {
+            if !automated
+                && !covered
+                && task.fields.get("type").map(String::as_str) != Some("manual")
+            {
                 found.push(
                     PassDiagnostic::new(
                         "E314",
@@ -88,7 +86,7 @@ fn missing_validations(
         .collect();
     let mut found = Vec::new();
     for research in of_kind(input, "research") {
-        let Some(phase) = field(research, "phase").filter(|p| planned.contains(p)) else {
+        let Some(phase) = link(input, research, "phase").filter(|p| planned.contains(p)) else {
             continue;
         };
         let asks = research
@@ -110,9 +108,10 @@ fn missing_validations(
         }
     }
     for verification in of_kind(input, "verification") {
+        let phase = link(input, verification, "phase");
         let Some(validation) = validations
             .iter()
-            .find(|v| field(v, "phase") == field(verification, "phase"))
+            .find(|v| phase.is_some() && link(input, v, "phase") == phase)
         else {
             continue;
         };

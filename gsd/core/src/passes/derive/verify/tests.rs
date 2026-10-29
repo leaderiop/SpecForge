@@ -21,10 +21,10 @@ fn input(items: Vec<serde_json::Value>, extra: Vec<serde_json::Value>) -> PassIn
     ];
     entities.extend(items);
     entities.extend(extra);
-    serde_json::from_value(json!({
+    serde_json::from_value(crate::passes::plans::with_field_edges(json!({
         "entities": entities,
         "edges": [{ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }],
-    }))
+    })))
     .expect("a pass input")
 }
 

@@ -18,6 +18,26 @@ pub fn phase_of<'a>(input: &'a PassInput, plan: &str) -> Option<&'a str> {
         .map(|e| e.target.as_str())
 }
 
+/// The entity a reference field resolves to (its edge), `None` when unwritten or unresolved. A reference is compared
+/// as the id it resolves to, never as written: `01-01/TR1` and `v1.0/01/01-01/TR1` are one target.
+pub fn link<'a>(input: &'a PassInput, entity: &PassEntity, field: &str) -> Option<&'a str> {
+    input
+        .edges
+        .iter()
+        .find(|e| e.source == entity.id && e.label == field)
+        .map(|e| e.target.as_str())
+}
+
+/// The entities a list-of-references field resolves to, in edge order.
+pub fn links<'a>(input: &'a PassInput, entity: &PassEntity, field: &str) -> Vec<&'a str> {
+    input
+        .edges
+        .iter()
+        .filter(|e| e.source == entity.id && e.label == field)
+        .map(|e| e.target.as_str())
+        .collect()
+}
+
 /// The last `/`-segment of an id: its name.
 pub fn name_of(id: &str) -> &str {
     id.rsplit('/').next().unwrap_or(id)
@@ -151,4 +171,55 @@ pub fn texts(entity: &PassEntity) -> Vec<String> {
         }
     }
     out
+}
+
+/// The reference fields the unit tests write as full ids; [`with_field_edges`] resolves them as the host would.
+#[cfg(test)]
+const REFERENCES: &[&str] = &[
+    "phase",
+    "verification",
+    "validation",
+    "truth",
+    "task",
+    "uat",
+    "session",
+    "test",
+    "refactor",
+    "milestone",
+    "for",
+    "requirement",
+];
+
+/// A pass input as JSON, plus one edge per reference field an entity writes (test inputs write full ids, so each
+/// resolves to itself).
+#[cfg(test)]
+pub fn with_field_edges(mut input: serde_json::Value) -> serde_json::Value {
+    let mut edges: Vec<serde_json::Value> = input
+        .get("edges")
+        .and_then(|e| e.as_array().cloned())
+        .unwrap_or_default();
+    for entity in input["entities"].as_array().into_iter().flatten() {
+        for (name, value) in entity["fields"].as_object().into_iter().flatten() {
+            if let (true, Some(target)) = (REFERENCES.contains(&name.as_str()), value.as_str()) {
+                let edge =
+                    serde_json::json!({ "source": entity["id"], "target": target, "label": name });
+                if !edges.contains(&edge) {
+                    edges.push(edge);
+                }
+            }
+        }
+    }
+    for entity in input["entities"].as_array().into_iter().flatten() {
+        for name in ["gap_closure", "requirements"] {
+            for target in entity["values"][name].as_array().into_iter().flatten() {
+                let edge =
+                    serde_json::json!({ "source": entity["id"], "target": target, "label": name });
+                if !edges.contains(&edge) {
+                    edges.push(edge);
+                }
+            }
+        }
+    }
+    input["edges"] = edges.into();
+    input
 }

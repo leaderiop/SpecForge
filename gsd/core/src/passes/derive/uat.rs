@@ -10,7 +10,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::execute::{summaries, value};
 use super::progress::Statuses;
-use crate::passes::plans::{of_kind, strings, text};
+use crate::passes::plans::{link, links, of_kind, text};
 
 fn result(test: &PassEntity) -> &str {
     text(test, "result").unwrap_or("pending")
@@ -19,7 +19,7 @@ fn result(test: &PassEntity) -> &str {
 /// The complete plan whose `gap_closure` names `gap`.
 fn closer<'a>(input: &'a PassInput, gap: &str, statuses: &Statuses) -> Option<&'a PassEntity> {
     of_kind(input, "plan")
-        .filter(|p| strings(p, "gap_closure").iter().any(|g| g == gap))
+        .filter(|p| links(input, p, "gap_closure").contains(&gap))
         .find(|p| statuses.get(p.id.as_str()) == Some(&"complete"))
 }
 
@@ -76,7 +76,7 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
     }
     for session in of_kind(input, "uat_session") {
         let tests: Vec<&PassEntity> = of_kind(input, "uat_test")
-            .filter(|t| text(t, "session") == Some(session.id.as_str()))
+            .filter(|t| link(input, t, "session") == Some(session.id.as_str()))
             .collect();
         let count = |r: &str| tests.iter().filter(|t| result(t) == r).count();
         out.push(value(
@@ -93,7 +93,7 @@ pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
         ));
         let gaps_of = |test: &PassEntity| -> Vec<&PassEntity> {
             of_kind(input, "uat_gap")
-                .filter(|g| text(g, "test") == Some(test.id.as_str()))
+                .filter(|g| link(input, g, "test") == Some(test.id.as_str()))
                 .collect()
         };
         let resolved = |g: &PassEntity| closer(input, &g.id, statuses).is_some();
