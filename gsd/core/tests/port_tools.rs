@@ -127,3 +127,205 @@ fn the_recording_section_matches_k17() {
     assert!(!text.contains("E080"), "{text}");
     assert!(text.contains("replaces an earlier pass"), "{text}");
 }
+
+/// One declared command as `(name, positionals in order, options and flags with their kind)`.
+struct Shape {
+    positionals: Vec<String>,
+    /// `--long` -> takes a value
+    options: Vec<(String, bool)>,
+}
+
+fn shapes() -> std::collections::BTreeMap<String, Shape> {
+    let declaration = gsd_core::build().declaration();
+    let mut out = std::collections::BTreeMap::new();
+    for c in &declaration.surfaces.commands {
+        let mut shape = Shape {
+            positionals: Vec::new(),
+            options: Vec::new(),
+        };
+        for a in serde_json::to_value(&c.args)
+            .expect("args as JSON")
+            .as_array()
+            .expect("an array")
+        {
+            let name = a["name"].as_str().expect("a name").replace('_', "-");
+            let flag = a["arg_type"] == "bool";
+            if flag {
+                shape.options.push((name, false));
+            } else if a["required"] == true {
+                shape.positionals.push(name);
+            } else {
+                shape.options.push((name, true));
+            }
+        }
+        out.insert(c.id.replace('_', "-"), shape);
+    }
+    out
+}
+
+/// The words of a shell-ish tail, up to the end of the command: quotes (and `$( )` inside them) are one word.
+fn words(rest: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut word = String::new();
+    let mut chars = rest.chars().peekable();
+    let mut quote: Option<char> = None;
+    let mut depth = 0;
+    let mut angle = false;
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some(_), '$') if chars.peek() == Some(&'(') => {
+                depth += 1;
+                word.push_str("$(");
+                chars.next();
+            }
+            (_, ')') if depth > 0 => {
+                depth -= 1;
+                word.push(c);
+            }
+            (_, _) if depth > 0 => word.push(c),
+            (Some(q), _) if c == q => {
+                quote = None;
+                word.push(c);
+            }
+            (Some(_), _) => word.push(c),
+            (None, '"' | '\'') => {
+                quote = Some(c);
+                word.push(c);
+            }
+            (None, '<') if word.is_empty() => {
+                angle = true;
+                word.push(c);
+            }
+            (None, '>') if !angle && matches!(word.as_str(), "1" | "2") => {
+                word.clear();
+                break;
+            }
+            (None, '>') if angle => {
+                angle = false;
+                word.push(c);
+            }
+            (None, '`' | ')' | ';' | '|' | '>' | '&' | '#' | '\n') if !angle => break,
+            (None, c) if c.is_whitespace() => {
+                if !word.is_empty() {
+                    out.push(std::mem::take(&mut word));
+                }
+            }
+            (None, '.') if chars.peek().is_none_or(|n| n.is_whitespace()) => {
+                // prose: the sentence ends here
+                break;
+            }
+            (None, c) => word.push(c),
+        }
+    }
+    if !word.is_empty() {
+        out.push(word);
+    }
+    out
+}
+
+/// Why `specforge gsd <command> <words>` is not a call the CLI accepts, if it is not.
+fn refusal(
+    shapes: &std::collections::BTreeMap<String, Shape>,
+    command: &str,
+    words: &[String],
+) -> Option<String> {
+    // a bare mention names the command
+    let shape = shapes.get(command).filter(|_| !words.is_empty())?;
+    let mut positionals: Vec<&str> = Vec::new();
+    let mut open = false;
+    let mut i = 0;
+    while i < words.len() {
+        let w = words[i].as_str();
+        if w == "..." || w.starts_with('[') {
+            open = true;
+        } else if let Some(long) = w.strip_prefix("--") {
+            let long = long.split('=').next().unwrap_or(long);
+            // `--path` and `--format` belong to the CLI, not to a command
+            if matches!(long, "path" | "format") {
+                i += 2;
+                continue;
+            }
+            match shape.options.iter().find(|(n, _)| n == long) {
+                None => return Some(format!("unexpected argument '--{long}'")),
+                Some((_, true)) if !w.contains('=') => i += 1,
+                _ => {}
+            }
+        } else {
+            positionals.push(w);
+        }
+        i += 1;
+    }
+    if positionals.len() > shape.positionals.len() {
+        return Some(format!(
+            "{} positionals, the command takes {:?}",
+            positionals.len(),
+            shape.positionals
+        ));
+    }
+    if !open && positionals.len() < shape.positionals.len() {
+        return Some(format!(
+            "{} positionals, the command needs {:?}",
+            positionals.len(),
+            shape.positionals
+        ));
+    }
+    for (at, p) in positionals.iter().enumerate() {
+        let named = p.trim_matches(|c| matches!(c, '<' | '>'));
+        if let Some(declared) = shape.positionals.iter().position(|n| n == named) {
+            if declared != at {
+                return Some(format!("'{p}' is positional {declared}, written at {at}"));
+            }
+        }
+    }
+    None
+}
+
+/// Every `specforge gsd <command> ...` of `text` that the CLI would refuse.
+fn refused_invocations(text: &str) -> Vec<String> {
+    let shapes = shapes();
+    let rx = Regex::new(r"specforge gsd ([a-z][a-z0-9-]*)([^\n]*)").expect("a regex");
+    // A Rust string continues a line with `\` at its end.
+    let joined = Regex::new(r"\\\n\s*")
+        .expect("a regex")
+        .replace_all(text, "");
+    let mut found = Vec::new();
+    for cap in rx.captures_iter(&joined) {
+        // a call written inside a double-quoted string ends where the string does
+        let at = cap.get(0).map_or(0, |m| m.start());
+        let line_start = joined[..at].rfind('\n').map_or(0, |n| n + 1);
+        let inside = joined[line_start..at].matches('"').count() % 2 == 1;
+        let rest = if inside {
+            cap[2].split('"').next().unwrap_or("")
+        } else {
+            &cap[2]
+        };
+        if let Some(why) = refusal(&shapes, &cap[1], &words(rest)) {
+            found.push(format!("`specforge gsd {}{}`: {why}", &cap[1], &cap[2]));
+        }
+    }
+    found
+}
+
+#[test]
+fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
+    let mut files = Vec::new();
+    walk(&root().join("assets"), &mut files);
+    walk(&root().join("src"), &mut files);
+    let mut bad = Vec::new();
+    let mut seen = 0;
+    for path in files.iter().filter(|p| {
+        p.extension().is_some_and(|e| e == "md" || e == "rs")
+            && !p.to_string_lossy().contains("/tests")
+    }) {
+        let text = std::fs::read_to_string(path).expect("a file");
+        seen += text.matches("specforge gsd ").count();
+        for why in refused_invocations(&text) {
+            bad.push(format!(
+                "{}: {why}",
+                path.strip_prefix(root()).expect("under root").display()
+            ));
+        }
+    }
+    assert!(seen > 60, "only {seen} invocations");
+    assert!(bad.is_empty(), "the CLI refuses:\n{}", bad.join("\n"));
+}

@@ -109,7 +109,7 @@
         "cli": "specforge gsd approve-validation",
         "gate": [],
         "id": "approve",
-        "title": "Record who approved the validation (specforge gsd approve-validation <validation> --by <who>)",
+        "title": "Record who approved the validation (specforge gsd approve-validation <validation> <who>)",
         "tool": "specforge.gsd.approve_validation"
       }
     ],

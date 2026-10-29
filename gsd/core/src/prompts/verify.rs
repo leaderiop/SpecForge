@@ -39,7 +39,7 @@ const VALIDATE_STEPS: &[Step] = &[
     },
     Step {
         id: "approve",
-        title: "Record who approved the validation (specforge gsd approve-validation <validation> --by <who>)",
+        title: "Record who approved the validation (specforge gsd approve-validation <validation> <who>)",
         does: Do::Command("approve_validation"),
     },
 ];

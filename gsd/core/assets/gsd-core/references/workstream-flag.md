@@ -151,8 +151,8 @@ specforge query <phase> --format json
 specforge query <phase> --format json
 
 # Workstream CRUD
-specforge gsd workstreams create <name>
+specforge gsd workstreams create --name <name>
 specforge gsd workstreams list
-specforge gsd workstreams status <name>
-specforge gsd workstreams complete <name>
+specforge gsd workstreams status --name <name>
+specforge gsd workstreams complete --name <name>
 ```

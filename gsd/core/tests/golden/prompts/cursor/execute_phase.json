@@ -114,7 +114,7 @@
         "cli": "specforge gsd record-window",
         "gate": [],
         "id": "record_window",
-        "title": "Record a window of the phase (specforge gsd record-window <phase> <kind> ...)",
+        "title": "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)",
         "tool": "specforge.gsd.record_window"
       },
       {

@@ -147,7 +147,7 @@ Verify the work is ready to ship:
        ⚠ Broken-windows ship gate: WINDOWS.md has {WINDOWS_OPEN_COUNT} open window(s).
        Resolve each entry before shipping, or explicitly waive with a recorded reason:
          specforge gsd fix-window <id>      # defect resolved
-         specforge gsd waive-window <id> "<reason>" --by <who>   # justified deferral (reason required)
+         specforge gsd waive-window <id> "<reason>" <who>   # justified deferral (reason required)
        Then re-run /gsd:ship.
        ```
      - **`WINDOWS_OPEN_COUNT` is `"?"`, empty, or non-numeric** → **fail closed** with `block: true` and `WINDOWS_SHIP_GATE_READ_FAILED` (the gate is strict equality to `0`; never ship on an unreadable ledger):

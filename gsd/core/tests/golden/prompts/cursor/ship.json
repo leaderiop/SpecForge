@@ -1,5 +1,5 @@
 {
-  "bytes": 43391,
+  "bytes": 43386,
   "head": [
     "<cursor_skill_adapter>",
     "## B. User Prompting",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:4450e29596878b5822ed62bdf5aaffaa3f02b65b2552c501f0b388823bcbcaef",
+    "digest": "sha256:ed810a49680a18b09c7b4686485f4e0ce8a9d521c8f7737ece6b55494354eabd",
     "prompt": "@gsd/core@0.1.0:ship",
     "steps": [
       {
@@ -105,11 +105,11 @@
         "cli": "specforge gsd waive-window",
         "gate": [],
         "id": "waive_window",
-        "title": "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> --by <who>)",
+        "title": "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> <who>)",
         "tool": "specforge.gsd.waive_window"
       }
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "4450e29596878b5822ed62bdf5aaffaa3f02b65b2552c501f0b388823bcbcaef"
+  "sha256": "ed810a49680a18b09c7b4686485f4e0ce8a9d521c8f7737ece6b55494354eabd"
 }

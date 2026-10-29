@@ -1,5 +1,5 @@
 {
-  "bytes": 51111,
+  "bytes": 51106,
   "head": [
     "<codex_skill_adapter>",
     "## B. AskUserQuestion → request_user_input Mapping",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:aa6edbdfc501136627a1f0e1376600ce2315be4f6d1d9ee5b52ecf248fd84970",
+    "digest": "sha256:06bec22cb0e8d765aa8f9ce651667e2092a6f4e84959c1d486dea51fc088dd0d",
     "prompt": "@gsd/core@0.1.0:ship",
     "steps": [
       {
@@ -105,11 +105,11 @@
         "cli": "specforge gsd waive-window",
         "gate": [],
         "id": "waive_window",
-        "title": "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> --by <who>)",
+        "title": "Waive a broken window with a reason (specforge gsd waive-window <window> <reason> <who>)",
         "tool": "specforge.gsd.waive_window"
       }
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "aa6edbdfc501136627a1f0e1376600ce2315be4f6d1d9ee5b52ecf248fd84970"
+  "sha256": "06bec22cb0e8d765aa8f9ce651667e2092a6f4e84959c1d486dea51fc088dd0d"
 }

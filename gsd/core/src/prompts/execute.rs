@@ -35,7 +35,7 @@ const PHASE_STEPS: &[Step] = &[
     },
     Step {
         id: "record_window",
-        title: "Record a window of the phase (specforge gsd record-window <phase> <kind> ...)",
+        title: "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)",
         does: Do::Command("record_window"),
     },
     Step {
