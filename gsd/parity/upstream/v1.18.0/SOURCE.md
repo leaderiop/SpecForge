@@ -32,3 +32,11 @@ the tests in `tests/cli/parity_plans.rs` and the passes' native tests reproduce 
 | `decision-coverage-plan-{uncovered,all-covered,no-trackable,disabled}.json` | `gsd/E310`: the uncovered decision ids, and none for the other three (`tests/cli/parity_plans.rs`) |
 | `verify-command-paths-phase-{findings,clean}.json` | `gsd/E320`: the blocker rows (`tests/cli/parity_plans.rs`) |
 | `verify-failure-directions-phase-{findings,clean}.json` | `gsd/E507`: the `missing` rows (`tests/cli/parity_plans.rs`) |
+
+## `agents/`: the 15 core agents
+
+The 15 `@gsd/core` agents of `gsd/core/contributions/README.md` (the Agents table), copied unchanged by `git -C
+<gsd-core> show v1.18.0:agents/<file>`: `gsd-<name>.md` for each, and `gsd-<name>.compact.md` for the ten that have one
+(all but executor, phase-researcher, plan-checker, planner and verifier). `gsd/core/tests/port.rs` compares each with
+the port under `gsd/core/assets/agents/` line for line: a line may differ only where upstream's names `.planning/`,
+`gsd-tools`, `gsd_run` or `gsd-sdk`. Both copies are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).

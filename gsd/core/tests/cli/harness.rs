@@ -100,6 +100,16 @@ impl Project {
         self.spawn(args, env, "")
     }
 
+    /// `specforge install <host>` in the project, with `HOME` set to a temp dir: an install never reaches the
+    /// developer's home.
+    pub fn install(&self, host: &str, env: &[(&str, &str)]) -> Run {
+        let home = tempfile::tempdir().expect("a temp home");
+        let home_path = home.path().display().to_string();
+        let mut all = vec![("HOME", home_path.as_str())];
+        all.extend_from_slice(env);
+        self.run_with(&["install", host], &all)
+    }
+
     /// Runs `specforge <args>` with `stdin` on its standard input (a host's hook event).
     pub fn run_stdin(&self, args: &[&str], stdin: &str) -> Run {
         self.spawn(args, &[], stdin)

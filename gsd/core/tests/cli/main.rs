@@ -1,5 +1,6 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
+mod agents;
 mod collect;
 mod discuss;
 mod execute;
