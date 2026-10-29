@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-28, architecture round 32, plan K7). Extends [ADR 0020](0020-rules-are-a-typed-set.md),
 [ADR 0287](0287-who-writes-a-field-is-declared.md) and [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md).
-Takes extension protocol 1.9.0.
+Takes extension protocol 1.9.0. Extended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an error a write adds).
 
 ## Context
 
