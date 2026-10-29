@@ -43,6 +43,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "MilestoneCompletionAudit",
+        "source_kind": "milestone",
+        "target_kind": "milestone_audit"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "PhaseMilestone",
         "source_kind": "phase",
         "target_kind": "milestone"
@@ -1384,7 +1393,7 @@
           },
           {
             "default_value": null,
-            "description": "written by /gsd-complete-milestone once its audit passes",
+            "description": "written by close_milestone (/gsd-complete-milestone) once its audit passes",
             "edge": null,
             "field_type": "block",
             "file_reference": false,
@@ -1400,6 +1409,17 @@
                 "name": "at",
                 "required": false,
                 "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": "MilestoneCompletionAudit",
+                "field_type": "reference",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "audit",
+                "required": false,
+                "target_kind": "milestone_audit"
               }
             ],
             "name": "completion",
