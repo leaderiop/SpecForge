@@ -5,6 +5,7 @@
 mod args;
 pub(crate) mod assets;
 mod audit;
+pub(crate) mod compose;
 mod discuss;
 mod execute;
 mod host;

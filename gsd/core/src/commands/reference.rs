@@ -6,7 +6,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, required, run};
-use crate::prompts::{assets, repoint::repoint, setting};
+use crate::prompts::{assets, compose, repoint::repoint, setting};
 use crate::settings;
 
 /// What a template becomes: `(file name or folder, kinds)`; no kinds means the template has no entity.
@@ -103,7 +103,10 @@ fn reference(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         answered.push_str(&line);
         answered.push_str("\n\n");
     }
-    answered.push_str(&setting::fill(&repoint(body), &settings::block()));
+    answered.push_str(&setting::fill(
+        &repoint(&compose::composed(path, body)),
+        &settings::block(),
+    ));
     Ok(answer(
         call,
         json!({ "path": path, "text": answered }),

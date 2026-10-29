@@ -47,7 +47,6 @@ const NON_CORE_COMMANDS: &[&str] = &[
     "alternative-2",
     "discuss-milestone",
     "research-phase",
-    "section",
     "transition",
 ];
 
@@ -153,6 +152,14 @@ fn slash_names(text: &str) -> BTreeSet<String> {
         .collect()
 }
 
+/// The names written as `/gsd:name`: skills are installed as `gsd-<name>` (r41), so a colon name is no skill.
+fn colon_names(text: &str) -> BTreeSet<String> {
+    let rx = Regex::new(r"(?:^|[\s`(\[])/gsd:([a-z][a-z0-9-]*)").expect("a regex");
+    rx.captures_iter(text)
+        .map(|c| c[1].trim_end_matches('-').to_string())
+        .collect()
+}
+
 #[test]
 fn every_slash_command_a_prompt_names_is_known() {
     let declaration = gsd_core::build().declaration();
@@ -181,6 +188,12 @@ fn every_slash_command_a_prompt_names_is_known() {
         for name in slash_names(text) {
             if !known.contains(&name) {
                 unknown.insert(format!("{name} (in {command} on {host})"));
+            }
+        }
+        // claude-code gets upstream's install: `/gsd:x` is `/gsd-x`, and a colon name left is not a command at all
+        for name in colon_names(text) {
+            if !NON_CORE_COMMANDS.contains(&name.as_str()) {
+                unknown.insert(format!("/gsd:{name} (in {command} on {host})"));
             }
         }
     }
@@ -275,4 +288,24 @@ fn every_setting_a_line_reads_is_a_key_of_the_roster() {
         }
     }
     assert!(seen >= 50, "{seen} tokens");
+}
+
+/// upstream installs a workflow without its `<!-- gsd:section -->` marker lines, and without the runtime notes of
+/// another runtime (REVIEW-r42 M5).
+#[test]
+fn a_claude_render_has_no_section_markers_and_no_copilot_notes() {
+    let mut seen = 0;
+    for (command, _, _, text) in sweep().iter().filter(|(_, h, _, _)| *h == "claude-code") {
+        seen += 1;
+        assert!(!text.contains("gsd:section"), "{command}: a section marker");
+        assert!(
+            !text.contains("<runtime_note runtime=\"copilot\""),
+            "{command}: a copilot note"
+        );
+        assert!(
+            !text.contains("Copilot (VS Code)"),
+            "{command}: a copilot section"
+        );
+    }
+    assert!(seen > 17, "{seen} renders");
 }

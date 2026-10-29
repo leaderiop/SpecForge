@@ -2,7 +2,8 @@
 //!
 //! Upstream's runtime adapters (D-r42-12): the text rewrites `convertClaudeToCodexMarkdown` and
 //! `convertClaudeToCursorMarkdown` apply to a Claude Code workflow so it reads right on Codex and Cursor, and the two
-//! adapter headers. Claude Code gets the text raw, as upstream installs it. Left out, by name: the frontmatter and file
+//! adapter headers. Claude Code gets what upstream's install does to a Claude file (`to_claude`): the runtime notes of
+//! another runtime dropped and `/gsd:x` written `/gsd-x`. Left out, by name: the frontmatter and file
 //! naming of a skill (the host's install writes those), `rewriteBareGsdToolsCommandsForCodex` (a rendered text names no
 //! `gsd-tools` command, the port rule and `assert_clean` see to it) and the path rewrite of Cursor's install step
 //! (`_applyRuntimeRewrites`: references are re-pointed first, D-r42-5).
@@ -25,8 +26,121 @@ pub fn convert(host: &str, text: &str) -> String {
     match host {
         "codex" => to_codex(text),
         "cursor" => to_cursor(text),
-        _ => text.to_string(),
+        _ => to_claude(text),
     }
+}
+
+/// The names of upstream's `commands/gsd/*.md` at v1.18.0 (`readGsdCommandNames`): only these are rewritten from the
+/// colon form, as `transformContentToHyphen` does; `/gsd:transition` and the like name no command and stay.
+const COMMAND_NAMES: &[&str] = &[
+    "add-tests",
+    "ai-integration-phase",
+    "audit-fix",
+    "audit-milestone",
+    "audit-uat",
+    "autonomous",
+    "capture",
+    "cleanup",
+    "code-review",
+    "complete-milestone",
+    "config",
+    "debug",
+    "discuss-phase",
+    "docs-update",
+    "eval-review",
+    "execute-phase",
+    "explore",
+    "extract-learnings",
+    "fast",
+    "forensics",
+    "graphify",
+    "health",
+    "help",
+    "import",
+    "inbox",
+    "ingest-docs",
+    "manager",
+    "map-codebase",
+    "mempalace-capture",
+    "mempalace-recall",
+    "milestone-summary",
+    "mvp-phase",
+    "new-milestone",
+    "new-project",
+    "next",
+    "ns-context",
+    "ns-ideate",
+    "ns-manage",
+    "ns-project",
+    "ns-review",
+    "ns-workflow",
+    "onboard",
+    "pause-work",
+    "phase",
+    "plan-phase",
+    "plan-review-convergence",
+    "pr-branch",
+    "profile-user",
+    "progress",
+    "quick-batch",
+    "quick",
+    "resume-work",
+    "review-backlog",
+    "review",
+    "secure-phase",
+    "settings",
+    "ship",
+    "sketch",
+    "spec-phase",
+    "spike",
+    "stats",
+    "surface",
+    "thread",
+    "ui-phase",
+    "ui-review",
+    "ultraplan-phase",
+    "undo",
+    "update",
+    "validate-phase",
+    "verify-work",
+    "workspace",
+    "workstreams",
+];
+
+/// `gsd:<command>` -> `gsd-<command>` for a known command at a token boundary (`transformContentToHyphen`).
+pub fn hyphenate_commands(content: &str) -> String {
+    let mut out = String::with_capacity(content.len());
+    let mut rest = content;
+    let mut before: Option<char> = None;
+    while let Some(at) = rest.find("gsd:") {
+        let prev = rest[..at].chars().next_back().or(before);
+        let tail = &rest[at + 4..];
+        let name = COMMAND_NAMES
+            .iter()
+            .filter(|n| tail.starts_with(**n))
+            .filter(|n| {
+                !tail[n.len()..]
+                    .starts_with(|c: char| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+            })
+            .max_by_key(|n| n.len());
+        let left = !prev.is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'));
+        out.push_str(&rest[..at]);
+        out.push_str(if name.is_some() && left {
+            "gsd-"
+        } else {
+            "gsd:"
+        });
+        before = Some(':');
+        rest = tail;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// What upstream's install does to a Claude file: `filterRuntimeNotesForTarget(claude)` and, for a runtime whose
+/// descriptor says `hyphenNameAgentBody` (Claude does, #3683, #3583), `transformContentToHyphen`.
+pub fn to_claude(content: &str) -> String {
+    hyphenate_commands(&filter_runtime_notes(content, "claude"))
 }
 
 fn is_word(c: char) -> bool {

@@ -1,5 +1,5 @@
 {
-  "bytes": 73970,
+  "bytes": 73775,
   "head": [
     "<codex_skill_adapter>",
     "## B. AskUserQuestion → request_user_input Mapping",
@@ -82,7 +82,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1559,
+  "lines": 1555,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:ac02c0d53a0f9705e4dfcc05410d1475d80f7f077096a5fb7d530922904bf092",
+    "digest": "sha256:0436d9dd3f31d1ec73ef03f684fa7baa98298c271a8e712a0476d6f0a0c86f90",
     "prompt": "@gsd/core@0.1.0:verify_work",
     "steps": [
       {
@@ -112,5 +112,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "ac02c0d53a0f9705e4dfcc05410d1475d80f7f077096a5fb7d530922904bf092"
+  "sha256": "0436d9dd3f31d1ec73ef03f684fa7baa98298c271a8e712a0476d6f0a0c86f90"
 }

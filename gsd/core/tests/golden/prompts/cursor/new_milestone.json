@@ -1,5 +1,5 @@
 {
-  "bytes": 72774,
+  "bytes": 72575,
   "head": [
     "<cursor_skill_adapter>",
     "## B. User Prompting",
@@ -82,7 +82,7 @@
     "```json",
     "{"
   ],
-  "lines": 1779,
+  "lines": 1775,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:7f81fe8ba654eee59c7f23bcf52476d6b6332a9f40f456b97b87b77e6e3bc186",
+    "digest": "sha256:d898af1bb71cde27feac58d35a71f229ff471f2ad07901dfdb46af83a71103d8",
     "prompt": "@gsd/core@0.1.0:new_milestone",
     "steps": [
       {
@@ -120,5 +120,5 @@
       }
     ]
   },
-  "sha256": "7f81fe8ba654eee59c7f23bcf52476d6b6332a9f40f456b97b87b77e6e3bc186"
+  "sha256": "d898af1bb71cde27feac58d35a71f229ff471f2ad07901dfdb46af83a71103d8"
 }

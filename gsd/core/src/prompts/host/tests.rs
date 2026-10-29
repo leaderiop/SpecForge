@@ -214,3 +214,21 @@ fn codex_conversion_survives_multibyte_text_before_a_mention() {
         "—ab then — run $gsd-help, “quoted” $gsd-next"
     );
 }
+
+/// `transformContentToHyphen` and `filterRuntimeNotesForTarget(claude)` of upstream's install (REVIEW-r42 M5).
+#[test]
+fn claude_gets_hyphen_names_and_no_other_runtimes_notes() {
+    let out = to_claude(
+        "Run /gsd:plan-phase 3, then gsd:verify-work. Not /gsd:transition, /gsd:plan-phase-x or xgsd:help.\n\
+         <runtime_note runtime=\"copilot\">\nuse Copilot\n</runtime_note>\n<runtime_note>\nfor all\n</runtime_note>\n",
+    );
+    assert_eq!(
+        out,
+        "Run /gsd-plan-phase 3, then gsd-verify-work. Not /gsd:transition, /gsd:plan-phase-x or xgsd:help.\n\
+         \n<runtime_note>\nfor all\n</runtime_note>\n"
+    );
+    assert_eq!(
+        hyphenate_commands("/gsd:ns-review and /gsd:review."),
+        "/gsd-ns-review and /gsd-review."
+    );
+}

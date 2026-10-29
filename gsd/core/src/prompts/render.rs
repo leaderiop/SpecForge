@@ -6,7 +6,7 @@
 //! (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths. The host's adapter
 //! header goes in front, unconverted.
 
-use super::{assets, host, preamble, repoint::repoint, setting};
+use super::{assets, compose, host, preamble, repoint::repoint, setting};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -58,7 +58,7 @@ fn inline_includes(command: &str) -> String {
             Some((path, text)) => {
                 out.push_str(&format!(
                     "<file path=\"{path}\">\n{}\n</file>\n",
-                    without_notice(text).trim_end()
+                    compose::composed(&path, without_notice(text)).trim_end()
                 ));
                 seen.push(path);
             }

@@ -1,5 +1,5 @@
 {
-  "bytes": 71882,
+  "bytes": 71683,
   "head": [
     "<specforge_gsd_preamble>",
     "You are running a GSD workflow inside SpecForge (the extension `@gsd/core`). The workflow text below is GSD's own. The",
@@ -82,7 +82,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1760,
+  "lines": 1756,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -91,7 +91,7 @@
       "upstream": "gsd-core",
       "version": "v1.18.0"
     },
-    "digest": "sha256:d6a997c9181cb6250d4a710f7cb628f0b331dbae799da7d1f5880f05ae190d9a",
+    "digest": "sha256:0884379a3e67571faa4ffeb8adde37923d8a1aa28113d45e72ed7d6b9c5c290f",
     "prompt": "@gsd/core@0.1.0:new_milestone",
     "steps": [
       {
@@ -120,5 +120,5 @@
       }
     ]
   },
-  "sha256": "d6a997c9181cb6250d4a710f7cb628f0b331dbae799da7d1f5880f05ae190d9a"
+  "sha256": "0884379a3e67571faa4ffeb8adde37923d8a1aa28113d45e72ed7d6b9c5c290f"
 }
