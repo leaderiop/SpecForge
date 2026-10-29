@@ -92,6 +92,8 @@ fn e403_needs_a_red_commit_first_and_tdd_mode_on() {
     p.settings(json!({ "workflow.tdd_mode": false }));
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
+    // Once a report exists, a check no test ran is `unknown` (W408): the deliverable's test ran too.
+    junit(&p, &[("adds a task", true)]);
     assert_eq!(
         codes(&p),
         Vec::<String>::new(),
@@ -119,6 +121,7 @@ fn e403_is_clean_with_a_test_commit_first() {
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
@@ -192,4 +195,151 @@ fn e405_is_an_error_under_every_profile() {
             .collect();
         assert_eq!(severities, ["Error"], "{profile}: {}", run.stdout);
     }
+}
+
+fn commit_gate(on: bool) -> serde_json::Value {
+    json!({ "specforge.task_commits": on })
+}
+
+#[test]
+fn task_without_commit_is_w407_only_when_task_commits_is_on() {
+    let p = project("execute");
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(commit_gate(true));
+    // Plan 01-01 is complete with two tasks and no commit; 01-02 and 02-01 have not run.
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W407", "gsd/W407"], "{found:?}");
+    assert!(
+        found[0].1.contains("v1.0/01/01-01/T1") && found[1].1.contains("v1.0/01/01-01/T2"),
+        "{found:?}"
+    );
+    // A manual task is a human's step.
+    p.edit(
+        "spec/plans.spec",
+        "task T2 \"Store tests\" {\n  plan   v1.0/01/01-01\n  type   tdd",
+        "task T2 \"Store tests\" {\n  plan   v1.0/01/01-01\n  type   manual",
+    );
+    assert_eq!(codes(&p), ["gsd/W407"], "{:?}", report(&p));
+    // A commit that names the task settles it.
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    p.git_commit(
+        "test(01-01): Store tests",
+        &[("test/tasks.test.js", "t\n")],
+        T1,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    p.settings(commit_gate(true));
+    assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+#[test]
+fn w407_is_on_under_gsd_strict() {
+    let p = project("execute");
+    p.settings(json!({ "profile": "gsd-strict" }));
+    assert_eq!(codes(&p), ["gsd/W407", "gsd/W407"], "{:?}", report(&p));
+    p.settings(json!({ "profile": "gsd-compat" }));
+    assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
+
+/// A JUnit report whose tests are named by `names`, each linked to the deliverable by the file it ran in.
+fn junit(p: &Project, cases: &[(&str, bool)]) {
+    let file = format!(
+        "{}/test/tasks.test.js",
+        p.root().canonicalize().expect("root").display()
+    );
+    let body: String = cases
+        .iter()
+        .map(|(name, ok)| {
+            let inner = if *ok { "" } else { "<failure/>" };
+            format!(
+                "<testcase name=\"{name}\" classname=\"test\" file=\"{file}\">{inner}</testcase>\n"
+            )
+        })
+        .collect();
+    p.write(
+        "junit.xml",
+        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{body}</testsuite>\n</testsuites>\n"),
+    );
+    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+#[test]
+fn a_failing_check_is_w408() {
+    let p = project("execute");
+    junit(&p, &[("adds a task", false)]);
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W408"], "{found:?}");
+    assert!(
+        found[0]
+            .1
+            .contains("'test/tasks.test.js#adds a task' is fail"),
+        "{found:?}"
+    );
+    // A check that passes is clean.
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+#[test]
+fn an_unknown_check_is_w408() {
+    let p = project("execute");
+    // The report has a test for the deliverable, but not the one the second check names.
+    p.edit("spec/plans.spec", CHECKS, "{ kind unit ref \"test/tasks.test.js#adds a task\" }\n    { kind unit ref \"test/tasks.test.js#lists tasks\" }");
+    junit(&p, &[("lists tasks", true)]);
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W408"], "{found:?}");
+    assert!(
+        found[0]
+            .1
+            .contains("'test/tasks.test.js#adds a task' is unknown"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_deliverable_without_checks_is_w408() {
+    let p = project("execute");
+    p.edit(
+        "spec/plans.spec",
+        &format!("  checks         [\n    {CHECKS}\n  ]\n"),
+        "",
+    );
+    assert_eq!(codes(&p), ["gsd/W408"], "{:?}", report(&p));
+}
+
+#[test]
+fn a_human_judged_deliverable_needs_a_rationale() {
+    let p = project("execute");
+    p.edit(
+        "spec/plans.spec",
+        "human_judgment false",
+        "human_judgment true",
+    );
+    assert_eq!(codes(&p), ["gsd/W408"], "{:?}", report(&p));
+    p.edit(
+        "spec/plans.spec",
+        "human_judgment true",
+        "human_judgment true\n  rationale      \"a person ran it\"",
+    );
+    assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+#[test]
+fn without_a_report_w408_does_not_judge_checks() {
+    let p = project("execute");
+    assert!(!p.exists("specforge-report.json"));
+    assert_eq!(codes(&p), Vec::<String>::new());
+    p.settings(json!({ "profile": "gsd-strict" }));
+    // Under strict the W407 warnings arrive; the checks still say nothing.
+    assert!(
+        codes(&p).iter().all(|c| c == "gsd/W407"),
+        "{:?}",
+        report(&p)
+    );
 }

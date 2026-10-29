@@ -447,7 +447,7 @@ pub static CODES: &[Code] = &[
     code(
         "W407",
         "Task has no commit",
-        "Every task has a commit",
+        "Every task of an executed plan has a recorded commit (a manual task is exempt)",
         "execute",
         Severity::Warning,
         Severity::Warning,
@@ -455,7 +455,7 @@ pub static CODES: &[Code] = &[
     code(
         "W408",
         "Deliverable checks neither pass nor are human-judged",
-        "A summary's deliverable checks pass or are human-judged with a rationale",
+        "A deliverable's checks pass, or a person judged it and gave a rationale (a check no report speaks of is not judged)",
         "execute",
         Severity::Warning,
         Severity::Error,

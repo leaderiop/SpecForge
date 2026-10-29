@@ -125,3 +125,83 @@ fn a_task_of_a_tdd_plan_is_judged() {
         1
     );
 }
+
+fn task_input(plan_status: &str, task_type: &str) -> PassInput {
+    PassInput {
+        entities: vec![
+            entity("P", "plan", &[("status", plan_status)]),
+            entity("P/T1", "task", &[("type", task_type)]),
+        ],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn w407_judges_executed_plans_and_leaves_manual_tasks_alone() {
+    let named = [commit("feat", Some("P/T1"))];
+    assert_eq!(task_commits(&task_input("complete", "auto"), &[]).len(), 1);
+    assert_eq!(task_commits(&task_input("halted", "auto"), &[]).len(), 1);
+    assert!(task_commits(&task_input("executing", "auto"), &[]).is_empty());
+    assert!(task_commits(&task_input("complete", "manual"), &[]).is_empty());
+    assert!(task_commits(&task_input("complete", "auto"), &named).is_empty());
+    // A commit that names only the plan is not the task's.
+    assert_eq!(
+        task_commits(&task_input("complete", "auto"), &[commit("feat", None)]).len(),
+        1
+    );
+}
+
+fn deliverable(fields: &[(&str, &str)], checks: &[(&str, Option<&str>)]) -> PassInput {
+    let mut d = entity("D", "deliverable", fields);
+    d.values.insert(
+        "checks".into(),
+        serde_json::Value::Array(
+            checks
+                .iter()
+                .map(|(r, s)| {
+                    let mut check = serde_json::json!({ "kind": "unit", "ref": r });
+                    if let Some(s) = s {
+                        check["status"] = (*s).into();
+                    }
+                    check
+                })
+                .collect(),
+        ),
+    );
+    PassInput {
+        entities: vec![d],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn w408_judges_checks_that_have_a_status_and_rationales() {
+    let judged = |fields: &[(&str, &str)], checks: &[(&str, Option<&str>)]| {
+        deliverables(&deliverable(fields, checks))
+            .into_iter()
+            .map(|d| d.message)
+            .collect::<Vec<_>>()
+    };
+    let auto = [("human_judgment", "false")];
+    assert!(judged(&auto, &[("a", Some("pass"))]).is_empty());
+    // No report: no status, no judgement.
+    assert!(judged(&auto, &[("a", None)]).is_empty());
+    assert_eq!(
+        judged(&auto, &[("a", Some("pass")), ("b", Some("fail"))]).len(),
+        1
+    );
+    assert!(judged(&auto, &[("b", Some("unknown"))])[0].contains("'b' is unknown"));
+    assert!(judged(&auto, &[])[0].contains("no checks"));
+    let human = [("human_judgment", "true")];
+    assert!(judged(&human, &[])[0].contains("no rationale"));
+    assert!(
+        judged(
+            &[
+                ("human_judgment", "true"),
+                ("rationale", "seen by a person")
+            ],
+            &[]
+        )
+        .is_empty()
+    );
+}

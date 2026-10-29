@@ -1,22 +1,27 @@
-//! The execute pass: `gsd/E401` (a summary's requirements are its plan's) and `gsd/E403` (a `tdd` task has a RED commit
-//! before its GREEN one). `gsd/E402` is declarative (`rules.rs`) and `gsd/E405` is the schema-drift pass.
+//! The execute pass: `gsd/E401` (a summary's requirements are its plan's), `gsd/E403` (a `tdd` task has a RED commit
+//! before its GREEN one), `gsd/W407` (an executed task has a commit) and `gsd/W408` (a deliverable's checks pass, or a
+//! person judged it). `gsd/E402` is declarative (`rules.rs`) and `gsd/E405` is the schema-drift pass. The pass reads
+//! the test report only for the checks' computed status, so a project with no report is not judged on them.
 
 use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::{Commit, commits};
-use super::plans::{children, name_of, of_kind, text};
+use super::plans::{children, name_of, of_kind, rows, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("execute", |p| {
-        p.phase("check").run(check);
+        p.phase("check").reads_tests().run(check);
     });
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = requirements(input);
-    found.extend(red_before_green(input, &commits(input)));
+    let commits = commits(input);
+    found.extend(red_before_green(input, &commits));
+    found.extend(task_commits(input, &commits));
+    found.extend(deliverables(input));
     found
 }
 
@@ -122,6 +127,88 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
         }
     }
     found
+}
+
+/// W407: a task of an executed (`complete` or `halted`) plan that no recorded commit names. A `manual` task is a human's
+/// step and leaves no commit. The host runs it only while `specforge.task_commits` is on.
+fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
+    of_kind(input, "task")
+        .filter(|task| text(task, "type") != Some("manual"))
+        .filter(|task| {
+            let plan = crate::digest::scope_of(&task.id);
+            let executed = of_kind(input, "plan")
+                .find(|p| p.id == plan)
+                .and_then(|p| text(p, "status"))
+                .is_some_and(|s| matches!(s, "complete" | "halted"));
+            executed
+                && !commits
+                    .iter()
+                    .any(|c| c.task.as_deref() == Some(task.id.as_str()))
+        })
+        .map(|task| {
+            PassDiagnostic::new(
+                "W407",
+                PassSeverity::Warning,
+                format!(
+                    "task '{}' of an executed plan has no recorded commit",
+                    task.id
+                ),
+            )
+            .with_suggestion(
+                "commit it as `type(plan-id): task title`, then run the gsd-git collector",
+            )
+            .with_entity(&task.id)
+        })
+        .collect()
+}
+
+/// W408, per deliverable: one that is not human-judged has checks and none failed or went unrun; one that is has a
+/// rationale. A check with no status (no report) is not judged: GSD's auto-pass rule (`summary.md:195`).
+fn deliverables(input: &PassInput) -> Vec<PassDiagnostic> {
+    of_kind(input, "deliverable")
+        .filter_map(|d| {
+            let problem = if text(d, "human_judgment") == Some("true") {
+                text(d, "rationale")
+                    .is_none()
+                    .then(|| "is human-judged but gives no rationale".to_string())?
+            } else {
+                let checks = rows(d, "checks");
+                if checks.is_empty() {
+                    "has no checks and is not human-judged".to_string()
+                } else {
+                    let bad: Vec<String> = checks
+                        .iter()
+                        .filter(|c| {
+                            matches!(
+                                c.get("status").map(String::as_str),
+                                Some("fail" | "unknown")
+                            )
+                        })
+                        .map(|c| {
+                            format!(
+                                "'{}' is {}",
+                                c.get("ref").map_or("", String::as_str),
+                                c["status"]
+                            )
+                        })
+                        .collect();
+                    if bad.is_empty() {
+                        return None;
+                    }
+                    format!("has checks that do not pass: {}", bad.join(", "))
+                }
+            };
+            Some(
+                PassDiagnostic::new(
+                    "W408",
+                    PassSeverity::Warning,
+                    format!("deliverable '{}' {problem}", d.id),
+                )
+                .with_suggestion("make the check pass, or set human_judgment with a rationale")
+                .with_entity(&d.id),
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]

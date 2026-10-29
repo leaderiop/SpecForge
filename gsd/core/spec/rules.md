@@ -84,8 +84,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W404 | the TDD review checkpoint ran after execution | guard | W | E | `gate-tdd-review-checkpoint` |
 | gsd/E405 | a phase that changed an ORM's schema files records its database push. The files are its plans' `files_modified` matched by `SCHEMA_PATTERNS`; the evidence is the push command in its summaries' text or its commits' subjects (`schema-detect.cts:20-73`). GSD runs the gate at `execute:wave:post`, so only a phase with a summary or a recorded commit is judged. One error per phase names the ORMs and their push commands | pass | E | E | `gate-schema-drift` (`execute:wave:post`) |
 | gsd/W406 | the context the plan was written against has not drifted (the `context_digest` a research, spec or validation recorded differs from the context's current digest; the project's research has no context, and a misnamed phaseless research is E206, so neither is judged. Upstream also judges `PATTERNS.md`: not covered, because `pattern_map` (`@gsd/codebase`) records no `context_digest` yet and should gain one when that extension is planned) | pass | W | E | `gate-context-drift` |
-| gsd/W407 | every task has a commit | pass | — | W | (new: the git collector) |
-| gsd/W408 | a summary's deliverable checks pass or are human-judged with a rationale | pass | W | E | summary coverage |
+| gsd/W407 | every task of a `complete` or `halted` plan has a recorded commit that names it, one warning per task; a `manual` task is exempt. Off until `specforge.task_commits` is on (gsd-strict and gsd-plus) | pass | — | W | (new: the git collector) |
+| gsd/W408 | a deliverable that is not human-judged has checks and none has status `fail` or `unknown`; one that is human-judged has a `rationale`. A check with no status (no test report) is not judged: GSD's auto-pass rule (`summary.md:195`). Once any collector has written a report, a check no test ran is `unknown` | pass | W | E | summary coverage |
 
 ## Verify
 
@@ -117,9 +117,9 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   capped text of those files. `gsd/E320` is built (r37; a compute pass writes `task.verify_paths`, which the check pass
   reads). Not yet built (r39): `gsd/E505` and the file facts under `gsd/E501` (artifact `missing`, `min_lines`,
   `contains`, `exports`; a key link's `pattern`).
-- Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), not yet built, by declaring `reads_tests`: `gsd/E502`,
-  `gsd/W408`, `gsd/E515`. The derive pass declares it already (r38), for a deliverable check's status; `gsd/E403` reads the
-  recorded commits, not the report.
+- Rules that read the test report in a compile pass are buildable since 1.11.0 (K12), by declaring `reads_tests`: `gsd/W408`
+  (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E502` and `gsd/E515`.
+  `gsd/E403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.

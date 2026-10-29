@@ -62,6 +62,7 @@ fn a_commit_naming_03_02_is_written_into_its_plan_file() {
         10,
         "{ledger}"
     );
+    p.passing_tests();
     assert_eq!(p.codes(), Vec::<String>::new());
     let report = json(&run);
     assert_eq!(
@@ -84,6 +85,7 @@ fn an_unrelated_commit_is_skipped() {
         "{}",
         run.stdout
     );
+    p.passing_tests();
     assert_eq!(p.codes(), Vec::<String>::new());
 }
 
@@ -100,6 +102,7 @@ fn a_metadata_commit_names_the_plan_only() {
     assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
     assert_eq!(fields["type"], "docs", "{fields}");
     assert!(fields.get("task").is_none(), "{fields}");
+    p.passing_tests();
     assert_eq!(p.codes(), Vec::<String>::new());
 }
 
@@ -267,7 +270,8 @@ fn a_tagged_node_test_links_to_its_truth() {
         "{}",
         run.stdout
     );
-    assert_eq!(p.codes(), Vec::<String>::new());
+    // The report names no test for the deliverable's check: it is unknown (W408).
+    assert_eq!(p.codes(), ["gsd/W408"]);
 }
 
 #[test]

@@ -251,6 +251,27 @@ impl Project {
         self.run(&all)
     }
 
+    /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
+    /// `gsd-junit` reads a JUnit report. Once any collector has written a report, a check no test ran is `unknown`
+    /// and `gsd/W408` says so; this settles it.
+    pub fn passing_tests(&self) {
+        let file = self
+            .dir
+            .path()
+            .canonicalize()
+            .expect("root")
+            .join("test/tasks.test.js");
+        self.write(
+            "junit.xml",
+            &format!(
+                "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"adds a task\" classname=\"test\" file=\"{}\"/>\n</testsuite>\n</testsuites>\n",
+                file.display()
+            ),
+        );
+        let run = self.collect(&["--runner", "gsd-junit", "--no-run"]);
+        assert_eq!(run.code, 0, "{}", run.all());
+    }
+
     /// The nodes of `kind` in the graph, as `specforge export --format graph` writes them.
     pub fn nodes_of(&self, kind: &str) -> Vec<serde_json::Value> {
         let run = self.run(&["export", "--format", "graph"]);

@@ -44,6 +44,7 @@ fn plan_status_follows_commits_and_halts() {
     assert_eq!(status_of(&p, PLAN_2), "executing");
     assert_eq!(status_of(&p, &format!("{PLAN_2}/T1")), "done");
     assert_eq!(status_of(&p, &format!("{PLAN_1}/T1")), "done");
+    p.passing_tests();
     assert_eq!(p.codes(), Vec::<String>::new());
     // A halted 01-01 blocks 01-02 even though it has a commit; the other phase is untouched.
     p.edit(
