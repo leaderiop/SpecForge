@@ -8,6 +8,7 @@ mod digest;
 pub mod judged;
 mod kinds;
 mod passes;
+mod prompts;
 mod rules;
 pub mod settings;
 mod time;
@@ -32,6 +33,7 @@ impl Contributions for GsdCore {
         rules::declare(c);
         judged::declare(c);
         commands::declare(c);
+        prompts::declare(c);
         passes::declare(c);
         collectors::declare(c);
         settings::declare(c);

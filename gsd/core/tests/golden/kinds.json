@@ -2748,7 +2748,8 @@
             ],
             "name": "scores",
             "required": false,
-            "target_kind": null
+            "target_kind": null,
+            "writer": "verdict"
           }
         ],
         "has_body_parser": false,

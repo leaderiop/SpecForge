@@ -129,6 +129,38 @@ pub const JUDGED: &[Judged] = &[
         outcome_fields: &[],
     },
     Judged {
+        code: "E202",
+        message: "phase spec '{id}' is not judged against its ambiguity gates",
+        judge: "prompt:spec_phase",
+        outcomes: &["passed", "failed"],
+        passing: &["passed"],
+        targets: &[Target {
+            kind: "phase_spec",
+            inputs: &[
+                ("spec", "self"),
+                ("items", "self<locked_req|interview.spec"),
+                ("phase", "self.phase"),
+            ],
+            unless_set: &[],
+        }],
+        values: &["phase_spec.scores"],
+        outcome_fields: &[],
+    },
+    Judged {
+        code: "W203",
+        message: "locked requirement '{id}' is not judged for a falsifiable acceptance",
+        judge: "prompt:spec_phase",
+        outcomes: &["passed", "failed"],
+        passing: &["passed"],
+        targets: &[Target {
+            kind: "locked_req",
+            inputs: &[("req", "self"), ("traces", "self.traces")],
+            unless_set: &[],
+        }],
+        values: &[],
+        outcome_fields: &[],
+    },
+    Judged {
         code: "W205",
         message: "package '{id}' has no legitimacy verdict",
         judge: "gsd-phase-researcher",

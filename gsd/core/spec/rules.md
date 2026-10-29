@@ -126,7 +126,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
-- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
+- A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
   `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and

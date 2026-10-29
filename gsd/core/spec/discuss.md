@@ -58,7 +58,7 @@ GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
 `scores {goal int{0..100}, boundary int{0..100}, constraint int{0..100}, acceptance int{0..100}, ambiguity int{0..100}}`
 is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` judge, K15), in percent (GSD's 0–1 score × 100), gated at
-goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. Declared authored (bounds 0..100 enforced) until r40: a verdict field no judged rule lists is the kernel's W021 on every check, so r40 flips it to `V` together with `gsd/E202`.
+goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. It is `V`: the `values` of the `spec_phase` prompt's verdict on `gsd/E202` (bounds 0..100 enforced), so a hand-written `scores` is E082.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
 `acceptance str R` (falsifiable), `traces →* requirement`.

@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), and the 15 core agents and the command `record_verdict` (r40).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; built so far: the collectors `gsd-git` and `gsd-junit` (r38), and the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -89,6 +89,7 @@ how the judge records its verdict.
 |---|---|
 | `gsd-plan-checker` | `gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316` (a plan) |
 | `gsd-phase-researcher` | `gsd/W205` (a package audit) |
+| prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
 | `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
 
 Every other core agent judges nothing.
