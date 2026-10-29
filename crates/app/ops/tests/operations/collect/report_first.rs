@@ -124,7 +124,6 @@ fn commit(phase: &str) -> Value {
     behavior = "answer_edit_plan",
     verify = "a writing collectors plan is judged against the report its collect wrote"
 )]
-#[ignore = "pins K17; T4 un-ignores"]
 fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
     let p = project();
     let (applied, runtime) = collect_and_apply(&p, commit("03"));
@@ -137,4 +136,48 @@ fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
         reported.iter().any(|d| d.code.ends_with("E900")),
         "{reported:?}"
     );
+}
+
+#[specforge_test(
+    behavior = "answer_edit_plan",
+    verify = "a writing collectors plan is judged against the report its collect wrote"
+)]
+fn a_collector_plan_adding_an_error_itself_is_still_e080() {
+    // The commit names a phase that does not exist (E003): refused, and the report's E900 is not named.
+    let p = project();
+    let (applied, _) = collect_and_apply(&p, commit("99"));
+    let refusal = applied.unwrap_err();
+    assert!(refusal.starts_with("E080"), "{refusal}");
+    assert!(refusal.contains("E003"), "{refusal}");
+    assert!(!refusal.contains("E900"), "{refusal}");
+    assert!(!p.root().join("commits.spec").exists());
+}
+
+#[specforge_test(
+    behavior = "answer_edit_plan",
+    verify = "a writing collectors plan is judged against the report its collect wrote"
+)]
+fn a_collect_without_plans_compiles_once() {
+    let p = project();
+    let runtime = Arc::new(
+        GsdWrites::new()
+            .runtime()
+            .with_handler(tests_extension, handle),
+    );
+    let compiled = compiled(&p, &runtime);
+    let view = ProjectView::of(&compiled);
+    let passes = || {
+        runtime
+            .calls()
+            .iter()
+            .filter(|c| c.export == "__pass_failures")
+            .count()
+    };
+    let before = passes();
+    assert!(
+        apply_collected(&view, Vec::new(), false, caller())
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(passes(), before);
 }
