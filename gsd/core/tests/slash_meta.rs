@@ -14,6 +14,7 @@ const ADAPTED: &[(&str, &str)] = &[
         "plan-phase",
         "<phase> [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
     ),
+    ("pr-branch", "[--target <branch>]"),
     (
         "review",
         "<phase> [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]",
@@ -101,6 +102,13 @@ fn class(tool: &str) -> String {
     }
 }
 
+/// Upstream's port rule: a line naming one of these is a port line.
+fn names_gsd(text: &str) -> bool {
+    [".planning", "gsd-tools", "gsd_run", "gsd-sdk"]
+        .iter()
+        .any(|w| text.contains(w))
+}
+
 fn tools(front: &[String]) -> Vec<String> {
     let at = front
         .iter()
@@ -149,11 +157,16 @@ fn every_prompt_slash_keeps_its_upstream_metadata() {
             .iter()
             .find(|p| p.id == id)
             .expect("the prompt");
-        assert_eq!(
-            Some(prompt.description.clone()),
-            scalar(&fm, "description"),
-            "{id}: description"
-        );
+        // verbatim, except a description that names a tool or a path of GSD's (a port line, D-r43-9)
+        let theirs = scalar(&fm, "description");
+        let ported = theirs.as_deref().is_some_and(names_gsd) && !names_gsd(&prompt.description);
+        if !ported {
+            assert_eq!(
+                Some(prompt.description.clone()),
+                theirs,
+                "{id}: description"
+            );
+        }
         assert_eq!(slash.tools, tools(&fm), "{id}: tools");
         assert_eq!(slash.effort, scalar(&fm, "effort"), "{id}: effort");
         let hint = slash.argument_hint.clone().unwrap_or_default();

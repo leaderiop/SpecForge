@@ -412,3 +412,14 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-settings` and `/gsd-confi
 | `gsd-core/workflows/settings-advanced.md` | `c9cc02bf5f7c7c1c1155a839e7408aa54eb3749d441a435cbb0360773e54fcac` |
 | `gsd-core/workflows/settings-integrations.md` | `eb4634671256c7e567bb278ba96e8fcb41cb541c0f9c7c3f23e9ad8b586b6fb1` |
 | `gsd-core/workflows/settings.md` | `fa67c5d22142d81ec0ffdd05ec81bebf50ff9b85ee2ed2960635c87ed9c458dc` |
+
+## r43 T7: undo and pr-branch
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-undo` and `/gsd-pr-branch`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/pr-branch.md` | `b7eccd9e24f97f3612ce93f2199edab58133d0706b27745fbb442d0eb37ee2c4` |
+| `commands/gsd/undo.md` | `d0fbc584d2d21ad565d4d4be4ede33feff5d631324927e9abecf64dd8cae5b73` |
+| `gsd-core/workflows/pr-branch.md` | `63c1482ecea847da620e8310ca2a7854a229f31a74caa8b4709a22b46bb1193e` |
+| `gsd-core/workflows/undo.md` | `0812391ee95fb221d360dd22c7b97721200be536dc5b8c6a9c4740970be7ac73` |

@@ -45,6 +45,7 @@ mod prompts_configure;
 mod prompts_discuss;
 mod prompts_execute;
 mod prompts_gates;
+mod prompts_git;
 mod prompts_navigate;
 mod prompts_plan;
 mod prompts_project;

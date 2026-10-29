@@ -10,6 +10,7 @@ pub(crate) mod compose;
 mod configure;
 mod discuss;
 mod execute;
+mod git;
 mod host;
 mod navigate;
 mod plan;
@@ -68,4 +69,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     session::declare(c);
     review::declare(c);
     configure::declare(c);
+    git::declare(c);
 }
