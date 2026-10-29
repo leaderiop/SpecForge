@@ -69,17 +69,62 @@ fn stats_counts_phases_plans_and_requirements() {
     assert_eq!(got["total_plans"], 3);
     assert_eq!(got["total_summaries"], 2);
     assert_eq!(got["plan_percent"], 67);
-    // The out-of-scope requirement is not counted; TASK-01 and TASK-02 are complete.
-    assert_eq!(got["requirements_total"], 7);
+    // Only the v1 requirements have a checkbox upstream: the v2 and the out-of-scope ones are not counted.
+    assert_eq!(got["requirements_total"], 6);
     assert_eq!(got["requirements_complete"], 2);
-    assert!(
-        got["last_activity"].as_str().is_some_and(|d| d.len() == 10),
-        "{got}"
+    // Nothing is recorded: upstream's `null` last activity, `0` commits and no first-commit date.
+    assert!(got["last_activity"].is_null(), "{got}");
+    assert_eq!(got["git_commits"], 0, "{got}");
+    assert!(got["git_first_commit_date"].is_null(), "{got}");
+    // `stats` says `Not Started` where `progress json` says `Pending`.
+    assert_eq!(got["phases"][3]["status"], "Not Started", "{got}");
+}
+
+#[test]
+fn stats_last_activity_is_the_newest_summary_completion() {
+    let p = twin();
+    let text = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &text.replacen(
+            "  requirements_completed [TASK-01]\n}",
+            "  requirements_completed [TASK-01]\n  completed              \"2026-09-01T10:00:00Z\"\n}",
+            1,
+        ),
     );
-    assert!(
-        got.get("git_commits").is_none(),
-        "no recorded commit: {got}"
+    assert_eq!(report(&p, "stats")["last_activity"], "2026-09-01");
+}
+
+/// The reports leave the backlog (`999.x`) phases out, as gsd does (#3167) and `milestone.progress` does.
+#[test]
+fn reports_leave_backlog_phases_out() {
+    let p = super::cmd_phase::twelve();
+    for command in ["progress-report", "stats"] {
+        let got = report(&p, command);
+        let numbers: Vec<&str> = got["phases"]
+            .as_array()
+            .expect("phases")
+            .iter()
+            .map(|ph| ph["number"].as_str().unwrap_or_default())
+            .collect();
+        assert!(!numbers.contains(&"999.1"), "{command}: {numbers:?}");
+        assert_eq!(numbers.len(), 13, "{command}: {numbers:?}");
+    }
+    assert_eq!(report(&p, "stats")["phases_total"], 13);
+}
+
+#[test]
+fn stats_on_the_twin_leave_a_backlog_phase_out() {
+    let p = verified();
+    plant(
+        &p,
+        "spec/v1.0.spec",
+        "phase 999.1 \"Someday\" {\n  milestone v1.0\n  name \"Someday\"\n  slug \"someday\"\n}\n",
     );
+    let got = report(&p, "stats");
+    assert_eq!(got["phases_total"], 4, "{got}");
+    assert_eq!(got["percent"], 25, "{got}");
+    assert!(!got.to_string().contains("999.1"), "{got}");
 }
 
 #[test]

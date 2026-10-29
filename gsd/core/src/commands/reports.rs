@@ -52,6 +52,14 @@ fn phases(graph: &CommandGraph, milestone: Option<&GraphNode>) -> Result<Vec<Pha
     graph
         .nodes_of_kind("phase")
         .filter(|p| scope.as_ref().is_none_or(|s| p.id.starts_with(s)))
+        // The sentinel 999 (backlog) phases are left out, as `milestone.progress` and gsd-tools do (#3167).
+        .filter(|p| {
+            !p.id
+                .rsplit('/')
+                .next()
+                .unwrap_or_default()
+                .starts_with("999.")
+        })
         .map(|p| {
             let absent = |field: &str| {
                 format!(
@@ -168,16 +176,23 @@ fn date(at: &str) -> &str {
 }
 
 /// `cmdStats`' shape: `progress`'s phases and totals, the phase and requirement counts, the recorded commits and the
-/// newest summary's date. `git_commits` and `git_first_commit_date` come from the `commit` entities the `gsd-git`
-/// collector recorded, and are absent with none (upstream asks git itself).
+/// newest summary's date (`null` with none; upstream reads STATE.md's text). `git_commits` and
+/// `git_first_commit_date` come from the `commit` entities the `gsd-git` collector recorded, and are `0` and `null`
+/// with none (upstream asks git itself).
 fn stats(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let graph = call.graph();
     let mut report = progress(graph)?;
     let phases = report["phases"].as_array().cloned().unwrap_or_default();
+    // `stats` (unlike `progress json`) says `Not Started` for a phase nothing has begun.
+    for p in report["phases"].as_array_mut().into_iter().flatten() {
+        if p["status"] == "Pending" {
+            p["status"] = json!("Not Started");
+        }
+    }
     let complete = phases.iter().filter(|p| p["status"] == "Complete").count() as u64;
     let requirements: Vec<&GraphNode> = graph
         .nodes_of_kind("requirement")
-        .filter(|r| r.text("tier") != Some("out_of_scope"))
+        .filter(|r| r.text("tier") == Some("v1"))
         .collect();
     let commits: Vec<&str> = graph
         .nodes_of_kind("commit")
@@ -187,7 +202,7 @@ fn stats(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .nodes_of_kind("summary")
         .filter_map(|s| s.text("completed"))
         .max()
-        .map_or_else(|| call.today().to_string(), |at| date(at).to_string());
+        .map(|at| date(at).to_string());
     let total = phases.len() as u64;
     let plans = report["total_plans"].as_u64().unwrap_or(0);
     let summaries = report["total_summaries"].as_u64().unwrap_or(0);
@@ -199,15 +214,14 @@ fn stats(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         "requirements_total": requirements.len(),
         "requirements_complete": requirements.iter().filter(|r| r.text("status") == Some("complete")).count(),
         "last_activity": last,
+        "git_commits": commits.len(),
+        "git_first_commit_date": commits.iter().min().map(|first| date(first)),
     });
     let map = report.as_object_mut().expect("an object");
     map.extend(extra.as_object().cloned().unwrap_or_default());
-    if let Some(first) = commits.iter().min() {
-        map.insert("git_commits".into(), json!(commits.len()));
-        map.insert("git_first_commit_date".into(), json!(date(first)));
-    }
     let human = format!(
-        "{complete}/{total} phases complete, {summaries}/{plans} plans with a summary, last activity {last}\n"
+        "{complete}/{total} phases complete, {summaries}/{plans} plans with a summary, last activity {}\n",
+        last.as_deref().unwrap_or("unknown")
     );
     Ok(answer(call, report, human, None))
 }
