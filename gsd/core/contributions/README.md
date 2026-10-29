@@ -89,6 +89,7 @@ how the judge records its verdict.
 |---|---|
 | `gsd-plan-checker` | `gsd/W311`, `gsd/W313`, `gsd/W315`, `gsd/W316` (a plan) |
 | `gsd-phase-researcher` | `gsd/W205` (a package audit) |
+| `gsd-integration-checker` | `gsd/E518` (a milestone audit) |
 | prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
 | `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
 

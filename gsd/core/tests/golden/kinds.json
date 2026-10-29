@@ -7927,6 +7927,22 @@
           },
           {
             "default_value": null,
+            "description": "the integration checker's cross-phase verdict (gsd/E518)",
+            "edge": null,
+            "enum_values": [
+              "passed",
+              "issues"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "integration",
+            "required": false,
+            "target_kind": null,
+            "writer": "verdict"
+          },
+          {
+            "default_value": null,
             "description": "a person accepts the `tech_debt` status; refused in every plan and MCP write",
             "edge": null,
             "field_type": "block",

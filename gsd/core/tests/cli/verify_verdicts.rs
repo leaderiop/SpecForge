@@ -276,3 +276,57 @@ fn covered_digest_changes_with_a_covered_file() {
         "{after}"
     );
 }
+
+const AUDIT: &str = "v1.0/A1";
+
+#[test]
+fn e518_inputs() {
+    let p = verify();
+    let inputs = p.inputs(AUDIT, "E518");
+    let names: Vec<&str> = inputs["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| i["name"].as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["audit", "phases", "verifications", "requirements"],
+        "{inputs}"
+    );
+    assert_eq!(inputs["verdict"]["state"], "missing", "{inputs}");
+}
+
+#[test]
+fn an_audit_without_a_verdict_reports_e518() {
+    let p = verify();
+    let found: Vec<_> = judged(&p.report_all())
+        .into_iter()
+        .filter(|(c, _)| c == "gsd/E518")
+        .collect();
+    assert_eq!(found, [("gsd/E518".to_string(), AUDIT.to_string())]);
+}
+
+#[test]
+fn a_passed_integration_sets_the_field() {
+    let p = verify();
+    assert_eq!(p.fields_of(AUDIT).get("integration"), None);
+    let run = p.record(AUDIT, "E518", "passed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(AUDIT)["integration"], "passed");
+    assert!(
+        !judged(&p.report_all()).iter().any(|(c, _)| c == "gsd/E518"),
+        "{:?}",
+        p.report_all()
+    );
+    // A hand-written value is E082.
+    let spec = p.read("spec/audit.spec");
+    p.write(
+        "spec/audit.spec",
+        &spec.replace(
+            "  milestone v1.0\n",
+            "  milestone v1.0\n  integration issues\n",
+        ),
+    );
+    assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.codes());
+}

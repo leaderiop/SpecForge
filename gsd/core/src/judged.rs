@@ -129,6 +129,28 @@ pub const JUDGED: &[Judged] = &[
         outcome_fields: &[],
     },
     Judged {
+        code: "E518",
+        message: "milestone audit '{id}' has no fresh integration verdict",
+        judge: "gsd-integration-checker",
+        outcomes: &["passed", "issues"],
+        passing: &["passed"],
+        targets: &[Target {
+            kind: "milestone_audit",
+            inputs: &[
+                ("audit", "self"),
+                ("phases", "self.milestone<phase.milestone"),
+                (
+                    "verifications",
+                    "self.milestone<phase.milestone<verification.phase",
+                ),
+                ("requirements", "requirement"),
+            ],
+            unless_set: &[],
+        }],
+        values: &[],
+        outcome_fields: &["milestone_audit.integration"],
+    },
+    Judged {
         code: "E202",
         message: "phase spec '{id}' is not judged against its ambiguity gates",
         judge: "prompt:spec_phase",

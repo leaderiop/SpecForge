@@ -171,7 +171,7 @@ is neither fresh nor stale.
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
-| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` self.milestone<phase.milestone.requirements | `integration` (its outcome: passed \| issues, passing passed) |
+| gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` every requirement (a selector cannot go on past a reference, and a requirement has no milestone: K17) | `integration` (its outcome: passed \| issues, passing passed) |
 
 gsd/E501 reads no `file()` input, though the verifier judges code: a `file()` input must name a file-reference field, the
 host checks every such field for existence (E016), and a plan, an artifact and a key link name files that do not exist
