@@ -265,6 +265,10 @@ pub fn tests(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
         ctx.mode.nextest_profile(),
     ])
     .env("SPECFORGE_REPORT", ctx.reports());
+    // CI spreads the tests over several runners: `GATE_TEST_PARTITION=2/4` runs nextest's second quarter.
+    if let Ok(part) = std::env::var("GATE_TEST_PARTITION") {
+        cmd.args(["--partition", &format!("count:{part}")]);
+    }
     if let Selection::Only(packages) = selection {
         // Only the changed crates and their dependents run; the workspace is built whole (same features).
         let filter: Vec<String> = packages.iter().map(|p| format!("rdeps(={p})")).collect();
