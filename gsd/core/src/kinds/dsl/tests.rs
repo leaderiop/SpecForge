@@ -102,3 +102,26 @@ fn a_reference_member_declares_its_edge() {
         "{edges}"
     );
 }
+
+const CHECKED: &[Field] = &[str("ref").r(), en("status", &["pass", "fail"]).c()];
+const WITH_COMPUTED_MEMBER: Kind = Kind::new(
+    "checked",
+    "a computed field, an authored block with a computed member and a computed block",
+    &[
+        str("duration").c(),
+        blocks("checks", CHECKED),
+        block("actuals", &[int("tasks")]).c(),
+    ],
+);
+
+#[test]
+fn a_computed_member_is_listed_as_kind_field_member() {
+    assert_eq!(
+        computed(&[&WITH_COMPUTED_MEMBER]),
+        [
+            "checked.duration",
+            "checked.checks.status",
+            "checked.actuals"
+        ]
+    );
+}

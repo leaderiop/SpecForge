@@ -35,8 +35,8 @@ const REVERSIBILITY: &[&str] = &["reversible", "costly", "one_way"];
 const ORIGIN: &[&str] = &["context", "project", "summary", "checkpoint"];
 
 /// `- **D-NN:**` of a CONTEXT, a Key Decisions row; scoped by its phase, or by the project when it has none.
-// `from_summary → summary` is declared with `summary` (round r38): a reference to a kind no loaded extension declares
-// is W021.
+// A decision of `origin summary` names its summary by the other side: `summary.key_decisions` (a relation is written
+// from one side, W162).
 pub const DECISION: Kind = Kind::new(
     "decision",
     "A decision, named D-01 within its phase or the project (GSD CONTEXT.md, PROJECT.md Key Decisions)",

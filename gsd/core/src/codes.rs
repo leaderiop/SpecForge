@@ -413,12 +413,12 @@ pub static CODES: &[Code] = &[
         Severity::Error,
     ),
     code(
-        "E403",
-        "GREEN commit without a recorded RED failure",
-        "A tdd task's GREEN commit follows a recorded RED failure",
+        "W403",
+        "GREEN commit without an earlier RED commit",
+        "A tdd task's GREEN commit follows a RED test commit (the RED run's failure is not checked; a warning, as the order cannot be repaired after the fact)",
         "execute",
-        Severity::Error,
-        Severity::Error,
+        Severity::Warning,
+        Severity::Warning,
     ),
     code(
         "W404",
@@ -430,8 +430,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E405",
-        "Schema drifted from the planned migrations",
-        "The schema has not drifted from the plan's declared migrations",
+        "Schema changed with no database push recorded",
+        "A phase that changed an ORM's schema files records its database push in a summary or a commit subject, once it has run",
         "execute",
         Severity::Error,
         Severity::Error,
@@ -447,7 +447,7 @@ pub static CODES: &[Code] = &[
     code(
         "W407",
         "Task has no commit",
-        "Every task has a commit",
+        "Every task of a complete plan has a recorded commit (a manual task is exempt)",
         "execute",
         Severity::Warning,
         Severity::Warning,
@@ -455,7 +455,7 @@ pub static CODES: &[Code] = &[
     code(
         "W408",
         "Deliverable checks neither pass nor are human-judged",
-        "A summary's deliverable checks pass or are human-judged with a rationale",
+        "A deliverable's checks pass, or a person judged it and gave a rationale (a check no report speaks of is not judged)",
         "execute",
         Severity::Warning,
         Severity::Error,

@@ -1,11 +1,13 @@
 #!/bin/sh
-# Records what gsd-tools answers over the taskboard fixture into goldens/taskboard/.
+# Records what gsd-tools answers over the taskboard fixture, and what its own tests report, into goldens/taskboard/.
 #
 #   GSD_CORE_DIR=<a v1.18.0 checkout with its lib built> gsd/parity/record.sh
 #
 # GSD_CORE_DIR is the root of a gsd-core checkout at the tracked tag (`npm ci && npm run build:lib` there). The verbs run
 # on a copy of the fixture that is its own git repository, so what they say about git (stale worktrees, commit hashes)
-# does not depend on the machine, and timestamps and hashes are normalised: a second run changes nothing.
+# does not depend on the machine, and timestamps and hashes are normalised: a second run changes nothing. The JUnit
+# golden is `node --test`'s reporter output (paths, times and hostname are normalised); another Node major may word it
+# differently, and then the diff is the Node release, not the port.
 set -eu
 
 : "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.18.0 checkout whose lib is built}"
@@ -82,6 +84,11 @@ record verify-failure-directions-1 query check.verify-failure-directions 1
 record verify-failure-directions-2 query check.verify-failure-directions 2
 record gap-analysis-plan-post-1 query check.gap-analysis-plan-post .planning/phases/01-core TASK-01,TASK-02
 record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/phases/02-persistence STORE-01,STORE-02
+# The recorded tests: what `npm test` writes (node's JUnit reporter), with the machine's paths and timings out, so a
+# second run changes nothing. `gsd-junit` links its tests to the twin's deliverables by name and project-relative file.
+(cd "$work" && npm test >/dev/null)
+real=$(cd "$work" && pwd -P)
+sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' -e 's/ hostname="[^"]*"//g' "$work/junit.xml" >"$staged/junit.xml"
 mkdir -p "$out"
-cp "$staged"/*.json "$out"/
+cp "$staged"/*.json "$staged/junit.xml" "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"

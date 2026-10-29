@@ -1,5 +1,7 @@
 # Execution, results and state
 
+**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
+
 ```
  plan ─1──0..1─ summary ─1──*─ deliverable
                    ├──*─ deviation
@@ -29,57 +31,118 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | patterns_established | strs | | `patterns-established:` |
 | requirements_completed | →* requirement | R | `requirements-completed:` |
 | threat_flags | strs | | `## Threat Flags` |
-| next_readiness | text | | `## Next Phase Readiness` |
+| next_readiness | str | | `## Next Phase Readiness` |
 | halted_because | str | | required when `status halted` |
 | started, completed | ts | H | `completed:`; written by the command that opens and closes the plan, with the host's clock (`now`, protocol 1.11.0, K14) |
-| duration | str | C | `duration:`: `completed` − `started` |
-| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits. GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
-| files_created, files_modified | files | C | `key-files:`: from the plan's commits |
+| duration | str | C | `duration:`: `completed` − `started`, as `45 min` under an hour and `1h 5m` from there; absent until both are recorded |
+| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits (0 with none). GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
+| files_created, files_modified | strs | C | `key-files:`: from the plan's commits: `created` is the sorted union of their `created`, `modified` the other paths they touch; both absent with no commit. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |
 
 ## deliverable
 
 GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `summary → summary R I`, `description str R`, `requirement → requirement`, `human_judgment bool R`,
-`rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R}`;
-each check's `status enum{pass, fail, unknown}` is `C`, from the test report (K12: a compute pass that declares `reads_tests` receives it). A check's `ref` is a test tagged with its entity: `[gsd:<id>] stays signed in` (the test link, under commit below).
+`rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R, status enum{pass, fail, unknown} C}`.
+Each check's `status` is a **computed member** of an authored block: the derive pass lists it as `deliverable.checks.status`
+(`dsl::computed`), and a status written inside `checks` is E082. It is computed from the test report (K12: a compute pass
+that declares `reads_tests` receives it): `fail` when a test named exactly its `ref` failed, `pass` when one passed, `unknown`
+when none was recorded, and no status without a report. Because the derive pass reads the report, a compile without
+`specforge-report.json` says I205 once. A check's `ref` is GSD's own coverage reference, `path#test name`
+(`test/tasks.test.js#adds a task`), or a test tagged with its entity (the test link, under commit below).
 
 ## deviation
 
 GSD: `## Deviations from Plan` and `## Issues Encountered`. Append-only. Name `DV1`, scoped by the summary.
-`summary → summary R`, `kind enum{deviation, issue} R`, `rule str`, `text str R`, `files files`.
+`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files strs I`: a deviation is a log line, so
+every field is immutable and the kind is append-only (E084, E085).
 
 ## commit
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
-refuses any other writer), `hash` also `I`. The collector (`gsd-git`) runs the whole `git log` with `capture_stdout`
-and is named explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale.
-It reads GSD's own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`),
-and matches the task by name; a `GSD-Task: 03-02/T1` trailer, when present, wins over the name match. Only commits that
-name a task or a plan are recorded, each in its plan's file (so executors of one wave never write the same file), named by
-the first 12 hex digits of its hash. `hash str R H I`, `task → task H`, `plan → plan H`, `type str H` (`feat`, `fix` …),
-`subject str H`, `at ts H`, `files files H`, `insertions int H`, `deletions int H`. Schema drift reads the
-subjects, and a milestone's `stats.loc` the line counts.
-`/gsd-undo` reads the commits of a plan or a phase from here instead of a manifest file.
+refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
+explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
+own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
+task by its title. A commit names its task by the subject alone (GSD has no trailer),
+and a commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
+only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
+write the same file), in the project scope, named by the first 12 hex digits of its hash.
 
-**Test link.** A test names its entity with a tag in its name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`);
-`@gsd/core`'s JUnit collector (`gsd-junit`) links it, and the host re-keys a short form to the full path. The host's own
-fallback links a test only by `entity_id__slug` or a module named after an entity, which cannot spell a scoped id.
+| Field | Type | Flags | |
+|---|---|---|---|
+| hash | str | H I | the full 40-hex hash. Not `R`: a required harness field cannot be declared, and the name already carries it |
+| task | → task | H | the inverse `task.commits` |
+| plan | → plan | H | the inverse `plan.commits` |
+| type | str | H | `feat`, `fix` … |
+| subject | str | H | |
+| at | ts | H | the author time, UTC |
+| files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
+| created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
+| insertions, deletions | int | H | `git log --numstat` |
+
+**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
+`git -c core.quotepath=off log --no-merges --no-renames --numstat --summary --format=%x1e%H%x1f%at%x1f%s` once in the
+project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
+answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
+The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
+holds is not recorded again, so a second run changes nothing. The collector is named, never detected, so a plain
+`specforge collect` does not run it. A repository with no commit (or a directory that is none) prints nothing, and
+`collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
+id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
+names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped. The task is the one
+of that plan whose title equals the description, trimmed, case-folded and with whitespace runs collapsed; none, or two,
+leaves the commit naming its plan. A plan op refused `stale_revision` (the plan's file changed since the compile) writes
+nothing, and the next run records the same commits.
+
+Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
+phase from here instead of a manifest file.
+
+**Test link.** A test links to an entity two ways, and the JUnit collector (`gsd-junit`) does both.
+- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), links it to any entity. The id is a path,
+  a rooted path or a unique suffix; the collector resolves it over the graph as the host's `find` does. A tag that names
+  nothing, or several entities, links nothing.
+- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the check's
+  `ref` is `test/tasks.test.js#a task is added`, and a test named `a task is added` whose `file` attribute (made
+  project-relative by stripping the project root) is `test/tasks.test.js` proves it. A `ref` with an empty file part
+  (`#name`) matches on the name alone. The file part ends at the first `#`, so a test name may hold one (`fixes #42`). The result is recorded under the deliverable and named by the `ref` exactly, which
+  is what the derive pass looks a check's status up by.
+
+  Limits of the link, by design: a reporter that writes no `file` attribute (jest-junit and pytest by default) matches
+  only a `ref` with an empty file part; the root is stripped as the collector is given it, so a report written under a
+  symlinked root (`/tmp` and `/private/tmp`) does not link by file; a `time` that is negative, not a number or spelled
+  with a thousands separator gives no duration. A report cut inside a `<testcase>`, or that holds no `<testsuite>`, is
+  refused; a tag that names no entity, or several, lists the test as unlinked even when another tag linked it.
+
+`gsd-git` reads the whole `git log` on every run (no `--since`): a repository of ten thousand commits costs seconds and
+the host's 512 MB / 30 s guest limit is the bound. Its records start at a NUL, control characters in a subject or path
+become U+FFFD, and a commit with a bad hash or time is skipped and named in the plan's title. It does not clear
+`GIT_DIR` and the like (the host runs the command).
+
+A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
+after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
+report the project's own test run wrote: `specforge collect --runner gsd-junit --no-run` (the declared report is
+`junit.xml` at the project root), or `--report <file>`. It declares `writes` only to be handed the graph and the project
+root: the host's `collect` keeps a full entity path and drops any other id as W115, so a collector that is given a short
+form resolves it itself. It answers results, never a plan. A report that stops short of its last tag is an error naming
+the file, not a smaller report.
 
 ## pause, handoff and blocker
 
 These are what `STATE.md` and `.continue-here.md` hold that cannot be derived and that a teammate pulling the repository
 must see. They are committed, in `spec/gsd/ops/`.
 
-**pause**: written by `/gsd-pause-work`, removed by `/gsd-resume-work`. Name `PS1`. `phase → phase`, `plan → plan`,
-`at ts H`, `by str H`, `reason str R`, `handoff → handoff`.
+**pause**: written by `/gsd-pause-work`, removed by `/gsd-resume-work`. Name `PS1`, scoped by its phase (`phase → phase I`,
+optional: a pause with no phase is in the project scope). `plan → plan`, `at ts H`, `by str H`, `reason str R`,
+`handoff → handoff`.
 
-**handoff**: GSD `.continue-here.md`. Name `HO1`. `phase → phase`, `task → task`,
-`state enum{in_progress, blocked, almost_done} R`, `current_state text R`,
+**handoff**: GSD `.continue-here.md`. Name `HO1`, scoped by its phase as a pause is. `phase → phase I`, `task → task`,
+`state enum{in_progress, blocked, almost_done} R`, `current_state str R`,
 `completed_work {task → task, state enum{done, in_progress, not_started}}`, `remaining_work strs`,
-`decisions_made →* decision`, `blockers →* blocker`, `context text`, `next_action str R`.
+`decisions_made →* decision`, `blockers →* blocker`, `context str`, `next_action str R`.
 
 **blocker**: GSD `### Blockers/Concerns`. Name `BL1`, project scope. `text str R`, `phase → phase`, `plan → plan`, `raised ts H`,
-`resolved {at ts, how str}`.
+`resolved {at ts, how str}`. `resolved` is authored, so a person writes `resolved.at` and `gsd/E107` refuses a time that
+is not RFC 3339 UTC (`2026-10-29T10:00:00Z`).
 
 ## Session state
 

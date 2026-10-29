@@ -1,14 +1,17 @@
 //! The passes of `@gsd/core`.
 
+mod commits;
 mod cross_plan;
 mod derive;
 mod drift;
+mod execute;
 mod fails_when;
 mod file_scope;
 mod plan_shape;
 mod plans;
 mod research;
 mod roadmap;
+mod schema_drift;
 mod scope;
 mod verify_paths;
 mod waves;
@@ -24,6 +27,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
     roadmap::declare(c);
     research::declare(c);
     drift::declare(c);
+    execute::declare(c);
+    schema_drift::declare(c);
     plan_shape::declare(c);
     cross_plan::declare(c);
     fails_when::declare(c);

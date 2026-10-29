@@ -162,7 +162,8 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "state",
             "shipped",
             "stats",
-            "git_range"
+            "git_range",
+            "progress"
         ]
     );
     assert_eq!(
@@ -232,8 +233,8 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
 }
 
 /// `project.md` lists 8 kinds and 72 top-level fields. The fixes of the model add the milestone's `workstream` and
-/// the lesson's `retrospective`; two fields are read back from their inverse, not declared (the requirement's
-/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 72 + 2 - 2.
+/// the lesson's `retrospective`; the milestone's computed `progress` (r38) is a third addition; two fields are read back from their inverse, not declared (the requirement's
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 72 + 3 - 2.
 #[test]
 fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let kinds = [
@@ -247,7 +248,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 2 - 2, "the kinds' fields");
+    assert_eq!(total, 72 + 3 - 2, "the kinds' fields");
 }
 
 #[test]

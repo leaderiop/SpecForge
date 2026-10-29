@@ -118,7 +118,7 @@ false, and each gates rules ([rules.md](rules.md#setting-gated-rules)).
 
 | Setting | Switches on |
 |---|---|
-| `specforge.task_commits` | every task has a commit (gsd/W407) |
+| `specforge.task_commits` | every task of a complete plan has a commit (gsd/W407) |
 | `specforge.traceability_gate` | a complete requirement traces to a task, a commit and a passing test (gsd/E515) |
 | `specforge.stale_verdict_gate` | a stale verdict blocks every workflow step, not only execution (gsd/E516) |
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |

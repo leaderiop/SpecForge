@@ -69,7 +69,7 @@ const VERIFY: &[Field] = &[str("automated").r(), str("fails_when")];
 const TASK_STATUS: &[&str] = &["pending", "done"];
 
 /// `<task type="auto|tdd">`, named `T1` within its plan; the order is the name's number.
-// `commits → commit` is declared with `commit` (round r38).
+// `commits` is not a field of the task: it is the inverse of `commit.task` (`commit`, round r38).
 pub const TASK: Kind = Kind::new(
     "task",
     "A task of a plan (GSD <task>)",

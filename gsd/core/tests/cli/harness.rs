@@ -32,6 +32,9 @@ fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> 
     }
 }
 
+/// The pinned time of the baseline commit.
+const BASELINE_AT: &str = "2026-10-28T08:00:00Z";
+
 /// What one `specforge` run answered.
 pub struct Run {
     pub code: i32,
@@ -94,17 +97,43 @@ impl Project {
 
     /// Runs `specforge <args>` with these environment variables set.
     pub fn run_with(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
-        let output = Command::new(required("SPECFORGE_BIN"))
+        self.spawn(args, env, "")
+    }
+
+    /// Runs `specforge <args>` with `stdin` on its standard input (a host's hook event).
+    pub fn run_stdin(&self, args: &[&str], stdin: &str) -> Run {
+        self.spawn(args, &[], stdin)
+    }
+
+    fn spawn(&self, args: &[&str], env: &[(&str, &str)], stdin: &str) -> Run {
+        use std::io::Write;
+        use std::process::Stdio;
+        let mut child = Command::new(required("SPECFORGE_BIN"))
             .args(args)
             .envs(env.iter().copied())
             .current_dir(self.dir.path())
-            .output()
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("run specforge");
+        child
+            .stdin
+            .take()
+            .expect("a piped stdin")
+            .write_all(stdin.as_bytes())
+            .expect("write stdin");
+        let output = child.wait_with_output().expect("wait for specforge");
         Run {
             code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         }
+    }
+
+    /// The project's root, as an absolute path.
+    pub fn root(&self) -> &Path {
+        self.dir.path()
     }
 
     /// `(code, message)` of every `gsd/` diagnostic of `specforge check --format json`, sorted.
@@ -128,8 +157,10 @@ impl Project {
         found
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, the `I204` note left out), in report order.
-    pub fn codes(&self) -> Vec<String> {
+    /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
+    /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
+    /// project that has none says I205 once, and the tests of the rules are not about that.
+    pub fn report(&self) -> Vec<(String, String)> {
         let run = self.run(&["check", "--format", "json"]);
         let found: serde_json::Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
@@ -137,29 +168,140 @@ impl Project {
             .as_array()
             .expect("a list")
             .iter()
-            .filter_map(|d| d["code"].as_str().map(String::from))
-            .filter(|c| c != "I204")
+            .filter_map(|d| {
+                let text = |key: &str| d[key].as_str().unwrap_or_default().to_string();
+                Some((d["code"].as_str()?.to_string(), text("message")))
+            })
+            .filter(|(code, _)| code != "I204" && code != "I205")
             .collect()
     }
 
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204` and `I205` left out), in report order.
+    pub fn codes(&self) -> Vec<String> {
+        self.report().into_iter().map(|(code, _)| code).collect()
+    }
+
+    /// The fields of one entity, as `specforge query <id> --format json` answers them.
+    pub fn fields_of(&self, id: &str) -> serde_json::Value {
+        let query = self.run(&["query", id, "--depth", "0", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+            .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+        graph["nodes"][0]["fields"].clone()
+    }
+
     /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
-    /// Git runs with its identity on the command line, never the global configuration.
+    /// Git runs with its identity on the command line, never the global configuration, and its dates are pinned.
     pub fn commit(&self) {
-        let git = |args: &[&str]| {
-            let status = Command::new("git")
-                .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
-                .args(["-c", "commit.gpgsign=false"])
-                .args(args)
-                .current_dir(self.dir.path())
-                .status()
-                .expect("run git");
-            assert!(status.success(), "git {args:?}");
-        };
-        if !self.dir.path().join(".git").exists() {
-            git(&["init", "-q", "-b", "main"]);
+        self.ensure_repository();
+        self.git(&["add", "-A"], BASELINE_AT);
+        self.git(
+            &["commit", "-q", "--allow-empty", "-m", "baseline"],
+            BASELINE_AT,
+        );
+    }
+
+    /// Writes `files` (path, text) and commits just them with `subject`, the author and committer time `at`
+    /// (`YYYY-MM-DDTHH:MM:SSZ`). It answers the commit's full hash.
+    pub fn git_commit(&self, subject: &str, files: &[(&str, &str)], at: &str) -> String {
+        self.ensure_repository();
+        for (path, text) in files {
+            self.write(path, text);
+            self.git(&["add", "--", path], at);
         }
-        git(&["add", "-A"]);
-        git(&["commit", "-q", "--allow-empty", "-m", "baseline"]);
+        self.git(&["commit", "-q", "--allow-empty", "-m", subject], at);
+        let head = self.git(&["rev-parse", "HEAD"], at);
+        head.trim().to_string()
+    }
+
+    /// `git init` in the project, with no commit; a repository already there is left as it is.
+    pub fn init_repository(&self) {
+        self.ensure_repository();
+    }
+
+    fn ensure_repository(&self) {
+        if !self.dir.path().join(".git").exists() {
+            self.git(&["init", "-q", "-b", "main"], BASELINE_AT);
+        }
+    }
+
+    /// `git <args>` in the project with a pinned identity and pinned dates; it answers standard output.
+    fn git(&self, args: &[&str], at: &str) -> String {
+        let output = Command::new("git")
+            .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+            ])
+            .args([
+                "-c",
+                "core.excludesFile=/dev/null",
+                "-c",
+                "tag.gpgSign=false",
+            ])
+            .args(args)
+            // Not the developer's configuration, hooks, signing or repository.
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
+            .env("GIT_AUTHOR_DATE", at)
+            // The committer's date differs from the author's, so `%at` is told from `%ct`.
+            .env("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
+            .current_dir(self.dir.path())
+            .output()
+            .expect("run git");
+        assert!(
+            output.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    }
+
+    /// `specforge collect <args> --yes --format json`.
+    pub fn collect(&self, args: &[&str]) -> Run {
+        let mut all = vec!["collect"];
+        all.extend_from_slice(args);
+        all.extend(["--yes", "--format", "json"]);
+        self.run(&all)
+    }
+
+    /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
+    /// `gsd-junit` reads a JUnit report. Once a test runner has recorded a result, a check no test ran is `unknown`
+    /// and `gsd/W408` says so; this settles it.
+    pub fn passing_tests(&self) {
+        let file = self
+            .dir
+            .path()
+            .canonicalize()
+            .expect("root")
+            .join("test/tasks.test.js");
+        self.write(
+            "junit.xml",
+            &format!(
+                "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"adds a task\" classname=\"test\" file=\"{}\"/>\n</testsuite>\n</testsuites>\n",
+                file.display()
+            ),
+        );
+        let run = self.collect(&["--runner", "gsd-junit", "--no-run"]);
+        assert_eq!(run.code, 0, "{}", run.all());
+    }
+
+    /// The nodes of `kind` in the graph, as `specforge export --format graph` writes them.
+    pub fn nodes_of(&self, kind: &str) -> Vec<serde_json::Value> {
+        let run = self.run(&["export", "--format", "graph"]);
+        let graph: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("export prints JSON ({e}): {}", run.all()));
+        graph["nodes"]
+            .as_array()
+            .expect("nodes")
+            .iter()
+            .filter(|n| n["kind"] == kind)
+            .cloned()
+            .collect()
     }
 
     /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the

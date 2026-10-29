@@ -6,7 +6,7 @@ use specforge_extension_sdk::prelude::*;
 /// `(setting, codes)`: the setting is a GSD key, declared in `keys.rs`, that gates these local codes.
 pub const GATES: &[(&str, &[&str])] = &[
     ("workflow.windows_enforce", &["E512"]),
-    ("workflow.tdd_mode", &["E403", "W404"]),
+    ("workflow.tdd_mode", &["W403", "W404"]),
     ("workflow.nyquist_validation", &["E314", "W510"]),
     (
         "workflow.plan_check",
@@ -20,7 +20,11 @@ pub const GATES: &[(&str, &[&str])] = &[
 
 /// `(setting, code, what it switches on)`: SpecForge's own, under `specforge.` so the roster tells them apart.
 pub const SPECFORGE: &[(&str, &str, &str)] = &[
-    ("specforge.task_commits", "W407", "Every task has a commit."),
+    (
+        "specforge.task_commits",
+        "W407",
+        "Every task of a complete plan has a commit.",
+    ),
     (
         "specforge.traceability_gate",
         "E515",

@@ -1,7 +1,9 @@
 //! The kinds of `@gsd/core`, as tables (`dsl`): one file per area of the model.
 
+mod commit;
 mod discuss;
 mod dsl;
+mod execute;
 mod learning;
 mod must_haves;
 mod plan;
@@ -48,6 +50,13 @@ const KINDS: &[&Kind] = &[
     &must_haves::PROHIBITION,
     &plan::DISPOSITION,
     &plan::USER_SETUP,
+    &execute::SUMMARY,
+    &execute::DELIVERABLE,
+    &execute::DEVIATION,
+    &commit::COMMIT,
+    &execute::PAUSE,
+    &execute::HANDOFF,
+    &execute::BLOCKER,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

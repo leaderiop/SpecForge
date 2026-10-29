@@ -1,6 +1,16 @@
 //! The compute pass: every `C` field of the model is listed in `computes`, as the kernel needs a compute pass for
-//! each computed field it declares (W021 otherwise). It answers `context.digest`; the other computed fields stay
-//! absent until the round that derives them (r38 for the roadmap's fields and `context.status`).
+//! each computed field it declares (W021 otherwise). It answers `context.digest` and the values of execution
+//! (`execute`: plan and task status, a summary's duration, actuals and key files, a deliverable check's status). It
+//! declares `reads_tests`, to read the report for the checks only, so a compile without `specforge-report.json` says
+//! I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and retrospective values.
+//!
+//! Not answered, by design: `phase.completed`, `phase.complete`/`needs_review` and requirement `gaps_found` (the
+//! verification kinds, r39), `phase.frontend` (`@gsd/ui`'s detection), `project.windows_*` (broken windows, r39),
+//! `retrospective.sessions` (no harness), and plan `draft`/`checked` (the plan-check verdicts, r40).
+
+mod execute;
+mod halt;
+mod progress;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -11,24 +21,29 @@ pub fn declare(c: &mut ContributionsBuilder) {
         .collect();
     c.pass("derive", |p| {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
-        p.compute().computes(&names).run(derive);
+        p.compute().computes(&names).reads_tests().run(derive);
     });
 }
 
 fn derive(input: &PassInput) -> PassOutput {
-    PassOutput {
-        values: input
-            .entities
-            .iter()
-            .filter(|e| e.kind == "context")
-            .filter_map(|e| {
-                Some(PassValue {
-                    entity: e.id.clone(),
-                    field: "digest".into(),
-                    value: crate::digest::context(input, &e.id)?.into(),
-                })
+    let mut values: Vec<PassValue> = input
+        .entities
+        .iter()
+        .filter(|e| e.kind == "context")
+        .filter_map(|e| {
+            Some(PassValue {
+                entity: e.id.clone(),
+                field: "digest".into(),
+                value: crate::digest::context(input, &e.id)?.into(),
             })
-            .collect(),
+        })
+        .collect();
+    let commits = crate::passes::commits::commits(input);
+    let statuses = execute::plan_statuses(input, &commits);
+    values.extend(execute::values(input, &commits, &statuses));
+    values.extend(progress::values(input, &commits, &statuses));
+    PassOutput {
+        values,
         ..Default::default()
     }
 }
@@ -56,6 +71,7 @@ mod tests {
         let given: Vec<(&str, &str)> = output
             .values
             .iter()
+            .filter(|v| v.field == "digest")
             .map(|v| (v.entity.as_str(), v.field.as_str()))
             .collect();
         assert_eq!(

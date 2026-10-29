@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; nothing is built yet.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; only the collectors `gsd-git` and `gsd-junit` are built (r38).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -58,7 +58,8 @@ collector. The workflows call these; none is a slash command. Round r41 builds a
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
 | `record_verdict` | a verdict (`V` fields), through `set_verdict` (round r40) |
-| the `gsd-git` collector | commit (every field) |
+| the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
+| the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
 
 ## Agents
 
@@ -94,7 +95,7 @@ GSD's `hooks/` become typed hook contributions (K9). `specforge install <host>` 
 | gsd-workflow-guard | `pre_tool` shell, write and edit outside a running workflow (`hooks.workflow_guard`); the running-workflow marker is session state set by a `user_prompt` hook that sees a `/gsd-…` prompt and cleared at `stop` |
 | gsd-context-monitor | `post_tool`, `stop`, `subagent_stop`, `pre_compact`: context warnings (`hooks.context_*`), its metrics kept in the extension's session state |
 | gsd-statusline | `statusline`, from the graph and the session state |
-| gsd-validate-commit | `pre_commit`: the commit subject convention the git collector reads |
+| gsd-validate-commit | `pre_commit`: the commit subject grammar the git collector reads, `{type}({phase}-{plan}): {task title}` (a fixup, squash or revert prefix is read through) |
 | gsd-phase-boundary | `post_tool` write on spec files: the session cursor follows the phase written |
 | gsd-session-state | `session_start`: the session cursor |
 | (core) `core.spec_guard` | wired by every install: `pre_tool` write on `.spec` refuses a raw write of a computed, harness or human-only value and names the command that writes it |

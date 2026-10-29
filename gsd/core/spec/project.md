@@ -27,7 +27,7 @@ Singleton: one per repository. The kernel keeps `singleton` as metadata (it reac
 | out_of_scope | {item str, why str R} | | `### Out of Scope` |
 | key_decisions | →* decision | | `## Key Decisions` |
 | project_code | str `^[A-Z][A-Z0-9_]*$` | | config `project_code` |
-| validated, active | →* requirement | C | `### Validated` / `### Active`: from requirement status |
+| validated, active | →* requirement | C | `### Validated` (requirements with status `complete`) / `### Active` (`v1` requirements that are not); a list with no item is absent |
 | updated | ts | C | `*Last updated*`: the latest `at` among the recorded commits and the `completed` of the summaries (the git collector records commits as entities; a pass sees no git history); uncommitted edits do not move it |
 | windows_open, windows_waived, windows_fixed, windows_total | int | C | the broken-windows ledger counts ([verify.md](verify.md#broken_window)) |
 
@@ -42,7 +42,7 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | tier | enum{v1, v2, out_of_scope} | R | `## v1` / `## v2` / `## Out of Scope` |
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
-| status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when every plan carrying it has a complete summary listing it; `gaps_found` when a verification of its phase does |
+| status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` waits for the verification kinds (r39) |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
 is written from one side, never both (W162).
@@ -60,10 +60,11 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | abandoned | {reason str R, ruled_by str R, at date R} | | gsd-path's abandon ruling |
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `/gsd-complete-milestone` once its audit passes |
-| state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: from its phases and `/gsd-complete-milestone`'s record |
+| state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: `abandoned` when `abandoned` is written, `shipped` when `completion` is, `in_progress` when a phase is past `not_started`, else `planned` |
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
-| stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`) |
-| git_range | str | C | `**Git range:**`: from the recorded commits (first and last hash) |
+| stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
+| git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
+| progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` is 0 until phases can be `complete` (r39). `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
@@ -84,11 +85,11 @@ Scoped by milestone.
 | success_criteria | strs | R | `**Success Criteria**` (2–5) |
 | mode | enum{standard, mvp} | | `**Mode**:` (`/gsd-mvp-phase`) |
 | tag | str | | the parenthetical, `(Cluster B)` |
-| inserted | bool | C | `(INSERTED)`: a decimal name |
+| inserted | bool | C | `(INSERTED)`: a name that holds a `.`, but not a `999.x` one |
 | backlog | bool | C | a `999.x` name |
-| frontend | bool | C | the ui gate's `frontend` detection |
-| status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder, from plan and summary counts and verification status |
-| plans_complete | str `N/M` | C | Progress `Plans Complete` |
+| frontend | bool | C | the ui gate's `frontend` detection (`@gsd/ui`'s; core never answers it) |
+| status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, else `executed`. `needs_review` and `complete` wait for the verification kinds (r39); `deferred` is never derived |
+| plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
 
 ## workstream
@@ -124,7 +125,7 @@ What `STATE.md` holds that can be derived is never stored; `specforge query` and
 
 | GSD `STATE.md` | Derived from |
 |---|---|
-| `progress{total_phases, completed_phases, total_plans, completed_plans, percent}` | phase and plan status |
+| `progress{total_phases, completed_phases, total_plans, completed_plans, percent}` | `milestone.progress` (phase and plan status) |
 | `milestone`, `current_phase`, `status` (planning, executing, verifying…) | the first phase not complete, and its status |
 | `### Decisions` (recent) | decisions ordered by the edit plan that wrote them |
 | `### Pending Todos` | ops todos not done |

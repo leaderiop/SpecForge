@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger), `gap_closure` (r39) and `commits` (with `commit`, r38) wait for later rounds.**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` (r39) wait for later rounds. `commits` is read back from `commit` (r38); the derive pass computes `status` there, except `draft` and `checked`, which wait for the plan-check verdicts (r40).**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -43,7 +43,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | success_criteria | strs | | `<success_criteria>` |
 | wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
 | autonomous | bool | C | `autonomous:`: false exactly when the plan has a checkpoint |
-| status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: the plan-check verdict is fresh and passed (with `workflow.plan_check` off the plan-check rules are gated and a plan goes from draft to ready, never checked); complete / halted: from its summary; blocked: a `depends_on` chain reaches a halted plan |
+| status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: the plan-check verdict is fresh and passed (with `workflow.plan_check` off the plan-check rules are gated and a plan goes from draft to ready, never checked); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary; ready: otherwise. A summary and blocking win over a commit |
 
 ## task
 
@@ -64,8 +64,8 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | acceptance | strs | | `<acceptance_criteria>` |
 | done | str | R | `<done>` |
 | verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
-| commits | →* commit | C | the git collector links commits naming the task (declared in round r38, with `commit`) |
-| status | enum{pending, done} | C | done when its plan's summary lists it complete |
+| commits | ←* commit | | read, not written: the inverse of `commit.task`, the commits whose subject names the task (`plan.commits` reads `commit.plan` the same way). The git collector records them |
+| status | enum{pending, done} | C | done when a recorded commit names it or its plan's summary is complete; pending otherwise |
 
 ## checkpoint
 

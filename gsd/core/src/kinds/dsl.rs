@@ -353,17 +353,25 @@ fn authored_timestamps(field: &Field) -> Vec<String> {
 /// minute 00-59, second 00-60). The day is not checked against the month (no 30 February test in a regex).
 pub const RFC3339_UTC: &str = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$";
 
-/// The `kind.field` names of every computed top-level field of `kinds`: what the derive pass lists in `computes`.
+/// The `kind.field` names of every computed top-level field of `kinds`, and the `kind.field.member` names of every
+/// computed member of an authored block (one level: the model nests no deeper): what the derive pass lists in `computes`.
 pub fn computed(kinds: &[&Kind]) -> Vec<String> {
-    kinds
-        .iter()
-        .flat_map(|kind| {
-            kind.fields
-                .iter()
-                .filter(|f| f.writer == Writer::Computed)
-                .map(move |f| format!("{}.{}", kind.name, f.name))
-        })
-        .collect()
+    let mut found = Vec::new();
+    for kind in kinds {
+        for field in kind.fields {
+            if field.writer == Writer::Computed {
+                found.push(format!("{}.{}", kind.name, field.name));
+            } else if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
+                found.extend(
+                    members
+                        .iter()
+                        .filter(|m| m.writer == Writer::Computed)
+                        .map(|m| format!("{}.{}.{}", kind.name, field.name, m.name)),
+                );
+            }
+        }
+    }
+    found
 }
 
 /// The `kind.field` names of every top-level field of `kinds` whose type the kernel hands a pass as structured
