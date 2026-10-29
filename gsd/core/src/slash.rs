@@ -15,11 +15,12 @@ fn attribution(name: &str) -> Attribution {
 }
 
 /// Binds `command` to `/gsd-<command>`.
-fn bind(c: &mut ContributionsBuilder, command: &str, upstream: &str, hint: &str) {
+fn bind(c: &mut ContributionsBuilder, command: &str, hint: Option<&str>) {
     c.slash_command(command, |s| {
-        s.argument_hint(hint)
-            .tools(&[])
-            .attribution(attribution(upstream));
+        if let Some(hint) = hint {
+            s.argument_hint(hint);
+        }
+        s.tools(&[]).attribution(attribution(command));
     });
 }
 
@@ -27,7 +28,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
     bind(
         c,
         "phase",
-        "phase",
-        "[--insert | --remove | --edit] <phase-name-or-number>",
+        Some("[--insert | --remove | --edit] <phase-name-or-number>"),
     );
+    bind(c, "workstreams", None);
+    bind(c, "cleanup", None);
 }

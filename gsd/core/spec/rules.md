@@ -105,7 +105,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. NOT BUILT: a pass is not sent the project's settings, and a setting gates a code only while it is on (kernel: `SettingDescriptor.gates_when_on`) | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass): at the gate, one error per entity with a stale judgement, except the plan-check verdicts of a plan that has a summary. Silent outside a gate | guard | — | E (plus) | (new: gsd-plus) |
-| gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
+| gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` (trimmed): a plan is active until its summary says when it `completed`; one error per pair, on the later plan; a plan outside a workstream is not judged. The setting `specforge.cross_workstream_conflicts` (on in gsd-plus) gates it | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
 
 ## Retired and kernel-provided
@@ -125,7 +125,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   (r38) is built, as is the derive pass for a deliverable check's status. Not yet built: `gsd/E515`.
   `gsd/W403` reads the recorded commits, not the report.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
-  `gsd/E517` is not yet, and reads the items in `values`.
+  `gsd/E517` is built (r41) and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Not built, waiting on the kernel (K18).** Baseline re-verification (T13): the baseline compile sees only a commit's

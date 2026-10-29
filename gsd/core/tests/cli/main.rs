@@ -8,6 +8,7 @@ mod cmd_refactor;
 mod cmd_state;
 mod cmd_verify;
 mod cmd_windows;
+mod cmd_workstreams;
 mod collect;
 mod commands_support;
 mod discuss;

@@ -11,6 +11,7 @@ mod support;
 mod verdict;
 mod verify;
 mod windows;
+mod workstreams;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -23,4 +24,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     refactor::declare(c);
     milestone::declare(c);
     phase::declare(c);
+    workstreams::declare(c);
 }
