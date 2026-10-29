@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) and `gap_closure` (r39) wait for later rounds. `commits` is read back from `commit` (r38); the derive pass computes `status` there, except `draft` and `checked`, which wait for the plan-check verdicts (r40).**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the judged rules (the plan checker, the review ledger) wait for later rounds; `gap_closure` is built (r39). `commits` is read back from `commit` (r38); the derive pass computes `status` there, except `draft` and `checked`, which wait for the plan-check verdicts (r40).**
 
 ```
  phase ─1──*─ plan ─1──*─ task
