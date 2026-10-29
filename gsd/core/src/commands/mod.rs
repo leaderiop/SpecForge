@@ -4,6 +4,7 @@
 mod complexity;
 mod execute;
 mod milestone;
+mod phase;
 mod refactor;
 mod state;
 mod support;
@@ -21,4 +22,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     windows::declare(c);
     refactor::declare(c);
     milestone::declare(c);
+    phase::declare(c);
 }

@@ -15,7 +15,11 @@ pub fn run(
 ) -> CommandOutput {
     match body(call) {
         Ok(out) => out,
-        Err(why) => call.fail(&CommandError::new(INVALID, why), 1),
+        // A refusal that starts `human_only: ` is the host's own code for what a person wrote (ADR 0298).
+        Err(why) => match why.strip_prefix("human_only: ") {
+            Some(step) => call.fail(&CommandError::new("human_only", step), 1),
+            None => call.fail(&CommandError::new(INVALID, why), 1),
+        },
     }
 }
 
