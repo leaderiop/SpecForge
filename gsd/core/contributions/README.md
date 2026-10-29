@@ -42,7 +42,7 @@ ambiguous one, naming each candidate).
 ## Writing commands
 
 Every `H` field of the model has exactly one writer, a command whose edit plan the host checks and applies (K5), or a
-collector. The workflows call these; none is a slash command. Rounds r41 and ADR 0299 build all of them (the digest writers read the computed context digest from the graph a command receives, ADR 0299). CLI names
+collector. The workflows call these; none is a slash command. Round r41 and K18 (ADR 0299) build all of them (the digest writers read the computed context digest from the graph a command receives, ADR 0299). CLI names
 are the ids with `-`: `specforge gsd complete-plan`.
 
 | Command | Writes (`H` fields) |

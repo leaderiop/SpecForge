@@ -69,6 +69,24 @@ specforge settings --extension @gsd/core
 
 `LICENSE-GSD` is the upstream licence, kept for the text ported from it.
 
+### Where `health`, `stats` and `progress_report` differ from gsd-tools
+
+The three reports answer from the computed values of the graph a command receives (ADR 0299), not from `.planning/`, so
+they differ from `gsd-tools` v1.18.0 in these named ways. Backlog (`999.x`) phases are left out, as upstream and
+`milestone.progress` do, and `stats` counts the v1 requirements (upstream's checkbox lines) and says `Not Started`.
+
+| Divergence | `gsd-tools` v1.18.0 | `@gsd/core` |
+|---|---|---|
+| `health.status`, `errors`, `warnings` | `healthy`, `degraded` or `broken` from its rule table | always `healthy` with both lists empty; only the `I001` info is reproduced, `specforge check` is the health check |
+| `/gsd-health --repair`, `--context` | supported | refused: the command takes no argument |
+| `milestone_version`, `milestone_name` | `STATE.md` | the milestone's id and name; a workstream-scoped milestone reads `ws/v1.0`, not `v1.0` |
+| the current milestone | `STATE.md`, the active workstream | the first `in_progress` milestone by node order, else the last: ambiguous with two workstreams in progress |
+| `stats.last_activity` | `STATE.md`'s `last_activity` text | the newest summary `completed` date; `null` with none |
+| `stats.git_commits`, `git_first_commit_date` | asks git (`rev-list`) | counts the recorded `commit` entities (`gsd-git`): `0` and `null` with none |
+| `stats.requirements_complete` | the `- [x]` checkbox lines | requirements of `status` `complete` (a `gaps_found` one is not counted) |
+| `percent`, `plan_percent` | `null` unless the phase scope is complete; capped at 100 | always a number, not capped (a summary never outnumbers its plans here) |
+| `progress_report` status of a phase nothing has begun | `Pending` | `Pending` (as `progress json`) |
+
 ### Waiting on the kernel
 
 ADR 0299 put the computed values and judgements in the graph a call receives, so a command reads a phase's `status`
