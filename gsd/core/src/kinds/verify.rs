@@ -90,7 +90,7 @@ pub const OVERRIDE: Kind = Kind::new(
 .human()
 .scoped_by("verification");
 
-/// A check only a human can make, `HI1`. `uat` joins in the UAT kinds.
+/// A check only a human can make, `HI1`.
 pub const HUMAN_ITEM: Kind = Kind::new(
     "human_item",
     "A check only a human can make (GSD human_verification)",
@@ -99,6 +99,7 @@ pub const HUMAN_ITEM: Kind = Kind::new(
         str("test").r().doc("what to check"),
         str("expected").r().doc("what should happen"),
         str("why_human").r().doc("why a program cannot check it"),
+        rf("uat", "uat_test").doc("the UAT test that asks it"),
     ],
 )
 .scoped_by("verification");

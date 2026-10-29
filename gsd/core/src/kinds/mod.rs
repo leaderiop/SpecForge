@@ -11,6 +11,7 @@ mod project;
 mod research;
 mod roadmap;
 mod spec;
+mod uat;
 mod verify;
 
 use dsl::Kind;
@@ -62,6 +63,9 @@ const KINDS: &[&Kind] = &[
     &verify::VERIFY_GAP,
     &verify::OVERRIDE,
     &verify::HUMAN_ITEM,
+    &uat::UAT_SESSION,
+    &uat::UAT_TEST,
+    &uat::UAT_GAP,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

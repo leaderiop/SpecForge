@@ -19,6 +19,8 @@ pub enum Ty {
     Files,
     Ref(&'static str),
     Refs(&'static str),
+    /// A list of references to any of these kinds (ADR 0285 D5).
+    RefsAny(&'static [&'static str]),
     Block(&'static [Field]),
     Blocks(&'static [Field]),
 }
@@ -148,6 +150,9 @@ pub const fn rf(name: &'static str, kind: &'static str) -> Field {
 pub const fn rfs(name: &'static str, kind: &'static str) -> Field {
     Field::new(name, Ty::Refs(kind))
 }
+pub const fn rfs_any(name: &'static str, kinds: &'static [&'static str]) -> Field {
+    Field::new(name, Ty::RefsAny(kinds))
+}
 pub const fn block(name: &'static str, members: &'static [Field]) -> Field {
     Field::new(name, Ty::Block(members))
 }
@@ -250,6 +255,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Refs(target) => {
             f.field_type(FieldType::ReferenceList)
                 .target_kind(target)
+                .edge(&edge_label(kind, field.name));
+        }
+        Ty::RefsAny(targets) => {
+            f.field_type(FieldType::ReferenceList)
+                .target_kinds(targets)
                 .edge(&edge_label(kind, field.name));
         }
         Ty::Block(members) | Ty::Blocks(members) => {
@@ -357,6 +367,12 @@ fn declare_edges(c: &mut ContributionsBuilder, kind: &str, owner: &str, field: &
                 e.source_kind(kind).target_kind(target);
             });
         }
+        // One edge for the union: an edge has one target kind, so it names none.
+        Ty::RefsAny(_) => {
+            c.edge(&edge_label(owner, field.name), |e| {
+                e.source_kind(kind);
+            });
+        }
         Ty::Block(members) | Ty::Blocks(members) => {
             let owner = format!("{owner}_{}", field.name);
             for member in members {
@@ -417,7 +433,12 @@ pub fn structured(kinds: &[&Kind]) -> Vec<String> {
                 .filter(|f| {
                     matches!(
                         f.ty,
-                        Ty::Block(_) | Ty::Blocks(_) | Ty::Strs | Ty::Files | Ty::Refs(_)
+                        Ty::Block(_)
+                            | Ty::Blocks(_)
+                            | Ty::Strs
+                            | Ty::Files
+                            | Ty::Refs(_)
+                            | Ty::RefsAny(_)
                     )
                 })
                 .map(move |f| format!("{}.{}", kind.name, f.name))

@@ -68,3 +68,56 @@ fn verification_fields_are_computed() {
     );
     assert!(p.codes().contains(&"E082".to_string()), "{:?}", p.report());
 }
+
+#[test]
+fn a_uat_gap_is_named_03_03_uat_u1_g1() {
+    let p = verify();
+    let query = p.run(&[
+        "query",
+        "v1.0/01/01-UAT/U2/G1",
+        "--depth",
+        "0",
+        "--format",
+        "brief",
+    ]);
+    assert_eq!(query.code, 0, "{}", query.all());
+    assert!(query.all().contains("G1"), "{}", query.all());
+}
+
+#[test]
+fn a_uat_result_is_harness_written() {
+    let p = verify();
+    let run = p.run(&["set", "v1.0/01/01-UAT/U1", "result", "pass"]);
+    assert_eq!(run.code, 1, "{}", run.all());
+    assert!(run.all().contains("harness_field"), "{}", run.all());
+    // The value is in the file and blessed in the ledger, as the command that records an answer leaves it.
+    p.edit(
+        "spec/uat.spec",
+        "  criterion 1\n}",
+        "  criterion 1\n  result pass\n}",
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    p.record_harness("v1.0/01/01-UAT/U1", "result", "\"pass\"");
+    assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
+    assert_eq!(p.fields_of("v1.0/01/01-UAT/U1")["result"], "pass");
+}
+
+#[test]
+fn gap_closure_names_a_verify_or_uat_gap() {
+    let p = verify();
+    let anchor = "  type           execute\n  files_modified [";
+    p.edit(
+        "spec/plans.spec",
+        anchor,
+        &format!(
+            "  type           execute\n  gap_closure    [{VERIFICATION}/VG1, v1.0/01/01-UAT/U2/G1]\n  files_modified ["
+        ),
+    );
+    assert_eq!(p.codes(), Vec::<String>::new());
+    p.edit(
+        "spec/plans.spec",
+        &format!("{VERIFICATION}/VG1, "),
+        "v1.0/01/01-01/TR1, ",
+    );
+    assert!(!p.codes().is_empty(), "a truth is not a gap");
+}

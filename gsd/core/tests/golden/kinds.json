@@ -322,6 +322,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanGapClosure",
+        "source_kind": "plan",
+        "target_kind": null
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "PlanRequirements",
         "source_kind": "plan",
         "target_kind": "requirement"
@@ -667,6 +676,69 @@
         "label": "HumanItemVerification",
         "source_kind": "human_item",
         "target_kind": "verification"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "HumanItemUat",
+        "source_kind": "human_item",
+        "target_kind": "uat_test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatSessionPhase",
+        "source_kind": "uat_session",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatSessionSource",
+        "source_kind": "uat_session",
+        "target_kind": "summary"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatTestSession",
+        "source_kind": "uat_test",
+        "target_kind": "uat_session"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatTestFromTask",
+        "source_kind": "uat_test",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatGapTest",
+        "source_kind": "uat_gap",
+        "target_kind": "uat_test"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "UatGapResolvedBy",
+        "source_kind": "uat_gap",
+        "target_kind": "plan"
       }
     ]
   },
@@ -3742,6 +3814,21 @@
           },
           {
             "default_value": null,
+            "description": "`gap_closure: true` and `gap_ids:`; the gaps this plan closes",
+            "edge": "PlanGapClosure",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "gap_closure",
+            "required": false,
+            "target_kind": null,
+            "target_kinds": [
+              "verify_gap",
+              "uat_gap"
+            ]
+          },
+          {
+            "default_value": null,
             "description": "`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)",
             "edge": "PlanRequirements",
             "field_type": "reference_list",
@@ -6601,6 +6688,17 @@
             "name": "why_human",
             "required": true,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the UAT test that asks it",
+            "edge": "HumanItemUat",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "uat",
+            "required": false,
+            "target_kind": "uat_test"
           }
         ],
         "has_body_parser": false,
@@ -6611,6 +6709,488 @@
         "name": "human_item",
         "open_fields": false,
         "scoped_by": "verification",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A user acceptance session of a phase (GSD NN-UAT.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "UatSessionPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "`source:`; the summaries tested",
+            "edge": "UatSessionSource",
+            "field_type": "reference_list",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "source",
+            "required": true,
+            "target_kind": "summary"
+          },
+          {
+            "default_value": null,
+            "description": "`started:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "started",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`status:`",
+            "edge": null,
+            "enum_values": [
+              "testing",
+              "partial",
+              "complete",
+              "diagnosed"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "`## Summary`",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "total",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "passed",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issues",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "pending",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "skipped",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "blocked",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "totals",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_session",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "One thing a person checks (GSD UAT test)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UatTestSession",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "session",
+            "required": true,
+            "target_kind": "uat_session"
+          },
+          {
+            "default_value": null,
+            "description": "expected behaviour",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "expected",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the phase success criterion it proves",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "criterion",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "a harvested `<human-check>`",
+            "edge": "UatTestFromTask",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "from_task",
+            "required": false,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "written from the person's answer",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "pass",
+              "issue",
+              "skipped",
+              "blocked"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "result",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "an automated result comes from a collector",
+            "edge": null,
+            "enum_values": [
+              "human",
+              "automated"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "source",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the person's words, verbatim, when `issue`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reported",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "major when absent",
+            "edge": null,
+            "enum_values": [
+              "blocker",
+              "major",
+              "minor",
+              "cosmetic"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "severity",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why skipped; `Deferred follow-up` counts as passing",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "when blocked",
+            "edge": null,
+            "enum_values": [
+              "server",
+              "physical_device",
+              "release_build",
+              "third_party",
+              "prior_phase"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "blocked_by",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_test",
+        "open_fields": false,
+        "scoped_by": "session",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "What a UAT test found wrong (GSD UAT gap)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "UatGapTest",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "test",
+            "required": true,
+            "target_kind": "uat_test"
+          },
+          {
+            "default_value": null,
+            "description": "`truth:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "truth",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`reason:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`severity:`",
+            "edge": null,
+            "enum_values": [
+              "blocker",
+              "major",
+              "minor",
+              "cosmetic"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "severity",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`root_cause:`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "root_cause",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`artifacts:`",
+            "edge": null,
+            "field_type": "block_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "path",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "issue",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "artifacts",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`missing:`",
+            "edge": null,
+            "field_type": "string_list",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "missing",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "resolved once a `gap_closure` plan naming it completes",
+            "edge": null,
+            "enum_values": [
+              "open",
+              "resolved"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan",
+            "edge": "UatGapResolvedBy",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resolved_by",
+            "required": false,
+            "target_kind": "plan",
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "that plan's summary's completion",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "resolved_at",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "uat_gap",
+        "open_fields": false,
+        "scoped_by": "test",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,
