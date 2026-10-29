@@ -61,3 +61,22 @@ fn every_core_agent_renders() {
         .count();
     assert_eq!(listed, 15);
 }
+
+#[test]
+fn a_rendered_agent_carries_its_attribution() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        let notice = format!(
+            "<!-- Ported from gsd-core agents/{}.md at v1.18.0. Copyright (c) 2026 Open GSD. Licensed under MIT. -->",
+            agent.id
+        );
+        assert!(
+            file.trim_end().ends_with(&notice),
+            "{}:\n{}",
+            agent.id,
+            &file[file.len().saturating_sub(300)..]
+        );
+    }
+}
