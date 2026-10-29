@@ -194,6 +194,11 @@ still waits for kernel work (K18):
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
   (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
+- **A command's graph has no computed fields (K18).** A command reads entities and their authored fields, never a
+  computed one (`status`, `context_digest`), so `record_research`, `record_spec` and `record_validation` (the digests),
+  `/gsd-health`, `/gsd-stats` and the progress report are not built (r41 probe P7).
+- **A slash command's `when` takes one setting (K18).** A skill in two clusters follows its first, so disabling
+  `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
 - **A `file()` input names a file-reference field only.** `gsd/E501` and the plan checks read no file as an input,
