@@ -71,7 +71,7 @@ fn shell_ids(call: &PromptCall<'_>, subject: Option<&str>) -> String {
         .or_else(|| {
             of_kind("milestone")
                 .find(|n| !n.fields.contains_key("completion"))
-                .or_else(|| of_kind("milestone").last())
+                .or_else(|| of_kind("milestone").next_back())
                 .map(|n| n.id.as_str())
         });
     let say = |var: &str, id: Option<&str>| match id {
