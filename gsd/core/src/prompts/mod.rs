@@ -14,6 +14,7 @@ mod git;
 mod host;
 mod learning;
 mod navigate;
+mod onboard;
 mod plan;
 mod preamble;
 mod project;
@@ -72,4 +73,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     configure::declare(c);
     git::declare(c);
     learning::declare(c);
+    onboard::declare(c);
 }

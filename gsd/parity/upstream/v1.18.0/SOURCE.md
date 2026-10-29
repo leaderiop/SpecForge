@@ -434,3 +434,14 @@ Vendored byte for byte from gsd-core v1.18.0 for `/gsd-milestone-summary` and `/
 | `commands/gsd/milestone-summary.md` | `60710830b35b2a1c00be093e696e520b6936e1d2a9f1927d82e59e38c306d0b5` |
 | `gsd-core/workflows/extract-learnings.md` | `a9281400d064bab6e3e4013c02f9d5e26cb509bb83ed6e9d7429f5fb7faa057d` |
 | `gsd-core/workflows/milestone-summary.md` | `3feb033825b2f3df58c61e6962da15470e1d5abfd5ce77a83b7d83d7710bcd2a` |
+
+## r43 T9: ingest-docs and onboard
+
+Vendored byte for byte from gsd-core v1.18.0 for `/gsd-ingest-docs` and `/gsd-onboard`.
+
+| File | sha256 |
+|---|---|
+| `commands/gsd/ingest-docs.md` | `b5fc2db95efedc11d550ba1ee3cbb34e62b2a56787285f59faca0bf8edfc92cc` |
+| `commands/gsd/onboard.md` | `97eebe6830989d96f71eb48be3aa2b588a6d17efa70826dea1e73d3247beac29` |
+| `gsd-core/workflows/ingest-docs.md` | `5a5fb661c572c3ce8f57d13c69ce57f2581fa5767aed2ac15a0eac68176455e4` |
+| `gsd-core/workflows/onboard.md` | `6e8ecfe10f680e73b2d19ec5abf7095360525f11799ee8c3c0a4a1de276cc97a` |

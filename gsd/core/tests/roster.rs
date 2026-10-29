@@ -9,14 +9,12 @@ use regex::Regex;
 
 /// The core rows no prompt serves yet: each r43 ticket deletes its rows, and the last one deletes this list.
 const NOT_YET_SERVED: &[&str] = &[
-    "ingest-docs",
     "ns-context",
     "ns-ideate",
     "ns-manage",
     "ns-project",
     "ns-review",
     "ns-workflow",
-    "onboard",
     "update",
     "workspace",
 ];
