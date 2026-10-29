@@ -102,7 +102,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E511 | a phase ships only when its verification passed (`ship.md:59-74`, `phase.cts:4000-4001`; a gate code of `complete_milestone` and `/gsd-ship`): at the gate, a phase in scope (the subject, a milestone's phases, or all) has no `passed` verification. UAT completeness is E509 and the verify-work gate, not this. Silent outside a gate | guard | E | E | phase-status ladder |
 | gsd/E512 | no broken window is open at ship: at the gate, one error per open window. Silent outside a gate, so a write is never refused | guard (ship:pre) | E | E | broken-windows gate |
 | gsd/E513 | a resolved window cannot be waived or fixed again: `waiver` and `fixed_at` are never both set (each is immutable, so a ledger that holds both came from two commands acting on one window) | pass | E | E | `src/broken-windows.cts` |
-| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. Not built: a pass is not sent the project's settings, and a setting gates a code only while it is on | pass | W | W | `refactor_strict_not_enforcing` |
+| gsd/W514 | no refactor `deviation` window is recorded while `workflow.windows_enforce` is off. NOT BUILT: a pass is not sent the project's settings, and a setting gates a code only while it is on (kernel: `SettingDescriptor.gates_when_on`) | pass | W | W | `refactor_strict_not_enforcing` |
 | gsd/E515 | a complete requirement traces to a task, a commit and a passing test | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass): at the gate, one error per entity with a stale judgement. Silent outside a gate | guard | — | E (plus) | (new: gsd-plus) |
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` | pass | — | E (plus) | (new: gsd-plus) |
@@ -127,6 +127,12 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is not yet, and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is buildable since 1.11.0 (K15), not yet built: `prompt:spec_phase`.
+
+- **Not built, waiting on the kernel (K17).** Baseline re-verification (T13): the baseline compile sees only a commit's
+  `*.spec` files, so its source files read as missing; `previous_status`/`previous_score` are not computed and
+  `re_verification` compares verdicts and verify gaps only (`regressions` is tested on synthetic baselines, not
+  black-box). `gsd/W514` (above). The human-only guarantee of `override` holds for create, delete and retitle only: an
+  agent can `set`, `unset` or `link` an existing one (test ignored until the kernel checks the kind's writer there).
 
 ## Setting-gated rules
 

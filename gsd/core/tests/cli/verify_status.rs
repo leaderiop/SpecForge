@@ -31,6 +31,26 @@ fn an_agent_written_override_is_refused() {
     assert!(!p.read("spec/verify.spec").contains("OV2"), "{}", run.all());
 }
 
+/// C1 of the r39 review: the host's `edit_flags` checks the kind's writer on create, delete and retitle, not on `set`,
+/// `unset` or `link` of an existing entity, so an agent can re-point or forge an override today. (An override has no
+/// list field, so `link` has nothing to add to.) Un-ignore with the kernel fix.
+#[test]
+#[ignore = "kernel: human-only on existing entities (K17)"]
+fn an_agent_cannot_edit_an_existing_override() {
+    let p = verify();
+    let before = p.read("spec/verify.spec");
+    for args in [
+        &["set", "v1.0/01/01-VERIFICATION/OV1", "by", "eve"][..],
+        &["set", "v1.0/01/01-VERIFICATION/OV1", "reason", "forged"][..],
+        &["unset", "v1.0/01/01-VERIFICATION/OV1", "by"][..],
+    ] {
+        let run = p.run(args);
+        assert_ne!(run.code, 0, "{args:?}: {}", run.all());
+        assert!(run.all().contains("human_only"), "{args:?}: {}", run.all());
+    }
+    assert_eq!(p.read("spec/verify.spec"), before);
+}
+
 #[test]
 fn a_hand_written_override_checks_clean() {
     let p = verify();

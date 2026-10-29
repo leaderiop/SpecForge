@@ -53,7 +53,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
 | covered_files, covered_digest | files, str | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name, and one digest over their current digests (the judgements' `files`) |
-| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): its status and score; items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine) |
+| re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status` and `previous_score` are NOT BUILT: the baseline compile sees only a commit's spec files, so its scan states and status would be wrong (kernel: serve source files from the commit). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
@@ -64,8 +64,9 @@ An open verify_gap puts the verifier in re-verification mode (failed items in fu
 `re_verification` reports the outcome, it does not start it.
 
 **override** (kind `U`; name `OV1`): `verification R`, `truth → truth R`, `reason str R`, `by str`, `at date` (`by` and `at` are not `R`: gsd/E503 is the one diagnostic of their absence). The host refuses
-an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or from an interactive
-`specforge` command. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
+to create, delete or retitle an override in any extension's plan and any MCP write (K5 D7); a human writes it by hand or
+from an interactive `specforge` command. Until the kernel checks the writer on existing entities too (K17), an agent's
+`set`, `unset` or `link` on an existing override is not refused. An agent that edits the file directly is not stopped: the commit shows it, and more than three in
 a phase warns.
 
 **human_item** (name `HI1`): `verification R`, `test str R`, `expected str R`, `why_human str R`, `uat → uat_test`.
@@ -178,5 +179,5 @@ the phase.
 A harness field is never `R` (the DSL refuses it); the trigger that writes `score` and `reasons` also writes them together.
 
 Under `refactor.trigger_strict` the proposal also records a `deviation` window, cleared when the proposal is
-dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship
-(gsd/W514).
+dispositioned, never when the score improves. With `workflow.windows_enforce` off that window cannot block ship;
+reporting that is gsd/W514, NOT BUILT (kernel: `SettingDescriptor.gates_when_on`).

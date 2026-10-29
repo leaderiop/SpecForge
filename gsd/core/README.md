@@ -65,3 +65,23 @@ specforge settings --extension @gsd/core
 | [../parity/](../parity/) | the upstream roster, the taskboard fixture and the `gsd-tools` goldens |
 
 `LICENSE-GSD` is the upstream licence, kept for the text ported from it.
+
+### Waiting on the kernel
+
+Three things r39 could not build, or could not guarantee, wait for kernel work (K17):
+
+- **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
+  baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
+  commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
+  `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
+  verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
+  (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
+  synthetic baselines, not black-box (the judgement list is empty until r40 records E501 verdicts).
+- **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
+  `SettingDescriptor.gates_when_on`.
+- **Human-only on existing entities.** The guarantee of `override` (and `debt_accepted`) holds for creating, deleting
+  and retitling only: the host's `edit_flags` checks the kind's writer on those, not on `set`, `unset` or `link` of an
+  existing entity, so an agent can change or re-point an existing override. The black-box test
+  `an_agent_cannot_edit_an_existing_override` is ignored until the kernel fix. An agent can also delete a milestone
+  audit that carries a person's `debt_accepted` (gsd/E106 then refuses the gate).
+

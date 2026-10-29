@@ -163,3 +163,88 @@ fn a_partial_scan_is_not_passed() {
         .insert("scan_partial".into(), json!(true));
     assert_eq!(of(&run(&input), "status"), Some(json!("pending")));
 }
+
+fn baseline(entities: serde_json::Value) -> Option<PassBaseline> {
+    Some(
+        serde_json::from_value(json!({ "revision": "abc123", "entities": entities }))
+            .expect("a baseline"),
+    )
+}
+
+fn then(
+    id: &str,
+    kind: &str,
+    fields: serde_json::Value,
+    judgements: Vec<serde_json::Value>,
+) -> serde_json::Value {
+    json!({ id: { "kind": kind, "fields": fields, "judgements": judgements } })
+}
+
+fn merged(parts: Vec<serde_json::Value>) -> serde_json::Value {
+    let mut all = serde_json::Map::new();
+    for part in parts {
+        all.extend(part.as_object().cloned().unwrap_or_default());
+    }
+    all.into()
+}
+
+#[test]
+fn re_verification_closes_keeps_and_regresses_truths_by_verdict() {
+    let tr = |n: u8| format!("v1.0/01/01-01/TR{n}");
+    let mut found = input(
+        vec![
+            truth(1, vec![judgement("verified", "fresh", true)]),
+            truth(2, vec![judgement("failed", "fresh", false)]),
+            truth(3, vec![judgement("uncertain", "fresh", false)]),
+        ],
+        vec![],
+    );
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(
+            &tr(1),
+            "truth",
+            json!({}),
+            vec![judgement("failed", "fresh", false)],
+        ),
+        then(
+            &tr(2),
+            "truth",
+            json!({}),
+            vec![judgement("verified", "fresh", true)],
+        ),
+        then(
+            &tr(3),
+            "truth",
+            json!({}),
+            vec![judgement("failed", "fresh", false)],
+        ),
+    ]));
+    let block = of(&run(&found), "re_verification").expect("a re_verification block");
+    assert_eq!(
+        block,
+        json!({ "gaps_closed": [tr(1)], "gaps_remaining": [tr(3)], "regressions": [tr(2)] })
+    );
+}
+
+#[test]
+fn re_verification_closes_and_reopens_verify_gaps() {
+    let gap = |n: u8| format!("{V}/VG{n}");
+    let entity =
+        |n: u8| json!({ "id": gap(n), "kind": "verify_gap", "fields": { "verification": V } });
+    let closer =
+        json!({ "id": "v1.0/01/01-03", "kind": "plan", "values": { "gap_closure": [gap(1)] } });
+    let mut found = input(vec![], vec![entity(1), entity(2), closer]);
+    found.previous = baseline(merged(vec![
+        then(V, "verification", json!({}), vec![]),
+        then(&gap(1), "verify_gap", json!({ "status": "open" }), vec![]),
+        then(&gap(2), "verify_gap", json!({ "status": "closed" }), vec![]),
+    ]));
+    let statuses: Statuses = [("v1.0/01/01-03", "complete")].into();
+    let out = values(&found, &statuses);
+    let block = of(&out, "re_verification").expect("a re_verification block");
+    assert_eq!(
+        block,
+        json!({ "gaps_closed": [gap(1)], "regressions": [gap(2)] })
+    );
+}

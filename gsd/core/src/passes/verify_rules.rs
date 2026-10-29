@@ -3,11 +3,13 @@
 //! unpassable (a skipped test with no reason, an issue with no report). A session's status is computed, so it cannot
 //! be contradicted: E509 reports what the author left out.
 //!
-//! D-r39-1: every Error here is judged over authored entities. E509 leaves out a test a collector reported
-//! (`source automated`), so a collector's plan can never newly trigger it.
+//! D-r39-1: E503 and E314 read only authored data. E509 reads `uat_test.result` and `reported`, which a command or
+//! a collector writes: it leaves out a test a collector reported (`source automated`), so a collector's plan can never
+//! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
 //!
 //! `gsd/W514` (a refactor `deviation` window while `workflow.windows_enforce` is off) is not built: a pass is not
-//! sent the project's settings, and a setting gates a code only while it is on, never while it is off.
+//! sent the project's settings, and a setting gates a code only while it is on, never while it is off (it needs
+//! `SettingDescriptor.gates_when_on`, kernel).
 
 use std::collections::BTreeMap;
 

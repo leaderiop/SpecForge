@@ -4,11 +4,13 @@
 //! declares `reads_tests`, to read the report for the checks only, so a compile without `specforge-report.json` says
 //! I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and retrospective values.
 //!
-//! `verify` answers a verification's status, score and re-verification, and `ladder` the phase's `complete` and
-//! `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`.
+//! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
+//! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
+//! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection), `retrospective.sessions` (no harness), and
-//! plan `draft`/`checked` (the plan-check verdicts, r40).
+//! plan `draft`/`checked` (the plan-check verdicts, r40). Not answered, for want of the kernel:
+//! `re_verification.previous_status` and `previous_score` (the baseline sees no source file, see `verify`).
 
 mod audit;
 mod execute;

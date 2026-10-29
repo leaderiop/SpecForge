@@ -173,9 +173,11 @@ fn covered(group: &Group) -> Vec<String> {
     files.into_iter().map(String::from).collect()
 }
 
-/// The state of an item at the baseline, from its verdicts only. The baseline's compute passes read the commit's
-/// spec files but not its source files, so a scan state computed there (`missing` for a file the commit holds) says
-/// nothing about the commit, and neither does the status derived from it.
+/// The state of an item at the baseline, from its verdicts only. The baseline's compute passes do get file facts, but
+/// the git adapter loads only a commit's `*.spec` files and `specforge-harness`, so every source file reads as absent
+/// there and the scan says `missing` (not `unchecked`) for a file the commit holds: a scan state computed at the
+/// baseline says nothing about the commit, and neither does the status derived from it. Verdicts are judged at the
+/// commit through an on-demand blob fetch, so they can be compared.
 fn then_state(input: &PassInput, id: &str) -> Option<Item> {
     let e = input.previous.as_ref()?.entities.get(id)?;
     Some(judged(e.judgements.iter().map(|j| {
@@ -190,7 +192,8 @@ fn then_state(input: &PassInput, id: &str) -> Option<Item> {
 
 /// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
 /// side is not compared. Items are the phase's truths, artifacts and key links (by verdict) and its verify gaps (by
-/// status: open there, closed now). `previous_status` and `previous_score` wait for r40, for the reason above.
+/// status: open there, closed now). `previous_status` and `previous_score` are not built, for the reason above: they
+/// wait for the kernel to serve a commit's source files to the baseline compile (K17), not for r40.
 fn re_verification(
     input: &PassInput,
     v: &PassEntity,
