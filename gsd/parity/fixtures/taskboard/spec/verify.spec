@@ -30,3 +30,7 @@ uat_gap G1 "Completing an unknown id fails with a one-line message" {
   reason   "User reported: it prints a stack trace before the message, which is noisy"
   severity cosmetic
 }
+
+verification 01-VERIFICATION "Phase 01 verification" {
+  phase v1.0/01
+}
