@@ -63,7 +63,7 @@ crate doc, model it in `spec/product/modules.spec`, then run `cargo gate crate-m
 ## Coverage
 
 `rustup component add llvm-tools-preview && cargo install cargo-llvm-cov`, then `cargo llvm-cov nextest
---workspace --html` (open `target/llvm-cov/html/index.html`). CI runs the same on every push to `main` and uploads
+--workspace --html` (open `target/llvm-cov/html/index.html`). CI runs the same nightly on `main` and uploads
 the per-file and per-crate report (`.github/workflows/coverage.yml`, `scripts/coverage-by-crate.py`). It is a
 measurement: no gate reads it
 ([ADR 0090](docs/adr/0090-text-a-user-types-is-tested-by-properties-over-the-corpus.md)). The parser and formatter

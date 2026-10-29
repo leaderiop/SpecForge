@@ -28,6 +28,15 @@ impl ChangeSet {
         Ok(ChangeSet::of(paths))
     }
 
+    /// `git diff --name-only --diff-filter=ACMR <rev>...HEAD`: what a branch changed since it left `rev`.
+    pub fn since(repo: &Repo, rev: &str) -> Result<ChangeSet, String> {
+        let range = format!("{rev}...HEAD");
+        Ok(ChangeSet::of(git_lines(
+            repo,
+            &["diff", "--name-only", "--diff-filter=ACMR", &range],
+        )?))
+    }
+
     pub fn of<I: IntoIterator<Item = S>, S: Into<String>>(paths: I) -> ChangeSet {
         ChangeSet(paths.into_iter().map(Into::into).collect())
     }

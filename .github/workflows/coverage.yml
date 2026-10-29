@@ -2,9 +2,10 @@ name: Coverage
 
 # A measurement, not a check: `cargo gate ci` (ci.yml) is the list that blocks a merge.
 # This job reports line coverage per file and per crate, and uploads it (ADR 0090 D4).
+# Nightly, not per push: it rebuilds the workspace instrumented and competed with CI for runners.
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 jobs:

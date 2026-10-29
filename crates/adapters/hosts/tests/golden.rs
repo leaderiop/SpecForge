@@ -5,7 +5,7 @@
 //! The goldens: the tree each adapter writes for the fixture into an empty project (`tests/golden/<host>/`). Bless
 //! with `SPECFORGE_BLESS=1` and read the diff.
 
-mod support;
+use crate::support;
 
 use std::collections::BTreeMap;
 use std::path::Path;
