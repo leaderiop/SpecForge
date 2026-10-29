@@ -75,6 +75,21 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
 | insertions, deletions | int | H | `git log --numstat` |
 
+**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
+`git -c core.quotepath=off log --no-merges --no-renames --numstat --summary --format=%x1e%H%x1f%at%x1f%s` once in the
+project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
+answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
+The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
+holds is not recorded again, so a second run changes nothing. The collector is named, never detected, so a plain
+`specforge collect` does not run it. A repository with no commit (or a directory that is none) prints nothing, and
+`collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
+id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
+names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped. The task is the one
+of that plan whose title equals the description, trimmed, case-folded and with whitespace runs collapsed; none, or two,
+leaves the commit naming its plan. A plan op refused `stale_revision` (the plan's file changed since the compile) writes
+nothing, and the next run records the same commits.
+
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
 phase from here instead of a manifest file.
 

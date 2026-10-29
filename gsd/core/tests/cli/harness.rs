@@ -32,6 +32,9 @@ fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> 
     }
 }
 
+/// The pinned time of the baseline commit.
+const BASELINE_AT: &str = "2026-10-28T08:00:00Z";
+
 /// What one `specforge` run answered.
 pub struct Run {
     pub code: i32,
@@ -186,23 +189,79 @@ impl Project {
     }
 
     /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
-    /// Git runs with its identity on the command line, never the global configuration.
+    /// Git runs with its identity on the command line, never the global configuration, and its dates are pinned.
     pub fn commit(&self) {
-        let git = |args: &[&str]| {
-            let status = Command::new("git")
-                .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
-                .args(["-c", "commit.gpgsign=false"])
-                .args(args)
-                .current_dir(self.dir.path())
-                .status()
-                .expect("run git");
-            assert!(status.success(), "git {args:?}");
-        };
-        if !self.dir.path().join(".git").exists() {
-            git(&["init", "-q", "-b", "main"]);
+        self.ensure_repository();
+        self.git(&["add", "-A"], BASELINE_AT);
+        self.git(
+            &["commit", "-q", "--allow-empty", "-m", "baseline"],
+            BASELINE_AT,
+        );
+    }
+
+    /// Writes `files` (path, text) and commits just them with `subject`, the author and committer time `at`
+    /// (`YYYY-MM-DDTHH:MM:SSZ`). It answers the commit's full hash.
+    pub fn git_commit(&self, subject: &str, files: &[(&str, &str)], at: &str) -> String {
+        self.ensure_repository();
+        for (path, text) in files {
+            self.write(path, text);
+            self.git(&["add", "--", path], at);
         }
-        git(&["add", "-A"]);
-        git(&["commit", "-q", "--allow-empty", "-m", "baseline"]);
+        self.git(&["commit", "-q", "--allow-empty", "-m", subject], at);
+        let head = self.git(&["rev-parse", "HEAD"], at);
+        head.trim().to_string()
+    }
+
+    /// `git init` in the project, with no commit; a repository already there is left as it is.
+    pub fn init_repository(&self) {
+        self.ensure_repository();
+    }
+
+    fn ensure_repository(&self) {
+        if !self.dir.path().join(".git").exists() {
+            self.git(&["init", "-q", "-b", "main"], BASELINE_AT);
+        }
+    }
+
+    /// `git <args>` in the project with a pinned identity and pinned dates; it answers standard output.
+    fn git(&self, args: &[&str], at: &str) -> String {
+        let output = Command::new("git")
+            .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
+            .args(["-c", "commit.gpgsign=false"])
+            .args(args)
+            .env("GIT_AUTHOR_DATE", at)
+            .env("GIT_COMMITTER_DATE", at)
+            .current_dir(self.dir.path())
+            .output()
+            .expect("run git");
+        assert!(
+            output.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    }
+
+    /// `specforge collect <args> --yes --format json`.
+    pub fn collect(&self, args: &[&str]) -> Run {
+        let mut all = vec!["collect"];
+        all.extend_from_slice(args);
+        all.extend(["--yes", "--format", "json"]);
+        self.run(&all)
+    }
+
+    /// The nodes of `kind` in the graph, as `specforge export --format graph` writes them.
+    pub fn nodes_of(&self, kind: &str) -> Vec<serde_json::Value> {
+        let run = self.run(&["export", "--format", "graph"]);
+        let graph: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("export prints JSON ({e}): {}", run.all()));
+        graph["nodes"]
+            .as_array()
+            .expect("nodes")
+            .iter()
+            .filter(|n| n["kind"] == kind)
+            .cloned()
+            .collect()
     }
 
     /// Records `value_json` (compact JSON) as the harness value `field` of `entity` in `specforge-harness`, as the

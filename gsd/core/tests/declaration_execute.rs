@@ -8,6 +8,8 @@
 mod common;
 
 use common::{describe, field_of, fields_of};
+use gsd_core::build;
+use specforge_extension_sdk::testing::MockHost;
 
 fn kind_of(kind: &str) -> serde_json::Value {
     describe("entities")["items"]
@@ -293,4 +295,35 @@ fn the_model_counts_its_fields() {
     .map(|k| fields_of(k).len())
     .sum();
     assert_eq!(total, 22 + 6 + 5 + 10 + 6 + 10 + 5);
+}
+
+#[test]
+fn the_git_collector_runs_git_log_and_writes_a_plan() {
+    let git = MockHost::new(build())
+        .declaration()
+        .collectors
+        .into_iter()
+        .find(|c| c.name == "gsd-git")
+        .expect("the gsd-git collector");
+    assert!(git.writes, "it creates the commit entities");
+    assert_eq!(git.capture.as_deref(), Some("stdout"));
+    assert_eq!(git.run[..2], ["git", "-c"]);
+    assert!(
+        git.run.contains(&"--numstat".to_string()) && git.run.contains(&"--summary".to_string())
+    );
+    assert!(git.run.contains(&"log".to_string()) && git.run.contains(&"--no-merges".to_string()));
+    // Named explicitly (`--runner gsd-git`): a detected collector would be selected by a plain `specforge collect`.
+    assert!(git.auto_detect.is_none());
+    assert_eq!(git.input_formats, ["git-log"]);
+}
+
+#[test]
+fn the_model_has_the_collectors_it_builds() {
+    let names: Vec<String> = MockHost::new(build())
+        .declaration()
+        .collectors
+        .into_iter()
+        .map(|c| c.name)
+        .collect();
+    assert_eq!(names, ["gsd-git"]);
 }

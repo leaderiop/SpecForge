@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: being designed; nothing is built yet.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: being designed; only the `gsd-git` collector is built (r38).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.18.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -58,7 +58,7 @@ collector. The workflows call these; none is a slash command. Round r41 builds a
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` |
 | `record_verdict` | a verdict (`V` fields), through `set_verdict` (round r40) |
-| the `gsd-git` collector | commit (every field) |
+| the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
 
 ## Agents
 

@@ -1,6 +1,7 @@
 //! `@gsd/core`: the unified GSD meta-model for SpecForge (model: `gsd/core/spec`).
 
 pub mod codes;
+mod collectors;
 mod digest;
 mod kinds;
 mod passes;
@@ -25,6 +26,7 @@ impl Contributions for GsdCore {
         kinds::declare(c);
         rules::declare(c);
         passes::declare(c);
+        collectors::declare(c);
         settings::declare(c);
         codes::declare(c);
     }
