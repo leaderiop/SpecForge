@@ -57,6 +57,16 @@ pub fn declare(c: &mut ContributionsBuilder) {
             });
         }
     });
+    c.setting(crate::agents::VARIANT_SETTING, |s| {
+        s.enum_values(&["full", "compact"])
+            .default("full")
+            .describe("Which body the agents with a compact variant render: full, or compact (codex and cursor; Claude Code always renders the full body).");
+    });
+    c.preset("workflow.compact_content", |p| {
+        p.when("true", |e| {
+            e.set(crate::agents::VARIANT_SETTING, "compact");
+        });
+    });
     c.preset("workflow.context_drift_action", |p| {
         p.when("block", |e| {
             e.raise("W406", ValidationSeverity::Error);

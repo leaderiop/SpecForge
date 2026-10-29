@@ -152,12 +152,12 @@ fn family_matches(family: &Declared, key: &str) -> bool {
 fn every_core_key_of_the_manifest_is_declared_with_its_default() {
     let (universe, capabilities) = upstream();
     let settings = declared();
-    // `profile` and the four `specforge.` settings are SpecForge's, not GSD's.
+    // `profile` and the five `specforge.` settings are SpecForge's, not GSD's.
     let (ours, statics): (Vec<&Declared>, Vec<&Declared>) = settings
         .iter()
         .filter(|s| !s.name.contains('*'))
         .partition(|s| s.name == "profile" || s.name.starts_with("specforge."));
-    assert_eq!(ours.len(), 5, "profile and four specforge. settings");
+    assert_eq!(ours.len(), 6, "profile and five specforge. settings");
     let families: Vec<&Declared> = settings.iter().filter(|s| s.name.contains('*')).collect();
     let owners = other_owners();
     let na = not_applicable();

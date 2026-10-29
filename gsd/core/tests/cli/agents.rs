@@ -80,3 +80,98 @@ fn a_rendered_agent_carries_its_attribution() {
         );
     }
 }
+
+fn compact_ids() -> Vec<&'static str> {
+    AGENTS
+        .iter()
+        .filter(|a| a.compact.is_some())
+        .map(|a| a.id)
+        .collect()
+}
+
+/// The text a cursor agent file holds after its frontmatter.
+fn cursor_agent(p: &Project, id: &str) -> String {
+    split(&p.read(&format!(".cursor/agents/{id}.md"))).1
+}
+
+#[test]
+fn compact_variant_renders() {
+    let p = project("empty");
+    p.settings(serde_json::json!({ "workflow.compact_content": true }));
+    installed(&p, "cursor");
+    let mut compact = 0;
+    for agent in AGENTS {
+        let body = cursor_agent(&p, agent.id);
+        let expected = agent.compact.unwrap_or(agent.full);
+        assert!(body.contains(expected.trim_end()), "{}", agent.id);
+        if agent.compact.is_some() {
+            compact += 1;
+            assert!(
+                !body.contains(agent.full.trim_end()),
+                "{} is full",
+                agent.id
+            );
+        }
+    }
+    assert_eq!(compact, 10);
+}
+
+#[test]
+fn compact_is_not_rendered_unless_asked() {
+    let p = project("empty");
+    installed(&p, "cursor");
+    for agent in AGENTS {
+        assert!(
+            cursor_agent(&p, agent.id).contains(agent.full.trim_end()),
+            "{}",
+            agent.id
+        );
+    }
+}
+
+#[test]
+fn claude_code_never_renders_compact() {
+    let p = project("empty");
+    p.settings(serde_json::json!({ "workflow.compact_content": true }));
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        let body = split(&claude_agent(&p, agent.id)).1;
+        assert!(body.contains(agent.full.trim_end()), "{}", agent.id);
+    }
+}
+
+#[test]
+fn an_explicit_variant_beats_the_preset() {
+    let p = project("empty");
+    p.settings(serde_json::json!({
+        "workflow.compact_content": true,
+        "specforge.agent_variant": "full"
+    }));
+    installed(&p, "cursor");
+    for agent in AGENTS {
+        assert!(
+            cursor_agent(&p, agent.id).contains(agent.full.trim_end()),
+            "{}",
+            agent.id
+        );
+    }
+}
+
+#[test]
+fn exactly_ten_agents_have_a_compact_variant() {
+    assert_eq!(
+        compact_ids(),
+        [
+            "gsd-advisor-researcher",
+            "gsd-assumptions-analyzer",
+            "gsd-doc-classifier",
+            "gsd-doc-synthesizer",
+            "gsd-integration-checker",
+            "gsd-nyquist-auditor",
+            "gsd-pattern-mapper",
+            "gsd-project-researcher",
+            "gsd-research-synthesizer",
+            "gsd-roadmapper",
+        ]
+    );
+}

@@ -104,17 +104,21 @@ A profile presets these settings:
 
 ## Other presets
 
-A setting has one preset source, and these two are independent of `profile`:
+A setting has one preset source, and these are independent of `profile`:
 
 | Source | Presets |
 |---|---|
 | `model_profile` (four values) | `model_overrides.<agent>` from GSD's model-profile table (round r40, with the agents) |
+| `workflow.compact_content` | `true` sets `specforge.agent_variant` to `compact`; `false` sets nothing |
 | `workflow.context_drift_action` | `block` raises gsd/W406 to an error (raise only); the other values set nothing |
 
 ## SpecForge-only settings
 
-Settings of `@gsd/core` GSD does not have, under `specforge.` so the roster check tells them apart. All are bool, default
-false, and each gates rules ([rules.md](rules.md#setting-gated-rules)).
+Settings of `@gsd/core` GSD does not have, under `specforge.` so the roster check tells them apart. Four are bool, default
+false, and each gates rules ([rules.md](rules.md#setting-gated-rules)). The fifth, `specforge.agent_variant`, gates none:
+it is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have a compact variant
+(codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for it). It is an enum
+because the host takes a variant setting only as a string or enum; `workflow.compact_content` presets it.
 
 | Setting | Switches on |
 |---|---|

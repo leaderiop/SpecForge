@@ -79,6 +79,16 @@ fn bodies_diff_only_in_ported_passages() {
 }
 
 #[test]
+fn the_compact_bodies_are_upstreams_too() {
+    let mut seen = 0;
+    for agent in AGENTS.iter().filter(|a| a.compact.is_some()) {
+        check_body(&format!("{}.compact.md", agent.id));
+        seen += 1;
+    }
+    assert_eq!(seen, 10);
+}
+
+#[test]
 fn no_asset_names_planning_or_gsd_tools() {
     let rx = ported();
     let mut seen = 0;

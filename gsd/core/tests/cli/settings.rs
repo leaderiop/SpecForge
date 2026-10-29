@@ -31,7 +31,7 @@ fn listed(p: &crate::harness::Project, all: bool) -> BTreeMap<String, serde_json
 fn specforge_settings_lists_gsd_core_defaults() {
     let p = project("empty");
     let defaults = listed(&p, false);
-    assert_eq!(defaults.len(), 119, "settings with a default");
+    assert_eq!(defaults.len(), 120, "settings with a default");
     for detected in ["brave_search", "firecrawl", "exa_search"] {
         assert!(
             !defaults.contains_key(detected),
@@ -58,7 +58,7 @@ fn specforge_settings_lists_gsd_core_defaults() {
         assert_eq!(defaults.get(name), Some(&value), "{name}");
     }
     let all = listed(&p, true);
-    assert_eq!(all.len(), 193, "181 keys and 12 families");
+    assert_eq!(all.len(), 194, "182 keys and 12 families");
     assert!(all.contains_key("models.*") && all.contains_key("review.reviewer_instances.*.*"));
 }
 

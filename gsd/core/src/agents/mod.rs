@@ -15,6 +15,9 @@ pub fn attribution(file: &str) -> Attribution {
     }
 }
 
+/// The enum setting that picks an agent's body: `full` or `compact` (see `settings::profiles`).
+pub const VARIANT_SETTING: &str = "specforge.agent_variant";
+
 pub fn declare(c: &mut ContributionsBuilder) {
     for agent in roster::AGENTS {
         c.agent(agent.id, |a| {
@@ -22,6 +25,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 .tools(agent.tools)
                 .color(agent.color)
                 .attribution(attribution(&format!("{}.md", agent.id)));
+            if agent.compact.is_some() {
+                a.variant("compact").variant_setting(VARIANT_SETTING);
+            }
         });
     }
     c.render(|call| {
@@ -29,6 +35,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .iter()
             .find(|a| a.id == call.id())
             .ok_or_else(|| format!("no agent '{}'", call.id()))?;
-        Ok(agent.full.to_string())
+        // Upstream installs no compact agent for Claude Code (`capability.json`), so it always gets the full body.
+        let body = match (call.host(), call.variant(), agent.compact) {
+            ("claude-code", _, _) | (_, None, _) | (_, _, None) => agent.full,
+            (_, Some(_), Some(compact)) => compact,
+        };
+        Ok(body.to_string())
     });
 }
