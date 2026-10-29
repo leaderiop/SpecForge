@@ -3,6 +3,7 @@
 //! stales a passing verdict is written. The finding is reported, and every gate still fails on it.
 
 use super::harness::{Project, Run, project};
+use super::judged::{PLAN, record_all, state, status_of};
 use super::verify_verdicts::{bare, verification, verified};
 use serde_json::json;
 
@@ -31,15 +32,23 @@ fn a_failing_verdict_replaces_a_pass() {
     let run = p.record("v1.0/01/01-01/TR1", "E501", "failed", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(verification(&p)["status"], "gaps_found");
+    assert_eq!(
+        state(&p, "v1.0/01/01-01/TR1", "E501"),
+        ("fresh".to_string(), false)
+    );
 }
 
 #[test]
 fn a_plan_check_pass_is_replaced_by_issues() {
     let p = project("plan");
     p.settings(json!({ "profile": "gsd-strict" }));
-    assert_eq!(p.record("v1.0/01/01-02", "W311", "passed", &[]).code, 0);
-    let run = p.record("v1.0/01/01-02", "W311", "issues", &[]);
+    record_all(&p, PLAN);
+    assert_eq!(status_of(&p, PLAN), "checked");
+    let run = p.record(PLAN, "W311", "issues", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
+    // Fail closed: the failing verdict is fresh and passes nothing, and the plan is no longer checked.
+    assert_eq!(state(&p, PLAN, "W311"), ("fresh".to_string(), false));
+    assert_ne!(status_of(&p, PLAN), "checked");
 }
 
 const AUDIT: &str = "v1.0/A1";
@@ -50,6 +59,8 @@ fn e518_issues_records() {
     let run = p.record(AUDIT, "E518", "issues", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.fields_of(AUDIT)["integration"], "issues");
+    assert_eq!(state(&p, AUDIT, "E518"), ("fresh".to_string(), false));
+    assert_ne!(p.fields_of(AUDIT)["status"], "passed");
 }
 
 const SPEC: &str = "v1.0/02/02-SPEC";
@@ -72,11 +83,14 @@ fn w203_failed_records_under_strict() {
         .as_str()
         .expect("an id")
         .to_string();
-    assert_eq!(p.record(&req, "W203", "failed", &[]).code, 0);
+    let run = p.record(&req, "W203", "failed", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state(&p, &req, "W203"), ("fresh".to_string(), false));
 }
 
 /// M5: creating a judged target adds a `no verdict` finding, which is owed a verdict and refuses nothing.
 // An artifact is not created here: `--path` is the CLI's own project option, so the CLI cannot spell its `path` field.
+// Each creation, with the id it makes and the rule that owes it a verdict.
 const CREATIONS: [(&str, &[&str]); 3] = [
     (
         "spec/plans.spec",
@@ -134,6 +148,14 @@ fn an_agent_creates_a_judged_target() {
         let run = create(&p, file, args);
         assert_eq!(run.code, 0, "{args:?}: {}", run.all());
     }
+    // Each is owed a verdict and has none.
+    for (id, rule) in [
+        ("v1.0/01/01-02/TR9", "E501"),
+        ("v1.0/01/01-02/KL9", "E501"),
+        ("v1.0/A2", "E518"),
+    ] {
+        assert_eq!(state(&p, id, rule), ("missing".to_string(), false), "{id}");
+    }
 }
 
 #[test]
@@ -147,10 +169,18 @@ fn an_edit_that_stales_a_pass_is_allowed() {
         "A user can add a task and see it",
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
+    // Fail closed: the verdict is stale, not passing, and the verification no longer reads passed.
+    assert_eq!(
+        state(&p, "v1.0/01/01-01/TR1", "E501"),
+        ("stale".to_string(), false)
+    );
+    assert_ne!(verification(&p)["status"], "passed");
     let p = project("verify");
     assert_eq!(p.record(AUDIT, "E518", "passed", &[]).code, 0);
     assert_eq!(
         p.run(&["set", "TASK-01", "text", "Add a task, fast"]).code,
         0
     );
+    assert_eq!(state(&p, AUDIT, "E518"), ("stale".to_string(), false));
+    assert_ne!(p.fields_of(AUDIT)["status"], "passed");
 }

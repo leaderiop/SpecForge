@@ -97,10 +97,10 @@ fn strict_raises_w311_to_error() {
     assert_ne!(p.run(&["check"]).code, 0);
 }
 
-const PLAN: &str = "v1.0/01/01-02";
+pub(super) const PLAN: &str = "v1.0/01/01-02";
 
 /// The state the kernel reports for a verdict: `(state, passed)`.
-fn state(p: &Project, entity: &str, code: &str) -> (String, bool) {
+pub(super) fn state(p: &Project, entity: &str, code: &str) -> (String, bool) {
     let inputs = p.inputs(entity, code);
     (
         inputs["verdict"]["state"]
@@ -318,11 +318,11 @@ fn the_judge_is_the_rules_not_the_callers() {
 
 const PLAN_CHECK_RULES: [&str; 4] = ["W311", "W313", "W315", "W316"];
 
-fn status_of(p: &Project, id: &str) -> serde_json::Value {
+pub(super) fn status_of(p: &Project, id: &str) -> serde_json::Value {
     p.fields_of(id)["status"].clone()
 }
 
-fn record_all(p: &Project, entity: &str) {
+pub(super) fn record_all(p: &Project, entity: &str) {
     for code in PLAN_CHECK_RULES {
         let run = p.record(entity, code, "passed", &[]);
         assert_eq!(run.code, 0, "{code}: {}", run.all());

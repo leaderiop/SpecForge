@@ -81,8 +81,9 @@ pub const VERIFY_GAP: Kind = Kind::new(
 
 /// A human's decision to accept a truth that the verifier did not verify, `OV1`. Only a person writes it (ADR 0289);
 /// `by` and `at` are not required so that gsd/E503 is the one diagnostic of their absence. Every field but the parent
-/// is `.u()`, a human's: the host checks the field's writer on `set`, `unset` and `link` of an existing override, so an
-/// agent cannot re-point or forge one (the parent is the entity's scope, which no edit changes).
+/// is `.u()`, a human's, and so is the kind itself: the host refuses an agent's write to an existing override at the kind
+/// (ADR 0298) and the field's writer on a create, so an agent cannot re-point or forge one (the parent is the entity's
+/// scope, which no edit changes).
 pub const OVERRIDE: Kind = Kind::new(
     "override",
     "A human accepts a truth the verifier could not verify (GSD verification override)",

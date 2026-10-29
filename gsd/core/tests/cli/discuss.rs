@@ -405,11 +405,16 @@ fn a_suspicious_package_fails_w205() {
     strict.settings(serde_json::json!({ "profile": "gsd-strict" }));
     let run = strict.record(AUDIT, "W205", "suspicious", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert!(
-        strict.report_all().iter().any(|(c, _)| c == "gsd/W205"),
-        "{:#?}",
-        strict.report_all()
-    );
+    let check = strict.run(&["check", "--format", "json"]);
+    let all: serde_json::Value = serde_json::from_str(&check.stdout).expect("check prints JSON");
+    let severities: Vec<String> = all
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter(|d| d["code"] == "gsd/W205")
+        .map(|d| d["severity"].as_str().unwrap_or_default().to_lowercase())
+        .collect();
+    assert_eq!(severities, ["error"], "{}", check.stdout);
 }
 
 fn with_canonical_refs(refs: Option<&str>) -> Project {
