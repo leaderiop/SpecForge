@@ -184,6 +184,33 @@ fn a_prompt_judged_spec_verdict_records() {
     assert!(!report.iter().any(|(c, _)| c == "gsd/E202"), "{report:#?}");
 }
 
+/// M4 of the r40 review: a `passed` on gsd/E202 must show scores within the gates the spec_phase prompt states.
+#[test]
+fn a_passed_spec_verdict_needs_scores_within_the_gates() {
+    let p = project("discuss");
+    let spec = p.read("spec/discuss.spec");
+    let low = r#"{"scores":{"goal":10,"boundary":5,"constraint":0,"acceptance":0,"ambiguity":95}}"#;
+    let edge =
+        r#"{"scores":{"goal":75,"boundary":70,"constraint":65,"acceptance":70,"ambiguity":21}}"#;
+    let short = r#"{"scores":{"goal":90}}"#;
+    for (extra, why) in [
+        (vec![], "values.scores.goal"),
+        (vec!["--values", short], "values.scores.boundary"),
+        (vec!["--values", low], "goal 10"),
+        (vec!["--values", edge], "ambiguity 21"),
+    ] {
+        let run = p.record(SPEC, "E202", "passed", &extra);
+        assert_ne!(run.code, 0, "{extra:?}: {}", run.all());
+        assert!(run.all().contains(why), "{extra:?}: {}", run.all());
+    }
+    assert_eq!(p.read("spec/discuss.spec"), spec);
+    // The edge values of every gate are a fine `passed`.
+    let on_gate =
+        r#"{"scores":{"goal":75,"boundary":70,"constraint":65,"acceptance":70,"ambiguity":20}}"#;
+    let run = p.record(SPEC, "E202", "passed", &["--values", on_gate]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
 #[test]
 fn a_hand_written_score_is_e082() {
     let p = project("discuss");

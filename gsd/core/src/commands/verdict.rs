@@ -9,6 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{Cite, Verdict};
 
 use crate::judged::{self, JUDGED};
+use crate::prompts::GATES;
 
 const INVALID: &str = "invalid_input";
 
@@ -22,6 +23,34 @@ fn json<T>(
     match call.str(name) {
         None => Ok(default),
         Some(text) => parse(text).map_err(|e| format!("{name}: not the JSON it takes: {e}")),
+    }
+}
+
+/// A `passed` on `gsd/E202` needs the five scores, each 0..=100, and every one within its gate (the judge's own
+/// numbers must show what it concluded). Without them the rule would be satisfied by a spec that fails its gates.
+fn check_gates(values: &BTreeMap<String, Value>) -> Result<(), String> {
+    let scores = values.get("scores").and_then(Value::as_object);
+    let mut failing = Vec::new();
+    for (name, bound, max) in GATES {
+        let score = scores
+            .and_then(|s| s.get(name))
+            .and_then(Value::as_i64)
+            .filter(|n| (0..=100).contains(n))
+            .ok_or_else(|| format!("values: a `passed` on gsd/E202 needs values.scores.{name} as an integer in 0..=100"))?;
+        if if max { score > bound } else { score < bound } {
+            failing.push(format!(
+                "{name} {score} (gate {} {bound})",
+                if max { "<=" } else { ">=" }
+            ));
+        }
+    }
+    if failing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "values: gsd/E202 cannot be `passed` with scores outside the gates: {}; record `failed`",
+            failing.join(", ")
+        ))
     }
 }
 
@@ -48,6 +77,9 @@ fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let cited: Vec<Cite> = json(call, "cited", Vec::new(), |t| serde_json::from_str(t))?;
     let values: BTreeMap<String, Value> =
         json(call, "values", BTreeMap::new(), |t| serde_json::from_str(t))?;
+    if code == "E202" && outcome == "passed" {
+        check_gates(&values)?;
+    }
     let mut plan = call.plan();
     plan.set_verdict(Verdict {
         entity: entity.to_string(),
