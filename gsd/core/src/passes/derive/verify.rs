@@ -1,0 +1,333 @@
+//! The computed values of verification (`spec/verify.md`, D-r39-7): a verification's status, score, time, covered files
+//! and re-verification, and a verify gap's status.
+//!
+//! An item is `Verified` by a fresh passing `gsd/E501` verdict or an override (a truth), by the scan finding its file
+//! in order (an artifact, a key link with a `pattern`), `Failed` by a failing verdict or a scan finding. Verdicts are
+//! recorded by r40's commands, so until then a truth is `Unknown` and a verification is `pending`, `gaps_found` or
+//! `human_needed`, never `passed`. A stale verdict is not a pass and not a failure.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde_json::{Value, json};
+use specforge_extension_sdk::prelude::*;
+
+use super::execute::value;
+use crate::passes::plans::{children, of_kind, phase_of, strings};
+
+type Statuses<'a> = BTreeMap<&'a str, &'static str>;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Item {
+    Verified,
+    Failed,
+    Uncertain,
+    BehaviorUnverified,
+    Unknown,
+}
+
+/// A judgement as `(rule, state, passed, outcome)`.
+type Row<'a> = (&'a str, &'a str, bool, Option<&'a str>);
+
+/// The `gsd/E501` verdict on an entity: its outcome when it is fresh, else `Unknown`.
+fn judged<'a>(mut rows: impl Iterator<Item = Row<'a>>) -> Item {
+    let Some((_, _, passed, outcome)) = rows
+        .find(|(rule, ..)| rule.ends_with("E501"))
+        .filter(|(_, state, ..)| *state == "fresh")
+    else {
+        return Item::Unknown;
+    };
+    match outcome {
+        Some("verified" | "verified_coincidental") if passed => Item::Verified,
+        Some("failed") => Item::Failed,
+        Some("uncertain") => Item::Uncertain,
+        Some("present_behavior_unverified") => Item::BehaviorUnverified,
+        _ => Item::Unknown,
+    }
+}
+
+/// An item's state from what is known of it: its kind, the scan's `state`, whether a `pattern` is set, its verdicts
+/// and whether a human overrode it.
+pub fn item_state(
+    kind: &str,
+    scan: Option<&str>,
+    pattern: bool,
+    verdict: Item,
+    overridden: bool,
+) -> Item {
+    if overridden {
+        return Item::Verified;
+    }
+    let scanned = match (kind, scan) {
+        ("artifact", Some("present")) | ("key_link", Some("wired"))
+            if kind == "artifact" || pattern =>
+        {
+            Some(Item::Verified)
+        }
+        ("artifact", Some("missing" | "too_short" | "lacks_contains" | "lacks_export"))
+        | ("key_link", Some("not_wired")) => Some(Item::Failed),
+        _ => None,
+    };
+    match (scanned, verdict) {
+        (Some(Item::Failed), _) | (_, Item::Failed) => Item::Failed,
+        (Some(found), _) => found,
+        (None, verdict) => verdict,
+    }
+}
+
+fn entity_item(e: &PassEntity, overridden: &BTreeSet<&str>) -> Item {
+    item_state(
+        &e.kind,
+        e.fields.get("state").map(String::as_str),
+        e.fields
+            .get("pattern")
+            .is_some_and(|p| !p.trim().is_empty()),
+        judged(e.judgements.iter().map(|j| {
+            (
+                j.rule.as_str(),
+                j.state.as_str(),
+                j.passed,
+                j.outcome.as_deref(),
+            )
+        })),
+        overridden.contains(e.id.as_str()),
+    )
+}
+
+/// The status of a verification (D-r39-7), first match.
+pub fn status(items: &[Item], truths: &[Item], blocker: bool, human_open: bool) -> &'static str {
+    if blocker || items.contains(&Item::Failed) {
+        "gaps_found"
+    } else if human_open || truths.contains(&Item::BehaviorUnverified) {
+        "human_needed"
+    } else if !items.is_empty() && items.iter().all(|i| *i == Item::Verified) {
+        "passed"
+    } else {
+        "pending"
+    }
+}
+
+/// `{verified}/{truths − behavior_unverified}`.
+pub fn score(truths: &[Item]) -> String {
+    let counted = truths
+        .iter()
+        .filter(|t| **t != Item::BehaviorUnverified)
+        .count();
+    let verified = truths.iter().filter(|t| **t == Item::Verified).count();
+    format!("{verified}/{counted}")
+}
+
+struct Group<'a> {
+    /// The phase's truths, artifacts and key links, minus the deferred truths.
+    entities: Vec<&'a PassEntity>,
+}
+
+fn group<'a>(input: &'a PassInput, phase: &str, deferred: &BTreeSet<String>) -> Group<'a> {
+    let mut entities = Vec::new();
+    let mut plans: Vec<&PassEntity> = of_kind(input, "plan")
+        .filter(|p| phase_of(input, &p.id) == Some(phase))
+        .collect();
+    plans.sort_by(|a, b| a.id.cmp(&b.id));
+    for plan in plans {
+        for kind in ["truth", "artifact", "key_link"] {
+            entities.extend(
+                children(input, &plan.id, kind)
+                    .into_iter()
+                    .filter(|e| !deferred.contains(&e.id)),
+            );
+        }
+    }
+    Group { entities }
+}
+
+fn deferred(v: &PassEntity) -> BTreeSet<String> {
+    v.values
+        .get("deferred")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|row| row.get("truth")?.as_str().map(String::from))
+        .collect()
+}
+
+fn blocker(v: &PassEntity) -> bool {
+    v.values
+        .get("anti_patterns")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .any(|row| row.get("severity").and_then(Value::as_str) == Some("blocker"))
+}
+
+fn latest(group: &Group) -> Option<String> {
+    group
+        .entities
+        .iter()
+        .flat_map(|e| &e.judgements)
+        .filter(|j| j.rule.ends_with("E501"))
+        .filter_map(|j| j.at.clone())
+        .max()
+}
+
+fn covered(group: &Group) -> Vec<String> {
+    let files: BTreeSet<&str> = group
+        .entities
+        .iter()
+        .flat_map(|e| &e.judgements)
+        .filter(|j| j.rule.ends_with("E501"))
+        .flat_map(|j| j.files.iter().map(|f| f.path.as_str()))
+        .collect();
+    files.into_iter().map(String::from).collect()
+}
+
+/// The state of an item at the baseline, from its verdicts only. The baseline's compute passes read the commit's
+/// spec files but not its source files, so a scan state computed there (`missing` for a file the commit holds) says
+/// nothing about the commit, and neither does the status derived from it.
+fn then_state(input: &PassInput, id: &str) -> Option<Item> {
+    let e = input.previous.as_ref()?.entities.get(id)?;
+    Some(judged(e.judgements.iter().map(|j| {
+        (
+            j.rule.as_str(),
+            j.state.as_str(),
+            j.passed,
+            j.outcome.as_deref(),
+        )
+    })))
+}
+
+/// `re_verification`: the outcome against the baseline, over the items both views hold. An `Unknown` item on either
+/// side is not compared. Items are the phase's truths, artifacts and key links (by verdict) and its verify gaps (by
+/// status: open there, closed now). `previous_status` and `previous_score` wait for r40, for the reason above.
+fn re_verification(
+    input: &PassInput,
+    v: &PassEntity,
+    group: &Group,
+    now: &[Item],
+    statuses: &Statuses,
+) -> Option<Value> {
+    let previous = input.previous.as_ref()?;
+    previous.entities.get(&v.id)?;
+    let mut closed = Vec::new();
+    let mut remaining = Vec::new();
+    let mut regressions = Vec::new();
+    for (e, state) in group.entities.iter().zip(now) {
+        let Some(then) = then_state(input, &e.id) else {
+            continue;
+        };
+        match (then, *state) {
+            (Item::Failed, Item::Verified) => closed.push(e.id.clone()),
+            (Item::Failed, Item::Failed) => remaining.push(e.id.clone()),
+            (Item::Verified, Item::Failed) => regressions.push(e.id.clone()),
+            _ => {}
+        }
+    }
+    for gap in of_kind(input, "verify_gap").filter(|g| g.fields.get("verification") == Some(&v.id))
+    {
+        let Some(was) = previous.entities.get(&gap.id) else {
+            continue;
+        };
+        let was_open = was.fields.get("status").and_then(Value::as_str) == Some("open");
+        let is_open = gap_closer(input, gap, statuses).is_none();
+        match (was_open, is_open) {
+            (true, false) => closed.push(gap.id.clone()),
+            (true, true) => remaining.push(gap.id.clone()),
+            (false, true) => regressions.push(gap.id.clone()),
+            (false, false) => {}
+        }
+    }
+    let mut block = serde_json::Map::new();
+    for (name, ids) in [
+        ("gaps_closed", closed),
+        ("gaps_remaining", remaining),
+        ("regressions", regressions),
+    ] {
+        if !ids.is_empty() {
+            block.insert(name.into(), json!(ids));
+        }
+    }
+    (!block.is_empty()).then_some(Value::Object(block))
+}
+
+pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
+    let mut found = Vec::new();
+    for v in of_kind(input, "verification") {
+        let Some(phase) = v.fields.get("phase").map(String::as_str) else {
+            continue;
+        };
+        let group = group(input, phase, &deferred(v));
+        let overridden: BTreeSet<&str> = of_kind(input, "override")
+            .filter(|o| o.fields.get("verification") == Some(&v.id))
+            .filter_map(|o| o.fields.get("truth").map(String::as_str))
+            .collect();
+        let now: Vec<Item> = group
+            .entities
+            .iter()
+            .map(|e| entity_item(e, &overridden))
+            .collect();
+        let truths: Vec<Item> = group
+            .entities
+            .iter()
+            .zip(&now)
+            .filter(|(e, _)| e.kind == "truth")
+            .map(|(_, i)| *i)
+            .collect();
+        let human_open = of_kind(input, "human_item")
+            .filter(|h| h.fields.get("verification") == Some(&v.id))
+            .any(|h| !passed_in_uat(input, h));
+        found.push(value(
+            &v.id,
+            "status",
+            status(&now, &truths, blocker(v), human_open),
+        ));
+        found.push(value(&v.id, "score", score(&truths)));
+        if let Some(at) = latest(&group) {
+            found.push(value(&v.id, "verified", at));
+        }
+        let files = covered(&group);
+        if !files.is_empty() {
+            found.push(value(&v.id, "covered_files", json!(files)));
+        }
+        if let Some(block) = re_verification(input, v, &group, &now, statuses) {
+            found.push(value(&v.id, "re_verification", block));
+        }
+    }
+    found.extend(gaps(input, statuses));
+    found
+}
+
+/// A human item is done once the UAT test it names passed.
+fn passed_in_uat(input: &PassInput, item: &PassEntity) -> bool {
+    item.fields.get("uat").is_some_and(|test| {
+        of_kind(input, "uat_test")
+            .any(|t| &t.id == test && t.fields.get("result").map(String::as_str) == Some("pass"))
+    })
+}
+
+/// The complete plan whose `gap_closure` names `gap`.
+fn gap_closer<'a>(
+    input: &'a PassInput,
+    gap: &PassEntity,
+    statuses: &Statuses,
+) -> Option<&'a PassEntity> {
+    of_kind(input, "plan")
+        .filter(|p| strings(p, "gap_closure").contains(&gap.id))
+        .find(|p| statuses.get(p.id.as_str()) == Some(&"complete"))
+}
+
+/// A verify gap is `closed` by a complete plan whose `gap_closure` names it.
+fn gaps(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
+    of_kind(input, "verify_gap")
+        .flat_map(|g| {
+            let closer = gap_closer(input, g, statuses);
+            let mut out = vec![value(
+                &g.id,
+                "status",
+                if closer.is_some() { "closed" } else { "open" },
+            )];
+            out.extend(closer.map(|p| value(&g.id, "closed_by", p.id.clone())));
+            out
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests;

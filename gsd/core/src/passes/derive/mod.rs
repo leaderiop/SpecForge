@@ -11,6 +11,7 @@
 mod execute;
 mod halt;
 mod progress;
+mod verify;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -21,7 +22,17 @@ pub fn declare(c: &mut ContributionsBuilder) {
         .collect();
     c.pass("derive", |p| {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
-        p.compute().computes(&names).reads_tests().run(derive);
+        p.compute()
+            .computes(&names)
+            .reads_tests()
+            .baseline(&[
+                "verification",
+                "truth",
+                "artifact",
+                "key_link",
+                "verify_gap",
+            ])
+            .run(derive);
     });
 }
 
@@ -41,6 +52,7 @@ fn derive(input: &PassInput) -> PassOutput {
     let commits = crate::passes::commits::commits(input);
     let statuses = execute::plan_statuses(input, &commits);
     values.extend(execute::values(input, &commits, &statuses));
+    values.extend(verify::values(input, &statuses));
     values.extend(progress::values(input, &commits, &statuses));
     PassOutput {
         values,

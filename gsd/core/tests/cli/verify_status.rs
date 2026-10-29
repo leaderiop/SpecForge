@@ -218,3 +218,89 @@ fn a_waiver_is_immutable_once_recorded() {
     let codes = p.codes();
     assert!(codes.contains(&"E084".to_string()), "{:?}", p.report());
 }
+
+fn verification(p: &Project) -> serde_json::Value {
+    p.fields_of(VERIFICATION)
+}
+
+/// The fixture's override and human item removed: no truth is accepted and nothing is left for a person to check.
+fn without_override_and_human_item(p: &Project) {
+    let text = p.read("spec/verify.spec");
+    let at = text.find("override OV1").expect("the override");
+    p.write("spec/verify.spec", &format!("{}\n", text[..at].trim_end()));
+}
+
+#[test]
+fn a_missing_artifact_makes_gaps_found() {
+    let p = verify();
+    std::fs::remove_file(p.root().join("src/complete.js")).expect("remove the artifact");
+    assert_eq!(verification(&p)["status"], "gaps_found");
+}
+
+#[test]
+fn an_open_human_item_makes_human_needed() {
+    let p = verify();
+    assert_eq!(verification(&p)["status"], "human_needed");
+}
+
+#[test]
+fn without_verdicts_status_is_pending_and_score_0_of_m() {
+    let p = verify();
+    without_override_and_human_item(&p);
+    let found = verification(&p);
+    assert_eq!(
+        (&found["status"], &found["score"]),
+        (&json_str("pending"), &json_str("0/2")),
+        "{found}"
+    );
+    assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
+}
+
+fn json_str(s: &str) -> serde_json::Value {
+    serde_json::Value::String(s.into())
+}
+
+#[test]
+fn re_verification_keeps_what_still_holds() {
+    let p = verify();
+    p.edit(
+        "spec/plans.spec",
+        "  depends_on     [01-01]\n  files_modified [\"src/complete.js\"]\n",
+        &format!("  depends_on     [01-01]\n  gap_closure    [{VERIFICATION}/VG1]\n  files_modified [\"src/complete.js\"]\n"),
+    );
+    p.commit();
+    // Nothing changed since the baseline: the gap that was open still is.
+    assert_eq!(
+        p.fields_of(&format!("{VERIFICATION}/VG1"))["status"],
+        "open"
+    );
+    assert_eq!(
+        verification(&p)["re_verification"],
+        serde_json::json!({ "gaps_remaining": [format!("{VERIFICATION}/VG1")] }),
+        "{}",
+        verification(&p)
+    );
+    // Plan 01-02 completes: the gap it closes was open at the baseline and is closed now.
+    let text = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &format!("{text}\nsummary 01-02-SUMMARY \"Completion summary\" {{\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Tasks can be completed\"\n  subsystem              \"store\"\n  requirements_completed [TASK-02]\n}}\n"),
+    );
+    assert_eq!(p.run(&["format", "spec"]).code, 0);
+    assert_eq!(
+        p.fields_of(&format!("{VERIFICATION}/VG1"))["status"],
+        "closed"
+    );
+    assert_eq!(
+        verification(&p)["re_verification"],
+        serde_json::json!({ "gaps_closed": [format!("{VERIFICATION}/VG1")] }),
+        "{}",
+        verification(&p)
+    );
+}
+
+#[test]
+fn re_verification_is_absent_without_a_baseline_verification() {
+    let p = verify();
+    assert!(verification(&p)["re_verification"].is_null());
+}
