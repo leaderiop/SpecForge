@@ -8,7 +8,7 @@
 [ADR 0184](0184-a-typed-edit-and-a-rename-write-one-planned-change.md) and
 [ADR 0198](0198-a-typed-edit-is-judged-by-the-graph-change-it-makes.md). Leaves
 [ADR 0037](0037-the-sandbox-is-limits-the-host-enforces.md) D1 standing: a component is still granted no capability.
-Takes extension protocol 1.9.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (`set_verdict` is checked through the host's judged rules). Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a writing collector's plan is judged against the report its collect wrote).
+Takes extension protocol 1.9.0. Extended by [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (`set_verdict` is checked through the host's judged rules). Amended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a writing collector's plan is judged against the report its collect wrote). Amended by [ADR 0298](0298-an-agent-does-not-change-or-delete-what-a-person-wrote.md) (D7: an existing human-only entity is not edited, nor a person's value deleted).
 
 ## Context
 
