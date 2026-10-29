@@ -18,7 +18,7 @@ fn kinds() -> Vec<serde_json::Value> {
 
 #[test]
 fn the_model_has_its_kinds() {
-    assert_eq!(kinds().len(), 47);
+    assert_eq!(kinds().len(), 51);
 }
 
 #[test]

@@ -739,6 +739,78 @@
         "label": "UatGapResolvedBy",
         "source_kind": "uat_gap",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationPhase",
+        "source_kind": "validation",
+        "target_kind": "phase"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowValidation",
+        "source_kind": "validation_row",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowTask",
+        "source_kind": "validation_row",
+        "target_kind": "task"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ValidationRowRequirement",
+        "source_kind": "validation_row",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "Wave0ItemValidation",
+        "source_kind": "wave0_item",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "Wave0ItemFor",
+        "source_kind": "wave0_item",
+        "target_kind": "requirement"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ManualCheckValidation",
+        "source_kind": "manual_check",
+        "target_kind": "validation"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "ManualCheckRequirement",
+        "source_kind": "manual_check",
+        "target_kind": "requirement"
       }
     ]
   },
@@ -7191,6 +7263,468 @@
         "name": "uat_gap",
         "open_fields": false,
         "scoped_by": "test",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "How a phase's tasks are sampled by tests (GSD NN-VALIDATION.md)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "`phase:`",
+            "edge": "ValidationPhase",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "phase",
+            "required": true,
+            "target_kind": "phase"
+          },
+          {
+            "default_value": null,
+            "description": "the digest of the phase's context when it was recorded (gsd/W406)",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "context_digest",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "`framework`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "framework",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`config_file`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "config_file",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`quick_cmd`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "quick_cmd",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`full_cmd`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "full_cmd",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`max_latency_s`",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "max_latency_s",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "written by the command that approves it, with the host's clock",
+            "edge": null,
+            "field_type": "block",
+            "file_reference": false,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "by",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "file_reference": false,
+                "inverse_of": null,
+                "name": "at",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "approval",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "validated once `approval` is set",
+            "edge": null,
+            "enum_values": [
+              "draft",
+              "validated"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "every row green and every task covered",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "nyquist_compliant",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "every wave-0 item done",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave_0_complete",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "validation",
+        "open_fields": false,
+        "scoped_by": "phase",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "How one task is verified (GSD Per-Task Verification Map)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ValidationRowValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the task",
+            "edge": "ValidationRowTask",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "task",
+            "required": true,
+            "target_kind": "task"
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "ValidationRowRequirement",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirement",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`Test Type`",
+            "edge": null,
+            "enum_values": [
+              "unit",
+              "integration",
+              "smoke",
+              "e2e",
+              "manual"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "test_type",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "`Automated Command`",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "command",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the task's wave",
+            "edge": null,
+            "field_type": "integer",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "wave",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the test file exists",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "file_exists",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "green or red from the task's linked tests; `flaky` is never derived",
+            "edge": null,
+            "enum_values": [
+              "pending",
+              "green",
+              "red",
+              "flaky"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "validation_row",
+        "open_fields": false,
+        "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A file wave 0 must create before the tasks can be sampled (GSD Wave 0 Requirements)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "Wave0ItemValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the file",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "path",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "Wave0ItemFor",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "for",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "what it is",
+            "edge": null,
+            "enum_values": [
+              "test_stub",
+              "fixture",
+              "framework_install"
+            ],
+            "field_type": "enum",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "kind",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the file exists and a linked test ran",
+            "edge": null,
+            "field_type": "bool",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "done",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "wave0_item",
+        "open_fields": false,
+        "scoped_by": "validation",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "A behaviour with no automated check (GSD Manual-Only Verifications)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "ManualCheckValidation",
+            "field_type": "reference",
+            "file_reference": false,
+            "immutable": true,
+            "inverse_of": null,
+            "name": "validation",
+            "required": true,
+            "target_kind": "validation"
+          },
+          {
+            "default_value": null,
+            "description": "the behaviour",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "behavior",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the requirement it serves",
+            "edge": "ManualCheckRequirement",
+            "field_type": "reference",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "requirement",
+            "required": false,
+            "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "why it cannot be automated",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "why_manual",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "how to check it",
+            "edge": null,
+            "field_type": "string",
+            "file_reference": false,
+            "inverse_of": null,
+            "name": "instructions",
+            "required": true,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "manual_check",
+        "open_fields": false,
+        "scoped_by": "validation",
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

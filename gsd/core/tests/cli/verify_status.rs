@@ -121,3 +121,32 @@ fn gap_closure_names_a_verify_or_uat_gap() {
     );
     assert!(!p.codes().is_empty(), "a truth is not a gap");
 }
+
+const VALIDATION: &str = "v1.0/01/01-VALIDATION";
+
+#[test]
+fn a_validation_row_names_its_task() {
+    let p = verify();
+    assert_eq!(p.codes(), Vec::<String>::new());
+    let row = p.fields_of(&format!("{VALIDATION}/VR1"));
+    assert_eq!(row["task"], "v1.0/01/01-01/T2", "{row}");
+    p.edit(
+        "spec/validation.spec",
+        "  task        v1.0/01/01-01/T2\n",
+        "  task        v1.0/01/01-01/T9\n",
+    );
+    assert!(!p.codes().is_empty(), "a row names a task that exists");
+}
+
+#[test]
+fn approval_is_harness_written() {
+    let p = verify();
+    let run = p.run(&["set", VALIDATION, "approval.by", "ada"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    p.edit(
+        "spec/validation.spec",
+        "  max_latency_s 30\n",
+        "  max_latency_s 30\n  approval {\n    by \"ada\"\n    at \"2026-10-29T11:00:00Z\"\n  }\n",
+    );
+    assert!(p.codes().contains(&"E083".to_string()), "{:?}", p.report());
+}

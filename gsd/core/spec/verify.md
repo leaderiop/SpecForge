@@ -102,7 +102,7 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file file`, `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
@@ -111,7 +111,7 @@ GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-val
 `command str`; `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
 enhancement declared by `@gsd/security` on this kind.
 
-**wave0_item** (name `W0-1`): `validation R`, `path file R`, `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
+**wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).
 
 **manual_check** (name `MC1`): `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
