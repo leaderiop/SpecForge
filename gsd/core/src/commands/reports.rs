@@ -1,7 +1,7 @@
 //! `health`, `stats` and `progress_report` (D-r41-12, ADR 0299): the reports gsd-tools prints, answered from the
 //! graph a command receives, which carries each phase's computed `status` and `plans_complete`. `progress` is the one
 //! computation `progress_report` and the statusline share. A graph without those computed values (a view whose checks
-//! were skipped) is refused, never guessed at (D-K18-4).
+//! were skipped) is refused, never guessed at (ADR 0299 D4).
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

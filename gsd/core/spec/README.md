@@ -183,35 +183,39 @@ throwaway output outside the spec tree.
 
 ## Waiting on the kernel
 
-K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
+ADR 0299 put the computed values and judgements in the graph a call receives, so a command reads a phase's `status`
+and a context's `digest`, and `record_research`, `record_spec`, `record_validation`, `/gsd-health`, `/gsd-stats` and the progress
+report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them. What
-still waits for kernel work (K18):
+still waits for kernel work (K19):
 
 - **Baseline re-verification (T13).** `re_verification.previous_status` and `previous_score` are not built, and the
   baseline view of an artifact or key link is not used. The git adapter loads only `*.spec` and `specforge-harness` at a
   commit, so at the baseline every source file reads as absent (`exists: false`): the scan says `missing`, never
   `unchecked`, and the baseline's status and score are wrong. `re_verification` therefore compares fresh verdicts and
   verify gaps only. The baseline compile must serve source files from the commit through the on-demand blob fetch
-  (with `baseline-format` 3). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
+  (with `baseline-format` 3, ADR 0300 when it is built). Its `regressions`, a verdict-based `gaps_closed` and a reopened gap are tested on
   synthetic baselines, not black-box (the judgement list is empty on a baseline).
-- **A command's graph has no computed fields (K18).** A command reads entities and their authored fields, never a
-  computed one (`status`, a context's `digest`), so `record_research`, `record_spec` and `record_validation` (the
-  `context_digest` writers), `/gsd-health`, `/gsd-stats` and the progress report are not built (r41 probe P7).
-  `context_digest` is an `H` field, so until then **nobody can write it**: a hand edit is refused (E083) and no command
-  writes it. A new research, phase spec or validation carries no digest, the drift pass skips it, and `gsd/W406` is
-  inert for it.
-- **A person's answer is recorded by the caller (K18).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+- **A person's answer is recorded by the caller (K19).** `answer_checkpoint`, `confirm_setup`, `set_uat_result`,
   `approve_validation`, `waive_window`, `dispose_refactor` and `pause` write the `H` fields of a person's reply, as
   upstream's agent transcribes the conversation. Each requires a non-empty `--by` (an empty one is refused), but `--by`
   is the caller's **attestation**, not a proof of a person: an agent can record any name (`set_uat_result` echoes it and
   stores it nowhere, a `uat_test` has no `by`). So a gate that such a record satisfies (`gsd/W404`'s answered
   `tdd_review` checkpoint, and the sign-offs r42's gates read) is an honest-agent gate. `override` and `debt_accepted`
   stay human-only because no command writes them. A human-attested command kind (the host refuses an agent-facing call
-  and records the caller) is a K18 item; the ignored tests `cmd_attest` carry the desired behaviour.
-- **`gsd/E516` is subject-scoped at a command gate (K18).** The host keeps only the diagnostics that name an entity
+  and records the caller) is a K19 item; the ignored tests `cmd_attest` carry the desired behaviour.
+- **`gsd/E516` is subject-scoped at a command gate (K19).** The host keeps only the diagnostics that name an entity
   inside the gate's subject, and E516 names the stale entity itself. So `start_plan <plan>` is refused by a stale
   verdict inside that plan only, and `close_milestone` by one under the milestone only, not project-wide as the rule
-  reads. The fix is for the guard to name the subject (K18); an ignored test carries it.
+  reads. The fix is for the guard to name the subject (K19); an ignored test carries it.
+- **A command or prompt cannot read its extension's state (K19).** The host sends `state` to a `reads_state` command or
+  prompt, but the SDK's `CommandCall` and `PromptCall` have no accessor (a hook has `HookCall::facts()`). So
+  `/gsd-workstreams status` cannot name the active workstream and `--ws` is text. The fix is an SDK change, so a re-vendor.
+- **A rendered step has no agent field (K19)**: the step's title carries the agent. **There is no free-text tail for a
+  prompt's arguments (K19)**: `--name` and `--task` are quoted. **An agent cannot create an artifact through the CLI
+  (K19)**: `--path` is the CLI's own option, MCP's `specforge.edit` creates it. Each is a wire or CLI change.
+- **The hooks wait for five host items (K19)**: git facts in `HookInput`, a `file_changed` event, a hook that runs without
+  a full compile, Cursor's `beforeSubmitPrompt`, and a hook reading another extension's settings.
 - **The refactor trigger differs from upstream's.** `propose_refactor` records one proposal per function while one is
   untriaged (it answers `nothing new` and writes nothing, so a hook may call it on every phase event), as upstream
   freezes the anchor. It does not port upstream's anchor on first observation: the baseline is the score of the latest
@@ -219,7 +223,7 @@ still waits for kernel work (K18):
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **A slash command's `when` takes one setting (K18).** A skill in two clusters follows its first, so disabling
+- **A slash command's `when` takes one setting (K19).** A skill in two clusters follows its first, so disabling
   `utility` leaves `/gsd-help` (also `core_loop`) shown.
 - **`gsd/W514`** is not built: a pass is sent no settings, and a setting gates a code only while it is on. It needs
   `SettingDescriptor.gates_when_on`.
@@ -247,9 +251,9 @@ still waits for kernel work (K18):
   not E502 stands, so a verification can read `passed` while the Error is reported (gates still fail on the Error, but
   anything reading `status` does not); (c) `verification` (`explicit` or `backstop`) is agent-writable, so an agent can
   turn the guard off for a truth before it records `verified` (the diff shows it, and the verdict goes stale when the
-  field flips). K18: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
+  field flips). K19: make `derive` treat a truth whose fresh verdict the recorded tests contradict as not `Verified`,
   with the predicate E502 uses; key E080's pairing by subject for pass codes; make `verification` human-only or
   harness-only.
-- **A judged code reused by a pass (K18).** The registry refuses a declarative rule that shares a judged rule's code, not
+- **A judged code reused by a pass (K19).** The registry refuses a declarative rule that shares a judged rule's code, not
   a pass that `reports` it, nor a guard's fail-closed error for it: E080 exempts those findings (ADR 0297 D1b). No gsd
   pass reports a judged code.

@@ -101,7 +101,7 @@ GSD: `.planning/workstreams/<name>/`. A scope (K2): its milestones, phases and p
 | purpose | str | R | the workstream's description |
 | status | enum{active, complete} | C | all its milestones shipped |
 
-Which workstream is active is session state, not a field ([execute.md](execute.md#session-state)): `workstreams switch` and `resume` write `active_workstream` to the extension's project state. A command cannot read state or a computed field, so `status` does not name the active workstream and a workstream is `complete` when every milestone has a `completion`; its progress counts the plans that have a summary.
+Which workstream is active is session state, not a field ([execute.md](execute.md#session-state)): `workstreams switch` and `resume` write `active_workstream` to the extension's project state. A command cannot read state, so `status` does not name the active workstream and a workstream is `complete` when every milestone has a `completion`; its progress counts the plans that have a summary.
 
 ## retrospective and lesson
 

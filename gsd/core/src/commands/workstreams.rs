@@ -1,5 +1,5 @@
 //! `workstreams` and `cleanup` (D-r41-9, D-r41-11): the workstreams behind `/gsd-workstreams` and the report behind
-//! `/gsd-cleanup`. A command cannot read the project's state or the graph's computed fields, so a workstream is
+//! `/gsd-cleanup`. A command cannot read the project's state, so a workstream is
 //! `complete` when each of its milestones has a `completion` (what the computed status says), its progress counts the
 //! plans that have a summary, and which workstream is active is written (`switch`) but not answered (`status`).
 

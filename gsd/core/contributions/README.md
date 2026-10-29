@@ -13,8 +13,7 @@ of two things (K9 U4):
   each step's writes are a command's edit plan (K5), and a step whose gate fails is refused.
 - **a command**: code in the extension, served as the MCP tool `specforge.gsd.<name>` and the CLI
   `specforge gsd <name>`. The command-backed ones built are `@gsd/core`'s `/gsd-help`, `/gsd-surface`, `/gsd-phase`,
-  `/gsd-workstreams` and `/gsd-cleanup` (5); `/gsd-health` and `/gsd-stats` wait for computed fields in a command's graph
-  (K18, see the README of `gsd/`), and `@gsd/codebase`'s `/gsd-graphify` is not built.
+  `/gsd-workstreams`, `/gsd-cleanup`, `/gsd-health` and `/gsd-stats` (7); `@gsd/codebase`'s `/gsd-graphify` is not built.
   Every other row below is a workflow. `/gsd-workspace` and `/gsd-update` are workflows too: a command runs nothing
   (the sandbox), and worktrees and updates need git and the package manager, which the agent runs.
 
@@ -43,8 +42,7 @@ ambiguous one, naming each candidate).
 ## Writing commands
 
 Every `H` field of the model has exactly one writer, a command whose edit plan the host checks and applies (K5), or a
-collector. The workflows call these; none is a slash command. Round r41 builds all of them but three: the digests of
-`record_research`, `record_spec` and `record_validation` wait for computed fields in a command's graph (K18). CLI names
+collector. The workflows call these; none is a slash command. Rounds r41 and ADR 0299 build all of them (the digest writers read the computed context digest from the graph a command receives, ADR 0299). CLI names
 are the ids with `-`: `specforge gsd complete-plan`.
 
 | Command | Writes (`H` fields) |
@@ -59,7 +57,8 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `raise_blocker`, `resolve_blocker` | blocker `raised`, `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
 | `propose_refactor`, `dispose_refactor` | refactor_proposal `score`, `baseline`, `delta`, `reasons`, `candidates`; `disposition` |
-| `record_research`, `record_spec`, `record_validation` (not built: K18) | research, phase_spec, validation `context_digest`; no writer yet |
+| `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
+| `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |

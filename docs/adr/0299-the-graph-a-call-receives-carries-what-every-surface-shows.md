@@ -14,7 +14,7 @@ surface"), ADR 0290 D8 ("a command's graph lists each entity's judgements") and 
 already decide that the call graph carries them: the host was short of its own protocol, and the commit that made "every
 surface" show computed values tested export, context and inspect only. The same function renders the graph of a `reads_graph`
 prompt, a `reads_graph` hook and a writing collector, so all four were short. It stopped the `@gsd/core` commands that stamp a
-context's digest and report progress (r41 probe P7).
+context's digest and report progress (found in r41).
 
 ## Decision
 

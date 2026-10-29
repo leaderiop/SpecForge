@@ -1,5 +1,5 @@
 //! `health`, `stats` and `progress_report`: gsd-tools' reports, answered from the computed values the graph a command
-//! receives carries (probe P7, ADR 0299).
+//! receives carries (ADR 0299).
 
 use std::path::Path;
 
@@ -30,7 +30,7 @@ fn verified() -> super::harness::Project {
 
 #[test]
 fn health_equals_the_golden_on_the_twin() {
-    // Probe P7 again: the phases' computed `plans_complete` reach the command.
+    // The phases' computed `plans_complete` reach the command.
     assert_eq!(report(&twin(), "health"), golden("validate-health"));
 }
 

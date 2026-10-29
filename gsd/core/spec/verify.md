@@ -88,7 +88,7 @@ The test being asked now is session state.
 | expected | str | R | expected behaviour |
 | criterion | int | | the phase success criterion it proves |
 | from_task | → task | | a harvested `<human-check>` |
-| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K18) |
+| result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by the caller through `set_uat_result --by` (an attestation, not a proof of a person: K19) |
 | source | enum{human, automated} | H | written by `set_uat_result`: given, or `human` when a re-answer replaces an earlier `source`; an automated result is one the caller marks `--source automated` (a pass or an issue), as a collector (DOM, e2e) would. A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |

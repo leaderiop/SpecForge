@@ -1,5 +1,5 @@
 //! `record_research`, `record_spec` and `record_validation`: the digest of the phase's context, read from the graph
-//! the command receives (probe P7, ADR 0299), recorded as `context_digest`.
+//! the command receives (ADR 0299), recorded as `context_digest`.
 
 use super::commands_support::*;
 use super::harness::project;
