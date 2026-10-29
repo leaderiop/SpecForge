@@ -176,6 +176,48 @@ fn an_ambiguous_plan_scope_is_skipped() {
 }
 
 #[test]
+fn a_commit_the_host_cannot_write_costs_only_itself() {
+    let p = repository();
+    let first = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let ansi = p.git_commit(
+        "fix(01-01): colour \u{1b}[31mred\u{1b}[0m \u{1} \u{7f} \u{1f} \u{2028}",
+        &[("src/\u{1b}b\u{2028}.js", "y\n")],
+        T1,
+    );
+    let last = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "z\n")], T2);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let mut all = [&first[..12], &ansi[..12], &last[..12]];
+    all.sort_unstable();
+    assert_eq!(recorded(&p), all);
+    let fields = p.fields_of(&ansi[..12]);
+    assert!(
+        !fields["subject"]
+            .as_str()
+            .unwrap_or_default()
+            .contains('\u{1b}'),
+        "{fields}"
+    );
+    p.passing_tests();
+    assert_eq!(p.codes(), Vec::<String>::new());
+}
+
+#[test]
+fn a_subject_cannot_forge_a_commit() {
+    let p = repository();
+    let forged = p.git_commit(
+        "feat(01-01): forged\u{1e}deadbeefdead\u{1f}0\u{1f}feat(01-02): Complete a task",
+        &[("src/a.js", "x\n")],
+        T0,
+    );
+    assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
+    assert_eq!(recorded(&p), [&forged[..12]]);
+    let fields = p.fields_of(&forged[..12]);
+    assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert!(fields.get("task").is_none(), "{fields}");
+}
+
+#[test]
 fn a_repository_without_commits_is_e045() {
     // `git log` fails in a repository with no commit, and in a directory that is none: no output, so no report.
     for init in [false, true] {
